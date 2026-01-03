@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import mockupInbox from '@/assets/mockup-inbox.png';
 import mockupAiDraft from '@/assets/mockup-ai-draft.png';
+import wibooklyLogo from '@/assets/wibookly-logo.png';
 
 export function Hero() {
   return (
@@ -31,21 +32,29 @@ export function Hero() {
         <div className="relative mt-20 md:mt-28 max-w-6xl mx-auto">
           {/* Main inbox mockup */}
           <div 
-            className="relative z-10 animate-fade-in rounded-xl overflow-hidden shadow-2xl border border-border/20"
+            className="relative z-10 animate-fade-in rounded-xl overflow-hidden shadow-2xl border border-border/20 bg-card"
             style={{ animationDelay: '300ms' }}
           >
+            {/* Logo watermark on mockup */}
+            <div className="absolute top-4 left-4 z-20">
+              <img src={wibooklyLogo} alt="Wibookly" className="h-6 w-auto opacity-80" />
+            </div>
             <img
               src={mockupInbox} 
-              alt="Webookly Inbox Dashboard"
+              alt="Wibookly Inbox Dashboard"
               className="w-full h-auto"
             />
           </div>
           
           {/* Floating AI draft card */}
           <div 
-            className="absolute -bottom-8 -right-4 md:-right-12 w-48 md:w-72 z-20 animate-fade-in rounded-xl overflow-hidden shadow-xl border border-border/30 hover:-translate-y-2 transition-transform duration-300"
+            className="absolute -bottom-8 -right-4 md:-right-12 w-48 md:w-72 z-20 animate-fade-in rounded-xl overflow-hidden shadow-xl border border-border/30 hover:-translate-y-2 transition-transform duration-300 bg-card"
             style={{ animationDelay: '500ms' }}
           >
+            {/* Logo watermark on AI draft mockup */}
+            <div className="absolute top-2 left-2 z-20">
+              <img src={wibooklyLogo} alt="Wibookly" className="h-4 w-auto opacity-80" />
+            </div>
             <img 
               src={mockupAiDraft} 
               alt="AI Draft Reply Feature" 
