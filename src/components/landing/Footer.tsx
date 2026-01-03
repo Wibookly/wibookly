@@ -9,10 +9,10 @@ export function Footer() {
           <Link to="/" className="flex items-center gap-2.5 group">
             <img 
               src={logoIcon} 
-              alt="MailFlow" 
-              className="w-7 h-7 transition-transform duration-300 group-hover:scale-110" 
+              alt="Webookly" 
+              className="w-7 h-7 transition-transform duration-300 group-hover:scale-110"
             />
-            <span className="text-xl font-semibold tracking-tight">MailFlow</span>
+            <span className="text-xl font-semibold tracking-tight">Webookly</span>
           </Link>
 
           <nav className="flex items-center gap-8 text-sm text-muted-foreground">
@@ -28,7 +28,7 @@ export function Footer() {
           </nav>
 
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} MailFlow. All rights reserved.
+            © {new Date().getFullYear()} Webookly. All rights reserved.
           </p>
         </div>
       </div>

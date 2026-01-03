@@ -10,10 +10,10 @@ export function Header() {
           <Link to="/" className="flex items-center gap-2.5 group">
             <img 
               src={logoIcon} 
-              alt="MailFlow" 
+              alt="Webookly" 
               className="w-8 h-8 transition-transform duration-300 group-hover:scale-110" 
             />
-            <span className="text-xl font-semibold tracking-tight text-foreground">MailFlow</span>
+            <span className="text-xl font-semibold tracking-tight text-foreground">Webookly</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
