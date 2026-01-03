@@ -7,15 +7,21 @@ import { Footer } from '@/components/landing/Footer';
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main>
-        <Hero />
+    <div className="min-h-screen">
+      {/* Superhuman-style gradient hero section */}
+      <div className="bg-[image:var(--gradient-hero)] min-h-screen">
+        <Header />
+        <main>
+          <Hero />
+        </main>
+      </div>
+      {/* Content sections with solid background */}
+      <div className="bg-background">
         <HowItWorks />
         <Features />
         <Security />
-      </main>
-      <Footer />
+        <Footer />
+      </div>
     </div>
   );
 }
