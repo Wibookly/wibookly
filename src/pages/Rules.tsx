@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus, Trash2, Save } from 'lucide-react';
+import { validateRuleValue } from '@/lib/validation';
 
 interface Category {
   id: string;
@@ -105,24 +106,40 @@ export default function Rules() {
 
   const saveRules = async () => {
     if (!organization?.id) return;
+    
+    // Validate all rules before saving
+    const categoryRules = filteredRules.filter(r => r.rule_value.trim());
+    
+    for (const rule of categoryRules) {
+      const validation = validateRuleValue(rule.rule_type, rule.rule_value);
+      if (!validation.success) {
+        toast({
+          title: 'Validation Error',
+          description: validation.error,
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
-      const categoryRules = filteredRules.filter(r => r.rule_value.trim());
-      
       for (const rule of categoryRules) {
+        const validatedValue = rule.rule_value.trim();
+        
         if (rule.id.startsWith('temp-')) {
           await supabase.from('rules').insert({
             organization_id: organization.id,
             category_id: rule.category_id,
             rule_type: rule.rule_type,
-            rule_value: rule.rule_value,
+            rule_value: validatedValue,
             is_enabled: rule.is_enabled
           });
         } else {
           await supabase.from('rules').update({
             rule_type: rule.rule_type,
-            rule_value: rule.rule_value,
+            rule_value: validatedValue,
             is_enabled: rule.is_enabled
           }).eq('id', rule.id);
         }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { organizationNameSchema, emailSchema, passwordSchema, validateField } from '@/lib/validation';
 
 interface UserProfile {
   id: string;
@@ -94,11 +95,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, organizationName: string) => {
     try {
+      // Validate inputs
+      const emailValidation = validateField(emailSchema, email);
+      if (!emailValidation.success) {
+        return { error: new Error(emailValidation.error) };
+      }
+
+      const passwordValidation = validateField(passwordSchema, password);
+      if (!passwordValidation.success) {
+        return { error: new Error(passwordValidation.error) };
+      }
+
+      const orgNameValidation = validateField(organizationNameSchema, organizationName);
+      if (!orgNameValidation.success) {
+        return { error: new Error(orgNameValidation.error) };
+      }
+
       const redirectUrl = `${window.location.origin}/`;
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+        email: emailValidation.data,
+        password: passwordValidation.data,
         options: {
           emailRedirectTo: redirectUrl
         }
@@ -107,10 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError) throw authError;
       if (!authData.user) throw new Error('No user returned from signup');
 
-      // Create organization
+      // Create organization with validated name
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
-        .insert({ name: organizationName })
+        .insert({ name: orgNameValidation.data })
         .select()
         .single();
 

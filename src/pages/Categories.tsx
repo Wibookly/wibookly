@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, RefreshCw } from 'lucide-react';
+import { categoryNameSchema, categoryColorSchema, validateField } from '@/lib/validation';
 import {
   Table,
   TableBody,
@@ -68,6 +69,29 @@ export default function Categories() {
   };
 
   const saveChanges = async () => {
+    // Validate all category data before saving
+    for (const category of categories) {
+      const nameValidation = validateField(categoryNameSchema, category.name);
+      if (!nameValidation.success) {
+        toast({
+          title: 'Validation Error',
+          description: `Category "${category.name}": ${nameValidation.error}`,
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const colorValidation = validateField(categoryColorSchema, category.color);
+      if (!colorValidation.success) {
+        toast({
+          title: 'Validation Error',
+          description: `Category "${category.name}": ${colorValidation.error}`,
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
@@ -75,7 +99,7 @@ export default function Categories() {
         await supabase
           .from('categories')
           .update({
-            name: category.name,
+            name: category.name.trim(),
             color: category.color,
             is_enabled: category.is_enabled,
             ai_draft_enabled: category.ai_draft_enabled
