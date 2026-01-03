@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
+import { organizationNameSchema, fullNameSchema, signatureSchema, validateField } from '@/lib/validation';
 
 interface AISettings {
   writing_style: string;
@@ -61,19 +62,51 @@ export default function Settings() {
 
   const saveSettings = async () => {
     if (!organization?.id || !profile?.user_id) return;
+
+    // Validate inputs
+    const orgNameValidation = validateField(organizationNameSchema, orgName);
+    if (!orgNameValidation.success) {
+      toast({
+        title: 'Validation Error',
+        description: orgNameValidation.error,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const fullNameValidation = validateField(fullNameSchema, fullName);
+    if (!fullNameValidation.success) {
+      toast({
+        title: 'Validation Error',
+        description: fullNameValidation.error,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const signatureValidation = validateField(signatureSchema, aiSettings.signature || '');
+    if (!signatureValidation.success) {
+      toast({
+        title: 'Validation Error',
+        description: signatureValidation.error,
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setSaving(true);
 
     try {
       // Update organization name
       await supabase
         .from('organizations')
-        .update({ name: orgName })
+        .update({ name: orgNameValidation.data })
         .eq('id', organization.id);
 
       // Update user profile
       await supabase
         .from('user_profiles')
-        .update({ full_name: fullName })
+        .update({ full_name: fullNameValidation.data || null })
         .eq('user_id', profile.user_id);
 
       // Update AI settings
@@ -82,7 +115,7 @@ export default function Settings() {
         .upsert({
           organization_id: organization.id,
           writing_style: aiSettings.writing_style,
-          signature: aiSettings.signature || null
+          signature: signatureValidation.data || null
         });
 
       toast({
