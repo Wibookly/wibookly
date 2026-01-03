@@ -34,9 +34,9 @@ export function Hero() {
             className="relative z-10 animate-fade-in rounded-xl overflow-hidden shadow-2xl border border-border/20"
             style={{ animationDelay: '300ms' }}
           >
-            <img 
+            <img
               src={mockupInbox} 
-              alt="MailFlow Inbox Dashboard" 
+              alt="Webookly Inbox Dashboard"
               className="w-full h-auto"
             />
           </div>
