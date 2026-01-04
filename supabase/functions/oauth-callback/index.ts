@@ -39,15 +39,26 @@ serve(async (req) => {
 
     console.log('OAuth callback received');
 
+    // Try to extract provider from state early for better error reporting
+    let earlyProvider: string | undefined;
+    let earlyAppUrl: string | undefined;
+    if (stateParam) {
+      try {
+        const earlyState = JSON.parse(atob(stateParam));
+        earlyProvider = earlyState.provider;
+        earlyAppUrl = resolveAppUrl(earlyState.appOrigin);
+      } catch {}
+    }
+
     // Handle OAuth errors
     if (error) {
       console.error(`OAuth error: ${error} - ${errorDescription}`);
-      return redirectWithError(`OAuth failed: ${errorDescription || error}`);
+      return redirectWithError(`OAuth failed: ${errorDescription || error}`, earlyAppUrl, earlyProvider);
     }
 
     if (!code || !stateParam) {
       console.error('Missing code or state parameter');
-      return redirectWithError('Missing authorization code or state');
+      return redirectWithError('Missing authorization code or state', earlyAppUrl, earlyProvider);
     }
 
     // Decode state
@@ -72,10 +83,13 @@ serve(async (req) => {
 
     if (!encryptionKey) {
       console.error('TOKEN_ENCRYPTION_KEY not configured');
-      return redirectWithError('Server configuration error', resolvedAppUrl);
+      return redirectWithError('Server configuration error', resolvedAppUrl, provider);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Log this callback attempt
+    await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_received', appOrigin);
 
     let tokens;
 
@@ -84,11 +98,13 @@ serve(async (req) => {
     } else if (provider === 'outlook') {
       tokens = await exchangeMicrosoftCode(code, supabaseUrl);
     } else {
-      return redirectWithError(`Unsupported provider: ${provider}`, resolvedAppUrl);
+      await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'unsupported_provider');
+      return redirectWithError(`Unsupported provider: ${provider}`, resolvedAppUrl, provider);
     }
 
     if (!tokens) {
-      return redirectWithError('Failed to exchange authorization code', resolvedAppUrl);
+      await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'token_exchange_failed');
+      return redirectWithError('Failed to exchange authorization code', resolvedAppUrl, provider);
     }
 
     console.log(`Successfully obtained tokens for ${provider}`);
@@ -122,7 +138,8 @@ serve(async (req) => {
 
     if (vaultError) {
       console.error('Token vault error:', vaultError);
-      return redirectWithError('Failed to save tokens securely', resolvedAppUrl);
+      await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'vault_save_failed');
+      return redirectWithError('Failed to save tokens securely', resolvedAppUrl, provider);
     }
 
     // Update provider_connections with status only (NO TOKENS)
@@ -144,10 +161,12 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('Database error:', dbError);
-      return redirectWithError('Failed to save connection', resolvedAppUrl);
+      await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'connection_save_failed');
+      return redirectWithError('Failed to save connection', resolvedAppUrl, provider);
     }
 
     console.log(`Connection saved for ${provider} (tokens encrypted in vault)`);
+    await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_success', appOrigin);
 
     // Redirect back to the app
     return new Response(null, {
@@ -247,12 +266,40 @@ function resolveAppUrl(appOrigin?: unknown): string {
   }
 }
 
-function redirectWithError(message: string, appUrl?: string): Response {
+// Log connect attempt to database (fire-and-forget, errors swallowed)
+async function logConnectAttempt(
+  supabase: any,
+  userId: string,
+  organizationId: string,
+  provider: string,
+  stage: string,
+  appOrigin?: string,
+  errorCode?: string,
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await supabase.from('connect_attempts').insert({
+      user_id: userId,
+      organization_id: organizationId,
+      provider,
+      stage,
+      error_code: errorCode || null,
+      error_message: errorMessage || null,
+      app_origin: appOrigin || null,
+      meta: {},
+    });
+  } catch (e) {
+    console.warn('Failed to log connect attempt:', e);
+  }
+}
+
+function redirectWithError(message: string, appUrl?: string, provider?: string): Response {
   const resolved = appUrl || getAppUrl();
+  const providerParam = provider ? `&provider=${encodeURIComponent(provider)}` : '';
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${resolved}/integrations?error=${encodeURIComponent(message)}`,
+      Location: `${resolved}/integrations?error=${encodeURIComponent(message)}${providerParam}`,
     },
   });
 }

@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import { AppLayout } from "./components/app/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Integrations from "./pages/Integrations";
+import IntegrationSetup from "./pages/IntegrationSetup";
 import Categories from "./pages/Categories";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
@@ -30,6 +31,7 @@ const App = () => (
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/integrations" element={<Integrations />} />
+              <Route path="/integration-setup" element={<IntegrationSetup />} />
               <Route path="/categories" element={<Categories />} />
               <Route path="/sync" element={<Sync />} />
               <Route path="/settings" element={<Settings />} />

@@ -3,8 +3,8 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Check, ExternalLink, Clock, Loader2 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { OAuthDiagnostics } from '@/components/integrations/OAuthDiagnostics';
+import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErrorScreen';
+import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
 
 interface Connection {
   provider: string;
@@ -27,6 +30,7 @@ type ProviderId = 'google' | 'outlook';
 export default function Integrations() {
   const { organization, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { logAttempt } = useConnectAttemptLogger();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<ProviderId | null>(null);
@@ -35,12 +39,17 @@ export default function Integrations() {
   const [confirmProvider, setConfirmProvider] = useState<ProviderId | null>(null);
   const confirmOpen = confirmProvider !== null;
 
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showGoogleError, setShowGoogleError] = useState(false);
+  const [googleErrorMessage, setGoogleErrorMessage] = useState<string | undefined>();
+
   useEffect(() => {
     // Handle OAuth callback results
     const connected = searchParams.get('connected');
     const error = searchParams.get('error');
 
     if (connected) {
+      logAttempt({ provider: connected, stage: 'callback_success' });
       toast({
         title: 'Connected Successfully',
         description: `Your ${connected === 'google' ? 'Google' : 'Microsoft Outlook'} account has been connected.`,
@@ -50,11 +59,20 @@ export default function Integrations() {
     }
 
     if (error) {
-      toast({
-        title: 'Connection Failed',
-        description: error,
-        variant: 'destructive',
-      });
+      const provider = searchParams.get('provider') || 'unknown';
+      logAttempt({ provider, stage: 'callback_error', errorMessage: error });
+      
+      // Check if this is a 403-type error for Google
+      if (error.toLowerCase().includes('403') || error.toLowerCase().includes('forbidden') || error.toLowerCase().includes('access_denied')) {
+        setGoogleErrorMessage(error);
+        setShowGoogleError(true);
+      } else {
+        toast({
+          title: 'Connection Failed',
+          description: error,
+          variant: 'destructive',
+        });
+      }
       setSearchParams({});
     }
   }, [searchParams]);
@@ -99,11 +117,14 @@ export default function Integrations() {
       return;
     }
 
+    logAttempt({ provider, stage: 'init_started' });
+
     // Don't rely on context state alone; fetch a fresh session to avoid race/stale state.
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     const liveUserId = sessionData.session?.user?.id;
 
     if (sessionError || !liveUserId) {
+      logAttempt({ provider, stage: 'init_error', errorCode: 'no_session', errorMessage: 'No active session' });
       toast({
         title: 'Sign in required',
         description: 'Please sign in with email to connect an account.',
@@ -123,6 +144,7 @@ export default function Integrations() {
     }
 
     if (!orgId) {
+      logAttempt({ provider, stage: 'init_error', errorCode: 'no_org', errorMessage: 'No organization found' });
       toast({
         title: 'Please wait',
         description: 'Loading your organization...',
@@ -151,6 +173,7 @@ export default function Integrations() {
       }
 
       if (data?.authUrl) {
+        logAttempt({ provider, stage: 'redirect_to_provider', meta: { authUrl: data.authUrl.substring(0, 100) } });
         // Redirect to OAuth provider
         window.location.href = data.authUrl;
       } else {
@@ -160,6 +183,8 @@ export default function Integrations() {
       console.error('OAuth init error:', error);
 
       const message = String(error?.message || 'Failed to start OAuth flow');
+      logAttempt({ provider, stage: 'init_error', errorMessage: message });
+      
       const isInvalidJwt = /invalid jwt/i.test(message);
 
       toast({
@@ -184,6 +209,8 @@ export default function Integrations() {
       });
 
       if (error) throw error;
+
+      logAttempt({ provider, stage: 'disconnected' });
 
       toast({
         title: 'Disconnected',
@@ -268,14 +295,41 @@ export default function Integrations() {
 
   const firstName = getFirstName();
 
+  // If showing Google error screen
+  if (showGoogleError) {
+    return <GoogleOAuthErrorScreen errorMessage={googleErrorMessage} onBack={() => setShowGoogleError(false)} />;
+  }
+
   return (
     <section className="max-w-3xl animate-fade-in" aria-busy={loading ? 'true' : 'false'}>
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back{firstName ? `, ${firstName}` : ''}
-        </h1>
-        <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Welcome back{firstName ? `, ${firstName}` : ''}
+            </h1>
+            <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/integration-setup">
+              <Button variant="ghost" size="sm">
+                <LinkIcon className="w-4 h-4 mr-2" />
+                Setup Guide
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setShowDiagnostics(!showDiagnostics)}>
+              <Settings2 className="w-4 h-4 mr-2" />
+              Diagnostics
+            </Button>
+          </div>
+        </div>
       </header>
+
+      {showDiagnostics && (
+        <div className="mb-6">
+          <OAuthDiagnostics onClose={() => setShowDiagnostics(false)} />
+        </div>
+      )}
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => (!open ? setConfirmProvider(null) : undefined)}>
         <AlertDialogContent>

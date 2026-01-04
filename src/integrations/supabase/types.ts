@@ -99,6 +99,45 @@ export type Database = {
           },
         ]
       }
+      connect_attempts: {
+        Row: {
+          app_origin: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          meta: Json
+          organization_id: string
+          provider: string
+          stage: string
+          user_id: string
+        }
+        Insert: {
+          app_origin?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          meta?: Json
+          organization_id: string
+          provider: string
+          stage: string
+          user_id: string
+        }
+        Update: {
+          app_origin?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          meta?: Json
+          organization_id?: string
+          provider?: string
+          stage?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           completed_at: string | null
