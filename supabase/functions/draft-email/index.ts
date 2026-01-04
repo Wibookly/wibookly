@@ -5,6 +5,63 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation constants
+const MAX_CATEGORY_NAME_LENGTH = 100;
+const MAX_ADDITIONAL_CONTEXT_LENGTH = 500;
+const MAX_EXAMPLE_REPLY_LENGTH = 2000;
+
+// Patterns that could indicate prompt injection attempts
+const PROMPT_INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)/i,
+  /disregard\s+(all\s+)?(previous|above|prior)/i,
+  /forget\s+(all\s+)?(previous|above|prior)/i,
+  /new\s+instructions?:/i,
+  /system\s*:/i,
+  /\[system\]/i,
+  /\[assistant\]/i,
+  /you\s+are\s+now\s+a/i,
+  /act\s+as\s+(a\s+)?different/i,
+  /pretend\s+(to\s+be|you\s+are)/i,
+  /override\s+(your\s+)?instructions?/i,
+  /bypass\s+(your\s+)?rules?/i,
+];
+
+// Sanitize input to remove potential injection patterns
+function sanitizeInput(input: string, maxLength: number): string {
+  if (!input || typeof input !== 'string') {
+    return '';
+  }
+  
+  // Trim and limit length
+  let sanitized = input.trim().slice(0, maxLength);
+  
+  // Check for and log potential injection attempts
+  for (const pattern of PROMPT_INJECTION_PATTERNS) {
+    if (pattern.test(sanitized)) {
+      console.warn('Potential prompt injection detected and sanitized:', pattern.toString());
+      // Remove the matched pattern
+      sanitized = sanitized.replace(pattern, '[removed]');
+    }
+  }
+  
+  // Remove any remaining control characters or unusual unicode
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  return sanitized;
+}
+
+// Validate category name against allowed values
+const ALLOWED_CATEGORIES = [
+  'Urgent', 'Follow Up', 'Approvals', 'Meetings', 'Customers',
+  'Vendors', 'Internal', 'Projects', 'Finance', 'FYI', 'General'
+];
+
+function validateCategoryName(categoryName: string): string {
+  const cleaned = categoryName?.replace(/^\d+:\s*/, '').trim() || 'General';
+  // If it's in the allowed list, use it; otherwise default to General
+  return ALLOWED_CATEGORIES.includes(cleaned) ? cleaned : 'General';
+}
+
 // Writing style prompts that control tone, formality, and response length
 const WRITING_STYLE_PROMPTS: Record<string, string> = {
   professional: `You write in a Professional & Polished style:
@@ -43,6 +100,9 @@ const WRITING_STYLE_PROMPTS: Record<string, string> = {
 - Be patient and thorough in explanations`,
 };
 
+// Allowed writing styles for validation
+const ALLOWED_WRITING_STYLES = ['professional', 'friendly', 'concierge', 'direct', 'empathetic'];
+
 // Format style prompts
 const FORMAT_STYLE_PROMPTS: Record<string, string> = {
   concise: 'Keep the response short and direct. Use minimal words while conveying the complete message.',
@@ -50,6 +110,9 @@ const FORMAT_STYLE_PROMPTS: Record<string, string> = {
   'bullet-points': 'Structure the main content using bullet points for clarity and easy scanning.',
   highlights: 'Focus only on the key highlights and most important points. Skip any fluff.',
 };
+
+// Allowed format styles for validation
+const ALLOWED_FORMAT_STYLES = ['concise', 'detailed', 'bullet-points', 'highlights'];
 
 // Category context prompts
 const CATEGORY_CONTEXT: Record<string, string> = {
@@ -71,14 +134,26 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      categoryName,
-      writingStyle,
-      formatStyle,
-      action,
-      exampleReply,
-      additionalContext,
-    } = await req.json();
+    const rawBody = await req.json();
+    
+    // Validate and sanitize all inputs
+    const cleanCategoryName = validateCategoryName(rawBody.categoryName || '');
+    
+    // Validate writing style against allowed values
+    const writingStyle = ALLOWED_WRITING_STYLES.includes(rawBody.writingStyle) 
+      ? rawBody.writingStyle 
+      : 'professional';
+    
+    // Validate format style against allowed values
+    const formatStyle = ALLOWED_FORMAT_STYLES.includes(rawBody.formatStyle)
+      ? rawBody.formatStyle
+      : 'concise';
+    
+    // Sanitize free-text inputs with length limits
+    const sanitizedExampleReply = sanitizeInput(rawBody.exampleReply || '', MAX_EXAMPLE_REPLY_LENGTH);
+    const sanitizedAdditionalContext = sanitizeInput(rawBody.additionalContext || '', MAX_ADDITIONAL_CONTEXT_LENGTH);
+
+    console.log(`Processing draft request - Category: ${cleanCategoryName}, Style: ${writingStyle}, Format: ${formatStyle}`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -89,21 +164,20 @@ serve(async (req) => {
       );
     }
 
-    // Get writing style prompt
-    const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle] || WRITING_STYLE_PROMPTS.professional;
+    // Get writing style prompt (already validated)
+    const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle];
     
-    // Get format style prompt
-    const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
+    // Get format style prompt (already validated)
+    const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle];
     
-    // Get category context
-    const cleanCategoryName = categoryName?.replace(/^\d+:\s*/, '') || 'General';
+    // Get category context (already validated)
     const categoryContext = CATEGORY_CONTEXT[cleanCategoryName] || '';
 
-    // Build example reference
+    // Build example reference with sanitized input
     let exampleContext = '';
-    if (exampleReply && exampleReply.trim()) {
+    if (sanitizedExampleReply) {
       exampleContext = `\n\nEXAMPLE REPLY TEMPLATE (mimic this style and format):
-${exampleReply}`;
+${sanitizedExampleReply}`;
     }
 
     // Build the system prompt
@@ -128,12 +202,12 @@ RULES:
 - End with an appropriate sign-off
 - Do not add explanations before or after the email - just the email content`;
 
-    // Build the user prompt for generating a reply template
+    // Build the user prompt for generating a reply template (using sanitized input)
     const userPrompt = `Generate a sample email reply for the "${cleanCategoryName}" category.
 
 This reply template will be used as a reference for auto-replies to emails in this category.
 
-${additionalContext ? `ADDITIONAL INSTRUCTIONS: ${additionalContext}` : ''}
+${sanitizedAdditionalContext ? `ADDITIONAL INSTRUCTIONS: ${sanitizedAdditionalContext}` : ''}
 
 Create a professional reply that could serve as a template for responding to typical emails in this category.`;
 
