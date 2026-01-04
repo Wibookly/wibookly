@@ -317,6 +317,39 @@ export default function Categories() {
     if (id.startsWith('temp-')) {
       setRules(prev => prev.filter(r => r.id !== id));
     } else {
+      // Find the rule and its category to cleanup emails
+      const rule = rules.find(r => r.id === id);
+      if (rule) {
+        const category = categories.find(c => c.id === rule.category_id);
+        if (category) {
+          toast({ title: 'Cleaning up emails...', description: 'Removing labels and moving emails back to inbox' });
+          
+          try {
+            // Call cleanup function to remove labels from existing emails
+            const { data, error } = await supabase.functions.invoke('cleanup-rule', {
+              body: {
+                rule_type: rule.rule_type,
+                rule_value: rule.rule_value,
+                category_name: category.name,
+                category_sort_order: category.sort_order
+              }
+            });
+            
+            if (error) {
+              console.error('Cleanup error:', error);
+            } else if (data?.totalEmailsProcessed > 0) {
+              toast({ 
+                title: 'Emails cleaned up', 
+                description: `Removed labels from ${data.totalEmailsProcessed} emails` 
+              });
+            }
+          } catch (error) {
+            console.error('Failed to cleanup rule:', error);
+            // Continue with deletion even if cleanup fails
+          }
+        }
+      }
+      
       await supabase.from('rules').delete().eq('id', id);
       setRules(prev => prev.filter(r => r.id !== id));
       toast({ title: 'Rule deleted' });
