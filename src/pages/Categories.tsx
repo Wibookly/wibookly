@@ -327,7 +327,8 @@ export default function Categories() {
     setHasChanges(true);
   };
 
-  const updateRule = (id: string, field: keyof Rule, value: any) => {
+  // Basic updateRule without sync tracking (internal use only)
+  const updateRuleBasic = (id: string, field: keyof Rule, value: any) => {
     setRules(prev =>
       prev.map(rule =>
         rule.id === id ? { ...rule, [field]: value } : rule
@@ -335,6 +336,9 @@ export default function Categories() {
     );
     setHasChanges(true);
   };
+
+  // Placeholder for updateRule - will be set after rulesNeedingSync is defined
+  let updateRule = updateRuleBasic;
 
   const deleteRule = async (id: string) => {
     if (id.startsWith('temp-')) {
@@ -484,8 +488,9 @@ export default function Categories() {
       setHasChanges(false);
       setLastSaved(new Date());
 
-      // Trigger background sync to email provider
-      syncToEmailProvider();
+      // Only sync categories automatically, NOT rules
+      // Rules require manual sync via the Play button
+      syncCategoriesToEmailProvider();
     } catch (error) {
       if (showToast) {
         toast({
@@ -499,26 +504,17 @@ export default function Categories() {
     }
   }, [organization?.id, categories, rules, toast]);
 
-  // Background sync to email provider (no user confirmation needed)
-  const syncToEmailProvider = async () => {
+  // Background sync categories only (rules require manual sync)
+  const syncCategoriesToEmailProvider = async () => {
     try {
-      // Sync categories and rules in parallel
-      await Promise.all([
-        supabase.functions.invoke('sync-categories'),
-        supabase.functions.invoke('sync-rules')
-      ]);
-      // Refetch categories and rules to get updated sync timestamps
-      const [categoriesRes, rulesRes] = await Promise.all([
-        supabase
-          .from('categories')
-          .select('*')
-          .eq('organization_id', organization?.id)
-          .order('sort_order'),
-        supabase
-          .from('rules')
-          .select('*')
-          .eq('organization_id', organization?.id)
-      ]);
+      await supabase.functions.invoke('sync-categories');
+      
+      // Refetch categories to get updated sync timestamps
+      const categoriesRes = await supabase
+        .from('categories')
+        .select('*')
+        .eq('organization_id', organization?.id)
+        .order('sort_order');
       
       if (categoriesRes.data) {
         const cats = categoriesRes.data.map(cat => ({
@@ -529,27 +525,37 @@ export default function Categories() {
         }));
         setCategories(cats);
       }
-      
-      if (rulesRes.data) {
-        setRules(prev => {
-          // Preserve temporary rules that haven't been saved yet
-          const tempRules = prev.filter(r => r.id.startsWith('temp-'));
-          const dbRules = rulesRes.data.map(r => ({
-            ...r,
-            is_advanced: r.is_advanced ?? false,
-            subject_contains: r.subject_contains ?? null,
-            body_contains: r.body_contains ?? null,
-            condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
-            recipient_filter: r.recipient_filter ?? null,
-            last_synced_at: r.last_synced_at ?? null
-          }));
-          return [...dbRules, ...tempRules];
-        });
-      }
     } catch (error) {
-      // Silent fail for background sync - user doesn't need to know
-      console.error('Background sync failed:', error);
+      console.error('Background category sync failed:', error);
     }
+  };
+
+  // Track which rules need syncing (modified but not synced)
+  const [rulesNeedingSync, setRulesNeedingSync] = useState<Set<string>>(new Set());
+
+  // Mark rule as needing sync when modified
+  const markRuleNeedsSync = (ruleId: string) => {
+    if (!ruleId.startsWith('temp-')) {
+      setRulesNeedingSync(prev => new Set(prev).add(ruleId));
+    }
+  };
+
+  // Override updateRule to track sync needs - this is the one used in the UI
+  updateRule = (id: string, field: keyof Rule, value: any) => {
+    setRules(prev =>
+      prev.map(rule =>
+        rule.id === id ? { ...rule, [field]: value } : rule
+      )
+    );
+    setHasChanges(true);
+    markRuleNeedsSync(id);
+  };
+
+  // Check if a rule needs syncing
+  const ruleNeedsSync = (ruleId: string) => {
+    // Temp rules always need sync, saved rules check tracking state or if never synced
+    if (ruleId.startsWith('temp-')) return false; // Can't sync temp rules
+    return rulesNeedingSync.has(ruleId);
   };
 
   // Sync a single rule manually
@@ -557,6 +563,13 @@ export default function Categories() {
     try {
       await supabase.functions.invoke('sync-rules', {
         body: { ruleId }
+      });
+      
+      // Clear sync needed indicator for this rule
+      setRulesNeedingSync(prev => {
+        const next = new Set(prev);
+        next.delete(ruleId);
+        return next;
       });
       
       // Refetch rules to get updated sync timestamps
@@ -582,7 +595,7 @@ export default function Categories() {
         });
       }
       
-      toast({ title: 'Rule synced' });
+      toast({ title: 'Rule synced successfully' });
     } catch (error) {
       console.error('Failed to sync rule:', error);
       toast({
@@ -781,8 +794,12 @@ export default function Categories() {
                           size="icon"
                           onClick={() => syncSingleRule(rule.id)}
                           disabled={rule.id.startsWith('temp-') || saving}
-                          title="Sync this rule"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          title={ruleNeedsSync(rule.id) ? "Click to sync changes" : "Sync this rule"}
+                          className={`
+                            ${ruleNeedsSync(rule.id) 
+                              ? 'text-orange-500 hover:text-orange-600 hover:bg-orange-50 animate-pulse' 
+                              : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                          `}
                         >
                           <Play className="w-4 h-4" />
                         </Button>
