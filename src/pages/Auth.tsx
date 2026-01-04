@@ -115,7 +115,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
       <header className="p-6 flex items-center justify-between">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -124,14 +124,17 @@ export default function Auth() {
       </header>
 
       <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-sm bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
           <div className="text-center mb-8">
-            <img src={wibooklyLogo} alt="Wibookly" className="h-12 w-auto mx-auto mb-6" />
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {isSignUp ? 'Create your account' : 'Welcome back'}
+            <img src={wibooklyLogo} alt="Wibookly" className="h-40 w-auto mx-auto mb-6" />
+            <h1 className="text-3xl font-bold tracking-tight text-primary">
+              Welcome
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {isSignUp ? 'Start organizing your inbox today' : 'Sign in to continue to Wibookly'}
+            <p className="mt-2 text-lg text-foreground">
+              {isSignUp ? 'Create your account' : 'Sign in to continue'}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isSignUp ? 'Start organizing your inbox today' : 'Welcome back to Wibookly'}
             </p>
           </div>
 

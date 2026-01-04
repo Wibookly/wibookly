@@ -474,7 +474,7 @@ export default function Categories() {
   }
 
   return (
-    <div className="max-w-6xl animate-fade-in">
+    <div className="max-w-6xl animate-fade-in min-h-full p-6 -m-4 lg:-m-6 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-lg">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
