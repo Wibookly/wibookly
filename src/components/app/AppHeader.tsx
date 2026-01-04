@@ -18,11 +18,7 @@ export function AppHeader() {
     : profile?.email?.[0]?.toUpperCase() || 'U';
 
   return (
-    <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-between">
-      <div>
-        <h2 className="text-sm font-medium">{organization?.name}</h2>
-      </div>
-
+    <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
