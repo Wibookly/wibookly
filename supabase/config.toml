@@ -7,13 +7,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.process-sync-job]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-categories]
-verify_jwt = true
+verify_jwt = false
 
 [functions.draft-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sync-rules]
-verify_jwt = true
+verify_jwt = false
