@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, RefreshCw, Plus, Trash2, GripVertical, Play, Check } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -190,13 +190,8 @@ export default function Categories() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncingRules, setSyncingRules] = useState(false);
-  const [runningRuleId, setRunningRuleId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [showSyncRulesDialog, setShowSyncRulesDialog] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoad = useRef(true);
 
@@ -401,6 +396,9 @@ export default function Categories() {
 
       setHasChanges(false);
       setLastSaved(new Date());
+
+      // Trigger background sync to email provider
+      syncToEmailProvider();
     } catch (error) {
       if (showToast) {
         toast({
@@ -413,6 +411,20 @@ export default function Categories() {
       setSaving(false);
     }
   }, [organization?.id, categories, rules, toast]);
+
+  // Background sync to email provider (no user confirmation needed)
+  const syncToEmailProvider = async () => {
+    try {
+      // Sync categories and rules in parallel
+      await Promise.all([
+        supabase.functions.invoke('sync-categories'),
+        supabase.functions.invoke('sync-rules')
+      ]);
+    } catch (error) {
+      // Silent fail for background sync - user doesn't need to know
+      console.error('Background sync failed:', error);
+    }
+  };
 
   // Auto-save effect with debounce
   useEffect(() => {
@@ -440,60 +452,6 @@ export default function Categories() {
     };
   }, [hasChanges, categories, rules, saveChanges]);
 
-  const syncCategories = async () => {
-    setShowSyncDialog(false);
-    setSyncing(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-categories');
-      
-      if (error) throw error;
-      
-      toast({
-        title: 'Sync Complete',
-        description: data?.message || 'Labels/folders created in your email provider'
-      });
-    } catch (error) {
-      toast({
-        title: 'Sync Failed',
-        description: 'Failed to sync categories to email provider',
-        variant: 'destructive'
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const syncRules = async (ruleId?: string) => {
-    if (!ruleId) {
-      setShowSyncRulesDialog(false);
-      setSyncingRules(true);
-    } else {
-      setRunningRuleId(ruleId);
-    }
-    
-    try {
-      const body = ruleId ? { rule_id: ruleId } : undefined;
-      const { data, error } = await supabase.functions.invoke('sync-rules', { body });
-      
-      if (error) throw error;
-      
-      toast({
-        title: 'Sync Complete',
-        description: data?.message || 'Rules synced to your email provider'
-      });
-    } catch (error) {
-      toast({
-        title: 'Sync Failed',
-        description: 'Failed to sync rules to email provider',
-        variant: 'destructive'
-      });
-    } finally {
-      setSyncingRules(false);
-      setRunningRuleId(null);
-    }
-  };
-
   const getRulesForCategory = (categoryId: string) => {
     return rules.filter(r => r.category_id === categoryId);
   };
@@ -520,30 +478,18 @@ export default function Categories() {
             Customize how your emails are organized. Drag to reorder.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowSyncRulesDialog(true)} disabled={syncingRules}>
-            {syncingRules && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            <Play className="w-4 h-4 mr-2" />
-            Sync Rules
-          </Button>
-          <Button variant="outline" onClick={() => setShowSyncDialog(true)} disabled={syncing}>
-            {syncing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Sync Categories
-          </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : lastSaved ? (
-              <>
-                <Check className="w-4 h-4 text-green-500" />
-                <span>Saved</span>
-              </>
-            ) : null}
-          </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : lastSaved ? (
+            <>
+              <Check className="w-4 h-4 text-green-500" />
+              <span>Saved</span>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -662,21 +608,6 @@ export default function Categories() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => syncRules(rule.id)}
-                        disabled={runningRuleId === rule.id || rule.id.startsWith('temp-')}
-                        className="text-muted-foreground hover:text-primary"
-                        title="Run this rule"
-                      >
-                        {runningRuleId === rule.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Play className="w-4 h-4" />
-                        )}
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
                         onClick={() => deleteRule(rule.id)}
                         className="text-muted-foreground hover:text-destructive"
                       >
@@ -691,43 +622,6 @@ export default function Categories() {
         })}
       </div>
 
-      {/* Sync Categories Confirmation Dialog */}
-      <AlertDialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync Categories to Email Provider?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will create labels (Gmail) or folders (Outlook) in your connected email account matching your categories. 
-              Labels/folders will be named with numbers (e.g., "1: Urgent", "2: Follow Up").
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={syncCategories}>
-              Sync Categories
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Sync Rules Confirmation Dialog */}
-      <AlertDialog open={showSyncRulesDialog} onOpenChange={setShowSyncRulesDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync Rules to Email Provider?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will create email filters (Gmail) or rules (Outlook) in your connected email account based on your category rules.
-              New emails matching these rules will be automatically categorized.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => syncRules()}>
-              Sync Rules
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
