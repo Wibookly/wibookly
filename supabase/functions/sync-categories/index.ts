@@ -172,7 +172,7 @@ serve(async (req) => {
     // Get categories for the organization with sort_order for numbering
     const { data: categories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('name, is_enabled, sort_order')
+      .select('id, name, is_enabled, sort_order')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
       .order('sort_order');
@@ -200,6 +200,7 @@ serve(async (req) => {
     }
 
     const results: { provider: string; created: number; failed: number }[] = [];
+    const syncedCategoryIds: string[] = [];
 
     // Process each connected provider
     for (const token of tokenData) {
@@ -220,8 +221,15 @@ serve(async (req) => {
             success = await createOutlookFolder(accessToken, labelName);
           }
           
-          if (success) created++;
-          else failed++;
+          if (success) {
+            created++;
+            // Track successfully synced categories
+            if (!syncedCategoryIds.includes(category.id)) {
+              syncedCategoryIds.push(category.id);
+            }
+          } else {
+            failed++;
+          }
         }
 
         results.push({ provider: token.provider, created, failed });
@@ -231,12 +239,23 @@ serve(async (req) => {
       }
     }
 
+    // Update last_synced_at for successfully synced categories
+    if (syncedCategoryIds.length > 0) {
+      const now = new Date().toISOString();
+      await supabaseAdmin
+        .from('categories')
+        .update({ last_synced_at: now })
+        .in('id', syncedCategoryIds);
+      console.log(`Updated last_synced_at for ${syncedCategoryIds.length} categories`);
+    }
+
     const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         results,
+        syncedCategoryIds,
         message: `Synced ${totalCreated} labels/folders across ${results.length} provider(s)`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

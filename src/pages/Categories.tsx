@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -59,6 +59,7 @@ interface Category {
   auto_reply_enabled: boolean;
   writing_style: string;
   sort_order: number;
+  last_synced_at: string | null;
 }
 
 interface Rule {
@@ -94,6 +95,21 @@ interface SortableRowProps {
   category: Category;
   index: number;
   updateCategory: (id: string, field: keyof Category, value: any) => void;
+}
+
+function formatSyncTime(syncTime: string | null): string {
+  if (!syncTime) return 'Never synced';
+  const date = new Date(syncTime);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
 }
 
 function SortableRow({ category, index, updateCategory }: SortableRowProps) {
@@ -166,6 +182,23 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
           disabled={!category.is_enabled || !category.ai_draft_enabled}
         />
       </TableCell>
+      <TableCell className="text-center">
+        {category.is_enabled ? (
+          category.last_synced_at ? (
+            <div className="flex items-center justify-center gap-1 text-green-600">
+              <Cloud className="w-4 h-4" />
+              <span className="text-xs">{formatSyncTime(category.last_synced_at)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1 text-muted-foreground">
+              <CloudOff className="w-4 h-4" />
+              <span className="text-xs">Pending</span>
+            </div>
+          )
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
+      </TableCell>
     </TableRow>
   );
 }
@@ -219,7 +252,8 @@ export default function Categories() {
       const cats = (categoriesRes.data || []).map(cat => ({
         ...cat,
         auto_reply_enabled: cat.auto_reply_enabled ?? false,
-        writing_style: cat.writing_style ?? 'professional'
+        writing_style: cat.writing_style ?? 'professional',
+        last_synced_at: cat.last_synced_at ?? null
       }));
       setCategories(cats);
     }
@@ -407,6 +441,22 @@ export default function Categories() {
         supabase.functions.invoke('sync-categories'),
         supabase.functions.invoke('sync-rules')
       ]);
+      // Refetch categories to get updated sync timestamps
+      const { data: updatedCategories } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('organization_id', organization?.id)
+        .order('sort_order');
+      
+      if (updatedCategories) {
+        const cats = updatedCategories.map(cat => ({
+          ...cat,
+          auto_reply_enabled: cat.auto_reply_enabled ?? false,
+          writing_style: cat.writing_style ?? 'professional',
+          last_synced_at: cat.last_synced_at ?? null
+        }));
+        setCategories(cats);
+      }
     } catch (error) {
       // Silent fail for background sync - user doesn't need to know
       console.error('Background sync failed:', error);
@@ -510,6 +560,7 @@ export default function Categories() {
               <TableHead className="w-24 text-center">Enabled</TableHead>
               <TableHead className="w-24 text-center">AI Draft</TableHead>
               <TableHead className="w-28 text-center">Auto Reply</TableHead>
+              <TableHead className="w-28 text-center">Sync Status</TableHead>
             </TableRow>
           </TableHeader>
           <DndContext
