@@ -13,7 +13,7 @@ interface Connection {
 }
 
 export default function Integrations() {
-  const { organization, user, loading: authLoading, session } = useAuth();
+  const { organization, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,11 +77,36 @@ export default function Integrations() {
       return;
     }
 
-    if (!session || !user?.id || !organization?.id) {
+    // Don’t rely on context state alone; fetch a fresh session to avoid race/stale state.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const liveUserId = sessionData.session?.user?.id;
+
+    if (sessionError || !liveUserId) {
       toast({
         title: 'Error',
         description: 'You must be logged in to connect an account. Please sign out and sign in again.',
-        variant: 'destructive'
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let orgId = organization?.id;
+
+    // If organization isn’t ready in context yet, fetch it from the user profile.
+    if (!orgId) {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('user_id', liveUserId)
+        .maybeSingle();
+
+      orgId = profileData?.organization_id;
+    }
+
+    if (!orgId) {
+      toast({
+        title: 'Please wait',
+        description: 'Loading your organization...',
       });
       return;
     }
@@ -92,8 +117,8 @@ export default function Integrations() {
       const { data, error } = await supabase.functions.invoke('oauth-init', {
         body: {
           provider,
-          userId: user.id,
-          organizationId: organization.id,
+          userId: liveUserId,
+          organizationId: orgId,
           redirectUrl: '/integrations'
         }
       });
@@ -120,7 +145,8 @@ export default function Integrations() {
   };
 
   const handleDisconnect = async (provider: string) => {
-    if (!user?.id) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user) return;
 
     try {
       // Use secure RPC function to disconnect - clears tokens server-side
