@@ -54,6 +54,7 @@ export type Database = {
           created_at: string
           id: string
           is_enabled: boolean
+          last_synced_at: string | null
           name: string
           organization_id: string
           sort_order: number
@@ -67,6 +68,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          last_synced_at?: string | null
           name: string
           organization_id: string
           sort_order?: number
@@ -80,6 +82,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          last_synced_at?: string | null
           name?: string
           organization_id?: string
           sort_order?: number
