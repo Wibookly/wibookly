@@ -131,9 +131,9 @@ export default function Settings() {
   return (
     <div className="max-w-2xl animate-fade-in min-h-full p-6 -m-4 lg:-m-6 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-lg">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">My Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 text-muted-foreground">
-          Manage your account and AI preferences
+          Manage your account and workspace preferences
         </p>
       </div>
 

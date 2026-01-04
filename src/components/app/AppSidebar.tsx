@@ -19,10 +19,10 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-64 h-screen bg-card border-r border-border flex-col">
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border flex flex-col items-center">
         <img src={wibooklyLogo} alt="Wibookly" className="h-40 w-auto" />
         {organization && (
-          <p className="mt-2 text-xs text-muted-foreground truncate">{organization.name}</p>
+          <p className="mt-3 text-lg font-bold text-foreground text-center truncate max-w-full">{organization.name}</p>
         )}
       </div>
 
