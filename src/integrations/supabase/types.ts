@@ -137,6 +137,71 @@ export type Database = {
           },
         ]
       }
+      oauth_token_vault: {
+        Row: {
+          created_at: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token: string | null
+          expires_at: string | null
+          id: string
+          provider: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token?: string | null
+          expires_at?: string | null
+          id?: string
+          provider: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_access_token?: string
+          encrypted_refresh_token?: string | null
+          expires_at?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      organization_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -160,41 +225,32 @@ export type Database = {
       }
       provider_connections: {
         Row: {
-          access_token: string | null
           connected_at: string | null
           created_at: string
           id: string
           is_connected: boolean
           organization_id: string
           provider: string
-          refresh_token: string | null
-          token_expires_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          access_token?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
           organization_id: string
           provider: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          access_token?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
           organization_id?: string
           provider?: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -348,6 +404,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
     }
