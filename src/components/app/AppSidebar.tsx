@@ -19,7 +19,7 @@ export function AppSidebar() {
   const location = useLocation();
 
   return (
-    <aside className="w-64 h-screen bg-card border-r border-border flex flex-col">
+    <aside className="hidden lg:flex w-64 h-screen bg-card border-r border-border flex-col">
       <div className="p-4 border-b border-border">
         <img src={wibooklyLogo} alt="Wibookly" className="h-10 w-auto" />
         {organization && (
