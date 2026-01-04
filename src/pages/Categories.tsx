@@ -853,7 +853,16 @@ export default function Categories() {
 
                       {/* Advanced fields */}
                       {rule.is_advanced && (
-                        <div className="pl-1 pt-2 border-t border-border/50 space-y-3">
+                        <div className="pl-1 pt-2 border-t border-border/50 space-y-2">
+                          {/* AND/OR between sender and recipient */}
+                          <div className="flex items-center justify-center py-1">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full">
+                              <span className="text-xs text-muted-foreground uppercase font-medium">
+                                {rule.condition_logic === 'and' ? 'AND' : 'OR'}
+                              </span>
+                            </div>
+                          </div>
+
                           {/* Recipient filter */}
                           <div className="flex items-center gap-3">
                             <span className="text-sm text-muted-foreground w-28">Recipient</span>
@@ -873,6 +882,22 @@ export default function Categories() {
                             </Select>
                           </div>
 
+                          {/* AND/OR toggle between recipient and subject */}
+                          <div className="flex items-center justify-center py-1">
+                            <Select
+                              value={rule.condition_logic}
+                              onValueChange={(val) => updateRule(rule.id, 'condition_logic', val as 'and' | 'or')}
+                            >
+                              <SelectTrigger className="w-20 h-7 text-xs bg-muted border-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="and">AND</SelectItem>
+                                <SelectItem value="or">OR</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
                           {/* Subject contains */}
                           <div className="flex items-center gap-3">
                             <span className="text-sm text-muted-foreground w-28">Subject contains</span>
@@ -884,23 +909,13 @@ export default function Categories() {
                             />
                           </div>
 
-                          {/* AND/OR logic selector */}
-                          <div className="flex items-center gap-2 pl-28">
-                            <Select
-                              value={rule.condition_logic}
-                              onValueChange={(val) => updateRule(rule.id, 'condition_logic', val as 'and' | 'or')}
-                            >
-                              <SelectTrigger className="w-20 h-7 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="and">AND</SelectItem>
-                                <SelectItem value="or">OR</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <span className="text-xs text-muted-foreground">
-                              {rule.condition_logic === 'and' ? 'Both subject and body must match' : 'Either subject or body must match'}
-                            </span>
+                          {/* AND/OR between subject and body */}
+                          <div className="flex items-center justify-center py-1">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full">
+                              <span className="text-xs text-muted-foreground uppercase font-medium">
+                                {rule.condition_logic === 'and' ? 'AND' : 'OR'}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Body contains */}
