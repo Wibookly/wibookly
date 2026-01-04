@@ -104,7 +104,7 @@ serve(async (req) => {
         client_id: clientId,
         redirect_uri: callbackUrl,
         response_type: 'code',
-        scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify',
+        scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels',
         access_type: 'offline',
         prompt: 'consent',
         state: stateData

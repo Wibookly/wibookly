@@ -322,6 +322,76 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
   }
 }
 
+// Delete Gmail label
+async function deleteGmailLabel(accessToken: string, labelName: string): Promise<boolean> {
+  try {
+    const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    
+    if (!listRes.ok) return false;
+    
+    const { labels } = await listRes.json();
+    const label = labels?.find((l: { name: string }) => l.name === labelName);
+    
+    if (!label) {
+      console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
+      return true;
+    }
+    
+    const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    
+    if (!deleteRes.ok && deleteRes.status !== 404) {
+      console.error(`Failed to delete Gmail label "${labelName}":`, await deleteRes.text());
+      return false;
+    }
+    
+    console.log(`Deleted Gmail label: ${labelName}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting Gmail label "${labelName}":`, error);
+    return false;
+  }
+}
+
+// Delete Outlook folder
+async function deleteOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
+  try {
+    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    
+    if (!listRes.ok) return false;
+    
+    const { value: folders } = await listRes.json();
+    const folder = folders?.find((f: { displayName: string }) => f.displayName === folderName);
+    
+    if (!folder) {
+      console.log(`Outlook folder "${folderName}" doesn't exist, nothing to delete`);
+      return true;
+    }
+    
+    const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    
+    if (!deleteRes.ok && deleteRes.status !== 404) {
+      console.error(`Failed to delete Outlook folder "${folderName}":`, await deleteRes.text());
+      return false;
+    }
+    
+    console.log(`Deleted Outlook folder: ${folderName}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting Outlook folder "${folderName}":`, error);
+    return false;
+  }
+}
+
 // Create Outlook folder
 async function createOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
@@ -411,20 +481,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get categories for the organization with sort_order for numbering (include color for Gmail labels)
-    const { data: categories, error: catError } = await supabaseAdmin
+    // Get ALL categories for the organization (enabled and disabled)
+    const { data: allCategories, error: catError } = await supabaseAdmin
       .from('categories')
       .select('id, name, color, is_enabled, sort_order')
       .eq('organization_id', profile.organization_id)
-      .eq('is_enabled', true)
       .order('sort_order');
 
-    if (catError || !categories) {
+    if (catError || !allCategories) {
       return new Response(
         JSON.stringify({ error: 'Failed to fetch categories' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const enabledCategories = allCategories.filter(c => c.is_enabled);
+    const disabledCategories = allCategories.filter(c => !c.is_enabled);
 
     const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
@@ -441,7 +513,7 @@ serve(async (req) => {
       );
     }
 
-    const results: { provider: string; created: number; failed: number }[] = [];
+    const results: { provider: string; created: number; deleted: number; failed: number }[] = [];
     const syncedCategoryIds: string[] = [];
 
     // Process each connected provider
@@ -457,13 +529,15 @@ serve(async (req) => {
         
         if (!accessToken) {
           console.error(`Could not get valid access token for ${tokenRecord.provider}`);
-          results.push({ provider: tokenRecord.provider, created: 0, failed: categories.length });
+          results.push({ provider: tokenRecord.provider, created: 0, deleted: 0, failed: enabledCategories.length });
           continue;
         }
         let created = 0;
+        let deleted = 0;
         let failed = 0;
 
-        for (const category of categories) {
+        // Create labels/folders for enabled categories
+        for (const category of enabledCategories) {
           // Create label/folder name with number prefix based on actual sort_order (1-indexed)
           const labelName = `${category.sort_order + 1}: ${category.name}`;
           let success = false;
@@ -485,10 +559,26 @@ serve(async (req) => {
           }
         }
 
-        results.push({ provider: tokenRecord.provider, created, failed });
+        // Delete labels/folders for disabled categories
+        for (const category of disabledCategories) {
+          const labelName = `${category.sort_order + 1}: ${category.name}`;
+          let success = false;
+          
+          if (tokenRecord.provider === 'google') {
+            success = await deleteGmailLabel(accessToken, labelName);
+          } else if (tokenRecord.provider === 'microsoft') {
+            success = await deleteOutlookFolder(accessToken, labelName);
+          }
+          
+          if (success) {
+            deleted++;
+          }
+        }
+
+        results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
-        results.push({ provider: tokenRecord.provider, created: 0, failed: categories.length });
+        results.push({ provider: tokenRecord.provider, created: 0, deleted: 0, failed: enabledCategories.length });
       }
     }
 
