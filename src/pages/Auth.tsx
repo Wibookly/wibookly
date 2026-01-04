@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import wibooklyLogo from '@/assets/wibookly-logo.png';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -82,7 +83,7 @@ export default function Auth() {
         } else {
           toast({
             title: 'Account created',
-            description: 'Welcome to Webookly!'
+            description: 'Welcome to Wibookly!'
           });
           navigate('/dashboard');
         }
@@ -115,7 +116,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="p-6">
+      <header className="p-6 flex items-center justify-between">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to home
@@ -125,11 +126,12 @@ export default function Auth() {
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
+            <img src={wibooklyLogo} alt="Wibookly" className="h-12 w-auto mx-auto mb-6" />
             <h1 className="text-2xl font-semibold tracking-tight">
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {isSignUp ? 'Start organizing your inbox today' : 'Sign in to continue to Webookly'}
+              {isSignUp ? 'Start organizing your inbox today' : 'Sign in to continue to Wibookly'}
             </p>
           </div>
 
