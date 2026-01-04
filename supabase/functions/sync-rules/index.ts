@@ -244,8 +244,6 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
           ? `subject:"${rule.subject_contains}"`
           : `subject:${rule.subject_contains}`;
         advancedParts.push(subjectTerm);
-        // Always add to criteria.subject for Gmail filter
-        criteria.subject = rule.subject_contains;
       }
       if (rule.body_contains) {
         // Use quotes for exact phrase matching in body
@@ -253,7 +251,6 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
           ? `"${rule.body_contains}"`
           : rule.body_contains;
         advancedParts.push(bodyTerm);
-        // Note: Gmail filter criteria doesn't support body search directly, only query
       }
 
       // Combine advanced conditions with AND or OR
@@ -265,6 +262,12 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
           queryParts.push(...advancedParts);
         }
       }
+    }
+
+    // Build final criteria.query from all conditions for the filter
+    // Gmail filters need query for complex conditions (subject, body searches)
+    if (queryParts.length > 0) {
+      criteria.query = queryParts.join(' ');
     }
 
     const searchQuery = queryParts.join(' ');
