@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -141,24 +141,11 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
           className="max-w-xs"
         />
       </TableCell>
-      <TableCell>
-        <Select
-          value={category.writing_style}
-          onValueChange={(val) => updateCategory(category.id, 'writing_style', val)}
-          disabled={!category.is_enabled}
-        >
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {WRITING_STYLES.map((style) => (
-              <SelectItem key={style.value} value={style.value}>
-                {style.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </TableCell>
+        <TableCell>
+          <div className="text-sm text-muted-foreground">
+            {WRITING_STYLES.find(s => s.value === category.writing_style)?.label || 'Professional & Polished'}
+          </div>
+        </TableCell>
       <TableCell className="text-center">
         <Switch
           checked={category.is_enabled}
@@ -426,6 +413,23 @@ export default function Categories() {
     }
   };
 
+  // Sync a single rule manually
+  const syncSingleRule = async (ruleId: string) => {
+    try {
+      await supabase.functions.invoke('sync-rules', {
+        body: { ruleId }
+      });
+      toast({ title: 'Rule synced' });
+    } catch (error) {
+      console.error('Failed to sync rule:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to sync rule',
+        variant: 'destructive'
+      });
+    }
+  };
+
   // Auto-save effect with debounce
   useEffect(() => {
     if (isInitialLoad.current) {
@@ -502,7 +506,7 @@ export default function Categories() {
               <TableHead className="w-12">#</TableHead>
               <TableHead className="w-16">Color</TableHead>
               <TableHead className="w-48">Category Name</TableHead>
-              <TableHead className="w-40">Writing Style</TableHead>
+              <TableHead className="w-40">AI Draft Style</TableHead>
               <TableHead className="w-24 text-center">Enabled</TableHead>
               <TableHead className="w-24 text-center">AI Draft</TableHead>
               <TableHead className="w-28 text-center">Auto Reply</TableHead>
@@ -604,6 +608,17 @@ export default function Categories() {
                         checked={rule.is_enabled}
                         onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
                       />
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => syncSingleRule(rule.id)}
+                        disabled={rule.id.startsWith('temp-') || saving}
+                        title="Sync this rule"
+                        className="text-muted-foreground hover:text-primary"
+                      >
+                        <Play className="w-4 h-4" />
+                      </Button>
 
                       <Button
                         variant="ghost"

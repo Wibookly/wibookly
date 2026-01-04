@@ -43,6 +43,14 @@ const WRITING_STYLE_PROMPTS: Record<string, string> = {
 - Be patient and thorough in explanations`,
 };
 
+// Format style prompts
+const FORMAT_STYLE_PROMPTS: Record<string, string> = {
+  concise: 'Keep the response short and direct. Use minimal words while conveying the complete message.',
+  detailed: 'Provide a thorough explanation with full context and reasoning.',
+  'bullet-points': 'Structure the main content using bullet points for clarity and easy scanning.',
+  highlights: 'Focus only on the key highlights and most important points. Skip any fluff.',
+};
+
 // Category context prompts
 const CATEGORY_CONTEXT: Record<string, string> = {
   'Urgent': 'This is an urgent matter requiring immediate attention.',
@@ -64,15 +72,12 @@ serve(async (req) => {
 
   try {
     const { 
-      emailSubject,
-      emailBody,
-      senderName,
-      senderEmail,
       categoryName,
       writingStyle,
+      formatStyle,
       action,
+      exampleReply,
       additionalContext,
-      conversationHistory // Array of previous emails in the thread
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -87,17 +92,18 @@ serve(async (req) => {
     // Get writing style prompt
     const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle] || WRITING_STYLE_PROMPTS.professional;
     
+    // Get format style prompt
+    const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
+    
     // Get category context
     const cleanCategoryName = categoryName?.replace(/^\d+:\s*/, '') || 'General';
     const categoryContext = CATEGORY_CONTEXT[cleanCategoryName] || '';
 
-    // Build conversation history context
-    let historyContext = '';
-    if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-      historyContext = '\n\nPREVIOUS EMAILS IN THIS THREAD (oldest to newest):\n' +
-        conversationHistory.map((email: { from: string; date: string; body: string }, index: number) => 
-          `--- Email ${index + 1} ---\nFrom: ${email.from}\nDate: ${email.date}\n${email.body}`
-        ).join('\n\n');
+    // Build example reference
+    let exampleContext = '';
+    if (exampleReply && exampleReply.trim()) {
+      exampleContext = `\n\nEXAMPLE REPLY TEMPLATE (mimic this style and format):
+${exampleReply}`;
     }
 
     // Build the system prompt
@@ -105,48 +111,33 @@ serve(async (req) => {
 
 ${stylePrompt}
 
+FORMAT INSTRUCTIONS: ${formatPrompt}
+
 CATEGORY CONTEXT: ${cleanCategoryName}
 ${categoryContext}
-${historyContext}
+${exampleContext}
 
 RULES:
-- Generate a complete, ready-to-send email draft
+- Generate a complete, ready-to-send email reply template
 - Match the writing style exactly
-- Keep responses concise and professional
-- Avoid unnecessary detail or repetition
-- Do not include subject line in your response (it will be handled separately)
+- Follow the format instructions precisely
+- If an example reply template is provided, closely mimic its structure, tone, and formatting
+- Keep responses appropriate for the category
+- Do not include subject line in your response
 - Start directly with the greeting
 - End with an appropriate sign-off
-- Do not add explanations before or after the email - just the email content
-- If conversation history is provided, reference relevant context from previous emails when appropriate
-- Maintain continuity with the thread's tone and topics`;
+- Do not add explanations before or after the email - just the email content`;
 
-    // Build the user prompt based on action
-    let userPrompt = '';
-    
-    if (action === 'reply') {
-      userPrompt = `Draft a reply to this email:
+    // Build the user prompt for generating a reply template
+    const userPrompt = `Generate a sample email reply for the "${cleanCategoryName}" category.
 
-FROM: ${senderName} <${senderEmail}>
-SUBJECT: ${emailSubject}
+This reply template will be used as a reference for auto-replies to emails in this category.
 
-${emailBody}
+${additionalContext ? `ADDITIONAL INSTRUCTIONS: ${additionalContext}` : ''}
 
-${additionalContext ? `ADDITIONAL INSTRUCTIONS: ${additionalContext}` : ''}`;
-    } else if (action === 'compose') {
-      userPrompt = `Compose a new email about:
+Create a professional reply that could serve as a template for responding to typical emails in this category.`;
 
-SUBJECT: ${emailSubject}
-${additionalContext ? `DETAILS: ${additionalContext}` : ''}`;
-    } else if (action === 'improve') {
-      userPrompt = `Improve and rewrite this email draft while maintaining its intent:
-
-${emailBody}
-
-${additionalContext ? `ADDITIONAL INSTRUCTIONS: ${additionalContext}` : ''}`;
-    }
-
-    console.log(`Drafting email - Style: ${writingStyle}, Category: ${cleanCategoryName}, Action: ${action}`);
+    console.log(`Drafting email - Style: ${writingStyle}, Format: ${formatStyle}, Category: ${cleanCategoryName}`);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

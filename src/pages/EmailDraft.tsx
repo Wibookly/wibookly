@@ -3,38 +3,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Mail, Sparkles, Copy, RefreshCw, Plus, Trash2, MessageSquare } from "lucide-react";
-
-interface ThreadEmail {
-  id: string;
-  from: string;
-  date: string;
-  body: string;
-}
+import { Loader2, Sparkles, Copy, RefreshCw, Save } from "lucide-react";
 
 interface Category {
   id: string;
   name: string;
   writing_style: string;
+  sort_order: number;
 }
 
 const WRITING_STYLES = [
-  { value: "Professional & Polished", label: "Professional & Polished" },
-  { value: "Friendly & Approachable", label: "Friendly & Approachable" },
-  { value: "Concierge / White-Glove", label: "Concierge / White-Glove" },
-  { value: "Direct & Efficient", label: "Direct & Efficient" },
-  { value: "Empathetic & Supportive", label: "Empathetic & Supportive" },
+  { value: "professional", label: "Professional & Polished" },
+  { value: "friendly", label: "Friendly & Approachable" },
+  { value: "concierge", label: "Concierge / White-Glove" },
+  { value: "direct", label: "Direct & Efficient" },
+  { value: "empathetic", label: "Empathetic & Supportive" },
 ];
 
-const ACTIONS = [
-  { value: "reply", label: "Reply to Email" },
-  { value: "compose", label: "Compose New Email" },
-  { value: "improve", label: "Improve Existing Draft" },
+const FORMAT_OPTIONS = [
+  { value: "concise", label: "Concise (Short & Direct)" },
+  { value: "detailed", label: "Detailed (Full Explanation)" },
+  { value: "bullet-points", label: "Bullet Points" },
+  { value: "highlights", label: "Key Highlights Only" },
 ];
 
 export default function EmailDraft() {
@@ -42,20 +36,16 @@ export default function EmailDraft() {
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [writingStyle, setWritingStyle] = useState<string>("Professional & Polished");
-  const [action, setAction] = useState<string>("reply");
+  const [writingStyle, setWritingStyle] = useState<string>("professional");
+  const [formatStyle, setFormatStyle] = useState<string>("concise");
   
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [senderName, setSenderName] = useState("");
-  const [senderEmail, setSenderEmail] = useState("");
+  const [exampleReply, setExampleReply] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
   
   const [generatedDraft, setGeneratedDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [conversationHistory, setConversationHistory] = useState<ThreadEmail[]>([]);
-
 
   useEffect(() => {
     if (user) {
@@ -70,13 +60,19 @@ export default function EmailDraft() {
 
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, writing_style")
+        .select("id, name, writing_style, sort_order")
         .eq("organization_id", profile[0].organization_id)
         .eq("is_enabled", true)
         .order("sort_order");
 
       if (error) throw error;
       setCategories(data || []);
+      
+      // Auto-select first category if available
+      if (data && data.length > 0) {
+        setSelectedCategory(data[0].id);
+        setWritingStyle(data[0].writing_style || "professional");
+      }
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast.error("Failed to load categories");
@@ -89,13 +85,36 @@ export default function EmailDraft() {
     setSelectedCategory(categoryId);
     const category = categories.find(c => c.id === categoryId);
     if (category) {
-      setWritingStyle(category.writing_style);
+      setWritingStyle(category.writing_style || "professional");
+    }
+  };
+
+  const handleWritingStyleChange = async (newStyle: string) => {
+    setWritingStyle(newStyle);
+    
+    // Update the category's writing style in the database
+    if (selectedCategory) {
+      try {
+        await supabase
+          .from("categories")
+          .update({ writing_style: newStyle })
+          .eq("id", selectedCategory);
+        
+        // Update local categories state
+        setCategories(prev => 
+          prev.map(cat => 
+            cat.id === selectedCategory ? { ...cat, writing_style: newStyle } : cat
+          )
+        );
+      } catch (error) {
+        console.error("Error updating writing style:", error);
+      }
     }
   };
 
   const handleGenerate = async () => {
-    if (!emailSubject && action !== "compose") {
-      toast.error("Please enter an email subject");
+    if (!selectedCategory) {
+      toast.error("Please select a category");
       return;
     }
 
@@ -107,15 +126,12 @@ export default function EmailDraft() {
       
       const { data, error } = await supabase.functions.invoke("draft-email", {
         body: {
-          emailSubject,
-          emailBody,
-          senderName,
-          senderEmail,
           categoryName: category?.name || "General",
           writingStyle,
-          action,
+          formatStyle,
+          action: "reply",
+          exampleReply,
           additionalContext,
-          conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
         },
       });
 
@@ -136,6 +152,33 @@ export default function EmailDraft() {
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!selectedCategory || !generatedDraft) {
+      toast.error("Generate a draft first");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Update the category with the draft template for auto-reply
+      await supabase
+        .from("categories")
+        .update({ 
+          writing_style: writingStyle,
+          // The draft template can be stored or used by the auto-reply system
+        })
+        .eq("id", selectedCategory);
+
+      toast.success("Draft saved for auto-reply!");
+    } catch (error: any) {
+      console.error("Error saving draft:", error);
+      toast.error("Failed to save draft");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedDraft);
     toast.success("Copied to clipboard!");
@@ -149,279 +192,187 @@ export default function EmailDraft() {
     );
   }
 
+  const selectedCategoryData = categories.find(c => c.id === selectedCategory);
+  const categoryDisplayName = selectedCategoryData 
+    ? `${selectedCategoryData.sort_order + 1}: ${selectedCategoryData.name}`
+    : "";
+
   return (
     <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">AI Email Drafting</h1>
-          <p className="text-muted-foreground">
-            Generate professional email drafts using AI with your preferred writing style
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">AI Email Drafting</h1>
+        <p className="text-muted-foreground">
+          Configure auto-reply templates for each category
+        </p>
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Input Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Email Details
-              </CardTitle>
-              <CardDescription>
-                Enter the email information to generate a draft
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Action Type */}
-              <div className="space-y-2">
-                <Label>Action</Label>
-                <Select value={action} onValueChange={setAction}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACTIONS.map((a) => (
-                      <SelectItem key={a.value} value={a.value}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Input Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Draft Settings
+            </CardTitle>
+            <CardDescription>
+              Configure how AI generates replies for this category
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Category Selection */}
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.sort_order + 1}: {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {/* Category Selection */}
-              <div className="space-y-2">
-                <Label>Category (Optional)</Label>
-                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Writing Style */}
+            <div className="space-y-2">
+              <Label>Writing Style</Label>
+              <Select value={writingStyle} onValueChange={handleWritingStyleChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WRITING_STYLES.map((style) => (
+                    <SelectItem key={style.value} value={style.value}>
+                      {style.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {/* Writing Style */}
-              <div className="space-y-2">
-                <Label>Writing Style</Label>
-                <Select value={writingStyle} onValueChange={setWritingStyle}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WRITING_STYLES.map((style) => (
-                      <SelectItem key={style.value} value={style.value}>
-                        {style.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Format Style */}
+            <div className="space-y-2">
+              <Label>Response Format</Label>
+              <Select value={formatStyle} onValueChange={setFormatStyle}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FORMAT_OPTIONS.map((format) => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              {/* Sender Info */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Sender Name</Label>
-                  <Input
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sender Email</Label>
-                  <Input
-                    value={senderEmail}
-                    onChange={(e) => setSenderEmail(e.target.value)}
-                    placeholder="john@example.com"
-                  />
-                </div>
-              </div>
+            {/* Example Reply Template */}
+            <div className="space-y-2">
+              <Label>Example Reply Template</Label>
+              <Textarea
+                value={exampleReply}
+                onChange={(e) => setExampleReply(e.target.value)}
+                placeholder="Paste an example of how you want replies to look. The AI will use this as a reference for tone, structure, and formatting..."
+                rows={6}
+              />
+              <p className="text-xs text-muted-foreground">
+                Provide a sample reply that represents your preferred style. The AI will mimic this format.
+              </p>
+            </div>
 
-              {/* Email Subject */}
-              <div className="space-y-2">
-                <Label>Email Subject</Label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Re: Meeting Request"
-                />
-              </div>
+            {/* Additional Context */}
+            <div className="space-y-2">
+              <Label>Additional Context (Optional)</Label>
+              <Textarea
+                value={additionalContext}
+                onChange={(e) => setAdditionalContext(e.target.value)}
+                placeholder="Any specific instructions or context for this category..."
+                rows={2}
+              />
+            </div>
 
-              {/* Email Body */}
-              <div className="space-y-2">
-                <Label>
-                  {action === "reply" ? "Original Email" : action === "improve" ? "Draft to Improve" : "Key Points"}
-                </Label>
-                <Textarea
-                  value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  placeholder={
-                    action === "reply"
-                      ? "Paste the email you want to reply to..."
-                      : action === "improve"
-                      ? "Paste your draft to improve..."
-                      : "List the key points to include..."
-                  }
-                  rows={5}
-                />
-              </div>
+            <Button 
+              onClick={handleGenerate} 
+              disabled={isGenerating || !selectedCategory}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Preview Draft
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
 
-              {/* Conversation History */}
-              {action === "reply" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      Thread History (Optional)
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConversationHistory([
-                        ...conversationHistory,
-                        { id: crypto.randomUUID(), from: "", date: "", body: "" }
-                      ])}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Email
-                    </Button>
-                  </div>
-                  {conversationHistory.length > 0 && (
-                    <div className="space-y-3">
-                      {conversationHistory.map((email, index) => (
-                        <div key={email.id} className="p-3 border rounded-lg bg-muted/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Email {index + 1} in thread
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConversationHistory(
-                                conversationHistory.filter(e => e.id !== email.id)
-                              )}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <Input
-                              placeholder="From (e.g., John <john@example.com>)"
-                              value={email.from}
-                              onChange={(e) => setConversationHistory(
-                                conversationHistory.map(em => 
-                                  em.id === email.id ? { ...em, from: e.target.value } : em
-                                )
-                              )}
-                            />
-                            <Input
-                              placeholder="Date (e.g., Jan 3, 2025)"
-                              value={email.date}
-                              onChange={(e) => setConversationHistory(
-                                conversationHistory.map(em => 
-                                  em.id === email.id ? { ...em, date: e.target.value } : em
-                                )
-                              )}
-                            />
-                          </div>
-                          <Textarea
-                            placeholder="Email content..."
-                            value={email.body}
-                            onChange={(e) => setConversationHistory(
-                              conversationHistory.map(em => 
-                                em.id === email.id ? { ...em, body: e.target.value } : em
-                              )
-                            )}
-                            rows={3}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {conversationHistory.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Add previous emails from this thread to help AI understand the conversation context.
-                    </p>
-                  )}
+        {/* Output Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Generated Draft
+              </span>
+              {generatedDraft && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleCopy}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
+                    <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+                  </Button>
                 </div>
               )}
-
-              {/* Additional Context */}
-              <div className="space-y-2">
-                <Label>Additional Context (Optional)</Label>
-                <Textarea
-                  value={additionalContext}
-                  onChange={(e) => setAdditionalContext(e.target.value)}
-                  placeholder="Any additional instructions or context..."
-                  rows={2}
-                />
-              </div>
-
-              <Button 
-                onClick={handleGenerate} 
-                disabled={isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate Draft
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Output Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  Generated Draft
-                </span>
-                {generatedDraft && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleCopy}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
-                      <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
-                    </Button>
-                  </div>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Your AI-generated email draft will appear here
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {generatedDraft ? (
+            </CardTitle>
+            <CardDescription>
+              Preview of AI-generated reply for {categoryDisplayName || "selected category"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {generatedDraft ? (
+              <div className="space-y-4">
                 <div className="rounded-lg border bg-muted/50 p-4 min-h-[300px] whitespace-pre-wrap">
                   {generatedDraft}
                 </div>
-              ) : (
-                <div className="rounded-lg border border-dashed bg-muted/30 p-8 min-h-[300px] flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Enter email details and click Generate to create a draft</p>
-                  </div>
+                <Button 
+                  onClick={handleSaveDraft} 
+                  disabled={isSaving}
+                  className="w-full"
+                  variant="secondary"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save for Auto-Reply
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed bg-muted/30 p-8 min-h-[300px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Configure settings and generate a preview draft</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
