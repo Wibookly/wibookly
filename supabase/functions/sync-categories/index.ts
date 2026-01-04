@@ -169,10 +169,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get categories for the organization
+    // Get categories for the organization with sort_order for numbering
     const { data: categories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('name, is_enabled')
+      .select('name, is_enabled, sort_order')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
       .order('sort_order');
@@ -208,13 +208,16 @@ serve(async (req) => {
         let created = 0;
         let failed = 0;
 
-        for (const category of categories) {
+        for (let i = 0; i < categories.length; i++) {
+          const category = categories[i];
+          // Create label/folder name with number prefix based on sort_order position
+          const labelName = `${i + 1}: ${category.name}`;
           let success = false;
           
           if (token.provider === 'google') {
-            success = await createGmailLabel(accessToken, category.name);
+            success = await createGmailLabel(accessToken, labelName);
           } else if (token.provider === 'microsoft') {
-            success = await createOutlookFolder(accessToken, category.name);
+            success = await createOutlookFolder(accessToken, labelName);
           }
           
           if (success) created++;

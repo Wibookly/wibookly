@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Plus, Trash2, GripVertical } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -22,6 +22,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Category {
   id: string;
@@ -50,17 +77,110 @@ const WRITING_STYLES = [
 ];
 
 const DEFAULT_CATEGORIES = [
-  { name: '1: Urgent', color: '#EF4444' },
-  { name: '2: Follow Up', color: '#F97316' },
-  { name: '3: Approvals', color: '#EAB308' },
-  { name: '4: Meetings', color: '#22C55E' },
-  { name: '5: Customers', color: '#06B6D4' },
-  { name: '6: Vendors', color: '#3B82F6' },
-  { name: '7: Internal', color: '#8B5CF6' },
-  { name: '8: Projects', color: '#EC4899' },
-  { name: '9: Finance', color: '#14B8A6' },
-  { name: '10: FYI', color: '#6B7280' },
+  { name: 'Urgent', color: '#EF4444' },
+  { name: 'Follow Up', color: '#F97316' },
+  { name: 'Approvals', color: '#EAB308' },
+  { name: 'Meetings', color: '#22C55E' },
+  { name: 'Customers', color: '#06B6D4' },
+  { name: 'Vendors', color: '#3B82F6' },
+  { name: 'Internal', color: '#8B5CF6' },
+  { name: 'Projects', color: '#EC4899' },
+  { name: 'Finance', color: '#14B8A6' },
+  { name: 'FYI', color: '#6B7280' },
 ];
+
+interface SortableRowProps {
+  category: Category;
+  index: number;
+  updateCategory: (id: string, field: keyof Category, value: any) => void;
+}
+
+function SortableRow({ category, index, updateCategory }: SortableRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell className="w-12">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </div>
+      </TableCell>
+      <TableCell className="w-12 font-medium text-muted-foreground">
+        {index + 1}:
+      </TableCell>
+      <TableCell>
+        <input
+          type="color"
+          value={category.color}
+          onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
+          className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={category.name}
+          onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
+          className="max-w-xs"
+        />
+      </TableCell>
+      <TableCell>
+        <Select
+          value={category.writing_style}
+          onValueChange={(val) => updateCategory(category.id, 'writing_style', val)}
+          disabled={!category.is_enabled}
+        >
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {WRITING_STYLES.map((style) => (
+              <SelectItem key={style.value} value={style.value}>
+                {style.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="text-center">
+        <Switch
+          checked={category.is_enabled}
+          onCheckedChange={(checked) => updateCategory(category.id, 'is_enabled', checked)}
+        />
+      </TableCell>
+      <TableCell className="text-center">
+        <Switch
+          checked={category.ai_draft_enabled}
+          onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
+          disabled={!category.is_enabled}
+        />
+      </TableCell>
+      <TableCell className="text-center">
+        <Switch
+          checked={category.auto_reply_enabled}
+          onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
+          disabled={!category.is_enabled || !category.ai_draft_enabled}
+        />
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function Categories() {
   const { organization } = useAuth();
@@ -69,7 +189,16 @@ export default function Categories() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (!organization?.id) return;
@@ -98,7 +227,6 @@ export default function Categories() {
         variant: 'destructive'
       });
     } else {
-      // Map categories with default values for new columns
       const cats = (categoriesRes.data || []).map(cat => ({
         ...cat,
         auto_reply_enabled: cat.auto_reply_enabled ?? false,
@@ -109,6 +237,24 @@ export default function Categories() {
 
     setRules(rulesRes.data || []);
     setLoading(false);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setCategories((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        // Update sort_order based on new positions
+        return newItems.map((item, index) => ({
+          ...item,
+          sort_order: index
+        }));
+      });
+      setHasChanges(true);
+    }
   };
 
   const updateCategory = (id: string, field: keyof Category, value: any) => {
@@ -198,7 +344,7 @@ export default function Categories() {
     setSaving(true);
 
     try {
-      // Save categories
+      // Save categories with updated sort_order
       for (const category of categories) {
         await supabase
           .from('categories')
@@ -208,7 +354,8 @@ export default function Categories() {
             is_enabled: category.is_enabled,
             ai_draft_enabled: category.ai_draft_enabled,
             auto_reply_enabled: category.auto_reply_enabled,
-            writing_style: category.writing_style
+            writing_style: category.writing_style,
+            sort_order: category.sort_order
           })
           .eq('id', category.id);
       }
@@ -252,6 +399,9 @@ export default function Categories() {
   };
 
   const syncCategories = async () => {
+    setShowSyncDialog(false);
+    setSyncing(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke('sync-categories');
       
@@ -267,11 +417,18 @@ export default function Categories() {
         description: 'Failed to sync categories to email provider',
         variant: 'destructive'
       });
+    } finally {
+      setSyncing(false);
     }
   };
 
   const getRulesForCategory = (categoryId: string) => {
     return rules.filter(r => r.category_id === categoryId);
+  };
+
+  // Get display name with number prefix
+  const getDisplayName = (category: Category, index: number) => {
+    return `${index + 1}: ${category.name}`;
   };
 
   if (loading) {
@@ -288,11 +445,12 @@ export default function Categories() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
           <p className="mt-1 text-muted-foreground">
-            Customize how your emails are organized
+            Customize how your emails are organized. Drag to reorder.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={syncCategories}>
+          <Button variant="outline" onClick={() => setShowSyncDialog(true)} disabled={syncing}>
+            {syncing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             <RefreshCw className="w-4 h-4 mr-2" />
             Sync Categories
           </Button>
@@ -304,11 +462,13 @@ export default function Categories() {
         </div>
       </div>
 
-      {/* Categories Table */}
+      {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead className="w-12">#</TableHead>
               <TableHead className="w-16">Color</TableHead>
               <TableHead className="w-48">Category Name</TableHead>
               <TableHead className="w-40">Writing Style</TableHead>
@@ -317,65 +477,27 @@ export default function Categories() {
               <TableHead className="w-28 text-center">Auto Reply</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {categories.map((category) => (
-              <TableRow key={category.id}>
-                <TableCell>
-                  <input
-                    type="color"
-                    value={category.color}
-                    onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <TableBody>
+              <SortableContext
+                items={categories.map(c => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {categories.map((category, index) => (
+                  <SortableRow
+                    key={category.id}
+                    category={category}
+                    index={index}
+                    updateCategory={updateCategory}
                   />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    value={category.name}
-                    onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
-                    className="max-w-xs"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={category.writing_style}
-                    onValueChange={(val) => updateCategory(category.id, 'writing_style', val)}
-                    disabled={!category.is_enabled}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WRITING_STYLES.map((style) => (
-                        <SelectItem key={style.value} value={style.value}>
-                          {style.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={category.is_enabled}
-                    onCheckedChange={(checked) => updateCategory(category.id, 'is_enabled', checked)}
-                  />
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={category.ai_draft_enabled}
-                    onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
-                    disabled={!category.is_enabled}
-                  />
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={category.auto_reply_enabled}
-                    onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
-                    disabled={!category.is_enabled || !category.ai_draft_enabled}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+                ))}
+              </SortableContext>
+            </TableBody>
+          </DndContext>
         </Table>
       </div>
 
@@ -388,8 +510,9 @@ export default function Categories() {
           </p>
         </div>
 
-        {categories.filter(c => c.is_enabled).map((category) => {
+        {categories.filter(c => c.is_enabled).map((category, index) => {
           const categoryRules = getRulesForCategory(category.id);
+          const displayIndex = categories.findIndex(c => c.id === category.id);
           
           return (
             <div key={category.id} className="bg-card rounded-lg border border-border p-4">
@@ -399,7 +522,7 @@ export default function Categories() {
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: category.color }}
                   />
-                  <span className="font-medium">{category.name}</span>
+                  <span className="font-medium">{displayIndex + 1}: {category.name}</span>
                   <span className="text-sm text-muted-foreground">
                     ({categoryRules.length} rule{categoryRules.length !== 1 ? 's' : ''})
                   </span>
@@ -467,6 +590,25 @@ export default function Categories() {
           );
         })}
       </div>
+
+      {/* Sync Confirmation Dialog */}
+      <AlertDialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sync Categories to Email Provider?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create labels (Gmail) or folders (Outlook) in your connected email account matching your categories. 
+              Labels/folders will be named with numbers (e.g., "1: Urgent", "2: Follow Up").
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={syncCategories}>
+              Sync Categories
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
