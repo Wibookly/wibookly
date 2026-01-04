@@ -456,14 +456,16 @@ serve(async (req) => {
       );
     }
 
-    // Get all categories for numbering
-    const { data: allCategories } = await supabaseAdmin
+    // Get ENABLED categories for numbering (must match sync-categories logic)
+    const { data: enabledCategories } = await supabaseAdmin
       .from('categories')
       .select('id, name, sort_order')
       .eq('organization_id', profile.organization_id)
+      .eq('is_enabled', true)
       .order('sort_order');
 
-    const categoryMap = new Map(allCategories?.map((c, i) => [c.id, { name: c.name, index: i }]));
+    // Map category ID to its position among enabled categories (1-indexed label names)
+    const categoryMap = new Map(enabledCategories?.map((c, i) => [c.id, { name: c.name, index: i }]));
 
     const results: { provider: string; synced: number; failed: number }[] = [];
 
