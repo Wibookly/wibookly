@@ -50,16 +50,16 @@ const WRITING_STYLES = [
 ];
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Urgent', color: '#EF4444' },
-  { name: 'Follow Up', color: '#F97316' },
-  { name: 'Approvals', color: '#EAB308' },
-  { name: 'Meetings', color: '#22C55E' },
-  { name: 'Customers', color: '#06B6D4' },
-  { name: 'Vendors', color: '#3B82F6' },
-  { name: 'Internal', color: '#8B5CF6' },
-  { name: 'Projects', color: '#EC4899' },
-  { name: 'Finance', color: '#14B8A6' },
-  { name: 'FYI', color: '#6B7280' },
+  { name: '1: Urgent', color: '#EF4444' },
+  { name: '2: Follow Up', color: '#F97316' },
+  { name: '3: Approvals', color: '#EAB308' },
+  { name: '4: Meetings', color: '#22C55E' },
+  { name: '5: Customers', color: '#06B6D4' },
+  { name: '6: Vendors', color: '#3B82F6' },
+  { name: '7: Internal', color: '#8B5CF6' },
+  { name: '8: Projects', color: '#EC4899' },
+  { name: '9: Finance', color: '#14B8A6' },
+  { name: '10: FYI', color: '#6B7280' },
 ];
 
 export default function Categories() {
@@ -252,10 +252,22 @@ export default function Categories() {
   };
 
   const syncCategories = async () => {
-    toast({
-      title: 'Sync Started',
-      description: 'Categories will be synced to your email provider'
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-categories');
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Sync Complete',
+        description: data?.message || 'Labels/folders created in your email provider'
+      });
+    } catch (error) {
+      toast({
+        title: 'Sync Failed',
+        description: 'Failed to sync categories to email provider',
+        variant: 'destructive'
+      });
+    }
   };
 
   const getRulesForCategory = (categoryId: string) => {
