@@ -12,6 +12,7 @@ import Integrations from "./pages/Integrations";
 import Categories from "./pages/Categories";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
+import EmailDraft from "./pages/EmailDraft";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/categories" element={<Categories />} />
               <Route path="/sync" element={<Sync />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/email-draft" element={<EmailDraft />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
