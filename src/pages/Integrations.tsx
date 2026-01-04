@@ -24,6 +24,12 @@ interface Connection {
 
 type ProviderId = 'google' | 'outlook';
 
+const getCanonicalOrigin = () => {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  if (!projectId) return null;
+  return `https://${projectId}.lovable.app`;
+};
+
 export default function Integrations() {
   const { organization, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -59,6 +65,20 @@ export default function Integrations() {
     }
   }, [searchParams]);
 
+  // If user is in a non-canonical preview domain, bounce to the canonical domain
+  // (helps with OAuth providers that enforce an allowlist of site origins).
+  useEffect(() => {
+    const autoconnect = searchParams.get('autoconnect') as ProviderId | null;
+    if (!autoconnect) return;
+
+    if (autoconnect === 'google' || autoconnect === 'outlook') {
+      setConfirmProvider(autoconnect);
+      const next = new URLSearchParams(searchParams);
+      next.delete('autoconnect');
+      setSearchParams(next);
+    }
+  }, []);
+
   const fetchConnections = async () => {
     if (!organization?.id) return;
 
@@ -90,6 +110,14 @@ export default function Integrations() {
   );
 
   const startConnect = async (provider: ProviderId) => {
+    const canonicalOrigin = getCanonicalOrigin();
+    if (canonicalOrigin && window.location.origin !== canonicalOrigin) {
+      const target = new URL(`${canonicalOrigin}/integrations`);
+      target.searchParams.set('autoconnect', provider);
+      window.location.href = target.toString();
+      return;
+    }
+
     // Wait for auth to finish loading
     if (authLoading) {
       toast({
