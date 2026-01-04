@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, RefreshCw, Plus, Trash2, GripVertical, Play } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, Trash2, GripVertical, Play, Check } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -194,8 +194,11 @@ export default function Categories() {
   const [syncingRules, setSyncingRules] = useState(false);
   const [runningRuleId, setRunningRuleId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showSyncRulesDialog, setShowSyncRulesDialog] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoad = useRef(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -305,28 +308,32 @@ export default function Categories() {
     setHasChanges(true);
   };
 
-  const saveChanges = async () => {
+  const saveChanges = useCallback(async (showToast = false) => {
     if (!organization?.id) return;
 
     // Validate all category data before saving
     for (const category of categories) {
       const nameValidation = validateField(categoryNameSchema, category.name);
       if (!nameValidation.success) {
-        toast({
-          title: 'Validation Error',
-          description: `Category "${category.name}": ${nameValidation.error}`,
-          variant: 'destructive'
-        });
+        if (showToast) {
+          toast({
+            title: 'Validation Error',
+            description: `Category "${category.name}": ${nameValidation.error}`,
+            variant: 'destructive'
+          });
+        }
         return;
       }
 
       const colorValidation = validateField(categoryColorSchema, category.color);
       if (!colorValidation.success) {
-        toast({
-          title: 'Validation Error',
-          description: `Category "${category.name}": ${colorValidation.error}`,
-          variant: 'destructive'
-        });
+        if (showToast) {
+          toast({
+            title: 'Validation Error',
+            description: `Category "${category.name}": ${colorValidation.error}`,
+            variant: 'destructive'
+          });
+        }
         return;
       }
     }
@@ -336,11 +343,13 @@ export default function Categories() {
     for (const rule of rulesWithValues) {
       const validation = validateRuleValue(rule.rule_type, rule.rule_value);
       if (!validation.success) {
-        toast({
-          title: 'Validation Error',
-          description: validation.error,
-          variant: 'destructive'
-        });
+        if (showToast) {
+          toast({
+            title: 'Validation Error',
+            description: validation.error,
+            variant: 'destructive'
+          });
+        }
         return;
       }
     }
@@ -369,13 +378,18 @@ export default function Categories() {
         const validatedValue = rule.rule_value.trim();
         
         if (rule.id.startsWith('temp-')) {
-          await supabase.from('rules').insert({
+          const { data } = await supabase.from('rules').insert({
             organization_id: organization.id,
             category_id: rule.category_id,
             rule_type: rule.rule_type,
             rule_value: validatedValue,
             is_enabled: rule.is_enabled
-          });
+          }).select().single();
+          
+          // Update local state with real ID
+          if (data) {
+            setRules(prev => prev.map(r => r.id === rule.id ? { ...r, id: data.id } : r));
+          }
         } else {
           await supabase.from('rules').update({
             rule_type: rule.rule_type,
@@ -385,22 +399,46 @@ export default function Categories() {
         }
       }
 
-      toast({
-        title: 'Saved',
-        description: 'Categories and rules updated successfully'
-      });
       setHasChanges(false);
-      fetchData();
+      setLastSaved(new Date());
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save changes',
-        variant: 'destructive'
-      });
+      if (showToast) {
+        toast({
+          title: 'Error',
+          description: 'Failed to save changes',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setSaving(false);
     }
-  };
+  }, [organization?.id, categories, rules, toast]);
+
+  // Auto-save effect with debounce
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+
+    if (!hasChanges) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (1.5 seconds debounce)
+    saveTimeoutRef.current = setTimeout(() => {
+      saveChanges(false);
+    }, 1500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [hasChanges, categories, rules, saveChanges]);
 
   const syncCategories = async () => {
     setShowSyncDialog(false);
@@ -493,11 +531,19 @@ export default function Categories() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Sync Categories
           </Button>
-          <Button onClick={saveChanges} disabled={!hasChanges || saving}>
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            <Save className="w-4 h-4 mr-2" />
-            Save Changes
-          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <Check className="w-4 h-4 text-green-500" />
+                <span>Saved</span>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 
