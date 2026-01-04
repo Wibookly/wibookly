@@ -136,6 +136,9 @@ export default function Integrations() {
     setConnecting(provider);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
       const { data, error } = await supabase.functions.invoke('oauth-init', {
         body: {
           provider,
@@ -143,6 +146,7 @@ export default function Integrations() {
           organizationId: orgId,
           redirectUrl: '/integrations',
         },
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       });
 
       if (error) {
