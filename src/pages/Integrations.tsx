@@ -13,7 +13,7 @@ interface Connection {
 }
 
 export default function Integrations() {
-  const { organization, user } = useAuth();
+  const { organization, user, loading: authLoading, session } = useAuth();
   const { toast } = useToast();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,18 +55,32 @@ export default function Integrations() {
   };
 
   useEffect(() => {
-    if (!organization?.id) return;
+    // Wait for auth to load and organization to be available
+    if (authLoading) return;
+    if (!organization?.id) {
+      setLoading(false);
+      return;
+    }
     fetchConnections();
-  }, [organization?.id]);
+  }, [organization?.id, authLoading]);
 
   const getConnection = (provider: string) => 
     connections.find(c => c.provider === provider);
 
   const handleConnect = async (provider: string) => {
-    if (!user?.id || !organization?.id) {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      toast({
+        title: 'Please wait',
+        description: 'Loading your session...',
+      });
+      return;
+    }
+
+    if (!session || !user?.id || !organization?.id) {
       toast({
         title: 'Error',
-        description: 'You must be logged in to connect an account.',
+        description: 'You must be logged in to connect an account. Please sign out and sign in again.',
         variant: 'destructive'
       });
       return;
@@ -176,7 +190,13 @@ export default function Integrations() {
       </div>
 
       <div className="space-y-4">
-        {integrations.map((integration) => (
+        {authLoading ? (
+          <div className="bg-card rounded-lg border border-border p-6 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Loading your session...</span>
+          </div>
+        ) : (
+        integrations.map((integration) => (
           <div
             key={integration.id}
             className="bg-card rounded-lg border border-border p-6"
@@ -244,7 +264,8 @@ export default function Integrations() {
               </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
