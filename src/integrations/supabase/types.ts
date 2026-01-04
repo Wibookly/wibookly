@@ -311,33 +311,45 @@ export type Database = {
       }
       rules: {
         Row: {
+          body_contains: string | null
           category_id: string
           created_at: string
           id: string
+          is_advanced: boolean
           is_enabled: boolean
+          last_synced_at: string | null
           organization_id: string
           rule_type: string
           rule_value: string
+          subject_contains: string | null
           updated_at: string
         }
         Insert: {
+          body_contains?: string | null
           category_id: string
           created_at?: string
           id?: string
+          is_advanced?: boolean
           is_enabled?: boolean
+          last_synced_at?: string | null
           organization_id: string
           rule_type: string
           rule_value: string
+          subject_contains?: string | null
           updated_at?: string
         }
         Update: {
+          body_contains?: string | null
           category_id?: string
           created_at?: string
           id?: string
+          is_advanced?: boolean
           is_enabled?: boolean
+          last_synced_at?: string | null
           organization_id?: string
           rule_type?: string
           rule_value?: string
+          subject_contains?: string | null
           updated_at?: string
         }
         Relationships: [

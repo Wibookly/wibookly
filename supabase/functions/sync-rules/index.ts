@@ -206,18 +206,38 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
   try {
     // deno-lint-ignore no-explicit-any
     let criteria: any = {};
-    let searchQuery = '';
+    const queryParts: string[] = [];
     
+    // Primary condition
     if (rule.rule_type === 'sender') {
       criteria.from = rule.rule_value;
-      searchQuery = `from:${rule.rule_value}`;
+      queryParts.push(`from:${rule.rule_value}`);
     } else if (rule.rule_type === 'domain') {
       criteria.from = `@${rule.rule_value}`;
-      searchQuery = `from:@${rule.rule_value}`;
+      queryParts.push(`from:@${rule.rule_value}`);
     } else if (rule.rule_type === 'keyword') {
       criteria.query = rule.rule_value;
-      searchQuery = rule.rule_value;
+      queryParts.push(rule.rule_value);
     }
+
+    // Advanced conditions (AND logic) - for search query
+    // Gmail filters have limited criteria support, so we add to query for existing emails
+    if (rule.is_advanced) {
+      if (rule.subject_contains) {
+        queryParts.push(`subject:${rule.subject_contains}`);
+        // Add to criteria if no primary query
+        if (!criteria.query) {
+          criteria.subject = rule.subject_contains;
+        }
+      }
+      if (rule.body_contains) {
+        queryParts.push(rule.body_contains);
+        // Gmail filter criteria doesn't support body search directly
+        // So we rely on the search query for existing emails
+      }
+    }
+
+    const searchQuery = queryParts.join(' ');
 
     // Create filter for new emails
     const filterRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/settings/filters', {
@@ -244,7 +264,7 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
         console.error(`Failed to create Gmail filter:`, errorText);
       }
     } else {
-      console.log(`Created Gmail filter for: ${rule.rule_value}`);
+      console.log(`Created Gmail filter for: ${rule.rule_value}${rule.is_advanced ? ' (advanced)' : ''}`);
     }
 
     // Apply label to existing emails matching the criteria
@@ -327,6 +347,16 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
       conditions.senderContains = [`@${rule.rule_value}`];
     } else if (rule.rule_type === 'keyword') {
       conditions.subjectOrBodyContains = [rule.rule_value];
+    }
+
+    // Advanced conditions (AND logic)
+    if (rule.is_advanced) {
+      if (rule.subject_contains) {
+        conditions.subjectContains = [rule.subject_contains];
+      }
+      if (rule.body_contains) {
+        conditions.bodyContains = [rule.body_contains];
+      }
     }
 
     // Create rule
@@ -456,6 +486,9 @@ serve(async (req) => {
         rule_type,
         rule_value,
         is_enabled,
+        is_advanced,
+        subject_contains,
+        body_contains,
         category_id,
         categories!inner(name, is_enabled, sort_order)
       `)
@@ -558,8 +591,16 @@ serve(async (req) => {
             }
           }
           
-          if (success) synced++;
-          else failed++;
+          if (success) {
+            synced++;
+            // Update last_synced_at for this rule
+            await supabaseAdmin
+              .from('rules')
+              .update({ last_synced_at: new Date().toISOString() })
+              .eq('id', rule.id);
+          } else {
+            failed++;
+          }
         }
 
         results.push({ provider: tokenRecord.provider, synced, failed });

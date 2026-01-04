@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -68,6 +68,10 @@ interface Rule {
   rule_type: string;
   rule_value: string;
   is_enabled: boolean;
+  is_advanced: boolean;
+  subject_contains: string | null;
+  body_contains: string | null;
+  last_synced_at: string | null;
 }
 
 const WRITING_STYLES = [
@@ -258,7 +262,13 @@ export default function Categories() {
       setCategories(cats);
     }
 
-    setRules(rulesRes.data || []);
+    setRules((rulesRes.data || []).map(r => ({
+      ...r,
+      is_advanced: r.is_advanced ?? false,
+      subject_contains: r.subject_contains ?? null,
+      body_contains: r.body_contains ?? null,
+      last_synced_at: r.last_synced_at ?? null
+    })));
     setLoading(false);
   };
 
@@ -297,7 +307,11 @@ export default function Categories() {
       category_id: categoryId,
       rule_type: 'sender',
       rule_value: '',
-      is_enabled: true
+      is_enabled: true,
+      is_advanced: false,
+      subject_contains: null,
+      body_contains: null,
+      last_synced_at: null
     };
     
     setRules([...rules, newRule]);
@@ -432,7 +446,10 @@ export default function Categories() {
             category_id: rule.category_id,
             rule_type: rule.rule_type,
             rule_value: validatedValue,
-            is_enabled: rule.is_enabled
+            is_enabled: rule.is_enabled,
+            is_advanced: rule.is_advanced,
+            subject_contains: rule.subject_contains?.trim() || null,
+            body_contains: rule.body_contains?.trim() || null
           }).select().single();
           
           // Update local state with real ID
@@ -443,7 +460,10 @@ export default function Categories() {
           await supabase.from('rules').update({
             rule_type: rule.rule_type,
             rule_value: validatedValue,
-            is_enabled: rule.is_enabled
+            is_enabled: rule.is_enabled,
+            is_advanced: rule.is_advanced,
+            subject_contains: rule.subject_contains?.trim() || null,
+            body_contains: rule.body_contains?.trim() || null
           }).eq('id', rule.id);
         }
       }
@@ -474,21 +494,37 @@ export default function Categories() {
         supabase.functions.invoke('sync-categories'),
         supabase.functions.invoke('sync-rules')
       ]);
-      // Refetch categories to get updated sync timestamps
-      const { data: updatedCategories } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('organization_id', organization?.id)
-        .order('sort_order');
+      // Refetch categories and rules to get updated sync timestamps
+      const [categoriesRes, rulesRes] = await Promise.all([
+        supabase
+          .from('categories')
+          .select('*')
+          .eq('organization_id', organization?.id)
+          .order('sort_order'),
+        supabase
+          .from('rules')
+          .select('*')
+          .eq('organization_id', organization?.id)
+      ]);
       
-      if (updatedCategories) {
-        const cats = updatedCategories.map(cat => ({
+      if (categoriesRes.data) {
+        const cats = categoriesRes.data.map(cat => ({
           ...cat,
           auto_reply_enabled: cat.auto_reply_enabled ?? false,
           writing_style: cat.writing_style ?? 'professional',
           last_synced_at: cat.last_synced_at ?? null
         }));
         setCategories(cats);
+      }
+      
+      if (rulesRes.data) {
+        setRules(rulesRes.data.map(r => ({
+          ...r,
+          is_advanced: r.is_advanced ?? false,
+          subject_contains: r.subject_contains ?? null,
+          body_contains: r.body_contains ?? null,
+          last_synced_at: r.last_synced_at ?? null
+        })));
       }
     } catch (error) {
       // Silent fail for background sync - user doesn't need to know
@@ -502,6 +538,23 @@ export default function Categories() {
       await supabase.functions.invoke('sync-rules', {
         body: { ruleId }
       });
+      
+      // Refetch rules to get updated sync timestamps
+      const { data: updatedRules } = await supabase
+        .from('rules')
+        .select('*')
+        .eq('organization_id', organization?.id);
+      
+      if (updatedRules) {
+        setRules(updatedRules.map(r => ({
+          ...r,
+          is_advanced: r.is_advanced ?? false,
+          subject_contains: r.subject_contains ?? null,
+          body_contains: r.body_contains ?? null,
+          last_synced_at: r.last_synced_at ?? null
+        })));
+      }
+      
       toast({ title: 'Rule synced' });
     } catch (error) {
       console.error('Failed to sync rule:', error);
@@ -657,61 +710,128 @@ export default function Categories() {
                   No rules yet. Add a rule to automatically categorize emails.
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {categoryRules.map((rule) => (
                     <div
                       key={rule.id}
-                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-md"
+                      className="p-3 bg-muted/50 rounded-md space-y-3"
                     >
-                      <Select
-                        value={rule.rule_type}
-                        onValueChange={(val) => updateRule(rule.id, 'rule_type', val)}
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sender">Sender</SelectItem>
-                          <SelectItem value="domain">Domain</SelectItem>
-                          <SelectItem value="keyword">Keyword</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {/* Main rule row */}
+                      <div className="flex items-center gap-3">
+                        <Select
+                          value={rule.rule_type}
+                          onValueChange={(val) => updateRule(rule.id, 'rule_type', val)}
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sender">Sender</SelectItem>
+                            <SelectItem value="domain">Domain</SelectItem>
+                            <SelectItem value="keyword">Keyword</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                      <Input
-                        placeholder={
-                          rule.rule_type === 'sender' ? 'john@example.com' :
-                          rule.rule_type === 'domain' ? 'example.com' :
-                          'keyword...'
-                        }
-                        value={rule.rule_value}
-                        onChange={(e) => updateRule(rule.id, 'rule_value', e.target.value)}
-                        className="flex-1"
-                      />
+                        <Input
+                          placeholder={
+                            rule.rule_type === 'sender' ? 'john@example.com' :
+                            rule.rule_type === 'domain' ? 'example.com' :
+                            'keyword...'
+                          }
+                          value={rule.rule_value}
+                          onChange={(e) => updateRule(rule.id, 'rule_value', e.target.value)}
+                          className="flex-1"
+                        />
 
-                      <Switch
-                        checked={rule.is_enabled}
-                        onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
-                      />
+                        <Switch
+                          checked={rule.is_enabled}
+                          onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
+                        />
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => syncSingleRule(rule.id)}
-                        disabled={rule.id.startsWith('temp-') || saving}
-                        title="Sync this rule"
-                        className="text-muted-foreground hover:text-primary"
-                      >
-                        <Play className="w-4 h-4" />
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => syncSingleRule(rule.id)}
+                          disabled={rule.id.startsWith('temp-') || saving}
+                          title="Sync this rule"
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteRule(rule.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                        {/* Sync status */}
+                        {rule.is_enabled && !rule.id.startsWith('temp-') && (
+                          rule.last_synced_at ? (
+                            <div className="flex items-center gap-1 text-green-600 min-w-[70px]">
+                              <Cloud className="w-4 h-4" />
+                              <span className="text-xs">{formatSyncTime(rule.last_synced_at)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-muted-foreground min-w-[70px]">
+                              <CloudOff className="w-4 h-4" />
+                              <span className="text-xs">Pending</span>
+                            </div>
+                          )
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteRule(rule.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Advanced toggle */}
+                      <div className="flex items-center gap-2 pl-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateRule(rule.id, 'is_advanced', !rule.is_advanced)}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          {rule.is_advanced ? (
+                            <>
+                              <ChevronUp className="w-3 h-3 mr-1" />
+                              Hide Advanced
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3 mr-1" />
+                              Advanced Options
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Advanced fields */}
+                      {rule.is_advanced && (
+                        <div className="pl-1 pt-2 border-t border-border/50 space-y-3">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            All conditions must match (AND logic)
+                          </p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground w-28">Subject contains</span>
+                            <Input
+                              placeholder="e.g., Invoice, Project Alpha"
+                              value={rule.subject_contains || ''}
+                              onChange={(e) => updateRule(rule.id, 'subject_contains', e.target.value || null)}
+                              className="flex-1"
+                            />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground w-28">Body contains</span>
+                            <Input
+                              placeholder="e.g., urgent, deadline, payment"
+                              value={rule.body_contains || ''}
+                              onChange={(e) => updateRule(rule.id, 'body_contains', e.target.value || null)}
+                              className="flex-1"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
