@@ -172,6 +172,7 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         <Switch
           checked={category.is_enabled}
           onCheckedChange={(checked) => updateCategory(category.id, 'is_enabled', checked)}
+          className={category.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
         />
       </TableCell>
       <TableCell className="text-center">
@@ -179,6 +180,7 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
           checked={category.ai_draft_enabled}
           onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
           disabled={!category.is_enabled}
+          className={category.ai_draft_enabled && category.is_enabled ? 'data-[state=checked]:bg-blue-500' : ''}
         />
       </TableCell>
       <TableCell className="text-center">
@@ -186,6 +188,7 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
           checked={category.auto_reply_enabled}
           onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
           disabled={!category.is_enabled || !category.ai_draft_enabled}
+          className={category.auto_reply_enabled && category.is_enabled && category.ai_draft_enabled ? 'data-[state=checked]:bg-orange-500' : ''}
         />
       </TableCell>
       <TableCell className="text-center">
@@ -657,9 +660,9 @@ export default function Categories() {
               <TableHead className="w-16">Color</TableHead>
               <TableHead className="w-48">Category Name</TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
-              <TableHead className="w-24 text-center">Enabled</TableHead>
+              <TableHead className="w-24 text-center">Active</TableHead>
               <TableHead className="w-24 text-center">AI Draft</TableHead>
-              <TableHead className="w-28 text-center">Auto Reply</TableHead>
+              <TableHead className="w-28 text-center">Auto Send</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -760,6 +763,7 @@ export default function Categories() {
                         <Switch
                           checked={rule.is_enabled}
                           onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
+                          className={rule.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
                         />
 
                         <Button
@@ -768,20 +772,20 @@ export default function Categories() {
                           onClick={() => syncSingleRule(rule.id)}
                           disabled={rule.id.startsWith('temp-') || saving}
                           title="Sync this rule"
-                          className="text-muted-foreground hover:text-primary"
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
                         >
                           <Play className="w-4 h-4" />
                         </Button>
 
                         {/* Sync status */}
-                        {rule.is_enabled && !rule.id.startsWith('temp-') && (
+                        {!rule.id.startsWith('temp-') && (
                           rule.last_synced_at ? (
-                            <div className="flex items-center gap-1 text-green-600 min-w-[70px]">
+                            <div className="flex items-center gap-1 text-green-600 min-w-[80px]">
                               <Cloud className="w-4 h-4" />
                               <span className="text-xs">{formatSyncTime(rule.last_synced_at)}</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-muted-foreground min-w-[70px]">
+                            <div className="flex items-center gap-1 text-muted-foreground min-w-[80px]">
                               <CloudOff className="w-4 h-4" />
                               <span className="text-xs">Pending</span>
                             </div>
@@ -792,7 +796,7 @@ export default function Categories() {
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteRule(rule.id)}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
