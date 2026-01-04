@@ -70,10 +70,11 @@ interface Rule {
 }
 
 const WRITING_STYLES = [
-  { value: 'professional', label: 'Professional' },
-  { value: 'concise', label: 'Concise' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'detailed', label: 'Detailed' },
+  { value: 'professional', label: 'Professional & Polished' },
+  { value: 'friendly', label: 'Friendly & Approachable' },
+  { value: 'concierge', label: 'Concierge / White-Glove' },
+  { value: 'direct', label: 'Direct & Efficient' },
+  { value: 'empathetic', label: 'Empathetic & Supportive' },
 ];
 
 const DEFAULT_CATEGORIES = [
