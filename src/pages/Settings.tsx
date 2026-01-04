@@ -30,14 +30,16 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Only set initial values once when data first loads
   useEffect(() => {
     if (!organization?.id) return;
     
-    setOrgName(organization.name);
-    setFullName(profile?.full_name || '');
+    // Only set if not already set (prevents overwriting user edits)
+    setOrgName(prev => prev || organization.name);
+    setFullName(prev => prev || profile?.full_name || '');
     
     fetchAISettings();
-  }, [organization?.id, profile]);
+  }, [organization?.id]);
 
   const fetchAISettings = async () => {
     if (!organization?.id) return;
@@ -136,16 +138,17 @@ export default function Settings() {
       </div>
 
       <div className="space-y-8">
-        {/* Organization Settings */}
+        {/* Workspace Settings */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Organization</h2>
+          <h2 className="text-lg font-semibold">Workspace</h2>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
+              <Label htmlFor="orgName">My Workspace Name</Label>
               <Input
                 id="orgName"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Enter your workspace name"
               />
             </div>
           </div>
