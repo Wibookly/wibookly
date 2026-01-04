@@ -65,49 +65,30 @@ export default function Sync() {
     setSyncing(true);
 
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .insert({
-          organization_id: organization.id,
-          user_id: profile.user_id,
-          job_type: 'sync',
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Simulate job starting
-      setTimeout(async () => {
-        await supabase
-          .from('jobs')
-          .update({ status: 'running', started_at: new Date().toISOString() })
-          .eq('id', data.id);
-        
-        // Simulate job completing
-        setTimeout(async () => {
-          await supabase
-            .from('jobs')
-            .update({ status: 'completed', completed_at: new Date().toISOString() })
-            .eq('id', data.id);
-          fetchJobs();
-          setSyncing(false);
-        }, 2000);
-      }, 500);
-
       toast({
         title: 'Sync Started',
         description: 'Synchronizing your emails...'
       });
+
+      // Call server-side Edge Function to handle job processing
+      const { data, error } = await supabase.functions.invoke('process-sync-job');
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sync Completed',
+        description: data?.message || 'Your emails have been synchronized.'
+      });
       
       fetchJobs();
     } catch (error) {
+      console.error('Sync error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to start sync',
+        description: 'Failed to complete sync',
         variant: 'destructive'
       });
+    } finally {
       setSyncing(false);
     }
   };
