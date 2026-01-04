@@ -25,6 +25,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, organizationName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  setSelectedOrganization: (orgId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -206,8 +207,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setSelectedOrganization = async (orgId: string) => {
+    // Fetch the organization and update profile context
+    try {
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      if (orgData) {
+        setOrganization(orgData as Organization);
+      }
+    } catch (error) {
+      console.error('Error setting organization:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, organization, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, organization, loading, signUp, signIn, signOut, setSelectedOrganization }}>
       {children}
     </AuthContext.Provider>
   );
