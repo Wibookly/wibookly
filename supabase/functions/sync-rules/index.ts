@@ -239,15 +239,21 @@ async function applyGmailFilter(accessToken: string, rule: any, labelId: string)
       const advancedParts: string[] = [];
 
       if (rule.subject_contains) {
-        advancedParts.push(`subject:${rule.subject_contains}`);
-        // Add to criteria if no primary query
-        if (!criteria.query) {
-          criteria.subject = rule.subject_contains;
-        }
+        // Use quotes for exact phrase matching in subject
+        const subjectTerm = rule.subject_contains.includes(' ') 
+          ? `subject:"${rule.subject_contains}"`
+          : `subject:${rule.subject_contains}`;
+        advancedParts.push(subjectTerm);
+        // Always add to criteria.subject for Gmail filter
+        criteria.subject = rule.subject_contains;
       }
       if (rule.body_contains) {
-        advancedParts.push(rule.body_contains);
-        // Gmail filter criteria doesn't support body search directly
+        // Use quotes for exact phrase matching in body
+        const bodyTerm = rule.body_contains.includes(' ')
+          ? `"${rule.body_contains}"`
+          : rule.body_contains;
+        advancedParts.push(bodyTerm);
+        // Note: Gmail filter criteria doesn't support body search directly, only query
       }
 
       // Combine advanced conditions with AND or OR
