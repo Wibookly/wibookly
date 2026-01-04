@@ -192,11 +192,8 @@ export default function EmailDraft() {
     );
   }
 
-  const selectedCategoryIndex = categories.findIndex(c => c.id === selectedCategory);
-  const selectedCategoryData = selectedCategoryIndex >= 0 ? categories[selectedCategoryIndex] : null;
-  const categoryDisplayName = selectedCategoryData 
-    ? `${selectedCategoryIndex + 1}: ${selectedCategoryData.name}`
-    : "";
+  const selectedCategoryData = categories.find(c => c.id === selectedCategory);
+  const categoryDisplayName = selectedCategoryData?.name || "";
 
   return (
     <div className="space-y-6">
@@ -236,9 +233,9 @@ export default function EmailDraft() {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category, index) => (
+                  {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
-                      {index + 1}: {category.name}
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
