@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.oauth-callback]
 verify_jwt = false
+
+[functions.process-sync-job]
+verify_jwt = true
+
+[functions.sync-categories]
+verify_jwt = true
+
+[functions.draft-email]
+verify_jwt = true
