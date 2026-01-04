@@ -271,6 +271,7 @@ export type Database = {
       provider_connections: {
         Row: {
           connected_at: string | null
+          connected_email: string | null
           created_at: string
           id: string
           is_connected: boolean
@@ -281,6 +282,7 @@ export type Database = {
         }
         Insert: {
           connected_at?: string | null
+          connected_email?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
@@ -291,6 +293,7 @@ export type Database = {
         }
         Update: {
           connected_at?: string | null
+          connected_email?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
