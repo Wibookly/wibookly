@@ -531,15 +531,20 @@ export default function Categories() {
       }
       
       if (rulesRes.data) {
-        setRules(rulesRes.data.map(r => ({
-          ...r,
-          is_advanced: r.is_advanced ?? false,
-          subject_contains: r.subject_contains ?? null,
-          body_contains: r.body_contains ?? null,
-          condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
-          recipient_filter: r.recipient_filter ?? null,
-          last_synced_at: r.last_synced_at ?? null
-        })));
+        setRules(prev => {
+          // Preserve temporary rules that haven't been saved yet
+          const tempRules = prev.filter(r => r.id.startsWith('temp-'));
+          const dbRules = rulesRes.data.map(r => ({
+            ...r,
+            is_advanced: r.is_advanced ?? false,
+            subject_contains: r.subject_contains ?? null,
+            body_contains: r.body_contains ?? null,
+            condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
+            recipient_filter: r.recipient_filter ?? null,
+            last_synced_at: r.last_synced_at ?? null
+          }));
+          return [...dbRules, ...tempRules];
+        });
       }
     } catch (error) {
       // Silent fail for background sync - user doesn't need to know
@@ -561,15 +566,20 @@ export default function Categories() {
         .eq('organization_id', organization?.id);
       
       if (updatedRules) {
-        setRules(updatedRules.map(r => ({
-          ...r,
-          is_advanced: r.is_advanced ?? false,
-          subject_contains: r.subject_contains ?? null,
-          body_contains: r.body_contains ?? null,
-          condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
-          recipient_filter: r.recipient_filter ?? null,
-          last_synced_at: r.last_synced_at ?? null
-        })));
+        setRules(prev => {
+          // Preserve temporary rules that haven't been saved yet
+          const tempRules = prev.filter(r => r.id.startsWith('temp-'));
+          const dbRules = updatedRules.map(r => ({
+            ...r,
+            is_advanced: r.is_advanced ?? false,
+            subject_contains: r.subject_contains ?? null,
+            body_contains: r.body_contains ?? null,
+            condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
+            recipient_filter: r.recipient_filter ?? null,
+            last_synced_at: r.last_synced_at ?? null
+          }));
+          return [...dbRules, ...tempRules];
+        });
       }
       
       toast({ title: 'Rule synced' });
