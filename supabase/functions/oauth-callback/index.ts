@@ -1,6 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// AES-GCM encryption for tokens
+async function encryptToken(token: string, keyString: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(keyString.padEnd(32, '0').slice(0, 32));
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(token)
+  );
+  
+  // Combine IV and encrypted data, encode as base64
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
+}
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -37,6 +65,13 @@ serve(async (req) => {
     // Get Supabase client with service role for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
+    
+    if (!encryptionKey) {
+      console.error('TOKEN_ENCRYPTION_KEY not configured');
+      return redirectWithError('Server configuration error');
+    }
+    
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     let tokens;
@@ -55,18 +90,42 @@ serve(async (req) => {
 
     console.log(`Successfully obtained tokens for ${provider}`);
 
-    // Store or update the connection in database
+    // Encrypt tokens before storing
+    const encryptedAccessToken = await encryptToken(tokens.access_token, encryptionKey);
+    const encryptedRefreshToken = tokens.refresh_token 
+      ? await encryptToken(tokens.refresh_token, encryptionKey) 
+      : null;
+
+    const expiresAt = tokens.expires_in 
+      ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+      : null;
+
+    // Store encrypted tokens in the vault (not readable by clients)
+    const { error: vaultError } = await supabase
+      .from('oauth_token_vault')
+      .upsert({
+        user_id: userId,
+        provider: provider,
+        encrypted_access_token: encryptedAccessToken,
+        encrypted_refresh_token: encryptedRefreshToken,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,provider'
+      });
+
+    if (vaultError) {
+      console.error('Token vault error:', vaultError);
+      return redirectWithError('Failed to save tokens securely');
+    }
+
+    // Update provider_connections with status only (NO TOKENS)
     const { error: dbError } = await supabase
       .from('provider_connections')
       .upsert({
         user_id: userId,
         organization_id: organizationId,
         provider: provider,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token || null,
-        token_expires_at: tokens.expires_in 
-          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-          : null,
         is_connected: true,
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -79,7 +138,7 @@ serve(async (req) => {
       return redirectWithError('Failed to save connection');
     }
 
-    console.log(`Connection saved for ${provider}`);
+    console.log(`Connection saved for ${provider} (tokens encrypted in vault)`);
 
     // Redirect back to the app
     const appUrl = getAppUrl();
