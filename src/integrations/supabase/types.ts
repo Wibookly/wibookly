@@ -19,6 +19,7 @@ export type Database = {
           activity_type: string
           category_id: string | null
           category_name: string
+          connection_id: string | null
           created_at: string
           email_from: string | null
           email_subject: string | null
@@ -30,6 +31,7 @@ export type Database = {
           activity_type: string
           category_id?: string | null
           category_name: string
+          connection_id?: string | null
           created_at?: string
           email_from?: string | null
           email_subject?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           activity_type?: string
           category_id?: string | null
           category_name?: string
+          connection_id?: string | null
           created_at?: string
           email_from?: string | null
           email_subject?: string | null
@@ -54,6 +57,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_activity_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
             referencedColumns: ["id"]
           },
           {

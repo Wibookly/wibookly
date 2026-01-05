@@ -1376,6 +1376,7 @@ async function processConnectionEmails(
             await supabaseAdmin.from('ai_activity_logs').insert({
               organization_id: organizationId,
               user_id: userId,
+              connection_id: connectionId,
               category_id: category.id,
               category_name: category.name,
               activity_type: 'draft',
@@ -1453,6 +1454,7 @@ async function processConnectionEmails(
             await supabaseAdmin.from('ai_activity_logs').insert({
               organization_id: organizationId,
               user_id: userId,
+              connection_id: connectionId,
               category_id: category.id,
               category_name: category.name,
               activity_type: 'auto_reply',

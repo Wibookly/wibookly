@@ -69,23 +69,24 @@ export default function AIActivityDashboard() {
   };
 
   useEffect(() => {
-    if (organization?.id) {
+    if (organization?.id && activeConnection?.id) {
       fetchActivityData();
     }
-  }, [organization?.id, dateRange, customStartDate, customEndDate]);
+  }, [organization?.id, activeConnection?.id, dateRange, customStartDate, customEndDate]);
 
   const fetchActivityData = async () => {
-    if (!organization?.id) return;
+    if (!organization?.id || !activeConnection?.id) return;
     setLoading(true);
 
     try {
       const { start, end } = getDateRange();
 
-      // Fetch activity logs
+      // Fetch activity logs filtered by connection
       const { data: logs, error } = await supabase
         .from('ai_activity_logs')
         .select('*')
         .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
@@ -190,10 +191,32 @@ export default function AIActivityDashboard() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || emailLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeConnection) {
+    return (
+      <div className="min-h-full p-4 lg:p-6">
+        <div className="max-w-6xl mb-4 flex justify-end">
+          <UserAvatarDropdown />
+        </div>
+        <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <MailIcon className="w-12 h-12 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
+            <p className="text-muted-foreground mb-6">
+              Connect a Gmail or Outlook account to view AI activity
+            </p>
+            <Button onClick={() => window.location.href = '/integrations'}>
+              Connect Email Account
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
