@@ -88,12 +88,17 @@ export default function Settings() {
     if (!organization?.id) return;
     
     const profileData = profile as unknown as Record<string, unknown>;
+    const savedCustomSignature = (profileData?.email_signature as string) || '';
     
     // Only set if not already set (prevents overwriting user edits)
     setOrgName(prev => prev || organization.name);
     setFullName(prev => prev || profile?.full_name || '');
     setTitle(prev => prev || profile?.title || '');
-    setEmailSignature(prev => prev || (profileData?.email_signature as string) || '');
+    setEmailSignature(prev => prev || savedCustomSignature);
+    
+    // If user has a custom pasted signature, use that mode; otherwise default to builder
+    setUseCustomSignature(!!savedCustomSignature);
+    
     setSignatureFields(prev => ({
       phone: prev.phone || (profileData?.phone as string) || '',
       mobile: prev.mobile || (profileData?.mobile as string) || '',
@@ -536,7 +541,7 @@ export default function Settings() {
               <div className="space-y-3">
                 <Label htmlFor="emailSignature">Custom Signature</Label>
                 <p className="text-xs text-muted-foreground">
-                  Paste or type your custom signature below. You can include HTML formatting or plain text.
+                  Paste or type your custom signature below.
                 </p>
                 <textarea
                   id="emailSignature"
@@ -561,7 +566,9 @@ CEO, Company Name
               <div 
                 className="p-4 bg-background rounded-md border border-border min-h-[80px]"
                 dangerouslySetInnerHTML={{ 
-                  __html: emailSignature || generateSignaturePreview(fullName, title, profile?.email || '', signatureFields)
+                  __html: useCustomSignature && emailSignature 
+                    ? emailSignature 
+                    : generateSignaturePreview(fullName, title, profile?.email || '', signatureFields)
                 }}
               />
             </div>
