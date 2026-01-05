@@ -9,6 +9,7 @@ interface UserProfile {
   organization_id: string;
   email: string;
   full_name: string | null;
+  title: string | null;
 }
 
 interface Organization {
@@ -22,7 +23,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   organization: Organization | null;
   loading: boolean;
-  signUp: (email: string, password: string, organizationName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, organizationName: string, fullName: string, title?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setSelectedOrganization: (orgId: string) => void;
@@ -92,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, organizationName: string) => {
+  const signUp = async (email: string, password: string, organizationName: string, fullName: string, title?: string) => {
     try {
       // Validate inputs
       const emailValidation = validateField(emailSchema, email);
@@ -132,13 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (orgError) throw orgError;
 
-      // Create user profile
+      // Create user profile with full name and title
       const { error: profileError } = await supabase
         .from('user_profiles')
         .insert({
           user_id: authData.user.id,
           organization_id: orgData.id,
-          email: email
+          email: email,
+          full_name: fullName,
+          title: title || null
         });
 
       if (profileError) throw profileError;

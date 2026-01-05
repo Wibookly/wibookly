@@ -16,7 +16,9 @@ const signInSchema = z.object({
 });
 
 const signUpSchema = signInSchema.extend({
-  organizationName: z.string().min(2, 'Organization name must be at least 2 characters').max(100, 'Organization name is too long')
+  fullName: z.string().min(2, 'Full name must be at least 2 characters').max(100, 'Full name is too long'),
+  organizationName: z.string().min(2, 'Organization name must be at least 2 characters').max(100, 'Organization name is too long'),
+  title: z.string().max(100, 'Title is too long').optional()
 });
 
 interface UserOrganization {
@@ -32,7 +34,9 @@ export default function Auth() {
   const [mode, setMode] = useState<AuthMode>(searchParams.get('mode') === 'signup' ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [userOrganizations, setUserOrganizations] = useState<UserOrganization[]>([]);
@@ -51,7 +55,7 @@ export default function Auth() {
   const validateForm = () => {
     try {
       if (mode === 'signup') {
-        signUpSchema.parse({ email, password, organizationName });
+        signUpSchema.parse({ email, password, fullName, organizationName, title: title || undefined });
       } else if (mode === 'signin') {
         signInSchema.parse({ email, password });
       } else if (mode === 'forgot-password') {
@@ -121,7 +125,7 @@ export default function Auth() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await signUp(email, password, organizationName);
+        const { error } = await signUp(email, password, organizationName, fullName, title || undefined);
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
