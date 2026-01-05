@@ -588,7 +588,9 @@ async function generateAIDraft(
   emailFrom: string,
   categoryName: string,
   writingStyle: string,
-  formatStyle: string = 'concise'
+  formatStyle: string = 'concise',
+  senderName: string | null = null,
+  senderTitle: string | null = null
 ): Promise<string | null> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) {
@@ -600,6 +602,18 @@ async function generateAIDraft(
   const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle] || WRITING_STYLE_PROMPTS.professional;
   const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
   const categoryContext = CATEGORY_CONTEXT[cleanCategory] || '';
+
+  // Build signature instruction
+  let signatureInstruction = '';
+  if (senderName) {
+    signatureInstruction = `\n\nSIGNATURE: End the email with the sender's name: "${senderName}"`;
+    if (senderTitle) {
+      signatureInstruction += `\nInclude their title: "${senderTitle}"`;
+    }
+    signatureInstruction += `\nFormat the sign-off like:
+Best regards,
+${senderName}${senderTitle ? `\n${senderTitle}` : ''}`;
+  }
 
   const systemPrompt = `You are an expert email assistant. Generate a reply to the email below.
 
@@ -616,9 +630,9 @@ CRITICAL RULES (MUST FOLLOW):
 3. Generate a complete, ready-to-send email reply
 4. Do NOT include the subject line
 5. Start with an appropriate greeting matching the style
-6. End with a sign-off matching the style
+6. End with a sign-off matching the style, using the sender's name if provided
 7. Address the sender's main points
-8. Output ONLY the email text - no explanations or notes`;
+8. Output ONLY the email text - no explanations or notes${signatureInstruction}`;
 
   const userPrompt = `Reply to this email:
 
@@ -628,7 +642,7 @@ SUBJECT: ${emailSubject}
 BODY:
 ${emailBody.substring(0, 3000)}`;
 
-  console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}`);
+  console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}, sender: ${senderName || 'not specified'}`);
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1219,7 +1233,9 @@ serve(async (req) => {
             emailDetails.from,
             category.name,
             category.writing_style,
-            'concise' // Default format - could be made configurable per category later
+            'concise', // Default format - could be made configurable per category later
+            profile.full_name || null,
+            profile.title || null
           );
 
           if (!draftContent) {
