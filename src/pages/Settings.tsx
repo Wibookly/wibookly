@@ -27,6 +27,8 @@ export default function Settings() {
   const { toast } = useToast();
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
+  const [title, setTitle] = useState('');
+  const [emailSignature, setEmailSignature] = useState('');
   const [aiSettings, setAiSettings] = useState<AISettings>({
     writing_style: 'professional',
     ai_draft_label_color: '#3B82F6',
@@ -42,6 +44,8 @@ export default function Settings() {
     // Only set if not already set (prevents overwriting user edits)
     setOrgName(prev => prev || organization.name);
     setFullName(prev => prev || profile?.full_name || '');
+    setTitle(prev => prev || profile?.title || '');
+    setEmailSignature(prev => prev || (profile as unknown as Record<string, unknown>)?.email_signature as string || '');
     
     fetchAISettings();
   }, [organization?.id]);
@@ -101,7 +105,11 @@ export default function Settings() {
       // Update user profile
       await supabase
         .from('user_profiles')
-        .update({ full_name: fullNameValidation.data || null })
+        .update({ 
+          full_name: fullNameValidation.data || null,
+          title: title || null,
+          email_signature: emailSignature || null
+        })
         .eq('user_id', profile.user_id);
 
       // Update AI settings
@@ -190,6 +198,15 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="title">Title (Optional)</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. CEO, Sales Manager, Developer"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Email</Label>
               <Input value={profile?.email || ''} disabled className="bg-muted" />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
@@ -197,6 +214,29 @@ export default function Settings() {
             <div className="space-y-2">
               <Label>Role</Label>
               <Input value="Admin" disabled className="bg-muted" />
+            </div>
+          </div>
+        </section>
+
+        {/* Email Signature */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Email Signature</h2>
+          <p className="text-sm text-muted-foreground">
+            Add a custom signature that will be used in AI-generated emails. Leave blank to use your name and title.
+          </p>
+          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
+            <div className="space-y-2">
+              <Label htmlFor="emailSignature">Custom Signature (Optional)</Label>
+              <textarea
+                id="emailSignature"
+                value={emailSignature}
+                onChange={(e) => setEmailSignature(e.target.value)}
+                placeholder={`Best regards,\n${fullName || 'Your Name'}${title ? `\n${title}` : ''}\nPhone: (555) 123-4567\nLinkedIn: linkedin.com/in/yourprofile`}
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-xs text-muted-foreground">
+                Include your full sign-off with name, title, phone, social links, etc.
+              </p>
             </div>
           </div>
         </section>
