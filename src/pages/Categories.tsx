@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -228,7 +228,7 @@ export default function Categories() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [processingAI, setProcessingAI] = useState(false);
+  
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoad = useRef(true);
 
@@ -648,45 +648,6 @@ export default function Categories() {
     return rules.filter(r => r.category_id === categoryId);
   };
 
-  const processAIEmails = async () => {
-    setProcessingAI(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('process-ai-emails');
-      
-      if (error) {
-        console.error('AI processing error:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to process AI emails',
-          variant: 'destructive'
-        });
-      } else {
-        const draftsCreated = data?.draftsCreated || 0;
-        const autoRepliesSent = data?.autoRepliesSent || 0;
-        
-        if (draftsCreated > 0 || autoRepliesSent > 0) {
-          toast({
-            title: 'AI Processing Complete',
-            description: `Created ${draftsCreated} draft(s), sent ${autoRepliesSent} auto-reply(ies)`
-          });
-        } else {
-          toast({
-            title: 'AI Processing Complete',
-            description: 'No new emails to process'
-          });
-        }
-      }
-    } catch (error) {
-      console.error('AI processing error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to process AI emails',
-        variant: 'destructive'
-      });
-    } finally {
-      setProcessingAI(false);
-    }
-  };
 
   // Get display name with number prefix
   const getDisplayName = (category: Category, index: number) => {
@@ -717,20 +678,6 @@ export default function Categories() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Button
-              onClick={processAIEmails}
-              disabled={processingAI}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              {processingAI ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              {processingAI ? 'Processing...' : 'Process AI Emails'}
-            </Button>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {saving ? (
                 <>
