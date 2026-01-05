@@ -358,7 +358,8 @@ OUTPUT RULES:
 - Keep responses appropriate for the category
 - Do not include subject line in your response
 - Start directly with the greeting
-- End with an appropriate sign-off using the sender's name if provided
+- DO NOT include any closing phrases like "Thank you", "Thanks", "Best regards", "Sincerely", "Kind regards", "Warm regards", or similar sign-offs - the signature will be added automatically and already contains these
+- End with the last sentence of your actual email content, NOT a closing phrase
 - Do not add explanations before or after the email - just the email content
 - Output ONLY the email text, nothing else${signatureInstruction}
 ${SYSTEM_DELIMITER}`;

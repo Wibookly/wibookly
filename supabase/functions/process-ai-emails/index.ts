@@ -619,8 +619,8 @@ CRITICAL RULES (MUST FOLLOW):
 3. Generate a complete, ready-to-send email reply BODY ONLY
 4. Do NOT include the subject line
 5. Start with an appropriate greeting matching the style (e.g., "Dear ${senderName ? 'Ali' : 'recipient'},")
-6. DO NOT include any sign-off like "Best regards" or your name - the signature will be added automatically
-7. End your response with the last sentence of the email body content
+6. DO NOT include any closing phrases like "Thank you", "Thanks", "Best regards", "Sincerely", "Kind regards", "Warm regards", or similar sign-offs - the signature will be added automatically and already contains these
+7. End your response with the last sentence of your actual email content, NOT a closing phrase or sign-off
 8. Address the sender's main points
 9. Output ONLY the email text - no explanations or notes`;
 
