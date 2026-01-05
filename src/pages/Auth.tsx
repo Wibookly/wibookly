@@ -339,19 +339,51 @@ export default function Auth() {
             )}
 
             {mode === 'signup' && (
-              <div className="space-y-2">
-                <Label htmlFor="organization">Organization Name</Label>
-                <Input
-                  id="organization"
-                  type="text"
-                  placeholder="Acme Inc."
-                  value={organizationName}
-                  onChange={(e) => setOrganizationName(e.target.value)}
-                  disabled={loading}
-                  className={errors.organizationName ? 'border-destructive' : ''}
-                />
-                {errors.organizationName && <p className="text-xs text-destructive">{errors.organizationName}</p>}
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={loading}
+                    className={errors.fullName ? 'border-destructive' : ''}
+                  />
+                  {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+                  <p className="text-xs text-muted-foreground">Used for AI-generated email signatures</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="organization">Organization Name <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="organization"
+                    type="text"
+                    placeholder="Acme Inc."
+                    value={organizationName}
+                    onChange={(e) => setOrganizationName(e.target.value)}
+                    disabled={loading}
+                    className={errors.organizationName ? 'border-destructive' : ''}
+                  />
+                  {errors.organizationName && <p className="text-xs text-destructive">{errors.organizationName}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                  <Input
+                    id="title"
+                    type="text"
+                    placeholder="e.g. Sales Manager, CEO"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={loading}
+                    className={errors.title ? 'border-destructive' : ''}
+                  />
+                  {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+                  <p className="text-xs text-muted-foreground">You can add your full email signature in Settings later</p>
+                </div>
+              </>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>

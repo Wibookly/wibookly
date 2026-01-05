@@ -587,6 +587,7 @@ export type Database = {
           full_name: string
           id: string
           organization_id: string
+          title: string
           updated_at: string
           user_id: string
         }[]

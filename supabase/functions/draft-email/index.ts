@@ -215,6 +215,12 @@ serve(async (req) => {
     }
 
     console.log(`Authenticated user: ${user.id}`);
+    
+    // Get user's profile for name and title
+    const { data: profileRows } = await supabaseClient.rpc('get_my_profile');
+    const profile = profileRows?.[0];
+    const senderName = profile?.full_name || null;
+    const senderTitle = profile?.title || null;
     // ===== END AUTHENTICATION CHECK =====
 
     const rawBody = await req.json();
@@ -263,6 +269,18 @@ serve(async (req) => {
 ${sanitizedExampleReply}`;
     }
 
+    // Build signature instruction
+    let signatureInstruction = '';
+    if (senderName) {
+      signatureInstruction = `\n\nSIGNATURE: End the email with the sender's name: "${senderName}"`;
+      if (senderTitle) {
+        signatureInstruction += `\nInclude their title: "${senderTitle}"`;
+      }
+      signatureInstruction += `\nFormat the sign-off like:
+Best regards,
+${senderName}${senderTitle ? `\n${senderTitle}` : ''}`;
+    }
+
     // Build the system prompt with structured delimiters to prevent injection
     const systemPrompt = `${SYSTEM_DELIMITER}
 You are an expert email assistant for business communication.
@@ -290,9 +308,9 @@ OUTPUT RULES:
 - Keep responses appropriate for the category
 - Do not include subject line in your response
 - Start directly with the greeting
-- End with an appropriate sign-off
+- End with an appropriate sign-off using the sender's name if provided
 - Do not add explanations before or after the email - just the email content
-- Output ONLY the email text, nothing else
+- Output ONLY the email text, nothing else${signatureInstruction}
 ${SYSTEM_DELIMITER}`;
 
     // Build the user prompt for generating a reply template (using sanitized input)

@@ -74,7 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profileData = profileRows?.[0];
 
       if (profileData) {
-        setProfile(profileData as UserProfile);
+        setProfile({
+          id: profileData.id,
+          user_id: profileData.user_id,
+          organization_id: profileData.organization_id,
+          email: profileData.email,
+          full_name: profileData.full_name,
+          title: profileData.title ?? null
+        });
 
         const { data: orgData } = await supabase
           .from('organizations')
