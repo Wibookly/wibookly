@@ -50,6 +50,7 @@ export default function Settings() {
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
   const [emailSignature, setEmailSignature] = useState('');
+  const [useCustomSignature, setUseCustomSignature] = useState(false);
   const [signatureFields, setSignatureFields] = useState<SignatureFields>({
     phone: '',
     mobile: '',
@@ -217,20 +218,23 @@ export default function Settings() {
     }
 
     return `
-      <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
-        <tr>
-          ${fields.signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
-            <img src="${fields.signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
-          </td>` : ''}
-          <td style="vertical-align: top; ${fields.signatureLogoUrl ? 'padding-left: 16px;' : ''}">
-            ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
-            ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
-            <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
-              ${contactLines.join('')}
-            </table>
-          </td>
-        </tr>
-      </table>
+      <div style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
+        <p style="margin: 0 0 12px 0;">Best regards,</p>
+        <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
+          <tr>
+            ${fields.signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+              <img src="${fields.signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
+            </td>` : ''}
+            <td style="vertical-align: top; ${fields.signatureLogoUrl ? 'padding-left: 16px;' : ''}">
+              ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
+              ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
+              <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
+                ${contactLines.join('')}
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
     `;
   };
 
@@ -311,191 +315,224 @@ export default function Settings() {
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Email Signature</h2>
           <p className="text-sm text-muted-foreground">
-            Build your email signature with the fields below, or paste your own HTML signature. This will be used in all AI-generated emails.
+            Build your email signature with the fields below, or paste your own custom signature. This will be used in all AI-generated emails.
           </p>
           <div className="space-y-6 p-6 bg-card rounded-lg border border-border">
-            {/* Font & Color Settings */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="sigFont">Font</Label>
-                <Select
-                  value={signatureFields.font}
-                  onValueChange={(value) => setSignatureFields(prev => ({ ...prev, font: value }))}
+            {/* Signature Mode Toggle */}
+            <div className="flex items-center gap-4 pb-4 border-b border-border">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={!useCustomSignature ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseCustomSignature(false)}
                 >
-                  <SelectTrigger id="sigFont">
-                    <SelectValue placeholder="Select font" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FONT_OPTIONS.map((font) => (
-                      <SelectItem key={font.value} value={font.value}>
-                        <span style={{ fontFamily: font.value }}>{font.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sigColor">Text Color</Label>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                    style={{ backgroundColor: signatureFields.color }}
-                  >
-                    <input
-                      type="color"
-                      id="sigColor"
-                      value={signatureFields.color}
-                      onChange={(e) => setSignatureFields(prev => ({ ...prev, color: e.target.value }))}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                  </div>
-                  <span className="text-sm font-mono text-muted-foreground">{signatureFields.color}</span>
-                </div>
+                  Use Signature Builder
+                </Button>
+                <Button
+                  type="button"
+                  variant={useCustomSignature ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseCustomSignature(true)}
+                >
+                  Paste Custom Signature
+                </Button>
               </div>
             </div>
 
-            {/* Contact Fields */}
-            <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
-              <div className="space-y-2">
-                <Label htmlFor="sigPhone">Phone (Optional)</Label>
-                <Input
-                  id="sigPhone"
-                  type="tel"
-                  value={signatureFields.phone}
-                  onChange={(e) => setSignatureFields(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sigMobile">Mobile (Optional)</Label>
-                <Input
-                  id="sigMobile"
-                  type="tel"
-                  value={signatureFields.mobile}
-                  onChange={(e) => setSignatureFields(prev => ({ ...prev, mobile: e.target.value }))}
-                  placeholder="+1 (555) 987-6543"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sigWebsite">Website (Optional)</Label>
-                <Input
-                  id="sigWebsite"
-                  type="url"
-                  value={signatureFields.website}
-                  onChange={(e) => setSignatureFields(prev => ({ ...prev, website: e.target.value }))}
-                  placeholder="https://yourcompany.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sigEmail">Email</Label>
-                <Input 
-                  id="sigEmail"
-                  value={profile?.email || ''} 
-                  disabled 
-                  className="bg-muted" 
-                />
-              </div>
-            </div>
-            
-            {/* Logo Upload */}
-            <div className="space-y-3 pt-4 border-t border-border">
-              <Label>Signature Logo (Optional)</Label>
-              <div className="flex items-start gap-4">
-                {signatureFields.signatureLogoUrl ? (
-                  <div className="relative">
-                    <img 
-                      src={signatureFields.signatureLogoUrl} 
-                      alt="Signature logo" 
-                      className="h-16 w-auto object-contain rounded border border-border bg-background p-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSignatureFields(prev => ({ ...prev, signatureLogoUrl: '' }))}
-                      className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            {!useCustomSignature ? (
+              <>
+                {/* Font & Color Settings */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="sigFont">Font</Label>
+                    <Select
+                      value={signatureFields.font}
+                      onValueChange={(value) => setSignatureFields(prev => ({ ...prev, font: value }))}
                     >
-                      <X className="w-3 h-3" />
-                    </button>
+                      <SelectTrigger id="sigFont">
+                        <SelectValue placeholder="Select font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FONT_OPTIONS.map((font) => (
+                          <SelectItem key={font.value} value={font.value}>
+                            <span style={{ fontFamily: font.value }}>{font.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
-                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <Label htmlFor="sigColor">Text Color</Label>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: signatureFields.color }}
+                      >
+                        <input
+                          type="color"
+                          id="sigColor"
+                          value={signatureFields.color}
+                          onChange={(e) => setSignatureFields(prev => ({ ...prev, color: e.target.value }))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-sm font-mono text-muted-foreground">{signatureFields.color}</span>
+                    </div>
                   </div>
-                )}
-                <div className="flex flex-col gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file || !profile?.user_id) return;
-                      
-                      setUploadingLogo(true);
-                      try {
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${profile.user_id}/logo-${Date.now()}.${fileExt}`;
-                        
-                        const { error: uploadError } = await supabase.storage
-                          .from('signature-logos')
-                          .upload(fileName, file, { upsert: true });
-                        
-                        if (uploadError) throw uploadError;
-                        
-                        const { data: { publicUrl } } = supabase.storage
-                          .from('signature-logos')
-                          .getPublicUrl(fileName);
-                        
-                        setSignatureFields(prev => ({ ...prev, signatureLogoUrl: publicUrl }));
-                        toast({ title: 'Logo uploaded successfully' });
-                      } catch (error) {
-                        console.error('Upload error:', error);
-                        toast({ 
-                          title: 'Upload failed', 
-                          description: 'Could not upload logo',
-                          variant: 'destructive' 
-                        });
-                      } finally {
-                        setUploadingLogo(false);
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                  >
-                    {uploadingLogo ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4 mr-2" />
-                    )}
-                    Upload Logo
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    PNG, JPG up to 2MB. Recommended: 200x50px
-                  </p>
                 </div>
-              </div>
-            </div>
 
-            {/* Custom HTML Signature */}
-            <div className="space-y-3 pt-4 border-t border-border">
-              <Label htmlFor="emailSignature">Custom HTML Signature (Optional)</Label>
-              <p className="text-xs text-muted-foreground">
-                Override the auto-generated signature with your own HTML. Leave blank to use the fields above.
-              </p>
-              <textarea
-                id="emailSignature"
-                value={emailSignature}
-                onChange={(e) => setEmailSignature(e.target.value)}
-                placeholder={`Paste your HTML signature here, or leave blank to auto-generate from fields above.`}
-                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
+                {/* Contact Fields */}
+                <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <Label htmlFor="sigPhone">Phone (Optional)</Label>
+                    <Input
+                      id="sigPhone"
+                      type="tel"
+                      value={signatureFields.phone}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="(888) 888-8888"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sigMobile">Mobile (Optional)</Label>
+                    <Input
+                      id="sigMobile"
+                      type="tel"
+                      value={signatureFields.mobile}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, mobile: e.target.value }))}
+                      placeholder="(888) 888-8888"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sigWebsite">Website (Optional)</Label>
+                    <Input
+                      id="sigWebsite"
+                      type="url"
+                      value={signatureFields.website}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, website: e.target.value }))}
+                      placeholder="https://yourcompany.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sigEmail">Email</Label>
+                    <Input 
+                      id="sigEmail"
+                      value={profile?.email || ''} 
+                      disabled 
+                      className="bg-muted" 
+                    />
+                  </div>
+                </div>
+                
+                {/* Logo Upload */}
+                <div className="space-y-3 pt-4 border-t border-border">
+                  <Label>Signature Logo (Optional)</Label>
+                  <div className="flex items-start gap-4">
+                    {signatureFields.signatureLogoUrl ? (
+                      <div className="relative">
+                        <img 
+                          src={signatureFields.signatureLogoUrl} 
+                          alt="Signature logo" 
+                          className="h-16 w-auto object-contain rounded border border-border bg-background p-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSignatureFields(prev => ({ ...prev, signatureLogoUrl: '' }))}
+                          className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
+                        <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !profile?.user_id) return;
+                          
+                          setUploadingLogo(true);
+                          try {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `${profile.user_id}/logo-${Date.now()}.${fileExt}`;
+                            
+                            const { error: uploadError } = await supabase.storage
+                              .from('signature-logos')
+                              .upload(fileName, file, { upsert: true });
+                            
+                            if (uploadError) throw uploadError;
+                            
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('signature-logos')
+                              .getPublicUrl(fileName);
+                            
+                            setSignatureFields(prev => ({ ...prev, signatureLogoUrl: publicUrl }));
+                            toast({ title: 'Logo uploaded successfully' });
+                          } catch (error) {
+                            console.error('Upload error:', error);
+                            toast({ 
+                              title: 'Upload failed', 
+                              description: 'Could not upload logo',
+                              variant: 'destructive' 
+                            });
+                          } finally {
+                            setUploadingLogo(false);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingLogo}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        Upload Logo
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPG up to 2MB. Recommended: 200x50px
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Custom Signature Input */
+              <div className="space-y-3">
+                <Label htmlFor="emailSignature">Custom Signature</Label>
+                <p className="text-xs text-muted-foreground">
+                  Paste or type your custom signature below. You can include HTML formatting or plain text.
+                </p>
+                <textarea
+                  id="emailSignature"
+                  value={emailSignature}
+                  onChange={(e) => setEmailSignature(e.target.value)}
+                  placeholder={`Best regards,
+
+John Doe
+CEO, Company Name
+📞 Main: (888) 888-8888
+📱 Mobile: (888) 888-8888
+🌐 yourcompany.com
+✉️ john@yourcompany.com`}
+                  className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+            )}
             
             {/* Preview */}
             <div className="space-y-3 pt-4 border-t border-border">

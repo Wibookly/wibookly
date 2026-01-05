@@ -293,7 +293,7 @@ ${sanitizedExampleReply}`;
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact signature (do not modify it):
 ${emailSignature}`;
     } else if (senderName || phone || mobile || website || signatureLogoUrl) {
-      // Generate HTML signature with logo on left, contact info on right (matching reference layout)
+      // Generate HTML signature with "Best regards," + logo on left, contact info on right
       const contactLines: string[] = [];
       if (phone) {
         contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${phone}</td></tr>`);
@@ -310,20 +310,23 @@ ${emailSignature}`;
       }
 
       const generatedSignature = `
-<table cellpadding="0" cellspacing="0" border="0" style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">
-  <tr>
-    ${signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
-      <img src="${signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
-    </td>` : ''}
-    <td style="vertical-align: top; ${signatureLogoUrl ? 'padding-left: 16px;' : ''}">
-      ${senderName ? `<div style="font-size: 16px; font-weight: bold; color: ${signatureColor}; margin-bottom: 2px;">${senderName}</div>` : ''}
-      ${senderTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${senderTitle}</div>` : ''}
-      <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${signatureColor};">
-        ${contactLines.join('')}
-      </table>
-    </td>
-  </tr>
-</table>`;
+<div style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">
+  <p style="margin: 0 0 12px 0;">Best regards,</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">
+    <tr>
+      ${signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+        <img src="${signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
+      </td>` : ''}
+      <td style="vertical-align: top; ${signatureLogoUrl ? 'padding-left: 16px;' : ''}">
+        ${senderName ? `<div style="font-size: 16px; font-weight: bold; color: ${signatureColor}; margin-bottom: 2px;">${senderName}</div>` : ''}
+        ${senderTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${senderTitle}</div>` : ''}
+        <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${signatureColor};">
+          ${contactLines.join('')}
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>`;
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact HTML signature (do not modify it):
 ${generatedSignature}`;
     }
