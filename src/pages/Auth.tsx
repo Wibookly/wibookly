@@ -48,7 +48,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && mode !== 'select-org') {
-      navigate('/dashboard');
+      navigate('/integrations');
     }
   }, [user, navigate, mode]);
 
@@ -108,7 +108,7 @@ export default function Auth() {
 
   const handleSelectOrganization = (org: UserOrganization) => {
     setSelectedOrganization(org.id);
-    navigate('/dashboard');
+    navigate('/integrations');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,7 +141,7 @@ export default function Auth() {
             title: 'Account created',
             description: 'Welcome to Wibookly!'
           });
-          navigate('/dashboard');
+          navigate('/integrations');
         }
       } else {
         const { error } = await signIn(email, password);
@@ -163,15 +163,15 @@ export default function Auth() {
               _user_id: session.session.user.id
             });
             
-            if (orgs && orgs.length > 1) {
-              setUserOrganizations(orgs);
-              setMode('select-org');
+              if (orgs && orgs.length > 1) {
+                setUserOrganizations(orgs);
+                setMode('select-org');
+              } else {
+                navigate('/integrations');
+              }
             } else {
-              navigate('/dashboard');
+              navigate('/integrations');
             }
-          } else {
-            navigate('/dashboard');
-          }
         }
       }
     } catch (error: any) {
