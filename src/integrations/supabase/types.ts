@@ -499,6 +499,8 @@ export type Database = {
           mobile: string | null
           organization_id: string
           phone: string | null
+          signature_color: string | null
+          signature_font: string | null
           signature_logo_url: string | null
           title: string | null
           updated_at: string
@@ -514,6 +516,8 @@ export type Database = {
           mobile?: string | null
           organization_id: string
           phone?: string | null
+          signature_color?: string | null
+          signature_font?: string | null
           signature_logo_url?: string | null
           title?: string | null
           updated_at?: string
@@ -529,6 +533,8 @@ export type Database = {
           mobile?: string | null
           organization_id?: string
           phone?: string | null
+          signature_color?: string | null
+          signature_font?: string | null
           signature_logo_url?: string | null
           title?: string | null
           updated_at?: string

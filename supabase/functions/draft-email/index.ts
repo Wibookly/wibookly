@@ -224,7 +224,7 @@ serve(async (req) => {
     
     const { data: profileData } = await serviceClient
       .from('user_profiles')
-      .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url')
+      .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
       .eq('user_id', user.id)
       .single();
     
@@ -235,6 +235,8 @@ serve(async (req) => {
     const mobile = profileData?.mobile || null;
     const website = profileData?.website || null;
     const signatureLogoUrl = profileData?.signature_logo_url || null;
+    const signatureFont = profileData?.signature_font || 'Arial, sans-serif';
+    const signatureColor = profileData?.signature_color || '#333333';
     const userEmail = user.email || null;
     // ===== END AUTHENTICATION CHECK =====
 
@@ -291,9 +293,9 @@ ${sanitizedExampleReply}`;
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact signature (do not modify it):
 ${emailSignature}`;
     } else if (senderName || phone || mobile || website || signatureLogoUrl) {
-      // Generate HTML signature from fields
+      // Generate HTML signature from fields with font and color
       const signatureParts: string[] = [];
-      signatureParts.push('<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">');
+      signatureParts.push(`<div style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">`);
       signatureParts.push('<p style="margin: 0 0 8px 0;">Best regards,</p>');
       
       if (signatureLogoUrl) {
@@ -304,10 +306,10 @@ ${emailSignature}`;
         signatureParts.push(`<strong style="font-size: 15px;">${senderName}</strong><br/>`);
       }
       if (senderTitle) {
-        signatureParts.push(`<span style="color: #666;">${senderTitle}</span><br/>`);
+        signatureParts.push(`<span style="opacity: 0.8;">${senderTitle}</span><br/>`);
       }
       
-      signatureParts.push('<div style="margin-top: 8px; font-size: 13px; color: #555;">');
+      signatureParts.push('<div style="margin-top: 8px; font-size: 13px; opacity: 0.9;">');
       if (userEmail) {
         signatureParts.push(`Email: <a href="mailto:${userEmail}" style="color: #0066cc;">${userEmail}</a><br/>`);
       }

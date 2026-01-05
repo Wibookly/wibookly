@@ -27,7 +27,20 @@ interface SignatureFields {
   mobile: string;
   website: string;
   signatureLogoUrl: string;
+  font: string;
+  color: string;
 }
+
+const FONT_OPTIONS = [
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: 'Helvetica, sans-serif', label: 'Helvetica' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: 'Times New Roman, serif', label: 'Times New Roman' },
+  { value: 'Verdana, sans-serif', label: 'Verdana' },
+  { value: 'Tahoma, sans-serif', label: 'Tahoma' },
+  { value: 'Trebuchet MS, sans-serif', label: 'Trebuchet MS' },
+  { value: 'Courier New, monospace', label: 'Courier New' },
+];
 
 export default function Settings() {
   const { organization, profile } = useAuth();
@@ -41,7 +54,9 @@ export default function Settings() {
     phone: '',
     mobile: '',
     website: '',
-    signatureLogoUrl: ''
+    signatureLogoUrl: '',
+    font: 'Arial, sans-serif',
+    color: '#333333'
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>({
@@ -67,7 +82,9 @@ export default function Settings() {
       phone: prev.phone || (profileData?.phone as string) || '',
       mobile: prev.mobile || (profileData?.mobile as string) || '',
       website: prev.website || (profileData?.website as string) || '',
-      signatureLogoUrl: prev.signatureLogoUrl || (profileData?.signature_logo_url as string) || ''
+      signatureLogoUrl: prev.signatureLogoUrl || (profileData?.signature_logo_url as string) || '',
+      font: prev.font || (profileData?.signature_font as string) || 'Arial, sans-serif',
+      color: prev.color || (profileData?.signature_color as string) || '#333333'
     }));
     
     fetchAISettings();
@@ -135,7 +152,9 @@ export default function Settings() {
           phone: signatureFields.phone || null,
           mobile: signatureFields.mobile || null,
           website: signatureFields.website || null,
-          signature_logo_url: signatureFields.signatureLogoUrl || null
+          signature_logo_url: signatureFields.signatureLogoUrl || null,
+          signature_font: signatureFields.font || 'Arial, sans-serif',
+          signature_color: signatureFields.color || '#333333'
         } as Record<string, unknown>)
         .eq('user_id', profile.user_id);
 
@@ -172,7 +191,6 @@ export default function Settings() {
     }
   };
 
-  // Generate HTML signature preview from fields
   const generateSignaturePreview = (
     name: string, 
     userTitle: string, 
@@ -180,8 +198,10 @@ export default function Settings() {
     fields: SignatureFields
   ): string => {
     const parts: string[] = [];
+    const fontFamily = fields.font || 'Arial, sans-serif';
+    const textColor = fields.color || '#333333';
     
-    parts.push('<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">');
+    parts.push(`<div style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">`);
     parts.push('<p style="margin: 0 0 8px 0;">Best regards,</p>');
     
     if (fields.signatureLogoUrl) {
@@ -192,10 +212,10 @@ export default function Settings() {
       parts.push(`<strong style="font-size: 15px;">${name}</strong><br/>`);
     }
     if (userTitle) {
-      parts.push(`<span style="color: #666;">${userTitle}</span><br/>`);
+      parts.push(`<span style="opacity: 0.8;">${userTitle}</span><br/>`);
     }
     
-    parts.push('<div style="margin-top: 8px; font-size: 13px; color: #555;">');
+    parts.push('<div style="margin-top: 8px; font-size: 13px; opacity: 0.9;">');
     if (email) {
       parts.push(`Email: <a href="mailto:${email}" style="color: #0066cc;">${email}</a><br/>`);
     }
@@ -293,8 +313,48 @@ export default function Settings() {
             Build your email signature with the fields below, or paste your own HTML signature. This will be used in all AI-generated emails.
           </p>
           <div className="space-y-6 p-6 bg-card rounded-lg border border-border">
-            {/* Signature Fields */}
+            {/* Font & Color Settings */}
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sigFont">Font</Label>
+                <Select
+                  value={signatureFields.font}
+                  onValueChange={(value) => setSignatureFields(prev => ({ ...prev, font: value }))}
+                >
+                  <SelectTrigger id="sigFont">
+                    <SelectValue placeholder="Select font" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_OPTIONS.map((font) => (
+                      <SelectItem key={font.value} value={font.value}>
+                        <span style={{ fontFamily: font.value }}>{font.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sigColor">Text Color</Label>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                    style={{ backgroundColor: signatureFields.color }}
+                  >
+                    <input
+                      type="color"
+                      id="sigColor"
+                      value={signatureFields.color}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, color: e.target.value }))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-sm font-mono text-muted-foreground">{signatureFields.color}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Fields */}
+            <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
               <div className="space-y-2">
                 <Label htmlFor="sigPhone">Phone (Optional)</Label>
                 <Input
