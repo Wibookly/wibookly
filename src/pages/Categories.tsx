@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -221,6 +222,7 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
 
 export default function Categories() {
   const { organization } = useAuth();
+  const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
@@ -240,23 +242,29 @@ export default function Categories() {
   );
 
   useEffect(() => {
-    if (!organization?.id) return;
+    if (!organization?.id || !activeConnection?.id) {
+      if (!emailLoading) setLoading(false);
+      return;
+    }
     fetchData();
-  }, [organization?.id]);
+  }, [organization?.id, activeConnection?.id]);
 
   const fetchData = async () => {
-    if (!organization?.id) return;
+    if (!organization?.id || !activeConnection?.id) return;
+    setLoading(true);
 
     const [categoriesRes, rulesRes] = await Promise.all([
       supabase
         .from('categories')
         .select('*')
         .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
         .order('sort_order'),
       supabase
         .from('rules')
         .select('*')
         .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
     ]);
 
     if (categoriesRes.error) {
@@ -464,6 +472,7 @@ export default function Categories() {
         if (rule.id.startsWith('temp-')) {
           const { data } = await supabase.from('rules').insert({
             organization_id: organization.id,
+            connection_id: activeConnection?.id,
             category_id: rule.category_id,
             rule_type: rule.rule_type,
             rule_value: validatedValue,
@@ -510,18 +519,23 @@ export default function Categories() {
     } finally {
       setSaving(false);
     }
-  }, [organization?.id, categories, rules, toast]);
+  }, [organization?.id, activeConnection?.id, categories, rules, toast]);
 
   // Background sync categories only (rules require manual sync)
   const syncCategoriesToEmailProvider = async () => {
+    if (!activeConnection?.id) return;
+    
     try {
-      await supabase.functions.invoke('sync-categories');
+      await supabase.functions.invoke('sync-categories', {
+        body: { connectionId: activeConnection.id }
+      });
       
       // Refetch categories to get updated sync timestamps
       const categoriesRes = await supabase
         .from('categories')
         .select('*')
         .eq('organization_id', organization?.id)
+        .eq('connection_id', activeConnection.id)
         .order('sort_order');
       
       if (categoriesRes.data) {
@@ -654,10 +668,32 @@ export default function Categories() {
     return `${index + 1}: ${category.name}`;
   };
 
-  if (loading) {
+  if (loading || emailLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeConnection) {
+    return (
+      <div className="min-h-full p-4 lg:p-6">
+        <div className="max-w-6xl mb-4 flex justify-end">
+          <UserAvatarDropdown />
+        </div>
+        <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
+            <p className="text-muted-foreground mb-6">
+              Connect a Gmail or Outlook account to start managing your categories
+            </p>
+            <Button onClick={() => window.location.href = '/integrations'}>
+              Connect Email Account
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

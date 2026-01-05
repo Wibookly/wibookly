@@ -1003,8 +1003,9 @@ function buildOutlookFilter(rule: any): string {
   return filters.join(' and ');
 }
 
-// User profile with signature fields
-interface UserProfile {
+// Email profile with signature fields (per-connection profile)
+interface EmailProfile {
+  connection_id: string;
   full_name: string | null;
   title: string | null;
   email: string | null;
@@ -1018,7 +1019,7 @@ interface UserProfile {
 }
 
 // Generate HTML email signature from profile fields
-function generateEmailSignature(profile: UserProfile): string {
+function generateEmailSignature(profile: EmailProfile): string {
   // If user has a custom email signature, use it
   if (profile.email_signature) {
     return `\n\n${profile.email_signature}`;
@@ -1077,11 +1078,12 @@ function generateEmailSignature(profile: UserProfile): string {
 </div>`;
 }
 
-// Process emails for a single user
-async function processUserEmails(
+// Process emails for a single connection
+async function processConnectionEmails(
   userId: string,
   organizationId: string,
-  profile: UserProfile,
+  connectionId: string,
+  profile: EmailProfile,
   categoryId: string | null = null
 ): Promise<{ draftsCreated: number; autoRepliesSent: number; errors: number }> {
   const results = { draftsCreated: 0, autoRepliesSent: 0, errors: 0 };
@@ -1093,11 +1095,12 @@ async function processUserEmails(
   
   const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
-  // Get categories with AI draft or auto-reply enabled
+  // Get categories with AI draft or auto-reply enabled for this connection
   let categoriesQuery = supabaseAdmin
     .from('categories')
     .select('id, name, writing_style, ai_draft_enabled, auto_reply_enabled, sort_order')
     .eq('organization_id', organizationId)
+    .eq('connection_id', connectionId)
     .eq('is_enabled', true)
     .or('ai_draft_enabled.eq.true,auto_reply_enabled.eq.true');
 
@@ -1114,12 +1117,13 @@ async function processUserEmails(
 
   console.log(`Found ${aiCategories.length} AI-enabled categories for user ${userId}`);
 
-  // Get rules for AI-enabled categories
+  // Get rules for AI-enabled categories (filtered by connection)
   const categoryIds = aiCategories.map(c => c.id);
   const { data: rules } = await supabaseAdmin
     .from('rules')
     .select('*')
     .eq('organization_id', organizationId)
+    .eq('connection_id', connectionId)
     .eq('is_enabled', true)
     .in('category_id', categoryIds);
 
@@ -1128,24 +1132,38 @@ async function processUserEmails(
     return results;
   }
 
-  // Get AI settings for label colors
+  // Get AI settings for label colors (for this connection)
   const { data: aiSettingsData } = await supabaseAdmin
     .from('ai_settings')
     .select('*')
     .eq('organization_id', organizationId)
+    .eq('connection_id', connectionId)
     .maybeSingle();
   
   const aiDraftLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_draft_label_color as string || '#3B82F6';
   const aiSentLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_sent_label_color as string || '#F97316';
 
-  // Get tokens
+  // Get the provider for this connection
+  const { data: connectionData } = await supabaseAdmin
+    .from('provider_connections')
+    .select('provider')
+    .eq('id', connectionId)
+    .single();
+
+  if (!connectionData?.provider) {
+    console.log(`Connection ${connectionId} not found`);
+    return results;
+  }
+
+  // Get tokens for this specific provider
   const { data: tokenDataList } = await supabaseAdmin
     .from('oauth_token_vault')
     .select('provider, encrypted_access_token, encrypted_refresh_token, expires_at')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('provider', connectionData.provider);
 
   if (!tokenDataList?.length) {
-    console.log(`No connected email providers for user ${userId}`);
+    console.log(`No tokens for provider ${connectionData.provider} for user ${userId}`);
     return results;
   }
 
@@ -1509,101 +1527,116 @@ serve(async (req) => {
     const isAnonKeyOnly = authHeader === `Bearer ${anonKey}`;
     const isCronCall = !authHeader || cronMode || isAnonKeyOnly;
 
-    // CRON MODE: Process ALL users with AI-enabled categories
+    // CRON MODE: Process ALL connections with AI-enabled categories
     if (isCronCall) {
-      console.log('=== CRON MODE: Processing all users ===');
+      console.log('=== CRON MODE: Processing all connections ===');
       
-      // Get all organizations that have AI-enabled categories
-      const { data: orgsWithAI } = await supabaseAdmin
+      // Get all connections that have AI-enabled categories
+      const { data: connectionsWithAI } = await supabaseAdmin
         .from('categories')
-        .select('organization_id')
+        .select('connection_id, organization_id')
         .eq('is_enabled', true)
+        .not('connection_id', 'is', null)
         .or('ai_draft_enabled.eq.true,auto_reply_enabled.eq.true');
       
-      if (!orgsWithAI?.length) {
-        console.log('No organizations with AI-enabled categories');
+      if (!connectionsWithAI?.length) {
+        console.log('No connections with AI-enabled categories');
         return new Response(
           JSON.stringify({ message: 'No AI-enabled categories', processed: 0 }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      // Get unique organization IDs
-      const orgIds = [...new Set(orgsWithAI.map(o => o.organization_id))];
-      console.log(`Found ${orgIds.length} organizations with AI-enabled categories`);
+      // Get unique connection IDs
+      const connectionIds = [...new Set(connectionsWithAI.map(c => c.connection_id))];
+      console.log(`Found ${connectionIds.length} connections with AI-enabled categories`);
       
-      const totalResults = { draftsCreated: 0, autoRepliesSent: 0, errors: 0, usersProcessed: 0 };
+      const totalResults = { draftsCreated: 0, autoRepliesSent: 0, errors: 0, connectionsProcessed: 0 };
       
-      // For each organization, get users with connected email providers via user_profiles
-      for (const orgId of orgIds) {
-        // Get users in this organization who have connected email providers (tokens)
-        const { data: usersInOrg } = await supabaseAdmin
-          .from('user_profiles')
-          .select('user_id, full_name, title, email, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
-          .eq('organization_id', orgId);
+      // Process each connection
+      for (const connId of connectionIds) {
+        if (!connId) continue;
         
-        if (!usersInOrg?.length) {
-          console.log(`No users found in org ${orgId}`);
+        // Get connection details
+        const { data: connection } = await supabaseAdmin
+          .from('provider_connections')
+          .select('id, user_id, organization_id, connected_email')
+          .eq('id', connId)
+          .eq('is_connected', true)
+          .single();
+        
+        if (!connection) {
+          console.log(`Connection ${connId} not found or not connected`);
           continue;
         }
         
-        console.log(`Found ${usersInOrg.length} users in org ${orgId}`);
+        // Get email profile for this connection
+        const { data: emailProfile } = await supabaseAdmin
+          .from('email_profiles')
+          .select('*')
+          .eq('connection_id', connId)
+          .single();
         
-        for (const userProfile of usersInOrg) {
-          // Check if this user has tokens (connected email provider)
-          const { data: userTokens } = await supabaseAdmin
-            .from('oauth_token_vault')
-            .select('id')
-            .eq('user_id', userProfile.user_id)
-            .limit(1);
-          
-          if (!userTokens?.length) {
-            console.log(`User ${userProfile.user_id} has no connected email providers`);
-            continue;
-          }
-          
-          const profile: UserProfile = {
-            full_name: userProfile.full_name,
-            title: userProfile.title,
-            email: userProfile.email,
-            email_signature: userProfile.email_signature,
-            phone: userProfile.phone,
-            mobile: userProfile.mobile,
-            website: userProfile.website,
-            signature_logo_url: userProfile.signature_logo_url,
-            signature_font: userProfile.signature_font,
-            signature_color: userProfile.signature_color
-          };
-          
-          console.log(`Processing user ${userProfile.user_id} in org ${orgId}`);
-          
-          try {
-            const userResults = await processUserEmails(userProfile.user_id, orgId, profile, categoryId);
-            totalResults.draftsCreated += userResults.draftsCreated;
-            totalResults.autoRepliesSent += userResults.autoRepliesSent;
-            totalResults.errors += userResults.errors;
-            totalResults.usersProcessed++;
-          } catch (userError) {
-            console.error(`Error processing user ${userProfile.user_id}:`, userError);
-            totalResults.errors++;
-          }
+        const profile: EmailProfile = emailProfile ? {
+          connection_id: connId,
+          full_name: emailProfile.full_name,
+          title: emailProfile.title,
+          email: connection.connected_email,
+          email_signature: emailProfile.email_signature,
+          phone: emailProfile.phone,
+          mobile: emailProfile.mobile,
+          website: emailProfile.website,
+          signature_logo_url: emailProfile.signature_logo_url,
+          signature_font: emailProfile.signature_font,
+          signature_color: emailProfile.signature_color
+        } : {
+          connection_id: connId,
+          full_name: null,
+          title: null,
+          email: connection.connected_email,
+          email_signature: null,
+          phone: null,
+          mobile: null,
+          website: null,
+          signature_logo_url: null,
+          signature_font: null,
+          signature_color: null
+        };
+        
+        console.log(`Processing connection ${connId} for user ${connection.user_id}`);
+        
+        try {
+          const connResults = await processConnectionEmails(
+            connection.user_id, 
+            connection.organization_id, 
+            connId,
+            profile, 
+            categoryId
+          );
+          totalResults.draftsCreated += connResults.draftsCreated;
+          totalResults.autoRepliesSent += connResults.autoRepliesSent;
+          totalResults.errors += connResults.errors;
+          totalResults.connectionsProcessed++;
+        } catch (connError) {
+          console.error(`Error processing connection ${connId}:`, connError);
+          totalResults.errors++;
         }
       }
       
-      console.log(`=== CRON complete: ${totalResults.usersProcessed} users, ${totalResults.draftsCreated} drafts, ${totalResults.autoRepliesSent} auto-replies ===`);
+      console.log(`=== CRON complete: ${totalResults.connectionsProcessed} connections, ${totalResults.draftsCreated} drafts, ${totalResults.autoRepliesSent} auto-replies ===`);
       
       return new Response(
         JSON.stringify({
           success: true,
           ...totalResults,
-          message: `Processed ${totalResults.usersProcessed} users: ${totalResults.draftsCreated} drafts, ${totalResults.autoRepliesSent} auto-replies`
+          message: `Processed ${totalResults.connectionsProcessed} connections: ${totalResults.draftsCreated} drafts, ${totalResults.autoRepliesSent} auto-replies`
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // USER MODE: Process only the authenticated user's emails
-    console.log('=== USER MODE: Processing single user ===');
+    // USER MODE: Process all of the authenticated user's connections
+    console.log('=== USER MODE: Processing single user connections ===');
     
     const supabaseUserClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -1619,10 +1652,10 @@ serve(async (req) => {
       );
     }
 
-    // Get user's full profile including signature fields
+    // Get user's organization
     const { data: profileData } = await supabaseAdmin
       .from('user_profiles')
-      .select('organization_id, full_name, title, email, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
+      .select('organization_id')
       .eq('user_id', user.id)
       .single();
     
@@ -1633,27 +1666,81 @@ serve(async (req) => {
       );
     }
 
-    const profile: UserProfile = {
-      full_name: profileData.full_name,
-      title: profileData.title,
-      email: profileData.email,
-      email_signature: profileData.email_signature,
-      phone: profileData.phone,
-      mobile: profileData.mobile,
-      website: profileData.website,
-      signature_logo_url: profileData.signature_logo_url,
-      signature_font: profileData.signature_font,
-      signature_color: profileData.signature_color
-    };
-    const results = await processUserEmails(user.id, profileData.organization_id, profile, categoryId);
+    // Get all connected emails for this user
+    const { data: connections } = await supabaseAdmin
+      .from('provider_connections')
+      .select('id, connected_email')
+      .eq('user_id', user.id)
+      .eq('is_connected', true);
 
-    console.log(`=== USER MODE complete: ${results.draftsCreated} drafts, ${results.autoRepliesSent} auto-replies ===`);
+    if (!connections?.length) {
+      return new Response(
+        JSON.stringify({ message: 'No connected email accounts', draftsCreated: 0, autoRepliesSent: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const totalResults = { draftsCreated: 0, autoRepliesSent: 0, errors: 0, connectionsProcessed: 0 };
+
+    for (const conn of connections) {
+      // Get email profile for this connection
+      const { data: emailProfile } = await supabaseAdmin
+        .from('email_profiles')
+        .select('*')
+        .eq('connection_id', conn.id)
+        .maybeSingle();
+
+      const profile: EmailProfile = emailProfile ? {
+        connection_id: conn.id,
+        full_name: emailProfile.full_name,
+        title: emailProfile.title,
+        email: conn.connected_email,
+        email_signature: emailProfile.email_signature,
+        phone: emailProfile.phone,
+        mobile: emailProfile.mobile,
+        website: emailProfile.website,
+        signature_logo_url: emailProfile.signature_logo_url,
+        signature_font: emailProfile.signature_font,
+        signature_color: emailProfile.signature_color
+      } : {
+        connection_id: conn.id,
+        full_name: null,
+        title: null,
+        email: conn.connected_email,
+        email_signature: null,
+        phone: null,
+        mobile: null,
+        website: null,
+        signature_logo_url: null,
+        signature_font: null,
+        signature_color: null
+      };
+
+      try {
+        const connResults = await processConnectionEmails(
+          user.id,
+          profileData.organization_id,
+          conn.id,
+          profile,
+          categoryId
+        );
+        totalResults.draftsCreated += connResults.draftsCreated;
+        totalResults.autoRepliesSent += connResults.autoRepliesSent;
+        totalResults.errors += connResults.errors;
+        totalResults.connectionsProcessed++;
+      } catch (connError) {
+        console.error(`Error processing connection ${conn.id}:`, connError);
+        totalResults.errors++;
+      }
+    }
+
+    console.log(`=== USER MODE complete: ${totalResults.connectionsProcessed} connections, ${totalResults.draftsCreated} drafts, ${totalResults.autoRepliesSent} auto-replies ===`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        ...results,
-        message: `Created ${results.draftsCreated} drafts, sent ${results.autoRepliesSent} auto-replies`
+        ...totalResults,
+        message: `Created ${totalResults.draftsCreated} drafts, sent ${totalResults.autoRepliesSent} auto-replies`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

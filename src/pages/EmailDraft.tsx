@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useActiveEmail } from "@/contexts/ActiveEmailContext";
 import { UserAvatarDropdown } from "@/components/app/UserAvatarDropdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, RefreshCw, Save } from "lucide-react";
+import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail } from "lucide-react";
 
 interface Category {
   id: string;
@@ -34,6 +35,7 @@ const FORMAT_OPTIONS = [
 
 export default function EmailDraft() {
   const { user, loading: authLoading } = useAuth();
+  const { activeConnection, loading: emailLoading } = useActiveEmail();
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -49,12 +51,16 @@ export default function EmailDraft() {
   const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && activeConnection?.id) {
       fetchCategories();
+    } else if (!emailLoading) {
+      setLoadingCategories(false);
     }
-  }, [user]);
+  }, [user, activeConnection?.id]);
 
   const fetchCategories = async () => {
+    if (!activeConnection?.id) return;
+    
     try {
       const { data: profile } = await supabase.rpc("get_my_profile");
       if (!profile || profile.length === 0) return;
@@ -63,6 +69,7 @@ export default function EmailDraft() {
         .from("categories")
         .select("id, name, writing_style, sort_order")
         .eq("organization_id", profile[0].organization_id)
+        .eq("connection_id", activeConnection.id)
         .eq("is_enabled", true)
         .order("sort_order");
 
@@ -185,10 +192,32 @@ export default function EmailDraft() {
     toast.success("Copied to clipboard!");
   };
 
-  if (authLoading || loadingCategories) {
+  if (authLoading || emailLoading || loadingCategories) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeConnection) {
+    return (
+      <div className="min-h-full p-4 lg:p-6">
+        <div className="max-w-5xl mb-4 flex justify-end">
+          <UserAvatarDropdown />
+        </div>
+        <div className="max-w-5xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
+            <p className="text-muted-foreground mb-6">
+              Connect a Gmail or Outlook account to configure AI drafts
+            </p>
+            <Button onClick={() => window.location.href = '/integrations'}>
+              Connect Email Account
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

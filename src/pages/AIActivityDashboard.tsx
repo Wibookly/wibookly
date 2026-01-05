@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail } from 'lucide-react';
+import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +34,7 @@ type DateRange = '7days' | '30days' | '90days' | 'custom';
 
 export default function AIActivityDashboard() {
   const { user, organization, loading: authLoading } = useAuth();
+  const { activeConnection, loading: emailLoading } = useActiveEmail();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0 });
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
@@ -293,7 +295,7 @@ export default function AIActivityDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total AI-Processed</CardTitle>
-                <Mail className="h-4 w-4 text-primary" />
+                <MailIcon className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{stats.totalEmails}</div>

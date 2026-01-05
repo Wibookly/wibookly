@@ -69,6 +69,7 @@ export type Database = {
         Row: {
           ai_draft_label_color: string | null
           ai_sent_label_color: string | null
+          connection_id: string | null
           created_at: string
           id: string
           organization_id: string
@@ -78,6 +79,7 @@ export type Database = {
         Insert: {
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
+          connection_id?: string | null
           created_at?: string
           id?: string
           organization_id: string
@@ -87,6 +89,7 @@ export type Database = {
         Update: {
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
+          connection_id?: string | null
           created_at?: string
           id?: string
           organization_id?: string
@@ -94,6 +97,13 @@ export type Database = {
           writing_style?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_settings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_settings_organization_id_fkey"
             columns: ["organization_id"]
@@ -108,6 +118,7 @@ export type Database = {
           ai_draft_enabled: boolean
           auto_reply_enabled: boolean
           color: string
+          connection_id: string | null
           created_at: string
           id: string
           is_enabled: boolean
@@ -122,6 +133,7 @@ export type Database = {
           ai_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           color?: string
+          connection_id?: string | null
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -136,6 +148,7 @@ export type Database = {
           ai_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           color?: string
+          connection_id?: string | null
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -147,6 +160,13 @@ export type Database = {
           writing_style?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "categories_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "categories_organization_id_fkey"
             columns: ["organization_id"]
@@ -194,6 +214,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      email_profiles: {
+        Row: {
+          connection_id: string
+          created_at: string
+          email_signature: string | null
+          full_name: string | null
+          id: string
+          mobile: string | null
+          organization_id: string
+          phone: string | null
+          signature_color: string | null
+          signature_font: string | null
+          signature_logo_url: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          email_signature?: string | null
+          full_name?: string | null
+          id?: string
+          mobile?: string | null
+          organization_id: string
+          phone?: string | null
+          signature_color?: string | null
+          signature_font?: string | null
+          signature_logo_url?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          email_signature?: string | null
+          full_name?: string | null
+          id?: string
+          mobile?: string | null
+          organization_id?: string
+          phone?: string | null
+          signature_color?: string | null
+          signature_font?: string | null
+          signature_logo_url?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_profiles_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: true
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jobs: {
         Row: {
@@ -428,6 +517,7 @@ export type Database = {
           body_contains: string | null
           category_id: string
           condition_logic: string
+          connection_id: string | null
           created_at: string
           id: string
           is_advanced: boolean
@@ -444,6 +534,7 @@ export type Database = {
           body_contains?: string | null
           category_id: string
           condition_logic?: string
+          connection_id?: string | null
           created_at?: string
           id?: string
           is_advanced?: boolean
@@ -460,6 +551,7 @@ export type Database = {
           body_contains?: string | null
           category_id?: string
           condition_logic?: string
+          connection_id?: string | null
           created_at?: string
           id?: string
           is_advanced?: boolean
@@ -478,6 +570,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rules_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
             referencedColumns: ["id"]
           },
           {

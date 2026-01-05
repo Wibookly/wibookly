@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail } from 'lucide-react';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
 interface AISettings {
@@ -59,6 +60,7 @@ const formatPhoneNumber = (value: string): string => {
 
 export default function Settings() {
   const { organization, profile } = useAuth();
+  const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [orgName, setOrgName] = useState('');
@@ -82,42 +84,70 @@ export default function Settings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailProfileId, setEmailProfileId] = useState<string | null>(null);
 
-  // Only set initial values once when data first loads
+  // Fetch email profile for active connection
   useEffect(() => {
-    if (!organization?.id) return;
+    if (!organization?.id || !activeConnection?.id) {
+      if (!emailLoading) setLoading(false);
+      return;
+    }
     
-    const profileData = profile as unknown as Record<string, unknown>;
-    const savedCustomSignature = (profileData?.email_signature as string) || '';
-    
-    // Only set if not already set (prevents overwriting user edits)
+    // Set org name from organization
     setOrgName(prev => prev || organization.name);
-    setFullName(prev => prev || profile?.full_name || '');
-    setTitle(prev => prev || profile?.title || '');
-    setEmailSignature(prev => prev || savedCustomSignature);
     
-    // If user has a custom pasted signature, use that mode; otherwise default to builder
-    setUseCustomSignature(!!savedCustomSignature);
-    
-    setSignatureFields(prev => ({
-      phone: prev.phone || (profileData?.phone as string) || '',
-      mobile: prev.mobile || (profileData?.mobile as string) || '',
-      website: prev.website || (profileData?.website as string) || '',
-      signatureLogoUrl: prev.signatureLogoUrl || (profileData?.signature_logo_url as string) || '',
-      font: prev.font || (profileData?.signature_font as string) || 'Arial, sans-serif',
-      color: prev.color || (profileData?.signature_color as string) || '#333333'
-    }));
-    
+    fetchEmailProfile();
     fetchAISettings();
-  }, [organization?.id]);
+  }, [organization?.id, activeConnection?.id]);
+
+  const fetchEmailProfile = async () => {
+    if (!activeConnection?.id) return;
+    
+    const { data } = await supabase
+      .from('email_profiles')
+      .select('*')
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle();
+    
+    if (data) {
+      setEmailProfileId(data.id);
+      setFullName(data.full_name || '');
+      setTitle(data.title || '');
+      setEmailSignature(data.email_signature || '');
+      setUseCustomSignature(!!data.email_signature);
+      setSignatureFields({
+        phone: data.phone || '',
+        mobile: data.mobile || '',
+        website: data.website || '',
+        signatureLogoUrl: data.signature_logo_url || '',
+        font: data.signature_font || 'Arial, sans-serif',
+        color: data.signature_color || '#333333'
+      });
+    } else {
+      // Fallback to user profile data for new email profiles
+      const profileData = profile as unknown as Record<string, unknown>;
+      setFullName(profile?.full_name || '');
+      setTitle(profile?.title || '');
+      setEmailSignature('');
+      setSignatureFields({
+        phone: (profileData?.phone as string) || '',
+        mobile: (profileData?.mobile as string) || '',
+        website: (profileData?.website as string) || '',
+        signatureLogoUrl: (profileData?.signature_logo_url as string) || '',
+        font: (profileData?.signature_font as string) || 'Arial, sans-serif',
+        color: (profileData?.signature_color as string) || '#333333'
+      });
+    }
+  };
 
   const fetchAISettings = async () => {
-    if (!organization?.id) return;
+    if (!organization?.id || !activeConnection?.id) return;
 
     const { data } = await supabase
       .from('ai_settings')
       .select('*')
       .eq('organization_id', organization.id)
+      .eq('connection_id', activeConnection.id)
       .maybeSingle();
 
     if (data) {
@@ -131,7 +161,7 @@ export default function Settings() {
   };
 
   const saveSettings = async () => {
-    if (!organization?.id || !profile?.user_id) return;
+    if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
 
     // Validate inputs
     const orgNameValidation = validateField(organizationNameSchema, orgName);
@@ -163,36 +193,61 @@ export default function Settings() {
         .update({ name: orgNameValidation.data })
         .eq('id', organization.id);
 
-      // Update user profile
-      await supabase
-        .from('user_profiles')
-        .update({ 
-          full_name: fullNameValidation.data || null,
-          title: title || null,
-          email_signature: emailSignature || null,
-          phone: signatureFields.phone || null,
-          mobile: signatureFields.mobile || null,
-          website: signatureFields.website || null,
-          signature_logo_url: signatureFields.signatureLogoUrl || null,
-          signature_font: signatureFields.font || 'Arial, sans-serif',
-          signature_color: signatureFields.color || '#333333'
-        } as Record<string, unknown>)
-        .eq('user_id', profile.user_id);
+      // Update or create email profile for this connection
+      const emailProfileData = {
+        connection_id: activeConnection.id,
+        user_id: profile.user_id,
+        organization_id: organization.id,
+        full_name: fullNameValidation.data || null,
+        title: title || null,
+        email_signature: emailSignature || null,
+        phone: signatureFields.phone || null,
+        mobile: signatureFields.mobile || null,
+        website: signatureFields.website || null,
+        signature_logo_url: signatureFields.signatureLogoUrl || null,
+        signature_font: signatureFields.font || 'Arial, sans-serif',
+        signature_color: signatureFields.color || '#333333'
+      };
 
-      // Update AI settings
-      const { error: aiError } = await supabase.rpc('upsert_ai_settings' as never, {
-        p_organization_id: organization.id,
-        p_writing_style: aiSettings.writing_style,
-        p_ai_draft_label_color: aiSettings.ai_draft_label_color,
-        p_ai_sent_label_color: aiSettings.ai_sent_label_color
-      } as never);
-      
-      if (aiError) {
-        // Fallback to regular upsert if function doesn't exist
+      if (emailProfileId) {
+        await supabase
+          .from('email_profiles')
+          .update(emailProfileData)
+          .eq('id', emailProfileId);
+      } else {
+        const { data: newProfile } = await supabase
+          .from('email_profiles')
+          .insert(emailProfileData)
+          .select()
+          .single();
+        if (newProfile) {
+          setEmailProfileId(newProfile.id);
+        }
+      }
+
+      // Update AI settings for this connection
+      const { data: existingAI } = await supabase
+        .from('ai_settings')
+        .select('id')
+        .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
+        .maybeSingle();
+
+      if (existingAI) {
         await supabase
           .from('ai_settings')
-          .upsert({
+          .update({
+            writing_style: aiSettings.writing_style,
+            ai_draft_label_color: aiSettings.ai_draft_label_color,
+            ai_sent_label_color: aiSettings.ai_sent_label_color
+          } as Record<string, unknown>)
+          .eq('id', existingAI.id);
+      } else {
+        await supabase
+          .from('ai_settings')
+          .insert({
             organization_id: organization.id,
+            connection_id: activeConnection.id,
             writing_style: aiSettings.writing_style
           });
       }
@@ -264,10 +319,32 @@ export default function Settings() {
     `;
   };
 
-  if (loading) {
+  if (loading || emailLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeConnection) {
+    return (
+      <div className="min-h-full p-4 lg:p-6">
+        <div className="max-w-2xl mb-4 flex justify-end">
+          <UserAvatarDropdown />
+        </div>
+        <div className="max-w-2xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Mail className="w-12 h-12 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
+            <p className="text-muted-foreground mb-6">
+              Connect a Gmail or Outlook account to configure your email settings and signature
+            </p>
+            <Button onClick={() => window.location.href = '/integrations'}>
+              Connect Email Account
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
