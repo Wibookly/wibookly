@@ -67,6 +67,8 @@ export type Database = {
       }
       ai_settings: {
         Row: {
+          ai_draft_label_color: string | null
+          ai_sent_label_color: string | null
           created_at: string
           id: string
           organization_id: string
@@ -74,6 +76,8 @@ export type Database = {
           writing_style: string
         }
         Insert: {
+          ai_draft_label_color?: string | null
+          ai_sent_label_color?: string | null
           created_at?: string
           id?: string
           organization_id: string
@@ -81,6 +85,8 @@ export type Database = {
           writing_style?: string
         }
         Update: {
+          ai_draft_label_color?: string | null
+          ai_sent_label_color?: string | null
           created_at?: string
           id?: string
           organization_id?: string

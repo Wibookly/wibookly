@@ -13,11 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Sparkles } from 'lucide-react';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
 interface AISettings {
   writing_style: string;
+  ai_draft_label_color: string;
+  ai_sent_label_color: string;
 }
 
 export default function Settings() {
@@ -26,7 +28,9 @@ export default function Settings() {
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
   const [aiSettings, setAiSettings] = useState<AISettings>({
-    writing_style: 'professional'
+    writing_style: 'professional',
+    ai_draft_label_color: '#3B82F6',
+    ai_sent_label_color: '#F97316'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +57,9 @@ export default function Settings() {
 
     if (data) {
       setAiSettings({
-        writing_style: data.writing_style
+        writing_style: data.writing_style,
+        ai_draft_label_color: (data as Record<string, unknown>).ai_draft_label_color as string || '#3B82F6',
+        ai_sent_label_color: (data as Record<string, unknown>).ai_sent_label_color as string || '#F97316'
       });
     }
     setLoading(false);
@@ -99,12 +105,22 @@ export default function Settings() {
         .eq('user_id', profile.user_id);
 
       // Update AI settings
-      await supabase
-        .from('ai_settings')
-        .upsert({
-          organization_id: organization.id,
-          writing_style: aiSettings.writing_style
-        });
+      const { error: aiError } = await supabase.rpc('upsert_ai_settings' as never, {
+        p_organization_id: organization.id,
+        p_writing_style: aiSettings.writing_style,
+        p_ai_draft_label_color: aiSettings.ai_draft_label_color,
+        p_ai_sent_label_color: aiSettings.ai_sent_label_color
+      } as never);
+      
+      if (aiError) {
+        // Fallback to regular upsert if function doesn't exist
+        await supabase
+          .from('ai_settings')
+          .upsert({
+            organization_id: organization.id,
+            writing_style: aiSettings.writing_style
+          });
+      }
 
       toast({
         title: 'Settings saved',
@@ -181,6 +197,68 @@ export default function Settings() {
             <div className="space-y-2">
               <Label>Role</Label>
               <Input value="Admin" disabled className="bg-muted" />
+            </div>
+          </div>
+        </section>
+
+        {/* AI Label Settings */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-blue-500" />
+            <h2 className="text-lg font-semibold">AI Email Labels</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Choose colors for AI-processed email labels. These will appear in your inbox to help you identify AI-drafted and AI-sent emails.
+          </p>
+          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="aiDraftColor">AI Draft Label Color</Label>
+                <p className="text-xs text-muted-foreground">
+                  Applied to emails where AI created a draft for your review
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                  style={{ backgroundColor: aiSettings.ai_draft_label_color }}
+                >
+                  <input
+                    type="color"
+                    id="aiDraftColor"
+                    value={aiSettings.ai_draft_label_color}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, ai_draft_label_color: e.target.value }))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_draft_label_color}</span>
+              </div>
+            </div>
+            
+            <div className="border-t border-border pt-4"></div>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="aiSentColor">AI Auto-Reply Label Color</Label>
+                <p className="text-xs text-muted-foreground">
+                  Applied to emails that AI automatically replied to
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                  style={{ backgroundColor: aiSettings.ai_sent_label_color }}
+                >
+                  <input
+                    type="color"
+                    id="aiSentColor"
+                    value={aiSettings.ai_sent_label_color}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, ai_sent_label_color: e.target.value }))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_sent_label_color}</span>
+              </div>
             </div>
           </div>
         </section>

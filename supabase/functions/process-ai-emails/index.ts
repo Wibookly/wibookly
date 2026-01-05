@@ -327,6 +327,259 @@ async function markOutlookAsRead(accessToken: string, messageId: string): Promis
   }
 }
 
+// Gmail color mapping (hex to Gmail color name)
+function hexToGmailColor(hex: string): { textColor: string; backgroundColor: string } {
+  // Gmail only supports specific color combinations
+  // Map common colors to closest Gmail color
+  const lowerHex = hex.toLowerCase();
+  
+  // Blue shades
+  if (lowerHex.includes('3b82f6') || lowerHex.includes('2563eb') || lowerHex.includes('1d4ed8')) {
+    return { textColor: '#04502e', backgroundColor: '#a4c2f4' }; // Light blue
+  }
+  // Orange shades
+  if (lowerHex.includes('f97316') || lowerHex.includes('ea580c') || lowerHex.includes('fb923c')) {
+    return { textColor: '#7a2e0b', backgroundColor: '#ffbc6b' }; // Orange
+  }
+  // Green shades
+  if (lowerHex.includes('22c55e') || lowerHex.includes('16a34a')) {
+    return { textColor: '#0b4f30', backgroundColor: '#b3efd3' }; // Light green
+  }
+  // Red shades
+  if (lowerHex.includes('ef4444') || lowerHex.includes('dc2626')) {
+    return { textColor: '#8a1c0a', backgroundColor: '#f4cccc' }; // Light red
+  }
+  // Purple shades
+  if (lowerHex.includes('8b5cf6') || lowerHex.includes('7c3aed')) {
+    return { textColor: '#41236d', backgroundColor: '#d9d2e9' }; // Light purple
+  }
+  // Default to blue
+  return { textColor: '#094228', backgroundColor: '#c9daf8' };
+}
+
+// Get or create Gmail AI label
+async function getOrCreateGmailLabel(
+  accessToken: string, 
+  labelName: string, 
+  color: string
+): Promise<string | null> {
+  try {
+    // First, try to find existing label
+    const listRes = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/labels',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    if (!listRes.ok) {
+      console.error('Failed to list Gmail labels:', await listRes.text());
+      return null;
+    }
+    
+    const labels = await listRes.json();
+    const existingLabel = labels.labels?.find(
+      (l: { name: string }) => l.name === labelName
+    );
+    
+    if (existingLabel) {
+      return existingLabel.id;
+    }
+    
+    // Create new label with color
+    const gmailColor = hexToGmailColor(color);
+    const createRes = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/labels',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: labelName,
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show',
+          color: gmailColor
+        })
+      }
+    );
+    
+    if (!createRes.ok) {
+      console.error('Failed to create Gmail label:', await createRes.text());
+      return null;
+    }
+    
+    const newLabel = await createRes.json();
+    console.log(`Created Gmail label: ${labelName} with id ${newLabel.id}`);
+    return newLabel.id;
+  } catch (error) {
+    console.error('Error with Gmail label:', error);
+    return null;
+  }
+}
+
+// Apply Gmail label to message
+async function applyGmailLabel(
+  accessToken: string, 
+  messageId: string, 
+  labelId: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          addLabelIds: [labelId]
+        })
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to apply Gmail label:', await res.text());
+      return false;
+    }
+    
+    console.log(`Applied Gmail label ${labelId} to message ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error applying Gmail label:', error);
+    return false;
+  }
+}
+
+// Get or create Outlook category (folder) for AI labels
+async function getOrCreateOutlookCategory(
+  accessToken: string, 
+  categoryName: string, 
+  color: string
+): Promise<string | null> {
+  try {
+    // Map hex color to Outlook preset colors
+    const outlookColor = hexToOutlookColor(color);
+    
+    // First, check existing categories
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    if (!listRes.ok) {
+      console.error('Failed to list Outlook categories:', await listRes.text());
+      return null;
+    }
+    
+    const categories = await listRes.json();
+    const existing = categories.value?.find(
+      (c: { displayName: string }) => c.displayName === categoryName
+    );
+    
+    if (existing) {
+      return categoryName;
+    }
+    
+    // Create new category
+    const createRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          displayName: categoryName,
+          color: outlookColor
+        })
+      }
+    );
+    
+    if (!createRes.ok) {
+      // Category might already exist, try to use it anyway
+      console.log('Category may already exist, continuing...');
+      return categoryName;
+    }
+    
+    console.log(`Created Outlook category: ${categoryName}`);
+    return categoryName;
+  } catch (error) {
+    console.error('Error with Outlook category:', error);
+    return null;
+  }
+}
+
+// Map hex to Outlook preset color
+function hexToOutlookColor(hex: string): string {
+  const lowerHex = hex.toLowerCase();
+  
+  // Blue shades
+  if (lowerHex.includes('3b82f6') || lowerHex.includes('2563eb')) return 'preset7'; // Blue
+  // Orange shades
+  if (lowerHex.includes('f97316') || lowerHex.includes('ea580c')) return 'preset1'; // Orange
+  // Green shades
+  if (lowerHex.includes('22c55e') || lowerHex.includes('16a34a')) return 'preset4'; // Green
+  // Red shades
+  if (lowerHex.includes('ef4444') || lowerHex.includes('dc2626')) return 'preset0'; // Red
+  // Purple shades
+  if (lowerHex.includes('8b5cf6') || lowerHex.includes('7c3aed')) return 'preset8'; // Purple
+  
+  return 'preset7'; // Default to blue
+}
+
+// Apply Outlook category to message
+async function applyOutlookCategory(
+  accessToken: string, 
+  messageId: string, 
+  categoryName: string
+): Promise<boolean> {
+  try {
+    // First get current categories
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    let currentCategories: string[] = [];
+    if (getRes.ok) {
+      const data = await getRes.json();
+      currentCategories = data.categories || [];
+    }
+    
+    // Add new category if not already present
+    if (!currentCategories.includes(categoryName)) {
+      currentCategories.push(categoryName);
+    }
+    
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          categories: currentCategories
+        })
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to apply Outlook category:', await res.text());
+      return false;
+    }
+    
+    console.log(`Applied Outlook category ${categoryName} to message ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error applying Outlook category:', error);
+    return false;
+  }
+}
+
 // Generate AI draft for an email
 async function generateAIDraft(
   emailSubject: string,
@@ -836,6 +1089,16 @@ serve(async (req) => {
       );
     }
 
+    // Get AI settings for label colors
+    const { data: aiSettingsData } = await supabaseAdmin
+      .from('ai_settings')
+      .select('*')
+      .eq('organization_id', profile.organization_id)
+      .maybeSingle();
+    
+    const aiDraftLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_draft_label_color as string || '#3B82F6';
+    const aiSentLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_sent_label_color as string || '#F97316';
+
     const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
     // Get tokens
@@ -869,6 +1132,10 @@ serve(async (req) => {
       autoRepliesSent: 0,
       errors: 0
     };
+    
+    // Cache for label IDs (to avoid recreating labels)
+    const gmailLabelCache: Record<string, string> = {};
+    const outlookCategoryCache: Record<string, boolean> = {};
 
     // Process each provider
     for (const tokenRecord of tokenDataList) {
@@ -1014,6 +1281,23 @@ serve(async (req) => {
 
               results.draftsCreated++;
               console.log(`Created draft for email ${msg.id}`);
+              
+              // Apply AI Draft label to the original email
+              if (tokenRecord.provider === 'google') {
+                if (!gmailLabelCache['AI Draft']) {
+                  const labelId = await getOrCreateGmailLabel(accessToken, 'AI Draft', aiDraftLabelColor);
+                  if (labelId) gmailLabelCache['AI Draft'] = labelId;
+                }
+                if (gmailLabelCache['AI Draft']) {
+                  await applyGmailLabel(accessToken, msg.id, gmailLabelCache['AI Draft']);
+                }
+              } else {
+                if (!outlookCategoryCache['AI Draft']) {
+                  await getOrCreateOutlookCategory(accessToken, 'AI Draft', aiDraftLabelColor);
+                  outlookCategoryCache['AI Draft'] = true;
+                }
+                await applyOutlookCategory(accessToken, msg.id, 'AI Draft');
+              }
             }
           }
 
@@ -1058,6 +1342,23 @@ serve(async (req) => {
 
               results.autoRepliesSent++;
               console.log(`Sent auto-reply for email ${msg.id}`);
+              
+              // Apply AI Sent label to the original email
+              if (tokenRecord.provider === 'google') {
+                if (!gmailLabelCache['AI Sent']) {
+                  const labelId = await getOrCreateGmailLabel(accessToken, 'AI Sent', aiSentLabelColor);
+                  if (labelId) gmailLabelCache['AI Sent'] = labelId;
+                }
+                if (gmailLabelCache['AI Sent']) {
+                  await applyGmailLabel(accessToken, msg.id, gmailLabelCache['AI Sent']);
+                }
+              } else {
+                if (!outlookCategoryCache['AI Sent']) {
+                  await getOrCreateOutlookCategory(accessToken, 'AI Sent', aiSentLabelColor);
+                  outlookCategoryCache['AI Sent'] = true;
+                }
+                await applyOutlookCategory(accessToken, msg.id, 'AI Sent');
+              }
             }
           }
         }
