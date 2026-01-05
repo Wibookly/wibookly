@@ -188,7 +188,7 @@ export default function Auth() {
   // Organization selection screen
   if (mode === 'select-org') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex flex-col">
         <header className="p-6 flex items-center justify-between">
           <button 
             onClick={() => {
@@ -242,7 +242,7 @@ export default function Auth() {
   // Forgot password success screen
   if (mode === 'forgot-password' && resetEmailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex flex-col">
         <header className="p-6 flex items-center justify-between">
           <button 
             onClick={() => {
@@ -284,7 +284,7 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex flex-col">
       <header className="p-6 flex items-center justify-between">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
