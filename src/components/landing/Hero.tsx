@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-import dashboardPreview from '@/assets/dashboard-preview.png';
 
 export function Hero() {
   return (
@@ -27,23 +26,6 @@ export function Hero() {
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
           </div>
-        </div>
-
-        {/* Dashboard Preview */}
-        <div className="relative mt-20 md:mt-28 max-w-6xl mx-auto">
-          <div 
-            className="relative z-10 animate-fade-in rounded-xl overflow-hidden shadow-2xl border border-border/20"
-            style={{ animationDelay: '300ms' }}
-          >
-            <img
-              src={dashboardPreview}
-              alt="Wibookly AI Activity Dashboard"
-              className="w-full h-auto"
-            />
-          </div>
-
-          {/* Decorative glow effects */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/5 rounded-full blur-3xl -z-10" />
         </div>
       </div>
     </section>
