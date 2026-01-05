@@ -178,28 +178,154 @@ async function getValidAccessToken(
   return newTokens.access_token;
 }
 
-// Writing style prompts
+// Writing style prompts - STRICTLY ENFORCED
 const WRITING_STYLE_PROMPTS: Record<string, string> = {
-  professional: `Professional & Polished: formal business language, respectful tone, thorough but concise.`,
-  friendly: `Friendly & Approachable: warm, conversational, personable while professional.`,
-  concierge: `Concierge / White-Glove: elegant, refined, exceptionally courteous.`,
-  direct: `Direct & Efficient: straight to the point, short clear sentences.`,
-  empathetic: `Empathetic & Supportive: acknowledge emotions, compassionate, reassuring.`,
+  professional: `WRITING STYLE: Professional & Polished
+STRICT REQUIREMENTS:
+- Use formal business language with proper grammar
+- Maintain a respectful, authoritative tone
+- Be thorough but concise - no fluff
+- Use complete sentences and proper paragraphs
+- Include appropriate professional greetings and sign-offs
+- Avoid casual language, slang, or contractions`,
+
+  friendly: `WRITING STYLE: Friendly & Approachable
+STRICT REQUIREMENTS:
+- Use warm, conversational language
+- Be personable and relatable while professional
+- Use contractions naturally (I'm, we're, you'll)
+- Keep a positive, upbeat, helpful tone
+- Be accommodating and show genuine interest
+- Make the reader feel comfortable`,
+
+  concierge: `WRITING STYLE: Concierge / White-Glove
+STRICT REQUIREMENTS:
+- Use elegant, refined, sophisticated language
+- Be exceptionally courteous and attentive
+- Use phrases like "It would be my pleasure", "I'm delighted to assist", "Please allow me to"
+- Anticipate needs and offer proactive assistance
+- Make the recipient feel valued, important, and well-cared for
+- Show attention to detail in every sentence`,
+
+  direct: `WRITING STYLE: Direct & Efficient
+STRICT REQUIREMENTS:
+- Get straight to the point immediately
+- Use SHORT, CLEAR sentences only
+- NO unnecessary pleasantries or small talk
+- Focus ONLY on actionable information
+- Be brief but not rude - just efficient
+- Maximum 3-4 sentences for simple replies`,
+
+  empathetic: `WRITING STYLE: Empathetic & Supportive
+STRICT REQUIREMENTS:
+- Acknowledge emotions and concerns explicitly
+- Use understanding, compassionate language
+- Validate the recipient's situation first
+- Offer reassurance and emotional support
+- Be patient and thorough in explanations
+- Show you genuinely care about their needs`,
+};
+
+// Format style prompts - STRICTLY ENFORCED
+const FORMAT_STYLE_PROMPTS: Record<string, string> = {
+  concise: `RESPONSE FORMAT: Concise/Short
+STRICT FORMAT RULES:
+- Keep the ENTIRE response under 100 words
+- Use minimal words while conveying the complete message
+- No unnecessary elaboration
+- Get to the point quickly`,
+
+  detailed: `RESPONSE FORMAT: Detailed
+STRICT FORMAT RULES:
+- Provide a thorough explanation with full context
+- Include reasoning and background information
+- Cover all aspects of the topic comprehensively
+- Use multiple paragraphs if needed`,
+
+  'bullet-points': `RESPONSE FORMAT: Bullet Points
+STRICT FORMAT RULES:
+- Structure the MAIN content using bullet points (• or -)
+- Each bullet should be a clear, complete point
+- Use bullets for lists, steps, or key items
+- Keep greeting and sign-off as regular text`,
+
+  highlights: `RESPONSE FORMAT: Key Highlights Only
+STRICT FORMAT RULES:
+- Focus ONLY on the most important points
+- Skip any background or context
+- No fluff or filler content
+- Maximum 2-3 key takeaways`,
 };
 
 // Category context
 const CATEGORY_CONTEXT: Record<string, string> = {
-  'Urgent': 'This is an urgent matter requiring immediate attention.',
-  'Follow Up': 'This is a follow-up to a previous conversation.',
-  'Approvals': 'This relates to approving or reviewing something.',
-  'Meetings': 'This relates to scheduling or confirming meetings.',
-  'Customers': 'This is client-facing communication.',
-  'Vendors': 'This is communication with vendors or partners.',
-  'Internal': 'This is internal team communication.',
-  'Projects': 'This relates to project updates or deliverables.',
-  'Finance': 'This relates to billing, payments, or financial matters.',
-  'FYI': 'This is informational communication for awareness.',
+  'Urgent': 'This is an urgent matter requiring immediate attention. Respond promptly.',
+  'Follow Up': 'This is a follow-up to a previous conversation. Reference prior context.',
+  'Approvals': 'This relates to approving or reviewing something. Be clear and decisive.',
+  'Meetings': 'This relates to scheduling, confirming, or discussing meetings. Be specific with times.',
+  'Customers': 'This is client-facing communication. Represent the business professionally.',
+  'Vendors': 'This is communication with vendors, suppliers, or external partners.',
+  'Internal': 'This is internal team communication. Can be slightly less formal.',
+  'Projects': 'This relates to project updates, deliverables, or workstreams. Be specific.',
+  'Finance': 'This relates to billing, payments, receipts, or financial matters. Be precise.',
+  'FYI': 'This is informational communication for awareness. Keep it brief.',
 };
+
+// Mark email as read in Gmail
+async function markGmailAsRead(accessToken: string, messageId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          removeLabelIds: ['UNREAD']
+        })
+      }
+    );
+    if (!res.ok) {
+      console.error('Failed to mark Gmail as read:', await res.text());
+      return false;
+    }
+    console.log(`Marked Gmail message ${messageId} as read`);
+    return true;
+  } catch (error) {
+    console.error('Error marking Gmail as read:', error);
+    return false;
+  }
+}
+
+// Mark email as read in Outlook
+async function markOutlookAsRead(accessToken: string, messageId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          isRead: true
+        })
+      }
+    );
+    if (!res.ok) {
+      console.error('Failed to mark Outlook as read:', await res.text());
+      return false;
+    }
+    console.log(`Marked Outlook message ${messageId} as read`);
+    return true;
+  } catch (error) {
+    console.error('Error marking Outlook as read:', error);
+    return false;
+  }
+}
 
 // Generate AI draft for an email
 async function generateAIDraft(
@@ -207,7 +333,8 @@ async function generateAIDraft(
   emailBody: string,
   emailFrom: string,
   categoryName: string,
-  writingStyle: string
+  writingStyle: string,
+  formatStyle: string = 'concise'
 ): Promise<string | null> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
@@ -217,23 +344,27 @@ async function generateAIDraft(
 
   const cleanCategory = categoryName.replace(/^\d+:\s*/, '').trim();
   const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle] || WRITING_STYLE_PROMPTS.professional;
+  const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
   const categoryContext = CATEGORY_CONTEXT[cleanCategory] || '';
 
-  const systemPrompt = `You are an expert email assistant. Generate a professional reply to the email below.
+  const systemPrompt = `You are an expert email assistant. Generate a reply to the email below.
 
-WRITING STYLE: ${stylePrompt}
+${stylePrompt}
+
+${formatPrompt}
 
 CATEGORY: ${cleanCategory}
 ${categoryContext}
 
-RULES:
-- Generate a complete, ready-to-send email reply
-- Do NOT include the subject line
-- Start with an appropriate greeting
-- End with a professional sign-off
-- Be concise but thorough
-- Address the sender's main points
-- Output ONLY the email text`;
+CRITICAL RULES (MUST FOLLOW):
+1. STRICTLY FOLLOW the writing style requirements above - this is the most important rule
+2. STRICTLY FOLLOW the response format requirements above
+3. Generate a complete, ready-to-send email reply
+4. Do NOT include the subject line
+5. Start with an appropriate greeting matching the style
+6. End with a sign-off matching the style
+7. Address the sender's main points
+8. Output ONLY the email text - no explanations or notes`;
 
   const userPrompt = `Reply to this email:
 
@@ -242,6 +373,8 @@ SUBJECT: ${emailSubject}
 
 BODY:
 ${emailBody.substring(0, 3000)}`;
+
+  console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}`);
 
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -811,19 +944,27 @@ serve(async (req) => {
             continue;
           }
 
-          // Generate AI draft content
+          // Generate AI draft content (uses category's writing style and format)
           const draftContent = await generateAIDraft(
             emailDetails.subject,
             emailDetails.body,
             emailDetails.from,
             category.name,
-            category.writing_style
+            category.writing_style,
+            'concise' // Default format - could be made configurable per category later
           );
 
           if (!draftContent) {
             console.error('Failed to generate AI draft');
             results.errors++;
             continue;
+          }
+
+          // Mark email as read since AI is handling it
+          if (tokenRecord.provider === 'google') {
+            await markGmailAsRead(accessToken, msg.id);
+          } else {
+            await markOutlookAsRead(accessToken, msg.id);
           }
 
           // Handle AI Draft (create draft in email provider)
