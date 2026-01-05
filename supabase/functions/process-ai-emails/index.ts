@@ -718,14 +718,14 @@ async function getGmailEmailDetails(accessToken: string, messageId: string): Pro
   }
 }
 
-// Create Gmail draft with HTML content
+// Create Gmail draft with HTML content and return both draft ID and message ID
 async function createGmailDraft(
   accessToken: string,
   to: string,
   subject: string,
   htmlBody: string,
   threadId: string
-): Promise<string | null> {
+): Promise<{ draftId: string; messageId: string } | null> {
   try {
     // Build RFC 2822 message with HTML content
     const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
@@ -763,22 +763,22 @@ async function createGmailDraft(
     }
     
     const draft = await res.json();
-    console.log(`Created Gmail draft: ${draft.id}`);
-    return draft.id;
+    console.log(`Created Gmail draft: ${draft.id}, message: ${draft.message?.id}`);
+    return { draftId: draft.id, messageId: draft.message?.id || null };
   } catch (error) {
     console.error('Error creating Gmail draft:', error);
     return null;
   }
 }
 
-// Send Gmail message with HTML content (for auto-reply)
+// Send Gmail message with HTML content (for auto-reply) and return the sent message ID
 async function sendGmailMessage(
   accessToken: string,
   to: string,
   subject: string,
   htmlBody: string,
   threadId: string
-): Promise<boolean> {
+): Promise<{ success: boolean; messageId: string | null }> {
   try {
     const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
     const message = [
@@ -809,14 +809,15 @@ async function sendGmailMessage(
     
     if (!res.ok) {
       console.error('Failed to send Gmail message:', await res.text());
-      return false;
+      return { success: false, messageId: null };
     }
     
-    console.log('Sent Gmail auto-reply');
-    return true;
+    const sentMessage = await res.json();
+    console.log(`Sent Gmail auto-reply, message ID: ${sentMessage.id}`);
+    return { success: true, messageId: sentMessage.id || null };
   } catch (error) {
     console.error('Error sending Gmail message:', error);
-    return false;
+    return { success: false, messageId: null };
   }
 }
 
@@ -1319,15 +1320,20 @@ async function processUserEmails(
         // Handle AI Draft
         if (needsDraft) {
           let draftId: string | null = null;
+          let draftMessageId: string | null = null;
 
           if (tokenRecord.provider === 'google') {
-            draftId = await createGmailDraft(
+            const gmailDraftResult = await createGmailDraft(
               accessToken,
               emailDetails.replyTo,
               emailDetails.subject,
               draftContent,
               (emailDetails as { threadId: string }).threadId
             );
+            if (gmailDraftResult) {
+              draftId = gmailDraftResult.draftId;
+              draftMessageId = gmailDraftResult.messageId;
+            }
           } else {
             draftId = await createOutlookDraft(
               accessToken,
@@ -1362,21 +1368,33 @@ async function processUserEmails(
             results.draftsCreated++;
             console.log(`Created draft for email ${msg.id}`);
             
-            // Apply AI Draft label
+            // Apply AI Draft label to original email
             if (tokenRecord.provider === 'google') {
               if (!gmailLabelCache['AI Draft']) {
                 const labelId = await getOrCreateGmailLabel(accessToken, 'AI Draft', aiDraftLabelColor);
                 if (labelId) gmailLabelCache['AI Draft'] = labelId;
               }
               if (gmailLabelCache['AI Draft']) {
+                // Apply to original email
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache['AI Draft']);
+                // Also apply to the draft message so it shows in drafts folder with the label
+                if (draftMessageId) {
+                  await applyGmailLabel(accessToken, draftMessageId, gmailLabelCache['AI Draft']);
+                  console.log(`Applied AI Draft label to draft message ${draftMessageId}`);
+                }
               }
             } else {
               if (!outlookCategoryCache['AI Draft']) {
                 await getOrCreateOutlookCategory(accessToken, 'AI Draft', aiDraftLabelColor);
                 outlookCategoryCache['AI Draft'] = true;
               }
+              // Apply to original email
               await applyOutlookCategory(accessToken, msg.id, 'AI Draft');
+              // Also apply to the draft message
+              if (draftId) {
+                await applyOutlookCategory(accessToken, draftId, 'AI Draft');
+                console.log(`Applied AI Draft category to draft message ${draftId}`);
+              }
             }
             
             // Add to processed set to prevent duplicate processing
@@ -1387,15 +1405,18 @@ async function processUserEmails(
         // Handle Auto-Reply
         if (needsAutoReply) {
           let sent = false;
+          let sentMessageId: string | null = null;
 
           if (tokenRecord.provider === 'google') {
-            sent = await sendGmailMessage(
+            const gmailSendResult = await sendGmailMessage(
               accessToken,
               emailDetails.replyTo,
               emailDetails.subject,
               draftContent,
               (emailDetails as { threadId: string }).threadId
             );
+            sent = gmailSendResult.success;
+            sentMessageId = gmailSendResult.messageId;
           } else {
             sent = await sendOutlookReply(accessToken, msg.id, draftContent);
           }
@@ -1424,20 +1445,27 @@ async function processUserEmails(
             results.autoRepliesSent++;
             console.log(`Sent auto-reply for email ${msg.id}`);
             
-            // Apply AI Sent label
+            // Apply AI Sent label to original email
             if (tokenRecord.provider === 'google') {
               if (!gmailLabelCache['AI Sent']) {
                 const labelId = await getOrCreateGmailLabel(accessToken, 'AI Sent', aiSentLabelColor);
                 if (labelId) gmailLabelCache['AI Sent'] = labelId;
               }
               if (gmailLabelCache['AI Sent']) {
+                // Apply to original email
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache['AI Sent']);
+                // Also apply to the sent message so it shows in sent folder with the label
+                if (sentMessageId) {
+                  await applyGmailLabel(accessToken, sentMessageId, gmailLabelCache['AI Sent']);
+                  console.log(`Applied AI Sent label to sent message ${sentMessageId}`);
+                }
               }
             } else {
               if (!outlookCategoryCache['AI Sent']) {
                 await getOrCreateOutlookCategory(accessToken, 'AI Sent', aiSentLabelColor);
                 outlookCategoryCache['AI Sent'] = true;
               }
+              // Apply to original email
               await applyOutlookCategory(accessToken, msg.id, 'AI Sent');
             }
             
