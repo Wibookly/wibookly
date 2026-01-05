@@ -119,7 +119,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-background/40 backdrop-blur-xl border-border/50 shadow-2xl">
+      <DialogContent className="sm:max-w-md bg-background/40 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_0_80px_rgba(var(--primary)/0.15),inset_0_1px_0_rgba(255,255,255,0.2)] ring-1 ring-white/10">
         <DialogHeader className="text-center">
           <img src={logo} alt="Wibookly" className="h-32 mx-auto mb-4" />
           <DialogTitle className="text-2xl font-semibold">
