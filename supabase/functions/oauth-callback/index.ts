@@ -155,8 +155,18 @@ serve(async (req) => {
       return redirectWithError('Failed to save tokens securely', resolvedAppUrl, provider);
     }
 
+    // Check if this is a new connection or reconnecting existing one
+    const { data: existingConnection } = await supabase
+      .from('provider_connections')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider', provider)
+      .maybeSingle();
+
+    const isNewConnection = !existingConnection;
+
     // Update provider_connections with status and email (NO TOKENS)
-    const { error: dbError } = await supabase
+    const { data: connectionData, error: dbError } = await supabase
       .from('provider_connections')
       .upsert(
         {
@@ -171,15 +181,96 @@ serve(async (req) => {
         {
           onConflict: 'user_id,provider',
         }
-      );
+      )
+      .select('id')
+      .single();
 
-    if (dbError) {
+    if (dbError || !connectionData) {
       console.error('Database error:', dbError);
       await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'connection_save_failed');
       return redirectWithError('Failed to save connection', resolvedAppUrl, provider);
     }
 
-    console.log(`Connection saved for ${provider} (tokens encrypted in vault)`);
+    const connectionId = connectionData.id;
+    console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault)`);
+
+    // Initialize default data for new connections
+    if (isNewConnection) {
+      console.log('New connection detected, initializing default categories and settings...');
+      
+      // Default categories
+      const defaultCategories = [
+        { name: 'Urgent', color: '#EF4444', sort_order: 0 },
+        { name: 'Follow Up', color: '#F97316', sort_order: 1 },
+        { name: 'Approvals', color: '#EAB308', sort_order: 2 },
+        { name: 'Meetings', color: '#22C55E', sort_order: 3 },
+        { name: 'Customers', color: '#06B6D4', sort_order: 4 },
+        { name: 'Vendors', color: '#3B82F6', sort_order: 5 },
+        { name: 'Internal', color: '#8B5CF6', sort_order: 6 },
+        { name: 'Projects', color: '#EC4899', sort_order: 7 },
+        { name: 'Finance', color: '#14B8A6', sort_order: 8 },
+        { name: 'FYI', color: '#6B7280', sort_order: 9 },
+      ];
+
+      // Insert default categories for this connection
+      const categoriesToInsert = defaultCategories.map(cat => ({
+        organization_id: organizationId,
+        connection_id: connectionId,
+        name: cat.name,
+        color: cat.color,
+        sort_order: cat.sort_order,
+        is_enabled: true,
+        ai_draft_enabled: false,
+        auto_reply_enabled: false,
+        writing_style: 'professional'
+      }));
+
+      const { error: catError } = await supabase
+        .from('categories')
+        .insert(categoriesToInsert);
+
+      if (catError) {
+        console.error('Failed to create default categories:', catError);
+      } else {
+        console.log(`Created ${defaultCategories.length} default categories for connection ${connectionId}`);
+      }
+
+      // Create default AI settings for this connection
+      const { error: aiSettingsError } = await supabase
+        .from('ai_settings')
+        .insert({
+          organization_id: organizationId,
+          connection_id: connectionId,
+          writing_style: 'professional',
+          ai_draft_label_color: '#3B82F6',
+          ai_sent_label_color: '#F97316'
+        });
+
+      if (aiSettingsError) {
+        console.error('Failed to create AI settings:', aiSettingsError);
+      } else {
+        console.log(`Created AI settings for connection ${connectionId}`);
+      }
+
+      // Create email profile for this connection
+      const { error: profileError } = await supabase
+        .from('email_profiles')
+        .insert({
+          user_id: userId,
+          organization_id: organizationId,
+          connection_id: connectionId,
+          full_name: null,
+          title: null,
+          email_signature: null
+        });
+
+      if (profileError) {
+        console.error('Failed to create email profile:', profileError);
+      } else {
+        console.log(`Created email profile for connection ${connectionId}`);
+      }
+    }
+
     await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_success', appOrigin);
 
     // Redirect back to the app
