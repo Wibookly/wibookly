@@ -7,7 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -573,15 +579,19 @@ export default function Categories() {
     markRuleNeedsSync(id);
   };
 
-  // Check if a rule needs syncing
+  // Check if a rule needs syncing - ONLY when explicitly marked (not just because never synced)
   const ruleNeedsSync = (ruleId: string) => {
     // Temp rules can't be synced yet
     if (ruleId.startsWith('temp-')) return false;
-    // Check if rule was modified since last sync or never synced
+    // Only return true if explicitly marked as needing sync
+    return rulesNeedingSync.has(ruleId);
+  };
+
+  // Check if a rule has never been synced (for initial display)
+  const ruleNeverSynced = (ruleId: string) => {
+    if (ruleId.startsWith('temp-')) return true;
     const rule = rules.find(r => r.id === ruleId);
-    if (!rule) return false;
-    // If never synced or explicitly marked as needing sync
-    return !rule.last_synced_at || rulesNeedingSync.has(ruleId);
+    return rule && !rule.last_synced_at;
   };
 
   // Sync a single rule manually
@@ -846,20 +856,37 @@ export default function Categories() {
                           className={rule.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
                         />
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => syncSingleRule(rule.id)}
-                          disabled={rule.id.startsWith('temp-') || saving}
-                          title={ruleNeedsSync(rule.id) ? "Click to sync changes" : "Sync this rule"}
-                          className={`
-                            ${ruleNeedsSync(rule.id) 
-                              ? 'text-red-500 hover:text-red-600 hover:bg-red-50 animate-[pulse_0.5s_ease-in-out_infinite] font-bold' 
-                              : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
-                          `}
-                        >
-                          <Play className={`w-4 h-4 ${ruleNeedsSync(rule.id) ? 'fill-red-500' : ''}`} />
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => syncSingleRule(rule.id)}
+                                disabled={rule.id.startsWith('temp-') || saving}
+                                className={`relative
+                                  ${ruleNeedsSync(rule.id) 
+                                    ? 'text-red-500 hover:text-red-600 hover:bg-red-50' 
+                                    : ruleNeverSynced(rule.id)
+                                      ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50'
+                                      : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                                `}
+                              >
+                                {ruleNeedsSync(rule.id) && (
+                                  <span className="absolute inset-0 rounded-md border-2 border-red-500 animate-[pulse_1s_ease-in-out_infinite]" />
+                                )}
+                                <RefreshCw className={`w-4 h-4 ${ruleNeedsSync(rule.id) ? 'animate-spin' : ''}`} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              {ruleNeedsSync(rule.id) 
+                                ? 'Click to sync changes' 
+                                : ruleNeverSynced(rule.id)
+                                  ? 'Click to run this rule'
+                                  : 'Rule is synced'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
 
                         {/* Sync status */}
                         {!rule.id.startsWith('temp-') && (
