@@ -20,13 +20,13 @@ export function Header({ onSignInClick }: HeaderProps) {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#how-it-works" className="text-sm text-foreground/70 hover:text-foreground transition-colors">
+            <a href="#how-it-works" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors">
               How It Works
             </a>
-            <a href="#features" className="text-sm text-foreground/70 hover:text-foreground transition-colors">
+            <a href="#features" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors">
               Features
             </a>
-            <a href="#security" className="text-sm text-foreground/70 hover:text-foreground transition-colors">
+            <a href="#security" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors">
               Security
             </a>
           </nav>
