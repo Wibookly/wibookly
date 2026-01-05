@@ -493,6 +493,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          email_signature: string | null
           full_name: string | null
           id: string
           organization_id: string
@@ -503,6 +504,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          email_signature?: string | null
           full_name?: string | null
           id?: string
           organization_id: string
@@ -513,6 +515,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          email_signature?: string | null
           full_name?: string | null
           id?: string
           organization_id?: string

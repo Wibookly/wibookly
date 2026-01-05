@@ -216,11 +216,21 @@ serve(async (req) => {
 
     console.log(`Authenticated user: ${user.id}`);
     
-    // Get user's profile for name and title
-    const { data: profileRows } = await supabaseClient.rpc('get_my_profile');
-    const profile = profileRows?.[0];
-    const senderName = profile?.full_name || null;
-    const senderTitle = profile?.title || null;
+    // Get user's profile for name, title, and signature
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
+    const { data: profileData } = await serviceClient
+      .from('user_profiles')
+      .select('full_name, title, email_signature')
+      .eq('user_id', user.id)
+      .single();
+    
+    const senderName = profileData?.full_name || null;
+    const senderTitle = profileData?.title || null;
+    const emailSignature = profileData?.email_signature || null;
     // ===== END AUTHENTICATION CHECK =====
 
     const rawBody = await req.json();
@@ -271,7 +281,12 @@ ${sanitizedExampleReply}`;
 
     // Build signature instruction
     let signatureInstruction = '';
-    if (senderName) {
+    if (emailSignature) {
+      // Use custom email signature if provided
+      signatureInstruction = `\n\nSIGNATURE: End the email with this exact signature (do not modify it):
+${emailSignature}`;
+    } else if (senderName) {
+      // Fall back to name and title
       signatureInstruction = `\n\nSIGNATURE: End the email with the sender's name: "${senderName}"`;
       if (senderTitle) {
         signatureInstruction += `\nInclude their title: "${senderTitle}"`;
