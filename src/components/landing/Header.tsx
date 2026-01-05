@@ -2,14 +2,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
 
-export function Header() {
-  const scrollToSignIn = () => {
-    const signInSection = document.getElementById('signin-section');
-    if (signInSection) {
-      signInSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+interface HeaderProps {
+  onSignInClick: () => void;
+}
 
+export function Header({ onSignInClick }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/5">
       <div className="container mx-auto px-6">
@@ -39,14 +36,14 @@ export function Header() {
               variant="ghost" 
               size="sm" 
               className="text-foreground hover:bg-foreground/10"
-              onClick={scrollToSignIn}
+              onClick={onSignInClick}
             >
               Sign In
             </Button>
             <Button 
               size="sm" 
               className="bg-card text-foreground hover:bg-card/90 border-0"
-              onClick={scrollToSignIn}
+              onClick={onSignInClick}
             >
               Get Started
             </Button>

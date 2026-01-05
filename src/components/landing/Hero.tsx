@@ -1,7 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 
-export function Hero() {
+interface HeroProps {
+  onGetStartedClick: () => void;
+}
+
+export function Hero({ onGetStartedClick }: HeroProps) {
   return (
     <section className="pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       <div className="container mx-auto px-6">
@@ -18,9 +22,7 @@ export function Hero() {
             <Button 
               size="lg" 
               className="group bg-card text-foreground hover:bg-card/90 shadow-lg px-8"
-              onClick={() => {
-                document.getElementById('signin-section')?.scrollIntoView({ behavior: 'smooth' });
-              }}
+              onClick={onGetStartedClick}
             >
               Get Started
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
