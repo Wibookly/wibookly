@@ -42,6 +42,21 @@ const FONT_OPTIONS = [
   { value: 'Courier New, monospace', label: 'Courier New' },
 ];
 
+// Format phone number as (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  // Remove all non-digit characters
+  const digits = value.replace(/\D/g, '');
+  
+  // Limit to 10 digits
+  const limitedDigits = digits.slice(0, 10);
+  
+  // Format based on length
+  if (limitedDigits.length === 0) return '';
+  if (limitedDigits.length <= 3) return `(${limitedDigits}`;
+  if (limitedDigits.length <= 6) return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
+  return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
+};
+
 export default function Settings() {
   const { organization, profile } = useAuth();
   const { toast } = useToast();
@@ -217,6 +232,12 @@ export default function Settings() {
       contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${email}" style="color: ${textColor}; text-decoration: none;">${email}</a></td></tr>`);
     }
 
+    // Only show signature if there's at least some content
+    const hasContent = name || userTitle || contactLines.length > 0 || fields.signatureLogoUrl;
+    if (!hasContent) {
+      return '<div style="color: #999; font-style: italic;">Add your details above to see the signature preview</div>';
+    }
+
     return `
       <div style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
         <p style="margin: 0 0 12px 0;">Best regards,</p>
@@ -228,9 +249,9 @@ export default function Settings() {
             <td style="vertical-align: top; ${fields.signatureLogoUrl ? 'padding-left: 16px;' : ''}">
               ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
               ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
-              <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
+              ${contactLines.length > 0 ? `<table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
                 ${contactLines.join('')}
-              </table>
+              </table>` : ''}
             </td>
           </tr>
         </table>
@@ -390,7 +411,7 @@ export default function Settings() {
                       id="sigPhone"
                       type="tel"
                       value={signatureFields.phone}
-                      onChange={(e) => setSignatureFields(prev => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, phone: formatPhoneNumber(e.target.value) }))}
                       placeholder="(888) 888-8888"
                     />
                   </div>
@@ -400,7 +421,7 @@ export default function Settings() {
                       id="sigMobile"
                       type="tel"
                       value={signatureFields.mobile}
-                      onChange={(e) => setSignatureFields(prev => ({ ...prev, mobile: e.target.value }))}
+                      onChange={(e) => setSignatureFields(prev => ({ ...prev, mobile: formatPhoneNumber(e.target.value) }))}
                       placeholder="(888) 888-8888"
                     />
                   </div>
