@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
 interface AISettings {
@@ -85,6 +86,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [emailProfileId, setEmailProfileId] = useState<string | null>(null);
+  const [signatureEnabled, setSignatureEnabled] = useState(false);
 
   // Fetch email profile for active connection
   useEffect(() => {
@@ -115,6 +117,7 @@ export default function Settings() {
       setTitle(data.title || '');
       setEmailSignature(data.email_signature || '');
       setUseCustomSignature(!!data.email_signature);
+      setSignatureEnabled((data as Record<string, unknown>).signature_enabled as boolean || false);
       setSignatureFields({
         phone: data.phone || '',
         mobile: data.mobile || '',
@@ -206,7 +209,8 @@ export default function Settings() {
         website: signatureFields.website || null,
         signature_logo_url: signatureFields.signatureLogoUrl || null,
         signature_font: signatureFields.font || 'Arial, sans-serif',
-        signature_color: signatureFields.color || '#333333'
+        signature_color: signatureFields.color || '#333333',
+        signature_enabled: signatureEnabled
       };
 
       if (emailProfileId) {
@@ -416,11 +420,25 @@ export default function Settings() {
 
         {/* Email Signature Builder */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Email Signature</h2>
-          <p className="text-sm text-muted-foreground">
-            Build your email signature with the fields below, or paste your own custom signature. This will be used in all AI-generated emails.
-          </p>
-          <div className="space-y-6 p-6 bg-card rounded-lg border border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Email Signature</h2>
+              <p className="text-sm text-muted-foreground">
+                Build your email signature with the fields below, or paste your own custom signature. This will be used in all AI-generated emails.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="signatureEnabled" className="text-sm font-normal">
+                {signatureEnabled ? 'Enabled' : 'Disabled'}
+              </Label>
+              <Switch
+                id="signatureEnabled"
+                checked={signatureEnabled}
+                onCheckedChange={setSignatureEnabled}
+              />
+            </div>
+          </div>
+          <div className={`space-y-6 p-6 bg-card rounded-lg border border-border ${!signatureEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Signature Mode Toggle */}
             <div className="flex items-center gap-4 pb-4 border-b border-border">
               <div className="flex gap-2">

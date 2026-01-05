@@ -236,6 +236,7 @@ export type Database = {
           organization_id: string
           phone: string | null
           signature_color: string | null
+          signature_enabled: boolean
           signature_font: string | null
           signature_logo_url: string | null
           title: string | null
@@ -253,6 +254,7 @@ export type Database = {
           organization_id: string
           phone?: string | null
           signature_color?: string | null
+          signature_enabled?: boolean
           signature_font?: string | null
           signature_logo_url?: string | null
           title?: string | null
@@ -270,6 +272,7 @@ export type Database = {
           organization_id?: string
           phone?: string | null
           signature_color?: string | null
+          signature_enabled?: boolean
           signature_font?: string | null
           signature_logo_url?: string | null
           title?: string | null
