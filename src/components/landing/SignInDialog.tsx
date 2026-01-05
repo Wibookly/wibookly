@@ -121,7 +121,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border">
         <DialogHeader className="text-center">
-          <img src={logo} alt="Wibookly" className="h-10 mx-auto mb-2" />
+          <img src={logo} alt="Wibookly" className="h-32 mx-auto mb-4" />
           <DialogTitle className="text-2xl font-semibold">
             {mode === 'signin' ? 'Welcome back' : 'Get started free'}
           </DialogTitle>
