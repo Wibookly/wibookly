@@ -1383,6 +1383,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -1396,11 +1397,16 @@ serve(async (req) => {
       categoryId = body?.category_id || null;
       cronMode = body?.cron === true;
     } catch {
-      // No body or invalid JSON
+      // No body or invalid JSON - this is typical for cron calls
+      cronMode = true;
     }
 
+    // Detect if this is a cron call (anon key only, not a real user token)
+    const isAnonKeyOnly = authHeader === `Bearer ${anonKey}`;
+    const isCronCall = !authHeader || cronMode || isAnonKeyOnly;
+
     // CRON MODE: Process ALL users with AI-enabled categories
-    if (!authHeader || cronMode) {
+    if (isCronCall) {
       console.log('=== CRON MODE: Processing all users ===');
       
       // Get all organizations that have AI-enabled categories
