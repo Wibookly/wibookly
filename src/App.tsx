@@ -14,6 +14,7 @@ import Categories from "./pages/Categories";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
 import EmailDraft from "./pages/EmailDraft";
+import AIActivityDashboard from "./pages/AIActivityDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/sync" element={<Sync />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/email-draft" element={<EmailDraft />} />
+              <Route path="/ai-activity" element={<AIActivityDashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_activity_logs: {
+        Row: {
+          activity_type: string
+          category_id: string | null
+          category_name: string
+          created_at: string
+          email_from: string | null
+          email_subject: string | null
+          id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          category_id?: string | null
+          category_name: string
+          created_at?: string
+          email_from?: string | null
+          email_subject?: string | null
+          id?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          category_id?: string | null
+          category_name?: string
+          created_at?: string
+          email_from?: string | null
+          email_subject?: string | null
+          id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_activity_logs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_activity_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_settings: {
         Row: {
           created_at: string
