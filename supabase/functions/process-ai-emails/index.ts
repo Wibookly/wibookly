@@ -581,7 +581,7 @@ async function applyOutlookCategory(
   }
 }
 
-// Generate AI draft for an email
+// Generate AI draft for an email (body only, signature added separately)
 async function generateAIDraft(
   emailSubject: string,
   emailBody: string,
@@ -590,7 +590,7 @@ async function generateAIDraft(
   writingStyle: string,
   formatStyle: string = 'concise',
   senderName: string | null = null,
-  senderTitle: string | null = null
+  _senderTitle: string | null = null // Unused - signature handled separately
 ): Promise<string | null> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) {
@@ -603,18 +603,7 @@ async function generateAIDraft(
   const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
   const categoryContext = CATEGORY_CONTEXT[cleanCategory] || '';
 
-  // Build signature instruction
-  let signatureInstruction = '';
-  if (senderName) {
-    signatureInstruction = `\n\nSIGNATURE: End the email with the sender's name: "${senderName}"`;
-    if (senderTitle) {
-      signatureInstruction += `\nInclude their title: "${senderTitle}"`;
-    }
-    signatureInstruction += `\nFormat the sign-off like:
-Best regards,
-${senderName}${senderTitle ? `\n${senderTitle}` : ''}`;
-  }
-
+  // AI should generate body text only - NO signature (we add HTML signature separately)
   const systemPrompt = `You are an expert email assistant. Generate a reply to the email below.
 
 ${stylePrompt}
@@ -627,12 +616,13 @@ ${categoryContext}
 CRITICAL RULES (MUST FOLLOW):
 1. STRICTLY FOLLOW the writing style requirements above - this is the most important rule
 2. STRICTLY FOLLOW the response format requirements above
-3. Generate a complete, ready-to-send email reply
+3. Generate a complete, ready-to-send email reply BODY ONLY
 4. Do NOT include the subject line
-5. Start with an appropriate greeting matching the style
-6. End with a sign-off matching the style, using the sender's name if provided
-7. Address the sender's main points
-8. Output ONLY the email text - no explanations or notes${signatureInstruction}`;
+5. Start with an appropriate greeting matching the style (e.g., "Dear ${senderName ? 'Ali' : 'recipient'},")
+6. DO NOT include any sign-off like "Best regards" or your name - the signature will be added automatically
+7. End your response with the last sentence of the email body content
+8. Address the sender's main points
+9. Output ONLY the email text - no explanations or notes`;
 
   const userPrompt = `Reply to this email:
 
@@ -728,23 +718,24 @@ async function getGmailEmailDetails(accessToken: string, messageId: string): Pro
   }
 }
 
-// Create Gmail draft
+// Create Gmail draft with HTML content
 async function createGmailDraft(
   accessToken: string,
   to: string,
   subject: string,
-  body: string,
+  htmlBody: string,
   threadId: string
 ): Promise<string | null> {
   try {
-    // Build RFC 2822 message
+    // Build RFC 2822 message with HTML content
     const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
     const message = [
       `To: ${to}`,
       `Subject: ${replySubject}`,
-      'Content-Type: text/plain; charset=utf-8',
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
       '',
-      body
+      htmlBody
     ].join('\r\n');
     
     const encodedMessage = btoa(unescape(encodeURIComponent(message)))
@@ -780,12 +771,12 @@ async function createGmailDraft(
   }
 }
 
-// Send Gmail message (for auto-reply)
+// Send Gmail message with HTML content (for auto-reply)
 async function sendGmailMessage(
   accessToken: string,
   to: string,
   subject: string,
-  body: string,
+  htmlBody: string,
   threadId: string
 ): Promise<boolean> {
   try {
@@ -793,9 +784,10 @@ async function sendGmailMessage(
     const message = [
       `To: ${to}`,
       `Subject: ${replySubject}`,
-      'Content-Type: text/plain; charset=utf-8',
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
       '',
-      body
+      htmlBody
     ].join('\r\n');
     
     const encodedMessage = btoa(unescape(encodeURIComponent(message)))
@@ -859,12 +851,12 @@ async function getOutlookEmailDetails(accessToken: string, messageId: string): P
   }
 }
 
-// Create Outlook draft
+// Create Outlook draft with HTML content
 async function createOutlookDraft(
   accessToken: string,
   to: string,
   subject: string,
-  body: string,
+  htmlBody: string,
   conversationId: string
 ): Promise<string | null> {
   try {
@@ -879,8 +871,8 @@ async function createOutlookDraft(
       body: JSON.stringify({
         subject: replySubject,
         body: {
-          contentType: 'Text',
-          content: body
+          contentType: 'HTML',
+          content: htmlBody
         },
         toRecipients: [
           {
@@ -1010,11 +1002,85 @@ function buildOutlookFilter(rule: any): string {
   return filters.join(' and ');
 }
 
+// User profile with signature fields
+interface UserProfile {
+  full_name: string | null;
+  title: string | null;
+  email: string | null;
+  email_signature: string | null;
+  phone: string | null;
+  mobile: string | null;
+  website: string | null;
+  signature_logo_url: string | null;
+  signature_font: string | null;
+  signature_color: string | null;
+}
+
+// Generate HTML email signature from profile fields
+function generateEmailSignature(profile: UserProfile): string {
+  // If user has a custom email signature, use it
+  if (profile.email_signature) {
+    return `\n\n${profile.email_signature}`;
+  }
+
+  // Generate signature from profile fields
+  const fontFamily = profile.signature_font || 'Arial, sans-serif';
+  const textColor = profile.signature_color || '#333333';
+  const name = profile.full_name;
+  const userTitle = profile.title;
+  const phone = profile.phone;
+  const mobile = profile.mobile;
+  const website = profile.website;
+  const email = profile.email;
+  const logoUrl = profile.signature_logo_url;
+
+  // Build contact lines
+  const contactLines: string[] = [];
+  if (phone) {
+    contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${phone}</td></tr>`);
+  }
+  if (mobile) {
+    contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📱</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Mobile: ${mobile}</td></tr>`);
+  }
+  if (website) {
+    const cleanUrl = website.replace(/^https?:\/\//, '');
+    contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">🌐</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="${website}" style="color: ${textColor}; text-decoration: none;">${cleanUrl}</a></td></tr>`);
+  }
+  if (email) {
+    contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${email}" style="color: ${textColor}; text-decoration: none;">${email}</a></td></tr>`);
+  }
+
+  // Only generate signature if there's content
+  if (!name && !userTitle && contactLines.length === 0 && !logoUrl) {
+    return '';
+  }
+
+  return `
+
+<div style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
+  <p style="margin: 0 0 12px 0;">Best regards,</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
+    <tr>
+      ${logoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+        <img src="${logoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
+      </td>` : ''}
+      <td style="vertical-align: top; ${logoUrl ? 'padding-left: 16px;' : ''}">
+        ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
+        ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
+        ${contactLines.length > 0 ? `<table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
+          ${contactLines.join('')}
+        </table>` : ''}
+      </td>
+    </tr>
+  </table>
+</div>`;
+}
+
 // Process emails for a single user
 async function processUserEmails(
   userId: string,
   organizationId: string,
-  profile: { full_name: string | null; title: string | null },
+  profile: UserProfile,
   categoryId: string | null = null
 ): Promise<{ draftsCreated: number; autoRepliesSent: number; errors: number }> {
   const results = { draftsCreated: 0, autoRepliesSent: 0, errors: 0 };
@@ -1215,8 +1281,8 @@ async function processUserEmails(
           continue;
         }
 
-        // Generate AI draft content
-        const draftContent = await generateAIDraft(
+        // Generate AI draft content (without signature - AI will just create the body)
+        const aiDraftBody = await generateAIDraft(
           emailDetails.subject,
           emailDetails.body,
           emailDetails.from,
@@ -1224,14 +1290,24 @@ async function processUserEmails(
           category.writing_style,
           'concise',
           profile.full_name || null,
-          profile.title || null
+          null // Don't pass title to AI - we'll add signature separately
         );
 
-        if (!draftContent) {
+        if (!aiDraftBody) {
           console.error('Failed to generate AI draft');
           results.errors++;
           continue;
         }
+
+        // Generate the email signature from profile
+        const emailSignature = generateEmailSignature(profile);
+        
+        // Combine draft body with signature for final content
+        // Convert plain text body to HTML and append HTML signature
+        const htmlBody = aiDraftBody.replace(/\n/g, '<br>');
+        const draftContent = `<div>${htmlBody}</div>${emailSignature}`;
+        
+        console.log(`Generated draft with signature for email ${msg.id}`);
 
         // Mark email as read since AI is handling it
         if (tokenRecord.provider === 'google') {
@@ -1435,7 +1511,7 @@ serve(async (req) => {
         // Get users in this organization who have connected email providers (tokens)
         const { data: usersInOrg } = await supabaseAdmin
           .from('user_profiles')
-          .select('user_id, full_name, title')
+          .select('user_id, full_name, title, email, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
           .eq('organization_id', orgId);
         
         if (!usersInOrg?.length) {
@@ -1458,7 +1534,18 @@ serve(async (req) => {
             continue;
           }
           
-          const profile = { full_name: userProfile.full_name, title: userProfile.title };
+          const profile: UserProfile = {
+            full_name: userProfile.full_name,
+            title: userProfile.title,
+            email: userProfile.email,
+            email_signature: userProfile.email_signature,
+            phone: userProfile.phone,
+            mobile: userProfile.mobile,
+            website: userProfile.website,
+            signature_logo_url: userProfile.signature_logo_url,
+            signature_font: userProfile.signature_font,
+            signature_color: userProfile.signature_color
+          };
           
           console.log(`Processing user ${userProfile.user_id} in org ${orgId}`);
           
@@ -1504,19 +1591,33 @@ serve(async (req) => {
       );
     }
 
-    // Get user's organization
-    const { data: profileData } = await supabaseUserClient.rpc('get_my_profile');
-    const profileRow = profileData?.[0];
+    // Get user's full profile including signature fields
+    const { data: profileData } = await supabaseAdmin
+      .from('user_profiles')
+      .select('organization_id, full_name, title, email, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
+      .eq('user_id', user.id)
+      .single();
     
-    if (!profileRow?.organization_id) {
+    if (!profileData?.organization_id) {
       return new Response(
         JSON.stringify({ error: 'User profile not found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const profile = { full_name: profileRow.full_name, title: profileRow.title };
-    const results = await processUserEmails(user.id, profileRow.organization_id, profile, categoryId);
+    const profile: UserProfile = {
+      full_name: profileData.full_name,
+      title: profileData.title,
+      email: profileData.email,
+      email_signature: profileData.email_signature,
+      phone: profileData.phone,
+      mobile: profileData.mobile,
+      website: profileData.website,
+      signature_logo_url: profileData.signature_logo_url,
+      signature_font: profileData.signature_font,
+      signature_color: profileData.signature_color
+    };
+    const results = await processUserEmails(user.id, profileData.organization_id, profile, categoryId);
 
     console.log(`=== USER MODE complete: ${results.draftsCreated} drafts, ${results.autoRepliesSent} auto-replies ===`);
 
