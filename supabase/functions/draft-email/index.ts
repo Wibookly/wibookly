@@ -293,38 +293,37 @@ ${sanitizedExampleReply}`;
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact signature (do not modify it):
 ${emailSignature}`;
     } else if (senderName || phone || mobile || website || signatureLogoUrl) {
-      // Generate HTML signature from fields with font and color
-      const signatureParts: string[] = [];
-      signatureParts.push(`<div style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">`);
-      signatureParts.push('<p style="margin: 0 0 8px 0;">Best regards,</p>');
-      
-      if (signatureLogoUrl) {
-        signatureParts.push(`<img src="${signatureLogoUrl}" alt="Logo" style="max-height: 50px; margin-bottom: 10px;" /><br/>`);
-      }
-      
-      if (senderName) {
-        signatureParts.push(`<strong style="font-size: 15px;">${senderName}</strong><br/>`);
-      }
-      if (senderTitle) {
-        signatureParts.push(`<span style="opacity: 0.8;">${senderTitle}</span><br/>`);
-      }
-      
-      signatureParts.push('<div style="margin-top: 8px; font-size: 13px; opacity: 0.9;">');
-      if (userEmail) {
-        signatureParts.push(`Email: <a href="mailto:${userEmail}" style="color: #0066cc;">${userEmail}</a><br/>`);
-      }
+      // Generate HTML signature with logo on left, contact info on right (matching reference layout)
+      const contactLines: string[] = [];
       if (phone) {
-        signatureParts.push(`Phone: ${phone}<br/>`);
+        contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${phone}</td></tr>`);
       }
       if (mobile) {
-        signatureParts.push(`Mobile: ${mobile}<br/>`);
+        contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📱</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Mobile: ${mobile}</td></tr>`);
       }
       if (website) {
-        signatureParts.push(`Web: <a href="${website}" style="color: #0066cc;">${website}</a><br/>`);
+        const cleanUrl = website.replace(/^https?:\/\//, '');
+        contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">🌐</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="${website}" style="color: ${signatureColor}; text-decoration: none;">${cleanUrl}</a></td></tr>`);
       }
-      signatureParts.push('</div></div>');
-      
-      const generatedSignature = signatureParts.join('');
+      if (userEmail) {
+        contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${userEmail}" style="color: ${signatureColor}; text-decoration: none;">${userEmail}</a></td></tr>`);
+      }
+
+      const generatedSignature = `
+<table cellpadding="0" cellspacing="0" border="0" style="font-family: ${signatureFont}; font-size: 14px; color: ${signatureColor};">
+  <tr>
+    ${signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+      <img src="${signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
+    </td>` : ''}
+    <td style="vertical-align: top; ${signatureLogoUrl ? 'padding-left: 16px;' : ''}">
+      ${senderName ? `<div style="font-size: 16px; font-weight: bold; color: ${signatureColor}; margin-bottom: 2px;">${senderName}</div>` : ''}
+      ${senderTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${senderTitle}</div>` : ''}
+      <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${signatureColor};">
+        ${contactLines.join('')}
+      </table>
+    </td>
+  </tr>
+</table>`;
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact HTML signature (do not modify it):
 ${generatedSignature}`;
     }

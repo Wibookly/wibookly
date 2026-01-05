@@ -197,40 +197,41 @@ export default function Settings() {
     email: string,
     fields: SignatureFields
   ): string => {
-    const parts: string[] = [];
     const fontFamily = fields.font || 'Arial, sans-serif';
     const textColor = fields.color || '#333333';
     
-    parts.push(`<div style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">`);
-    parts.push('<p style="margin: 0 0 8px 0;">Best regards,</p>');
-    
-    if (fields.signatureLogoUrl) {
-      parts.push(`<img src="${fields.signatureLogoUrl}" alt="Logo" style="max-height: 50px; margin-bottom: 10px;" /><br/>`);
-    }
-    
-    if (name) {
-      parts.push(`<strong style="font-size: 15px;">${name}</strong><br/>`);
-    }
-    if (userTitle) {
-      parts.push(`<span style="opacity: 0.8;">${userTitle}</span><br/>`);
-    }
-    
-    parts.push('<div style="margin-top: 8px; font-size: 13px; opacity: 0.9;">');
-    if (email) {
-      parts.push(`Email: <a href="mailto:${email}" style="color: #0066cc;">${email}</a><br/>`);
-    }
+    // Build contact lines with icons
+    const contactLines: string[] = [];
     if (fields.phone) {
-      parts.push(`Phone: ${fields.phone}<br/>`);
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${fields.phone}</td></tr>`);
     }
     if (fields.mobile) {
-      parts.push(`Mobile: ${fields.mobile}<br/>`);
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📱</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Mobile: ${fields.mobile}</td></tr>`);
     }
     if (fields.website) {
-      parts.push(`Web: <a href="${fields.website}" style="color: #0066cc;">${fields.website}</a><br/>`);
+      const cleanUrl = fields.website.replace(/^https?:\/\//, '');
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">🌐</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="${fields.website}" style="color: ${textColor}; text-decoration: none;">${cleanUrl}</a></td></tr>`);
     }
-    parts.push('</div></div>');
-    
-    return parts.join('');
+    if (email) {
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${email}" style="color: ${textColor}; text-decoration: none;">${email}</a></td></tr>`);
+    }
+
+    return `
+      <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
+        <tr>
+          ${fields.signatureLogoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+            <img src="${fields.signatureLogoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
+          </td>` : ''}
+          <td style="vertical-align: top; ${fields.signatureLogoUrl ? 'padding-left: 16px;' : ''}">
+            ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
+            ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
+            <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
+              ${contactLines.join('')}
+            </table>
+          </td>
+        </tr>
+      </table>
+    `;
   };
 
   if (loading) {
