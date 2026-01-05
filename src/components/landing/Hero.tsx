@@ -1,10 +1,36 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import mockupInbox from '@/assets/mockup-inbox.png';
 import mockupAiDraft from '@/assets/mockup-ai-draft.png';
+import mockupCategories from '@/assets/mockup-categories.png';
+import mockupIntegrations from '@/assets/mockup-integrations.png';
+import mockupActivity from '@/assets/mockup-activity.png';
+
+const mockups = [
+  { src: mockupInbox, alt: 'Wibookly Inbox Dashboard' },
+  { src: mockupCategories, alt: 'Smart Categories Management' },
+  { src: mockupIntegrations, alt: 'Email Integrations' },
+  { src: mockupActivity, alt: 'AI Activity Dashboard' },
+];
 
 export function Hero() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % mockups.length);
+        setIsTransitioning(false);
+      }, 300);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <section className="pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       <div className="container mx-auto px-6">
@@ -27,17 +53,17 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Floating Mockups */}
+        {/* Floating Mockups with Carousel */}
         <div className="relative mt-20 md:mt-28 max-w-6xl mx-auto">
-          {/* Main inbox mockup */}
+          {/* Main mockup carousel */}
           <div 
             className="relative z-10 animate-fade-in rounded-xl overflow-hidden shadow-2xl border border-border/20"
             style={{ animationDelay: '300ms' }}
           >
             <img
-              src={mockupInbox} 
-              alt="Wibookly Inbox Dashboard"
-              className="w-full h-auto"
+              src={mockups[currentIndex].src}
+              alt={mockups[currentIndex].alt}
+              className={`w-full h-auto transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
             />
           </div>
           
@@ -51,6 +77,28 @@ export function Hero() {
               alt="AI Draft Reply Feature" 
               className="w-full h-auto"
             />
+          </div>
+
+          {/* Carousel indicators */}
+          <div className="flex justify-center gap-2 mt-8">
+            {mockups.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setIsTransitioning(true);
+                  setTimeout(() => {
+                    setCurrentIndex(index);
+                    setIsTransitioning(false);
+                  }, 300);
+                }}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  index === currentIndex 
+                    ? 'bg-primary w-6' 
+                    : 'bg-primary/30 hover:bg-primary/50'
+                }`}
+                aria-label={`View ${mockups[index].alt}`}
+              />
+            ))}
           </div>
 
           {/* Decorative glow effects */}
