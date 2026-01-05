@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,12 +150,18 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         {category.sort_order + 1}:
       </TableCell>
       <TableCell>
-        <input
-          type="color"
-          value={category.color}
-          onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
-          className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-        />
+        <div className="relative">
+          <div
+            className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer"
+            style={{ backgroundColor: category.color }}
+          />
+          <input
+            type="color"
+            value={category.color}
+            onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
+            className="absolute inset-0 w-6 h-6 opacity-0 cursor-pointer"
+          />
+        </div>
       </TableCell>
       <TableCell>
         <Input
@@ -654,28 +661,34 @@ export default function Categories() {
   }
 
   return (
-    <div className="max-w-6xl animate-fade-in min-h-full p-6 -m-4 lg:-m-6 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-lg">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
-          <p className="mt-1 text-muted-foreground">
-            Customize how your emails are organized. Drag to reorder.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : lastSaved ? (
-            <>
-              <Check className="w-4 h-4 text-green-500" />
-              <span>Saved</span>
-            </>
-          ) : null}
-        </div>
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-6xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
       </div>
+      
+      <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
+            <p className="mt-1 text-muted-foreground">
+              Customize how your emails are organized. Drag to reorder.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <Check className="w-4 h-4 text-green-500" />
+                <span>Saved</span>
+              </>
+            ) : null}
+          </div>
+        </div>
 
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
@@ -956,7 +969,7 @@ export default function Categories() {
           );
         })}
       </div>
-
+      </div>
     </div>
   );
 }

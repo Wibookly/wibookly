@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -118,23 +119,29 @@ export default function Sync() {
   }
 
   return (
-    <div className="max-w-4xl animate-fade-in">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sync</h1>
-          <p className="mt-1 text-muted-foreground">
-            Manually trigger syncs and view job history
-          </p>
-        </div>
-        <Button onClick={runSync} disabled={syncing}>
-          {syncing ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4 mr-2" />
-          )}
-          Run Sync Now
-        </Button>
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-4xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
       </div>
+      
+      <div className="max-w-4xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Sync</h1>
+            <p className="mt-1 text-muted-foreground">
+              Manually trigger syncs and view job history
+            </p>
+          </div>
+          <Button onClick={runSync} disabled={syncing}>
+            {syncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-2" />
+            )}
+            Run Sync Now
+          </Button>
+        </div>
 
       {jobs.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-lg border border-border">
@@ -180,6 +187,7 @@ export default function Sync() {
           </Table>
         </div>
       )}
+      </div>
     </div>
   );
 }

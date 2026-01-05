@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -196,14 +197,20 @@ export default function AIActivityDashboard() {
   }
 
   return (
-    <div className="max-w-6xl animate-fade-in min-h-full p-6 -m-4 lg:-m-6 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-lg">
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">AI Activity Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">
-            Track AI-generated drafts and auto-replies across your organization.
-          </p>
-        </div>
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-6xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
+      </div>
+      
+      <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">AI Activity Dashboard</h1>
+            <p className="mt-1 text-muted-foreground">
+              Track AI-generated drafts and auto-replies across your organization.
+            </p>
+          </div>
         
         <div className="flex flex-wrap items-center gap-3">
           <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
@@ -376,6 +383,7 @@ export default function AIActivityDashboard() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
