@@ -815,6 +815,32 @@ serve(async (req) => {
 
     const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
     
+    // After syncing rules, trigger AI email processing for categories with AI features enabled
+    // This runs asynchronously in the background
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    console.log('Triggering AI email processing...');
+    
+    try {
+      const aiProcessResponse = await fetch(`${supabaseUrl}/functions/v1/process-ai-emails`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ trigger: 'sync-rules' })
+      });
+      
+      if (aiProcessResponse.ok) {
+        const aiResult = await aiProcessResponse.json();
+        console.log('AI processing result:', aiResult);
+      } else {
+        console.error('AI processing failed:', await aiProcessResponse.text());
+      }
+    } catch (aiError) {
+      console.error('Error calling AI processing:', aiError);
+      // Don't fail the sync if AI processing fails
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: true, 

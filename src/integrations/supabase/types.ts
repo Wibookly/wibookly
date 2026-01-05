@@ -319,6 +319,60 @@ export type Database = {
         }
         Relationships: []
       }
+      processed_emails: {
+        Row: {
+          action_type: string
+          category_id: string
+          created_at: string
+          draft_id: string | null
+          email_id: string
+          id: string
+          organization_id: string
+          provider: string
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          category_id: string
+          created_at?: string
+          draft_id?: string | null
+          email_id: string
+          id?: string
+          organization_id: string
+          provider: string
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          category_id?: string
+          created_at?: string
+          draft_id?: string | null
+          email_id?: string
+          id?: string
+          organization_id?: string
+          provider?: string
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processed_emails_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processed_emails_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_connections: {
         Row: {
           connected_at: string | null

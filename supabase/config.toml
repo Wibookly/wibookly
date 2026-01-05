@@ -19,3 +19,10 @@ verify_jwt = false
 
 [functions.sync-rules]
 verify_jwt = false
+
+[functions.cleanup-rule]
+verify_jwt = false
+
+# Process AI emails - creates drafts and sends auto-replies for AI-enabled categories
+[functions.process-ai-emails]
+verify_jwt = false
