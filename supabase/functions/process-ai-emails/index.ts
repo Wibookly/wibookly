@@ -452,6 +452,88 @@ async function applyGmailLabel(
   }
 }
 
+// Remove Gmail label from message
+async function removeGmailLabel(
+  accessToken: string, 
+  messageId: string, 
+  labelId: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          removeLabelIds: [labelId]
+        })
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to remove Gmail label:', await res.text());
+      return false;
+    }
+    
+    console.log(`Removed Gmail label ${labelId} from message ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error removing Gmail label:', error);
+    return false;
+  }
+}
+
+// Delete Gmail draft
+async function deleteGmailDraft(accessToken: string, draftId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to delete Gmail draft:', await res.text());
+      return false;
+    }
+    
+    console.log(`Deleted Gmail draft ${draftId}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting Gmail draft:', error);
+    return false;
+  }
+}
+
+// Delete Outlook draft
+async function deleteOutlookDraft(accessToken: string, draftId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${draftId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to delete Outlook draft:', await res.text());
+      return false;
+    }
+    
+    console.log(`Deleted Outlook draft ${draftId}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting Outlook draft:', error);
+    return false;
+  }
+}
+
 // Get or create Outlook category (folder) for AI labels
 async function getOrCreateOutlookCategory(
   accessToken: string, 
@@ -577,6 +659,55 @@ async function applyOutlookCategory(
     return true;
   } catch (error) {
     console.error('Error applying Outlook category:', error);
+    return false;
+  }
+}
+
+// Remove Outlook category from message
+async function removeOutlookCategory(
+  accessToken: string, 
+  messageId: string, 
+  categoryName: string
+): Promise<boolean> {
+  try {
+    // First get current categories
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    let currentCategories: string[] = [];
+    if (getRes.ok) {
+      const data = await getRes.json();
+      currentCategories = data.categories || [];
+    }
+    
+    // Remove the category
+    currentCategories = currentCategories.filter(c => c !== categoryName);
+    
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          categories: currentCategories
+        })
+      }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to remove Outlook category:', await res.text());
+      return false;
+    }
+    
+    console.log(`Removed Outlook category ${categoryName} from message ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error removing Outlook category:', error);
     return false;
   }
 }
@@ -1427,6 +1558,15 @@ async function processConnectionEmails(
           let sent = false;
           let sentMessageId: string | null = null;
 
+          // Check if there's an existing draft for this email that we need to clean up
+          const { data: existingDraft } = await supabaseAdmin
+            .from('processed_emails')
+            .select('draft_id')
+            .eq('email_id', msg.id)
+            .eq('category_id', category.id)
+            .eq('action_type', 'draft')
+            .maybeSingle();
+
           if (tokenRecord.provider === 'google') {
             const gmailSendResult = await sendGmailMessage(
               accessToken,
@@ -1442,6 +1582,39 @@ async function processConnectionEmails(
           }
 
           if (sent) {
+            // Remove AI Draft label from original email and delete the draft
+            const aiDraftLabelName = '00: AI Draft';
+            
+            if (tokenRecord.provider === 'google') {
+              // Get or cache the AI Draft label ID
+              if (!gmailLabelCache[aiDraftLabelName]) {
+                const labelId = await getOrCreateGmailLabel(accessToken, aiDraftLabelName, aiDraftLabelColor);
+                if (labelId) gmailLabelCache[aiDraftLabelName] = labelId;
+              }
+              
+              // Remove AI Draft label from original email
+              if (gmailLabelCache[aiDraftLabelName]) {
+                await removeGmailLabel(accessToken, msg.id, gmailLabelCache[aiDraftLabelName]);
+                console.log(`Removed ${aiDraftLabelName} label from original email ${msg.id}`);
+              }
+              
+              // Delete the draft from Gmail if it exists
+              if (existingDraft?.draft_id) {
+                await deleteGmailDraft(accessToken, existingDraft.draft_id);
+                console.log(`Deleted Gmail draft ${existingDraft.draft_id} after sending auto-reply`);
+              }
+            } else {
+              // Remove AI Draft category from original email in Outlook
+              await removeOutlookCategory(accessToken, msg.id, aiDraftLabelName);
+              console.log(`Removed ${aiDraftLabelName} category from original email ${msg.id}`);
+              
+              // Delete the draft from Outlook if it exists
+              if (existingDraft?.draft_id) {
+                await deleteOutlookDraft(accessToken, existingDraft.draft_id);
+                console.log(`Deleted Outlook draft ${existingDraft.draft_id} after sending auto-reply`);
+              }
+            }
+
             await supabaseAdmin.from('processed_emails').insert({
               organization_id: organizationId,
               user_id: userId,
