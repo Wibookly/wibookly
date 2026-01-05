@@ -496,10 +496,14 @@ export type Database = {
           email_signature: string | null
           full_name: string | null
           id: string
+          mobile: string | null
           organization_id: string
+          phone: string | null
+          signature_logo_url: string | null
           title: string | null
           updated_at: string
           user_id: string
+          website: string | null
         }
         Insert: {
           created_at?: string
@@ -507,10 +511,14 @@ export type Database = {
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          mobile?: string | null
           organization_id: string
+          phone?: string | null
+          signature_logo_url?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
+          website?: string | null
         }
         Update: {
           created_at?: string
@@ -518,10 +526,14 @@ export type Database = {
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          mobile?: string | null
           organization_id?: string
+          phone?: string | null
+          signature_logo_url?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
+          website?: string | null
         }
         Relationships: [
           {

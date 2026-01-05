@@ -216,7 +216,7 @@ serve(async (req) => {
 
     console.log(`Authenticated user: ${user.id}`);
     
-    // Get user's profile for name, title, and signature
+    // Get user's profile for name, title, and signature fields
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -224,13 +224,18 @@ serve(async (req) => {
     
     const { data: profileData } = await serviceClient
       .from('user_profiles')
-      .select('full_name, title, email_signature')
+      .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url')
       .eq('user_id', user.id)
       .single();
     
     const senderName = profileData?.full_name || null;
     const senderTitle = profileData?.title || null;
     const emailSignature = profileData?.email_signature || null;
+    const phone = profileData?.phone || null;
+    const mobile = profileData?.mobile || null;
+    const website = profileData?.website || null;
+    const signatureLogoUrl = profileData?.signature_logo_url || null;
+    const userEmail = user.email || null;
     // ===== END AUTHENTICATION CHECK =====
 
     const rawBody = await req.json();
@@ -285,15 +290,41 @@ ${sanitizedExampleReply}`;
       // Use custom email signature if provided
       signatureInstruction = `\n\nSIGNATURE: End the email with this exact signature (do not modify it):
 ${emailSignature}`;
-    } else if (senderName) {
-      // Fall back to name and title
-      signatureInstruction = `\n\nSIGNATURE: End the email with the sender's name: "${senderName}"`;
-      if (senderTitle) {
-        signatureInstruction += `\nInclude their title: "${senderTitle}"`;
+    } else if (senderName || phone || mobile || website || signatureLogoUrl) {
+      // Generate HTML signature from fields
+      const signatureParts: string[] = [];
+      signatureParts.push('<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">');
+      signatureParts.push('<p style="margin: 0 0 8px 0;">Best regards,</p>');
+      
+      if (signatureLogoUrl) {
+        signatureParts.push(`<img src="${signatureLogoUrl}" alt="Logo" style="max-height: 50px; margin-bottom: 10px;" /><br/>`);
       }
-      signatureInstruction += `\nFormat the sign-off like:
-Best regards,
-${senderName}${senderTitle ? `\n${senderTitle}` : ''}`;
+      
+      if (senderName) {
+        signatureParts.push(`<strong style="font-size: 15px;">${senderName}</strong><br/>`);
+      }
+      if (senderTitle) {
+        signatureParts.push(`<span style="color: #666;">${senderTitle}</span><br/>`);
+      }
+      
+      signatureParts.push('<div style="margin-top: 8px; font-size: 13px; color: #555;">');
+      if (userEmail) {
+        signatureParts.push(`Email: <a href="mailto:${userEmail}" style="color: #0066cc;">${userEmail}</a><br/>`);
+      }
+      if (phone) {
+        signatureParts.push(`Phone: ${phone}<br/>`);
+      }
+      if (mobile) {
+        signatureParts.push(`Mobile: ${mobile}<br/>`);
+      }
+      if (website) {
+        signatureParts.push(`Web: <a href="${website}" style="color: #0066cc;">${website}</a><br/>`);
+      }
+      signatureParts.push('</div></div>');
+      
+      const generatedSignature = signatureParts.join('');
+      signatureInstruction = `\n\nSIGNATURE: End the email with this exact HTML signature (do not modify it):
+${generatedSignature}`;
     }
 
     // Build the system prompt with structured delimiters to prevent injection
