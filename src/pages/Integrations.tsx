@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon } from 'lucide-react';
@@ -301,29 +302,35 @@ export default function Integrations() {
   }
 
   return (
-    <section className="max-w-3xl animate-fade-in" aria-busy={loading ? 'true' : 'false'}>
-      <header className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Welcome back{firstName ? `, ${firstName}` : ''}
-            </h1>
-            <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/integration-setup">
-              <Button variant="ghost" size="sm">
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Setup Guide
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-3xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
+      </div>
+      
+      <section className="max-w-3xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
+        <header className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Welcome back{firstName ? `, ${firstName}` : ''}
+              </h1>
+              <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link to="/integration-setup">
+                <Button variant="ghost" size="sm">
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  Setup Guide
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={() => setShowDiagnostics(!showDiagnostics)}>
+                <Settings2 className="w-4 h-4 mr-2" />
+                Diagnostics
               </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={() => setShowDiagnostics(!showDiagnostics)}>
-              <Settings2 className="w-4 h-4 mr-2" />
-              Diagnostics
-            </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {showDiagnostics && (
         <div className="mb-6">
@@ -427,6 +434,7 @@ export default function Integrations() {
           ))
         )}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

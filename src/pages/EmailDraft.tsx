@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { UserAvatarDropdown } from "@/components/app/UserAvatarDropdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -196,19 +197,25 @@ export default function EmailDraft() {
   const categoryDisplayName = selectedCategoryData?.name || "";
 
   return (
-    <div className="space-y-6">
-      {/* Page header with gradient accent */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-accent/10 to-primary/5 p-6 border border-border">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-        <div className="relative">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Draft Settings
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Configure auto-reply templates and AI writing style for each category
-          </p>
-        </div>
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-5xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
       </div>
+      
+      <div className="max-w-5xl space-y-6">
+        {/* Page header with gradient accent */}
+        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-lg p-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+          <div className="relative">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Draft Settings
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Configure auto-reply templates and AI writing style for each category
+            </p>
+          </div>
+        </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Input Section */}
@@ -384,5 +391,6 @@ export default function EmailDraft() {
         </Card>
       </div>
     </div>
+  </div>
   );
 }

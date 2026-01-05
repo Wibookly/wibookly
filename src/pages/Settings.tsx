@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -129,13 +130,19 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-2xl animate-fade-in min-h-full p-6 -m-4 lg:-m-6 bg-gradient-to-br from-primary/5 via-background to-accent/5 rounded-lg">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-muted-foreground">
-          Manage your account and workspace preferences
-        </p>
+    <div className="min-h-full p-4 lg:p-6">
+      {/* User Avatar Row */}
+      <div className="max-w-2xl mb-4 flex justify-end">
+        <UserAvatarDropdown />
       </div>
+      
+      <div className="max-w-2xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manage your account and workspace preferences
+          </p>
+        </div>
 
       <div className="space-y-8">
         {/* Workspace Settings */}
@@ -185,6 +192,7 @@ export default function Settings() {
             <Save className="w-4 h-4 mr-2" />
             Save Settings
           </Button>
+        </div>
         </div>
       </div>
     </div>
