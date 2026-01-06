@@ -187,15 +187,15 @@ export function AppSidebar() {
             <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
           </NavSection>
 
+          {/* Settings */}
+          <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
+            <NavItem href="/settings?section=profile" icon={User}>My Profile</NavItem>
+            <NavItem href="/settings?section=signature" icon={PenTool}>My Signature</NavItem>
+          </NavSection>
+
           {/* Reports */}
           <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
             <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
-          </NavSection>
-
-          {/* Settings */}
-          <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
-            <NavItem href="/settings?section=profile" icon={User}>Update Profile</NavItem>
-            <NavItem href="/settings?section=signature" icon={PenTool}>Update Signature</NavItem>
           </NavSection>
         </nav>
       </div>

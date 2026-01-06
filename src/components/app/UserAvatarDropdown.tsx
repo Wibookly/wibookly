@@ -13,9 +13,8 @@ import { LogOut, User } from 'lucide-react';
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
 
-  const firstName = profile?.full_name
-    ? profile.full_name.split(' ')[0]
-    : profile?.email?.split('@')[0] || 'User';
+  // Extract first name from full_name (first word) or fallback to email username
+  const firstName = profile?.full_name?.split(' ')[0] || profile?.email?.split('@')[0] || 'User';
 
   return (
     <DropdownMenu>
