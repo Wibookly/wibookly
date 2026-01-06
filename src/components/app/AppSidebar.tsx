@@ -105,31 +105,34 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Onboarding Progress or Post-Onboarding Navigation */}
-      <div className="p-3 hidden sm:block lg:block">
-        {isOnboardingComplete ? <PostOnboardingNav /> : <OnboardingChecklist />}
-      </div>
+      {/* Scrollable middle section containing onboarding + nav */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Onboarding Progress or Post-Onboarding Navigation */}
+        <div className="p-3 hidden sm:block lg:block">
+          {isOnboardingComplete ? <PostOnboardingNav /> : <OnboardingChecklist />}
+        </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <NavLink
-              key={item.href}
-              to={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-              )}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.title}
-            </NavLink>
-          );
-        })}
-      </nav>
+        <nav className="p-3 pt-0 space-y-1">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <NavLink
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.title}
+              </NavLink>
+            );
+          })}
+        </nav>
+      </div>
 
       <div className="p-3 border-t border-border">
         <button
