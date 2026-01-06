@@ -263,7 +263,7 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   'Urgent': 'This is an urgent matter requiring immediate attention. Respond promptly.',
   'Follow Up': 'This is a follow-up to a previous conversation. Reference prior context.',
   'Approvals': 'This relates to approving or reviewing something. Be clear and decisive.',
-  'Meetings': 'This relates to scheduling, confirming, or discussing meetings. Be specific with times.',
+  'Meetings': 'This relates to scheduling, confirming, or discussing meetings. Be specific with times. If you schedule a meeting, include the exact date, time, and duration.',
   'Customers': 'This is client-facing communication. Represent the business professionally.',
   'Vendors': 'This is communication with vendors, suppliers, or external partners.',
   'Internal': 'This is internal team communication. Can be slightly less formal.',
@@ -271,6 +271,355 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   'Finance': 'This relates to billing, payments, receipts, or financial matters. Be precise.',
   'FYI': 'This is informational communication for awareness. Keep it brief.',
 };
+
+// Interface for parsed meeting from AI response
+interface ParsedMeeting {
+  title: string;
+  startDateTime: string; // ISO format
+  endDateTime: string; // ISO format
+  attendees: string[];
+  description?: string;
+}
+
+// Create Google Calendar event with invite
+async function createGoogleCalendarEvent(
+  accessToken: string,
+  meeting: ParsedMeeting,
+  eventColor: string
+): Promise<{ eventId: string; htmlLink: string } | null> {
+  try {
+    // Map hex color to Google Calendar colorId (1-11)
+    const colorId = hexToGoogleCalendarColor(eventColor);
+    
+    const event = {
+      summary: meeting.title,
+      description: meeting.description || '',
+      start: {
+        dateTime: meeting.startDateTime,
+        timeZone: 'UTC'
+      },
+      end: {
+        dateTime: meeting.endDateTime,
+        timeZone: 'UTC'
+      },
+      attendees: meeting.attendees.map(email => ({ email })),
+      colorId: colorId,
+      sendUpdates: 'all' // Send invite emails to all attendees
+    };
+
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(event)
+      }
+    );
+
+    if (!res.ok) {
+      console.error('Failed to create Google Calendar event:', await res.text());
+      return null;
+    }
+
+    const createdEvent = await res.json();
+    console.log(`Created Google Calendar event: ${createdEvent.id}`);
+    return { eventId: createdEvent.id, htmlLink: createdEvent.htmlLink };
+  } catch (error) {
+    console.error('Error creating Google Calendar event:', error);
+    return null;
+  }
+}
+
+// Map hex color to Google Calendar colorId
+function hexToGoogleCalendarColor(hex: string): string {
+  const lowerHex = hex.toLowerCase();
+  
+  // Purple shades (default for AI events)
+  if (lowerHex.includes('9333ea') || lowerHex.includes('8b5cf6') || lowerHex.includes('7c3aed')) {
+    return '3'; // Purple/Grape
+  }
+  // Blue shades
+  if (lowerHex.includes('3b82f6') || lowerHex.includes('2563eb')) {
+    return '9'; // Blue
+  }
+  // Green shades
+  if (lowerHex.includes('22c55e') || lowerHex.includes('16a34a')) {
+    return '10'; // Green
+  }
+  // Red shades
+  if (lowerHex.includes('ef4444') || lowerHex.includes('dc2626')) {
+    return '11'; // Red
+  }
+  // Orange shades
+  if (lowerHex.includes('f97316') || lowerHex.includes('ea580c')) {
+    return '6'; // Orange
+  }
+  // Default to purple for AI events
+  return '3';
+}
+
+// Create Microsoft Calendar event with invite
+async function createMicrosoftCalendarEvent(
+  accessToken: string,
+  meeting: ParsedMeeting,
+  _eventColor: string // Microsoft doesn't support event colors in the same way
+): Promise<{ eventId: string; webLink: string } | null> {
+  try {
+    const event = {
+      subject: meeting.title,
+      body: {
+        contentType: 'HTML',
+        content: meeting.description || ''
+      },
+      start: {
+        dateTime: meeting.startDateTime,
+        timeZone: 'UTC'
+      },
+      end: {
+        dateTime: meeting.endDateTime,
+        timeZone: 'UTC'
+      },
+      attendees: meeting.attendees.map(email => ({
+        emailAddress: { address: email },
+        type: 'required'
+      })),
+      isOnlineMeeting: false
+    };
+
+    const res = await fetch(
+      'https://graph.microsoft.com/v1.0/me/events',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(event)
+      }
+    );
+
+    if (!res.ok) {
+      console.error('Failed to create Microsoft Calendar event:', await res.text());
+      return null;
+    }
+
+    const createdEvent = await res.json();
+    console.log(`Created Microsoft Calendar event: ${createdEvent.id}`);
+    return { eventId: createdEvent.id, webLink: createdEvent.webLink };
+  } catch (error) {
+    console.error('Error creating Microsoft Calendar event:', error);
+    return null;
+  }
+}
+
+// Parse meeting details from AI response
+function parseMeetingFromAIResponse(
+  aiResponse: string,
+  emailFrom: string,
+  emailSubject: string
+): ParsedMeeting | null {
+  // Look for meeting marker in AI response
+  const meetingMarker = '[[MEETING:';
+  const markerStart = aiResponse.indexOf(meetingMarker);
+  
+  if (markerStart === -1) {
+    return null;
+  }
+  
+  const markerEnd = aiResponse.indexOf(']]', markerStart);
+  if (markerEnd === -1) {
+    return null;
+  }
+  
+  const meetingJson = aiResponse.substring(markerStart + meetingMarker.length, markerEnd);
+  
+  try {
+    const meetingData = JSON.parse(meetingJson);
+    
+    // Extract sender email from "From" field (e.g., "John Doe <john@example.com>")
+    const emailMatch = emailFrom.match(/<([^>]+)>/) || [null, emailFrom];
+    const senderEmail = emailMatch[1] || emailFrom;
+    
+    return {
+      title: meetingData.title || `Meeting: ${emailSubject}`,
+      startDateTime: meetingData.start,
+      endDateTime: meetingData.end,
+      attendees: [senderEmail, ...(meetingData.attendees || [])],
+      description: meetingData.description || `Meeting scheduled via AI assistant regarding: ${emailSubject}`
+    };
+  } catch (error) {
+    console.error('Failed to parse meeting JSON:', error);
+    return null;
+  }
+}
+
+// Remove meeting marker from AI response for clean email body
+function removeMeetingMarkerFromResponse(aiResponse: string): string {
+  const meetingMarker = '[[MEETING:';
+  const markerStart = aiResponse.indexOf(meetingMarker);
+  
+  if (markerStart === -1) {
+    return aiResponse;
+  }
+  
+  const markerEnd = aiResponse.indexOf(']]', markerStart);
+  if (markerEnd === -1) {
+    return aiResponse;
+  }
+  
+  // Remove the marker and any surrounding whitespace
+  return (aiResponse.substring(0, markerStart) + aiResponse.substring(markerEnd + 2)).trim();
+}
+
+// Create calendar event and log it
+// deno-lint-ignore no-explicit-any
+async function createCalendarEventAndLog(
+  provider: string,
+  accessToken: string,
+  meeting: ParsedMeeting,
+  supabaseAdmin: any,
+  userId: string,
+  organizationId: string,
+  connectionId: string,
+  categoryId: string,
+  categoryName: string,
+  eventColor: string
+): Promise<boolean> {
+  try {
+    let eventResult: { eventId: string; htmlLink?: string; webLink?: string } | null = null;
+    
+    if (provider === 'google') {
+      eventResult = await createGoogleCalendarEvent(accessToken, meeting, eventColor);
+    } else if (provider === 'microsoft') {
+      eventResult = await createMicrosoftCalendarEvent(accessToken, meeting, eventColor);
+    }
+    
+    if (!eventResult) {
+      console.error('Failed to create calendar event');
+      return false;
+    }
+    
+    console.log(`Created ${provider} calendar event: ${eventResult.eventId}`);
+    
+    // Log the calendar event
+    await supabaseAdmin.from('ai_activity_logs').insert({
+      organization_id: organizationId,
+      user_id: userId,
+      connection_id: connectionId,
+      category_id: categoryId,
+      category_name: categoryName,
+      activity_type: 'scheduled_event',
+      email_subject: meeting.title,
+      email_from: meeting.attendees.join(', ')
+    });
+    
+    console.log(`Logged calendar event: ${meeting.title}`);
+    return true;
+  } catch (error) {
+    console.error('Error creating calendar event:', error);
+    return false;
+  }
+}
+
+// Interface for availability hours
+interface AvailabilityHour {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
+
+// Find next available slot based on user's availability
+// deno-lint-ignore no-explicit-any
+async function findNextAvailableSlot(
+  supabaseAdmin: any,
+  connectionId: string,
+  durationMinutes: number = 30
+): Promise<{ start: Date; end: Date } | null> {
+  // Get availability hours for this connection
+  const { data } = await supabaseAdmin
+    .from('availability_hours')
+    .select('day_of_week, start_time, end_time, is_available')
+    .eq('connection_id', connectionId)
+    .eq('is_available', true)
+    .order('day_of_week');
+  
+  const availabilityHours = data as AvailabilityHour[] | null;
+  
+  if (!availabilityHours?.length) {
+    // Default to weekdays 9am-5pm if no availability set
+    const now = new Date();
+    const startOfDay = new Date(now);
+    
+    // Find next weekday
+    while (startOfDay.getDay() === 0 || startOfDay.getDay() === 6) {
+      startOfDay.setDate(startOfDay.getDate() + 1);
+    }
+    
+    startOfDay.setHours(9, 0, 0, 0);
+    
+    // If today is a weekday but past 5pm, go to next weekday
+    if (now.getDay() !== 0 && now.getDay() !== 6 && now.getHours() >= 17) {
+      startOfDay.setDate(startOfDay.getDate() + 1);
+      while (startOfDay.getDay() === 0 || startOfDay.getDay() === 6) {
+        startOfDay.setDate(startOfDay.getDate() + 1);
+      }
+    }
+    
+    // If today is a weekday and within hours, use current time rounded up
+    if (now.getDay() !== 0 && now.getDay() !== 6 && now.getHours() >= 9 && now.getHours() < 17) {
+      const minutes = now.getMinutes();
+      const roundedMinutes = Math.ceil(minutes / 15) * 15;
+      startOfDay.setTime(now.getTime());
+      startOfDay.setMinutes(roundedMinutes, 0, 0);
+    }
+    
+    const end = new Date(startOfDay.getTime() + durationMinutes * 60000);
+    return { start: startOfDay, end };
+  }
+  
+  // Find next available slot based on user's availability
+  const now = new Date();
+  const checkDate = new Date(now);
+  
+  // Look up to 7 days ahead
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+    const dayOfWeek = checkDate.getDay();
+    const availability = availabilityHours.find(a => a.day_of_week === dayOfWeek);
+    
+    if (availability) {
+      const [startHour, startMin] = availability.start_time.split(':').map(Number);
+      const [endHour, endMin] = availability.end_time.split(':').map(Number);
+      
+      const slotStart = new Date(checkDate);
+      slotStart.setHours(startHour, startMin, 0, 0);
+      
+      const dayEnd = new Date(checkDate);
+      dayEnd.setHours(endHour, endMin, 0, 0);
+      
+      // If this is today, adjust start time
+      if (dayOffset === 0 && now > slotStart) {
+        const minutes = now.getMinutes();
+        const roundedMinutes = Math.ceil(minutes / 15) * 15;
+        slotStart.setTime(now.getTime());
+        slotStart.setMinutes(roundedMinutes, 0, 0);
+      }
+      
+      // Check if there's enough time for the meeting
+      const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+      if (slotEnd <= dayEnd) {
+        return { start: slotStart, end: slotEnd };
+      }
+    }
+    
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  
+  return null;
+}
 
 // Mark email as read in Gmail
 async function markGmailAsRead(accessToken: string, messageId: string): Promise<boolean> {
@@ -721,7 +1070,8 @@ async function generateAIDraft(
   writingStyle: string,
   formatStyle: string = 'concise',
   senderName: string | null = null,
-  _senderTitle: string | null = null // Unused - signature handled separately
+  _senderTitle: string | null = null, // Unused - signature handled separately
+  nextAvailableSlot: { start: Date; end: Date } | null = null // For meeting scheduling
 ): Promise<string | null> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) {
@@ -734,6 +1084,34 @@ async function generateAIDraft(
   const formatPrompt = FORMAT_STYLE_PROMPTS[formatStyle] || FORMAT_STYLE_PROMPTS.concise;
   const categoryContext = CATEGORY_CONTEXT[cleanCategory] || '';
 
+  // Build meeting scheduling context if available
+  let meetingContext = '';
+  if (nextAvailableSlot && cleanCategory === 'Meetings') {
+    const startIso = nextAvailableSlot.start.toISOString();
+    const endIso = nextAvailableSlot.end.toISOString();
+    const formattedDate = nextAvailableSlot.start.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const formattedTime = nextAvailableSlot.start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    const durationMins = Math.round((nextAvailableSlot.end.getTime() - nextAvailableSlot.start.getTime()) / 60000);
+    
+    meetingContext = `
+MEETING SCHEDULING INSTRUCTIONS:
+If the sender is requesting a meeting, call, appointment, or any scheduled event:
+1. Propose the meeting for: ${formattedDate} at ${formattedTime} (${durationMins} minutes)
+2. Include this EXACT marker at the END of your response (after all email content):
+   [[MEETING:{"title":"Meeting with [sender name]","start":"${startIso}","end":"${endIso}","description":"Meeting regarding [topic]"}]]
+3. Replace [sender name] and [topic] with appropriate values from the email
+4. The marker will be removed before sending and used to create a calendar event with invite`;
+  }
+
   // AI should generate body text only - NO signature (we add HTML signature separately)
   const systemPrompt = `You are an expert email assistant. Generate a reply to the email below.
 
@@ -743,6 +1121,7 @@ ${formatPrompt}
 
 CATEGORY: ${cleanCategory}
 ${categoryContext}
+${meetingContext}
 
 CRITICAL RULES (MUST FOLLOW):
 1. STRICTLY FOLLOW the writing style requirements above - this is the most important rule
@@ -753,7 +1132,8 @@ CRITICAL RULES (MUST FOLLOW):
 6. DO NOT include any closing phrases like "Thank you", "Thanks", "Best regards", "Sincerely", "Kind regards", "Warm regards", or similar sign-offs - the signature will be added automatically and already contains these
 7. End your response with the last sentence of your actual email content, NOT a closing phrase or sign-off
 8. Address the sender's main points
-9. Output ONLY the email text - no explanations or notes`;
+9. Output ONLY the email text - no explanations or notes
+${meetingContext ? '10. If scheduling a meeting, ALWAYS include the [[MEETING:...]] marker at the very end' : ''}`;
 
   const userPrompt = `Reply to this email:
 
@@ -763,7 +1143,7 @@ SUBJECT: ${emailSubject}
 BODY:
 ${emailBody.substring(0, 3000)}`;
 
-  console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}, sender: ${senderName || 'not specified'}`);
+  console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}, sender: ${senderName || 'not specified'}${meetingContext ? ', with meeting slot' : ''}`);
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1273,6 +1653,7 @@ async function processConnectionEmails(
   
   const aiDraftLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_draft_label_color as string || '#3B82F6';
   const aiSentLabelColor = (aiSettingsData as Record<string, unknown>)?.ai_sent_label_color as string || '#F97316';
+  const aiCalendarEventColor = (aiSettingsData as Record<string, unknown>)?.ai_calendar_event_color as string || '#9333EA';
 
   // Get the provider for this connection
   const { data: connectionData } = await supabaseAdmin
@@ -1431,6 +1812,16 @@ async function processConnectionEmails(
           continue;
         }
 
+        // Get next available slot for Meetings category
+        const cleanCategoryName = category.name.replace(/^\d+:\s*/, '').trim();
+        let nextAvailableSlot: { start: Date; end: Date } | null = null;
+        if (cleanCategoryName === 'Meetings') {
+          nextAvailableSlot = await findNextAvailableSlot(supabaseAdmin, connectionId, 30);
+          if (nextAvailableSlot) {
+            console.log(`Found next available slot: ${nextAvailableSlot.start.toISOString()}`);
+          }
+        }
+
         // Generate AI draft content (without signature - AI will just create the body)
         const aiDraftBody = await generateAIDraft(
           emailDetails.subject,
@@ -1440,7 +1831,8 @@ async function processConnectionEmails(
           category.writing_style,
           'concise',
           profile.full_name || null,
-          null // Don't pass title to AI - we'll add signature separately
+          null, // Don't pass title to AI - we'll add signature separately
+          nextAvailableSlot // Pass available slot for meeting scheduling
         );
 
         if (!aiDraftBody) {
@@ -1449,15 +1841,25 @@ async function processConnectionEmails(
           continue;
         }
 
+        // Parse any meeting from AI response
+        const parsedMeeting = parseMeetingFromAIResponse(
+          aiDraftBody,
+          emailDetails.from,
+          emailDetails.subject
+        );
+
+        // Remove meeting marker from the response for clean email body
+        const cleanAIDraftBody = removeMeetingMarkerFromResponse(aiDraftBody);
+
         // Generate the email signature from profile
         const emailSignature = generateEmailSignature(profile);
         
         // Combine draft body with signature for final content
         // Convert plain text body to HTML and append HTML signature
-        const htmlBody = aiDraftBody.replace(/\n/g, '<br>');
+        const htmlBody = cleanAIDraftBody.replace(/\n/g, '<br>');
         const draftContent = `<div>${htmlBody}</div>${emailSignature}`;
         
-        console.log(`Generated draft with signature for email ${msg.id}`);
+        console.log(`Generated draft with signature for email ${msg.id}${parsedMeeting ? ' (includes meeting)' : ''}`);
 
         // Mark email as read since AI is handling it
         if (tokenRecord.provider === 'google') {
@@ -1518,38 +1920,99 @@ async function processConnectionEmails(
             results.draftsCreated++;
             console.log(`Created draft for email ${msg.id}`);
             
+            // Build category label name (e.g., "10: FYI")
+            const categoryLabelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            
             // Apply AI Draft label to original email (numbered as 00:)
             const aiDraftLabelName = '00: AI Draft';
             if (tokenRecord.provider === 'google') {
+              // Get/create the category label
+              if (!gmailLabelCache[categoryLabelName]) {
+                // Fetch category color from database
+                const { data: catData } = await supabaseAdmin
+                  .from('categories')
+                  .select('color')
+                  .eq('id', category.id)
+                  .single();
+                const catColor = catData?.color || '#3B82F6';
+                const labelId = await getOrCreateGmailLabel(accessToken, categoryLabelName, catColor);
+                if (labelId) gmailLabelCache[categoryLabelName] = labelId;
+              }
+              
+              // Get/create AI Draft label
               if (!gmailLabelCache[aiDraftLabelName]) {
                 const labelId = await getOrCreateGmailLabel(accessToken, aiDraftLabelName, aiDraftLabelColor);
                 if (labelId) gmailLabelCache[aiDraftLabelName] = labelId;
               }
+              
+              // Apply category label to original email
+              if (gmailLabelCache[categoryLabelName]) {
+                await applyGmailLabel(accessToken, msg.id, gmailLabelCache[categoryLabelName]);
+                console.log(`Applied ${categoryLabelName} label to original email ${msg.id}`);
+              }
+              
+              // Apply AI Draft label to original email
               if (gmailLabelCache[aiDraftLabelName]) {
-                // Apply to original email
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache[aiDraftLabelName]);
-                // Also apply to the draft message so it shows in drafts folder with the label
+                // Also apply both labels to the draft message
                 if (draftMessageId) {
+                  if (gmailLabelCache[categoryLabelName]) {
+                    await applyGmailLabel(accessToken, draftMessageId, gmailLabelCache[categoryLabelName]);
+                  }
                   await applyGmailLabel(accessToken, draftMessageId, gmailLabelCache[aiDraftLabelName]);
-                  console.log(`Applied ${aiDraftLabelName} label to draft message ${draftMessageId}`);
+                  console.log(`Applied ${categoryLabelName} and ${aiDraftLabelName} labels to draft message ${draftMessageId}`);
                 }
               }
             } else {
+              // Outlook: Create/get category labels
+              if (!outlookCategoryCache[categoryLabelName]) {
+                const { data: catData } = await supabaseAdmin
+                  .from('categories')
+                  .select('color')
+                  .eq('id', category.id)
+                  .single();
+                const catColor = catData?.color || '#3B82F6';
+                await getOrCreateOutlookCategory(accessToken, categoryLabelName, catColor);
+                outlookCategoryCache[categoryLabelName] = true;
+              }
               if (!outlookCategoryCache[aiDraftLabelName]) {
                 await getOrCreateOutlookCategory(accessToken, aiDraftLabelName, aiDraftLabelColor);
                 outlookCategoryCache[aiDraftLabelName] = true;
               }
-              // Apply to original email
+              
+              // Apply category label to original email
+              await applyOutlookCategory(accessToken, msg.id, categoryLabelName);
+              console.log(`Applied ${categoryLabelName} category to original email ${msg.id}`);
+              
+              // Apply AI Draft label to original email
               await applyOutlookCategory(accessToken, msg.id, aiDraftLabelName);
-              // Also apply to the draft message
+              
+              // Also apply both labels to the draft message
               if (draftId) {
+                await applyOutlookCategory(accessToken, draftId, categoryLabelName);
                 await applyOutlookCategory(accessToken, draftId, aiDraftLabelName);
-                console.log(`Applied ${aiDraftLabelName} category to draft message ${draftId}`);
+                console.log(`Applied ${categoryLabelName} and ${aiDraftLabelName} categories to draft message ${draftId}`);
               }
             }
             
             // Add to processed set to prevent duplicate processing
             processedSet.add(`${msg.id}:${category.id}:draft`);
+            
+            // Create calendar event if meeting was scheduled
+            if (parsedMeeting) {
+              await createCalendarEventAndLog(
+                tokenRecord.provider,
+                accessToken,
+                parsedMeeting,
+                supabaseAdmin,
+                userId,
+                organizationId,
+                connectionId,
+                category.id,
+                category.name,
+                aiCalendarEventColor
+              );
+            }
           }
         }
 
@@ -1639,33 +2102,91 @@ async function processConnectionEmails(
             results.autoRepliesSent++;
             console.log(`Sent auto-reply for email ${msg.id}`);
             
+            // Build category label name (e.g., "10: FYI")
+            const categoryLabelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            
             // Apply AI Sent label to original email (numbered as 01:)
             const aiSentLabelName = '01: AI Sent';
             if (tokenRecord.provider === 'google') {
+              // Get/create category label if not cached
+              if (!gmailLabelCache[categoryLabelName]) {
+                const { data: catData } = await supabaseAdmin
+                  .from('categories')
+                  .select('color')
+                  .eq('id', category.id)
+                  .single();
+                const catColor = catData?.color || '#3B82F6';
+                const labelId = await getOrCreateGmailLabel(accessToken, categoryLabelName, catColor);
+                if (labelId) gmailLabelCache[categoryLabelName] = labelId;
+              }
+              
+              // Get/create AI Sent label
               if (!gmailLabelCache[aiSentLabelName]) {
                 const labelId = await getOrCreateGmailLabel(accessToken, aiSentLabelName, aiSentLabelColor);
                 if (labelId) gmailLabelCache[aiSentLabelName] = labelId;
               }
+              
+              // Apply category label to original email
+              if (gmailLabelCache[categoryLabelName]) {
+                await applyGmailLabel(accessToken, msg.id, gmailLabelCache[categoryLabelName]);
+                console.log(`Applied ${categoryLabelName} label to original email ${msg.id}`);
+              }
+              
+              // Apply AI Sent label to original email
               if (gmailLabelCache[aiSentLabelName]) {
-                // Apply to original email
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache[aiSentLabelName]);
-                // Also apply to the sent message so it shows in sent folder with the label
+                // Also apply both labels to the sent message
                 if (sentMessageId) {
+                  if (gmailLabelCache[categoryLabelName]) {
+                    await applyGmailLabel(accessToken, sentMessageId, gmailLabelCache[categoryLabelName]);
+                  }
                   await applyGmailLabel(accessToken, sentMessageId, gmailLabelCache[aiSentLabelName]);
-                  console.log(`Applied ${aiSentLabelName} label to sent message ${sentMessageId}`);
+                  console.log(`Applied ${categoryLabelName} and ${aiSentLabelName} labels to sent message ${sentMessageId}`);
                 }
               }
             } else {
+              // Outlook: Create/get category labels
+              if (!outlookCategoryCache[categoryLabelName]) {
+                const { data: catData } = await supabaseAdmin
+                  .from('categories')
+                  .select('color')
+                  .eq('id', category.id)
+                  .single();
+                const catColor = catData?.color || '#3B82F6';
+                await getOrCreateOutlookCategory(accessToken, categoryLabelName, catColor);
+                outlookCategoryCache[categoryLabelName] = true;
+              }
               if (!outlookCategoryCache[aiSentLabelName]) {
                 await getOrCreateOutlookCategory(accessToken, aiSentLabelName, aiSentLabelColor);
                 outlookCategoryCache[aiSentLabelName] = true;
               }
-              // Apply to original email
+              
+              // Apply category label to original email
+              await applyOutlookCategory(accessToken, msg.id, categoryLabelName);
+              console.log(`Applied ${categoryLabelName} category to original email ${msg.id}`);
+              
+              // Apply AI Sent label to original email
               await applyOutlookCategory(accessToken, msg.id, aiSentLabelName);
             }
             
             // Add to processed set
             processedSet.add(`${msg.id}:${category.id}:auto_reply`);
+            
+            // Create calendar event if meeting was scheduled
+            if (parsedMeeting) {
+              await createCalendarEventAndLog(
+                tokenRecord.provider,
+                accessToken,
+                parsedMeeting,
+                supabaseAdmin,
+                userId,
+                organizationId,
+                connectionId,
+                category.id,
+                category.name,
+                aiCalendarEventColor
+              );
+            }
           }
         }
       }
