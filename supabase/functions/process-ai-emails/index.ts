@@ -532,7 +532,189 @@ interface AvailabilityHour {
   is_available: boolean;
 }
 
-// Find next available slot based on user's availability
+// Interface for calendar event (existing events)
+interface CalendarEvent {
+  start: Date;
+  end: Date;
+  title?: string;
+}
+
+// Fetch existing calendar events from Google Calendar
+async function fetchGoogleCalendarEvents(
+  accessToken: string,
+  timeMin: Date,
+  timeMax: Date
+): Promise<CalendarEvent[]> {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      `timeMin=${timeMin.toISOString()}&timeMax=${timeMax.toISOString()}&singleEvents=true&orderBy=startTime`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to fetch Google Calendar events:', await res.text());
+      return [];
+    }
+    
+    const data = await res.json();
+    return (data.items || []).map((event: { start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; summary?: string }) => ({
+      start: new Date(event.start?.dateTime || event.start?.date || ''),
+      end: new Date(event.end?.dateTime || event.end?.date || ''),
+      title: event.summary
+    }));
+  } catch (error) {
+    console.error('Error fetching Google Calendar events:', error);
+    return [];
+  }
+}
+
+// Fetch existing calendar events from Microsoft Calendar
+async function fetchMicrosoftCalendarEvents(
+  accessToken: string,
+  timeMin: Date,
+  timeMax: Date
+): Promise<CalendarEvent[]> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/calendarView?` +
+      `startDateTime=${timeMin.toISOString()}&endDateTime=${timeMax.toISOString()}&$select=start,end,subject`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    if (!res.ok) {
+      console.error('Failed to fetch Microsoft Calendar events:', await res.text());
+      return [];
+    }
+    
+    const data = await res.json();
+    return (data.value || []).map((event: { start?: { dateTime?: string }; end?: { dateTime?: string }; subject?: string }) => ({
+      start: new Date(event.start?.dateTime || ''),
+      end: new Date(event.end?.dateTime || ''),
+      title: event.subject
+    }));
+  } catch (error) {
+    console.error('Error fetching Microsoft Calendar events:', error);
+    return [];
+  }
+}
+
+// Check if a time slot conflicts with existing events
+function slotConflictsWithEvents(slotStart: Date, slotEnd: Date, events: CalendarEvent[]): boolean {
+  for (const event of events) {
+    // Check for overlap: slot starts before event ends AND slot ends after event starts
+    if (slotStart < event.end && slotEnd > event.start) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Find multiple available slots based on user's availability (returns up to 3 slots)
+// deno-lint-ignore no-explicit-any
+async function findMultipleAvailableSlots(
+  supabaseAdmin: any,
+  connectionId: string,
+  provider: string,
+  accessToken: string,
+  durationMinutes: number = 30,
+  requestedTime?: Date // Optional: the time the sender requested
+): Promise<{ slots: { start: Date; end: Date }[]; conflictInfo?: string }> {
+  // Get availability hours for this connection
+  const { data } = await supabaseAdmin
+    .from('availability_hours')
+    .select('day_of_week, start_time, end_time, is_available')
+    .eq('connection_id', connectionId)
+    .eq('is_available', true)
+    .order('day_of_week');
+  
+  const availabilityHours = data as AvailabilityHour[] | null;
+  
+  // Fetch existing calendar events for the next 14 days
+  const now = new Date();
+  const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  
+  let existingEvents: CalendarEvent[] = [];
+  if (provider === 'google') {
+    existingEvents = await fetchGoogleCalendarEvents(accessToken, now, twoWeeksFromNow);
+  } else if (provider === 'microsoft') {
+    existingEvents = await fetchMicrosoftCalendarEvents(accessToken, now, twoWeeksFromNow);
+  }
+  
+  console.log(`Found ${existingEvents.length} existing calendar events`);
+  
+  // Check if requested time conflicts with existing events
+  let conflictInfo: string | undefined;
+  if (requestedTime) {
+    const requestedEnd = new Date(requestedTime.getTime() + durationMinutes * 60000);
+    if (slotConflictsWithEvents(requestedTime, requestedEnd, existingEvents)) {
+      conflictInfo = 'The requested time is unavailable due to an existing commitment';
+    }
+  }
+  
+  const slots: { start: Date; end: Date }[] = [];
+  const checkDate = new Date(now);
+  
+  // Default availability: weekdays 9am-5pm if no availability set
+  const defaultAvailability: AvailabilityHour[] = [1, 2, 3, 4, 5].map(day => ({
+    day_of_week: day,
+    start_time: '09:00',
+    end_time: '17:00',
+    is_available: true
+  }));
+  
+  const availability = availabilityHours?.length ? availabilityHours : defaultAvailability;
+  
+  // Look up to 14 days ahead to find 3 available slots
+  for (let dayOffset = 0; dayOffset < 14 && slots.length < 3; dayOffset++) {
+    const dayOfWeek = checkDate.getDay();
+    const availabilityForDay = availability.find(a => a.day_of_week === dayOfWeek);
+    
+    if (availabilityForDay) {
+      const [startHour, startMin] = availabilityForDay.start_time.split(':').map(Number);
+      const [endHour, endMin] = availabilityForDay.end_time.split(':').map(Number);
+      
+      // Try multiple time slots within this day's availability
+      let currentSlotStart = new Date(checkDate);
+      currentSlotStart.setHours(startHour, startMin, 0, 0);
+      
+      const dayEnd = new Date(checkDate);
+      dayEnd.setHours(endHour, endMin, 0, 0);
+      
+      // If this is today, start from now (rounded to next 15 min)
+      if (dayOffset === 0 && now > currentSlotStart) {
+        const minutes = now.getMinutes();
+        const roundedMinutes = Math.ceil(minutes / 15) * 15;
+        currentSlotStart = new Date(now);
+        currentSlotStart.setMinutes(roundedMinutes, 0, 0);
+        if (roundedMinutes >= 60) {
+          currentSlotStart.setHours(currentSlotStart.getHours() + 1);
+          currentSlotStart.setMinutes(0, 0, 0);
+        }
+      }
+      
+      // Try slots in 30-minute increments
+      while (currentSlotStart < dayEnd && slots.length < 3) {
+        const slotEnd = new Date(currentSlotStart.getTime() + durationMinutes * 60000);
+        
+        // Check if slot fits within availability and doesn't conflict with events
+        if (slotEnd <= dayEnd && !slotConflictsWithEvents(currentSlotStart, slotEnd, existingEvents)) {
+          slots.push({ start: new Date(currentSlotStart), end: new Date(slotEnd) });
+        }
+        
+        // Move to next slot (30 min increments)
+        currentSlotStart = new Date(currentSlotStart.getTime() + 30 * 60000);
+      }
+    }
+    
+    checkDate.setDate(checkDate.getDate() + 1);
+    checkDate.setHours(0, 0, 0, 0); // Reset to start of day
+  }
+  
+  return { slots, conflictInfo };
+}
+
+// Find next available slot (legacy function for backward compatibility)
 // deno-lint-ignore no-explicit-any
 async function findNextAvailableSlot(
   supabaseAdmin: any,
@@ -1071,7 +1253,8 @@ async function generateAIDraft(
   formatStyle: string = 'concise',
   senderName: string | null = null,
   _senderTitle: string | null = null, // Unused - signature handled separately
-  nextAvailableSlot: { start: Date; end: Date } | null = null // For meeting scheduling
+  nextAvailableSlot: { start: Date; end: Date } | null = null, // For meeting scheduling (single slot)
+  multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string } // For multiple time options
 ): Promise<string | null> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) {
@@ -1086,7 +1269,56 @@ async function generateAIDraft(
 
   // Build meeting scheduling context if available
   let meetingContext = '';
-  if (nextAvailableSlot && cleanCategory === 'Meetings') {
+  
+  // Handle multiple slots with conflict detection (preferred method)
+  if (multipleSlots && multipleSlots.slots.length > 0 && cleanCategory === 'Meetings') {
+    const formatSlot = (slot: { start: Date; end: Date }, index: number) => {
+      const formattedDate = slot.start.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const formattedTime = slot.start.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      const durationMins = Math.round((slot.end.getTime() - slot.start.getTime()) / 60000);
+      return `Option ${index + 1}: ${formattedDate} at ${formattedTime} (${durationMins} minutes)`;
+    };
+    
+    const slotDescriptions = multipleSlots.slots.map((slot, i) => formatSlot(slot, i)).join('\n');
+    const firstSlot = multipleSlots.slots[0];
+    const startIso = firstSlot.start.toISOString();
+    const endIso = firstSlot.end.toISOString();
+    
+    // Add conflict info if the requested time was busy
+    const conflictNote = multipleSlots.conflictInfo 
+      ? `\nIMPORTANT: ${multipleSlots.conflictInfo}. DO NOT share details of existing appointments - just say you have a prior commitment at that time.`
+      : '';
+    
+    meetingContext = `
+MEETING SCHEDULING INSTRUCTIONS:
+If the sender is requesting a meeting, call, appointment, or any scheduled event:
+${conflictNote}
+
+1. Offer the sender THREE time options to choose from:
+${slotDescriptions}
+
+2. Your reply should:
+   - If their requested time is unavailable: Politely explain you have a prior commitment (do NOT share details of the appointment)
+   - Present all three time options clearly
+   - Ask them to reply with their preferred option or suggest alternative times
+
+3. Include this EXACT marker at the END of your response (after all email content) for the FIRST option:
+   [[MEETING:{"title":"Meeting with [sender name]","start":"${startIso}","end":"${endIso}","description":"Meeting regarding [topic]"}]]
+   
+4. Replace [sender name] and [topic] with appropriate values from the email
+5. The marker will be removed before sending and used to create a calendar event with invite once they confirm`;
+  }
+  // Fallback to single slot (legacy)
+  else if (nextAvailableSlot && cleanCategory === 'Meetings') {
     const startIso = nextAvailableSlot.start.toISOString();
     const endIso = nextAvailableSlot.end.toISOString();
     const formattedDate = nextAvailableSlot.start.toLocaleDateString('en-US', { 
@@ -1527,6 +1759,9 @@ interface EmailProfile {
   signature_logo_url: string | null;
   signature_font: string | null;
   signature_color: string | null;
+  profile_photo_url: string | null;
+  show_profile_photo: boolean;
+  show_company_logo: boolean;
 }
 
 // Generate HTML email signature from profile fields
@@ -1545,7 +1780,10 @@ function generateEmailSignature(profile: EmailProfile): string {
   const mobile = profile.mobile;
   const website = profile.website;
   const email = profile.email;
-  const logoUrl = profile.signature_logo_url;
+  
+  // Only show logo/photo based on user toggle settings
+  const profilePhotoUrl = profile.show_profile_photo ? profile.profile_photo_url : null;
+  const logoUrl = profile.show_company_logo ? profile.signature_logo_url : null;
 
   // Build contact lines
   const contactLines: string[] = [];
@@ -1564,8 +1802,23 @@ function generateEmailSignature(profile: EmailProfile): string {
   }
 
   // Only generate signature if there's content
-  if (!name && !userTitle && contactLines.length === 0 && !logoUrl) {
+  if (!name && !userTitle && contactLines.length === 0 && !profilePhotoUrl && !logoUrl) {
     return '';
+  }
+
+  // Build image section: profile photo on top, company logo below (both optional based on toggles)
+  let imageSection = '';
+  if (profilePhotoUrl || logoUrl) {
+    const images: string[] = [];
+    if (profilePhotoUrl) {
+      images.push(`<img src="${profilePhotoUrl}" alt="Profile Photo" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; display: block; margin-bottom: ${logoUrl ? '8px' : '0'};" />`);
+    }
+    if (logoUrl) {
+      images.push(`<img src="${logoUrl}" alt="Company Logo" style="max-height: 50px; max-width: 120px; display: block;" />`);
+    }
+    imageSection = `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
+        ${images.join('')}
+      </td>`;
   }
 
   return `
@@ -1574,10 +1827,8 @@ function generateEmailSignature(profile: EmailProfile): string {
   <p style="margin: 0 0 12px 0;">Best regards,</p>
   <table cellpadding="0" cellspacing="0" border="0" style="font-family: ${fontFamily}; font-size: 14px; color: ${textColor};">
     <tr>
-      ${logoUrl ? `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
-        <img src="${logoUrl}" alt="Logo" style="max-height: 80px; max-width: 120px;" />
-      </td>` : ''}
-      <td style="vertical-align: top; ${logoUrl ? 'padding-left: 16px;' : ''}">
+      ${imageSection}
+      <td style="vertical-align: top; ${imageSection ? 'padding-left: 16px;' : ''}">
         ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
         ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
         ${contactLines.length > 0 ? `<table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
@@ -1812,13 +2063,31 @@ async function processConnectionEmails(
           continue;
         }
 
-        // Get next available slot for Meetings category
+        // Get available slots for Meetings category with conflict detection
         const cleanCategoryName = category.name.replace(/^\d+:\s*/, '').trim();
         let nextAvailableSlot: { start: Date; end: Date } | null = null;
+        let multipleSlots: { slots: { start: Date; end: Date }[]; conflictInfo?: string } | undefined;
+        
         if (cleanCategoryName === 'Meetings') {
-          nextAvailableSlot = await findNextAvailableSlot(supabaseAdmin, connectionId, 30);
-          if (nextAvailableSlot) {
-            console.log(`Found next available slot: ${nextAvailableSlot.start.toISOString()}`);
+          // Use the new multi-slot finder with conflict detection
+          multipleSlots = await findMultipleAvailableSlots(
+            supabaseAdmin, 
+            connectionId, 
+            tokenRecord.provider,
+            accessToken,
+            30
+          );
+          
+          if (multipleSlots.slots.length > 0) {
+            console.log(`Found ${multipleSlots.slots.length} available slots${multipleSlots.conflictInfo ? ' (with conflict)' : ''}`);
+            // Also set the legacy slot for backward compatibility
+            nextAvailableSlot = multipleSlots.slots[0];
+          } else {
+            // Fallback to legacy single slot finder
+            nextAvailableSlot = await findNextAvailableSlot(supabaseAdmin, connectionId, 30);
+            if (nextAvailableSlot) {
+              console.log(`Found next available slot (legacy): ${nextAvailableSlot.start.toISOString()}`);
+            }
           }
         }
 
@@ -1832,7 +2101,8 @@ async function processConnectionEmails(
           'concise',
           profile.full_name || null,
           null, // Don't pass title to AI - we'll add signature separately
-          nextAvailableSlot // Pass available slot for meeting scheduling
+          nextAvailableSlot, // Pass available slot for meeting scheduling (legacy)
+          multipleSlots // Pass multiple slots with conflict info (preferred)
         );
 
         if (!aiDraftBody) {
@@ -2286,7 +2556,10 @@ serve(async (req) => {
           website: emailProfile.website,
           signature_logo_url: emailProfile.signature_logo_url,
           signature_font: emailProfile.signature_font,
-          signature_color: emailProfile.signature_color
+          signature_color: emailProfile.signature_color,
+          profile_photo_url: emailProfile.profile_photo_url,
+          show_profile_photo: emailProfile.show_profile_photo ?? false,
+          show_company_logo: emailProfile.show_company_logo ?? true
         } : {
           connection_id: connId,
           full_name: null,
@@ -2298,7 +2571,10 @@ serve(async (req) => {
           website: null,
           signature_logo_url: null,
           signature_font: null,
-          signature_color: null
+          signature_color: null,
+          profile_photo_url: null,
+          show_profile_photo: false,
+          show_company_logo: true
         };
         
         console.log(`Processing connection ${connId} for user ${connection.user_id}`);
@@ -2399,7 +2675,10 @@ serve(async (req) => {
         website: emailProfile.website,
         signature_logo_url: emailProfile.signature_logo_url,
         signature_font: emailProfile.signature_font,
-        signature_color: emailProfile.signature_color
+        signature_color: emailProfile.signature_color,
+        profile_photo_url: emailProfile.profile_photo_url,
+        show_profile_photo: emailProfile.show_profile_photo ?? false,
+        show_company_logo: emailProfile.show_company_logo ?? true
       } : {
         connection_id: conn.id,
         full_name: null,
@@ -2411,7 +2690,10 @@ serve(async (req) => {
         website: null,
         signature_logo_url: null,
         signature_font: null,
-        signature_color: null
+        signature_color: null,
+        profile_photo_url: null,
+        show_profile_photo: false,
+        show_company_logo: true
       };
 
       try {
