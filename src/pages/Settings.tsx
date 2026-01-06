@@ -94,11 +94,21 @@ const formatPhoneNumber = (value: string): string => {
   return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
 };
 
+type SettingsSection = 'profile' | 'signature' | 'ai-labels' | 'availability';
+
+const SETTINGS_SECTIONS = [
+  { value: 'profile' as const, label: 'Update Profile', icon: Mail },
+  { value: 'signature' as const, label: 'Update Signature', icon: Mail },
+  { value: 'ai-labels' as const, label: 'Update AI Label Colors', icon: Sparkles },
+  { value: 'availability' as const, label: 'Update Calendar Availability', icon: Calendar },
+];
+
 export default function Settings() {
   const { organization, profile } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
@@ -462,15 +472,35 @@ export default function Settings() {
       </div>
       
       <div className="max-w-2xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-1 text-muted-foreground">
             Manage your account and workspace preferences
           </p>
         </div>
 
+        {/* Section Dropdown */}
+        <div className="mb-6">
+          <Label htmlFor="settingsSection" className="text-sm font-medium mb-2 block">Select Section</Label>
+          <Select value={activeSection} onValueChange={(value) => setActiveSection(value as SettingsSection)}>
+            <SelectTrigger id="settingsSection" className="w-full">
+              <SelectValue placeholder="Select a section" />
+            </SelectTrigger>
+            <SelectContent>
+              {SETTINGS_SECTIONS.map((section) => (
+                <SelectItem key={section.value} value={section.value}>
+                  <div className="flex items-center gap-2">
+                    <section.icon className="w-4 h-4" />
+                    {section.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
       <div className="space-y-8">
-        {/* Workspace Settings */}
+        {/* Workspace Settings - Always visible */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Workspace</h2>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
@@ -487,6 +517,7 @@ export default function Settings() {
         </section>
 
         {/* Profile Settings */}
+        {activeSection === 'profile' && (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Profile</h2>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
@@ -518,8 +549,10 @@ export default function Settings() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Email Signature Builder */}
+        {activeSection === 'signature' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -770,8 +803,11 @@ CEO, Company Name
             </div>
           </div>
         </section>
+        )}
 
         {/* AI Label Settings */}
+        {activeSection === 'ai-labels' && (
+        <>
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-blue-500" />
@@ -868,8 +904,11 @@ CEO, Company Name
             </div>
           </div>
         </section>
+        </>
+        )}
 
         {/* Availability Hours */}
+        {activeSection === 'availability' && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-emerald-500" />
@@ -941,6 +980,7 @@ CEO, Company Name
             ))}
           </div>
         </section>
+        )}
 
         <div className="flex justify-end">
           <Button onClick={saveSettings} disabled={saving}>

@@ -26,7 +26,8 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDismissed, setIsDismissed] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isRequiredCollapsed, setIsRequiredCollapsed] = useState(false);
+  const [isOptionalCollapsed, setIsOptionalCollapsed] = useState(true);
   const [prevCompletedCount, setPrevCompletedCount] = useState(0);
   const hasAnimated = useRef<Set<string>>(new Set());
   
@@ -171,7 +172,8 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           if (step.id === 'email') isComplete = hasEmailConnected;
           if (step.id === 'calendars') isComplete = hasCalendarConnected;
           if (step.id === 'categories') isComplete = (categoriesCount || 0) > 0;
-          if (step.id === 'signature') isComplete = !!(emailProfile?.email_signature && emailProfile?.signature_enabled);
+          // Signature is complete if enabled (user explicitly turned it on)
+          if (step.id === 'signature') isComplete = !!emailProfile?.signature_enabled;
           if (step.id === 'rules') isComplete = (rulesCount || 0) > 0;
           if (step.id === 'ai-drafts') isComplete = (aiDraftCount || 0) > 0;
           if (step.id === 'ai-auto-reply') isComplete = (autoReplyCount || 0) > 0;
@@ -335,129 +337,150 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
   };
 
   return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden animate-fade-in">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors"
-          >
-            Setup Progress
-            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </button>
+    <div className="space-y-2 animate-fade-in">
+      {/* Required Steps Dropdown */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <button 
+          onClick={() => setIsRequiredCollapsed(!isRequiredCollapsed)}
+          className="w-full p-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+        >
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{completedRequiredCount}/{requiredSteps.length}</span>
+            <span className="font-medium text-sm">Required Setup</span>
+            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              {completedRequiredCount}/{requiredSteps.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             {allRequiredComplete && (
               <button 
-                onClick={handleDismiss}
+                onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
                 className="p-1 rounded hover:bg-muted transition-colors"
                 title="Dismiss"
               >
                 <X className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             )}
+            {isRequiredCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </div>
+        </button>
+        
+        {/* Progress bar */}
+        <div className="px-3 pb-2">
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
 
-      <div 
-        className={cn(
-          'transition-all duration-300 ease-out overflow-hidden',
-          isCollapsed ? 'max-h-0' : 'max-h-[40rem]'
-        )}
-      >
-        {/* Required Steps Section */}
-        <div className="p-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Required</p>
-          {requiredSteps.map((step, index) => {
-            const isActive = currentStepIndex === index;
-            const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
-            const isNextIncomplete = step.id === firstIncompleteRequiredId;
-            
-            return (
-              <button
-                key={step.id}
-                onClick={() => handleStepClick(step.href)}
-                className={cn(
-                  'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all duration-200',
-                  isActive && 'bg-primary/10',
-                  !isActive && 'hover:bg-muted/50',
-                  wasJustCompleted && 'animate-scale-in'
-                )}
-              >
-                <StepIndicator step={step} isNextIncomplete={isNextIncomplete} />
-                
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    'text-sm font-medium transition-all duration-200',
-                    step.isComplete && 'text-muted-foreground'
-                  )}>
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {step.description}
-                  </p>
-                </div>
-
-                {isNextIncomplete && (
-                  <div className="flex-shrink-0 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Optional Steps Section */}
-        <div className="p-2 border-t border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Optional</p>
-          {optionalSteps.map((step) => {
-            const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
-            
-            return (
-              <button
-                key={step.id}
-                onClick={() => handleStepClick(step.href)}
-                className={cn(
-                  'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all duration-200 hover:bg-muted/50',
-                  wasJustCompleted && 'animate-scale-in'
-                )}
-              >
-                <StepIndicator step={step} isNextIncomplete={false} />
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+        <div 
+          className={cn(
+            'transition-all duration-300 ease-out overflow-hidden',
+            isRequiredCollapsed ? 'max-h-0' : 'max-h-[30rem]'
+          )}
+        >
+          <div className="p-2 pt-0">
+            {requiredSteps.map((step, index) => {
+              const isActive = currentStepIndex === index;
+              const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
+              const isNextIncomplete = step.id === firstIncompleteRequiredId;
+              
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => handleStepClick(step.href)}
+                  className={cn(
+                    'w-full flex items-center gap-3 p-2.5 rounded-md text-left transition-all duration-200',
+                    isActive && 'bg-primary/10',
+                    !isActive && 'hover:bg-muted/50',
+                    wasJustCompleted && 'animate-scale-in'
+                  )}
+                >
+                  <StepIndicator step={step} isNextIncomplete={isNextIncomplete} />
+                  
+                  <div className="flex-1 min-w-0">
                     <p className={cn(
                       'text-sm font-medium transition-all duration-200',
                       step.isComplete && 'text-muted-foreground'
                     )}>
                       {step.title}
                     </p>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                      Optional
-                    </span>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {step.description}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {step.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
 
-        {allRequiredComplete && (
-          <div className="p-3 border-t border-border bg-emerald-500/10">
-            <p className="text-xs text-center text-emerald-600 font-medium">
-              🎉 All set! You're ready to go
-            </p>
+                  {isNextIncomplete && (
+                    <div className="flex-shrink-0 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          {allRequiredComplete && (
+            <div className="p-2 border-t border-border bg-emerald-500/10">
+              <p className="text-xs text-center text-emerald-600 font-medium">
+                🎉 All set! You're ready to go
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Optional Steps Dropdown */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <button 
+          onClick={() => setIsOptionalCollapsed(!isOptionalCollapsed)}
+          className="w-full p-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">Optional Setup</span>
+            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              {optionalSteps.filter(s => s.isComplete).length}/{optionalSteps.length}
+            </span>
+          </div>
+          {isOptionalCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
+
+        <div 
+          className={cn(
+            'transition-all duration-300 ease-out overflow-hidden',
+            isOptionalCollapsed ? 'max-h-0' : 'max-h-[20rem]'
+          )}
+        >
+          <div className="p-2 pt-0">
+            {optionalSteps.map((step) => {
+              const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
+              
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => handleStepClick(step.href)}
+                  className={cn(
+                    'w-full flex items-center gap-3 p-2.5 rounded-md text-left transition-all duration-200 hover:bg-muted/50',
+                    wasJustCompleted && 'animate-scale-in'
+                  )}
+                >
+                  <StepIndicator step={step} isNextIncomplete={false} />
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      'text-sm font-medium transition-all duration-200',
+                      step.isComplete && 'text-muted-foreground'
+                    )}>
+                      {step.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {step.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
