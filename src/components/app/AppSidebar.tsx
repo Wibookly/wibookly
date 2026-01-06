@@ -4,7 +4,9 @@ import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
 import { OnboardingChecklist } from './OnboardingChecklist';
+import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useState, useEffect } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,9 +43,18 @@ function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook';
 }
 
 export function AppSidebar() {
-  const { signOut } = useAuth();
+  const { signOut, organization } = useAuth();
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+
+  // Check if onboarding has been dismissed
+  useEffect(() => {
+    if (organization?.id) {
+      const dismissed = localStorage.getItem(`onboarding-dismissed-${organization.id}`);
+      setIsOnboardingComplete(dismissed === 'true');
+    }
+  }, [organization?.id]);
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
@@ -94,9 +105,9 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Onboarding Progress - hidden on very small screens when content might overflow */}
+      {/* Onboarding Progress or Post-Onboarding Navigation */}
       <div className="p-3 hidden sm:block lg:block">
-        <OnboardingChecklist />
+        {isOnboardingComplete ? <PostOnboardingNav /> : <OnboardingChecklist />}
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">

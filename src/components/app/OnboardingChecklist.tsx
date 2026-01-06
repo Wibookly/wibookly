@@ -126,10 +126,11 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       try {
         const { data: connections } = await supabase
           .from('provider_connections')
-          .select('is_connected, provider')
+          .select('is_connected, provider, calendar_connected')
           .eq('organization_id', organization.id);
 
         const hasEmailConnected = connections?.some(c => c.is_connected) || false;
+        const hasCalendarConnected = connections?.some(c => c.calendar_connected) || false;
 
         const { count: categoriesCount } = await supabase
           .from('categories')
@@ -168,7 +169,7 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           let isComplete = step.isComplete;
           if (step.id === 'account') isComplete = true;
           if (step.id === 'email') isComplete = hasEmailConnected;
-          if (step.id === 'calendars') isComplete = false; // Calendar integration not implemented yet
+          if (step.id === 'calendars') isComplete = hasCalendarConnected;
           if (step.id === 'categories') isComplete = (categoriesCount || 0) > 0;
           if (step.id === 'signature') isComplete = !!(emailProfile?.email_signature && emailProfile?.signature_enabled);
           if (step.id === 'rules') isComplete = (rulesCount || 0) > 0;
