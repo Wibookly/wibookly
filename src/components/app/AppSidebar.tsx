@@ -64,7 +64,7 @@ export function AppSidebar() {
 
       {/* Active Email Selector */}
       <div className="p-3 border-b border-border">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Active Email</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected Emails</h3>
         {loading ? (
           <div className="h-10 bg-muted/50 animate-pulse rounded-md" />
         ) : connections.length > 0 ? (

@@ -36,46 +36,58 @@ export function ActiveEmailProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { data } = await supabase.rpc('get_my_connections');
-    
-    if (data) {
-      const activeEmails = (data as Array<{
-        id: string;
-        provider: string;
-        connected_email: string;
-        is_connected: boolean;
-        calendar_connected: boolean;
-        calendar_connected_at: string | null;
-      }>)
-        .filter(c => c.is_connected && c.connected_email)
-        .map(c => ({
-          id: c.id,
-          email: c.connected_email,
-          provider: c.provider as 'google' | 'outlook',
-          is_connected: c.is_connected,
-          calendar_connected: c.calendar_connected ?? false,
-          calendar_connected_at: c.calendar_connected_at ?? null
-        }));
-      
-      setConnections(activeEmails);
-      
-      // Set initial active connection
-      if (activeEmails.length > 0) {
-        const storedId = localStorage.getItem(ACTIVE_EMAIL_STORAGE_KEY);
-        const storedConnection = storedId ? activeEmails.find(c => c.id === storedId) : null;
-        
-        if (storedConnection) {
-          setActiveConnectionIdState(storedConnection.id);
-        } else {
-          // Default to first connected email
-          setActiveConnectionIdState(activeEmails[0].id);
-          localStorage.setItem(ACTIVE_EMAIL_STORAGE_KEY, activeEmails[0].id);
-        }
-      } else {
-        setActiveConnectionIdState(null);
-        localStorage.removeItem(ACTIVE_EMAIL_STORAGE_KEY);
-      }
+    const { data, error } = await supabase
+      .from('provider_connections')
+      .select('id, provider, connected_email, is_connected, calendar_connected, calendar_connected_at')
+      .eq('user_id', user.id)
+      .eq('organization_id', organization.id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Failed to fetch connections', error);
+      setConnections([]);
+      setLoading(false);
+      return;
     }
+    const rows = (data ?? []) as Array<{
+      id: string;
+      provider: string;
+      connected_email: string | null;
+      is_connected: boolean;
+      calendar_connected: boolean;
+      calendar_connected_at: string | null;
+    }>;
+
+    const activeEmails = rows
+      .filter((c) => c.is_connected && c.connected_email)
+      .map((c) => ({
+        id: c.id,
+        email: c.connected_email as string,
+        provider: c.provider as 'google' | 'outlook',
+        is_connected: c.is_connected,
+        calendar_connected: c.calendar_connected ?? false,
+        calendar_connected_at: c.calendar_connected_at ?? null,
+      }));
+
+    setConnections(activeEmails);
+
+    // Set initial active connection
+    if (activeEmails.length > 0) {
+      const storedId = localStorage.getItem(ACTIVE_EMAIL_STORAGE_KEY);
+      const storedConnection = storedId ? activeEmails.find((c) => c.id === storedId) : null;
+
+      if (storedConnection) {
+        setActiveConnectionIdState(storedConnection.id);
+      } else {
+        // Default to first connected email
+        setActiveConnectionIdState(activeEmails[0].id);
+        localStorage.setItem(ACTIVE_EMAIL_STORAGE_KEY, activeEmails[0].id);
+      }
+    } else {
+      setActiveConnectionIdState(null);
+      localStorage.removeItem(ACTIVE_EMAIL_STORAGE_KEY);
+    }
+
     setLoading(false);
   };
 
