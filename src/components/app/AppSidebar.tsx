@@ -164,12 +164,8 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Scrollable middle section containing onboarding + nav */}
+      {/* Scrollable middle section containing nav */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {/* Onboarding Progress or Post-Onboarding Navigation */}
-        <div className="p-3 hidden sm:block lg:block">
-          {isOnboardingComplete ? <PostOnboardingNav /> : <OnboardingChecklist />}
-        </div>
 
         <nav className="p-3 pt-0 space-y-2">
           {/* Email & Calendar Integrations */}
