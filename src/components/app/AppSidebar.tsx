@@ -57,7 +57,10 @@ function NavSection({ title, icon: Icon, children, defaultOpen = false, colorCla
           <div className={cn("p-1.5 rounded-md bg-secondary/80", colorClass)}>
             <Icon className="w-4 h-4" />
           </div>
-          <span className="text-foreground">{title}</span>
+          <span className={cn(
+            "text-foreground relative pb-1",
+            isOpen && "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-blue-500 after:rounded-full"
+          )}>{title}</span>
         </div>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform group-hover:text-foreground", isOpen && "rotate-180")} />
       </CollapsibleTrigger>
@@ -76,20 +79,24 @@ interface NavItemProps {
 
 function NavItem({ href, icon: Icon, children }: NavItemProps) {
   const location = useLocation();
-  const isActive = location.pathname === href || location.pathname.startsWith(href + '?');
+  const currentUrl = location.pathname + location.search;
+  const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
   
   return (
     <NavLink
       to={href}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative',
         isActive
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
       )}
     >
       <Icon className="w-4 h-4" />
-      {children}
+      <span className={cn(
+        "relative pb-1",
+        isActive && "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-green-500 after:rounded-full"
+      )}>{children}</span>
     </NavLink>
   );
 }
@@ -175,8 +182,7 @@ export function AppSidebar() {
 
           {/* Email Folders/Labels */}
           <NavSection title="Email Folders/Labels" icon={FolderOpen} defaultOpen colorClass="text-amber-500">
-            <NavItem href="/categories" icon={Tag}>Organize Inbox</NavItem>
-            <NavItem href="/categories?tab=rules" icon={ListFilter}>Inbox Rules</NavItem>
+            <NavItem href="/categories" icon={Tag}>Categories</NavItem>
           </NavSection>
 
           {/* AI Settings */}
