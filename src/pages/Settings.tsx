@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -106,7 +107,8 @@ export default function Settings() {
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
+  const [searchParams] = useSearchParams();
+  const activeSection = (searchParams.get('section') as SettingsSection) || 'profile';
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
@@ -477,25 +479,6 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Section Dropdown */}
-        <div className="mb-6">
-          <Label htmlFor="settingsSection" className="text-sm font-medium mb-2 block">Select Section</Label>
-          <Select value={activeSection} onValueChange={(value) => setActiveSection(value as SettingsSection)}>
-            <SelectTrigger id="settingsSection" className="w-full">
-              <SelectValue placeholder="Select a section" />
-            </SelectTrigger>
-            <SelectContent>
-              {SETTINGS_SECTIONS.map((section) => (
-                <SelectItem key={section.value} value={section.value}>
-                  <div className="flex items-center gap-2">
-                    <section.icon className="w-4 h-4" />
-                    {section.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
       <div className="space-y-8">
         {/* Workspace Settings - Always visible */}
