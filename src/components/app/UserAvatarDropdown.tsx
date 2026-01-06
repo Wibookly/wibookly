@@ -13,17 +13,17 @@ import { LogOut, User } from 'lucide-react';
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
 
-  const initials = profile?.full_name
-    ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
-    : profile?.email?.[0]?.toUpperCase() || 'U';
+  const firstName = profile?.full_name
+    ? profile.full_name.split(' ')[0]
+    : profile?.email?.split('@')[0] || 'User';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Avatar className="h-9 w-9 shadow-md border-2 border-white">
-            <AvatarFallback className="text-sm bg-primary text-primary-foreground font-medium">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="h-9 px-4 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
+            {firstName}
+          </div>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
