@@ -337,10 +337,10 @@ export default function EmailDraft() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <Sparkles className="h-5 w-5 text-primary" />
               </div>
-              Draft/Reply Settings
+              Draft Settings
             </CardTitle>
             <CardDescription>
-              Configure how AI generates drafts and replies for this category
+              Configure how AI generates replies for this category
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -503,17 +503,17 @@ export default function EmailDraft() {
         </Card>
       </div>
 
-      {/* AI Email Label Colors Section */}
+      {/* AI Label Colors Section */}
       <Card className="border-primary/20 shadow-sm">
         <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <Tag className="h-5 w-5 text-primary" />
             </div>
-            AI Email Label Colors
+            AI Label Colors
           </CardTitle>
           <CardDescription>
-            Choose colors for AI-processed email labels
+            Choose colors for AI-processed email labels and calendar events
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -569,7 +569,34 @@ export default function EmailDraft() {
             </div>
           </div>
 
-          <Button onClick={saveAISettings} className="w-full mt-4">
+          <div className="border-t border-border" />
+
+          {/* AI Calendar Event */}
+          <div className="flex items-center gap-4">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="aiCalendarColor">AI Calendar Event Color</Label>
+              <p className="text-xs text-muted-foreground">
+                Applied to calendar events created by AI from meeting requests
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                style={{ backgroundColor: aiSettings.ai_calendar_event_color }}
+              >
+                <input
+                  type="color"
+                  id="aiCalendarColor"
+                  value={aiSettings.ai_calendar_event_color}
+                  onChange={(e) => setAiSettings(prev => ({ ...prev, ai_calendar_event_color: e.target.value }))}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
+              <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_calendar_event_color}</span>
+            </div>
+          </div>
+
+          <Button onClick={saveAISettings} className="w-full">
             <Save className="mr-2 h-4 w-4" />
             Save Label Colors
           </Button>

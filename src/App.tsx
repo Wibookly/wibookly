@@ -14,7 +14,6 @@ import Categories from "./pages/Categories";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
 import EmailDraft from "./pages/EmailDraft";
-import AICalendar from "./pages/AICalendar";
 import AIActivityDashboard from "./pages/AIActivityDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -40,7 +39,6 @@ const App = () => (
                 <Route path="/sync" element={<Sync />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/email-draft" element={<EmailDraft />} />
-                <Route path="/ai-calendar" element={<AICalendar />} />
                 <Route path="/ai-activity" element={<AIActivityDashboard />} />
               </Route>
               <Route path="*" element={<NotFound />} />
