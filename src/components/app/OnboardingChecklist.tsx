@@ -61,7 +61,7 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
     },
     {
       id: 'categories',
-      title: 'Setup Categories',
+      title: 'Setup Email Folders/Labels',
       description: 'Organize your inbox',
       icon: FolderOpen,
       href: '/categories',

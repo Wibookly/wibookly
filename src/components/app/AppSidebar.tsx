@@ -16,7 +16,7 @@ import {
 
 const navItems = [
   { title: 'Integrations', href: '/integrations', icon: Plug },
-  { title: 'Categories', href: '/categories', icon: FolderOpen },
+  { title: 'Email Folders/Labels', href: '/categories', icon: FolderOpen },
   { title: 'AI Draft Settings', href: '/email-draft', icon: Sparkles },
   { title: 'AI Activity', href: '/ai-activity', icon: BarChart3 },
   { title: 'Settings', href: '/settings', icon: Settings },
