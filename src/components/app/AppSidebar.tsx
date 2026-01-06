@@ -21,8 +21,9 @@ import {
 
 const navItems = [
   { title: 'Integrations', href: '/integrations', icon: Plug },
-  { title: 'Email & Calendar', href: '/categories', icon: FolderOpen },
+  { title: 'Categories & Rules', href: '/categories', icon: FolderOpen },
   { title: 'AI Settings', href: '/email-draft', icon: Sparkles },
+  { title: 'AI Calendar', href: '/ai-calendar', icon: Clock },
   { title: 'AI Activity', href: '/ai-activity', icon: BarChart3 },
 ];
 
@@ -75,7 +76,7 @@ export function AppSidebar() {
   }, [location.pathname]);
 
   return (
-    <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
+    <aside className="hidden lg:flex w-[340px] h-screen bg-card border-r border-border flex-col">
       <div className="p-4 border-b border-border flex flex-col items-center">
         <img src={wibooklyLogo} alt="Wibookly" className="h-40 w-auto" />
       </div>
