@@ -26,3 +26,7 @@ verify_jwt = false
 # Process AI emails - creates drafts and sends auto-replies for AI-enabled categories
 [functions.process-ai-emails]
 verify_jwt = false
+
+# Log calendar events scheduled by AI
+[functions.log-calendar-event]
+verify_jwt = false

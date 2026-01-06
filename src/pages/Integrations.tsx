@@ -26,6 +26,8 @@ interface Connection {
   is_connected: boolean;
   connected_at: string | null;
   connected_email: string | null;
+  calendar_connected: boolean;
+  calendar_connected_at: string | null;
 }
 
 type ProviderId = 'google' | 'outlook';
@@ -455,7 +457,7 @@ export default function Integrations() {
         <div className="mt-8">
           <h2 className="text-lg font-semibold mb-4">Calendar Connections</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Connect calendars for your linked email accounts to enable AI-powered scheduling.
+            Calendars are automatically connected with your email accounts for AI-powered scheduling.
           </p>
           <div className="space-y-3">
             {[...googleConnections, ...outlookConnections].map((conn) => (
@@ -493,10 +495,17 @@ export default function Integrations() {
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" disabled>
-                  <Clock className="w-4 h-4 mr-2" />
-                  Coming Soon
-                </Button>
+                {conn.calendar_connected ? (
+                  <div className="flex items-center gap-2 text-sm text-success">
+                    <Check className="w-4 h-4" />
+                    Connected
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setConfirmProvider(conn.provider as ProviderId)}>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Reconnect
+                  </Button>
+                )}
               </div>
             ))}
           </div>

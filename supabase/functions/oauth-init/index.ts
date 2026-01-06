@@ -114,14 +114,14 @@ serve(async (req) => {
         client_id: clientId,
         redirect_uri: callbackUrl,
         response_type: 'code',
-        scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels',
+        scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
         access_type: 'offline',
         prompt: 'consent',
         state: stateData
       });
 
       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-      console.log('Generated Google OAuth URL');
+      console.log('Generated Google OAuth URL with calendar scopes');
 
     } else if (provider === 'outlook') {
       const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
@@ -140,13 +140,13 @@ serve(async (req) => {
         client_id: clientId,
         redirect_uri: callbackUrl,
         response_type: 'code',
-        scope: 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite',
+        scope: 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Calendars.ReadWrite',
         response_mode: 'query',
         state: stateData
       });
 
       authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
-      console.log('Generated Microsoft OAuth URL');
+      console.log('Generated Microsoft OAuth URL with calendar scopes');
 
     } else {
       return new Response(

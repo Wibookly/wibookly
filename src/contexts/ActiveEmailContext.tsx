@@ -7,6 +7,8 @@ export interface EmailConnection {
   provider: 'google' | 'outlook';
   email: string;
   is_connected: boolean;
+  calendar_connected: boolean;
+  calendar_connected_at: string | null;
 }
 
 interface ActiveEmailContextType {
@@ -42,13 +44,17 @@ export function ActiveEmailProvider({ children }: { children: ReactNode }) {
         provider: string;
         connected_email: string;
         is_connected: boolean;
+        calendar_connected: boolean;
+        calendar_connected_at: string | null;
       }>)
         .filter(c => c.is_connected && c.connected_email)
         .map(c => ({
           id: c.id,
           email: c.connected_email,
           provider: c.provider as 'google' | 'outlook',
-          is_connected: c.is_connected
+          is_connected: c.is_connected,
+          calendar_connected: c.calendar_connected ?? false,
+          calendar_connected_at: c.calendar_connected_at ?? null
         }));
       
       setConnections(activeEmails);

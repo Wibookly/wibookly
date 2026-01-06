@@ -540,6 +540,8 @@ export type Database = {
       }
       provider_connections: {
         Row: {
+          calendar_connected: boolean
+          calendar_connected_at: string | null
           connected_at: string | null
           connected_email: string | null
           created_at: string
@@ -551,6 +553,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calendar_connected?: boolean
+          calendar_connected_at?: string | null
           connected_at?: string | null
           connected_email?: string | null
           created_at?: string
@@ -562,6 +566,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          calendar_connected?: boolean
+          calendar_connected_at?: string | null
           connected_at?: string | null
           connected_email?: string | null
           created_at?: string
@@ -761,6 +767,8 @@ export type Database = {
       get_my_connections: {
         Args: never
         Returns: {
+          calendar_connected: boolean
+          calendar_connected_at: string
           connected_at: string
           connected_email: string
           id: string

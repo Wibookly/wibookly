@@ -165,7 +165,7 @@ serve(async (req) => {
 
     const isNewConnection = !existingConnection;
 
-    // Update provider_connections with status and email (NO TOKENS)
+    // Update provider_connections with status, email, and calendar connection (NO TOKENS)
     const { data: connectionData, error: dbError } = await supabase
       .from('provider_connections')
       .upsert(
@@ -177,6 +177,8 @@ serve(async (req) => {
           connected_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           connected_email: connectedEmail,
+          calendar_connected: true,
+          calendar_connected_at: new Date().toISOString(),
         },
         {
           onConflict: 'user_id,provider',
@@ -192,7 +194,7 @@ serve(async (req) => {
     }
 
     const connectionId = connectionData.id;
-    console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault)`);
+    console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault, calendar enabled)`);
 
     // Initialize default data for new connections
     if (isNewConnection) {
