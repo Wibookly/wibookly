@@ -15,6 +15,7 @@ import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
 import EmailDraft from "./pages/EmailDraft";
 import AIActivityDashboard from "./pages/AIActivityDashboard";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               {/* Backwards-compatible: older links/routes may still use /dashboard */}
               <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
               <Route element={<AppLayout />}>
