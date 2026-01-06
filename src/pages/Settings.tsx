@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +19,28 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
+
+// Helper to escape HTML entities for safe rendering
+const escapeHtml = (text: string): string => {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
+// Helper to validate URLs (block javascript: protocol)
+const sanitizeUrl = (url: string): string => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  // Block javascript: and data: protocols
+  if (/^(javascript|data|vbscript):/i.test(trimmed)) {
+    return '';
+  }
+  // Ensure http/https protocol
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+};
 
 interface AISettings {
   writing_style: string;
@@ -405,31 +428,43 @@ export default function Settings() {
     email: string,
     fields: SignatureFields
   ): string => {
-    const fontFamily = fields.font || 'Arial, sans-serif';
-    const textColor = fields.color || '#333333';
+    const fontFamily = escapeHtml(fields.font || 'Arial, sans-serif');
+    const textColor = escapeHtml(fields.color || '#333333');
+    
+    // Escape all user-provided text fields
+    const safeName = escapeHtml(name || '');
+    const safeTitle = escapeHtml(userTitle || '');
+    const safeEmail = escapeHtml(email || '');
+    const safePhone = escapeHtml(fields.phone || '');
+    const safeMobile = escapeHtml(fields.mobile || '');
+    
+    // Sanitize URLs to prevent javascript: protocol
+    const safeWebsite = sanitizeUrl(fields.website || '');
+    const safeProfilePhotoUrl = sanitizeUrl(fields.profilePhotoUrl || '');
+    const safeLogoUrl = sanitizeUrl(fields.signatureLogoUrl || '');
     
     // Build contact lines with icons
     const contactLines: string[] = [];
-    if (fields.phone) {
-      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${fields.phone}</td></tr>`);
+    if (safePhone) {
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📞</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Main: ${safePhone}</td></tr>`);
     }
-    if (fields.mobile) {
-      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📱</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Mobile: ${fields.mobile}</td></tr>`);
+    if (safeMobile) {
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">📱</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;">Mobile: ${safeMobile}</td></tr>`);
     }
-    if (fields.website) {
-      const cleanUrl = fields.website.replace(/^https?:\/\//, '');
-      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">🌐</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="${fields.website}" style="color: ${textColor}; text-decoration: none;">${cleanUrl}</a></td></tr>`);
+    if (safeWebsite) {
+      const cleanUrl = escapeHtml(safeWebsite.replace(/^https?:\/\//, ''));
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">🌐</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="${safeWebsite}" style="color: ${textColor}; text-decoration: none;">${cleanUrl}</a></td></tr>`);
     }
-    if (email) {
-      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${email}" style="color: ${textColor}; text-decoration: none;">${email}</a></td></tr>`);
+    if (safeEmail) {
+      contactLines.push(`<tr><td style="padding: 2px 0; vertical-align: middle;"><span style="font-size: 14px;">✉️</span></td><td style="padding: 2px 0 2px 8px; vertical-align: middle;"><a href="mailto:${safeEmail}" style="color: ${textColor}; text-decoration: none;">${safeEmail}</a></td></tr>`);
     }
 
-    // Check what images to show based on toggles
-    const showPhoto = fields.showProfilePhoto && fields.profilePhotoUrl;
-    const showLogo = fields.showCompanyLogo && fields.signatureLogoUrl;
+    // Check what images to show based on toggles (only if URLs are valid)
+    const showPhoto = fields.showProfilePhoto && safeProfilePhotoUrl;
+    const showLogo = fields.showCompanyLogo && safeLogoUrl;
 
     // Only show signature if there's at least some content
-    const hasContent = name || userTitle || contactLines.length > 0 || showPhoto || showLogo;
+    const hasContent = safeName || safeTitle || contactLines.length > 0 || showPhoto || showLogo;
     if (!hasContent) {
       return '<div style="color: #999; font-style: italic;">Add your details above to see the signature preview</div>';
     }
@@ -439,8 +474,8 @@ export default function Settings() {
     if (showPhoto || showLogo) {
       imagesHtml = `<td style="vertical-align: top; padding-right: 16px; border-right: 2px solid #e5e5e5;">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-          ${showPhoto ? `<img src="${fields.profilePhotoUrl}" alt="Profile Photo" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover;" />` : ''}
-          ${showLogo ? `<img src="${fields.signatureLogoUrl}" alt="Company Logo" style="max-height: 50px; max-width: 100px;" />` : ''}
+          ${showPhoto ? `<img src="${safeProfilePhotoUrl}" alt="Profile Photo" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover;" />` : ''}
+          ${showLogo ? `<img src="${safeLogoUrl}" alt="Company Logo" style="max-height: 50px; max-width: 100px;" />` : ''}
         </div>
       </td>`;
     }
@@ -452,8 +487,8 @@ export default function Settings() {
           <tr>
             ${imagesHtml}
             <td style="vertical-align: top; ${(showPhoto || showLogo) ? 'padding-left: 16px;' : ''}">
-              ${name ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${name}</div>` : ''}
-              ${userTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${userTitle}</div>` : ''}
+              ${safeName ? `<div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin-bottom: 2px;">${safeName}</div>` : ''}
+              ${safeTitle ? `<div style="font-size: 14px; color: #2563eb; margin-bottom: 8px;">${safeTitle}</div>` : ''}
               ${contactLines.length > 0 ? `<table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: ${textColor};">
                 ${contactLines.join('')}
               </table>` : ''}
@@ -915,9 +950,12 @@ CEO, Company Name
               <div 
                 className="p-4 bg-background rounded-md border border-border min-h-[80px]"
                 dangerouslySetInnerHTML={{ 
-                  __html: useCustomSignature && emailSignature 
-                    ? emailSignature 
-                    : generateSignaturePreview(fullName, title, profile?.email || '', signatureFields)
+                  __html: DOMPurify.sanitize(
+                    useCustomSignature && emailSignature 
+                      ? emailSignature 
+                      : generateSignaturePreview(fullName, title, profile?.email || '', signatureFields),
+                    { ADD_ATTR: ['target'] }
+                  )
                 }}
               />
             </div>

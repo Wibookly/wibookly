@@ -14,8 +14,46 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    // Validate authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create a client with the user's token to validate auth
+    const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Validate JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseUserClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.error('JWT validation failed:', claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authenticatedUserId = claimsData.claims.sub;
+    if (!authenticatedUserId) {
+      console.error('No user ID in claims');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use service role for database operations
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { 
@@ -29,6 +67,15 @@ serve(async (req) => {
       attendees 
     } = await req.json();
 
+    // Verify the userId in the request matches the authenticated user
+    if (userId !== authenticatedUserId) {
+      console.error('User ID mismatch: request userId does not match authenticated user');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!userId || !organizationId || !categoryName) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters: userId, organizationId, categoryName' }),
@@ -36,7 +83,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Logging calendar event for user ${userId}: ${eventTitle}`);
+    console.log(`Logging calendar event for authenticated user ${userId}: ${eventTitle}`);
 
     // Log the calendar event as an AI activity
     const { error: logError } = await supabase
