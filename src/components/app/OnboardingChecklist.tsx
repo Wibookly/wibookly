@@ -267,8 +267,11 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
     );
   }
 
+  // Find the first incomplete step index
+  const firstIncompleteIndex = steps.findIndex(s => !s.isComplete);
+
   // Custom step indicator component
-  const StepIndicator = ({ step, isActive }: { step: OnboardingStep; isActive: boolean }) => {
+  const StepIndicator = ({ step, isActive, isNextIncomplete }: { step: OnboardingStep; isActive: boolean; isNextIncomplete: boolean }) => {
     const Icon = step.icon;
     
     if (step.isComplete) {
@@ -280,12 +283,18 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       );
     }
     
-    // Orange half-circle for incomplete steps
+    // Orange half-circle for incomplete steps - pulse if next incomplete
     return (
-      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center relative overflow-hidden bg-muted">
+      <div className={cn(
+        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center relative overflow-hidden bg-muted",
+        isNextIncomplete && "animate-pulse"
+      )}>
         {/* Orange half-fill on the left side */}
         <div 
-          className="absolute left-0 top-0 bottom-0 w-1/2 bg-orange-400"
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-1/2 bg-orange-400",
+            isNextIncomplete && "bg-orange-500"
+          )}
         />
         {/* Icon on top */}
         <Icon className={cn(
@@ -338,9 +347,6 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           {steps.map((step, index) => {
             const isActive = currentStepIndex === index;
             const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
-            
-            // Determine if this is the next incomplete step that should flash
-            const firstIncompleteIndex = steps.findIndex(s => !s.isComplete);
             const isNextIncomplete = !step.isComplete && index === firstIncompleteIndex;
             
             return (
@@ -351,18 +357,16 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
                   'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all duration-200',
                   isActive && 'bg-primary/10',
                   !isActive && 'hover:bg-muted/50',
-                  wasJustCompleted && 'animate-scale-in',
-                  isNextIncomplete && !isActive && 'animate-pulse bg-primary/5 ring-1 ring-primary/30'
+                  wasJustCompleted && 'animate-scale-in'
                 )}
               >
-                <StepIndicator step={step} isActive={isActive} />
+                <StepIndicator step={step} isActive={isActive} isNextIncomplete={isNextIncomplete} />
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className={cn(
                       'text-sm font-medium transition-all duration-200',
-                      step.isComplete && 'text-muted-foreground line-through',
-                      isNextIncomplete && !step.isComplete && 'text-primary font-semibold'
+                      step.isComplete && 'text-muted-foreground line-through'
                     )}>
                       {step.title}
                     </p>
