@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon } from 'lucide-react';
+import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon, Calendar, Palette, Save } from 'lucide-react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   AlertDialog,
@@ -16,6 +17,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { OAuthDiagnostics } from '@/components/integrations/OAuthDiagnostics';
 import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErrorScreen';
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
@@ -30,10 +40,45 @@ interface Connection {
   calendar_connected_at: string | null;
 }
 
+interface AvailabilityDay {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const hour = Math.floor(i / 2);
+  const minute = i % 2 === 0 ? '00' : '30';
+  const time24 = `${hour.toString().padStart(2, '0')}:${minute}`;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const label = `${hour12}:${minute} ${period}`;
+  return { value: time24, label };
+});
+
+const DEFAULT_AVAILABILITY: AvailabilityDay[] = DAYS_OF_WEEK.map(day => ({
+  day_of_week: day.value,
+  start_time: '09:00',
+  end_time: '17:00',
+  is_available: day.value >= 1 && day.value <= 5
+}));
+
 type ProviderId = 'google' | 'outlook';
 
 export default function Integrations() {
   const { organization, profile, loading: authLoading } = useAuth();
+  const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const { logAttempt } = useConnectAttemptLogger();
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -48,6 +93,143 @@ export default function Integrations() {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showGoogleError, setShowGoogleError] = useState(false);
   const [googleErrorMessage, setGoogleErrorMessage] = useState<string | undefined>();
+
+  // Tab state
+  const currentTab = searchParams.get('tab') || 'email';
+  
+  // Availability state
+  const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  
+  // Calendar color state
+  const [calendarEventColor, setCalendarEventColor] = useState('#9333EA');
+  const [savingColor, setSavingColor] = useState(false);
+
+  // Fetch availability and calendar color when active connection changes
+  useEffect(() => {
+    if (activeConnection?.id && organization?.id) {
+      fetchAvailability();
+      fetchCalendarColor();
+    }
+  }, [activeConnection?.id, organization?.id]);
+
+  const fetchAvailability = async () => {
+    if (!activeConnection?.id || !profile?.user_id) return;
+    
+    const { data } = await supabase
+      .from('availability_hours')
+      .select('*')
+      .eq('connection_id', activeConnection.id) as { data: { day_of_week: number; start_time: string; end_time: string; is_available: boolean }[] | null };
+    
+    if (data && data.length > 0) {
+      const merged = DEFAULT_AVAILABILITY.map(defaultDay => {
+        const existing = data.find(d => d.day_of_week === defaultDay.day_of_week);
+        if (existing) {
+          return {
+            day_of_week: existing.day_of_week,
+            start_time: existing.start_time.slice(0, 5),
+            end_time: existing.end_time.slice(0, 5),
+            is_available: existing.is_available
+          };
+        }
+        return defaultDay;
+      });
+      setAvailability(merged);
+    }
+  };
+
+  const fetchCalendarColor = async () => {
+    if (!organization?.id || !activeConnection?.id) return;
+
+    const { data } = await supabase
+      .from('ai_settings')
+      .select('*')
+      .eq('organization_id', organization.id)
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle();
+
+    if (data) {
+      setCalendarEventColor((data as Record<string, unknown>).ai_calendar_event_color as string || '#9333EA');
+    }
+  };
+
+  const saveAvailability = async () => {
+    if (!activeConnection?.id || !profile?.user_id || !organization?.id) return;
+    
+    setSavingAvailability(true);
+    try {
+      for (const day of availability) {
+        const { data: existing } = await supabase
+          .from('availability_hours')
+          .select('id')
+          .eq('connection_id', activeConnection.id)
+          .eq('day_of_week', day.day_of_week)
+          .maybeSingle();
+        
+        if (existing) {
+          await supabase
+            .from('availability_hours')
+            .update({
+              start_time: day.start_time + ':00',
+              end_time: day.end_time + ':00',
+              is_available: day.is_available
+            })
+            .eq('id', existing.id);
+        } else {
+          const insertData = {
+            connection_id: activeConnection.id,
+            user_id: profile.user_id,
+            organization_id: organization.id,
+            day_of_week: day.day_of_week,
+            start_time: day.start_time + ':00',
+            end_time: day.end_time + ':00',
+            is_available: day.is_available
+          };
+          // @ts-ignore
+          await supabase.from('availability_hours').insert(insertData);
+        }
+      }
+      toast({ title: 'Availability saved', description: 'Your availability hours have been updated.' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save availability', variant: 'destructive' });
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  const saveCalendarColor = async () => {
+    if (!organization?.id || !activeConnection?.id) return;
+    
+    setSavingColor(true);
+    try {
+      const { data: existingAI } = await supabase
+        .from('ai_settings')
+        .select('id')
+        .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
+        .maybeSingle();
+
+      if (existingAI) {
+        await supabase
+          .from('ai_settings')
+          .update({ ai_calendar_event_color: calendarEventColor } as Record<string, unknown>)
+          .eq('id', existingAI.id);
+      } else {
+        await supabase
+          .from('ai_settings')
+          .insert([{
+            organization_id: organization.id,
+            connection_id: activeConnection.id,
+            writing_style: 'professional',
+          }]);
+      }
+      toast({ title: 'Color saved', description: 'AI calendar event color has been updated.' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save color', variant: 'destructive' });
+    } finally {
+      setSavingColor(false);
+    }
+  };
 
   useEffect(() => {
     // Handle OAuth callback results
@@ -68,7 +250,6 @@ export default function Integrations() {
       const provider = searchParams.get('provider') || 'unknown';
       logAttempt({ provider, stage: 'callback_error', errorMessage: error });
       
-      // Check if this is a 403-type error for Google
       if (error.toLowerCase().includes('403') || error.toLowerCase().includes('forbidden') || error.toLowerCase().includes('access_denied')) {
         setGoogleErrorMessage(error);
         setShowGoogleError(true);
@@ -86,7 +267,6 @@ export default function Integrations() {
   const fetchConnections = async () => {
     if (!organization?.id) return;
 
-    // Use secure RPC function that doesn't expose tokens
     const { data } = await supabase.rpc('get_my_connections');
 
     setConnections(data || []);
@@ -384,6 +564,147 @@ export default function Integrations() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Availability Hours Tab */}
+      {currentTab === 'availability' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-5 h-5 text-emerald-500" />
+            <h2 className="text-lg font-semibold">Availability Hours</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Set your available hours for meetings and appointments. AI will only schedule events within these time slots.
+          </p>
+          
+          {!activeConnection ? (
+            <div className="py-8 text-center text-muted-foreground">
+              Connect an email account to configure availability hours.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 p-4 bg-card rounded-lg border border-border">
+                {availability.map((day, index) => (
+                  <div key={day.day_of_week} className="flex items-center gap-4">
+                    <div className="w-28 flex items-center gap-2">
+                      <Switch
+                        checked={day.is_available}
+                        onCheckedChange={(checked) => {
+                          const updated = [...availability];
+                          updated[index] = { ...updated[index], is_available: checked };
+                          setAvailability(updated);
+                        }}
+                        className="scale-90"
+                      />
+                      <span className={`text-sm font-medium ${!day.is_available ? 'text-muted-foreground' : ''}`}>
+                        {DAYS_OF_WEEK[day.day_of_week].label.slice(0, 3)}
+                      </span>
+                    </div>
+                    
+                    {day.is_available ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Select
+                          value={day.start_time}
+                          onValueChange={(value) => {
+                            const updated = [...availability];
+                            updated[index] = { ...updated[index], start_time: value };
+                            setAvailability(updated);
+                          }}
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_OPTIONS.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-muted-foreground">to</span>
+                        <Select
+                          value={day.end_time}
+                          onValueChange={(value) => {
+                            const updated = [...availability];
+                            updated[index] = { ...updated[index], end_time: value };
+                            setAvailability(updated);
+                          }}
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_OPTIONS.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">Unavailable</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button onClick={saveAvailability} disabled={savingAvailability}>
+                {savingAvailability && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Save className="w-4 h-4 mr-2" />
+                Save Availability
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Calendar Event Color Tab */}
+      {currentTab === 'calendar-color' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Palette className="w-5 h-5 text-purple-500" />
+            <h2 className="text-lg font-semibold">AI Calendar Event Color</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            When AI adds events or appointments to your calendar, they will be displayed with this color to distinguish them from your manually created events.
+          </p>
+          
+          {!activeConnection ? (
+            <div className="py-8 text-center text-muted-foreground">
+              Connect an email account to configure calendar event color.
+            </div>
+          ) : (
+            <div className="space-y-4 p-4 bg-card rounded-lg border border-border">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="aiCalendarColor">Calendar Event Color</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Applied to events and appointments created by AI from meeting requests
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                    style={{ backgroundColor: calendarEventColor }}
+                  >
+                    <input
+                      type="color"
+                      id="aiCalendarColor"
+                      value={calendarEventColor}
+                      onChange={(e) => setCalendarEventColor(e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-sm font-mono text-muted-foreground">{calendarEventColor}</span>
+                </div>
+              </div>
+              <Button onClick={saveCalendarColor} disabled={savingColor}>
+                {savingColor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Save className="w-4 h-4 mr-2" />
+                Save Color
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Email/Calendar Connections Tab (default) */}
+      {(currentTab === 'email' || currentTab === 'calendar') && (
       <div className="space-y-4">
         {authLoading ? (
           <div className="bg-card rounded-lg border border-border p-6 flex items-center justify-center">
@@ -500,6 +821,7 @@ export default function Integrations() {
           ))
         )}
       </div>
+      )}
 
       </section>
     </div>

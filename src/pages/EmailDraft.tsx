@@ -9,13 +9,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail } from "lucide-react";
+import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Palette } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 interface Category {
   id: string;
   name: string;
   writing_style: string;
   sort_order: number;
+}
+
+interface AISettings {
+  ai_draft_label_color: string;
+  ai_sent_label_color: string;
 }
 
 const WRITING_STYLES = [
@@ -34,8 +40,10 @@ const FORMAT_OPTIONS = [
 ];
 
 export default function EmailDraft() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, organization, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
+  const [searchParams] = useSearchParams();
+  const showLabelsTab = searchParams.get('tab') === 'labels';
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -49,14 +57,77 @@ export default function EmailDraft() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  
+  const [aiSettings, setAiSettings] = useState<AISettings>({
+    ai_draft_label_color: '#3B82F6',
+    ai_sent_label_color: '#F97316',
+  });
+  const [savingColors, setSavingColors] = useState(false);
 
   useEffect(() => {
     if (user && activeConnection?.id) {
       fetchCategories();
+      fetchAILabelColors();
     } else if (!emailLoading) {
       setLoadingCategories(false);
     }
   }, [user, activeConnection?.id]);
+
+  const fetchAILabelColors = async () => {
+    if (!organization?.id || !activeConnection?.id) return;
+
+    const { data } = await supabase
+      .from('ai_settings')
+      .select('*')
+      .eq('organization_id', organization.id)
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle();
+
+    if (data) {
+      setAiSettings({
+        ai_draft_label_color: (data as Record<string, unknown>).ai_draft_label_color as string || '#3B82F6',
+        ai_sent_label_color: (data as Record<string, unknown>).ai_sent_label_color as string || '#F97316',
+      });
+    }
+  };
+
+  const saveAILabelColors = async () => {
+    if (!organization?.id || !activeConnection?.id) return;
+    
+    setSavingColors(true);
+    try {
+      const { data: existingAI } = await supabase
+        .from('ai_settings')
+        .select('id')
+        .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id)
+        .maybeSingle();
+
+      if (existingAI) {
+        await supabase
+          .from('ai_settings')
+          .update({
+            ai_draft_label_color: aiSettings.ai_draft_label_color,
+            ai_sent_label_color: aiSettings.ai_sent_label_color,
+          } as Record<string, unknown>)
+          .eq('id', existingAI.id);
+      } else {
+        await supabase
+          .from('ai_settings')
+          .insert([{
+            organization_id: organization.id,
+            connection_id: activeConnection.id,
+            writing_style: 'professional',
+          }]);
+      }
+
+      toast.success('AI label colors saved!');
+    } catch (error) {
+      toast.error('Failed to save label colors');
+    } finally {
+      setSavingColors(false);
+    }
+  };
 
   const fetchCategories = async () => {
     if (!activeConnection?.id) return;
@@ -238,13 +309,90 @@ export default function EmailDraft() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
           <div className="relative">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Draft Settings
+              {showLabelsTab ? 'AI Label Colors' : 'Draft Settings'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Configure auto-reply templates and AI writing style for each category
+              {showLabelsTab 
+                ? 'Customize colors for AI-processed email labels in your inbox'
+                : 'Configure auto-reply templates and AI writing style for each category'}
             </p>
           </div>
         </div>
+
+        {/* AI Label Colors Section */}
+        {showLabelsTab ? (
+          <Card className="border-purple-500/20 shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-purple-500/5 to-transparent rounded-t-lg">
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Palette className="h-5 w-5 text-purple-500" />
+                </div>
+                AI Email Labels
+              </CardTitle>
+              <CardDescription>
+                Choose colors for AI-processed email labels. These will appear in your inbox to help you identify AI-drafted and AI-sent emails.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="aiDraftColor">AI Draft Label Color</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Applied to emails where AI created a draft for your review
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                    style={{ backgroundColor: aiSettings.ai_draft_label_color }}
+                  >
+                    <input
+                      type="color"
+                      id="aiDraftColor"
+                      value={aiSettings.ai_draft_label_color}
+                      onChange={(e) => setAiSettings(prev => ({ ...prev, ai_draft_label_color: e.target.value }))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_draft_label_color}</span>
+                </div>
+              </div>
+              
+              <div className="border-t border-border pt-4"></div>
+              
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="aiSentColor">AI Auto-Reply Label Color</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Applied to emails that AI automatically replied to
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                    style={{ backgroundColor: aiSettings.ai_sent_label_color }}
+                  >
+                    <input
+                      type="color"
+                      id="aiSentColor"
+                      value={aiSettings.ai_sent_label_color}
+                      onChange={(e) => setAiSettings(prev => ({ ...prev, ai_sent_label_color: e.target.value }))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_sent_label_color}</span>
+                </div>
+              </div>
+              
+              <Button onClick={saveAILabelColors} disabled={savingColors}>
+                {savingColors && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Save className="w-4 h-4 mr-2" />
+                Save Colors
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Input Section */}
@@ -419,6 +567,8 @@ export default function EmailDraft() {
           </CardContent>
         </Card>
       </div>
+        </>
+        )}
     </div>
   </div>
   );

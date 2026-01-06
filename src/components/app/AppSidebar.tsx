@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
@@ -44,21 +44,24 @@ interface NavSectionProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  colorClass?: string;
 }
 
-function NavSection({ title, icon: Icon, children, defaultOpen = false }: NavSectionProps) {
+function NavSection({ title, icon: Icon, children, defaultOpen = false, colorClass = 'text-primary' }: NavSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
+      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/50 transition-colors group">
         <div className="flex items-center gap-3">
-          <Icon className="w-4 h-4" />
-          {title}
+          <div className={cn("p-1.5 rounded-md bg-secondary/80", colorClass)}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <span className="text-foreground">{title}</span>
         </div>
-        <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform group-hover:text-foreground", isOpen && "rotate-180")} />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pl-6 space-y-1 mt-1">
+      <CollapsibleContent className="pl-4 space-y-0.5 mt-1 ml-3 border-l-2 border-border/50">
         {children}
       </CollapsibleContent>
     </Collapsible>
@@ -161,31 +164,36 @@ export function AppSidebar() {
           {isOnboardingComplete ? <PostOnboardingNav /> : <OnboardingChecklist />}
         </div>
 
-        <nav className="p-3 pt-0 space-y-1">
-          {/* Email & Calendar Connections */}
-          <NavSection title="Email & Calendar" icon={Plug} defaultOpen>
+        <nav className="p-3 pt-0 space-y-2">
+          {/* Email & Calendar Integrations */}
+          <NavSection title="Email & Calendar Integrations" icon={Plug} defaultOpen colorClass="text-blue-500">
             <NavItem href="/integrations" icon={Mail}>Email Connections</NavItem>
             <NavItem href="/integrations?tab=calendar" icon={Calendar}>Calendar Connections</NavItem>
-            <NavItem href="/settings?section=availability" icon={Clock}>Availability</NavItem>
+            <NavItem href="/integrations?tab=availability" icon={Clock}>Availability Hours</NavItem>
+            <NavItem href="/integrations?tab=calendar-color" icon={Palette}>Calendar Event Color</NavItem>
           </NavSection>
 
-          {/* Categories */}
-          <NavSection title="Categories" icon={FolderOpen} defaultOpen>
-            <NavItem href="/categories" icon={Tag}>Email Folders/Labels</NavItem>
+          {/* Email Folders/Labels */}
+          <NavSection title="Email Folders/Labels" icon={FolderOpen} defaultOpen colorClass="text-amber-500">
+            <NavItem href="/categories" icon={Tag}>Organize Inbox</NavItem>
+            <NavItem href="/categories?tab=rules" icon={ListFilter}>Inbox Rules</NavItem>
           </NavSection>
 
           {/* AI Settings */}
-          <NavSection title="AI Settings" icon={Sparkles} defaultOpen>
+          <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
             <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+            <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+          </NavSection>
+
+          {/* Reports */}
+          <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
             <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
           </NavSection>
 
           {/* Settings */}
-          <NavSection title="Settings" icon={Settings} defaultOpen>
+          <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
             <NavItem href="/settings?section=profile" icon={User}>Update Profile</NavItem>
             <NavItem href="/settings?section=signature" icon={PenTool}>Update Signature</NavItem>
-            <NavItem href="/settings?section=ai-labels" icon={Palette}>AI Label Colors</NavItem>
-            <NavItem href="/settings?section=availability" icon={Clock}>Calendar Availability</NavItem>
           </NavSection>
         </nav>
       </div>
