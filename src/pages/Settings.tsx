@@ -15,9 +15,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Upload, X, Image as ImageIcon, Mail, Clock } from 'lucide-react';
+import { Loader2, Save, Upload, X, Image as ImageIcon, Mail, Clock, ChevronDown } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface AISettings {
   writing_style: string;
@@ -97,18 +103,32 @@ const formatPhoneNumber = (value: string): string => {
 
 type SettingsSection = 'profile' | 'signature' | 'availability';
 
+const SECTION_OPTIONS = [
+  { value: 'profile', label: 'Update Profile' },
+  { value: 'signature', label: 'Update Signature' },
+  { value: 'availability', label: 'Calendar Availability' },
+];
+
 export default function Settings() {
   const { organization, profile } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  // Get section from URL, default to profile
+  // Get section from URL or default to profile
   const sectionFromUrl = searchParams.get('section') as SettingsSection | null;
-  const activeSection: SettingsSection = sectionFromUrl && ['profile', 'signature', 'availability'].includes(sectionFromUrl) 
-    ? sectionFromUrl 
-    : 'profile';
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    sectionFromUrl && ['profile', 'signature', 'availability'].includes(sectionFromUrl) 
+      ? sectionFromUrl 
+      : 'profile'
+  );
+
+  // Sync URL with section changes
+  const handleSectionChange = (section: SettingsSection) => {
+    setActiveSection(section);
+    setSearchParams({ section });
+  };
   
   const [orgName, setOrgName] = useState('');
   const [fullName, setFullName] = useState('');
@@ -474,11 +494,28 @@ export default function Settings() {
       
       <div className="max-w-2xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {activeSection === 'profile' && 'Update Profile'}
-            {activeSection === 'signature' && 'Update Signature'}
-            {activeSection === 'availability' && 'Calendar Availability'}
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Settings:</h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  {SECTION_OPTIONS.find(s => s.value === activeSection)?.label}
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-popover">
+                {SECTION_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => handleSectionChange(option.value as SettingsSection)}
+                    className={activeSection === option.value ? 'bg-accent' : ''}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <p className="mt-1 text-muted-foreground">
             Manage your account and workspace preferences
           </p>
