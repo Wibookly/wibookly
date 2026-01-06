@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, ChevronRight, Check, User, FileSignature, Clock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
@@ -13,13 +13,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 const navItems = [
   { title: 'Integrations', href: '/integrations', icon: Plug },
-  { title: 'Email Folders/Labels', href: '/categories', icon: FolderOpen },
-  { title: 'AI Draft Settings', href: '/email-draft', icon: Sparkles },
+  { title: 'Email & Calendar', href: '/categories', icon: FolderOpen },
+  { title: 'AI Settings', href: '/email-draft', icon: Sparkles },
   { title: 'AI Activity', href: '/ai-activity', icon: BarChart3 },
-  { title: 'Settings', href: '/settings', icon: Settings },
+];
+
+const settingsSubItems = [
+  { title: 'Update Profile', href: '/settings?section=profile', icon: User },
+  { title: 'Update Signature', href: '/settings?section=signature', icon: FileSignature },
+  { title: 'Calendar Availability', href: '/settings?section=availability', icon: Clock },
 ];
 
 function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook'; className?: string }) {
@@ -47,6 +57,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Check if onboarding has been dismissed
   useEffect(() => {
@@ -55,6 +66,13 @@ export function AppSidebar() {
       setIsOnboardingComplete(dismissed === 'true');
     }
   }, [organization?.id]);
+
+  // Auto-expand settings if on a settings page
+  useEffect(() => {
+    if (location.pathname === '/settings') {
+      setSettingsOpen(true);
+    }
+  }, [location.pathname]);
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
@@ -131,6 +149,50 @@ export function AppSidebar() {
               </NavLink>
             );
           })}
+
+          {/* Settings with sub-items */}
+          <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <CollapsibleTrigger className="w-full">
+              <div
+                className={cn(
+                  'flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full',
+                  location.pathname === '/settings'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </div>
+                {settingsOpen ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 mt-1 space-y-1">
+              {settingsSubItems.map((item) => {
+                const isActive = location.pathname + location.search === item.href;
+                return (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                    )}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.title}
+                  </NavLink>
+                );
+              })}
+            </CollapsibleContent>
+          </Collapsible>
         </nav>
       </div>
 
