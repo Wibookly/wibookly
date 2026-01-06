@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, Mail, FolderOpen, User, X, ChevronDown, ChevronUp, FileText, Sparkles, Calendar, PenLine } from 'lucide-react';
+import { Check, Mail, FolderOpen, User, X, ChevronDown, ChevronUp, FileText, Sparkles, Calendar, PenLine, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -14,6 +14,7 @@ interface OnboardingStep {
   href: string;
   isComplete: boolean;
   isOptional?: boolean;
+  section: 'required' | 'optional';
 }
 
 interface OnboardingChecklistProps {
@@ -30,13 +31,15 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
   const hasAnimated = useRef<Set<string>>(new Set());
   
   const [steps, setSteps] = useState<OnboardingStep[]>([
+    // Required steps
     {
       id: 'account',
       title: 'Create Account',
       description: 'Your account is ready',
       icon: User,
       href: '/settings',
-      isComplete: true
+      isComplete: true,
+      section: 'required'
     },
     {
       id: 'email',
@@ -44,7 +47,17 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       description: 'Link Google or Outlook',
       icon: Mail,
       href: '/integrations',
-      isComplete: false
+      isComplete: false,
+      section: 'required'
+    },
+    {
+      id: 'calendars',
+      title: 'Connect Calendars',
+      description: 'Link your calendars',
+      icon: Calendar,
+      href: '/integrations',
+      isComplete: false,
+      section: 'required'
     },
     {
       id: 'categories',
@@ -52,16 +65,8 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       description: 'Organize your inbox',
       icon: FolderOpen,
       href: '/categories',
-      isComplete: false
-    },
-    {
-      id: 'rules',
-      title: 'Setup Rules',
-      description: 'Create email rules',
-      icon: FileText,
-      href: '/categories',
       isComplete: false,
-      isOptional: true
+      section: 'required'
     },
     {
       id: 'signature',
@@ -70,23 +75,38 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       icon: PenLine,
       href: '/settings',
       isComplete: false,
-      isOptional: true
+      section: 'required'
+    },
+    // Optional steps
+    {
+      id: 'rules',
+      title: 'Setup Rules',
+      description: 'Create email rules',
+      icon: FileText,
+      href: '/categories',
+      isComplete: false,
+      isOptional: true,
+      section: 'optional'
     },
     {
       id: 'ai-drafts',
       title: 'Setup AI Drafts',
-      description: 'Configure AI draft settings',
+      description: 'Enable AI drafts on categories',
       icon: Sparkles,
-      href: '/email-draft',
-      isComplete: false
+      href: '/categories',
+      isComplete: false,
+      isOptional: true,
+      section: 'optional'
     },
     {
-      id: 'calendars',
-      title: 'Connect Calendars',
-      description: 'Link your calendars',
-      icon: Calendar,
-      href: '/integrations',
-      isComplete: false
+      id: 'ai-auto-reply',
+      title: 'Setup AI Auto Reply',
+      description: 'Enable auto-reply on categories',
+      icon: Send,
+      href: '/categories',
+      isComplete: false,
+      isOptional: true,
+      section: 'optional'
     }
   ]);
   const [loading, setLoading] = useState(true);
@@ -123,11 +143,19 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           .eq('organization_id', organization.id)
           .eq('is_enabled', true);
 
-        const { data: aiSettings } = await supabase
-          .from('ai_settings')
-          .select('writing_style')
+        // Check if any category has AI draft enabled
+        const { count: aiDraftCount } = await supabase
+          .from('categories')
+          .select('*', { count: 'exact', head: true })
           .eq('organization_id', organization.id)
-          .single();
+          .eq('ai_draft_enabled', true);
+
+        // Check if any category has auto-reply enabled
+        const { count: autoReplyCount } = await supabase
+          .from('categories')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organization.id)
+          .eq('auto_reply_enabled', true);
 
         const { data: emailProfile } = await supabase
           .from('email_profiles')
@@ -140,11 +168,12 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           let isComplete = step.isComplete;
           if (step.id === 'account') isComplete = true;
           if (step.id === 'email') isComplete = hasEmailConnected;
-          if (step.id === 'categories') isComplete = (categoriesCount || 0) > 0;
-          if (step.id === 'rules') isComplete = (rulesCount || 0) > 0;
-          if (step.id === 'signature') isComplete = !!(emailProfile?.email_signature && emailProfile?.signature_enabled);
-          if (step.id === 'ai-drafts') isComplete = !!(aiSettings?.writing_style && aiSettings.writing_style !== 'professional');
           if (step.id === 'calendars') isComplete = false; // Calendar integration not implemented yet
+          if (step.id === 'categories') isComplete = (categoriesCount || 0) > 0;
+          if (step.id === 'signature') isComplete = !!(emailProfile?.email_signature && emailProfile?.signature_enabled);
+          if (step.id === 'rules') isComplete = (rulesCount || 0) > 0;
+          if (step.id === 'ai-drafts') isComplete = (aiDraftCount || 0) > 0;
+          if (step.id === 'ai-auto-reply') isComplete = (autoReplyCount || 0) > 0;
           return { ...step, isComplete };
         }));
       } catch (error) {
@@ -158,7 +187,8 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
   }, [organization?.id]);
 
   // Count only required steps for progress
-  const requiredSteps = steps.filter(s => !s.isOptional);
+  const requiredSteps = steps.filter(s => s.section === 'required');
+  const optionalSteps = steps.filter(s => s.section === 'optional');
   const completedRequiredCount = requiredSteps.filter(s => s.isComplete).length;
   const completedCount = steps.filter(s => s.isComplete).length;
   const progress = (completedRequiredCount / requiredSteps.length) * 100;
@@ -267,11 +297,12 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
     );
   }
 
-  // Find the first incomplete step index
-  const firstIncompleteIndex = steps.findIndex(s => !s.isComplete);
+  // Find the first incomplete required step index
+  const firstIncompleteRequiredIndex = requiredSteps.findIndex(s => !s.isComplete);
+  const firstIncompleteRequiredId = firstIncompleteRequiredIndex >= 0 ? requiredSteps[firstIncompleteRequiredIndex].id : null;
 
   // Custom step indicator component
-  const StepIndicator = ({ step, isActive, isNextIncomplete }: { step: OnboardingStep; isActive: boolean; isNextIncomplete: boolean }) => {
+  const StepIndicator = ({ step, isNextIncomplete }: { step: OnboardingStep; isNextIncomplete: boolean }) => {
     const Icon = step.icon;
     
     if (step.isComplete) {
@@ -283,11 +314,11 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       );
     }
     
-    // Orange half-circle for incomplete steps - pulse if next incomplete
+    // Incomplete steps - orange ring/border for next incomplete
     return (
       <div className={cn(
         "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center relative overflow-hidden bg-muted",
-        isNextIncomplete && "animate-pulse"
+        isNextIncomplete && "ring-2 ring-orange-500 ring-offset-2 ring-offset-background animate-pulse"
       )}>
         {/* Orange half-fill on the left side */}
         <div 
@@ -297,10 +328,7 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
           )}
         />
         {/* Icon on top */}
-        <Icon className={cn(
-          "w-4 h-4 relative z-10",
-          isActive ? "text-primary-foreground" : "text-muted-foreground"
-        )} />
+        <Icon className="w-4 h-4 relative z-10 text-muted-foreground" />
       </div>
     );
   };
@@ -340,14 +368,16 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
       <div 
         className={cn(
           'transition-all duration-300 ease-out overflow-hidden',
-          isCollapsed ? 'max-h-0' : 'max-h-[32rem]'
+          isCollapsed ? 'max-h-0' : 'max-h-[40rem]'
         )}
       >
+        {/* Required Steps Section */}
         <div className="p-2">
-          {steps.map((step, index) => {
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Required</p>
+          {requiredSteps.map((step, index) => {
             const isActive = currentStepIndex === index;
             const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
-            const isNextIncomplete = !step.isComplete && index === firstIncompleteIndex;
+            const isNextIncomplete = step.id === firstIncompleteRequiredId;
             
             return (
               <button
@@ -360,30 +390,61 @@ export function OnboardingChecklist({ onStepClick }: OnboardingChecklistProps) {
                   wasJustCompleted && 'animate-scale-in'
                 )}
               >
-                <StepIndicator step={step} isActive={isActive} isNextIncomplete={isNextIncomplete} />
+                <StepIndicator step={step} isNextIncomplete={isNextIncomplete} />
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={cn(
-                      'text-sm font-medium transition-all duration-200',
-                      step.isComplete && 'text-muted-foreground line-through'
-                    )}>
-                      {step.title}
-                    </p>
-                    {step.isOptional && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                        Optional
-                      </span>
-                    )}
-                  </div>
+                  <p className={cn(
+                    'text-sm font-medium transition-all duration-200',
+                    step.isComplete && 'text-muted-foreground'
+                  )}>
+                    {step.title}
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {step.description}
                   </p>
                 </div>
 
-                {isActive && !step.isComplete && (
-                  <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                {isNextIncomplete && (
+                  <div className="flex-shrink-0 w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                 )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Optional Steps Section */}
+        <div className="p-2 border-t border-border">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Optional</p>
+          {optionalSteps.map((step) => {
+            const wasJustCompleted = step.isComplete && hasAnimated.current.has(step.id);
+            
+            return (
+              <button
+                key={step.id}
+                onClick={() => handleStepClick(step.href)}
+                className={cn(
+                  'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all duration-200 hover:bg-muted/50',
+                  wasJustCompleted && 'animate-scale-in'
+                )}
+              >
+                <StepIndicator step={step} isNextIncomplete={false} />
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={cn(
+                      'text-sm font-medium transition-all duration-200',
+                      step.isComplete && 'text-muted-foreground'
+                    )}>
+                      {step.title}
+                    </p>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                      Optional
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {step.description}
+                  </p>
+                </div>
               </button>
             );
           })}

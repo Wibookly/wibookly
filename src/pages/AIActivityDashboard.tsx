@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon } from 'lucide-react';
+import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon, CalendarCheck } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,7 @@ interface ActivityStats {
   totalDrafts: number;
   totalAutoReplies: number;
   totalEmails: number;
+  totalScheduledEvents: number;
 }
 
 interface DailyActivity {
@@ -36,7 +37,7 @@ export default function AIActivityDashboard() {
   const { user, organization, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0 });
+  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0 });
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>('30days');
@@ -100,11 +101,13 @@ export default function AIActivityDashboard() {
       // Calculate stats
       const drafts = logs?.filter(l => l.activity_type === 'draft') || [];
       const autoReplies = logs?.filter(l => l.activity_type === 'auto_reply') || [];
+      const scheduledEvents = logs?.filter(l => l.activity_type === 'scheduled_event') || [];
 
       setStats({
         totalDrafts: drafts.length,
         totalAutoReplies: autoReplies.length,
-        totalEmails: logs?.length || 0
+        totalEmails: logs?.length || 0,
+        totalScheduledEvents: scheduledEvents.length
       });
 
       // Calculate daily activity
@@ -292,7 +295,7 @@ export default function AIActivityDashboard() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">AI Drafts Created</CardTitle>
@@ -312,6 +315,17 @@ export default function AIActivityDashboard() {
               <CardContent>
                 <div className="text-3xl font-bold">{stats.totalAutoReplies}</div>
                 <p className="text-xs text-muted-foreground mt-1">Automatically sent replies</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Events Scheduled</CardTitle>
+                <CalendarCheck className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.totalScheduledEvents}</div>
+                <p className="text-xs text-muted-foreground mt-1">AI-scheduled appointments</p>
               </CardContent>
             </Card>
 
