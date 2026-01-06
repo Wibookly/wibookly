@@ -395,30 +395,61 @@ export default function Integrations() {
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{integration.description}</p>
 
-                  {/* Show connected accounts */}
+                  {/* Show connected accounts with calendar status */}
                   {integration.connections.length > 0 && (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 space-y-3">
                       {integration.connections.map((conn) => (
-                        <div key={conn.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-md">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Check className="w-4 h-4 text-success" />
-                            <span className="font-medium truncate max-w-[200px]">
-                              {conn.connected_email || 'Connected'}
-                            </span>
-                            {conn.connected_at && (
-                              <span className="text-muted-foreground text-xs">
-                                · {new Date(conn.connected_at).toLocaleDateString()}
+                        <div key={conn.id} className="py-3 px-4 bg-secondary/50 rounded-lg">
+                          {/* Email row */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Check className="w-4 h-4 text-success" />
+                              <span className="font-medium truncate max-w-[200px]">
+                                {conn.connected_email || 'Connected'}
                               </span>
+                              {conn.connected_at && (
+                                <span className="text-muted-foreground text-xs">
+                                  · {new Date(conn.connected_at).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive hover:text-destructive h-7 px-2"
+                              onClick={() => handleDisconnect(integration.id, conn.id)}
+                            >
+                              Disconnect
+                            </Button>
+                          </div>
+                          
+                          {/* Calendar status under email */}
+                          <div className="mt-2 ml-6 flex items-center justify-between py-2 px-3 bg-background/50 rounded-md border border-border/50">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                              </svg>
+                              <span>{integration.id === 'google' ? 'Google Calendar' : 'Outlook Calendar'}</span>
+                            </div>
+                            {conn.calendar_connected ? (
+                              <div className="flex items-center gap-1.5 text-xs text-success">
+                                <Check className="w-3.5 h-3.5" />
+                                Connected
+                              </div>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-xs"
+                                onClick={() => setConfirmProvider(integration.id)}
+                              >
+                                Connect Calendar
+                              </Button>
                             )}
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive hover:text-destructive h-7 px-2"
-                            onClick={() => handleDisconnect(integration.id, conn.id)}
-                          >
-                            Disconnect
-                          </Button>
                         </div>
                       ))}
                     </div>
@@ -452,65 +483,6 @@ export default function Integrations() {
         )}
       </div>
 
-      {/* Calendar Connection Section */}
-      {(googleConnections.length > 0 || outlookConnections.length > 0) && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Calendar Connections</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Calendars are automatically connected with your email accounts for AI-powered scheduling.
-          </p>
-          <div className="space-y-3">
-            {[...googleConnections, ...outlookConnections].map((conn) => (
-              <div key={`cal-${conn.id}`} className="flex items-center justify-between py-3 px-4 bg-card rounded-lg border border-border">
-                <div className="flex items-center gap-3">
-                  {conn.provider === 'google' ? (
-                    <svg className="w-6 h-6" viewBox="0 0 48 48" fill="none">
-                      <path
-                        d="M43.611 20.083H42V20H24V28H35.303C33.654 32.657 29.223 36 24 36C17.373 36 12 30.627 12 24C12 17.373 17.373 12 24 12C27.059 12 29.842 13.154 31.961 15.039L37.618 9.382C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24C4 35.045 12.955 44 24 44C35.045 44 44 35.045 44 24C44 22.659 43.862 21.35 43.611 20.083Z"
-                        fill="#FFC107"
-                      />
-                      <path
-                        d="M6.306 14.691L12.877 19.51C14.655 15.108 18.961 12 24 12C27.059 12 29.842 13.154 31.961 15.039L37.618 9.382C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691Z"
-                        fill="#FF3D00"
-                      />
-                      <path
-                        d="M24 44C29.166 44 33.86 42.023 37.409 38.808L31.219 33.57C29.211 35.091 26.715 36 24 36C18.798 36 14.381 32.683 12.717 28.054L6.195 33.079C9.505 39.556 16.227 44 24 44Z"
-                        fill="#4CAF50"
-                      />
-                      <path
-                        d="M43.611 20.083H42V20H24V28H35.303C34.511 30.237 33.072 32.166 31.216 33.571L31.219 33.57L37.409 38.808C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083Z"
-                        fill="#1976D2"
-                      />
-                    </svg>
-                  ) : (
-                    <svg className="w-6 h-6" viewBox="0 0 48 48" fill="none">
-                      <path d="M28 8H44V40H28V8Z" fill="#1976D2" />
-                      <path d="M28 8L4 13V35L28 40V8Z" fill="#2196F3" />
-                    </svg>
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{conn.connected_email || 'Connected Account'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {conn.provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}
-                    </p>
-                  </div>
-                </div>
-                {conn.calendar_connected ? (
-                  <div className="flex items-center gap-2 text-sm text-success">
-                    <Check className="w-4 h-4" />
-                    Connected
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setConfirmProvider(conn.provider as ProviderId)}>
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Reconnect
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       </section>
     </div>
   );
