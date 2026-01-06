@@ -116,8 +116,9 @@ serve(async (req) => {
         response_type: 'code',
         scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
         access_type: 'offline',
-        prompt: 'consent',
-        state: stateData
+        prompt: 'consent select_account',
+        state: stateData,
+        include_granted_scopes: 'true'
       });
 
       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
