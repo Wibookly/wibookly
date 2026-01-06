@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
@@ -8,19 +8,16 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useState, useEffect } from 'react';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const navItems = [
-  { title: 'Integrations', href: '/integrations', icon: Plug },
-  { title: 'Email Folders/Labels', href: '/categories', icon: FolderOpen },
-  { title: 'AI Draft Settings', href: '/email-draft', icon: Sparkles },
-  { title: 'AI Activity', href: '/ai-activity', icon: BarChart3 },
-  { title: 'Settings', href: '/settings', icon: Settings },
-];
 
 function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook'; className?: string }) {
   if (provider === 'google') {
@@ -39,6 +36,58 @@ function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook';
       <path d="M28 8L4 13V35L28 40V8Z" fill="#2196F3"/>
       <path d="M16 18C12.686 18 10 20.686 10 24C10 27.314 12.686 30 16 30C19.314 30 22 27.314 22 24C22 20.686 19.314 18 16 18ZM16 27C14.343 27 13 25.657 13 24C13 22.343 14.343 21 16 21C17.657 21 19 22.343 19 24C19 25.657 17.657 27 16 27Z" fill="white"/>
     </svg>
+  );
+}
+
+interface NavSectionProps {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function NavSection({ title, icon: Icon, children, defaultOpen = false }: NavSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
+        <div className="flex items-center gap-3">
+          <Icon className="w-4 h-4" />
+          {title}
+        </div>
+        <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pl-6 space-y-1 mt-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+interface NavItemProps {
+  href: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}
+
+function NavItem({ href, icon: Icon, children }: NavItemProps) {
+  const location = useLocation();
+  const isActive = location.pathname === href || location.pathname.startsWith(href + '?');
+  
+  return (
+    <NavLink
+      to={href}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+        isActive
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+      )}
+    >
+      <Icon className="w-4 h-4" />
+      {children}
+    </NavLink>
   );
 }
 
@@ -113,24 +162,31 @@ export function AppSidebar() {
         </div>
 
         <nav className="p-3 pt-0 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.title}
-              </NavLink>
-            );
-          })}
+          {/* Email & Calendar Connections */}
+          <NavSection title="Email & Calendar" icon={Plug} defaultOpen>
+            <NavItem href="/integrations" icon={Mail}>Email Connections</NavItem>
+            <NavItem href="/integrations?tab=calendar" icon={Calendar}>Calendar Connections</NavItem>
+            <NavItem href="/settings?section=availability" icon={Clock}>Availability</NavItem>
+          </NavSection>
+
+          {/* Categories */}
+          <NavSection title="Categories" icon={FolderOpen} defaultOpen>
+            <NavItem href="/categories" icon={Tag}>Email Folders/Labels</NavItem>
+          </NavSection>
+
+          {/* AI Settings */}
+          <NavSection title="AI Settings" icon={Sparkles} defaultOpen>
+            <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+            <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
+          </NavSection>
+
+          {/* Settings */}
+          <NavSection title="Settings" icon={Settings} defaultOpen>
+            <NavItem href="/settings?section=profile" icon={User}>Update Profile</NavItem>
+            <NavItem href="/settings?section=signature" icon={PenTool}>Update Signature</NavItem>
+            <NavItem href="/settings?section=ai-labels" icon={Palette}>AI Label Colors</NavItem>
+            <NavItem href="/settings?section=availability" icon={Clock}>Calendar Availability</NavItem>
+          </NavSection>
         </nav>
       </div>
 
