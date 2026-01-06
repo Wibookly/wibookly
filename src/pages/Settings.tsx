@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
@@ -22,6 +22,7 @@ interface AISettings {
   writing_style: string;
   ai_draft_label_color: string;
   ai_sent_label_color: string;
+  ai_calendar_event_color: string;
 }
 
 interface SignatureFields {
@@ -81,7 +82,8 @@ export default function Settings() {
   const [aiSettings, setAiSettings] = useState<AISettings>({
     writing_style: 'professional',
     ai_draft_label_color: '#3B82F6',
-    ai_sent_label_color: '#F97316'
+    ai_sent_label_color: '#F97316',
+    ai_calendar_event_color: '#9333EA'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -157,7 +159,8 @@ export default function Settings() {
       setAiSettings({
         writing_style: data.writing_style,
         ai_draft_label_color: (data as Record<string, unknown>).ai_draft_label_color as string || '#3B82F6',
-        ai_sent_label_color: (data as Record<string, unknown>).ai_sent_label_color as string || '#F97316'
+        ai_sent_label_color: (data as Record<string, unknown>).ai_sent_label_color as string || '#F97316',
+        ai_calendar_event_color: (data as Record<string, unknown>).ai_calendar_event_color as string || '#9333EA'
       });
     }
     setLoading(false);
@@ -243,7 +246,8 @@ export default function Settings() {
           .update({
             writing_style: aiSettings.writing_style,
             ai_draft_label_color: aiSettings.ai_draft_label_color,
-            ai_sent_label_color: aiSettings.ai_sent_label_color
+            ai_sent_label_color: aiSettings.ai_sent_label_color,
+            ai_calendar_event_color: aiSettings.ai_calendar_event_color
           } as Record<string, unknown>)
           .eq('id', existingAI.id);
       } else {
@@ -732,6 +736,41 @@ CEO, Company Name
           </div>
         </section>
 
+        {/* AI Calendar Settings */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-purple-500" />
+            <h2 className="text-lg font-semibold">AI Calendar Events</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            When AI adds events or appointments to your calendar, they will be displayed with this color to distinguish them from your manually created events.
+          </p>
+          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="aiCalendarColor">AI Calendar Event Color</Label>
+                <p className="text-xs text-muted-foreground">
+                  Applied to events and appointments created by AI from meeting requests
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                  style={{ backgroundColor: aiSettings.ai_calendar_event_color }}
+                >
+                  <input
+                    type="color"
+                    id="aiCalendarColor"
+                    value={aiSettings.ai_calendar_event_color}
+                    onChange={(e) => setAiSettings(prev => ({ ...prev, ai_calendar_event_color: e.target.value }))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_calendar_event_color}</span>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="flex justify-end">
           <Button onClick={saveSettings} disabled={saving}>

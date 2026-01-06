@@ -77,6 +77,7 @@ export type Database = {
       }
       ai_settings: {
         Row: {
+          ai_calendar_event_color: string | null
           ai_draft_label_color: string | null
           ai_sent_label_color: string | null
           connection_id: string | null
@@ -87,6 +88,7 @@ export type Database = {
           writing_style: string
         }
         Insert: {
+          ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
@@ -97,6 +99,7 @@ export type Database = {
           writing_style?: string
         }
         Update: {
+          ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
