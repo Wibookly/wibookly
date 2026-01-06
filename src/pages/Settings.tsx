@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
@@ -33,6 +33,40 @@ interface SignatureFields {
   font: string;
   color: string;
 }
+
+interface AvailabilityDay {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const hour = Math.floor(i / 2);
+  const minute = i % 2 === 0 ? '00' : '30';
+  const time24 = `${hour.toString().padStart(2, '0')}:${minute}`;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const label = `${hour12}:${minute} ${period}`;
+  return { value: time24, label };
+});
+
+const DEFAULT_AVAILABILITY: AvailabilityDay[] = DAYS_OF_WEEK.map(day => ({
+  day_of_week: day.value,
+  start_time: '09:00',
+  end_time: '17:00',
+  is_available: day.value >= 1 && day.value <= 5 // Mon-Fri available by default
+}));
 
 const FONT_OPTIONS = [
   { value: 'Arial, sans-serif', label: 'Arial' },
@@ -89,6 +123,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [emailProfileId, setEmailProfileId] = useState<string | null>(null);
   const [signatureEnabled, setSignatureEnabled] = useState(false);
+  const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
 
   // Fetch email profile for active connection
   useEffect(() => {
@@ -102,7 +137,34 @@ export default function Settings() {
     
     fetchEmailProfile();
     fetchAISettings();
+    fetchAvailability();
   }, [organization?.id, activeConnection?.id]);
+
+  const fetchAvailability = async () => {
+    if (!activeConnection?.id || !profile?.user_id) return;
+    
+    const { data } = await supabase
+      .from('availability_hours')
+      .select('*')
+      .eq('connection_id', activeConnection.id) as { data: { day_of_week: number; start_time: string; end_time: string; is_available: boolean }[] | null };
+    
+    if (data && data.length > 0) {
+      // Merge with defaults to ensure all days are present
+      const merged = DEFAULT_AVAILABILITY.map(defaultDay => {
+        const existing = data.find(d => d.day_of_week === defaultDay.day_of_week);
+        if (existing) {
+          return {
+            day_of_week: existing.day_of_week,
+            start_time: existing.start_time.slice(0, 5), // Remove seconds
+            end_time: existing.end_time.slice(0, 5),
+            is_available: existing.is_available
+          };
+        }
+        return defaultDay;
+      });
+      setAvailability(merged);
+    }
+  };
 
   const fetchEmailProfile = async () => {
     if (!activeConnection?.id) return;
@@ -258,6 +320,41 @@ export default function Settings() {
             connection_id: activeConnection.id,
             writing_style: aiSettings.writing_style
           });
+      }
+
+      // Save availability hours
+      for (const day of availability) {
+        // Check if exists
+        const { data: existing } = await supabase
+          .from('availability_hours')
+          .select('id')
+          .eq('connection_id', activeConnection.id)
+          .eq('day_of_week', day.day_of_week)
+          .maybeSingle();
+        
+        if (existing) {
+          await supabase
+            .from('availability_hours')
+            .update({
+              start_time: day.start_time + ':00',
+              end_time: day.end_time + ':00',
+              is_available: day.is_available
+            })
+            .eq('id', existing.id);
+        } else {
+          // Direct insert with type coercion for new table
+          const insertData = {
+            connection_id: activeConnection.id,
+            user_id: profile.user_id,
+            organization_id: organization.id,
+            day_of_week: day.day_of_week,
+            start_time: day.start_time + ':00',
+            end_time: day.end_time + ':00',
+            is_available: day.is_available
+          };
+          // @ts-ignore - availability_hours table is new and not yet in types
+          await supabase.from('availability_hours').insert(insertData);
+        }
       }
 
       toast({
@@ -769,6 +866,79 @@ CEO, Company Name
                 <span className="text-sm font-mono text-muted-foreground">{aiSettings.ai_calendar_event_color}</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Availability Hours */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-emerald-500" />
+            <h2 className="text-lg font-semibold">Availability Hours</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Set your available hours for meetings and appointments. AI will only schedule events within these time slots.
+          </p>
+          <div className="space-y-3 p-6 bg-card rounded-lg border border-border">
+            {availability.map((day, index) => (
+              <div key={day.day_of_week} className="flex items-center gap-4">
+                <div className="w-28 flex items-center gap-2">
+                  <Switch
+                    checked={day.is_available}
+                    onCheckedChange={(checked) => {
+                      const updated = [...availability];
+                      updated[index] = { ...updated[index], is_available: checked };
+                      setAvailability(updated);
+                    }}
+                    className="scale-90"
+                  />
+                  <span className={`text-sm font-medium ${!day.is_available ? 'text-muted-foreground' : ''}`}>
+                    {DAYS_OF_WEEK[day.day_of_week].label.slice(0, 3)}
+                  </span>
+                </div>
+                
+                {day.is_available ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Select
+                      value={day.start_time}
+                      onValueChange={(value) => {
+                        const updated = [...availability];
+                        updated[index] = { ...updated[index], start_time: value };
+                        setAvailability(updated);
+                      }}
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-muted-foreground">to</span>
+                    <Select
+                      value={day.end_time}
+                      onValueChange={(value) => {
+                        const updated = [...availability];
+                        updated[index] = { ...updated[index], end_time: value };
+                        setAvailability(updated);
+                      }}
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">Unavailable</span>
+                )}
+              </div>
+            ))}
           </div>
         </section>
 
