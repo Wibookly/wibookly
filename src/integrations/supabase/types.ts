@@ -286,6 +286,7 @@ export type Database = {
         Row: {
           connection_id: string
           created_at: string
+          default_meeting_duration: number
           email_signature: string | null
           full_name: string | null
           id: string
@@ -307,6 +308,7 @@ export type Database = {
         Insert: {
           connection_id: string
           created_at?: string
+          default_meeting_duration?: number
           email_signature?: string | null
           full_name?: string | null
           id?: string
@@ -328,6 +330,7 @@ export type Database = {
         Update: {
           connection_id?: string
           created_at?: string
+          default_meeting_duration?: number
           email_signature?: string | null
           full_name?: string | null
           id?: string

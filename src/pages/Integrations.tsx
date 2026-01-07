@@ -104,12 +104,17 @@ export default function Integrations() {
   // Calendar color state
   const [calendarEventColor, setCalendarEventColor] = useState('#9333EA');
   const [savingColor, setSavingColor] = useState(false);
+  
+  // Meeting duration state
+  const [meetingDuration, setMeetingDuration] = useState(30);
+  const [savingDuration, setSavingDuration] = useState(false);
 
-  // Fetch availability and calendar color when active connection changes
+  // Fetch availability, calendar color, and meeting duration when active connection changes
   useEffect(() => {
     if (activeConnection?.id && organization?.id) {
       fetchAvailability();
       fetchCalendarColor();
+      fetchMeetingDuration();
     }
   }, [activeConnection?.id, organization?.id]);
 
@@ -150,6 +155,38 @@ export default function Integrations() {
 
     if (data) {
       setCalendarEventColor((data as Record<string, unknown>).ai_calendar_event_color as string || '#9333EA');
+    }
+  };
+
+  const fetchMeetingDuration = async () => {
+    if (!activeConnection?.id) return;
+
+    const { data } = await supabase
+      .from('email_profiles')
+      .select('default_meeting_duration')
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle();
+
+    if (data) {
+      setMeetingDuration((data as Record<string, unknown>).default_meeting_duration as number || 30);
+    }
+  };
+
+  const saveMeetingDuration = async () => {
+    if (!activeConnection?.id) return;
+    
+    setSavingDuration(true);
+    try {
+      await supabase
+        .from('email_profiles')
+        .update({ default_meeting_duration: meetingDuration } as Record<string, unknown>)
+        .eq('connection_id', activeConnection.id);
+      
+      toast({ title: 'Duration saved', description: 'Default meeting duration has been updated.' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to save meeting duration', variant: 'destructive' });
+    } finally {
+      setSavingDuration(false);
     }
   };
 
@@ -653,58 +690,110 @@ export default function Integrations() {
         </div>
       )}
 
-      {/* Calendar Event Color Tab */}
-      {currentTab === 'calendar-color' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Palette className="w-5 h-5 text-purple-500" />
-            <h2 className="text-lg font-semibold">AI Calendar Event Color</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            When AI adds events or appointments to your calendar, they will be displayed with this color to distinguish them from your manually created events.
-          </p>
-          
-          {!activeConnection ? (
-            <div className="py-8 text-center text-muted-foreground">
-              Connect an email account to configure calendar event color.
+      {/* Calendar Settings Tab */}
+      {currentTab === 'calendar' && (
+        <div className="space-y-6">
+          {/* Meeting Duration */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-semibold">Default Meeting Duration</h2>
             </div>
-          ) : (
-            <div className="space-y-4 p-4 bg-card rounded-lg border border-border">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="aiCalendarColor">Calendar Event Color</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Applied to events and appointments created by AI from meeting requests
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                    style={{ backgroundColor: calendarEventColor }}
-                  >
-                    <input
-                      type="color"
-                      id="aiCalendarColor"
-                      value={calendarEventColor}
-                      onChange={(e) => setCalendarEventColor(e.target.value)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                  </div>
-                  <span className="text-sm font-mono text-muted-foreground">{calendarEventColor}</span>
-                </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Set the default duration for meetings scheduled by AI. This can be adjusted per meeting later.
+            </p>
+            
+            {!activeConnection ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Connect an email account to configure meeting duration.
               </div>
-              <Button onClick={saveCalendarColor} disabled={savingColor}>
-                {savingColor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                <Save className="w-4 h-4 mr-2" />
-                Save Color
-              </Button>
+            ) : (
+              <div className="space-y-4 p-4 bg-card rounded-lg border border-border">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="meetingDuration">Meeting Duration</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Applied to all meetings scheduled by AI from email requests
+                    </p>
+                  </div>
+                  <Select
+                    value={meetingDuration.toString()}
+                    onValueChange={(value) => setMeetingDuration(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="45">45 minutes</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="90">1.5 hours</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={saveMeetingDuration} disabled={savingDuration}>
+                  {savingDuration && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Duration
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Calendar Event Color */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="w-5 h-5 text-purple-500" />
+              <h2 className="text-lg font-semibold">AI Calendar Event Color</h2>
             </div>
-          )}
+            <p className="text-sm text-muted-foreground mb-4">
+              When AI adds events or appointments to your calendar, they will be displayed with this color to distinguish them from your manually created events.
+            </p>
+            
+            {!activeConnection ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Connect an email account to configure calendar event color.
+              </div>
+            ) : (
+              <div className="space-y-4 p-4 bg-card rounded-lg border border-border">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="aiCalendarColor">Calendar Event Color</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Applied to events and appointments created by AI from meeting requests
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                      style={{ backgroundColor: calendarEventColor }}
+                    >
+                      <input
+                        type="color"
+                        id="aiCalendarColor"
+                        value={calendarEventColor}
+                        onChange={(e) => setCalendarEventColor(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <span className="text-sm font-mono text-muted-foreground">{calendarEventColor}</span>
+                  </div>
+                </div>
+                <Button onClick={saveCalendarColor} disabled={savingColor}>
+                  {savingColor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Color
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* Email/Calendar Connections Tab (default) */}
-      {(currentTab === 'email' || currentTab === 'calendar') && (
+      {currentTab === 'email' && (
       <div className="space-y-4">
         {authLoading ? (
           <div className="bg-card rounded-lg border border-border p-6 flex items-center justify-center">

@@ -1778,6 +1778,7 @@ interface EmailProfile {
   profile_photo_url: string | null;
   show_profile_photo: boolean;
   show_company_logo: boolean;
+  default_meeting_duration: number;
 }
 
 // Generate HTML email signature from profile fields
@@ -2110,13 +2111,17 @@ async function processConnectionEmails(
         if (shouldUseMeetingLogic) {
           console.log(`Email ${msg.id} requires meeting scheduling logic (category: ${cleanCategoryName}, detected meeting: ${isMeetingEmail})`);
           
+          // Use meeting duration from user's profile settings
+          const meetingDuration = profile.default_meeting_duration || 30;
+          console.log(`Using meeting duration: ${meetingDuration} minutes`);
+          
           // Use the new multi-slot finder with conflict detection
           multipleSlots = await findMultipleAvailableSlots(
             supabaseAdmin, 
             connectionId, 
             tokenRecord.provider,
             accessToken,
-            30
+            meetingDuration
           );
           
           if (multipleSlots.slots.length > 0) {
@@ -2125,7 +2130,7 @@ async function processConnectionEmails(
             nextAvailableSlot = multipleSlots.slots[0];
           } else {
             // Fallback to legacy single slot finder
-            nextAvailableSlot = await findNextAvailableSlot(supabaseAdmin, connectionId, 30);
+            nextAvailableSlot = await findNextAvailableSlot(supabaseAdmin, connectionId, meetingDuration);
             if (nextAvailableSlot) {
               console.log(`Found next available slot (legacy): ${nextAvailableSlot.start.toISOString()}`);
             }
@@ -2625,7 +2630,8 @@ serve(async (req) => {
           signature_color: emailProfile.signature_color,
           profile_photo_url: emailProfile.profile_photo_url,
           show_profile_photo: emailProfile.show_profile_photo ?? false,
-          show_company_logo: emailProfile.show_company_logo ?? true
+          show_company_logo: emailProfile.show_company_logo ?? true,
+          default_meeting_duration: emailProfile.default_meeting_duration ?? 30
         } : {
           connection_id: connId,
           full_name: null,
@@ -2640,7 +2646,8 @@ serve(async (req) => {
           signature_color: null,
           profile_photo_url: null,
           show_profile_photo: false,
-          show_company_logo: true
+          show_company_logo: true,
+          default_meeting_duration: 30
         };
         
         console.log(`Processing connection ${connId} for user ${connection.user_id}`);
@@ -2744,7 +2751,8 @@ serve(async (req) => {
         signature_color: emailProfile.signature_color,
         profile_photo_url: emailProfile.profile_photo_url,
         show_profile_photo: emailProfile.show_profile_photo ?? false,
-        show_company_logo: emailProfile.show_company_logo ?? true
+        show_company_logo: emailProfile.show_company_logo ?? true,
+        default_meeting_duration: emailProfile.default_meeting_duration ?? 30
       } : {
         connection_id: conn.id,
         full_name: null,
@@ -2759,7 +2767,8 @@ serve(async (req) => {
         signature_color: null,
         profile_photo_url: null,
         show_profile_photo: false,
-        show_company_logo: true
+        show_company_logo: true,
+        default_meeting_duration: 30
       };
 
       try {
