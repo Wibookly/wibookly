@@ -531,11 +531,11 @@ export default function Integrations() {
   return (
     <div className="min-h-full p-4 lg:p-6">
       {/* User Avatar Row */}
-      <div className="max-w-3xl mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
       
-      <section className="max-w-3xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
+      <section className="animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
         <header className="mb-8">
           <div className="flex items-center justify-between">
             <div>
