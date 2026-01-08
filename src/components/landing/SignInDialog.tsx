@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, ArrowRight, User, Building2, Briefcase, ArrowLeft, Check } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight, User, Building2, Briefcase, ArrowLeft, Check, HelpCircle } from 'lucide-react';
 import { z } from 'zod';
 import logo from '@/assets/wibookly-logo.png';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -247,7 +252,17 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
           {mode === 'signup' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="dialog-fullName">Full Name <span className="text-destructive">*</span></Label>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="dialog-fullName">Full Name <span className="text-destructive">*</span></Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                      <p className="text-sm">Your full name will be used to create your AI-generated email signature that appears at the end of emails sent on your behalf.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -264,7 +279,17 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="dialog-organizationName">Organization Name <span className="text-destructive">*</span></Label>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="dialog-organizationName">Organization / Company Name <span className="text-destructive">*</span></Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                      <p className="text-sm">Your organization name is used in your email signature and helps the AI differentiate between personal and work-related email categorization.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -281,7 +306,17 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="dialog-title">Title <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="dialog-title">Title <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                      <p className="text-sm">Your title helps the AI understand your role and responsibilities to better tailor email responses. It's also included in your email signature.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="relative">
                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input

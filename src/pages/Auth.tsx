@@ -5,8 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, Building2, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2, Check, HelpCircle } from 'lucide-react';
 import { z } from 'zod';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -341,7 +346,17 @@ export default function Auth() {
             {mode === 'signup' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                        <p className="text-sm">Your full name will be used to create your AI-generated email signature that appears at the end of emails sent on your behalf.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="fullName"
                     type="text"
@@ -352,11 +367,20 @@ export default function Auth() {
                     className={errors.fullName ? 'border-destructive' : ''}
                   />
                   {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
-                  <p className="text-xs text-muted-foreground">Used for AI-generated email signatures</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="organization">Organization Name <span className="text-destructive">*</span></Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="organization">Organization / Company Name <span className="text-destructive">*</span></Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                        <p className="text-sm">Your organization name is used in your email signature and helps the AI differentiate between personal and work-related email categorization.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="organization"
                     type="text"
@@ -370,7 +394,17 @@ export default function Auth() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="title">Title <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs bg-primary text-primary-foreground">
+                        <p className="text-sm">Your title helps the AI understand your role and responsibilities to better tailor email responses. It's also included in your email signature.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="title"
                     type="text"
@@ -381,7 +415,6 @@ export default function Auth() {
                     className={errors.title ? 'border-destructive' : ''}
                   />
                   {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
-                  <p className="text-xs text-muted-foreground">You can add your full email signature in Settings later</p>
                 </div>
               </>
             )}
