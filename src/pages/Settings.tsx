@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
@@ -137,6 +137,7 @@ export default function Settings() {
   const [searchParams] = useSearchParams();
   const activeSection = (searchParams.get('section') as SettingsSection) || 'profile';
   const [orgName, setOrgName] = useState('');
+  const [workspaceType, setWorkspaceType] = useState<'personal' | 'business'>('personal');
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
   const [emailSignature, setEmailSignature] = useState('');
@@ -551,12 +552,42 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">Workspace</h2>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
             <div className="space-y-2">
-              <Label htmlFor="orgName">My Workspace Name</Label>
+              <Label htmlFor="workspaceType">Workspace Type</Label>
+              <Select
+                value={workspaceType}
+                onValueChange={(value: 'personal' | 'business') => setWorkspaceType(value)}
+              >
+                <SelectTrigger id="workspaceType">
+                  <SelectValue placeholder="Select workspace type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">
+                    <div className="flex items-center gap-2">
+                      <User2 className="w-4 h-4" />
+                      <span>Personal</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="business">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      <span>Business</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {workspaceType === 'personal' 
+                  ? 'Personal workspaces are for individual use.' 
+                  : 'Business workspaces include your title in email signatures for professional context.'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orgName">Workspace Name</Label>
               <Input
                 id="orgName"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                placeholder="Enter your workspace name"
+                placeholder={workspaceType === 'personal' ? 'My Personal Inbox' : 'Enter your company name'}
               />
             </div>
           </div>
@@ -573,16 +604,23 @@ export default function Settings() {
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter your full name"
               />
+              <p className="text-xs text-muted-foreground">Used in your email signature and for AI personalization.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="title">Title (Optional)</Label>
+              <Label htmlFor="title">Title {workspaceType === 'personal' ? '(Optional)' : '(Recommended)'}</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. CEO, Sales Manager, Developer"
               />
+              <p className="text-xs text-muted-foreground">
+                {workspaceType === 'business' 
+                  ? 'Your title is included in email signatures and helps AI tailor responses to your role.'
+                  : 'Optional for personal workspaces.'}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
