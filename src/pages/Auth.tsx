@@ -159,9 +159,9 @@ export default function Auth() {
     navigate('/integrations');
   };
 
-  const handleSignupSubmit = async () => {
-    if (!validateForm()) return;
-    
+  const createAccount = async (): Promise<boolean> => {
+    if (!validateForm()) return false;
+
     setLoading(true);
     try {
       const { error } = await signUp(email, password, workspaceName, fullName, title || undefined);
@@ -172,25 +172,57 @@ export default function Auth() {
             description: 'This email is already registered. Please sign in instead.',
             variant: 'destructive'
           });
-        } else {
-          throw error;
+          return false;
         }
-      } else {
-        toast({
-          title: 'Account created!',
-          description: 'Now connect your email to get started.'
-        });
-        // Move to connect email step
-        setSignupStep('connect-email');
+        throw error;
       }
+      return true;
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.message || 'Something went wrong. Please try again.',
         variant: 'destructive'
       });
+      return false;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async () => {
+    const ok = await createAccount();
+    if (!ok) return;
+
+    toast({
+      title: 'Account created!',
+      description: 'Now connect your email to get started.'
+    });
+    setSignupStep('connect-email');
+  };
+
+  const ensureSignedIn = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) return data.session;
+
+    // If session isn't immediately available after sign up, sign in explicitly.
+    const { data: signedIn, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !signedIn.session) throw new Error('Sign in failed after account creation');
+    return signedIn.session;
+  };
+
+  const handleSignupAndConnect = async (provider: 'google' | 'outlook') => {
+    const ok = await createAccount();
+    if (!ok) return;
+
+    try {
+      await ensureSignedIn();
+      await handleConnectEmail(provider);
+    } catch (error: any) {
+      toast({
+        title: 'Could not start connection',
+        description: error.message || 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -631,15 +663,56 @@ export default function Auth() {
                       {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                     </div>
 
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      disabled={loading}
-                      onClick={handleSignupSubmit}
-                    >
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Account
-                    </Button>
+                    <div className="space-y-3">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full justify-start gap-3 h-14 text-base"
+                        disabled={loading}
+                        onClick={() => handleSignupAndConnect('google')}
+                      >
+                        {loading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <GoogleIcon />
+                        )}
+                        <span className="flex-1 text-left">Create account & connect Google</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full justify-start gap-3 h-14 text-base"
+                        disabled={loading}
+                        onClick={() => handleSignupAndConnect('outlook')}
+                      >
+                        {loading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <OutlookIcon />
+                        )}
+                        <span className="flex-1 text-left">Create account & connect Outlook</span>
+                      </Button>
+
+                      <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div className="w-full border-t border-border" />
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className="bg-card px-2 text-xs text-muted-foreground">or</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        size="lg"
+                        disabled={loading}
+                        onClick={handleSignupSubmit}
+                      >
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Account
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
