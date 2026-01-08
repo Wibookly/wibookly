@@ -508,15 +508,11 @@ export default function Integrations() {
     [googleConnections, outlookConnections]
   );
 
-  // Extract first name from profile or email
+  // Extract first name from profile full_name (first word only)
   const getFirstName = () => {
     if (profile?.full_name) {
-      return profile.full_name.split(' ')[0];
-    }
-    if (profile?.email) {
-      // Extract name from email (e.g., john.doe@example.com -> John)
-      const emailName = profile.email.split('@')[0].split('.')[0];
-      return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
+      const nameParts = profile.full_name.trim().split(' ');
+      return nameParts[0] || '';
     }
     return '';
   };
