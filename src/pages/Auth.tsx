@@ -160,10 +160,10 @@ export default function Auth() {
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
-            }
-          }
+            },
+          },
         });
-        
+
         if (error) throw error;
       } else {
         const { error } = await supabase.auth.signInWithOAuth({
