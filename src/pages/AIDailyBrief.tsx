@@ -128,14 +128,23 @@ export default function AIDailyBrief() {
 
     const appName = 'Wibookly';
     const email = activeConnection?.email || 'N/A';
+    const printTitle = type === 'todo' ? 'To-Do List' : 
+                       type === 'calendar' ? 'Today\'s Schedule' : 
+                       type === 'priorities' ? 'Priorities' : 'Daily Brief';
 
     let content = '';
 
     const header = `
-      <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 28px; font-weight: bold;">${appName}</h1>
-        <p style="margin: 5px 0; color: #666;">${email}</p>
-        <p style="margin: 5px 0; color: #666;">${today}</p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid #0ea5e9;">
+        <div>
+          <h1 style="margin: 0; font-size: 32px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${printTitle}</h1>
+          <p style="margin: 8px 0 0 0; font-size: 14px; color: #64748b;">${email}</p>
+          <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">${today}</p>
+        </div>
+        <div style="text-align: right;">
+          <img src="${window.location.origin}/wibookly-logo-color.png" alt="Wibookly" style="height: 50px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+          <div style="display: none; font-size: 24px; font-weight: 700; color: #0ea5e9; font-family: 'Segoe UI', system-ui, sans-serif;">Wibookly</div>
+        </div>
       </div>
     `;
 
@@ -185,32 +194,42 @@ export default function AIDailyBrief() {
     if (type === 'all' || type === 'todo') {
       content += `
         <div style="margin-bottom: 30px;">
-          <h2 style="font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">To-Do List</h2>
+          <h2>To-Do List</h2>
           ${brief.priorities?.length || brief.emailHighlights?.length ? `
-            <div style="display: grid; gap: 8px;">
+            <div style="display: grid; gap: 12px;">
               ${brief.priorities?.map(p => `
-                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;">
-                  <span style="width: 16px; height: 16px; border: 2px solid #333; border-radius: 3px; flex-shrink: 0; margin-top: 2px;"></span>
-                  <div>
-                    <strong>${p.title}</strong>
-                    <span style="margin-left: 10px; padding: 2px 6px; border-radius: 3px; font-size: 11px; background: ${
-                      p.urgency === 'high' ? '#fee2e2' : 
-                      p.urgency === 'medium' ? '#fef3c7' : '#d1fae5'
-                    };">${p.urgency}</span>
+                <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: ${
+                  p.urgency === 'high' ? '#fef2f2' : 
+                  p.urgency === 'medium' ? '#fffbeb' : '#f0fdf4'
+                }; border-left: 4px solid ${
+                  p.urgency === 'high' ? priorityColors.high : 
+                  p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
+                };">
+                  <span style="width: 18px; height: 18px; border: 2px solid ${
+                    p.urgency === 'high' ? priorityColors.high : 
+                    p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
+                  }; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 600; font-size: 15px;">${p.title}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${p.description}</div>
                   </div>
+                  <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: ${
+                    p.urgency === 'high' ? priorityColors.high : 
+                    p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
+                  }; color: white;">${p.urgency}</span>
                 </div>
               `).join('') || ''}
-              ${brief.emailHighlights?.map(e => `
-                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;">
-                  <span style="width: 16px; height: 16px; border: 2px solid #333; border-radius: 3px; flex-shrink: 0; margin-top: 2px;"></span>
-                  <div>
-                    <strong>${e.action}:</strong> ${e.subject}
-                    <span style="color: #666; font-size: 13px;"> (from ${e.from})</span>
+              ${brief.emailHighlights?.slice(0, 10).map(e => `
+                <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: #f8fafc; border-left: 4px solid #0ea5e9;">
+                  <span style="width: 18px; height: 18px; border: 2px solid #0ea5e9; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 600; font-size: 15px;">${e.action}: ${e.subject}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${e.from}</div>
                   </div>
                 </div>
               `).join('') || ''}
             </div>
-          ` : '<p style="color: #999;">No to-do items for today</p>'}
+          ` : '<p style="color: #94a3b8; text-align: center; padding: 40px;">No to-do items for today</p>'}
         </div>
       `;
     }
@@ -219,10 +238,32 @@ export default function AIDailyBrief() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${appName} - Daily Brief</title>
+          <title>${appName} - ${printTitle}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-            @media print { body { padding: 20px; } }
+            * { box-sizing: border-box; }
+            body { 
+              font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; 
+              padding: 40px 50px; 
+              max-width: 900px; 
+              margin: 0 auto; 
+              color: #0f172a;
+              line-height: 1.5;
+            }
+            h2 { 
+              font-size: 18px; 
+              font-weight: 600; 
+              color: #0f172a; 
+              margin: 0 0 16px 0;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #e2e8f0;
+            }
+            .priority-item {
+              page-break-inside: avoid;
+            }
+            @media print { 
+              body { padding: 30px; } 
+              .priority-item { break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
@@ -567,51 +608,69 @@ export default function AIDailyBrief() {
             </CardHeader>
             {showSettings && (
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium flex-1">
-                      <span 
-                        className="w-4 h-4 rounded-full" 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-5 h-5 rounded-full border-2" 
+                        style={{ backgroundColor: priorityColors.high, borderColor: priorityColors.high }}
+                      />
+                      <span className="text-sm font-medium">High Priority</span>
+                    </div>
+                    <label className="relative cursor-pointer">
+                      <input
+                        type="color"
+                        value={priorityColors.high}
+                        onChange={(e) => setPriorityColors(prev => ({ ...prev, high: e.target.value }))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div 
+                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
                         style={{ backgroundColor: priorityColors.high }}
                       />
-                      High Priority
                     </label>
-                    <input
-                      type="color"
-                      value={priorityColors.high}
-                      onChange={(e) => setPriorityColors(prev => ({ ...prev, high: e.target.value }))}
-                      className="w-10 h-8 rounded cursor-pointer"
-                    />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium flex-1">
-                      <span 
-                        className="w-4 h-4 rounded-full" 
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-5 h-5 rounded-full border-2" 
+                        style={{ backgroundColor: priorityColors.medium, borderColor: priorityColors.medium }}
+                      />
+                      <span className="text-sm font-medium">Medium Priority</span>
+                    </div>
+                    <label className="relative cursor-pointer">
+                      <input
+                        type="color"
+                        value={priorityColors.medium}
+                        onChange={(e) => setPriorityColors(prev => ({ ...prev, medium: e.target.value }))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div 
+                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
                         style={{ backgroundColor: priorityColors.medium }}
                       />
-                      Medium Priority
                     </label>
-                    <input
-                      type="color"
-                      value={priorityColors.medium}
-                      onChange={(e) => setPriorityColors(prev => ({ ...prev, medium: e.target.value }))}
-                      className="w-10 h-8 rounded cursor-pointer"
-                    />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium flex-1">
-                      <span 
-                        className="w-4 h-4 rounded-full" 
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-5 h-5 rounded-full border-2" 
+                        style={{ backgroundColor: priorityColors.low, borderColor: priorityColors.low }}
+                      />
+                      <span className="text-sm font-medium">Low Priority</span>
+                    </div>
+                    <label className="relative cursor-pointer">
+                      <input
+                        type="color"
+                        value={priorityColors.low}
+                        onChange={(e) => setPriorityColors(prev => ({ ...prev, low: e.target.value }))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div 
+                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
                         style={{ backgroundColor: priorityColors.low }}
                       />
-                      Low Priority
                     </label>
-                    <input
-                      type="color"
-                      value={priorityColors.low}
-                      onChange={(e) => setPriorityColors(prev => ({ ...prev, low: e.target.value }))}
-                      className="w-10 h-8 rounded cursor-pointer"
-                    />
                   </div>
                 </div>
                 <Separator className="my-4" />

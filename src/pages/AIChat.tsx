@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Send, Plus, Trash2, MessageSquare, Loader2, Mail, ExternalLink, Eye, Calendar } from 'lucide-react';
+import { Send, Plus, Trash2, MessageSquare, Loader2, Mail, ExternalLink, Eye, Calendar, Mic, MicOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import {
@@ -58,6 +59,13 @@ export default function AIChat() {
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailResult | null>(null);
   const [emailResults, setEmailResults] = useState<EmailResult[]>([]);
+
+  // Voice recording
+  const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceRecording({
+    onTranscription: (text) => {
+      setInput(prev => prev ? `${prev} ${text}` : text);
+    },
+  });
 
   // Fetch conversations (last 30 days)
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
@@ -567,13 +575,29 @@ export default function AIChat() {
               onKeyDown={handleKeyDown}
               placeholder="Search emails, ask about your calendar, or get help managing your inbox..."
               className="min-h-[52px] max-h-32 resize-none"
-              disabled={isStreaming}
+              disabled={isStreaming || isRecording || isTranscribing}
             />
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isStreaming || isTranscribing}
+              variant={isRecording ? "destructive" : "outline"}
+              size="icon"
+              className="h-[52px] w-[52px] flex-shrink-0"
+              title={isRecording ? "Stop recording" : "Start voice input"}
+            >
+              {isTranscribing ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
+            </Button>
             <Button
               onClick={sendMessage}
               disabled={!input.trim() || isStreaming}
               size="icon"
-              className="h-[52px] w-[52px]"
+              className="h-[52px] w-[52px] flex-shrink-0"
             >
               {isStreaming ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -582,6 +606,11 @@ export default function AIChat() {
               )}
             </Button>
           </div>
+          {isRecording && (
+            <p className="text-center text-sm text-destructive mt-2 animate-pulse">
+              🎙️ Recording... Click the mic button to stop
+            </p>
+          )}
         </div>
       </div>
 
