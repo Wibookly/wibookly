@@ -1,22 +1,29 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Features } from '@/components/landing/Features';
 import { Security } from '@/components/landing/Security';
-import { SignInDialog } from '@/components/landing/SignInDialog';
 import { Footer } from '@/components/landing/Footer';
 
 export default function Landing() {
-  const [signInOpen, setSignInOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    navigate('/auth');
+  };
+
+  const handleGetStarted = () => {
+    navigate('/auth?mode=signup');
+  };
 
   return (
     <div className="min-h-screen">
       {/* Superhuman-style gradient hero section */}
       <div className="bg-[image:var(--gradient-hero)] min-h-screen">
-        <Header onSignInClick={() => setSignInOpen(true)} />
+        <Header onSignInClick={handleSignIn} />
         <main>
-          <Hero onGetStartedClick={() => setSignInOpen(true)} />
+          <Hero onGetStartedClick={handleGetStarted} />
         </main>
       </div>
       {/* Content sections with solid background */}
@@ -26,8 +33,6 @@ export default function Landing() {
         <Security />
         <Footer />
       </div>
-      
-      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </div>
   );
 }
