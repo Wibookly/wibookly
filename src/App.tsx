@@ -17,6 +17,8 @@ import EmailDraft from "./pages/EmailDraft";
 import AIActivityDashboard from "./pages/AIActivityDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import AIChat from "./pages/AIChat";
+import AIDailyBrief from "./pages/AIDailyBrief";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ const App = () => (
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/email-draft" element={<EmailDraft />} />
                 <Route path="/ai-activity" element={<AIActivityDashboard />} />
+                <Route path="/ai-chat" element={<AIChat />} />
+                <Route path="/ai-daily-brief" element={<AIDailyBrief />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
