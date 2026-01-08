@@ -832,6 +832,9 @@ export default function Integrations() {
                               <span className="font-medium truncate max-w-[200px]">
                                 {conn.connected_email || 'Connected'}
                               </span>
+                              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                {organization?.name?.toLowerCase().includes('personal') ? 'Personal' : 'Business'}
+                              </span>
                               {conn.connected_at && (
                                 <span className="text-muted-foreground text-xs">
                                   · {new Date(conn.connected_at).toLocaleDateString()}
