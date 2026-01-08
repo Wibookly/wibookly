@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
@@ -185,6 +185,12 @@ export function AppSidebar() {
           <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
             <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
             <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+          </NavSection>
+
+          {/* AI Assistant */}
+          <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
+            <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>
+            <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>
           </NavSection>
 
           {/* Settings */}
