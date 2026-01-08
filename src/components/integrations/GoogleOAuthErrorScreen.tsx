@@ -11,8 +11,13 @@ export function GoogleOAuthErrorScreen({ errorMessage, onBack }: GoogleOAuthErro
   const { toast } = useToast();
 
   const appOrigin = window.location.origin;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
+  const backendUrl = import.meta.env.VITE_SUPABASE_URL || '';
+
+  // Two different callbacks are used in this app:
+  // 1) Auth (login/signup) callback handled by the auth service
+  // 2) Integration callback handled by our backend function
+  const authCallbackUrl = backendUrl ? `${backendUrl}/auth/v1/callback` : '';
+  const integrationCallbackUrl = backendUrl ? `${backendUrl}/functions/v1/oauth-callback` : '';
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -54,13 +59,29 @@ export function GoogleOAuthErrorScreen({ errorMessage, onBack }: GoogleOAuthErro
             <div>
               <p className="text-sm font-medium mb-2">2. Authorized Redirect URIs</p>
               <p className="text-xs text-muted-foreground mb-2">
-                Add this exact callback URL:
+                Add these exact callback URLs (both are required):
               </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-background px-3 py-2 rounded text-sm font-mono break-all">{callbackUrl}</code>
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard(callbackUrl, 'Redirect URI')}>
-                  <Copy className="w-4 h-4" />
-                </Button>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium mb-1">Auth (sign-in / sign-up)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-background px-3 py-2 rounded text-sm font-mono break-all">{authCallbackUrl}</code>
+                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(authCallbackUrl, 'Auth redirect URI')}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium mb-1">Integration (connect Gmail/Calendar)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-background px-3 py-2 rounded text-sm font-mono break-all">{integrationCallbackUrl}</code>
+                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(integrationCallbackUrl, 'Integration redirect URI')}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
