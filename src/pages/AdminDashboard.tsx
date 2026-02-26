@@ -14,7 +14,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -77,6 +78,11 @@ export default function AdminDashboard() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
+
+  // Reset password state
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
@@ -210,6 +216,25 @@ export default function AdminDashboard() {
       fetchData();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUserId || !resetPasswordValue) return;
+    if (resetPasswordValue.length < 8) {
+      toast({ title: 'Weak password', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+      return;
+    }
+    setResettingPassword(true);
+    try {
+      await adminInvoke('reset_password', { user_id: resetPasswordUserId, new_password: resetPasswordValue });
+      toast({ title: 'Password updated', description: 'The user\'s password has been reset.' });
+      setResetPasswordUserId(null);
+      setResetPasswordValue('');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -417,6 +442,9 @@ export default function AdminDashboard() {
                           </div>
                           {!isSelf && (
                             <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" onClick={() => { setResetPasswordUserId(user.user_id); setResetPasswordValue(''); }}>
+                                <KeyRound className="w-4 h-4 mr-1" /> Reset Password
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => handleToggleUser(user.user_id, user.is_disabled)}>
                                 {user.is_disabled ? <><CheckCircle2 className="w-4 h-4 mr-1" /> Enable</> : <><Ban className="w-4 h-4 mr-1" /> Disable</>}
                               </Button>
@@ -755,6 +783,29 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!resetPasswordUserId} onOpenChange={(open) => { if (!open) { setResetPasswordUserId(null); setResetPasswordValue(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset User Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for {users.find(u => u.user_id === resetPasswordUserId)?.email || 'this user'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="resetPassword">New Password</Label>
+            <Input id="resetPassword" type="password" placeholder="Min 8 characters" value={resetPasswordValue} onChange={e => setResetPasswordValue(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetPasswordUserId(null); setResetPasswordValue(''); }}>Cancel</Button>
+            <Button onClick={handleResetPassword} disabled={resettingPassword || resetPasswordValue.length < 8}>
+              {resettingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+              Update Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
