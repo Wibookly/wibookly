@@ -226,16 +226,7 @@ export default function Integrations() {
     const error = searchParams.get('error');
     const checkout = searchParams.get('checkout');
 
-    if (checkout === 'success') {
-      toast({
-        title: 'Subscription Activated!',
-        description: 'Your plan has been upgraded successfully.',
-      });
-      refreshSubscription();
-      setSearchParams({});
-    }
-
-    if (checkout === 'canceled') {
+    if (checkout === 'success' || checkout === 'canceled') {
       setSearchParams({});
     }
 
