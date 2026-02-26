@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { ActiveEmailProvider } from "@/contexts/ActiveEmailContext";
-import { SubscriptionProvider } from "@/lib/subscription";
+
 import Auth from "./pages/Auth";
 import { AppLayout } from "./components/app/AppLayout";
 import Integrations from "./pages/Integrations";
@@ -28,7 +28,7 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <ActiveEmailProvider>
-          <SubscriptionProvider>
+          
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -56,7 +56,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </SubscriptionProvider>
+          
         </ActiveEmailProvider>
       </AuthProvider>
     </TooltipProvider>

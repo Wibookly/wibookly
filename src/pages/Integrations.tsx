@@ -1,11 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
-import { useSubscription } from '@/lib/subscription';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
-import { SubscriptionCard } from '@/components/subscription/SubscriptionCard';
-import { UpgradeInline } from '@/components/subscription/UpgradeBanner';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon, Calendar, Save, Sparkles } from 'lucide-react';
@@ -82,7 +79,7 @@ type ProviderId = 'google' | 'outlook';
 export default function Integrations() {
   const { organization, profile, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
-  const { canConnectMoreMailboxes, getMailboxLimit, refreshSubscription, plan } = useSubscription();
+  
   const { toast } = useToast();
   const { logAttempt } = useConnectAttemptLogger();
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -229,16 +226,7 @@ export default function Integrations() {
     const error = searchParams.get('error');
     const checkout = searchParams.get('checkout');
 
-    if (checkout === 'success') {
-      toast({
-        title: 'Subscription Activated!',
-        description: 'Your plan has been upgraded successfully.',
-      });
-      refreshSubscription();
-      setSearchParams({});
-    }
-
-    if (checkout === 'canceled') {
+    if (checkout === 'success' || checkout === 'canceled') {
       setSearchParams({});
     }
 
@@ -314,18 +302,7 @@ export default function Integrations() {
     }
 
     // Check mailbox limit before connecting (unless it's calendar-only)
-    if (!calendarOnly) {
-      const currentCount = connections.length;
-      if (!canConnectMoreMailboxes(currentCount)) {
-        const limit = getMailboxLimit();
-        toast({
-          title: 'Mailbox Limit Reached',
-          description: `Your ${plan} plan allows up to ${limit} mailbox${limit > 1 ? 'es' : ''}. Upgrade to connect more.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
+    // No mailbox limit - admin controls access now
 
     logAttempt({ provider, stage: calendarOnly ? 'calendar_init_started' : 'init_started' });
 
@@ -527,10 +504,7 @@ export default function Integrations() {
         <UserAvatarDropdown />
       </div>
       
-      {/* Subscription Card */}
-      <div className="mb-6">
-        <SubscriptionCard />
-      </div>
+      
 
       <section className="animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
         <header className="mb-8">
