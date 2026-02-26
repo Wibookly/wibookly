@@ -105,8 +105,18 @@ export default function Auth() {
   const handleMicrosoftSSO = async () => {
     setSsoLoading('microsoft');
     try {
+      if (!email || !email.includes('@')) {
+        toast({
+          title: 'Email required',
+          description: 'Please enter your work email before continuing with Microsoft.',
+          variant: 'destructive',
+        });
+        setSsoLoading(null);
+        return;
+      }
+
       const response = await supabase.functions.invoke('microsoft-sso-init', {
-        body: { email: email || undefined },
+        body: { email },
       });
 
       if (response.error) throw new Error(response.error.message);
