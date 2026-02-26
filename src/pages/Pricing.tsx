@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Zap, Sparkles, Crown, ArrowLeft } from 'lucide-react';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
+
 
 const plans = [
   {
