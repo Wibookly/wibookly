@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils';
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
-import { useSubscription } from '@/lib/subscription';
-import { UpgradeBadge } from '@/components/subscription/PlanBadge';
+
+
 import { useState, useEffect } from 'react';
 import {
   Collapsible,
