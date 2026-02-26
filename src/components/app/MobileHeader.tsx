@@ -1,6 +1,5 @@
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
 
 interface MobileHeaderProps {
   onMenuClick: () => void;
@@ -9,7 +8,7 @@ interface MobileHeaderProps {
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   return (
     <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-      <img src={wibooklyLogo} alt="Wibookly" className="h-8 w-auto" />
+      <span className="text-lg font-semibold text-foreground">Email AI</span>
       <Button variant="ghost" size="icon" onClick={onMenuClick}>
         <Menu className="h-5 w-5" />
       </Button>

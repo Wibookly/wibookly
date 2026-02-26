@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Zap, Sparkles, Crown, ArrowLeft } from 'lucide-react';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
+
 
 const plans = [
   {
@@ -89,12 +89,8 @@ export default function Pricing() {
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/5">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center group">
-              <img 
-                src={wibooklyLogo} 
-                alt="Wibookly" 
-                className="h-40 w-auto transition-transform duration-300 group-hover:scale-105" 
-              />
+            <Link to="/" className="flex items-center">
+              <span className="text-lg font-semibold text-foreground">Email AI</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -226,8 +222,8 @@ export default function Pricing() {
             <h2 className="text-2xl font-bold mb-4">Questions?</h2>
             <p className="text-muted-foreground mb-6">
               Need help choosing? Contact us at{' '}
-              <a href="mailto:support@wibookly.com" className="text-primary hover:underline">
-                support@wibookly.com
+              <a href="mailto:support@example.com" className="text-primary hover:underline">
+                support@example.com
               </a>
             </p>
           </div>
@@ -237,7 +233,7 @@ export default function Pricing() {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8 bg-background/50">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Wibookly. All rights reserved.
+          © {new Date().getFullYear()} All rights reserved.
         </div>
       </footer>
     </div>

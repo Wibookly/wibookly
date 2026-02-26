@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, ArrowRight, User, Building2, Briefcase, ArrowLeft, Check, HelpCircle, User2 } from 'lucide-react';
 import { z } from 'zod';
-import logo from '@/assets/wibookly-logo.png';
+
 import { supabase } from '@/integrations/supabase/client';
 import {
   Tooltip,
@@ -137,7 +137,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
         } else {
           toast({
             title: 'Account created',
-            description: 'Welcome to Wibookly!'
+            description: 'Welcome!'
           });
           onOpenChange(false);
           navigate('/integrations');
@@ -207,7 +207,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border">
         <DialogHeader className="text-center">
-          <img src={logo} alt="Wibookly" className="h-32 mx-auto mb-4" />
+          
           <DialogTitle className="text-2xl font-semibold">
             {mode === 'signin' ? 'Welcome back' : mode === 'forgot-password' ? 'Reset Password' : 'Get started free'}
           </DialogTitle>

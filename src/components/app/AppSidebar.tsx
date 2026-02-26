@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
+
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
@@ -127,7 +127,7 @@ export function AppSidebar() {
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
       <div className="p-4 border-b border-border flex flex-col items-center">
-        <img src={wibooklyLogo} alt="Wibookly" className="h-40 w-auto" />
+        <span className="text-lg font-semibold text-foreground">Email AI</span>
       </div>
 
       {/* Active Email Selector */}
