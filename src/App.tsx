@@ -56,7 +56,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </SubscriptionProvider>
+          
         </ActiveEmailProvider>
       </AuthProvider>
     </TooltipProvider>
