@@ -223,8 +223,8 @@ export default function Pricing() {
             <h2 className="text-2xl font-bold mb-4">Questions?</h2>
             <p className="text-muted-foreground mb-6">
               Need help choosing? Contact us at{' '}
-              <a href="mailto:support@wibookly.com" className="text-primary hover:underline">
-                support@wibookly.com
+              <a href="mailto:support@example.com" className="text-primary hover:underline">
+                support@example.com
               </a>
             </p>
           </div>
