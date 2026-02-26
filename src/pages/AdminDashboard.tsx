@@ -221,8 +221,8 @@ export default function AdminDashboard() {
 
   const handleResetPassword = async () => {
     if (!resetPasswordUserId || !resetPasswordValue) return;
-    if (resetPasswordValue.length < 8) {
-      toast({ title: 'Weak password', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+    if (resetPasswordValue.length < 6) {
+      toast({ title: 'Weak password', description: 'Password must be at least 6 characters.', variant: 'destructive' });
       return;
     }
     setResettingPassword(true);
