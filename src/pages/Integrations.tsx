@@ -504,10 +504,7 @@ export default function Integrations() {
         <UserAvatarDropdown />
       </div>
       
-      {/* Subscription Card */}
-      <div className="mb-6">
-        <SubscriptionCard />
-      </div>
+      
 
       <section className="animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
         <header className="mb-8">
