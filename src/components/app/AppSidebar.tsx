@@ -106,7 +106,7 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
 }
 
 export function AppSidebar() {
-  const { signOut, organization } = useAuth();
+  const { signOut, organization, profile } = useAuth();
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const { hasFeature } = useSubscription();
