@@ -187,7 +187,7 @@ export function AppSidebar() {
           {/* AI Settings */}
           <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
             <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
-            <NavItem href="/email-draft?tab=auto-reply" icon={MessageSquare} showUpgradeBadge={needsUpgradeForAutoReply}>AI Auto Reply</NavItem>
+            <NavItem href="/email-draft?tab=auto-reply" icon={MessageSquare}>AI Auto Reply</NavItem>
             <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
           </NavSection>
 
