@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, ArrowRight, User, Building2, Briefcase, ArrowLeft, Check, HelpCircle, User2 } from 'lucide-react';
 import { z } from 'zod';
-import logo from '@/assets/wibookly-logo.png';
+
 import { supabase } from '@/integrations/supabase/client';
 import {
   Tooltip,
