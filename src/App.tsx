@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { ActiveEmailProvider } from "@/contexts/ActiveEmailContext";
 import { SubscriptionProvider } from "@/lib/subscription";
-import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import { AppLayout } from "./components/app/AppLayout";
 import Integrations from "./pages/Integrations";
@@ -20,7 +19,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AIChat from "./pages/AIChat";
 import AIDailyBrief from "./pages/AIDailyBrief";
-import Pricing from "./pages/Pricing";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -34,12 +33,14 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Landing />} />
-                <Route path="/pricing" element={<Pricing />} />
+                {/* Auth is the entry point */}
+                <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                {/* Backwards-compatible: older links/routes may still use /dashboard */}
+                {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
+                <Route path="/pricing" element={<Navigate to="/auth" replace />} />
+                {/* Protected app routes */}
                 <Route element={<AppLayout />}>
                   <Route path="/integrations" element={<Integrations />} />
                   <Route path="/integration-setup" element={<IntegrationSetup />} />
@@ -50,6 +51,7 @@ const App = () => (
                   <Route path="/ai-activity" element={<AIActivityDashboard />} />
                   <Route path="/ai-chat" element={<AIChat />} />
                   <Route path="/ai-daily-brief" element={<AIDailyBrief />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
