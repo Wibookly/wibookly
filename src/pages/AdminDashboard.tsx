@@ -560,6 +560,14 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+              <div className="p-4 rounded-lg border border-border">
+                <p className="font-medium text-foreground">AI Models</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {AI_MODEL_KEYS.map(m => (
+                    <Badge key={m.key} variant="outline">{m.label}</Badge>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
