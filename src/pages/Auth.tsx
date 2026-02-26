@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Check, HelpCircle } from 'lucide-react';
 import { z } from 'zod';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
 import { supabase } from '@/integrations/supabase/client';
 
 // Microsoft icon
