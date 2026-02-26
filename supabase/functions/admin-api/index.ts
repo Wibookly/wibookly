@@ -245,11 +245,71 @@ serve(async (req) => {
         });
       }
 
+      case 'get_api_keys': {
+        const { data: keys } = await adminClient
+          .from('api_key_config')
+          .select('key_name, updated_at');
+
+        return new Response(JSON.stringify({ keys: keys || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_api_key': {
+        const { key_name, key_value } = payload;
+        if (!key_name || !key_value) {
+          return new Response(JSON.stringify({ error: 'key_name and key_value are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const allowedKeys = ['openai_api_key', 'claude_api_key'];
+        if (!allowedKeys.includes(key_name)) {
+          return new Response(JSON.stringify({ error: 'Invalid key_name' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { error } = await adminClient
+          .from('api_key_config')
+          .upsert({
+            key_name,
+            encrypted_value: key_value,
+            updated_by: caller.id,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'key_name' });
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'delete_api_key': {
+        const { key_name: delKeyName } = payload;
+        if (!delKeyName) {
+          return new Response(JSON.stringify({ error: 'key_name is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { error } = await adminClient
+          .from('api_key_config')
+          .delete()
+          .eq('key_name', delKeyName);
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
-    }
   } catch (error: unknown) {
     console.error('Admin API error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
