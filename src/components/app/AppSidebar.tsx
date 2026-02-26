@@ -109,12 +109,8 @@ export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
-  const { hasFeature } = useSubscription();
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  
 
-  // Check feature access for upgrade badges
-  const needsUpgradeForAutoReply = !hasFeature('aiAutoReply');
-  const needsUpgradeForAnalytics = !hasFeature('advancedAnalytics');
 
   // Check if onboarding has been dismissed
   useEffect(() => {
