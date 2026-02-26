@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
-import wibooklyLogo from '@/assets/wibookly-logo.png';
+
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { useConnectedEmails } from '@/hooks/useConnectedEmails';
