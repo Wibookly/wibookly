@@ -176,7 +176,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const priceId = PLAN_CONFIG[plan].priceId;
     if (!priceId) {
       // Enterprise - contact sales
-      window.open('mailto:sales@wibookly.com?subject=Enterprise%20Plan%20Inquiry', '_blank');
+      window.open('mailto:sales@example.com?subject=Enterprise%20Plan%20Inquiry', '_blank');
       return;
     }
 

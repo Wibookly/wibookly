@@ -35,7 +35,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
       <SheetContent side="left" className="w-72 p-0 flex flex-col">
         <SheetHeader className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <img src={wibooklyLogo} alt="Wibookly" className="h-10 w-auto" />
+            <span className="text-lg font-semibold text-foreground">Email AI</span>
           </div>
         </SheetHeader>
 

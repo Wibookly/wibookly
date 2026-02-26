@@ -234,7 +234,7 @@ export default function Pricing() {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8 bg-background/50">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Wibookly. All rights reserved.
+          © {new Date().getFullYear()} All rights reserved.
         </div>
       </footer>
     </div>
