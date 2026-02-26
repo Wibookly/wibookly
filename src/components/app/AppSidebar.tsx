@@ -100,7 +100,7 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
         "relative pb-1 flex-1",
         isActive && "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-green-500 after:rounded-full"
       )}>{children}</span>
-      {showUpgradeBadge && <UpgradeBadge />}
+      
     </NavLink>
   );
 }
