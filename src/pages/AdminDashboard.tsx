@@ -799,7 +799,7 @@ export default function AdminDashboard() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setResetPasswordUserId(null); setResetPasswordValue(''); }}>Cancel</Button>
-            <Button onClick={handleResetPassword} disabled={resettingPassword || resetPasswordValue.length < 8}>
+            <Button onClick={handleResetPassword} disabled={resettingPassword || resetPasswordValue.length < 6}>
               {resettingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
               Update Password
             </Button>
