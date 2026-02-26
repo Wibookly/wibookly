@@ -8,7 +8,7 @@ interface MobileHeaderProps {
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   return (
     <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-      <span className="text-lg font-semibold text-foreground">Email AI</span>
+      <span className="text-lg font-semibold text-foreground">InboxPilot</span>
       <Button variant="ghost" size="icon" onClick={onMenuClick}>
         <Menu className="h-5 w-5" />
       </Button>

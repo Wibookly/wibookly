@@ -11,7 +11,7 @@ export function Header({ onSignInClick }: HeaderProps) {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center">
-            <span className="text-lg font-semibold text-foreground">Email AI</span>
+            <span className="text-lg font-semibold text-foreground">InboxPilot</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
