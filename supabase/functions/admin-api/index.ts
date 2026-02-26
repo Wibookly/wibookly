@@ -191,8 +191,8 @@ serve(async (req) => {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-        if (new_password.length < 8) {
-          return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), {
+        if (new_password.length < 6) {
+          return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }

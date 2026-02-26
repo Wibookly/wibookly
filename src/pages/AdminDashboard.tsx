@@ -221,8 +221,8 @@ export default function AdminDashboard() {
 
   const handleResetPassword = async () => {
     if (!resetPasswordUserId || !resetPasswordValue) return;
-    if (resetPasswordValue.length < 8) {
-      toast({ title: 'Weak password', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+    if (resetPasswordValue.length < 6) {
+      toast({ title: 'Weak password', description: 'Password must be at least 6 characters.', variant: 'destructive' });
       return;
     }
     setResettingPassword(true);
@@ -799,7 +799,7 @@ export default function AdminDashboard() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setResetPasswordUserId(null); setResetPasswordValue(''); }}>Cancel</Button>
-            <Button onClick={handleResetPassword} disabled={resettingPassword || resetPasswordValue.length < 8}>
+            <Button onClick={handleResetPassword} disabled={resettingPassword || resetPasswordValue.length < 6}>
               {resettingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
               Update Password
             </Button>
