@@ -442,6 +442,9 @@ export default function AdminDashboard() {
                           </div>
                           {!isSelf && (
                             <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" onClick={() => { setResetPasswordUserId(user.user_id); setResetPasswordValue(''); }}>
+                                <KeyRound className="w-4 h-4 mr-1" /> Reset Password
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => handleToggleUser(user.user_id, user.is_disabled)}>
                                 {user.is_disabled ? <><CheckCircle2 className="w-4 h-4 mr-1" /> Enable</> : <><Ban className="w-4 h-4 mr-1" /> Disable</>}
                               </Button>
