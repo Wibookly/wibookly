@@ -92,7 +92,6 @@ export default function Pricing() {
             <Link to="/" className="flex items-center">
               <span className="text-lg font-semibold text-foreground">Email AI</span>
             </Link>
-            </Link>
 
             <nav className="hidden md:flex items-center gap-8">
               <Link to="/#how-it-works" className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors">
