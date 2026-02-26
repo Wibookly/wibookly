@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
