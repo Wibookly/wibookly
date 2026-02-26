@@ -1,11 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
-import { useSubscription } from '@/lib/subscription';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
-import { SubscriptionCard } from '@/components/subscription/SubscriptionCard';
-import { UpgradeInline } from '@/components/subscription/UpgradeBanner';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon, Calendar, Save, Sparkles } from 'lucide-react';
