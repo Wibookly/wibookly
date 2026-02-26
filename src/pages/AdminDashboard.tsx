@@ -99,13 +99,15 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [domainsRes, usersRes] = await Promise.all([
+      const [domainsRes, usersRes, keysRes] = await Promise.all([
         supabase.from('allowed_domains').select('*').order('created_at', { ascending: false }),
         adminInvoke('list_users'),
+        adminInvoke('get_api_keys'),
       ]);
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
