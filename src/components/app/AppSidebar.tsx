@@ -205,7 +205,7 @@ export function AppSidebar() {
 
           {/* Reports */}
           <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-            <NavItem href="/ai-activity" icon={BarChart3} showUpgradeBadge={needsUpgradeForAnalytics}>AI Activity</NavItem>
+            <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
           </NavSection>
 
           {/* Admin - only for super admin */}
