@@ -23,6 +23,11 @@ const FEATURE_KEYS = [
   { key: 'reports', label: 'Reports', description: 'AI activity reports & analytics' },
 ] as const;
 
+const AI_MODEL_KEYS = [
+  { key: 'ai_model_chatgpt', label: 'ChatGPT', description: 'OpenAI ChatGPT model access' },
+  { key: 'ai_model_claude', label: 'Claude', description: 'Anthropic Claude model access' },
+] as const;
+
 interface AllowedDomain {
   id: string;
   domain: string;
@@ -396,21 +401,46 @@ export default function AdminDashboard() {
 
                         {/* Feature Toggles */}
                         {!isSelf && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border/50">
-                            {FEATURE_KEYS.map(feat => {
-                              const enabled = getUserFeatureEnabled(user, feat.key);
-                              return (
-                                <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                                  <div>
-                                    <p className="text-xs font-medium text-foreground">{feat.label}</p>
-                                  </div>
-                                  <Switch
-                                    checked={enabled}
-                                    onCheckedChange={() => handleToggleFeature(user.user_id, feat.key, enabled)}
-                                  />
-                                </div>
-                              );
-                            })}
+                          <div className="space-y-3 pt-2 border-t border-border/50">
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {FEATURE_KEYS.map(feat => {
+                                  const enabled = getUserFeatureEnabled(user, feat.key);
+                                  return (
+                                    <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground">{feat.label}</p>
+                                      </div>
+                                      <Switch
+                                        checked={enabled}
+                                        onCheckedChange={() => handleToggleFeature(user.user_id, feat.key, enabled)}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">AI Models</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {AI_MODEL_KEYS.map(model => {
+                                  const enabled = getUserFeatureEnabled(user, model.key);
+                                  return (
+                                    <div key={model.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground">{model.label}</p>
+                                        <p className="text-[10px] text-muted-foreground">{model.description}</p>
+                                      </div>
+                                      <Switch
+                                        checked={enabled}
+                                        onCheckedChange={() => handleToggleFeature(user.user_id, model.key, enabled)}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         )}
                         {isSelf && (
@@ -527,6 +557,14 @@ export default function AdminDashboard() {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {FEATURE_KEYS.map(f => (
                     <Badge key={f.key} variant="outline">{f.label}</Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 rounded-lg border border-border">
+                <p className="font-medium text-foreground">AI Models</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {AI_MODEL_KEYS.map(m => (
+                    <Badge key={m.key} variant="outline">{m.label}</Badge>
                   ))}
                 </div>
               </div>
