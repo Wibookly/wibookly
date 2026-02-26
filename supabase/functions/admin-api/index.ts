@@ -184,6 +184,30 @@ serve(async (req) => {
         });
       }
 
+      case 'reset_password': {
+        const { user_id, new_password } = payload;
+        if (!user_id || !new_password) {
+          return new Response(JSON.stringify({ error: 'user_id and new_password are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (new_password.length < 8) {
+          return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { error: resetError } = await adminClient.auth.admin.updateUserById(user_id, {
+          password: new_password,
+        });
+
+        if (resetError) throw resetError;
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       case 'delete_user': {
         const { user_id } = payload;
         if (!user_id) {

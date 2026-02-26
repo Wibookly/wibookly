@@ -79,6 +79,11 @@ export default function AdminDashboard() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
 
+  // Reset password state
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
+
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   useEffect(() => {
