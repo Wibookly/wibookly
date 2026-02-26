@@ -211,6 +211,13 @@ export function AppSidebar() {
           <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
             <NavItem href="/ai-activity" icon={BarChart3} showUpgradeBadge={needsUpgradeForAnalytics}>AI Activity</NavItem>
           </NavSection>
+
+          {/* Admin - only for super admin */}
+          {profile?.email?.toLowerCase() === 'arahimi@energyforward.com' && (
+            <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
+              <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
+            </NavSection>
+          )}
         </nav>
       </div>
 
