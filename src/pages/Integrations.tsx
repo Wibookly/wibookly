@@ -302,18 +302,7 @@ export default function Integrations() {
     }
 
     // Check mailbox limit before connecting (unless it's calendar-only)
-    if (!calendarOnly) {
-      const currentCount = connections.length;
-      if (!canConnectMoreMailboxes(currentCount)) {
-        const limit = getMailboxLimit();
-        toast({
-          title: 'Mailbox Limit Reached',
-          description: `Your ${plan} plan allows up to ${limit} mailbox${limit > 1 ? 'es' : ''}. Upgrade to connect more.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
+    // No mailbox limit - admin controls access now
 
     logAttempt({ provider, stage: calendarOnly ? 'calendar_init_started' : 'init_started' });
 
