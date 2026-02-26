@@ -64,6 +64,14 @@ export default function AdminDashboard() {
   const [newOrgName, setNewOrgName] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
 
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string }[]>([]);
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [claudeKey, setClaudeKey] = useState('');
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showClaudeKey, setShowClaudeKey] = useState(false);
+
   // New user form
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
