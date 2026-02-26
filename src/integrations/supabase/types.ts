@@ -836,6 +836,47 @@ export type Database = {
           },
         ]
       }
+      user_feature_access: {
+        Row: {
+          created_at: string
+          feature_key: string
+          granted_by: string | null
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feature_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string
@@ -970,6 +1011,10 @@ export type Database = {
           name: string
           role: string
         }[]
+      }
+      has_feature: {
+        Args: { _feature_key: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
