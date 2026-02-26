@@ -310,6 +310,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+    }
   } catch (error: unknown) {
     console.error('Admin API error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
