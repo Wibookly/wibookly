@@ -137,7 +137,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
         } else {
           toast({
             title: 'Account created',
-            description: 'Welcome to Wibookly!'
+            description: 'Welcome!'
           });
           onOpenChange(false);
           navigate('/integrations');
