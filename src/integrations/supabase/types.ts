@@ -236,6 +236,30 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_config: {
+        Row: {
+          encrypted_value: string
+          id: string
+          key_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          encrypted_value: string
+          id?: string
+          key_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          encrypted_value?: string
+          id?: string
+          key_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       availability_hours: {
         Row: {
           connection_id: string
