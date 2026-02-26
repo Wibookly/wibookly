@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -64,6 +64,14 @@ export default function AdminDashboard() {
   const [newOrgName, setNewOrgName] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
 
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string }[]>([]);
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [claudeKey, setClaudeKey] = useState('');
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showClaudeKey, setShowClaudeKey] = useState(false);
+
   // New user form
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
@@ -91,13 +99,15 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [domainsRes, usersRes] = await Promise.all([
+      const [domainsRes, usersRes, keysRes] = await Promise.all([
         supabase.from('allowed_domains').select('*').order('created_at', { ascending: false }),
         adminInvoke('list_users'),
+        adminInvoke('get_api_keys'),
       ]);
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -224,6 +234,42 @@ export default function AdminDashboard() {
       fetchData(); // Revert on error
     }
   };
+
+  const handleSaveApiKey = async (keyName: string, keyValue: string) => {
+    if (!keyValue.trim()) {
+      toast({ title: 'Empty key', description: 'Please enter an API key value.', variant: 'destructive' });
+      return;
+    }
+    setSavingKey(keyName);
+    try {
+      await adminInvoke('set_api_key', { key_name: keyName, key_value: keyValue.trim() });
+      toast({ title: 'API Key saved', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been saved.` });
+      if (keyName === 'openai_api_key') setOpenaiKey('');
+      else setClaudeKey('');
+      setShowOpenaiKey(false);
+      setShowClaudeKey(false);
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleDeleteApiKey = async (keyName: string) => {
+    try {
+      await adminInvoke('delete_api_key', { key_name: keyName });
+      toast({ title: 'API Key removed', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been removed.` });
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
+  const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
 
   const getUserFeatureEnabled = (user: ManagedUser, featureKey: string) => {
     const feature = user.features.find(f => f.feature_key === featureKey);
@@ -535,6 +581,143 @@ export default function AdminDashboard() {
 
         {/* SETTINGS TAB */}
         <TabsContent value="settings" className="space-y-6">
+          {/* API Keys */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> API Keys</CardTitle>
+              <CardDescription>Configure API keys for AI services used by this platform</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* OpenAI */}
+              <div className="p-4 rounded-lg border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">OpenAI API Key</p>
+                    <p className="text-sm text-muted-foreground">Used for ChatGPT-powered features</p>
+                  </div>
+                  {isKeyConfigured('openai_api_key') ? (
+                    <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Configured</Badge>
+                  ) : (
+                    <Badge variant="secondary">Not Set</Badge>
+                  )}
+                </div>
+                {isKeyConfigured('openai_api_key') && (
+                  <p className="text-xs text-muted-foreground">
+                    Last updated: {new Date(getKeyUpdatedAt('openai_api_key')!).toLocaleDateString()}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showOpenaiKey ? 'text' : 'password'}
+                      placeholder={isKeyConfigured('openai_api_key') ? 'Enter new key to update...' : 'sk-...'}
+                      value={openaiKey}
+                      onChange={e => setOpenaiKey(e.target.value)}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                      onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                    >
+                      {showOpenaiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => handleSaveApiKey('openai_api_key', openaiKey)}
+                    disabled={!openaiKey.trim() || savingKey === 'openai_api_key'}
+                  >
+                    {savingKey === 'openai_api_key' ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    Save
+                  </Button>
+                  {isKeyConfigured('openai_api_key') && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove OpenAI API Key?</AlertDialogTitle>
+                          <AlertDialogDescription>This will remove the OpenAI API key. AI features using ChatGPT will stop working.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteApiKey('openai_api_key')} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </div>
+
+              {/* Claude */}
+              <div className="p-4 rounded-lg border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">Claude API Key (Anthropic)</p>
+                    <p className="text-sm text-muted-foreground">Used for Claude-powered features</p>
+                  </div>
+                  {isKeyConfigured('claude_api_key') ? (
+                    <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Configured</Badge>
+                  ) : (
+                    <Badge variant="secondary">Not Set</Badge>
+                  )}
+                </div>
+                {isKeyConfigured('claude_api_key') && (
+                  <p className="text-xs text-muted-foreground">
+                    Last updated: {new Date(getKeyUpdatedAt('claude_api_key')!).toLocaleDateString()}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showClaudeKey ? 'text' : 'password'}
+                      placeholder={isKeyConfigured('claude_api_key') ? 'Enter new key to update...' : 'sk-ant-...'}
+                      value={claudeKey}
+                      onChange={e => setClaudeKey(e.target.value)}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                      onClick={() => setShowClaudeKey(!showClaudeKey)}
+                    >
+                      {showClaudeKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => handleSaveApiKey('claude_api_key', claudeKey)}
+                    disabled={!claudeKey.trim() || savingKey === 'claude_api_key'}
+                  >
+                    {savingKey === 'claude_api_key' ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    Save
+                  </Button>
+                  {isKeyConfigured('claude_api_key') && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove Claude API Key?</AlertDialogTitle>
+                          <AlertDialogDescription>This will remove the Claude API key. AI features using Claude will stop working.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteApiKey('claude_api_key')} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>System Settings</CardTitle>
