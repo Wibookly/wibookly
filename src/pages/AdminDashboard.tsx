@@ -235,6 +235,42 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveApiKey = async (keyName: string, keyValue: string) => {
+    if (!keyValue.trim()) {
+      toast({ title: 'Empty key', description: 'Please enter an API key value.', variant: 'destructive' });
+      return;
+    }
+    setSavingKey(keyName);
+    try {
+      await adminInvoke('set_api_key', { key_name: keyName, key_value: keyValue.trim() });
+      toast({ title: 'API Key saved', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been saved.` });
+      if (keyName === 'openai_api_key') setOpenaiKey('');
+      else setClaudeKey('');
+      setShowOpenaiKey(false);
+      setShowClaudeKey(false);
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleDeleteApiKey = async (keyName: string) => {
+    try {
+      await adminInvoke('delete_api_key', { key_name: keyName });
+      toast({ title: 'API Key removed', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been removed.` });
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) setApiKeys(keysRes.keys);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
+  const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
+
   const getUserFeatureEnabled = (user: ManagedUser, featureKey: string) => {
     const feature = user.features.find(f => f.feature_key === featureKey);
     return feature?.is_enabled ?? false;
