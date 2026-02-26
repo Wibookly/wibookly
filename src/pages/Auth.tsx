@@ -250,7 +250,7 @@ export default function Auth() {
     <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex items-center justify-center p-6">
       <div className="w-full max-w-sm bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
         <div className="text-center mb-8">
-          <img src={wibooklyLogo} alt="Wibookly" className="h-24 w-auto mx-auto mb-6" />
+          
           <h1 className="text-2xl font-bold tracking-tight text-primary">
             {mode === 'forgot-password' ? 'Reset Password' : mode === 'signup' ? 'Create Account' : 'Welcome back'}
           </h1>

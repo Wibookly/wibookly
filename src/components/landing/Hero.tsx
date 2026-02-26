@@ -19,7 +19,7 @@ export function Hero({ onGetStartedClick }: HeroProps) {
           
           {/* Sub-headline */}
           <p className="mt-8 text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '100ms' }}>
-            Wibookly brings clarity to your inbox by organizing messages, creating smart categories, and drafting thoughtful replies — all with AI working quietly in the background.
+            Bring clarity to your inbox by organizing messages, creating smart categories, and drafting thoughtful replies — all with AI working quietly in the background.
           </p>
           
           {/* CTA Button */}
