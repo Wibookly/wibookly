@@ -23,6 +23,11 @@ const FEATURE_KEYS = [
   { key: 'reports', label: 'Reports', description: 'AI activity reports & analytics' },
 ] as const;
 
+const AI_MODEL_KEYS = [
+  { key: 'ai_model_chatgpt', label: 'ChatGPT', description: 'OpenAI ChatGPT model access' },
+  { key: 'ai_model_claude', label: 'Claude', description: 'Anthropic Claude model access' },
+] as const;
+
 interface AllowedDomain {
   id: string;
   domain: string;
