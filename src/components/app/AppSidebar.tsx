@@ -109,8 +109,7 @@ export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
-  
-
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
 
   // Check if onboarding has been dismissed
   useEffect(() => {
