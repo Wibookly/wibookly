@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import wibooklyLogo from '@/assets/wibookly-logo.png';
@@ -106,7 +106,7 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
 }
 
 export function AppSidebar() {
-  const { signOut, organization } = useAuth();
+  const { signOut, organization, profile } = useAuth();
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const { hasFeature } = useSubscription();
@@ -211,6 +211,13 @@ export function AppSidebar() {
           <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
             <NavItem href="/ai-activity" icon={BarChart3} showUpgradeBadge={needsUpgradeForAnalytics}>AI Activity</NavItem>
           </NavSection>
+
+          {/* Admin - only for super admin */}
+          {profile?.email?.toLowerCase() === 'arahimi@energyforward.com' && (
+            <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
+              <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
+            </NavSection>
+          )}
         </nav>
       </div>
 

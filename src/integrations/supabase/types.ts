@@ -203,6 +203,39 @@ export type Database = {
           },
         ]
       }
+      allowed_domains: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain: string
+          id: string
+          is_active: boolean
+          max_users: number | null
+          organization_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain: string
+          id?: string
+          is_active?: boolean
+          max_users?: number | null
+          organization_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          id?: string
+          is_active?: boolean
+          max_users?: number | null
+          organization_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       availability_hours: {
         Row: {
           connection_id: string
@@ -945,10 +978,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_domain_allowed: { Args: { _email: string }; Returns: boolean }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: { _email: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "member"

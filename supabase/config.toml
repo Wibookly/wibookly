@@ -30,3 +30,10 @@ verify_jwt = false
 # Log calendar events scheduled by AI
 [functions.log-calendar-event]
 verify_jwt = false
+
+# Microsoft SSO - no JWT needed (pre-auth)
+[functions.microsoft-sso-init]
+verify_jwt = false
+
+[functions.microsoft-sso-callback]
+verify_jwt = false
