@@ -219,6 +219,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetPasswordUserId || !resetPasswordValue) return;
+    if (resetPasswordValue.length < 8) {
+      toast({ title: 'Weak password', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+      return;
+    }
+    setResettingPassword(true);
+    try {
+      await adminInvoke('reset_password', { user_id: resetPasswordUserId, new_password: resetPasswordValue });
+      toast({ title: 'Password updated', description: 'The user\'s password has been reset.' });
+      setResetPasswordUserId(null);
+      setResetPasswordValue('');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const handleToggleFeature = async (userId: string, featureKey: string, currentlyEnabled: boolean) => {
     try {
       await adminInvoke('set_feature', {
