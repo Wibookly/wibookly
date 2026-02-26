@@ -401,21 +401,46 @@ export default function AdminDashboard() {
 
                         {/* Feature Toggles */}
                         {!isSelf && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border/50">
-                            {FEATURE_KEYS.map(feat => {
-                              const enabled = getUserFeatureEnabled(user, feat.key);
-                              return (
-                                <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                                  <div>
-                                    <p className="text-xs font-medium text-foreground">{feat.label}</p>
-                                  </div>
-                                  <Switch
-                                    checked={enabled}
-                                    onCheckedChange={() => handleToggleFeature(user.user_id, feat.key, enabled)}
-                                  />
-                                </div>
-                              );
-                            })}
+                          <div className="space-y-3 pt-2 border-t border-border/50">
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {FEATURE_KEYS.map(feat => {
+                                  const enabled = getUserFeatureEnabled(user, feat.key);
+                                  return (
+                                    <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground">{feat.label}</p>
+                                      </div>
+                                      <Switch
+                                        checked={enabled}
+                                        onCheckedChange={() => handleToggleFeature(user.user_id, feat.key, enabled)}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">AI Models</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {AI_MODEL_KEYS.map(model => {
+                                  const enabled = getUserFeatureEnabled(user, model.key);
+                                  return (
+                                    <div key={model.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
+                                      <div>
+                                        <p className="text-xs font-medium text-foreground">{model.label}</p>
+                                        <p className="text-[10px] text-muted-foreground">{model.description}</p>
+                                      </div>
+                                      <Switch
+                                        checked={enabled}
+                                        onCheckedChange={() => handleToggleFeature(user.user_id, model.key, enabled)}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         )}
                         {isSelf && (
