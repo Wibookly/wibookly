@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 
 import { useState, useEffect } from 'react';
