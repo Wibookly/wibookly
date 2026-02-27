@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="py-16 border-t border-border">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-          <span className="text-sm font-medium text-foreground">InboxPilot</span>
+          <span className="text-sm font-medium text-foreground">InboxIQ</span>
 
           <nav className="flex items-center gap-8 text-sm text-muted-foreground">
             <Link to="/terms" className="hover:text-foreground transition-colors">
