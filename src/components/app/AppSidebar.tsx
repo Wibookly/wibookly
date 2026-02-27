@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 
 import { useState, useEffect } from 'react';
@@ -110,6 +111,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const { hasFeature } = useFeatureAccess();
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   // Check if onboarding has been dismissed
   useEffect(() => {
@@ -183,18 +186,28 @@ export function AppSidebar() {
             <NavItem href="/categories" icon={Tag}>Email Categories</NavItem>
           </NavSection>
 
-          {/* AI Settings */}
-          <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
-            <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
-            <NavItem href="/email-draft?tab=auto-reply" icon={MessageSquare}>AI Auto Reply</NavItem>
-            <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
-          </NavSection>
+          {/* AI Settings - show if user has ai_draft or ai_auto_reply, or is super admin */}
+          {(isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
+            <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
+              {(isSuperAdmin || hasFeature('ai_draft')) && (
+                <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+              )}
+              {(isSuperAdmin || hasFeature('ai_auto_reply')) && (
+                <NavItem href="/email-draft?tab=auto-reply" icon={MessageSquare}>AI Auto Reply</NavItem>
+              )}
+              {(isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
+                <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+              )}
+            </NavSection>
+          )}
 
-          {/* AI Assistant */}
-          <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
-            <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>
-            <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>
-          </NavSection>
+          {/* AI Assistant - show if user has ai_assistant or is super admin */}
+          {(isSuperAdmin || hasFeature('ai_assistant')) && (
+            <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
+              <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>
+              <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>
+            </NavSection>
+          )}
 
           {/* Settings */}
           <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
@@ -202,13 +215,15 @@ export function AppSidebar() {
             <NavItem href="/settings?section=signature" icon={PenTool}>My Signature</NavItem>
           </NavSection>
 
-          {/* Reports */}
-          <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-            <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
-          </NavSection>
+          {/* Reports - show if user has reports or is super admin */}
+          {(isSuperAdmin || hasFeature('reports')) && (
+            <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
+              <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
+            </NavSection>
+          )}
 
           {/* Admin - only for super admin */}
-          {profile?.email?.toLowerCase() === 'arahimi@energyforward.com' && (
+          {isSuperAdmin && (
             <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
               <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
             </NavSection>
