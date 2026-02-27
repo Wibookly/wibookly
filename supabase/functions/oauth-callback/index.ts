@@ -378,7 +378,7 @@ async function fetchMicrosoftEmail(accessToken: string): Promise<string | null> 
 
 function getAppUrl(): string {
   // Default app URL (fallback only)
-  return 'https://jbzctydskdpzrejvpwpn.lovable.app';
+  return 'https://energyforwardai.lovable.app';
 }
 
 function resolveAppUrl(appOrigin?: unknown): string {
