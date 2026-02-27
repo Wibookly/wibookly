@@ -111,6 +111,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const { hasFeature } = useFeatureAccess();
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   // Check if onboarding has been dismissed
   useEffect(() => {
