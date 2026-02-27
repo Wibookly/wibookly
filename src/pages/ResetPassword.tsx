@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react";
-import wibooklyLogo from "@/assets/wibookly-logo.png";
+import appLogo from "@/assets/wibookly-logo.png";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
