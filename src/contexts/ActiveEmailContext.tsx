@@ -21,7 +21,7 @@ interface ActiveEmailContextType {
 
 const ActiveEmailContext = createContext<ActiveEmailContextType | null>(null);
 
-const ACTIVE_EMAIL_STORAGE_KEY = 'wibookly_active_email_id';
+const ACTIVE_EMAIL_STORAGE_KEY = 'inboxiq_active_email_id';
 
 export function ActiveEmailProvider({ children }: { children: ReactNode }) {
   const { user, organization } = useAuth();
