@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { ActiveEmailProvider } from "@/contexts/ActiveEmailContext";
+import { FeatureRoute } from "@/components/app/FeatureRoute";
 
 import Auth from "./pages/Auth";
 import { AppLayout } from "./components/app/AppLayout";
@@ -47,10 +48,26 @@ const App = () => (
                   <Route path="/categories" element={<Categories />} />
                   <Route path="/sync" element={<Sync />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/email-draft" element={<EmailDraft />} />
-                  <Route path="/ai-activity" element={<AIActivityDashboard />} />
-                  <Route path="/ai-chat" element={<AIChat />} />
-                  <Route path="/ai-daily-brief" element={<AIDailyBrief />} />
+                  <Route path="/email-draft" element={
+                    <FeatureRoute featureKeys={['ai_draft', 'ai_auto_reply']}>
+                      <EmailDraft />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/ai-activity" element={
+                    <FeatureRoute featureKeys={['reports']}>
+                      <AIActivityDashboard />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/ai-chat" element={
+                    <FeatureRoute featureKeys={['ai_assistant']}>
+                      <AIChat />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/ai-daily-brief" element={
+                    <FeatureRoute featureKeys={['ai_assistant']}>
+                      <AIDailyBrief />
+                    </FeatureRoute>
+                  } />
                   <Route path="/admin" element={<AdminDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
