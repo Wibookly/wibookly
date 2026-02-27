@@ -143,7 +143,7 @@ export default function AIDailyBrief() {
       day: 'numeric' 
     });
 
-    const appName = 'Wibookly';
+    const appName = 'InboxIQ';
     const email = activeConnection?.email || 'N/A';
     const printTitle = type === 'todo' ? 'To-Do List' : 
                        type === 'calendar' ? 'Today\'s Schedule' : 
