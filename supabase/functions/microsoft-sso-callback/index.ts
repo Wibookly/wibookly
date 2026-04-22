@@ -214,7 +214,7 @@ serve(async (req) => {
 });
 
 function getAppUrl(): string {
-  return 'https://jbzctydskdpzrejvpwpn.lovable.app';
+  return 'https://energyforwardai.lovable.app';
 }
 
 function resolveAppUrl(appOrigin?: unknown): string {
