@@ -342,8 +342,25 @@ export default function Integrations() {
     setConnecting(provider);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
+      // Force-refresh the session to ensure the JWT is still valid on the server.
+      // If the session was revoked (e.g. signed out elsewhere), this will fail
+      // and we send the user back to /auth instead of calling the edge function
+      // with a dead token.
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      const accessToken = refreshed.session?.access_token;
+
+      if (refreshError || !accessToken) {
+        logAttempt({ provider, stage: 'init_error', errorCode: 'session_expired', errorMessage: refreshError?.message || 'No active session' });
+        toast({
+          title: 'Session expired',
+          description: 'Please sign in again to connect your account.',
+          variant: 'destructive',
+        });
+        await supabase.auth.signOut();
+        setConnecting(null);
+        window.location.href = '/auth';
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('oauth-init', {
         body: {
@@ -353,7 +370,7 @@ export default function Integrations() {
           redirectUrl: '/integrations',
           calendarOnly,
         },
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
       if (error) {
@@ -372,14 +389,24 @@ export default function Integrations() {
 
       const message = String(error?.message || 'Failed to start OAuth flow');
       logAttempt({ provider, stage: 'init_error', errorMessage: message });
-      
-      const isInvalidJwt = /invalid jwt/i.test(message);
+
+      const isAuthError = /invalid jwt|unauthorized|auth session missing|session not found/i.test(message);
+
+      if (isAuthError) {
+        toast({
+          title: 'Session expired',
+          description: 'Please sign in again to connect your account.',
+          variant: 'destructive',
+        });
+        await supabase.auth.signOut();
+        setConnecting(null);
+        window.location.href = '/auth';
+        return;
+      }
 
       toast({
         title: 'Connection Failed',
-        description: isInvalidJwt
-          ? 'Your session needs a refresh. Please sign out and sign back in, then try again.'
-          : message,
+        description: message,
         variant: 'destructive',
       });
       setConnecting(null);
