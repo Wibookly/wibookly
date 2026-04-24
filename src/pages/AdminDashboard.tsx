@@ -61,6 +61,7 @@ interface ManagedUser {
   organization_id: string;
   is_disabled: boolean;
   features: UserFeature[];
+  group_ids?: string[];
 }
 
 export default function AdminDashboard() {
@@ -68,6 +69,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [domains, setDomains] = useState<AllowedDomain[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [groups, setGroups] = useState<PermissionGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [newDomain, setNewDomain] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
@@ -158,15 +160,17 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [domainsRes, usersRes, keysRes] = await Promise.all([
+      const [domainsRes, usersRes, keysRes, groupsRes] = await Promise.all([
         supabase.from('allowed_domains').select('*').order('created_at', { ascending: false }),
         adminInvoke('list_users'),
         adminInvoke('get_api_keys'),
+        adminInvoke('list_groups'),
       ]);
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
       if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (groupsRes?.groups) setGroups(groupsRes.groups);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
