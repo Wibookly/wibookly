@@ -40,6 +40,7 @@ interface UserDraft {
 interface Props {
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   existingGroups: PermissionGroup[];
+  organizationId: string | null;
   onCompleted: () => void;
 }
 
@@ -51,7 +52,7 @@ const generatePassword = () => {
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
 const emptyUser = (domain: string): UserDraft => ({ full_name: '', email: domain ? `@${domain}` : '', password: '', groupNames: [] });
 
-export default function OnboardingWizard({ invoke, existingGroups, onCompleted }: Props) {
+export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -130,6 +131,10 @@ export default function OnboardingWizard({ invoke, existingGroups, onCompleted }
       toast({ title: 'Add at least one group', description: 'Or skip to step 3 to use existing groups.', variant: 'destructive' });
       return;
     }
+    if (!organizationId) {
+      toast({ title: 'Missing organization', description: 'Cannot create groups without an organization context.', variant: 'destructive' });
+      return;
+    }
     setSavingGroups(true);
     try {
       const created: PermissionGroup[] = [];
@@ -144,6 +149,7 @@ export default function OnboardingWizard({ invoke, existingGroups, onCompleted }
         const res = await invoke('create_group', {
           name: g.name.trim(),
           description: g.description.trim() || null,
+          organization_id: organizationId,
         });
         const newGroup: PermissionGroup = res?.group || { id: res?.id, name: g.name.trim(), description: g.description.trim() || null, organization_id: '', features: [], member_count: 0 };
         // Apply feature toggles

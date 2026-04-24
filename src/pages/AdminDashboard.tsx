@@ -499,6 +499,7 @@ export default function AdminDashboard() {
           <OnboardingWizard
             invoke={adminInvoke}
             existingGroups={groups}
+            organizationId={profile?.organization_id ?? null}
             onCompleted={fetchData}
           />
         </TabsContent>
