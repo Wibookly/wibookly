@@ -98,17 +98,21 @@ export default function AdminDashboard() {
   }, [isSuperAdmin]);
 
   // Detect Microsoft admin consent callback redirect
+  // Microsoft redirects back to the registered redirect_uri (must match Azure exactly,
+  // with NO extra query params). It appends: ?tenant=<id>&admin_consent=True&state=<domain_id>
+  // On error: ?error=...&error_description=...&state=<domain_id>
   useEffect(() => {
     if (!isSuperAdmin) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('ms_consent') === 'success') {
-      const domainId = params.get('domain_id') || params.get('state');
-      const adminConsent = params.get('admin_consent');
-      // Microsoft returns admin_consent=True on success
-      if (domainId && (adminConsent === 'True' || adminConsent === null)) {
-        handleToggleConsentGranted(domainId, true).catch(() => {});
-      }
-      // Clean up URL
+    const adminConsent = params.get('admin_consent');
+    const tenantFromMs = params.get('tenant');
+    const stateDomainId = params.get('state');
+    const pendingDomainId = sessionStorage.getItem('ms_consent_pending_domain_id');
+    const domainId = stateDomainId || pendingDomainId;
+
+    if (adminConsent === 'True' && domainId) {
+      handleConsentCallback(domainId, tenantFromMs).catch(() => {});
+      sessionStorage.removeItem('ms_consent_pending_domain_id');
       window.history.replaceState({}, '', window.location.pathname);
     } else if (params.get('error')) {
       toast({
@@ -116,10 +120,27 @@ export default function AdminDashboard() {
         description: params.get('error_description') || params.get('error') || 'Unknown error',
         variant: 'destructive',
       });
+      sessionStorage.removeItem('ms_consent_pending_domain_id');
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin]);
+
+  const handleConsentCallback = async (domainId: string, tenantId: string | null) => {
+    try {
+      const update: Record<string, any> = {
+        microsoft_consent_granted: true,
+        microsoft_consent_granted_at: new Date().toISOString(),
+      };
+      if (tenantId) update.microsoft_tenant_id = tenantId;
+      const { error } = await supabase.from('allowed_domains').update(update).eq('id', domainId);
+      if (error) throw error;
+      toast({ title: 'Microsoft consent granted', description: 'Tenant authorization recorded.' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error saving consent', description: error.message, variant: 'destructive' });
+    }
+  };
 
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-api', {
