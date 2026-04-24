@@ -488,9 +488,19 @@ export default function AdminDashboard() {
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
+          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="groups" className="space-y-6">
+          <PermissionGroupsPanel
+            organizationId={profile?.organization_id ?? null}
+            invoke={adminInvoke}
+            groups={groups}
+            onChanged={fetchData}
+          />
+        </TabsContent>
 
         {/* USERS TAB */}
         <TabsContent value="users" className="space-y-6">
