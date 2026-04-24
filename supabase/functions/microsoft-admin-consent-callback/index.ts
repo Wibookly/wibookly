@@ -1,0 +1,107 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+serve(async (req) => {
+  try {
+    const url = new URL(req.url);
+    const error = url.searchParams.get('error');
+    const errorDescription = url.searchParams.get('error_description');
+    const adminConsent = url.searchParams.get('admin_consent');
+    const tenantId = url.searchParams.get('tenant');
+    const stateParam = url.searchParams.get('state');
+
+    const state = parseState(stateParam);
+    const appUrl = resolveAppUrl(state.appOrigin);
+
+    if (!state.domainId) {
+      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Missing domain reference.')}`);
+    }
+
+    if (error) {
+      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent(errorDescription || error)}`);
+    }
+
+    if (adminConsent !== 'True') {
+      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Microsoft consent was not completed.')}`);
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Backend configuration is incomplete.')}`);
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const update: Record<string, string> = {
+      microsoft_consent_granted_at: new Date().toISOString(),
+    };
+
+    if (tenantId) {
+      update.microsoft_tenant_id = tenantId;
+    }
+
+    const { error: updateError } = await adminClient
+      .from('allowed_domains')
+      .update({
+        microsoft_consent_granted: true,
+        ...update,
+      })
+      .eq('id', state.domainId);
+
+    if (updateError) {
+      console.error('Failed to persist Microsoft admin consent', updateError);
+      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Failed to save Microsoft consent.')}`);
+    }
+
+    return redirect(`${appUrl}/admin?ms_consent=success&message=${encodeURIComponent('Tenant authorization recorded.')}`);
+  } catch (error) {
+    console.error('Microsoft admin consent callback error', error);
+    const fallbackUrl = getFallbackAppUrl();
+    return redirect(`${fallbackUrl}/admin?ms_consent=error&message=${encodeURIComponent('Unexpected Microsoft consent error.')}`);
+  }
+});
+
+function parseState(stateParam: string | null): { domainId?: string; appOrigin?: string } {
+  if (!stateParam) return {};
+
+  try {
+    const parsed = JSON.parse(atob(stateParam));
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getFallbackAppUrl(): string {
+  return 'https://energyforwardai.lovable.app';
+}
+
+function resolveAppUrl(appOrigin?: unknown): string {
+  const fallback = getFallbackAppUrl();
+
+  if (typeof appOrigin !== 'string' || !appOrigin) return fallback;
+
+  try {
+    const url = new URL(appOrigin);
+    const host = url.hostname.toLowerCase();
+    const isLovable = host.endsWith('.lovable.app') || host.endsWith('.lovableproject.com');
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    const isCustomDomain = host === 'inboxiq.energyforward.com';
+
+    if (!isLovable && !isLocal && !isCustomDomain) return fallback;
+    if (url.protocol !== 'https:' && !isLocal) return fallback;
+
+    return url.origin;
+  } catch {
+    return fallback;
+  }
+}
+
+function redirect(location: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: { Location: location },
+  });
+}
