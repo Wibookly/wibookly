@@ -499,8 +499,17 @@ export default function AdminDashboard() {
           {/* Create User */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5" /> Create New User</CardTitle>
-              <CardDescription>Create an account for a team member. Their domain must be authorized.</CardDescription>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5" /> Create New User</CardTitle>
+                  <CardDescription>Create an account for a team member. Their domain must be authorized.</CardDescription>
+                </div>
+                <BulkCreateUsersDialog
+                  groups={groups}
+                  invoke={adminInvoke}
+                  onCompleted={fetchData}
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

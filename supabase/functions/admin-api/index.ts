@@ -61,21 +61,36 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
 
   const userId = newUser.user.id;
 
-  await adminClient.from('user_profiles').insert({
+  const rollback = async (reason: string): Promise<CreateUserResult> => {
+    await adminClient.from('user_group_memberships').delete().eq('user_id', userId);
+    await adminClient.from('user_roles').delete().eq('user_id', userId);
+    await adminClient.from('organization_members').delete().eq('user_id', userId);
+    await adminClient.from('user_profiles').delete().eq('user_id', userId);
+    await adminClient.auth.admin.deleteUser(userId);
+    return { success: false, error: reason };
+  };
+
+  const { error: profileErr } = await adminClient.from('user_profiles').insert({
     user_id: userId, email, full_name: input.full_name, organization_id: org!.id,
   });
-  await adminClient.from('organization_members').insert({
+  if (profileErr) return await rollback(`Profile create failed: ${profileErr.message}`);
+
+  const { error: memberErr } = await adminClient.from('organization_members').insert({
     user_id: userId, organization_id: org!.id, role: 'member',
   });
-  await adminClient.from('user_roles').insert({
+  if (memberErr) return await rollback(`Membership create failed: ${memberErr.message}`);
+
+  const { error: roleErr } = await adminClient.from('user_roles').insert({
     user_id: userId, organization_id: org!.id, role: 'member',
   });
+  if (roleErr) return await rollback(`Role create failed: ${roleErr.message}`);
 
   if (input.group_ids && input.group_ids.length > 0) {
     const memberships = input.group_ids.map(gid => ({
       group_id: gid, user_id: userId, organization_id: org!.id,
     }));
-    await adminClient.from('user_group_memberships').insert(memberships);
+    const { error: groupErr } = await adminClient.from('user_group_memberships').insert(memberships);
+    if (groupErr) return await rollback(`Group assignment failed: ${groupErr.message}`);
   }
 
   return { success: true, user_id: userId };
