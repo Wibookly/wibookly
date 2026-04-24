@@ -107,7 +107,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       }
       setDomain(d);
       setDomainSaved(true);
-      setUserDrafts([{ full_name: '', email: `@${d}`, password: '', groupNames: [] }]);
+      setUserDrafts([emptyUser()]);
       setStep(2);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -194,26 +194,26 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const removeUserDraft = (idx: number) => setUserDrafts(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmitUsers = async () => {
-    const valid = userDrafts.filter(u => u.email.trim() && u.email.trim() !== `@${domain}` && u.full_name.trim());
+    // Build full email from local part + authorized domain
+    const enriched = userDrafts.map(u => {
+      const local = u.email.trim().toLowerCase().replace(/@.*$/, '').replace(/^@/, '');
+      return { ...u, fullEmail: local ? `${local}@${domain}` : '' };
+    });
+    const valid = enriched.filter(u => u.fullEmail && u.full_name.trim());
     if (valid.length === 0) {
-      toast({ title: 'No users to create', description: 'Add at least one user with name and email.', variant: 'destructive' });
-      return;
-    }
-    // Validate domain match
-    const wrongDomain = valid.find(u => !u.email.trim().toLowerCase().endsWith(`@${domain}`));
-    if (wrongDomain) {
-      toast({
-        title: 'Email domain mismatch',
-        description: `${wrongDomain.email} is not on @${domain}. All users in this wizard must use the authorized domain.`,
-        variant: 'destructive',
-      });
+      const missingName = enriched.some(u => u.fullEmail && !u.full_name.trim());
+      const missingEmail = enriched.some(u => !u.fullEmail && u.full_name.trim());
+      let msg = 'Add at least one user with both a name and an email username.';
+      if (missingName && !missingEmail) msg = 'Please fill in the Full Name for each user.';
+      else if (missingEmail && !missingName) msg = 'Please fill in the email username (the part before @) for each user.';
+      toast({ title: 'No users to create', description: msg, variant: 'destructive' });
       return;
     }
     setSubmittingUsers(true);
     setResults(null);
     try {
       const payload = valid.map(u => ({
-        email: u.email.trim().toLowerCase(),
+        email: u.fullEmail,
         full_name: u.full_name.trim(),
         password: u.password.trim() || generatePassword(),
         group_ids: u.groupNames
