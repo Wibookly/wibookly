@@ -16,6 +16,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound, ShieldCheck, ExternalLink } from 'lucide-react';
+import PermissionGroupsPanel, { type PermissionGroup } from '@/components/admin/PermissionGroupsPanel';
+import BulkCreateUsersDialog from '@/components/admin/BulkCreateUsersDialog';
+import UserGroupsAssignment from '@/components/admin/UserGroupsAssignment';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -58,6 +61,7 @@ interface ManagedUser {
   organization_id: string;
   is_disabled: boolean;
   features: UserFeature[];
+  group_ids?: string[];
 }
 
 export default function AdminDashboard() {
@@ -65,6 +69,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [domains, setDomains] = useState<AllowedDomain[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [groups, setGroups] = useState<PermissionGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [newDomain, setNewDomain] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
@@ -155,15 +160,17 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [domainsRes, usersRes, keysRes] = await Promise.all([
+      const [domainsRes, usersRes, keysRes, groupsRes] = await Promise.all([
         supabase.from('allowed_domains').select('*').order('created_at', { ascending: false }),
         adminInvoke('list_users'),
         adminInvoke('get_api_keys'),
+        adminInvoke('list_groups'),
       ]);
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
       if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (groupsRes?.groups) setGroups(groupsRes.groups);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -481,9 +488,19 @@ export default function AdminDashboard() {
       <Tabs defaultValue="users">
         <TabsList>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
+          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="groups" className="space-y-6">
+          <PermissionGroupsPanel
+            organizationId={profile?.organization_id ?? null}
+            invoke={adminInvoke}
+            groups={groups}
+            onChanged={fetchData}
+          />
+        </TabsContent>
 
         {/* USERS TAB */}
         <TabsContent value="users" className="space-y-6">

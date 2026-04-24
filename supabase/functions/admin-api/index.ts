@@ -1,10 +1,86 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+interface CreateUserInput {
+  email: string;
+  password: string;
+  full_name: string;
+  group_ids?: string[];
+}
+
+interface CreateUserResult {
+  success: boolean;
+  user_id?: string;
+  error?: string;
+}
+
+async function createSingleUser(adminClient: SupabaseClient, input: CreateUserInput): Promise<CreateUserResult> {
+  const email = input.email.trim().toLowerCase();
+  const domain = email.split('@')[1];
+  if (!domain) return { success: false, error: 'Invalid email' };
+  if (!input.password || input.password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
+
+  const { data: domainData } = await adminClient
+    .from('allowed_domains')
+    .select('id, organization_name')
+    .eq('domain', domain)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!domainData) return { success: false, error: `Domain ${domain} is not authorized` };
+
+  // Find existing org for this domain (avoid duplicates)
+  const orgName = domainData.organization_name || domain;
+  let { data: org } = await adminClient
+    .from('organizations')
+    .select('id')
+    .ilike('name', orgName)
+    .maybeSingle();
+
+  if (!org) {
+    const { data: created, error: orgErr } = await adminClient
+      .from('organizations')
+      .insert({ name: orgName })
+      .select('id')
+      .single();
+    if (orgErr) return { success: false, error: `Org create failed: ${orgErr.message}` };
+    org = created;
+  }
+
+  const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { full_name: input.full_name },
+  });
+  if (createError || !newUser?.user) return { success: false, error: createError?.message || 'Failed to create auth user' };
+
+  const userId = newUser.user.id;
+
+  await adminClient.from('user_profiles').insert({
+    user_id: userId, email, full_name: input.full_name, organization_id: org!.id,
+  });
+  await adminClient.from('organization_members').insert({
+    user_id: userId, organization_id: org!.id, role: 'member',
+  });
+  await adminClient.from('user_roles').insert({
+    user_id: userId, organization_id: org!.id, role: 'member',
+  });
+
+  if (input.group_ids && input.group_ids.length > 0) {
+    const memberships = input.group_ids.map(gid => ({
+      group_id: gid, user_id: userId, organization_id: org!.id,
+    }));
+    await adminClient.from('user_group_memberships').insert(memberships);
+  }
+
+  return { success: true, user_id: userId };
+}
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -56,16 +132,23 @@ serve(async (req) => {
           .from('user_feature_access')
           .select('user_id, feature_key, is_enabled');
 
+        // Get group memberships for all users
+        const { data: memberships } = await adminClient
+          .from('user_group_memberships')
+          .select('user_id, group_id');
+
         // Get auth user metadata (disabled status)
         const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
 
         const enrichedProfiles = (profiles || []).map((p: any) => {
           const authUser = authUsers?.find((u: any) => u.id === p.user_id);
           const userFeatures = (features || []).filter((f: any) => f.user_id === p.user_id);
+          const userGroups = (memberships || []).filter((m: any) => m.user_id === p.user_id).map((m: any) => m.group_id);
           return {
             ...p,
             is_disabled: authUser?.banned_until ? new Date(authUser.banned_until) > new Date() : false,
             features: userFeatures,
+            group_ids: userGroups,
           };
         });
 
@@ -75,75 +158,52 @@ serve(async (req) => {
       }
 
       case 'create_user': {
-        const { email, password, full_name } = payload;
+        const { email, password, full_name, group_ids } = payload;
         if (!email || !password || !full_name) {
           return new Response(JSON.stringify({ error: 'email, password, and full_name are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids });
+        if (!result.success) {
+          return new Response(JSON.stringify({ error: result.error }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ success: true, user_id: result.user_id }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-        // Validate domain
-        const domain = email.split('@')[1]?.toLowerCase();
-        const { data: domainData } = await adminClient
-          .from('allowed_domains')
-          .select('id, organization_name')
-          .eq('domain', domain)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (!domainData) {
-          return new Response(JSON.stringify({ error: `Domain ${domain} is not authorized. Add it first.` }), {
+      case 'bulk_create_users': {
+        const { users } = payload as { users: Array<{ email: string; password: string; full_name: string; group_ids?: string[] }> };
+        if (!Array.isArray(users) || users.length === 0) {
+          return new Response(JSON.stringify({ error: 'users array is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (users.length > 200) {
+          return new Response(JSON.stringify({ error: 'Maximum 200 users per batch' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
 
-        // Create auth user with email confirmed
-        const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { full_name },
-        });
-
-        if (createError) throw createError;
-
-        // Create organization for the user
-        const orgName = domainData.organization_name || `${domain} Organization`;
-        const { data: org, error: orgError } = await adminClient
-          .from('organizations')
-          .insert({ name: orgName })
-          .select()
-          .single();
-
-        // Use service role to bypass RLS for setup
-        if (org) {
-          // Create user profile
-          await adminClient.from('user_profiles').insert({
-            user_id: newUser.user.id,
-            email,
-            full_name,
-            organization_id: org.id,
-          });
-
-          // Create org membership
-          await adminClient.from('organization_members').insert({
-            user_id: newUser.user.id,
-            organization_id: org.id,
-            role: 'member',
-          });
-
-          // Create user role
-          await adminClient.from('user_roles').insert({
-            user_id: newUser.user.id,
-            organization_id: org.id,
-            role: 'member',
-          });
+        const results: Array<{ email: string; success: boolean; error?: string; user_id?: string }> = [];
+        for (const u of users) {
+          if (!u.email || !u.password || !u.full_name) {
+            results.push({ email: u.email || '(missing)', success: false, error: 'Missing email, password, or full_name' });
+            continue;
+          }
+          const r = await createSingleUser(adminClient, u);
+          results.push({ email: u.email, success: r.success, error: r.error, user_id: r.user_id });
         }
 
-        return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
+        const successCount = results.filter(r => r.success).length;
+        return new Response(JSON.stringify({ success: true, results, summary: { total: users.length, succeeded: successCount, failed: users.length - successCount } }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
       case 'disable_user': {
         const { user_id } = payload;
@@ -325,6 +385,140 @@ serve(async (req) => {
 
         if (error) throw error;
 
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'list_groups': {
+        const { data: groups, error } = await adminClient
+          .from('permission_groups')
+          .select('id, name, description, organization_id, created_at')
+          .order('name');
+        if (error) throw error;
+
+        const { data: groupFeatures } = await adminClient
+          .from('group_features')
+          .select('group_id, feature_key, is_enabled');
+
+        const { data: members } = await adminClient
+          .from('user_group_memberships')
+          .select('group_id, user_id');
+
+        const enriched = (groups || []).map((g: any) => ({
+          ...g,
+          features: (groupFeatures || []).filter((f: any) => f.group_id === g.id),
+          member_count: (members || []).filter((m: any) => m.group_id === g.id).length,
+        }));
+
+        return new Response(JSON.stringify({ groups: enriched }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'create_group': {
+        const { name, description, organization_id } = payload;
+        if (!name || !organization_id) {
+          return new Response(JSON.stringify({ error: 'name and organization_id are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data, error } = await adminClient
+          .from('permission_groups')
+          .insert({ name: name.trim(), description: description?.trim() || null, organization_id, created_by: caller.id })
+          .select()
+          .single();
+        if (error) {
+          const msg = error.code === '23505' ? 'A group with that name already exists' : error.message;
+          return new Response(JSON.stringify({ error: msg }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ success: true, group: data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'update_group': {
+        const { group_id, name, description } = payload;
+        if (!group_id) {
+          return new Response(JSON.stringify({ error: 'group_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const update: Record<string, any> = {};
+        if (name !== undefined) update.name = name.trim();
+        if (description !== undefined) update.description = description?.trim() || null;
+        const { error } = await adminClient
+          .from('permission_groups')
+          .update(update)
+          .eq('id', group_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'delete_group': {
+        const { group_id } = payload;
+        if (!group_id) {
+          return new Response(JSON.stringify({ error: 'group_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('permission_groups')
+          .delete()
+          .eq('id', group_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_group_feature': {
+        const { group_id, feature_key, is_enabled } = payload;
+        if (!group_id || !feature_key) {
+          return new Response(JSON.stringify({ error: 'group_id and feature_key are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('group_features')
+          .upsert({ group_id, feature_key, is_enabled: !!is_enabled }, { onConflict: 'group_id,feature_key' });
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_user_groups': {
+        const { user_id, group_ids } = payload as { user_id: string; group_ids: string[] };
+        if (!user_id || !Array.isArray(group_ids)) {
+          return new Response(JSON.stringify({ error: 'user_id and group_ids array are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('organization_id')
+          .eq('user_id', user_id)
+          .maybeSingle();
+        if (!profile) {
+          return new Response(JSON.stringify({ error: 'User profile not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Replace memberships
+        await adminClient.from('user_group_memberships').delete().eq('user_id', user_id);
+        if (group_ids.length > 0) {
+          const rows = group_ids.map((gid: string) => ({
+            group_id: gid, user_id, organization_id: profile.organization_id, created_by: caller.id,
+          }));
+          const { error } = await adminClient.from('user_group_memberships').insert(rows);
+          if (error) throw error;
+        }
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
