@@ -19,6 +19,7 @@ import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, C
 import PermissionGroupsPanel, { type PermissionGroup } from '@/components/admin/PermissionGroupsPanel';
 import BulkCreateUsersDialog from '@/components/admin/BulkCreateUsersDialog';
 import UserGroupsAssignment from '@/components/admin/UserGroupsAssignment';
+import OnboardingWizard from '@/components/admin/OnboardingWizard';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -485,13 +486,23 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="setup">
         <TabsList>
+          <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="setup" className="space-y-6">
+          <OnboardingWizard
+            invoke={adminInvoke}
+            existingGroups={groups}
+            organizationId={profile?.organization_id ?? null}
+            onCompleted={fetchData}
+          />
+        </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
           <PermissionGroupsPanel
