@@ -15,7 +15,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound, ShieldCheck, ExternalLink } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -36,7 +36,12 @@ interface AllowedDomain {
   is_active: boolean;
   max_users: number;
   created_at: string;
+  microsoft_tenant_id: string | null;
+  microsoft_consent_granted: boolean;
+  microsoft_consent_granted_at: string | null;
 }
+
+const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
 
 interface UserFeature {
   user_id: string;
@@ -90,6 +95,30 @@ export default function AdminDashboard() {
     if (isSuperAdmin) {
       fetchData();
     }
+  }, [isSuperAdmin]);
+
+  // Detect Microsoft admin consent callback redirect
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ms_consent') === 'success') {
+      const domainId = params.get('domain_id') || params.get('state');
+      const adminConsent = params.get('admin_consent');
+      // Microsoft returns admin_consent=True on success
+      if (domainId && (adminConsent === 'True' || adminConsent === null)) {
+        handleToggleConsentGranted(domainId, true).catch(() => {});
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('error')) {
+      toast({
+        title: 'Microsoft consent failed',
+        description: params.get('error_description') || params.get('error') || 'Unknown error',
+        variant: 'destructive',
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin]);
 
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
@@ -166,6 +195,56 @@ export default function AdminDashboard() {
       if (error) throw error;
       fetchData();
       toast({ title: 'Domain removed', description: `${domain} has been removed.` });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const buildAdminConsentUrl = (domain: AllowedDomain) => {
+    const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
+    const redirectUri = `${window.location.origin}/admin?ms_consent=success&domain_id=${domain.id}`;
+    const params = new URLSearchParams({
+      client_id: MICROSOFT_CLIENT_ID,
+      redirect_uri: redirectUri,
+      state: domain.id,
+    });
+    return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/adminconsent?${params.toString()}`;
+  };
+
+  const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
+    const url = buildAdminConsentUrl(domain);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    toast({
+      title: 'Microsoft consent opened',
+      description: `Sign in with a global admin of ${domain.domain} and click Accept. Then click "Mark as granted" below.`,
+    });
+  };
+
+  const handleSetTenantId = async (id: string, tenantId: string) => {
+    try {
+      const { error } = await supabase
+        .from('allowed_domains')
+        .update({ microsoft_tenant_id: tenantId.trim() || null })
+        .eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggleConsentGranted = async (id: string, granted: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('allowed_domains')
+        .update({
+          microsoft_consent_granted: granted,
+          microsoft_consent_granted_at: granted ? new Date().toISOString() : null,
+        })
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: granted ? 'Consent marked as granted' : 'Consent reset' });
+      fetchData();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -568,36 +647,106 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-3">
                   {domains.map(domain => (
-                    <div key={domain.id} className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-                      <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-foreground">{domain.domain}</p>
-                          {domain.organization_name && <p className="text-sm text-muted-foreground">{domain.organization_name}</p>}
+                    <div key={domain.id} className="p-4 rounded-lg border border-border bg-background space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <Globe className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-foreground">{domain.domain}</p>
+                            {domain.organization_name && <p className="text-sm text-muted-foreground">{domain.organization_name}</p>}
+                          </div>
+                          <Badge variant={domain.is_active ? 'default' : 'secondary'}>{domain.is_active ? 'Active' : 'Disabled'}</Badge>
+                          {domain.microsoft_consent_granted && (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1">
+                              <ShieldCheck className="w-3 h-3" /> MS Consent
+                            </Badge>
+                          )}
                         </div>
-                        <Badge variant={domain.is_active ? 'default' : 'secondary'}>{domain.is_active ? 'Active' : 'Disabled'}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleToggleDomain(domain.id, domain.is_active)}>
+                            {domain.is_active ? 'Disable' : 'Enable'}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove domain?</AlertDialogTitle>
+                                <AlertDialogDescription>Users from {domain.domain} will no longer be able to sign up.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDomain(domain.id, domain.domain)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Remove
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleToggleDomain(domain.id, domain.is_active)}>
-                          {domain.is_active ? 'Disable' : 'Enable'}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove domain?</AlertDialogTitle>
-                              <AlertDialogDescription>Users from {domain.domain} will no longer be able to sign up.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteDomain(domain.id, domain.domain)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Remove
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+
+                      {/* Microsoft Tenant Authorization */}
+                      <div className="pt-3 border-t border-border/50 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">Microsoft Tenant Authorization</p>
+                            <p className="text-xs text-muted-foreground">
+                              Grant tenant-wide consent so any user from <span className="font-medium">{domain.domain}</span> can sign in without the "Need admin approval" screen. Must be done by a global admin of the Microsoft tenant.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                          <div className="space-y-1">
+                            <Label htmlFor={`tenant-${domain.id}`} className="text-xs">
+                              Tenant ID or domain (optional, defaults to <span className="font-mono">{domain.domain}</span>)
+                            </Label>
+                            <Input
+                              id={`tenant-${domain.id}`}
+                              placeholder={domain.domain}
+                              defaultValue={domain.microsoft_tenant_id || ''}
+                              onBlur={(e) => {
+                                if ((e.target.value || '') !== (domain.microsoft_tenant_id || '')) {
+                                  handleSetTenantId(domain.id, e.target.value);
+                                }
+                              }}
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleGrantMicrosoftConsent(domain)}
+                            className="gap-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Grant Microsoft Consent
+                          </Button>
+                          {domain.microsoft_consent_granted ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleConsentGranted(domain.id, false)}
+                            >
+                              Reset
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleConsentGranted(domain.id, true)}
+                            >
+                              Mark as granted
+                            </Button>
+                          )}
+                        </div>
+
+                        {domain.microsoft_consent_granted_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Consent granted {new Date(domain.microsoft_consent_granted_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
