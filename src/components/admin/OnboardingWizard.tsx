@@ -432,8 +432,19 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
                       <Input placeholder="John Doe" value={u.full_name} onChange={e => updateUserDraft(idx, { full_name: e.target.value })} />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Email (must end in @{domain})</Label>
-                      <Input type="email" placeholder={`john@${domain}`} value={u.email} onChange={e => updateUserDraft(idx, { email: e.target.value })} />
+                      <Label className="text-xs">Email username</Label>
+                      <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                        <Input
+                          type="text"
+                          placeholder="john"
+                          value={u.email}
+                          onChange={e => updateUserDraft(idx, { email: e.target.value.replace(/@.*$/, '') })}
+                          className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none flex-1"
+                        />
+                        <div className="flex items-center px-3 bg-muted text-sm text-muted-foreground border-l border-input whitespace-nowrap">
+                          @{domain}
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Password (auto if blank)</Label>
@@ -497,7 +508,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
                 )}
                 <Button onClick={handleSubmitUsers} disabled={submittingUsers}>
                   {submittingUsers ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                  Create {userDrafts.filter(u => u.email.trim() && u.email.trim() !== `@${domain}`).length} User(s)
+                  Create {userDrafts.filter(u => u.email.trim() && u.full_name.trim()).length} User(s)
                 </Button>
               </div>
             </div>
