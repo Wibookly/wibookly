@@ -1,10 +1,86 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+interface CreateUserInput {
+  email: string;
+  password: string;
+  full_name: string;
+  group_ids?: string[];
+}
+
+interface CreateUserResult {
+  success: boolean;
+  user_id?: string;
+  error?: string;
+}
+
+async function createSingleUser(adminClient: SupabaseClient, input: CreateUserInput): Promise<CreateUserResult> {
+  const email = input.email.trim().toLowerCase();
+  const domain = email.split('@')[1];
+  if (!domain) return { success: false, error: 'Invalid email' };
+  if (!input.password || input.password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
+
+  const { data: domainData } = await adminClient
+    .from('allowed_domains')
+    .select('id, organization_name')
+    .eq('domain', domain)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!domainData) return { success: false, error: `Domain ${domain} is not authorized` };
+
+  // Find existing org for this domain (avoid duplicates)
+  const orgName = domainData.organization_name || domain;
+  let { data: org } = await adminClient
+    .from('organizations')
+    .select('id')
+    .ilike('name', orgName)
+    .maybeSingle();
+
+  if (!org) {
+    const { data: created, error: orgErr } = await adminClient
+      .from('organizations')
+      .insert({ name: orgName })
+      .select('id')
+      .single();
+    if (orgErr) return { success: false, error: `Org create failed: ${orgErr.message}` };
+    org = created;
+  }
+
+  const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { full_name: input.full_name },
+  });
+  if (createError || !newUser?.user) return { success: false, error: createError?.message || 'Failed to create auth user' };
+
+  const userId = newUser.user.id;
+
+  await adminClient.from('user_profiles').insert({
+    user_id: userId, email, full_name: input.full_name, organization_id: org!.id,
+  });
+  await adminClient.from('organization_members').insert({
+    user_id: userId, organization_id: org!.id, role: 'member',
+  });
+  await adminClient.from('user_roles').insert({
+    user_id: userId, organization_id: org!.id, role: 'member',
+  });
+
+  if (input.group_ids && input.group_ids.length > 0) {
+    const memberships = input.group_ids.map(gid => ({
+      group_id: gid, user_id: userId, organization_id: org!.id,
+    }));
+    await adminClient.from('user_group_memberships').insert(memberships);
+  }
+
+  return { success: true, user_id: userId };
+}
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
