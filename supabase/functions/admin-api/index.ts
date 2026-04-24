@@ -390,6 +390,140 @@ serve(async (req) => {
         });
       }
 
+      case 'list_groups': {
+        const { data: groups, error } = await adminClient
+          .from('permission_groups')
+          .select('id, name, description, organization_id, created_at')
+          .order('name');
+        if (error) throw error;
+
+        const { data: groupFeatures } = await adminClient
+          .from('group_features')
+          .select('group_id, feature_key, is_enabled');
+
+        const { data: members } = await adminClient
+          .from('user_group_memberships')
+          .select('group_id, user_id');
+
+        const enriched = (groups || []).map((g: any) => ({
+          ...g,
+          features: (groupFeatures || []).filter((f: any) => f.group_id === g.id),
+          member_count: (members || []).filter((m: any) => m.group_id === g.id).length,
+        }));
+
+        return new Response(JSON.stringify({ groups: enriched }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'create_group': {
+        const { name, description, organization_id } = payload;
+        if (!name || !organization_id) {
+          return new Response(JSON.stringify({ error: 'name and organization_id are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data, error } = await adminClient
+          .from('permission_groups')
+          .insert({ name: name.trim(), description: description?.trim() || null, organization_id, created_by: caller.id })
+          .select()
+          .single();
+        if (error) {
+          const msg = error.code === '23505' ? 'A group with that name already exists' : error.message;
+          return new Response(JSON.stringify({ error: msg }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ success: true, group: data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'update_group': {
+        const { group_id, name, description } = payload;
+        if (!group_id) {
+          return new Response(JSON.stringify({ error: 'group_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const update: Record<string, any> = {};
+        if (name !== undefined) update.name = name.trim();
+        if (description !== undefined) update.description = description?.trim() || null;
+        const { error } = await adminClient
+          .from('permission_groups')
+          .update(update)
+          .eq('id', group_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'delete_group': {
+        const { group_id } = payload;
+        if (!group_id) {
+          return new Response(JSON.stringify({ error: 'group_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('permission_groups')
+          .delete()
+          .eq('id', group_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_group_feature': {
+        const { group_id, feature_key, is_enabled } = payload;
+        if (!group_id || !feature_key) {
+          return new Response(JSON.stringify({ error: 'group_id and feature_key are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('group_features')
+          .upsert({ group_id, feature_key, is_enabled: !!is_enabled }, { onConflict: 'group_id,feature_key' });
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_user_groups': {
+        const { user_id, group_ids } = payload as { user_id: string; group_ids: string[] };
+        if (!user_id || !Array.isArray(group_ids)) {
+          return new Response(JSON.stringify({ error: 'user_id and group_ids array are required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('organization_id')
+          .eq('user_id', user_id)
+          .maybeSingle();
+        if (!profile) {
+          return new Response(JSON.stringify({ error: 'User profile not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Replace memberships
+        await adminClient.from('user_group_memberships').delete().eq('user_id', user_id);
+        if (group_ids.length > 0) {
+          const rows = group_ids.map((gid: string) => ({
+            group_id: gid, user_id, organization_id: profile.organization_id, created_by: caller.id,
+          }));
+          const { error } = await adminClient.from('user_group_memberships').insert(rows);
+          if (error) throw error;
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
