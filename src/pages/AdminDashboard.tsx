@@ -718,7 +718,7 @@ export default function AdminDashboard() {
                           <div className="flex-1">
                             <p className="text-sm font-medium text-foreground">Microsoft Tenant Authorization</p>
                             <p className="text-xs text-muted-foreground">
-                              Grant tenant-wide consent so any user from <span className="font-medium">{domain.domain}</span> can sign in without the "Need admin approval" screen. Must be done by a global admin of the Microsoft tenant.
+                              The Global Admin of <span className="font-medium">{domain.domain}</span> must click below and sign in to grant InboxIQ tenant-wide access. Once granted, this status updates automatically and all users from this domain can sign in without admin approval prompts.
                             </p>
                           </div>
                         </div>
