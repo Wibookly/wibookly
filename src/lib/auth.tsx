@@ -131,64 +131,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError) throw authError;
       if (!authData.user) throw new Error('No user returned from signup');
 
-      // Create organization with validated name
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({ name: orgNameValidation.data })
-        .select()
-        .single();
+      // Server-side initialization: looks up the user's domain in allowed_domains
+      // and either joins them to the existing organization or creates one safely.
+      const { data: orgId, error: initError } = await supabase.rpc('signup_initialize_user', {
+        _full_name: fullName,
+        _title: title || null,
+        _organization_name: orgNameValidation.data,
+      });
 
-      if (orgError) throw orgError;
+      if (initError) throw initError;
 
-      // Create user profile with full name and title
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          user_id: authData.user.id,
-          organization_id: orgData.id,
-          email: email,
-          full_name: fullName,
-          title: title || null
-        });
-
-      if (profileError) throw profileError;
-
-      // Create user role as admin
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          organization_id: orgData.id,
-          role: 'admin'
-        });
-
-      if (roleError) throw roleError;
-
-      // Create default categories
-      const defaultCategories = [
-        { name: 'Urgent', color: '#ef4444', sort_order: 0 },
-        { name: 'Follow Up', color: '#f97316', sort_order: 1 },
-        { name: 'Approvals', color: '#eab308', sort_order: 2 },
-        { name: 'Events', color: '#22c55e', sort_order: 3 },
-        { name: 'Customers', color: '#3b82f6', sort_order: 4 },
-        { name: 'Vendors', color: '#8b5cf6', sort_order: 5 },
-        { name: 'Internal', color: '#ec4899', sort_order: 6 },
-        { name: 'Projects', color: '#06b6d4', sort_order: 7 },
-        { name: 'Finance', color: '#84cc16', sort_order: 8 },
-        { name: 'FYI', color: '#6b7280', sort_order: 9 }
-      ];
-
-      await supabase
+      // Best-effort: seed default categories + AI settings if none exist yet for this org
+      const { data: existingCats } = await supabase
         .from('categories')
-        .insert(defaultCategories.map(cat => ({ ...cat, organization_id: orgData.id })));
+        .select('id')
+        .eq('organization_id', orgId as string)
+        .limit(1);
 
-      // Create default AI settings
-      await supabase
-        .from('ai_settings')
-        .insert({
-          organization_id: orgData.id,
-          writing_style: 'professional'
-        });
+      if (!existingCats || existingCats.length === 0) {
+        const defaultCategories = [
+          { name: 'Urgent', color: '#ef4444', sort_order: 0 },
+          { name: 'Follow Up', color: '#f97316', sort_order: 1 },
+          { name: 'Approvals', color: '#eab308', sort_order: 2 },
+          { name: 'Events', color: '#22c55e', sort_order: 3 },
+          { name: 'Customers', color: '#3b82f6', sort_order: 4 },
+          { name: 'Vendors', color: '#8b5cf6', sort_order: 5 },
+          { name: 'Internal', color: '#ec4899', sort_order: 6 },
+          { name: 'Projects', color: '#06b6d4', sort_order: 7 },
+          { name: 'Finance', color: '#84cc16', sort_order: 8 },
+          { name: 'FYI', color: '#6b7280', sort_order: 9 },
+        ];
+
+        await supabase
+          .from('categories')
+          .insert(defaultCategories.map(cat => ({ ...cat, organization_id: orgId as string })));
+
+        await supabase
+          .from('ai_settings')
+          .insert({ organization_id: orgId as string, writing_style: 'professional' });
+      }
 
       return { error: null };
     } catch (error) {
