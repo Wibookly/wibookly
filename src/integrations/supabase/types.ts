@@ -1047,6 +1047,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_in_org: {
+        Args: {
+          _organization_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_domain_allowed: { Args: { _email: string }; Returns: boolean }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
