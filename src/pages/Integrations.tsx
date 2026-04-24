@@ -379,8 +379,24 @@ export default function Integrations() {
 
       if (data?.authUrl) {
         logAttempt({ provider, stage: 'redirect_to_provider', meta: { authUrl: data.authUrl.substring(0, 100), calendarOnly } });
-        // Redirect to OAuth provider
-        window.location.href = data.authUrl;
+
+        const isEmbeddedPreview = window.self !== window.top;
+
+        if (isEmbeddedPreview) {
+          const popup = window.open(data.authUrl, '_blank', 'noopener,noreferrer');
+
+          if (!popup) {
+            window.location.assign(data.authUrl);
+          } else {
+            setConnecting(null);
+            toast({
+              title: 'Microsoft sign-in opened',
+              description: 'Continue the connection in the new tab that just opened.',
+            });
+          }
+        } else {
+          window.location.assign(data.authUrl);
+        }
       } else {
         throw new Error('No authorization URL received');
       }
