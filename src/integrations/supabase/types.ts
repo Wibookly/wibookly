@@ -211,6 +211,9 @@ export type Database = {
           id: string
           is_active: boolean
           max_users: number | null
+          microsoft_consent_granted: boolean
+          microsoft_consent_granted_at: string | null
+          microsoft_tenant_id: string | null
           organization_name: string | null
           updated_at: string
         }
@@ -221,6 +224,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_users?: number | null
+          microsoft_consent_granted?: boolean
+          microsoft_consent_granted_at?: string | null
+          microsoft_tenant_id?: string | null
           organization_name?: string | null
           updated_at?: string
         }
@@ -231,6 +237,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_users?: number | null
+          microsoft_consent_granted?: boolean
+          microsoft_consent_granted_at?: string | null
+          microsoft_tenant_id?: string | null
           organization_name?: string | null
           updated_at?: string
         }
