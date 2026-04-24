@@ -73,7 +73,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const [createdGroups, setCreatedGroups] = useState<PermissionGroup[]>([]);
 
   // Step 3
-  const [userDrafts, setUserDrafts] = useState<UserDraft[]>([emptyUser('')]);
+  const [userDrafts, setUserDrafts] = useState<UserDraft[]>([emptyUser()]);
   const [submittingUsers, setSubmittingUsers] = useState(false);
   const [results, setResults] = useState<{ email: string; success: boolean; error?: string }[] | null>(null);
 
@@ -190,7 +190,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       return { ...u, groupNames: has ? u.groupNames.filter(n => n !== groupName) : [...u.groupNames, groupName] };
     }));
   };
-  const addUserDraft = () => setUserDrafts(prev => [...prev, emptyUser(domain)]);
+  const addUserDraft = () => setUserDrafts(prev => [...prev, emptyUser()]);
   const removeUserDraft = (idx: number) => setUserDrafts(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmitUsers = async () => {
@@ -243,7 +243,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     setOrgName('');
     setDomainSaved(false);
     setCreatedGroups([]);
-    setUserDrafts([emptyUser('')]);
+    setUserDrafts([emptyUser()]);
     setResults(null);
   };
 
