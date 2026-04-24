@@ -647,36 +647,106 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-3">
                   {domains.map(domain => (
-                    <div key={domain.id} className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-                      <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-foreground">{domain.domain}</p>
-                          {domain.organization_name && <p className="text-sm text-muted-foreground">{domain.organization_name}</p>}
+                    <div key={domain.id} className="p-4 rounded-lg border border-border bg-background space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <Globe className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-foreground">{domain.domain}</p>
+                            {domain.organization_name && <p className="text-sm text-muted-foreground">{domain.organization_name}</p>}
+                          </div>
+                          <Badge variant={domain.is_active ? 'default' : 'secondary'}>{domain.is_active ? 'Active' : 'Disabled'}</Badge>
+                          {domain.microsoft_consent_granted && (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1">
+                              <ShieldCheck className="w-3 h-3" /> MS Consent
+                            </Badge>
+                          )}
                         </div>
-                        <Badge variant={domain.is_active ? 'default' : 'secondary'}>{domain.is_active ? 'Active' : 'Disabled'}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleToggleDomain(domain.id, domain.is_active)}>
+                            {domain.is_active ? 'Disable' : 'Enable'}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove domain?</AlertDialogTitle>
+                                <AlertDialogDescription>Users from {domain.domain} will no longer be able to sign up.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDomain(domain.id, domain.domain)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Remove
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleToggleDomain(domain.id, domain.is_active)}>
-                          {domain.is_active ? 'Disable' : 'Enable'}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove domain?</AlertDialogTitle>
-                              <AlertDialogDescription>Users from {domain.domain} will no longer be able to sign up.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteDomain(domain.id, domain.domain)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Remove
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+
+                      {/* Microsoft Tenant Authorization */}
+                      <div className="pt-3 border-t border-border/50 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">Microsoft Tenant Authorization</p>
+                            <p className="text-xs text-muted-foreground">
+                              Grant tenant-wide consent so any user from <span className="font-medium">{domain.domain}</span> can sign in without the "Need admin approval" screen. Must be done by a global admin of the Microsoft tenant.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                          <div className="space-y-1">
+                            <Label htmlFor={`tenant-${domain.id}`} className="text-xs">
+                              Tenant ID or domain (optional, defaults to <span className="font-mono">{domain.domain}</span>)
+                            </Label>
+                            <Input
+                              id={`tenant-${domain.id}`}
+                              placeholder={domain.domain}
+                              defaultValue={domain.microsoft_tenant_id || ''}
+                              onBlur={(e) => {
+                                if ((e.target.value || '') !== (domain.microsoft_tenant_id || '')) {
+                                  handleSetTenantId(domain.id, e.target.value);
+                                }
+                              }}
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleGrantMicrosoftConsent(domain)}
+                            className="gap-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Grant Microsoft Consent
+                          </Button>
+                          {domain.microsoft_consent_granted ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleConsentGranted(domain.id, false)}
+                            >
+                              Reset
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleConsentGranted(domain.id, true)}
+                            >
+                              Mark as granted
+                            </Button>
+                          )}
+                        </div>
+
+                        {domain.microsoft_consent_granted_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Consent granted {new Date(domain.microsoft_consent_granted_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
