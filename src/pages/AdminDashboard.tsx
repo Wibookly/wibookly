@@ -223,7 +223,9 @@ export default function AdminDashboard() {
 
   const buildAdminConsentUrl = (domain: AllowedDomain) => {
     const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
-    const redirectUri = `${window.location.origin}/admin?ms_consent=success&domain_id=${domain.id}`;
+    // IMPORTANT: redirect_uri must EXACTLY match the URI registered in Azure App Registration
+    // (no extra query parameters). We pass the domain id via `state` instead.
+    const redirectUri = `${window.location.origin}/admin`;
     const params = new URLSearchParams({
       client_id: MICROSOFT_CLIENT_ID,
       redirect_uri: redirectUri,
@@ -233,6 +235,8 @@ export default function AdminDashboard() {
   };
 
   const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
+    // Persist domain_id in case Microsoft strips/changes `state` (defensive fallback)
+    sessionStorage.setItem('ms_consent_pending_domain_id', domain.id);
     const url = buildAdminConsentUrl(domain);
     window.open(url, '_blank', 'noopener,noreferrer');
     toast({
