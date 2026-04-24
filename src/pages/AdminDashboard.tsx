@@ -176,6 +176,56 @@ export default function AdminDashboard() {
     }
   };
 
+  const buildAdminConsentUrl = (domain: AllowedDomain) => {
+    const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
+    const redirectUri = `${window.location.origin}/admin?ms_consent=success&domain_id=${domain.id}`;
+    const params = new URLSearchParams({
+      client_id: MICROSOFT_CLIENT_ID,
+      redirect_uri: redirectUri,
+      state: domain.id,
+    });
+    return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/adminconsent?${params.toString()}`;
+  };
+
+  const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
+    const url = buildAdminConsentUrl(domain);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    toast({
+      title: 'Microsoft consent opened',
+      description: `Sign in with a global admin of ${domain.domain} and click Accept. Then click "Mark as granted" below.`,
+    });
+  };
+
+  const handleSetTenantId = async (id: string, tenantId: string) => {
+    try {
+      const { error } = await supabase
+        .from('allowed_domains')
+        .update({ microsoft_tenant_id: tenantId.trim() || null })
+        .eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggleConsentGranted = async (id: string, granted: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('allowed_domains')
+        .update({
+          microsoft_consent_granted: granted,
+          microsoft_consent_granted_at: granted ? new Date().toISOString() : null,
+        })
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: granted ? 'Consent marked as granted' : 'Consent reset' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserName || !newUserPassword) {
       toast({ title: 'Missing fields', description: 'All fields are required.', variant: 'destructive' });
