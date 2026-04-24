@@ -31,9 +31,20 @@ serve(async (req) => {
     // Exchange code for tokens
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')!;
-    const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
+    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
+    const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+    const clientSecret = clientSecretRaw?.trim();
     const callbackUrl = `${supabaseUrl}/functions/v1/microsoft-sso-callback`;
+
+    if (!clientId || !clientSecret) {
+      console.error('Microsoft SSO credentials are not configured correctly', {
+        hasClientId: Boolean(clientId),
+        hasClientSecret: Boolean(clientSecret),
+        clientSecretLength: clientSecret?.length ?? 0,
+        clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
+      });
+      return redirect(`${appUrl}/auth?error=${encodeURIComponent('Authentication is not configured correctly.')}`);
+    }
 
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
@@ -49,7 +60,10 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
-      console.error('Token exchange failed:', errText);
+      console.error('Token exchange failed:', errText, {
+        clientSecretLength: clientSecret.length,
+        clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
+      });
       return redirect(`${appUrl}/auth?error=${encodeURIComponent('Authentication failed. Please try again.')}`);
     }
 

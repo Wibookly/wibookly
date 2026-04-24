@@ -319,19 +319,30 @@ async function exchangeGoogleCode(code: string, supabaseUrl: string) {
 }
 
 async function exchangeMicrosoftCode(code: string, supabaseUrl: string) {
-  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-  const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
+  const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+  const clientSecret = clientSecretRaw?.trim();
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
 
-  console.log('Exchanging Microsoft authorization code');
+  console.log('Exchanging Microsoft authorization code', {
+    hasClientId: Boolean(clientId),
+    hasClientSecret: Boolean(clientSecret),
+    clientSecretLength: clientSecret?.length ?? 0,
+    clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
+  });
+
+  if (!clientId || !clientSecret) {
+    console.error('Microsoft OAuth credentials are not configured correctly');
+    return null;
+  }
 
   const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: clientId!,
-      client_secret: clientSecret!,
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: callbackUrl,
       grant_type: 'authorization_code'
     })
@@ -339,7 +350,10 @@ async function exchangeMicrosoftCode(code: string, supabaseUrl: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Microsoft token exchange failed:', errorText);
+    console.error('Microsoft token exchange failed:', errorText, {
+      clientSecretLength: clientSecret.length,
+      clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
+    });
     return null;
   }
 
