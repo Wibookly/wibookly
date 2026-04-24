@@ -50,7 +50,8 @@ const generatePassword = () => {
 };
 
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
-const emptyUser = (domain: string): UserDraft => ({ full_name: '', email: domain ? `@${domain}` : '', password: '', groupNames: [] });
+// `email` here stores ONLY the local part (left of @). Full email is composed at submit time.
+const emptyUser = (): UserDraft => ({ full_name: '', email: '', password: '', groupNames: [] });
 
 export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
   const { toast } = useToast();
