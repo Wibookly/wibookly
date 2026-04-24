@@ -789,15 +789,7 @@ export default function AdminDashboard() {
                             >
                               Reset
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleConsentGranted(domain.id, true)}
-                            >
-                              Mark as granted
-                            </Button>
-                          )}
+                          ) : null}
                         </div>
 
                         {domain.microsoft_consent_granted_at && (
