@@ -46,6 +46,7 @@ interface AllowedDomain {
 }
 
 const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
+const MICROSOFT_ADMIN_CONSENT_CALLBACK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-admin-consent-callback`;
 
 interface UserFeature {
   user_id: string;
@@ -103,50 +104,30 @@ export default function AdminDashboard() {
     }
   }, [isSuperAdmin]);
 
-  // Detect Microsoft admin consent callback redirect
-  // Microsoft redirects back to the registered redirect_uri (must match Azure exactly,
-  // with NO extra query params). It appends: ?tenant=<id>&admin_consent=True&state=<domain_id>
-  // On error: ?error=...&error_description=...&state=<domain_id>
+  // Detect Microsoft admin consent result after the backend callback redirects back here.
   useEffect(() => {
     if (!isSuperAdmin) return;
     const params = new URLSearchParams(window.location.search);
-    const adminConsent = params.get('admin_consent');
-    const tenantFromMs = params.get('tenant');
-    const stateDomainId = params.get('state');
-    const pendingDomainId = sessionStorage.getItem('ms_consent_pending_domain_id');
-    const domainId = stateDomainId || pendingDomainId;
+    const consentStatus = params.get('ms_consent');
+    const message = params.get('message');
 
-    if (adminConsent === 'True' && domainId) {
-      handleConsentCallback(domainId, tenantFromMs).catch(() => {});
-      sessionStorage.removeItem('ms_consent_pending_domain_id');
+    if (consentStatus === 'success') {
+      toast({
+        title: 'Microsoft consent granted',
+        description: message || 'Tenant authorization recorded.',
+      });
+      fetchData();
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (params.get('error')) {
+    } else if (consentStatus === 'error') {
       toast({
         title: 'Microsoft consent failed',
-        description: params.get('error_description') || params.get('error') || 'Unknown error',
+        description: message || 'Unknown error',
         variant: 'destructive',
       });
-      sessionStorage.removeItem('ms_consent_pending_domain_id');
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin]);
-
-  const handleConsentCallback = async (domainId: string, tenantId: string | null) => {
-    try {
-      const update: Record<string, any> = {
-        microsoft_consent_granted: true,
-        microsoft_consent_granted_at: new Date().toISOString(),
-      };
-      if (tenantId) update.microsoft_tenant_id = tenantId;
-      const { error } = await supabase.from('allowed_domains').update(update).eq('id', domainId);
-      if (error) throw error;
-      toast({ title: 'Microsoft consent granted', description: 'Tenant authorization recorded.' });
-      fetchData();
-    } catch (error: any) {
-      toast({ title: 'Error saving consent', description: error.message, variant: 'destructive' });
-    }
-  };
 
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-api', {
@@ -231,24 +212,24 @@ export default function AdminDashboard() {
 
   const buildAdminConsentUrl = (domain: AllowedDomain) => {
     const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
-    // Use a stable published URL here because Azure requires an exact redirect URI match.
-    // The editor/preview domains change and will cause AADSTS50011.
-    const redirectUri = 'https://energyforwardai.lovable.app/admin';
+    const state = btoa(JSON.stringify({
+      domainId: domain.id,
+      appOrigin: window.location.origin,
+    }));
     const params = new URLSearchParams({
       client_id: MICROSOFT_CLIENT_ID,
-      redirect_uri: redirectUri,
-      state: domain.id,
+      redirect_uri: MICROSOFT_ADMIN_CONSENT_CALLBACK,
+      state,
     });
     return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/adminconsent?${params.toString()}`;
   };
 
   const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
-    sessionStorage.setItem('ms_consent_pending_domain_id', domain.id);
     const url = buildAdminConsentUrl(domain);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.location.assign(url);
     toast({
       title: 'Microsoft consent opened',
-      description: `Sign in with a global admin of ${domain.domain}. Microsoft will return to the published admin page after approval.`,
+      description: `Sign in with a global admin of ${domain.domain}. After approval you will return here automatically.`,
     });
   };
 
@@ -275,7 +256,7 @@ export default function AdminDashboard() {
         })
         .eq('id', id);
       if (error) throw error;
-      toast({ title: granted ? 'Consent marked as granted' : 'Consent reset' });
+      toast({ title: granted ? 'Consent updated' : 'Consent reset' });
       fetchData();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -808,15 +789,7 @@ export default function AdminDashboard() {
                             >
                               Reset
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleConsentGranted(domain.id, true)}
-                            >
-                              Mark as granted
-                            </Button>
-                          )}
+                          ) : null}
                         </div>
 
                         {domain.microsoft_consent_granted_at && (
