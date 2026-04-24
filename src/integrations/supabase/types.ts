@@ -1070,6 +1070,14 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _email: string }; Returns: boolean }
+      signup_initialize_user: {
+        Args: {
+          _full_name: string
+          _organization_name?: string
+          _title?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "member"
