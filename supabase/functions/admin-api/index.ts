@@ -75,75 +75,52 @@ serve(async (req) => {
       }
 
       case 'create_user': {
-        const { email, password, full_name } = payload;
+        const { email, password, full_name, group_ids } = payload;
         if (!email || !password || !full_name) {
           return new Response(JSON.stringify({ error: 'email, password, and full_name are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids });
+        if (!result.success) {
+          return new Response(JSON.stringify({ error: result.error }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ success: true, user_id: result.user_id }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-        // Validate domain
-        const domain = email.split('@')[1]?.toLowerCase();
-        const { data: domainData } = await adminClient
-          .from('allowed_domains')
-          .select('id, organization_name')
-          .eq('domain', domain)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (!domainData) {
-          return new Response(JSON.stringify({ error: `Domain ${domain} is not authorized. Add it first.` }), {
+      case 'bulk_create_users': {
+        const { users } = payload as { users: Array<{ email: string; password: string; full_name: string; group_ids?: string[] }> };
+        if (!Array.isArray(users) || users.length === 0) {
+          return new Response(JSON.stringify({ error: 'users array is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (users.length > 200) {
+          return new Response(JSON.stringify({ error: 'Maximum 200 users per batch' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
 
-        // Create auth user with email confirmed
-        const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { full_name },
-        });
-
-        if (createError) throw createError;
-
-        // Create organization for the user
-        const orgName = domainData.organization_name || `${domain} Organization`;
-        const { data: org, error: orgError } = await adminClient
-          .from('organizations')
-          .insert({ name: orgName })
-          .select()
-          .single();
-
-        // Use service role to bypass RLS for setup
-        if (org) {
-          // Create user profile
-          await adminClient.from('user_profiles').insert({
-            user_id: newUser.user.id,
-            email,
-            full_name,
-            organization_id: org.id,
-          });
-
-          // Create org membership
-          await adminClient.from('organization_members').insert({
-            user_id: newUser.user.id,
-            organization_id: org.id,
-            role: 'member',
-          });
-
-          // Create user role
-          await adminClient.from('user_roles').insert({
-            user_id: newUser.user.id,
-            organization_id: org.id,
-            role: 'member',
-          });
+        const results: Array<{ email: string; success: boolean; error?: string; user_id?: string }> = [];
+        for (const u of users) {
+          if (!u.email || !u.password || !u.full_name) {
+            results.push({ email: u.email || '(missing)', success: false, error: 'Missing email, password, or full_name' });
+            continue;
+          }
+          const r = await createSingleUser(adminClient, u);
+          results.push({ email: u.email, success: r.success, error: r.error, user_id: r.user_id });
         }
 
-        return new Response(JSON.stringify({ success: true, user_id: newUser.user.id }), {
+        const successCount = results.filter(r => r.success).length;
+        return new Response(JSON.stringify({ success: true, results, summary: { total: users.length, succeeded: successCount, failed: users.length - successCount } }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
       case 'disable_user': {
         const { user_id } = payload;
