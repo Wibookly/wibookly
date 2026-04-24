@@ -38,6 +38,9 @@ verify_jwt = false
 [functions.microsoft-sso-callback]
 verify_jwt = false
 
+[functions.microsoft-admin-consent-callback]
+verify_jwt = false
+
 # Admin API - handles auth internally
 [functions.admin-api]
 verify_jwt = false
