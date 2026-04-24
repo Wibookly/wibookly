@@ -16,6 +16,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound, ShieldCheck, ExternalLink } from 'lucide-react';
+import PermissionGroupsPanel, { type PermissionGroup } from '@/components/admin/PermissionGroupsPanel';
+import BulkCreateUsersDialog from '@/components/admin/BulkCreateUsersDialog';
+import UserGroupsAssignment from '@/components/admin/UserGroupsAssignment';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
