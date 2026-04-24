@@ -132,16 +132,23 @@ serve(async (req) => {
           .from('user_feature_access')
           .select('user_id, feature_key, is_enabled');
 
+        // Get group memberships for all users
+        const { data: memberships } = await adminClient
+          .from('user_group_memberships')
+          .select('user_id, group_id');
+
         // Get auth user metadata (disabled status)
         const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers();
 
         const enrichedProfiles = (profiles || []).map((p: any) => {
           const authUser = authUsers?.find((u: any) => u.id === p.user_id);
           const userFeatures = (features || []).filter((f: any) => f.user_id === p.user_id);
+          const userGroups = (memberships || []).filter((m: any) => m.user_id === p.user_id).map((m: any) => m.group_id);
           return {
             ...p,
             is_disabled: authUser?.banned_until ? new Date(authUser.banned_until) > new Date() : false,
             features: userFeatures,
+            group_ids: userGroups,
           };
         });
 
