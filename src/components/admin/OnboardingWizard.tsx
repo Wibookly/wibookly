@@ -50,7 +50,8 @@ const generatePassword = () => {
 };
 
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
-const emptyUser = (domain: string): UserDraft => ({ full_name: '', email: domain ? `@${domain}` : '', password: '', groupNames: [] });
+// `email` here stores ONLY the local part (left of @). Full email is composed at submit time.
+const emptyUser = (): UserDraft => ({ full_name: '', email: '', password: '', groupNames: [] });
 
 export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
   const { toast } = useToast();
@@ -72,7 +73,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const [createdGroups, setCreatedGroups] = useState<PermissionGroup[]>([]);
 
   // Step 3
-  const [userDrafts, setUserDrafts] = useState<UserDraft[]>([emptyUser('')]);
+  const [userDrafts, setUserDrafts] = useState<UserDraft[]>([emptyUser()]);
   const [submittingUsers, setSubmittingUsers] = useState(false);
   const [results, setResults] = useState<{ email: string; success: boolean; error?: string }[] | null>(null);
 
@@ -106,7 +107,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       }
       setDomain(d);
       setDomainSaved(true);
-      setUserDrafts([{ full_name: '', email: `@${d}`, password: '', groupNames: [] }]);
+      setUserDrafts([emptyUser()]);
       setStep(2);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -189,30 +190,30 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       return { ...u, groupNames: has ? u.groupNames.filter(n => n !== groupName) : [...u.groupNames, groupName] };
     }));
   };
-  const addUserDraft = () => setUserDrafts(prev => [...prev, emptyUser(domain)]);
+  const addUserDraft = () => setUserDrafts(prev => [...prev, emptyUser()]);
   const removeUserDraft = (idx: number) => setUserDrafts(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmitUsers = async () => {
-    const valid = userDrafts.filter(u => u.email.trim() && u.email.trim() !== `@${domain}` && u.full_name.trim());
+    // Build full email from local part + authorized domain
+    const enriched = userDrafts.map(u => {
+      const local = u.email.trim().toLowerCase().replace(/@.*$/, '').replace(/^@/, '');
+      return { ...u, fullEmail: local ? `${local}@${domain}` : '' };
+    });
+    const valid = enriched.filter(u => u.fullEmail && u.full_name.trim());
     if (valid.length === 0) {
-      toast({ title: 'No users to create', description: 'Add at least one user with name and email.', variant: 'destructive' });
-      return;
-    }
-    // Validate domain match
-    const wrongDomain = valid.find(u => !u.email.trim().toLowerCase().endsWith(`@${domain}`));
-    if (wrongDomain) {
-      toast({
-        title: 'Email domain mismatch',
-        description: `${wrongDomain.email} is not on @${domain}. All users in this wizard must use the authorized domain.`,
-        variant: 'destructive',
-      });
+      const missingName = enriched.some(u => u.fullEmail && !u.full_name.trim());
+      const missingEmail = enriched.some(u => !u.fullEmail && u.full_name.trim());
+      let msg = 'Add at least one user with both a name and an email username.';
+      if (missingName && !missingEmail) msg = 'Please fill in the Full Name for each user.';
+      else if (missingEmail && !missingName) msg = 'Please fill in the email username (the part before @) for each user.';
+      toast({ title: 'No users to create', description: msg, variant: 'destructive' });
       return;
     }
     setSubmittingUsers(true);
     setResults(null);
     try {
       const payload = valid.map(u => ({
-        email: u.email.trim().toLowerCase(),
+        email: u.fullEmail,
         full_name: u.full_name.trim(),
         password: u.password.trim() || generatePassword(),
         group_ids: u.groupNames
@@ -242,7 +243,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     setOrgName('');
     setDomainSaved(false);
     setCreatedGroups([]);
-    setUserDrafts([emptyUser('')]);
+    setUserDrafts([emptyUser()]);
     setResults(null);
   };
 
@@ -431,8 +432,19 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
                       <Input placeholder="John Doe" value={u.full_name} onChange={e => updateUserDraft(idx, { full_name: e.target.value })} />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Email (must end in @{domain})</Label>
-                      <Input type="email" placeholder={`john@${domain}`} value={u.email} onChange={e => updateUserDraft(idx, { email: e.target.value })} />
+                      <Label className="text-xs">Email username</Label>
+                      <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                        <Input
+                          type="text"
+                          placeholder="john"
+                          value={u.email}
+                          onChange={e => updateUserDraft(idx, { email: e.target.value.replace(/@.*$/, '') })}
+                          className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none flex-1"
+                        />
+                        <div className="flex items-center px-3 bg-muted text-sm text-muted-foreground border-l border-input whitespace-nowrap">
+                          @{domain}
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Password (auto if blank)</Label>
@@ -496,7 +508,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
                 )}
                 <Button onClick={handleSubmitUsers} disabled={submittingUsers}>
                   {submittingUsers ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                  Create {userDrafts.filter(u => u.email.trim() && u.email.trim() !== `@${domain}`).length} User(s)
+                  Create {userDrafts.filter(u => u.email.trim() && u.full_name.trim()).length} User(s)
                 </Button>
               </div>
             </div>
