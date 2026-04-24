@@ -765,6 +765,30 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
+                        {/* Azure Redirect URI prerequisite — required or Microsoft returns a blank/error page */}
+                        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                            One-time Azure prerequisite — required or the consent screen returns a blank page
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            In your Azure App Registration (<span className="font-mono">{MICROSOFT_CLIENT_ID}</span>) → <span className="font-medium">Authentication</span> → <span className="font-medium">Web Redirect URIs</span>, add this exact URL:
+                          </p>
+                          <div className="flex items-center gap-2 rounded bg-background border border-border px-2 py-1.5">
+                            <code className="text-xs flex-1 break-all font-mono">{MICROSOFT_ADMIN_CONSENT_CALLBACK}</code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                navigator.clipboard.writeText(MICROSOFT_ADMIN_CONSENT_CALLBACK);
+                                toast({ title: 'Copied', description: 'Redirect URI copied to clipboard.' });
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
                           <div className="space-y-1">
                             <Label htmlFor={`tenant-${domain.id}`} className="text-xs">
