@@ -36,7 +36,12 @@ interface AllowedDomain {
   is_active: boolean;
   max_users: number;
   created_at: string;
+  microsoft_tenant_id: string | null;
+  microsoft_consent_granted: boolean;
+  microsoft_consent_granted_at: string | null;
 }
+
+const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
 
 interface UserFeature {
   user_id: string;
