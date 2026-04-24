@@ -97,6 +97,30 @@ export default function AdminDashboard() {
     }
   }, [isSuperAdmin]);
 
+  // Detect Microsoft admin consent callback redirect
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ms_consent') === 'success') {
+      const domainId = params.get('domain_id') || params.get('state');
+      const adminConsent = params.get('admin_consent');
+      // Microsoft returns admin_consent=True on success
+      if (domainId && (adminConsent === 'True' || adminConsent === null)) {
+        handleToggleConsentGranted(domainId, true).catch(() => {});
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('error')) {
+      toast({
+        title: 'Microsoft consent failed',
+        description: params.get('error_description') || params.get('error') || 'Unknown error',
+        variant: 'destructive',
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin]);
+
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-api', {
       body: { action, ...payload },
