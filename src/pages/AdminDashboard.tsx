@@ -612,6 +612,31 @@ export default function AdminDashboard() {
 
         {/* DOMAINS TAB */}
         <TabsContent value="domains" className="space-y-6">
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                How tenant authorization works
+              </CardTitle>
+              <CardDescription className="text-foreground/80">
+                When you add a customer's domain below, their <strong>Microsoft Global Admin</strong> can self-authorize
+                InboxIQ for their entire tenant in one click — no work needed on their Azure portal. The flow:
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm space-y-2">
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>You add their domain here (e.g., <span className="font-mono">customer.com</span>).</li>
+                <li>You share the <strong>Grant Microsoft Consent</strong> link with their Global Admin (or they click it themselves after signing in).</li>
+                <li>They sign in to Microsoft with their Global Admin account and click <strong>Accept</strong> on Microsoft's consent screen.</li>
+                <li>InboxIQ is automatically registered as an Enterprise Application in their tenant. All users from that domain can now sign in and connect their mailbox without seeing the "Need admin approval" message.</li>
+              </ol>
+              <p className="text-xs text-muted-foreground pt-2 border-t border-border/50">
+                <strong>One-time prerequisite (already configured):</strong> The InboxIQ Azure app must declare the
+                Microsoft Graph delegated permissions (<span className="font-mono">Mail.ReadWrite</span>, <span className="font-mono">Mail.Send</span>, <span className="font-mono">Calendars.ReadWrite</span>, <span className="font-mono">User.Read</span>, <span className="font-mono">offline_access</span>) and be set to <strong>multi-tenant</strong>. After that, every customer is fully self-serve.
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Add Authorized Domain</CardTitle>
