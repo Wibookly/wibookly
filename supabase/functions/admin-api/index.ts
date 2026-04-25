@@ -161,18 +161,21 @@ serve(async (req) => {
     // Validate JWT locally via claims (resilient to server-side session invalidation
     // after key rotation — getUser() would fail with session_not_found in that case).
     let callerEmail: string | null = null;
+    let callerId: string | null = null;
     const { data: claimsData, error: claimsError } = await adminClient.auth.getClaims(token);
     if (!claimsError && claimsData?.claims?.email) {
       callerEmail = String(claimsData.claims.email).toLowerCase();
+      callerId = String(claimsData.claims.sub);
     } else {
       // Fallback to getUser for older tokens
-      const { data: { user: caller }, error: authError } = await adminClient.auth.getUser(token);
-      if (!authError && caller?.email) {
-        callerEmail = caller.email.toLowerCase();
+      const { data: { user: u }, error: authError } = await adminClient.auth.getUser(token);
+      if (!authError && u?.email) {
+        callerEmail = u.email.toLowerCase();
+        callerId = u.id;
       }
     }
 
-    if (!callerEmail) {
+    if (!callerEmail || !callerId) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -184,6 +187,9 @@ serve(async (req) => {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    // Back-compat shim for legacy references in this file
+    const caller = { id: callerId, email: callerEmail };
 
     const { action, ...payload } = await req.json();
 
