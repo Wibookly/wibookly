@@ -621,7 +621,7 @@ export default function AdminDashboard() {
             invoke={adminInvoke}
             groups={groups}
             domains={domains}
-            onChanged={fetchData}
+            onChanged={refreshGroups}
           />
         </TabsContent>
 
@@ -733,11 +733,15 @@ export default function AdminDashboard() {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {FEATURE_KEYS.map(feat => {
-                                  const enabled = getUserFeatureEnabled(user, feat.key);
+                                  const featureState = getUserFeatureState(user, feat.key);
+                                  const enabled = featureState.enabled;
                                   return (
                                     <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
                                       <div>
                                         <p className="text-xs font-medium text-foreground">{feat.label}</p>
+                                        {featureState.source === 'group' && (
+                                          <p className="text-[10px] text-muted-foreground">From group</p>
+                                        )}
                                       </div>
                                       <Switch
                                         checked={enabled}
@@ -752,12 +756,15 @@ export default function AdminDashboard() {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">AI Models</p>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {AI_MODEL_KEYS.map(model => {
-                                  const enabled = getUserFeatureEnabled(user, model.key);
+                                  const featureState = getUserFeatureState(user, model.key);
+                                  const enabled = featureState.enabled;
                                   return (
                                     <div key={model.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
                                       <div>
                                         <p className="text-xs font-medium text-foreground">{model.label}</p>
-                                        <p className="text-[10px] text-muted-foreground">{model.description}</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                          {featureState.source === 'group' ? 'From group' : model.description}
+                                        </p>
                                       </div>
                                       <Switch
                                         checked={enabled}
