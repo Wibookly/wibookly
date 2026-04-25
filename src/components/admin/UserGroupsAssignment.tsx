@@ -22,7 +22,7 @@ export default function UserGroupsAssignment({ userId, currentGroupIds, groups, 
   const [selected, setSelected] = useState<string[]>(currentGroupIds);
 
   const toggle = (id: string) => {
-    setSelected(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
+    setSelected(prev => prev[0] === id ? [] : [id]);
   };
 
   const save = async () => {
@@ -49,7 +49,7 @@ export default function UserGroupsAssignment({ userId, currentGroupIds, groups, 
         {currentNames.length === 0 ? (
           <span className="text-xs text-muted-foreground">No groups assigned</span>
         ) : (
-          currentNames.map(name => (
+          currentNames.slice(0, 1).map(name => (
             <Badge key={name} variant="secondary" className="gap-1">
               <ShieldCheck className="w-3 h-3" /> {name}
             </Badge>
