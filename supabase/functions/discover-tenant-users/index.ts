@@ -13,6 +13,12 @@ const corsHeaders = {
 
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
 
+interface AssignedPlan {
+  service: string;
+  capabilityStatus: string;
+  servicePlanId?: string;
+}
+
 interface GraphUser {
   id: string;
   userPrincipalName: string | null;
@@ -21,7 +27,21 @@ interface GraphUser {
   jobTitle: string | null;
   accountEnabled: boolean;
   assignedLicenses: { skuId: string }[];
+  assignedPlans?: AssignedPlan[];
   userType?: string | null;
+}
+
+// True if the user has an active Exchange Online (mailbox) service plan.
+// This filters out Teams-only / Power BI-only / etc. licenses that cannot
+// receive email and therefore should not be enabled in InboxIQ.
+function hasActiveExchangeLicense(u: GraphUser): boolean {
+  if (!Array.isArray(u.assignedPlans)) return false;
+  return u.assignedPlans.some(
+    (p) =>
+      p.capabilityStatus === 'Enabled' &&
+      typeof p.service === 'string' &&
+      p.service.toLowerCase() === 'exchange',
+  );
 }
 
 async function getAppOnlyToken(tenantId: string): Promise<{ token?: string; error?: string }> {
