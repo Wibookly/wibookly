@@ -210,6 +210,7 @@ export type Database = {
           domain: string
           id: string
           is_active: boolean
+          last_directory_sync_at: string | null
           max_users: number | null
           microsoft_consent_granted: boolean
           microsoft_consent_granted_at: string | null
@@ -223,6 +224,7 @@ export type Database = {
           domain: string
           id?: string
           is_active?: boolean
+          last_directory_sync_at?: string | null
           max_users?: number | null
           microsoft_consent_granted?: boolean
           microsoft_consent_granted_at?: string | null
@@ -236,6 +238,7 @@ export type Database = {
           domain?: string
           id?: string
           is_active?: boolean
+          last_directory_sync_at?: string | null
           max_users?: number | null
           microsoft_consent_granted?: boolean
           microsoft_consent_granted_at?: string | null
@@ -424,6 +427,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      discovered_tenant_users: {
+        Row: {
+          account_enabled: boolean
+          created_at: string
+          display_name: string | null
+          domain_id: string
+          email: string
+          id: string
+          invited_at: string | null
+          invited_user_id: string | null
+          is_licensed: boolean
+          job_title: string | null
+          last_seen_at: string
+          ms_user_id: string
+          organization_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_enabled?: boolean
+          created_at?: string
+          display_name?: string | null
+          domain_id: string
+          email: string
+          id?: string
+          invited_at?: string | null
+          invited_user_id?: string | null
+          is_licensed?: boolean
+          job_title?: string | null
+          last_seen_at?: string
+          ms_user_id: string
+          organization_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_enabled?: boolean
+          created_at?: string
+          display_name?: string | null
+          domain_id?: string
+          email?: string
+          id?: string
+          invited_at?: string | null
+          invited_user_id?: string | null
+          is_licensed?: boolean
+          job_title?: string | null
+          last_seen_at?: string
+          ms_user_id?: string
+          organization_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_tenant_users_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_tenant_users_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_profiles: {
         Row: {
@@ -1146,6 +1218,79 @@ export type Database = {
           },
         ]
       }
+      user_invitations: {
+        Row: {
+          created_at: string
+          domain_id: string | null
+          email: string
+          expires_at: string
+          full_name: string | null
+          group_id: string | null
+          id: string
+          invited_by: string | null
+          mode: string
+          organization_id: string
+          temp_password: string | null
+          token: string
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain_id?: string | null
+          email: string
+          expires_at?: string
+          full_name?: string | null
+          group_id?: string | null
+          id?: string
+          invited_by?: string | null
+          mode?: string
+          organization_id: string
+          temp_password?: string | null
+          token: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string | null
+          email?: string
+          expires_at?: string
+          full_name?: string | null
+          group_id?: string | null
+          id?: string
+          invited_by?: string | null
+          mode?: string
+          organization_id?: string
+          temp_password?: string | null
+          token?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invitations_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invitations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string
@@ -1154,9 +1299,11 @@ export type Database = {
           email_signature: string | null
           full_name: string | null
           id: string
+          microsoft_auto_connect: boolean
           mobile: string | null
           organization_id: string
           phone: string | null
+          requires_outlook_connect: boolean
           signature_color: string | null
           signature_font: string | null
           signature_logo_url: string | null
@@ -1172,9 +1319,11 @@ export type Database = {
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          microsoft_auto_connect?: boolean
           mobile?: string | null
           organization_id: string
           phone?: string | null
+          requires_outlook_connect?: boolean
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
@@ -1190,9 +1339,11 @@ export type Database = {
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          microsoft_auto_connect?: boolean
           mobile?: string | null
           organization_id?: string
           phone?: string | null
+          requires_outlook_connect?: boolean
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
