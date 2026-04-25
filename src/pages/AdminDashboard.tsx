@@ -283,27 +283,7 @@ export default function AdminDashboard() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
-    const isEmbeddedPreview = window.self !== window.top;
-
-    if (isEmbeddedPreview) {
-      const popup = window.open(url, '_blank', 'noopener,noreferrer');
-
-      if (!popup) {
-        window.location.assign(url);
-      } else {
-        toast({
-          title: 'Microsoft consent opened',
-          description: `Continue in the new tab as a global admin for ${domain.domain}.`,
-        });
-        return;
-      }
-    }
-
     window.location.assign(url);
-    toast({
-      title: 'Microsoft consent opened',
-      description: `Sign in with a global admin of ${domain.domain}. After approval you will return here automatically.`,
-    });
   };
 
   const handleSetTenantId = async (id: string, tenantId: string) => {
