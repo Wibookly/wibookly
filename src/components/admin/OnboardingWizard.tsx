@@ -378,13 +378,13 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
         </Card>
       )}
 
-      {/* STEP 3 — Done; point to M365 Directory tab */}
+      {/* STEP 3 — Done; point to M365 Users tab */}
       {step === 3 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Building2 className="w-5 h-5" /> Step 3 — Sync users from Microsoft 365</CardTitle>
             <CardDescription>
-              Domain authorized and groups configured. Now head to the <strong>M365 Directory</strong> tab and click <strong>Sync now</strong> to pull licensed users from the customer's tenant directory. Each user can then be invited with one click — no password setup required.
+              Domain authorized and groups configured. Now head to the <strong>M365 Users</strong> tab and click <strong>Sync now</strong> to pull licensed users from the customer's tenant directory. Each user can then be invited with one click — no password setup required.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -405,14 +405,14 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
               </Button>
               <Button
                 onClick={() => {
-                  // Switch to M365 Directory tab (radix Tabs uses data-value triggers)
+                  // Switch to M365 Users tab (radix Tabs uses data-value triggers)
                   const trigger = document.querySelector<HTMLButtonElement>('[role="tab"][data-state][value="discovered"]')
                     || document.querySelector<HTMLButtonElement>('[role="tab"][data-radix-collection-item][value="discovered"]')
                     || Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(el => el.textContent?.toLowerCase().includes('m365'));
                   trigger?.click();
                 }}
               >
-                <Building2 className="w-4 h-4 mr-2" /> Go to M365 Directory
+                <Building2 className="w-4 h-4 mr-2" /> Go to M365 Users
               </Button>
             </div>
 
