@@ -63,8 +63,22 @@ serve(async (req) => {
   }
 });
 
-function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string): string {
-  return `${appUrl}/admin?tab=discovered&ms_consent=${status}&message=${encodeURIComponent(message)}`;
+function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string, domainId?: string): string {
+  const params = new URLSearchParams({
+    tab: 'discovered',
+    ms_consent: status,
+    message,
+  });
+
+  if (domainId) {
+    params.set('domain_id', domainId);
+    if (status === 'success') {
+      params.set('auto_sync', '1');
+      params.set('run_check', '1');
+    }
+  }
+
+  return `${appUrl}/admin?${params.toString()}`;
 }
 
 function parseState(stateParam: string | null): { domainId?: string; appOrigin?: string } {
