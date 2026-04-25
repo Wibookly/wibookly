@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck,
-  Pause, Play, Trash2,
+  Pause, Play, Trash2, UsersRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
