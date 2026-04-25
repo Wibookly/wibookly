@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,13 +35,10 @@ export default function AzurePermissionsCheck({ invoke, autoRunNonce = 0 }: Prop
     }
   };
 
-  useState(() => {
-    return undefined;
-  });
-
-  useState(() => {
-    return undefined;
-  });
+  useEffect(() => {
+    if (!autoRunNonce) return;
+    void runCheck();
+  }, [autoRunNonce]);
 
   const allOk = results && results.length > 0 && results.every((r) => r.status === 'ok');
   const anyMissingPerm = results?.some((r) => r.status === 'permission_missing' || r.status === 'token_failed' || r.status === 'invalid_client_secret');
