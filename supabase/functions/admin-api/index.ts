@@ -178,7 +178,7 @@ serve(async (req) => {
         // List all user profiles
         const { data: profiles, error } = await adminClient
           .from('user_profiles')
-          .select('id, user_id, email, full_name, title, organization_id, created_at')
+          .select('id, user_id, email, full_name, title, organization_id, domain_id, created_at')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -212,6 +212,35 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
+      case 'list_domains': {
+        const { data: doms, error } = await adminClient
+          .from('allowed_domains')
+          .select('id, domain, organization_name, is_active')
+          .order('domain');
+        if (error) throw error;
+        return new Response(JSON.stringify({ domains: doms || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_user_domain': {
+        const { user_id, domain_id } = payload;
+        if (!user_id) {
+          return new Response(JSON.stringify({ error: 'user_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('user_profiles')
+          .update({ domain_id: domain_id || null })
+          .eq('user_id', user_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
 
       case 'create_user': {
         const { email, password, full_name, group_ids, domain_id, auto_connect_microsoft } = payload;
@@ -450,7 +479,7 @@ serve(async (req) => {
       case 'list_groups': {
         const { data: groups, error } = await adminClient
           .from('permission_groups')
-          .select('id, name, description, organization_id, created_at')
+          .select('id, name, description, organization_id, domain_id, created_at')
           .order('name');
         if (error) throw error;
 
@@ -474,7 +503,7 @@ serve(async (req) => {
       }
 
       case 'create_group': {
-        const { name, description, organization_id } = payload;
+        const { name, description, organization_id, domain_id } = payload;
         if (!name || !organization_id) {
           return new Response(JSON.stringify({ error: 'name and organization_id are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -482,7 +511,13 @@ serve(async (req) => {
         }
         const { data, error } = await adminClient
           .from('permission_groups')
-          .insert({ name: name.trim(), description: description?.trim() || null, organization_id, created_by: caller.id })
+          .insert({
+            name: name.trim(),
+            description: description?.trim() || null,
+            organization_id,
+            domain_id: domain_id || null,
+            created_by: caller.id,
+          })
           .select()
           .single();
         if (error) {
@@ -495,6 +530,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
       case 'update_group': {
         const { group_id, name, description } = payload;
