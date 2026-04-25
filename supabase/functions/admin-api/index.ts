@@ -460,6 +460,16 @@ serve(async (req) => {
         });
       }
 
+      case 'get_microsoft_oauth_config': {
+        const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
+
+        return new Response(JSON.stringify({
+          client_id: clientId || null,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       case 'set_api_key': {
         const { key_name, key_value } = payload;
         if (!key_name || !key_value) {

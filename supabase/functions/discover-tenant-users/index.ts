@@ -25,8 +25,8 @@ interface GraphUser {
 }
 
 async function getAppOnlyToken(tenantId: string): Promise<{ token?: string; error?: string }> {
-  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-  const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
+  const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET')?.trim();
   if (!clientId || !clientSecret) {
     return { error: 'Microsoft client credentials are not configured' };
   }
@@ -53,6 +53,12 @@ async function getAppOnlyToken(tenantId: string): Promise<{ token?: string; erro
       if (parsed.error_description) errMsg = parsed.error_description;
       if (parsed.error === 'invalid_client') {
         errMsg = 'Microsoft rejected the app credentials. Check MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.';
+      }
+      if (parsed.error_codes?.includes?.(7000215)) {
+        errMsg = 'Microsoft rejected the client secret value. Use the Azure secret Value, not the Secret ID.';
+      }
+      if (parsed.error_codes?.includes?.(700016)) {
+        errMsg = 'Microsoft could not find this application in the target tenant. The frontend consent flow may be using a different app registration than the backend.';
       }
       if (parsed.error === 'unauthorized_client') {
         errMsg = 'The app does not have admin consent in this tenant. Ask the tenant admin to grant consent first.';
