@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,11 +53,16 @@ interface Props {
 
 export default function PermissionGroupsPanel({ organizationId, invoke, groups, domains, onChanged }: Props) {
   const { toast } = useToast();
+  const [localGroups, setLocalGroups] = useState<PermissionGroup[]>(groups);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [domainId, setDomainId] = useState<string>(GLOBAL_GROUP_VALUE);
   const [filterDomain, setFilterDomain] = useState<string>('all');
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    setLocalGroups(groups);
+  }, [groups]);
 
   const domainLabel = (id: string | null) => {
     if (!id) return 'All domains';
@@ -89,6 +94,18 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   const handleToggleFeature = async (groupId: string, featureKey: string, enabled: boolean) => {
     try {
       await invoke('set_group_feature', { group_id: groupId, feature_key: featureKey, is_enabled: enabled });
+      setLocalGroups((prev) => prev.map((group) => (
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              features: group.features.some((feature) => feature.feature_key === featureKey)
+                ? group.features.map((feature) => (
+                    feature.feature_key === featureKey ? { ...feature, is_enabled: enabled } : feature
+                  ))
+                : [...group.features, { feature_key: featureKey, is_enabled: enabled }],
+            }
+      )));
       onChanged();
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -114,10 +131,10 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   // still surfaces the existing global Standard / Power User / Executive
   // groups so admins can configure per-domain overrides on them.
   const visibleGroups = filterDomain === 'all'
-    ? groups
+    ? localGroups
     : filterDomain === GLOBAL_GROUP_VALUE
-      ? groups.filter(g => !g.domain_id)
-      : groups.filter(g => g.domain_id === filterDomain || g.domain_id === null);
+      ? localGroups.filter(g => !g.domain_id)
+      : localGroups.filter(g => g.domain_id === filterDomain || g.domain_id === null);
 
   return (
     <div className="space-y-6">
