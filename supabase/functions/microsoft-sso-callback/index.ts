@@ -94,10 +94,12 @@ serve(async (req) => {
     const domain = email.split('@')[1];
     const isSuperAdmin = email === 'arahimi@energyforward.com';
 
+    let authorizedDomain: { id: string; organization_name: string | null; microsoft_consent_granted: boolean } | null = null;
+
     if (!isSuperAdmin) {
       const { data: domainData } = await adminClient
         .from('allowed_domains')
-        .select('id')
+        .select('id, organization_name, microsoft_consent_granted')
         .eq('domain', domain)
         .eq('is_active', true)
         .maybeSingle();
@@ -105,6 +107,12 @@ serve(async (req) => {
       if (!domainData) {
         return redirect(`${appUrl}/auth?error=${encodeURIComponent('Your email domain is not authorized. Contact your administrator.')}`);
       }
+
+      if (!domainData.microsoft_consent_granted) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('Your organization has not completed Microsoft tenant authorization yet. Please ask your administrator to grant Microsoft consent first.')}`);
+      }
+
+      authorizedDomain = domainData;
     }
 
     // Check if user exists in Supabase Auth
@@ -135,15 +143,33 @@ serve(async (req) => {
       console.log(`Created new user: ${userId}`);
 
       // Create organization
-      const orgName = isSuperAdmin ? 'Energy Forward' : `${domain} Organization`;
-      const { data: orgData, error: orgError } = await adminClient
-        .from('organizations')
-        .insert({ name: orgName })
-        .select()
-        .single();
+      const orgName = isSuperAdmin ? 'Energy Forward' : (authorizedDomain?.organization_name || domain);
+      let orgData: { id: string } | null = null;
 
-      if (orgError || !orgData) {
-        console.error('Failed to create org:', orgError);
+      const { data: existingOrg } = await adminClient
+        .from('organizations')
+        .select('id')
+        .ilike('name', orgName)
+        .maybeSingle();
+
+      if (existingOrg) {
+        orgData = existingOrg;
+      } else {
+        const { data: createdOrg, error: orgError } = await adminClient
+          .from('organizations')
+          .insert({ name: orgName })
+          .select('id')
+          .single();
+
+        if (orgError || !createdOrg) {
+          console.error('Failed to create org:', orgError);
+        } else {
+          orgData = createdOrg;
+        }
+      }
+
+      if (!orgData) {
+        console.error('Failed to resolve org for domain:', domain);
         // Continue anyway, profile creation will handle it
       } else {
         // Create user profile
@@ -191,6 +217,17 @@ serve(async (req) => {
         await adminClient.from('ai_settings').insert({
           organization_id: orgData.id,
           writing_style: 'professional',
+        });
+
+        await adminClient.from('provider_connections').upsert({
+          user_id: userId,
+          organization_id: orgData.id,
+          provider: 'outlook',
+          is_connected: false,
+          calendar_connected: false,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,provider',
         });
       }
     }
