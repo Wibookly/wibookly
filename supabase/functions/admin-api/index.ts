@@ -923,10 +923,9 @@ serve(async (req) => {
           .update({ status: 'invited', invited_at: new Date().toISOString() })
           .eq('id', discovered_id);
 
-        // Build invitation URL — must match the Azure redirect URI we registered.
-        // Sender = M365 tenant; we use send-transactional-email with the welcome-sso template.
-        const appOrigin = req.headers.get('origin') || 'https://inboxiq.energyforward.com';
-        const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
+        // Build invitation URL — ALWAYS use the production app URL.
+        // The preview URL (*.lovableproject.com) requires Lovable login and breaks invites.
+        const invitationUrl = `https://inboxiq.energyforward.com/auth/accept-invitation?token=${invitation.token}`;
 
         try {
           const sendResult = await enqueueWelcomeEmail(adminClient, {
