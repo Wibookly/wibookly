@@ -1,6 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+async function encryptToken(token: string, keyString: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(keyString.padEnd(32, '0').slice(0, 32));
+  const key = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoder.encode(token));
+  const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -120,10 +132,19 @@ serve(async (req) => {
     const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email);
 
     let userId: string;
+    let organizationId: string | null = null;
 
     if (existingUser) {
       userId = existingUser.id;
       console.log(`Existing user found: ${userId}`);
+
+      const { data: existingProfile } = await adminClient
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      organizationId = existingProfile?.organization_id ?? null;
     } else {
       // Create new user
       const tempPassword = crypto.randomUUID() + '!Aa1';
@@ -229,7 +250,44 @@ serve(async (req) => {
         }, {
           onConflict: 'user_id,provider',
         });
+
+        organizationId = orgData.id;
       }
+    }
+
+    if (userId && organizationId) {
+      const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+
+      if (encryptionKey) {
+        const encryptedAccessToken = await encryptToken(tokens.access_token, encryptionKey);
+        const encryptedRefreshToken = tokens.refresh_token
+          ? await encryptToken(tokens.refresh_token, encryptionKey)
+          : null;
+        const expiresAt = tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : null;
+
+        await adminClient.from('oauth_token_vault').upsert({
+          user_id: userId,
+          provider: 'outlook',
+          encrypted_access_token: encryptedAccessToken,
+          encrypted_refresh_token: encryptedRefreshToken,
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,provider' });
+      }
+
+      await adminClient.from('provider_connections').upsert({
+        user_id: userId,
+        organization_id: organizationId,
+        provider: 'outlook',
+        is_connected: true,
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        connected_email: email,
+        calendar_connected: true,
+        calendar_connected_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,provider' });
     }
 
     // Generate a magic link / sign the user in by creating a session
@@ -276,7 +334,8 @@ function resolveAppUrl(appOrigin?: unknown): string {
     const host = url.hostname.toLowerCase();
     const isLovable = host.endsWith('.lovable.app') || host.endsWith('.lovableproject.com');
     const isLocal = host === 'localhost' || host === '127.0.0.1';
-    if (!isLovable && !isLocal) return fallback;
+    const isCustomDomain = host === 'inboxiq.energyforward.com';
+    if (!isLovable && !isLocal && !isCustomDomain) return fallback;
     if (url.protocol !== 'https:' && !isLocal) return fallback;
     return url.origin;
   } catch {
