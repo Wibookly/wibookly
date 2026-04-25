@@ -162,18 +162,33 @@ serve(async (req) => {
     // after key rotation — getUser() would fail with session_not_found in that case).
     let callerEmail: string | null = null;
     let callerId: string | null = null;
+
     const { data: claimsData, error: claimsError } = await adminClient.auth.getClaims(token);
-    if (!claimsError && claimsData?.claims?.email) {
-      callerEmail = String(claimsData.claims.email).toLowerCase();
+    if (!claimsError && claimsData?.claims?.sub) {
       callerId = String(claimsData.claims.sub);
-    } else {
-      // Fallback to getUser for older tokens
+      if (claimsData.claims.email) {
+        callerEmail = String(claimsData.claims.email).toLowerCase();
+      }
+    }
+
+    // If claims didn't give us an email, look it up via admin API using the sub
+    if (callerId && !callerEmail) {
+      const { data: adminUser } = await adminClient.auth.admin.getUserById(callerId);
+      if (adminUser?.user?.email) {
+        callerEmail = adminUser.user.email.toLowerCase();
+      }
+    }
+
+    // Last resort: try getUser (works for non-rotated sessions)
+    if (!callerEmail || !callerId) {
       const { data: { user: u }, error: authError } = await adminClient.auth.getUser(token);
       if (!authError && u?.email) {
         callerEmail = u.email.toLowerCase();
         callerId = u.id;
       }
     }
+
+    console.log('admin-api auth check', { callerId, callerEmail });
 
     if (!callerEmail || !callerId) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -183,7 +198,7 @@ serve(async (req) => {
 
     // Only super admin can use this
     if (callerEmail !== 'arahimi@energyforward.com') {
-      return new Response(JSON.stringify({ error: 'Forbidden: Super admin access required' }), {
+      return new Response(JSON.stringify({ error: 'Forbidden: Super admin access required', email: callerEmail }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
