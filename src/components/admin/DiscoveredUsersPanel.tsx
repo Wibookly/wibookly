@@ -553,11 +553,14 @@ function GroupPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = user.group_ids || [];
-  // Only show groups that belong to this user's organization AND are scoped
-  // to this user's specific domain. Global groups are intentionally hidden
-  // here — assign them from the Groups tab if you want to apply them broadly.
+  // Show groups in this user's organization that are either:
+  //   - Global (apply to all domains in the org), OR
+  //   - Specifically scoped to this user's domain.
+  // Groups scoped to a *different* domain are hidden.
   const orgGroups = groups.filter(
-    (g) => g.organization_id === user.organization_id && g.domain_id === user.domain_id,
+    (g) =>
+      g.organization_id === user.organization_id &&
+      (g.domain_id === null || g.domain_id === user.domain_id),
   );
 
   const toggle = (groupId: string) => {
@@ -598,8 +601,8 @@ function GroupPicker({
         </div>
         {orgGroups.length === 0 ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">
-            No groups exist for this user's domain yet. Create one in the Groups tab and
-            scope it to this domain.
+            No groups available for this user yet. Create one in the Groups tab —
+            either global or scoped to this user's domain.
           </div>
         ) : (
           <div className="max-h-64 overflow-y-auto">
@@ -615,8 +618,19 @@ function GroupPicker({
                     onCheckedChange={() => toggle(g.id)}
                     className="mt-0.5"
                   />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{g.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium truncate">{g.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                          g.domain_id
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {g.domain_id ? 'Domain' : 'Global'}
+                      </span>
+                    </div>
                     {g.description && (
                       <div className="text-xs text-muted-foreground truncate">{g.description}</div>
                     )}
