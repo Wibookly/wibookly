@@ -7,7 +7,7 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
     const adminConsent = url.searchParams.get('admin_consent');
-    const tenantId = url.searchParams.get('tenant');
+    const tenantId = url.searchParams.get('tenant') || url.searchParams.get('tenant_id') || url.searchParams.get('tid');
     const stateParam = url.searchParams.get('state');
 
     const state = parseState(stateParam);
@@ -23,6 +23,10 @@ serve(async (req) => {
 
     if (adminConsent !== 'True') {
       return renderResult(appUrl, 'error', 'Microsoft consent was not completed.', state.domainId);
+    }
+
+    if (!tenantId) {
+      return renderResult(appUrl, 'error', 'Microsoft consent completed but no tenant ID was returned. Please try again.', state.domainId);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
