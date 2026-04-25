@@ -33,7 +33,7 @@ interface DiscoveredUser {
   last_seen_at: string;
   /** True when this user has been provisioned but their auth account is currently banned (suspended in app). */
   app_disabled?: boolean;
-  /** Permission group ids the user currently belongs to (empty if not provisioned). */
+  /** Single permission group id assigned to the user, if any. */
   group_ids?: string[];
 }
 
@@ -115,17 +115,17 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     void loadGroups();
   }, []);
 
-  // Replace the user's group memberships with the new selection.
-  // Optimistic update so the UI feels instant; revert on error.
+  // Replace the user's single group membership.
   const handleSetGroups = async (u: DiscoveredUser, newGroupIds: string[]) => {
     if (!u.invited_user_id) return;
+    const normalized = newGroupIds.slice(0, 1);
     const prev = u.group_ids || [];
-    setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: newGroupIds } : x)));
+    setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: normalized } : x)));
     setGroupsBusyId(u.id);
     try {
-      await invoke('set_user_groups', { user_id: u.invited_user_id, group_ids: newGroupIds });
+      await invoke('set_user_groups', { user_id: u.invited_user_id, group_ids: normalized });
+      await loadUsers(selectedDomainId);
     } catch (e: any) {
-      // Revert on failure
       setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: prev } : x)));
       toast({ title: 'Failed to update groups', description: e.message, variant: 'destructive' });
     } finally {
@@ -537,8 +537,8 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
 }
 
 /**
- * Compact multi-select for assigning a discovered/active user to one or more
- * permission groups. Selections persist immediately via `set_user_groups`.
+ * Compact single-select for assigning a discovered/active user to one
+ * permission group. The change persists immediately.
  */
 function GroupPicker({
   user,
@@ -564,9 +564,7 @@ function GroupPicker({
   );
 
   const toggle = (groupId: string) => {
-    const next = selected.includes(groupId)
-      ? selected.filter((id) => id !== groupId)
-      : [...selected, groupId];
+    const next = selected[0] === groupId ? [] : [groupId];
     onChange(next);
   };
 
@@ -597,7 +595,7 @@ function GroupPicker({
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="end">
         <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-          Assign to groups
+          Assign group
         </div>
         {orgGroups.length === 0 ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">
