@@ -26,8 +26,8 @@ import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
   { key: 'ai_auto_reply', label: 'AI Auto Reply', description: 'Automatic AI email replies' },
-  { key: 'ai_assistant', label: 'AI Assistant', description: 'Daily Brief & AI Chat' },
-  { key: 'reports', label: 'Reports', description: 'AI activity reports & analytics' },
+  { key: 'ai_assistant', label: 'AI Chat', description: 'Daily Brief & AI Chat' },
+  { key: 'reports', label: 'AI Activity Reports', description: 'AI activity reports & analytics' },
 ] as const;
 
 const AI_MODEL_KEYS = [
