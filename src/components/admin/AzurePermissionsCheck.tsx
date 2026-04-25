@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface PermResult {
   domain: string;
-  status: 'ok' | 'no_tenant_id' | 'no_credentials' | 'token_failed' | 'permission_missing' | 'error';
+  status: 'ok' | 'no_tenant_id' | 'no_credentials' | 'token_failed' | 'invalid_client_secret' | 'permission_missing' | 'error';
   message: string;
 }
 
@@ -35,7 +35,7 @@ export default function AzurePermissionsCheck({ invoke }: Props) {
   };
 
   const allOk = results && results.length > 0 && results.every((r) => r.status === 'ok');
-  const anyMissingPerm = results?.some((r) => r.status === 'permission_missing' || r.status === 'token_failed');
+  const anyMissingPerm = results?.some((r) => r.status === 'permission_missing' || r.status === 'token_failed' || r.status === 'invalid_client_secret');
 
   return (
     <Card>
@@ -114,7 +114,7 @@ export default function AzurePermissionsCheck({ invoke }: Props) {
                     {r.status === 'no_credentials' && (
                       <Badge variant="destructive">No credentials</Badge>
                     )}
-                    {(r.status === 'token_failed' || r.status === 'permission_missing') && (
+                    {(r.status === 'token_failed' || r.status === 'permission_missing' || r.status === 'invalid_client_secret') && (
                       <Badge variant="destructive" className="gap-1">
                         <AlertTriangle className="w-3 h-3" /> Action needed
                       </Badge>
@@ -133,6 +133,7 @@ export default function AzurePermissionsCheck({ invoke }: Props) {
                   How to fix missing permissions
                 </p>
                 <ol className="list-decimal list-inside text-xs text-foreground/80 space-y-1">
+                  <li>If the message says <span className="font-mono">Invalid client secret value</span>, update the backend Microsoft secret using the Azure <span className="font-medium">Value</span>, not the Secret ID.</li>
                   <li>Open Azure Portal → App registrations → InboxIQ → API permissions</li>
                   <li>Add Microsoft Graph <span className="font-mono">Application</span> permissions: <span className="font-mono">User.Read.All</span>, <span className="font-mono">Organization.Read.All</span>, <span className="font-mono">Mail.Send</span></li>
                   <li>Click <span className="font-medium">Grant admin consent for [tenant]</span></li>
