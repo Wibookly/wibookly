@@ -77,11 +77,6 @@ interface ManagedUser {
   group_ids?: string[];
 }
 
-const PREFERRED_APP_ORIGIN =
-  window.location.hostname.endsWith('.lovableproject.com')
-    ? 'https://inboxiq.energyforward.com'
-    : window.location.origin;
-
 export default function AdminDashboard() {
   const { profile, session } = useAuth();
   const { toast } = useToast();
@@ -264,7 +259,7 @@ export default function AdminDashboard() {
     const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
     const state = btoa(JSON.stringify({
       domainId: domain.id,
-      appOrigin: PREFERRED_APP_ORIGIN,
+      appOrigin: window.location.origin,
     }));
 
     if (!microsoftClientId) {
