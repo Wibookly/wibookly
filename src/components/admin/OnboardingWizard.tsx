@@ -52,7 +52,7 @@ const MICROSOFT_REQUIRED_SCOPES = [
 
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
 
-export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
+export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted, onNavigateToTab }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
