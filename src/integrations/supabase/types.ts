@@ -668,6 +668,54 @@ export type Database = {
         }
         Relationships: []
       }
+      group_feature_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain_id: string
+          feature_key: string
+          group_id: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain_id: string
+          feature_key: string
+          group_id: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain_id?: string
+          feature_key?: string
+          group_id?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_feature_overrides_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_feature_overrides_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_features: {
         Row: {
           created_at: string
