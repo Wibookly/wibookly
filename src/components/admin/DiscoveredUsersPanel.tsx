@@ -35,9 +35,11 @@ interface DomainOption {
 interface Props {
   invoke: (action: string, payload?: Record<string, any>) => Promise<any>;
   domains: DomainOption[];
+  initialDomainId?: string | null;
+  autoSyncNonce?: number;
 }
 
-export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
+export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId = null, autoSyncNonce = 0 }: Props) {
   const { toast } = useToast();
   const consentedDomains = domains.filter((d) => d.microsoft_consent_granted && d.microsoft_tenant_id);
   const [selectedDomainId, setSelectedDomainId] = useState<string>('');
@@ -46,6 +48,12 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
   const [actingId, setActingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialDomainId && initialDomainId !== selectedDomainId) {
+      setSelectedDomainId(initialDomainId);
+    }
+  }, [initialDomainId, selectedDomainId]);
 
   // Auto-pick the first consented domain so admins land somewhere useful.
   useEffect(() => {
@@ -70,6 +78,11 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   useEffect(() => {
     if (selectedDomainId) loadUsers(selectedDomainId);
   }, [selectedDomainId]);
+
+  useEffect(() => {
+    if (!autoSyncNonce || !selectedDomainId) return;
+    void handleSync();
+  }, [autoSyncNonce, selectedDomainId]);
 
   const handleSync = async () => {
     if (!selectedDomainId) return;
@@ -132,6 +145,7 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   };
 
   const filtered = users.filter((u) => {
+    if (!u.account_enabled || !u.is_licensed) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -146,7 +160,7 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" /> Discovered Users
+            <Users className="w-5 h-5" /> M365 Users
           </CardTitle>
           <CardDescription>
             Pull licensed users directly from a customer's Microsoft 365 tenant.
@@ -170,10 +184,10 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" /> Discovered Users
+              <Users className="w-5 h-5" /> M365 Users
             </CardTitle>
             <CardDescription>
-              Pulled from the customer's Microsoft 365 tenant directory. Invite licensed users
+              Pulled from the customer's Microsoft 365 tenant directory. Showing active licensed users
               with a one-click sign-in link — no password required.
             </CardDescription>
           </div>

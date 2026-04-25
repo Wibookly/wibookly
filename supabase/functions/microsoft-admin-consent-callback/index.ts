@@ -18,18 +18,18 @@ serve(async (req) => {
     }
 
     if (error) {
-      return redirect(buildAdminRedirect(appUrl, 'error', errorDescription || error));
+      return redirect(buildAdminRedirect(appUrl, 'error', errorDescription || error, state.domainId));
     }
 
     if (adminConsent !== 'True') {
-      return redirect(buildAdminRedirect(appUrl, 'error', 'Microsoft consent was not completed.'));
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Microsoft consent was not completed.', state.domainId));
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return redirect(buildAdminRedirect(appUrl, 'error', 'Backend configuration is incomplete.'));
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Backend configuration is incomplete.', state.domainId));
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -52,10 +52,10 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Failed to persist Microsoft admin consent', updateError);
-      return redirect(buildAdminRedirect(appUrl, 'error', 'Failed to save Microsoft consent.'));
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Failed to save Microsoft consent.', state.domainId));
     }
 
-    return redirect(buildAdminRedirect(appUrl, 'success', 'Tenant authorization recorded.'));
+    return redirect(buildAdminRedirect(appUrl, 'success', 'Tenant authorization recorded.', state.domainId));
   } catch (error) {
     console.error('Microsoft admin consent callback error', error);
     const fallbackUrl = getFallbackAppUrl();
@@ -63,8 +63,22 @@ serve(async (req) => {
   }
 });
 
-function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string): string {
-  return `${appUrl}/admin?tab=discovered&ms_consent=${status}&message=${encodeURIComponent(message)}`;
+function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string, domainId?: string): string {
+  const params = new URLSearchParams({
+    tab: 'discovered',
+    ms_consent: status,
+    message,
+  });
+
+  if (domainId) {
+    params.set('domain_id', domainId);
+    if (status === 'success') {
+      params.set('auto_sync', '1');
+      params.set('run_check', '1');
+    }
+  }
+
+  return `${appUrl}/admin?${params.toString()}`;
 }
 
 function parseState(stateParam: string | null): { domainId?: string; appOrigin?: string } {

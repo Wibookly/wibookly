@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +13,10 @@ interface PermResult {
 
 interface Props {
   invoke: (action: string, payload?: Record<string, any>) => Promise<any>;
+  autoRunNonce?: number;
 }
 
-export default function AzurePermissionsCheck({ invoke }: Props) {
+export default function AzurePermissionsCheck({ invoke, autoRunNonce = 0 }: Props) {
   const { toast } = useToast();
   const [results, setResults] = useState<PermResult[] | null>(null);
   const [credsConfigured, setCredsConfigured] = useState<boolean | null>(null);
@@ -33,6 +34,11 @@ export default function AzurePermissionsCheck({ invoke }: Props) {
       setChecking(false);
     }
   };
+
+  useEffect(() => {
+    if (!autoRunNonce) return;
+    void runCheck();
+  }, [autoRunNonce]);
 
   const allOk = results && results.length > 0 && results.every((r) => r.status === 'ok');
   const anyMissingPerm = results?.some((r) => r.status === 'permission_missing' || r.status === 'token_failed' || r.status === 'invalid_client_secret');

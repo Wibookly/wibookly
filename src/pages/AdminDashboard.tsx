@@ -97,6 +97,9 @@ export default function AdminDashboard() {
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [microsoftClientId, setMicrosoftClientId] = useState<string | null>(null);
+  const [autoSyncDomainId, setAutoSyncDomainId] = useState<string | null>(null);
+  const [autoSyncNonce, setAutoSyncNonce] = useState(0);
+  const [autoCheckNonce, setAutoCheckNonce] = useState(0);
 
   // New user form
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -127,11 +130,16 @@ export default function AdminDashboard() {
 
   // Detect Microsoft admin consent result after the backend callback redirects back here.
   useEffect(() => {
+    if (loading) return;
     if (!isSuperAdmin) return;
+
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     const consentStatus = params.get('ms_consent');
     const message = params.get('message');
+    const domainId = params.get('domain_id');
+    const shouldSync = params.get('auto_sync') === '1';
+    const shouldRunCheck = params.get('run_check') === '1';
 
     if (tab === 'discovered') {
       setActiveTab('discovered');
@@ -143,6 +151,15 @@ export default function AdminDashboard() {
         description: message || 'Tenant authorization recorded.',
       });
       fetchData();
+      if (tab === 'discovered' && domainId) {
+        setAutoSyncDomainId(domainId);
+      }
+      if (tab === 'discovered' && shouldSync) {
+        setAutoSyncNonce((value) => value + 1);
+      }
+      if (tab === 'discovered' && shouldRunCheck) {
+        setAutoCheckNonce((value) => value + 1);
+      }
       const nextUrl = tab === 'discovered' ? `${window.location.pathname}?tab=discovered` : window.location.pathname;
       window.history.replaceState({}, '', nextUrl);
     } else if (consentStatus === 'error') {
@@ -155,7 +172,7 @@ export default function AdminDashboard() {
       window.history.replaceState({}, '', nextUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, loading]);
 
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-api', {
@@ -266,27 +283,7 @@ export default function AdminDashboard() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
-    const isEmbeddedPreview = window.self !== window.top;
-
-    if (isEmbeddedPreview) {
-      const popup = window.open(url, '_blank', 'noopener,noreferrer');
-
-      if (!popup) {
-        window.location.assign(url);
-      } else {
-        toast({
-          title: 'Microsoft consent opened',
-          description: `Continue in the new tab as a global admin for ${domain.domain}.`,
-        });
-        return;
-      }
-    }
-
     window.location.assign(url);
-    toast({
-      title: 'Microsoft consent opened',
-      description: `Sign in with a global admin of ${domain.domain}. After approval you will return here automatically.`,
-    });
   };
 
   const handleSetTenantId = async (id: string, tenantId: string) => {
@@ -432,6 +429,14 @@ export default function AdminDashboard() {
     return feature?.is_enabled ?? false;
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!isSuperAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -444,14 +449,6 @@ export default function AdminDashboard() {
             <CardDescription>You do not have administrator privileges.</CardDescription>
           </CardHeader>
         </Card>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -509,7 +506,7 @@ export default function AdminDashboard() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
-          <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Directory</TabsTrigger>
+          <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
@@ -527,8 +524,13 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="discovered" className="space-y-6">
-          <DiscoveredUsersPanel invoke={adminInvoke} domains={domains as any} />
-          <AzurePermissionsCheck invoke={adminInvoke} />
+          <DiscoveredUsersPanel
+            invoke={adminInvoke}
+            domains={domains as any}
+            initialDomainId={autoSyncDomainId}
+            autoSyncNonce={autoSyncNonce}
+          />
+          <AzurePermissionsCheck invoke={adminInvoke} autoRunNonce={autoCheckNonce} />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
