@@ -131,31 +131,10 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       setDomain(d);
       setSavedDomainId(domainRowId);
 
-      // Auto-launch Microsoft consent flow in a new tab
+      // Redirect in the same tab so the admin returns directly into the dashboard session.
       const consentUrl = buildAdminConsentUrl(d, domainRowId);
-      const popup = window.open(consentUrl, '_blank', 'noopener,noreferrer');
-      if (!popup || popup.closed) {
-        // Popup blocked — show inline action so we DON'T navigate away from /admin
-        toast({
-          title: 'Popups blocked',
-          description: 'Allow popups for this site, then click "Save & Grant Microsoft Consent" again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({
-        title: 'Microsoft consent opened',
-        description: `Sign in with a Global Admin of ${d} and click Accept. We'll take you to M365 Users to sync users.`,
-      });
-
-      // Refresh parent data, then jump straight to M365 Users tab to run sync
-      onCompleted();
-      if (onNavigateToTab) {
-        onNavigateToTab('discovered');
-      } else {
-        setStep(3);
-      }
+      window.location.assign(consentUrl);
+      return;
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
