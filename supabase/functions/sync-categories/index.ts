@@ -464,6 +464,14 @@ serve(async (req) => {
       );
     }
 
+    let connectionId: string | null = null;
+    try {
+      const body = await req.json();
+      connectionId = body?.connection_id || body?.connectionId || null;
+    } catch {
+      // No body provided; fall back to the user's connected accounts.
+    }
+
     // Get user's organization using RPC function
     const { data: profileData } = await supabaseUserClient.rpc('get_my_profile');
     const profile = profileData?.[0];
@@ -481,11 +489,50 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get ALL categories for the organization (enabled and disabled)
+    let scopedConnectionIds: string[] = [];
+
+    if (connectionId) {
+      const { data: requestedConnection, error: connectionError } = await supabaseAdmin
+        .from('provider_connections')
+        .select('id')
+        .eq('id', connectionId)
+        .eq('user_id', user.id)
+        .eq('organization_id', profile.organization_id)
+        .eq('is_connected', true)
+        .maybeSingle();
+
+      if (connectionError || !requestedConnection) {
+        return new Response(
+          JSON.stringify({ error: 'Connected email account not found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      scopedConnectionIds = [requestedConnection.id];
+    } else {
+      const { data: userConnections, error: connectionsError } = await supabaseAdmin
+        .from('provider_connections')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('organization_id', profile.organization_id)
+        .eq('is_connected', true);
+
+      if (connectionsError || !userConnections?.length) {
+        return new Response(
+          JSON.stringify({ error: 'No connected email providers found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      scopedConnectionIds = userConnections.map((connection) => connection.id);
+    }
+
+    // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, color, is_enabled, sort_order')
+      .select('id, name, color, is_enabled, sort_order, connection_id')
       .eq('organization_id', profile.organization_id)
+      .in('connection_id', scopedConnectionIds)
       .order('sort_order');
 
     if (catError || !allCategories) {

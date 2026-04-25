@@ -533,7 +533,7 @@ export default function Categories() {
     
     try {
       await supabase.functions.invoke('sync-categories', {
-        body: { connectionId: activeConnection.id }
+        body: { connection_id: activeConnection.id }
       });
       
       // Refetch categories to get updated sync timestamps
@@ -598,7 +598,7 @@ export default function Categories() {
   const syncSingleRule = async (ruleId: string) => {
     try {
       await supabase.functions.invoke('sync-rules', {
-        body: { ruleId }
+        body: { rule_id: ruleId, connection_id: activeConnection.id }
       });
       
       // Clear sync needed indicator for this rule

@@ -27,14 +27,26 @@ interface FeatureAccessState {
 }
 
 export function useFeatureAccess() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [state, setState] = useState<FeatureAccessState>({ features: {}, loading: true });
   const lastFetchRef = useRef<number>(0);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   const fetchFeatures = useCallback(async () => {
+    if (authLoading) {
+      return;
+    }
+
     if (!user?.id) {
+      loadedUserIdRef.current = null;
+      lastFetchRef.current = 0;
       setState({ features: {}, loading: false });
       return;
+    }
+
+    const isNewUser = loadedUserIdRef.current !== user.id;
+    if (isNewUser || lastFetchRef.current === 0) {
+      setState((prev) => ({ features: isNewUser ? {} : prev.features, loading: true }));
     }
 
     try {
@@ -43,6 +55,7 @@ export function useFeatureAccess() {
         const all: Record<string, boolean> = {};
         ALL_FEATURES.forEach((k) => (all[k] = true));
         setState({ features: all, loading: false });
+        loadedUserIdRef.current = user.id;
         lastFetchRef.current = Date.now();
         return;
       }
@@ -65,14 +78,17 @@ export function useFeatureAccess() {
       const features = Object.fromEntries(featureResults);
 
       setState({ features, loading: false });
+      loadedUserIdRef.current = user.id;
       lastFetchRef.current = Date.now();
     } catch (error) {
       console.error('Error fetching feature access:', error);
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, [user?.id, user?.email]);
+  }, [authLoading, user?.id, user?.email]);
 
   useEffect(() => {
+    if (authLoading) return;
+
     fetchFeatures();
 
     if (!user?.id) return;
@@ -100,7 +116,7 @@ export function useFeatureAccess() {
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(interval);
     };
-  }, [user?.id, fetchFeatures]);
+  }, [authLoading, user?.id, fetchFeatures]);
 
   const hasFeature = useCallback(
     (key: FeatureKey): boolean => {
@@ -109,5 +125,5 @@ export function useFeatureAccess() {
     [state.features],
   );
 
-  return { hasFeature, loading: state.loading, refreshFeatures: fetchFeatures };
+  return { hasFeature, loading: authLoading || state.loading, refreshFeatures: fetchFeatures };
 }

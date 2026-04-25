@@ -653,11 +653,13 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body for optional rule_id filter
+    // Parse request body for optional rule_id and connection scoping
     let ruleId: string | null = null;
+    let connectionId: string | null = null;
     try {
       const body = await req.json();
-      ruleId = body?.rule_id || null;
+      ruleId = body?.rule_id || body?.ruleId || null;
+      connectionId = body?.connection_id || body?.connectionId || null;
     } catch {
       // No body or invalid JSON - run all rules
     }
@@ -679,6 +681,24 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    if (connectionId) {
+      const { data: requestedConnection, error: connectionError } = await supabaseAdmin
+        .from('provider_connections')
+        .select('id')
+        .eq('id', connectionId)
+        .eq('user_id', user.id)
+        .eq('organization_id', profile.organization_id)
+        .eq('is_connected', true)
+        .maybeSingle();
+
+      if (connectionError || !requestedConnection) {
+        return new Response(
+          JSON.stringify({ error: 'Connected email account not found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Get rules with category info
     let rulesQuery = supabaseAdmin
       .from('rules')
@@ -697,6 +717,10 @@ serve(async (req) => {
       `)
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true);
+
+    if (connectionId) {
+      rulesQuery = rulesQuery.eq('connection_id', connectionId);
+    }
 
     if (ruleId) {
       rulesQuery = rulesQuery.eq('id', ruleId);
@@ -738,12 +762,18 @@ serve(async (req) => {
     }
 
     // Get ENABLED categories for numbering - use sort_order for label names
-    const { data: enabledCategories } = await supabaseAdmin
+    let enabledCategoriesQuery = supabaseAdmin
       .from('categories')
       .select('id, name, sort_order')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
       .order('sort_order');
+
+    if (connectionId) {
+      enabledCategoriesQuery = enabledCategoriesQuery.eq('connection_id', connectionId);
+    }
+
+    const { data: enabledCategories } = await enabledCategoriesQuery;
 
     // Map category ID to its sort_order (used for label naming)
     const categoryMap = new Map(enabledCategories?.map((c) => [c.id, { name: c.name, sortOrder: c.sort_order }]));
