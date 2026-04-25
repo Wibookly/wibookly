@@ -601,8 +601,8 @@ function GroupPicker({
         </div>
         {orgGroups.length === 0 ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">
-            No groups exist for this user's domain yet. Create one in the Groups tab and
-            scope it to this domain.
+            No groups available for this user yet. Create one in the Groups tab —
+            either global or scoped to this user's domain.
           </div>
         ) : (
           <div className="max-h-64 overflow-y-auto">
