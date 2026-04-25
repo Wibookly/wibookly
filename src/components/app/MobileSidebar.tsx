@@ -16,7 +16,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   const { signOut, profile } = useAuth();
   const location = useLocation();
   const { connections, activeConnection } = useActiveEmail();
-  const { hasFeature } = useFeatureAccess();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   const handleNavClick = () => {
@@ -68,21 +68,21 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
           </NavLink>
 
           {/* AI Draft */}
-          {(isSuperAdmin || hasFeature('ai_draft')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('ai_draft')) && (
             <NavLink to="/email-draft" onClick={handleNavClick} className={navItemClass('/email-draft')}>
               <Sparkles className="w-4 h-4" /> AI Draft Settings
             </NavLink>
           )}
 
           {/* AI Auto Reply */}
-          {(isSuperAdmin || hasFeature('ai_auto_reply')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('ai_auto_reply')) && (
             <NavLink to="/email-draft?tab=auto-reply" onClick={handleNavClick} className={navItemClass('/email-draft?tab=auto-reply')}>
               <MessageSquare className="w-4 h-4" /> AI Auto Reply
             </NavLink>
           )}
 
           {/* AI Assistant */}
-          {(isSuperAdmin || hasFeature('ai_assistant')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('ai_assistant')) && (
             <>
               <NavLink to="/ai-daily-brief" onClick={handleNavClick} className={navItemClass('/ai-daily-brief')}>
                 <Sun className="w-4 h-4" /> Daily Brief
@@ -94,7 +94,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
           )}
 
           {/* Reports */}
-          {(isSuperAdmin || hasFeature('reports')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('reports')) && (
             <NavLink to="/ai-activity" onClick={handleNavClick} className={navItemClass('/ai-activity')}>
               <BarChart3 className="w-4 h-4" /> AI Activity
             </NavLink>
