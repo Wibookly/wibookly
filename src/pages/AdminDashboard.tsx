@@ -480,7 +480,7 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="setup">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Directory</TabsTrigger>
@@ -496,6 +496,7 @@ export default function AdminDashboard() {
             existingGroups={groups}
             organizationId={profile?.organization_id ?? null}
             onCompleted={fetchData}
+            onNavigateToTab={setActiveTab}
           />
         </TabsContent>
 
