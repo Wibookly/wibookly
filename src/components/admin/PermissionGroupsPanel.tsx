@@ -112,6 +112,61 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
     }
   };
 
+  const handleSetOverride = async (groupId: string, domainIdValue: string, featureKey: string, enabled: boolean) => {
+    try {
+      await invoke('set_group_feature_override', {
+        group_id: groupId,
+        domain_id: domainIdValue,
+        feature_key: featureKey,
+        is_enabled: enabled,
+      });
+      setLocalGroups((prev) => prev.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextOverrides = group.overrides || [];
+        const hasOverride = nextOverrides.some(
+          (override) => override.domain_id === domainIdValue && override.feature_key === featureKey,
+        );
+
+        return {
+          ...group,
+          overrides: hasOverride
+            ? nextOverrides.map((override) => (
+                override.domain_id === domainIdValue && override.feature_key === featureKey
+                  ? { ...override, is_enabled: enabled }
+                  : override
+              ))
+            : [...nextOverrides, { domain_id: domainIdValue, feature_key: featureKey, is_enabled: enabled }],
+        };
+      }));
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleClearOverride = async (groupId: string, domainIdValue: string, featureKey: string) => {
+    try {
+      await invoke('clear_group_feature_override', {
+        group_id: groupId,
+        domain_id: domainIdValue,
+        feature_key: featureKey,
+      });
+      setLocalGroups((prev) => prev.map((group) => (
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              overrides: (group.overrides || []).filter(
+                (override) => !(override.domain_id === domainIdValue && override.feature_key === featureKey),
+              ),
+            }
+      )));
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
   const handleDelete = async (groupId: string) => {
     try {
       await invoke('delete_group', { group_id: groupId });
@@ -219,6 +274,8 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
                   domains={domains}
                   isFeatureEnabled={isFeatureEnabled}
                   onToggleFeature={handleToggleFeature}
+                   onSetOverride={handleSetOverride}
+                   onClearOverride={handleClearOverride}
                   onDelete={handleDelete}
                   invoke={invoke}
                   onChanged={onChanged}
@@ -249,6 +306,8 @@ function GroupCard({
   domains,
   isFeatureEnabled,
   onToggleFeature,
+  onSetOverride,
+  onClearOverride,
   onDelete,
   invoke,
   onChanged,
@@ -259,6 +318,8 @@ function GroupCard({
   domains: AdminDomain[];
   isFeatureEnabled: (group: PermissionGroup, key: string) => boolean;
   onToggleFeature: (groupId: string, featureKey: string, enabled: boolean) => Promise<void>;
+  onSetOverride: (groupId: string, domainIdValue: string, featureKey: string, enabled: boolean) => Promise<void>;
+  onClearOverride: (groupId: string, domainIdValue: string, featureKey: string) => Promise<void>;
   onDelete: (groupId: string) => Promise<void>;
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   onChanged: () => void;
