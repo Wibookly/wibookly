@@ -264,9 +264,18 @@ serve(async (req) => {
       .update({ last_directory_sync_at: new Date().toISOString() })
       .eq('id', domain.id);
 
+    // Diagnostics: count how many users matched the configured domain at all,
+    // so the admin can tell the difference between "wrong domain" and "no licenses".
+    const domainMatchCount = usersRes.users.filter((u) => {
+      const email = (u.mail || u.userPrincipalName || '').toLowerCase();
+      return email.endsWith('@' + domainLower);
+    }).length;
+
     return new Response(JSON.stringify({
       success: true,
       total_in_tenant: usersRes.users.length,
+      domain_matched: domainMatchCount,
+      configured_domain: domain.domain,
       licensed_on_domain: filtered.length,
       synced_at: new Date().toISOString(),
     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
