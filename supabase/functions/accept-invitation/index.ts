@@ -11,23 +11,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const CANONICAL_APP_URL = 'https://inboxiq.energyforward.com';
+
 function getAppUrl(req: Request): string {
-  // Prefer the Origin/Referer the user came from so dev preview + custom domain both work.
+  // Invitation links must always land on the real app domain.
+  // Preview hosts require Lovable auth and will block external invitees.
   const origin = req.headers.get('origin') || req.headers.get('referer');
   if (origin) {
     try {
       const url = new URL(origin);
       const host = url.hostname.toLowerCase();
-      const ok =
-        host.endsWith('.lovable.app') ||
-        host.endsWith('.lovableproject.com') ||
-        host === 'localhost' ||
-        host === '127.0.0.1' ||
-        host === 'inboxiq.energyforward.com';
+      const ok = host === 'localhost' || host === '127.0.0.1' || host === 'inboxiq.energyforward.com';
       if (ok) return url.origin;
     } catch { /* ignore */ }
   }
-  return 'https://inboxiq.energyforward.com';
+  return CANONICAL_APP_URL;
 }
 
 function redirect(url: string): Response {

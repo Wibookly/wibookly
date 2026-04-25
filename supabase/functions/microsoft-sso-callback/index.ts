@@ -322,8 +322,10 @@ serve(async (req) => {
   }
 });
 
+const CANONICAL_APP_URL = 'https://inboxiq.energyforward.com';
+
 function getAppUrl(): string {
-  return 'https://energyforwardai.lovable.app';
+  return CANONICAL_APP_URL;
 }
 
 function resolveAppUrl(appOrigin?: unknown): string {
@@ -332,10 +334,9 @@ function resolveAppUrl(appOrigin?: unknown): string {
   try {
     const url = new URL(appOrigin);
     const host = url.hostname.toLowerCase();
-    const isLovable = host.endsWith('.lovable.app') || host.endsWith('.lovableproject.com');
     const isLocal = host === 'localhost' || host === '127.0.0.1';
     const isCustomDomain = host === 'inboxiq.energyforward.com';
-    if (!isLovable && !isLocal && !isCustomDomain) return fallback;
+    if (!isLocal && !isCustomDomain) return fallback;
     if (url.protocol !== 'https:' && !isLocal) return fallback;
     return url.origin;
   } catch {
