@@ -200,22 +200,39 @@ serve(async (req) => {
       .eq('email', invitation.email)
       .eq('domain_id', invitation.domain_id || '');
 
-    // Generate a magic link → signs them in instantly without a password.
-    // After login, the app's auto-connect logic redirects to Outlook OAuth.
-    const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
-      type: 'magiclink',
-      email: invitation.email,
-      options: {
-        redirectTo: `${appUrl}/integrations?welcome=1`,
-      },
-    });
-
-    if (linkErr || !linkData?.properties?.action_link) {
-      console.error('Failed to generate magic link for invitation', linkErr);
-      return redirect(`${appUrl}/auth?info=${encodeURIComponent('Account ready. Please sign in with Microsoft.')}&email=${encodeURIComponent(invitation.email)}`);
+    // Sign the invited user in via Microsoft SSO (NOT a Supabase magic link).
+    // We redirect straight to Microsoft's authorize endpoint with the invitee's
+    // email as login_hint. The existing microsoft-sso-callback handler will
+    // exchange the code, create/find the Supabase auth user, link tokens, and
+    // bounce them back to /integrations?welcome=1.
+    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
+    if (!clientId) {
+      console.error('MICROSOFT_CLIENT_ID not configured');
+      return redirect(`${appUrl}/auth?error=${encodeURIComponent('Microsoft sign-in is not configured. Please contact your administrator.')}`);
     }
 
-    return redirect(linkData.properties.action_link);
+    const callbackUrl = `${supabaseUrl}/functions/v1/microsoft-sso-callback`;
+    const stateData = btoa(JSON.stringify({
+      state: crypto.randomUUID(),
+      email: invitation.email,
+      appOrigin: appUrl,
+      invitationId: invitation.id,
+      redirectTo: `${appUrl}/integrations?welcome=1`,
+    }));
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callbackUrl,
+      response_type: 'code',
+      scope: 'openid email profile offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite',
+      response_mode: 'query',
+      state: stateData,
+      login_hint: invitation.email,
+      prompt: 'select_account',
+    });
+
+    const authorizeUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+    return redirect(authorizeUrl);
 
   } catch (e) {
     console.error('accept-invitation error', e);
