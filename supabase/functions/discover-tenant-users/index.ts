@@ -13,6 +13,12 @@ const corsHeaders = {
 
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
 
+interface AssignedPlan {
+  service: string;
+  capabilityStatus: string;
+  servicePlanId?: string;
+}
+
 interface GraphUser {
   id: string;
   userPrincipalName: string | null;
@@ -21,7 +27,21 @@ interface GraphUser {
   jobTitle: string | null;
   accountEnabled: boolean;
   assignedLicenses: { skuId: string }[];
+  assignedPlans?: AssignedPlan[];
   userType?: string | null;
+}
+
+// True if the user has an active Exchange Online (mailbox) service plan.
+// This filters out Teams-only / Power BI-only / etc. licenses that cannot
+// receive email and therefore should not be enabled in InboxIQ.
+function hasActiveExchangeLicense(u: GraphUser): boolean {
+  if (!Array.isArray(u.assignedPlans)) return false;
+  return u.assignedPlans.some(
+    (p) =>
+      p.capabilityStatus === 'Enabled' &&
+      typeof p.service === 'string' &&
+      p.service.toLowerCase() === 'exchange',
+  );
 }
 
 async function getAppOnlyToken(tenantId: string): Promise<{ token?: string; error?: string }> {
@@ -75,7 +95,7 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
   const users: GraphUser[] = [];
   let url: string | null =
     'https://graph.microsoft.com/v1.0/users' +
-    '?$select=id,userPrincipalName,mail,displayName,jobTitle,accountEnabled,assignedLicenses,userType' +
+    '?$select=id,userPrincipalName,mail,displayName,jobTitle,accountEnabled,assignedLicenses,assignedPlans,userType' +
     '&$top=999';
 
   while (url) {
@@ -189,14 +209,15 @@ serve(async (req) => {
       });
     }
 
-    // Filter: licensed members on the matching domain only
+    // Filter: only active members on the matching domain who have an
+    // Exchange Online (mailbox) license. This is the InboxIQ access criterion.
     const domainLower = domain.domain.toLowerCase();
     const filtered = usersRes.users.filter((u) => {
       const email = (u.mail || u.userPrincipalName || '').toLowerCase();
       if (!email.endsWith('@' + domainLower)) return false;
       if (u.userType && u.userType.toLowerCase() === 'guest') return false;
-      const licensed = Array.isArray(u.assignedLicenses) && u.assignedLicenses.length > 0;
-      return licensed;
+      if (!u.accountEnabled) return false;
+      return hasActiveExchangeLicense(u);
     });
 
     // Build payload — preserve existing invited_user_id / status by upserting on (domain_id, ms_user_id)

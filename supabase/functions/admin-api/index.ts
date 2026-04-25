@@ -576,6 +576,47 @@ serve(async (req) => {
         });
       }
 
+      case 'remove_discovered_user': {
+        // Fully remove a user from the app: deletes profile, memberships, roles,
+        // and the auth user itself. The discovered_tenant_users row is reset to
+        // 'discovered' so the admin can re-invite them later if needed.
+        const { discovered_id } = payload;
+        if (!discovered_id) {
+          return new Response(JSON.stringify({ error: 'discovered_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: discovered } = await adminClient
+          .from('discovered_tenant_users')
+          .select('id, invited_user_id')
+          .eq('id', discovered_id).maybeSingle();
+        if (!discovered) {
+          return new Response(JSON.stringify({ error: 'Discovered user not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (discovered.invited_user_id) {
+          const uid = discovered.invited_user_id;
+          await adminClient.from('user_feature_access').delete().eq('user_id', uid);
+          await adminClient.from('user_roles').delete().eq('user_id', uid);
+          await adminClient.from('organization_members').delete().eq('user_id', uid);
+          await adminClient.from('user_profiles').delete().eq('user_id', uid);
+          const { error: delErr } = await adminClient.auth.admin.deleteUser(uid);
+          if (delErr && !/not.*found/i.test(delErr.message)) {
+            throw delErr;
+          }
+        }
+
+        await adminClient
+          .from('discovered_tenant_users')
+          .update({ status: 'discovered', invited_user_id: null, invited_at: null })
+          .eq('id', discovered_id);
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
       case 'update_group': {
         const { group_id, name, description } = payload;
@@ -675,7 +716,32 @@ serve(async (req) => {
         if (domain_id) q = q.eq('domain_id', domain_id);
         const { data, error } = await q;
         if (error) throw error;
-        return new Response(JSON.stringify({ users: data || [] }), {
+
+        // Enrich with auth ban state for users that have already been provisioned,
+        // so the UI can show "Disabled in app" vs "Active" and offer the right action.
+        const rows = data || [];
+        const provisionedIds = rows
+          .map((r: any) => r.invited_user_id)
+          .filter((id: string | null): id is string => !!id);
+
+        let bannedMap: Record<string, boolean> = {};
+        if (provisionedIds.length > 0) {
+          // listUsers paginates at 1000 per page; fine for org-scale tenants.
+          const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+          for (const u of (authList?.users || [])) {
+            // Supabase exposes ban state via banned_until (ISO string in the future = banned).
+            const bannedUntil = (u as any).banned_until as string | null | undefined;
+            const isBanned = !!bannedUntil && new Date(bannedUntil).getTime() > Date.now();
+            bannedMap[u.id] = isBanned;
+          }
+        }
+
+        const enriched = rows.map((r: any) => ({
+          ...r,
+          app_disabled: r.invited_user_id ? !!bannedMap[r.invited_user_id] : false,
+        }));
+
+        return new Response(JSON.stringify({ users: enriched }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

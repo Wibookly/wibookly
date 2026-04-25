@@ -3,11 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck } from 'lucide-react';
+import {
+  Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck,
+  Pause, Play, Trash2,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DiscoveredUser {
   id: string;
@@ -22,6 +29,8 @@ interface DiscoveredUser {
   invited_user_id: string | null;
   invited_at: string | null;
   last_seen_at: string;
+  /** True when this user has been provisioned but their auth account is currently banned (suspended in app). */
+  app_disabled?: boolean;
 }
 
 interface DomainOption {
@@ -48,6 +57,7 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
   const [actingId, setActingId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<DiscoveredUser | null>(null);
 
   useEffect(() => {
     if (initialDomainId && initialDomainId !== selectedDomainId) {
@@ -143,6 +153,60 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
       setActingId(null);
     }
   };
+
+  // Temporarily blocks sign-in for a provisioned user. All their data
+  // (profile, connections, categories, history) is preserved.
+  const handleSuspend = async (u: DiscoveredUser) => {
+    if (!u.invited_user_id) return;
+    setActingId(u.id);
+    try {
+      await invoke('disable_user', { user_id: u.invited_user_id });
+      toast({
+        title: 'Access suspended',
+        description: `${u.email} can no longer sign in. Their data is kept and can be restored at any time.`,
+      });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to suspend', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // Reverses a suspension — restores sign-in immediately.
+  const handleReactivate = async (u: DiscoveredUser) => {
+    if (!u.invited_user_id) return;
+    setActingId(u.id);
+    try {
+      await invoke('enable_user', { user_id: u.invited_user_id });
+      toast({ title: 'Access restored', description: `${u.email} can sign in again.` });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to reactivate', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // Permanently deletes the user's app account, profile, and memberships.
+  // The directory row stays so the admin can re-invite them later if needed.
+  const handleRemove = async (u: DiscoveredUser) => {
+    setActingId(u.id);
+    try {
+      await invoke('remove_discovered_user', { discovered_id: u.id });
+      toast({
+        title: 'User removed',
+        description: `${u.email} has been removed from the app. They can be re-invited at any time.`,
+      });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to remove', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+      setRemoveTarget(null);
+    }
+  };
+
 
   const filtered = users.filter((u) => {
     if (!u.account_enabled || !u.is_licensed) return false;
@@ -256,9 +320,15 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {u.status === 'active' && (
+                    {/* State badge */}
+                    {u.status === 'active' && !u.app_disabled && (
                       <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Active
+                      </Badge>
+                    )}
+                    {u.status === 'active' && u.app_disabled && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1">
+                        <Pause className="w-3 h-3" /> Suspended
                       </Badge>
                     )}
                     {u.status === 'invited' && (
@@ -275,39 +345,95 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                       </Badge>
                     )}
 
+                    {/* Actions for "discovered" — invite or silently provision */}
                     {u.status === 'discovered' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleInvite(u)}
-                        disabled={isBusy || !u.account_enabled}
-                        className="gap-1"
-                      >
-                        {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        Invite
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleInvite(u)}
+                          disabled={isBusy || !u.account_enabled}
+                          className="gap-1"
+                        >
+                          {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          Invite
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEnable(u)}
+                          disabled={isBusy}
+                          title="Provision account without sending an email"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
                     )}
+
+                    {/* Actions for "invited" — resend, or remove if they never accept */}
                     {u.status === 'invited' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleResend(u)}
-                        disabled={isBusy}
-                        className="gap-1"
-                      >
-                        {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        Resend
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResend(u)}
+                          disabled={isBusy}
+                          className="gap-1"
+                        >
+                          {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          Resend
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setRemoveTarget(u)}
+                          disabled={isBusy}
+                          className="text-destructive hover:text-destructive"
+                          title="Remove from app"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
                     )}
-                    {u.status === 'discovered' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEnable(u)}
-                        disabled={isBusy}
-                        title="Provision account without sending an email"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                      </Button>
+
+                    {/* Actions for "active" — suspend / reactivate / remove */}
+                    {u.status === 'active' && (
+                      <>
+                        {u.app_disabled ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReactivate(u)}
+                            disabled={isBusy}
+                            className="gap-1"
+                            title="Restore sign-in"
+                          >
+                            {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                            Reactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSuspend(u)}
+                            disabled={isBusy}
+                            className="gap-1"
+                            title="Temporarily block sign-in (data is kept)"
+                          >
+                            {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />}
+                            Suspend
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setRemoveTarget(u)}
+                          disabled={isBusy}
+                          className="text-destructive hover:text-destructive"
+                          title="Remove from app"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -316,6 +442,30 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove user from app?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes <span className="font-medium">{removeTarget?.email}</span>'s
+              app account, profile, connections, and history. They'll still appear in this list
+              (because they're in your Microsoft 365 tenant) and can be re-invited later.
+              <br /><br />
+              If you only want to temporarily block sign-in, use <span className="font-medium">Suspend</span> instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => removeTarget && handleRemove(removeTarget)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove user
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
