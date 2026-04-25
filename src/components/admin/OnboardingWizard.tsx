@@ -72,7 +72,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const [createdGroups, setCreatedGroups] = useState<PermissionGroup[]>([]);
 
   // ───────────────────────── Step 1: Domain + Microsoft consent ─────────────────────────
-  const buildAdminConsentUrl = (domainName: string, domainRowId: string) => {
+  const buildAdminConsentUrl = (domainRowId: string) => {
     if (!microsoftClientId) {
       throw new Error('Microsoft app configuration is missing.');
     }
@@ -87,7 +87,10 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       scope: MICROSOFT_REQUIRED_SCOPES,
       state,
     });
-    return `https://login.microsoftonline.com/${encodeURIComponent(domainName)}/v2.0/adminconsent?${params.toString()}`;
+    // Use the generic "organizations" endpoint so Microsoft resolves the tenant
+    // from the admin's sign-in. Passing the raw typed domain (which may be
+    // misspelled or not yet a verified Azure domain) caused a white error page.
+    return `https://login.microsoftonline.com/organizations/v2.0/adminconsent?${params.toString()}`;
   };
 
   const handleSaveDomain = async () => {
