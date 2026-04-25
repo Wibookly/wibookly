@@ -973,23 +973,19 @@ serve(async (req) => {
         const appOrigin = req.headers.get('origin') || 'https://inboxiq.energyforward.com';
         const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
 
-        await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${serviceRoleKey}`,
+        const resendResult = await enqueueWelcomeEmail(adminClient, {
+          templateName: 'welcome-sso',
+          recipientEmail: discovered.email,
+          idempotencyKey: `resend-${invitation.id}-${Date.now()}`,
+          templateData: {
+            fullName: discovered.display_name || '',
+            invitationUrl,
+            organizationName: org?.name || '',
           },
-          body: JSON.stringify({
-            templateName: 'welcome-sso',
-            recipientEmail: discovered.email,
-            idempotencyKey: `resend-${invitation.id}-${Date.now()}`,
-            templateData: {
-              fullName: discovered.display_name || '',
-              invitationUrl,
-              organizationName: org?.name || '',
-            },
-          }),
-        }).catch((e) => console.error('Resend email failed', e));
+        });
+        if (!resendResult.ok) {
+          console.error('Resend email failed', resendResult.error);
+        }
 
         await adminClient
           .from('discovered_tenant_users')
