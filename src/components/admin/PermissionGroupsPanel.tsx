@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Trash2, ShieldCheck, Users as UsersIcon, Globe } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Loader2, Plus, Trash2, ShieldCheck, Users as UsersIcon, Globe, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const FEATURE_KEYS = [
@@ -30,6 +33,8 @@ export interface PermissionGroup {
   organization_id: string;
   domain_id: string | null;
   features: { feature_key: string; is_enabled: boolean }[];
+  /** Per-domain overrides — only populated for global groups. */
+  overrides?: { domain_id: string; feature_key: string; is_enabled: boolean }[];
   member_count: number;
 }
 
@@ -115,7 +120,9 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Plus className="w-5 h-5" /> Create Permission Group</CardTitle>
           <CardDescription>
-            Bundle features together (e.g. Standard, Power User, Executive) and scope each group to a specific authorized domain — or leave it global to apply across all domains.
+            Bundle features together (e.g. Standard, Power User, Executive) and scope each group to a specific
+            authorized domain — or leave it global to apply across all domains. Global groups can be tweaked
+            per-domain after creation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -155,7 +162,10 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <CardTitle>Groups</CardTitle>
-              <CardDescription>Toggle which features each group grants. Changes apply immediately to all members.</CardDescription>
+              <CardDescription>
+                Toggle which features each group grants. For global groups, switch the "Configure for"
+                dropdown to a specific domain to override the defaults just for that domain.
+              </CardDescription>
             </div>
             {domains.length > 0 && (
               <div className="min-w-[200px]">
@@ -181,60 +191,236 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           ) : (
             <div className="space-y-4">
               {visibleGroups.map(group => (
-                <div key={group.id} className="p-4 rounded-lg border border-border bg-background space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <ShieldCheck className="w-5 h-5 text-primary" />
-                      <div>
-                        <p className="font-medium text-foreground">{group.name}</p>
-                        {group.description && <p className="text-sm text-muted-foreground">{group.description}</p>}
-                      </div>
-                      <Badge variant={group.domain_id ? 'default' : 'outline'} className="gap-1">
-                        <Globe className="w-3 h-3" /> {domainLabel(group.domain_id)}
-                      </Badge>
-                      <Badge variant="secondary" className="gap-1">
-                        <UsersIcon className="w-3 h-3" /> {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
-                      </Badge>
-                    </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete group?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            All {group.member_count} member(s) will lose any features granted by this group. Per-user grants are kept.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(group.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-border/50">
-                    {FEATURE_KEYS.map(feat => {
-                      const enabled = isFeatureEnabled(group, feat.key);
-                      return (
-                        <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                          <p className="text-xs font-medium text-foreground">{feat.label}</p>
-                          <Switch checked={enabled} onCheckedChange={(v) => handleToggleFeature(group.id, feat.key, v)} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  domains={domains}
+                  isFeatureEnabled={isFeatureEnabled}
+                  onToggleFeature={handleToggleFeature}
+                  onDelete={handleDelete}
+                  invoke={invoke}
+                  onChanged={onChanged}
+                  domainLabel={domainLabel}
+                />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/**
+ * One group's editor. For domain-scoped groups this is just the standard
+ * feature switches. For Global groups, the admin can also choose a specific
+ * domain in the "Configure for" dropdown to flip features on/off for that
+ * domain only — the underlying storage is `group_feature_overrides`.
+ */
+function GroupCard({
+  group,
+  domains,
+  isFeatureEnabled,
+  onToggleFeature,
+  onDelete,
+  invoke,
+  onChanged,
+  domainLabel,
+}: {
+  group: PermissionGroup;
+  domains: AdminDomain[];
+  isFeatureEnabled: (group: PermissionGroup, key: string) => boolean;
+  onToggleFeature: (groupId: string, featureKey: string, enabled: boolean) => Promise<void>;
+  onDelete: (groupId: string) => Promise<void>;
+  invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
+  onChanged: () => void;
+  domainLabel: (id: string | null) => string;
+}) {
+  const { toast } = useToast();
+  const isGlobal = !group.domain_id;
+  // For global groups, admins can toggle the editor between "global defaults"
+  // and "override for domain X". For non-global groups, this is fixed.
+  const [editScope, setEditScope] = useState<string>(GLOBAL_GROUP_VALUE);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  const overridesForScope = useMemo(() => {
+    if (!isGlobal || editScope === GLOBAL_GROUP_VALUE) return new Map<string, boolean>();
+    const m = new Map<string, boolean>();
+    (group.overrides || [])
+      .filter(o => o.domain_id === editScope)
+      .forEach(o => m.set(o.feature_key, o.is_enabled));
+    return m;
+  }, [group.overrides, editScope, isGlobal]);
+
+  const overriddenDomains = useMemo(() => {
+    const ids = new Set<string>();
+    (group.overrides || []).forEach(o => ids.add(o.domain_id));
+    return ids;
+  }, [group.overrides]);
+
+  const editingOverride = isGlobal && editScope !== GLOBAL_GROUP_VALUE;
+
+  const effectiveValue = (key: string) => {
+    if (editingOverride && overridesForScope.has(key)) return overridesForScope.get(key)!;
+    return isFeatureEnabled(group, key);
+  };
+
+  const handleToggle = async (key: string, value: boolean) => {
+    if (!editingOverride) {
+      // Global default for this group
+      await onToggleFeature(group.id, key, value);
+      return;
+    }
+    setBusyKey(key);
+    try {
+      await invoke('set_group_feature_override', {
+        group_id: group.id,
+        domain_id: editScope,
+        feature_key: key,
+        is_enabled: value,
+      });
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleClearOverride = async (key: string) => {
+    if (!editingOverride) return;
+    setBusyKey(key);
+    try {
+      await invoke('clear_group_feature_override', {
+        group_id: group.id,
+        domain_id: editScope,
+        feature_key: key,
+      });
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  return (
+    <div className="p-4 rounded-lg border border-border bg-background space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <ShieldCheck className="w-5 h-5 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">{group.name}</p>
+            {group.description && <p className="text-sm text-muted-foreground">{group.description}</p>}
+          </div>
+          <Badge variant={group.domain_id ? 'default' : 'outline'} className="gap-1">
+            <Globe className="w-3 h-3" /> {domainLabel(group.domain_id)}
+          </Badge>
+          <Badge variant="secondary" className="gap-1">
+            <UsersIcon className="w-3 h-3" /> {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
+          </Badge>
+          {isGlobal && overriddenDomains.size > 0 && (
+            <Badge variant="outline" className="text-amber-600 border-amber-500/40">
+              {overriddenDomains.size} domain {overriddenDomains.size === 1 ? 'override' : 'overrides'}
+            </Badge>
+          )}
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete group?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All {group.member_count} member(s) will lose any features granted by this group. Per-user grants are kept.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDelete(group.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* Scope selector — only for global groups */}
+      {isGlobal && domains.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">Configure for:</Label>
+          <Select value={editScope} onValueChange={setEditScope}>
+            <SelectTrigger className="h-8 w-[240px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={GLOBAL_GROUP_VALUE}>All domains (global default)</SelectItem>
+              {domains.map(d => (
+                <SelectItem key={d.id} value={d.id}>
+                  @{d.domain}
+                  {overriddenDomains.has(d.id) ? ' · customized' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {editingOverride && (
+            <span className="text-xs text-muted-foreground">
+              Changes here apply only to <span className="font-medium">@{domainLabel(editScope)}</span>.
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-border/50">
+        {FEATURE_KEYS.map(feat => {
+          const enabled = effectiveValue(feat.key);
+          const overridden = editingOverride && overridesForScope.has(feat.key);
+          const busy = busyKey === feat.key;
+          return (
+            <div
+              key={feat.key}
+              className={`flex items-center justify-between gap-2 p-2 rounded-md ${
+                overridden ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : 'bg-muted/30'
+              }`}
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-foreground">{feat.label}</p>
+                {overridden && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400">Overridden for this domain</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {overridden && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    title="Reset to global default"
+                    disabled={busy}
+                    onClick={() => handleClearOverride(feat.key)}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </Button>
+                )}
+                {busy ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                ) : (
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={(v) => handleToggle(feat.key, v)}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

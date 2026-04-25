@@ -640,9 +640,16 @@ serve(async (req) => {
           .from('user_group_memberships')
           .select('group_id, user_id');
 
+        // Per-domain feature overrides for global groups. Empty for non-global
+        // groups (they're already domain-scoped, so no override is needed).
+        const { data: overrides } = await adminClient
+          .from('group_feature_overrides')
+          .select('group_id, domain_id, feature_key, is_enabled');
+
         const enriched = (groups || []).map((g: any) => ({
           ...g,
           features: (groupFeatures || []).filter((f: any) => f.group_id === g.id),
+          overrides: (overrides || []).filter((o: any) => o.group_id === g.id),
           member_count: (members || []).filter((m: any) => m.group_id === g.id).length,
         }));
 
@@ -769,6 +776,69 @@ serve(async (req) => {
         const { error } = await adminClient
           .from('group_features')
           .upsert({ group_id, feature_key, is_enabled: !!is_enabled }, { onConflict: 'group_id,feature_key' });
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_group_feature_override': {
+        // Override the value of a feature for one specific domain on a global
+        // group. Only valid when the group itself is global (domain_id NULL) —
+        // domain-specific groups already only apply to their own domain.
+        const { group_id, domain_id, feature_key, is_enabled } = payload;
+        if (!group_id || !domain_id || !feature_key) {
+          return new Response(
+            JSON.stringify({ error: 'group_id, domain_id and feature_key are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        // Guard: don't allow overrides on non-global groups
+        const { data: grp } = await adminClient
+          .from('permission_groups')
+          .select('id, domain_id')
+          .eq('id', group_id)
+          .maybeSingle();
+        if (!grp) {
+          return new Response(JSON.stringify({ error: 'Group not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (grp.domain_id) {
+          return new Response(
+            JSON.stringify({ error: 'Overrides are only available on global groups.' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        const { error } = await adminClient
+          .from('group_feature_overrides')
+          .upsert(
+            { group_id, domain_id, feature_key, is_enabled: !!is_enabled, created_by: caller.id },
+            { onConflict: 'group_id,domain_id,feature_key' },
+          );
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'clear_group_feature_override': {
+        // Remove the override so the group's global value applies again.
+        const { group_id, domain_id, feature_key } = payload;
+        if (!group_id || !domain_id || !feature_key) {
+          return new Response(
+            JSON.stringify({ error: 'group_id, domain_id and feature_key are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+        const { error } = await adminClient
+          .from('group_feature_overrides')
+          .delete()
+          .eq('group_id', group_id)
+          .eq('domain_id', domain_id)
+          .eq('feature_key', feature_key);
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

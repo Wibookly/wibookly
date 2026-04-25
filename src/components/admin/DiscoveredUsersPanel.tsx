@@ -42,6 +42,8 @@ interface PermissionGroup {
   name: string;
   description: string | null;
   organization_id: string;
+  /** When set, this group only applies to that specific domain. NULL = global (hidden in this picker). */
+  domain_id: string | null;
 }
 
 interface DomainOption {
@@ -551,8 +553,12 @@ function GroupPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = user.group_ids || [];
-  // Only show groups that belong to this user's organization.
-  const orgGroups = groups.filter((g) => g.organization_id === user.organization_id);
+  // Only show groups that belong to this user's organization AND are scoped
+  // to this user's specific domain. Global groups are intentionally hidden
+  // here — assign them from the Groups tab if you want to apply them broadly.
+  const orgGroups = groups.filter(
+    (g) => g.organization_id === user.organization_id && g.domain_id === user.domain_id,
+  );
 
   const toggle = (groupId: string) => {
     const next = selected.includes(groupId)
@@ -592,7 +598,8 @@ function GroupPicker({
         </div>
         {orgGroups.length === 0 ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">
-            No groups available. Create one in the Groups tab.
+            No groups exist for this user's domain yet. Create one in the Groups tab and
+            scope it to this domain.
           </div>
         ) : (
           <div className="max-h-64 overflow-y-auto">
