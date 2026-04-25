@@ -675,7 +675,32 @@ serve(async (req) => {
         if (domain_id) q = q.eq('domain_id', domain_id);
         const { data, error } = await q;
         if (error) throw error;
-        return new Response(JSON.stringify({ users: data || [] }), {
+
+        // Enrich with auth ban state for users that have already been provisioned,
+        // so the UI can show "Disabled in app" vs "Active" and offer the right action.
+        const rows = data || [];
+        const provisionedIds = rows
+          .map((r: any) => r.invited_user_id)
+          .filter((id: string | null): id is string => !!id);
+
+        let bannedMap: Record<string, boolean> = {};
+        if (provisionedIds.length > 0) {
+          // listUsers paginates at 1000 per page; fine for org-scale tenants.
+          const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+          for (const u of (authList?.users || [])) {
+            // Supabase exposes ban state via banned_until (ISO string in the future = banned).
+            const bannedUntil = (u as any).banned_until as string | null | undefined;
+            const isBanned = !!bannedUntil && new Date(bannedUntil).getTime() > Date.now();
+            bannedMap[u.id] = isBanned;
+          }
+        }
+
+        const enriched = rows.map((r: any) => ({
+          ...r,
+          app_disabled: r.invited_user_id ? !!bannedMap[r.invited_user_id] : false,
+        }));
+
+        return new Response(JSON.stringify({ users: enriched }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
