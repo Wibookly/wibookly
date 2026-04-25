@@ -72,7 +72,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const [createdGroups, setCreatedGroups] = useState<PermissionGroup[]>([]);
 
   // ───────────────────────── Step 1: Domain + Microsoft consent ─────────────────────────
-  const buildAdminConsentUrl = (domainName: string, domainRowId: string) => {
+  const buildAdminConsentUrl = (domainRowId: string) => {
     if (!microsoftClientId) {
       throw new Error('Microsoft app configuration is missing.');
     }
@@ -87,7 +87,10 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       scope: MICROSOFT_REQUIRED_SCOPES,
       state,
     });
-    return `https://login.microsoftonline.com/${encodeURIComponent(domainName)}/v2.0/adminconsent?${params.toString()}`;
+    // Use the generic "organizations" endpoint so Microsoft resolves the tenant
+    // from the admin's sign-in. Passing the raw typed domain (which may be
+    // misspelled or not yet a verified Azure domain) caused a white error page.
+    return `https://login.microsoftonline.com/organizations/v2.0/adminconsent?${params.toString()}`;
   };
 
   const handleSaveDomain = async () => {
@@ -131,9 +134,13 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       setDomain(d);
       setSavedDomainId(domainRowId);
 
-      // Redirect in the same tab so the admin returns directly into the dashboard session.
-      const consentUrl = buildAdminConsentUrl(d, domainRowId);
-      window.location.assign(consentUrl);
+      // Open consent in a popup so the dashboard session is preserved.
+      // If the popup is blocked, fall back to a same-tab navigation.
+      const consentUrl = buildAdminConsentUrl(domainRowId);
+      const popup = window.open(consentUrl, 'ms-admin-consent', 'width=600,height=720');
+      if (!popup) {
+        window.location.assign(consentUrl);
+      }
       return;
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
