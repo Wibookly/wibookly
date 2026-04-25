@@ -553,14 +553,14 @@ function GroupPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = user.group_ids || [];
-  // Show groups in this user's organization that are either:
-  //   - Global (apply to all domains in the org), OR
+  // Show groups that are either:
+  //   - Global (apply across all domains), OR
   //   - Specifically scoped to this user's domain.
-  // Groups scoped to a *different* domain are hidden.
+  // We intentionally don't filter by organization_id here: the super-admin's
+  // groups live in the admin org but are assignable to users in any domain
+  // they manage. Groups scoped to a *different* domain are still hidden.
   const orgGroups = groups.filter(
-    (g) =>
-      g.organization_id === user.organization_id &&
-      (g.domain_id === null || g.domain_id === user.domain_id),
+    (g) => g.domain_id === null || g.domain_id === user.domain_id,
   );
 
   const toggle = (groupId: string) => {

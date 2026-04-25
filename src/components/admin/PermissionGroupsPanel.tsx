@@ -108,11 +108,16 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   const isFeatureEnabled = (group: PermissionGroup, key: string) =>
     group.features.find(f => f.feature_key === key)?.is_enabled ?? false;
 
+  // When filtering by a specific domain, also include Global groups since
+  // they apply to that domain too (just with their default values, unless
+  // overridden). This way switching the filter to "@energyforward.com"
+  // still surfaces the existing global Standard / Power User / Executive
+  // groups so admins can configure per-domain overrides on them.
   const visibleGroups = filterDomain === 'all'
     ? groups
     : filterDomain === GLOBAL_GROUP_VALUE
       ? groups.filter(g => !g.domain_id)
-      : groups.filter(g => g.domain_id === filterDomain);
+      : groups.filter(g => g.domain_id === filterDomain || g.domain_id === null);
 
   return (
     <div className="space-y-6">
@@ -192,7 +197,7 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
             <div className="space-y-4">
               {visibleGroups.map(group => (
                 <GroupCard
-                  key={group.id}
+                  key={`${group.id}-${filterDomain}`}
                   group={group}
                   domains={domains}
                   isFeatureEnabled={isFeatureEnabled}
@@ -201,6 +206,11 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
                   invoke={invoke}
                   onChanged={onChanged}
                   domainLabel={domainLabel}
+                  initialScope={
+                    filterDomain !== 'all' && filterDomain !== GLOBAL_GROUP_VALUE
+                      ? filterDomain
+                      : GLOBAL_GROUP_VALUE
+                  }
                 />
               ))}
             </div>
@@ -226,6 +236,7 @@ function GroupCard({
   invoke,
   onChanged,
   domainLabel,
+  initialScope = GLOBAL_GROUP_VALUE,
 }: {
   group: PermissionGroup;
   domains: AdminDomain[];
@@ -235,12 +246,13 @@ function GroupCard({
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   onChanged: () => void;
   domainLabel: (id: string | null) => string;
+  initialScope?: string;
 }) {
   const { toast } = useToast();
   const isGlobal = !group.domain_id;
   // For global groups, admins can toggle the editor between "global defaults"
   // and "override for domain X". For non-global groups, this is fixed.
-  const [editScope, setEditScope] = useState<string>(GLOBAL_GROUP_VALUE);
+  const [editScope, setEditScope] = useState<string>(initialScope);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const overridesForScope = useMemo(() => {
