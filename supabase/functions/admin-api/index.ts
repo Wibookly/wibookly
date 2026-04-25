@@ -214,13 +214,13 @@ serve(async (req) => {
       }
 
       case 'create_user': {
-        const { email, password, full_name, group_ids } = payload;
+        const { email, password, full_name, group_ids, domain_id, auto_connect_microsoft } = payload;
         if (!email || !password || !full_name) {
           return new Response(JSON.stringify({ error: 'email, password, and full_name are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids });
+        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids, domain_id, auto_connect_microsoft });
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -232,7 +232,7 @@ serve(async (req) => {
       }
 
       case 'bulk_create_users': {
-        const { users } = payload as { users: Array<{ email: string; password: string; full_name: string; group_ids?: string[] }> };
+        const { users } = payload as { users: Array<CreateUserInput> };
         if (!Array.isArray(users) || users.length === 0) {
           return new Response(JSON.stringify({ error: 'users array is required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -259,6 +259,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
 
       case 'disable_user': {
