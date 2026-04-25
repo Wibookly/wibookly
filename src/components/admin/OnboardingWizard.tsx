@@ -34,6 +34,7 @@ interface Props {
   existingGroups: PermissionGroup[];
   organizationId: string | null;
   onCompleted: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
