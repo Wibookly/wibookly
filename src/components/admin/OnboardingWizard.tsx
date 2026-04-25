@@ -14,6 +14,11 @@ import {
 import { cn } from '@/lib/utils';
 import type { PermissionGroup } from './PermissionGroupsPanel';
 
+const PREFERRED_APP_ORIGIN =
+  window.location.hostname.endsWith('.lovableproject.com')
+    ? 'https://inboxiq.energyforward.com'
+    : window.location.origin;
+
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft' },
   { key: 'ai_auto_reply', label: 'AI Auto Reply' },
@@ -79,7 +84,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
 
     const state = btoa(JSON.stringify({
       domainId: domainRowId,
-      appOrigin: window.location.origin,
+      appOrigin: PREFERRED_APP_ORIGIN,
     }));
     const params = new URLSearchParams({
       client_id: microsoftClientId,
@@ -146,10 +151,10 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
 
       toast({
         title: 'Microsoft consent opened',
-        description: `Sign in with a Global Admin of ${d} and click Accept. We'll take you to M365 Directory to sync users.`,
+        description: `Sign in with a Global Admin of ${d} and click Accept. We'll take you to M365 Users to sync users.`,
       });
 
-      // Refresh parent data, then jump straight to M365 Directory tab to run sync
+      // Refresh parent data, then jump straight to M365 Users tab to run sync
       onCompleted();
       if (onNavigateToTab) {
         onNavigateToTab('discovered');
