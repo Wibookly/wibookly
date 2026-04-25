@@ -111,7 +111,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
-  const { hasFeature } = useFeatureAccess();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   // Check if onboarding has been dismissed
@@ -187,7 +187,7 @@ export function AppSidebar() {
           </NavSection>
 
           {/* AI Settings - show if user has ai_draft or ai_auto_reply, or is super admin */}
-          {(isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
             <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
               {(isSuperAdmin || hasFeature('ai_draft')) && (
                 <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
@@ -202,7 +202,7 @@ export function AppSidebar() {
           )}
 
           {/* AI Assistant - show if user has ai_assistant or is super admin */}
-          {(isSuperAdmin || hasFeature('ai_assistant')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('ai_assistant')) && (
             <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
               <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>
               <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>
@@ -216,7 +216,7 @@ export function AppSidebar() {
           </NavSection>
 
           {/* Reports - show if user has reports or is super admin */}
-          {(isSuperAdmin || hasFeature('reports')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('reports')) && (
             <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
               <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
             </NavSection>
