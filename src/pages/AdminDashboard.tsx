@@ -812,7 +812,7 @@ export default function AdminDashboard() {
                             One-time Azure prerequisite — required or the consent screen returns a blank page
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            In your Azure App Registration (<span className="font-mono">{MICROSOFT_CLIENT_ID}</span>) → <span className="font-medium">Authentication</span> → <span className="font-medium">Web Redirect URIs</span>, add this exact URL:
+                            In your Azure App Registration {microsoftClientId ? <span className="font-mono">({microsoftClientId})</span> : null} → <span className="font-medium">Authentication</span> → <span className="font-medium">Web Redirect URIs</span>, add this exact URL:
                           </p>
                           <div className="flex items-center gap-2 rounded bg-background border border-border px-2 py-1.5">
                             <code className="text-xs flex-1 break-all font-mono">{MICROSOFT_ADMIN_CONSENT_CALLBACK}</code>
