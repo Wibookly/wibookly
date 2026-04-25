@@ -129,8 +129,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isSuperAdmin) return;
     const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
     const consentStatus = params.get('ms_consent');
     const message = params.get('message');
+
+    if (tab === 'discovered') {
+      setActiveTab('discovered');
+    }
 
     if (consentStatus === 'success') {
       toast({
@@ -138,14 +143,16 @@ export default function AdminDashboard() {
         description: message || 'Tenant authorization recorded.',
       });
       fetchData();
-      window.history.replaceState({}, '', window.location.pathname);
+      const nextUrl = tab === 'discovered' ? `${window.location.pathname}?tab=discovered` : window.location.pathname;
+      window.history.replaceState({}, '', nextUrl);
     } else if (consentStatus === 'error') {
       toast({
         title: 'Microsoft consent failed',
         description: message || 'Unknown error',
         variant: 'destructive',
       });
-      window.history.replaceState({}, '', window.location.pathname);
+      const nextUrl = tab === 'discovered' ? `${window.location.pathname}?tab=discovered` : window.location.pathname;
+      window.history.replaceState({}, '', nextUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin]);
