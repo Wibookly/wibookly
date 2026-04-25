@@ -81,6 +81,7 @@ interface ManagedUser {
 export default function AdminDashboard() {
   const { profile, session } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<string>('setup');
   const [domains, setDomains] = useState<AllowedDomain[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
