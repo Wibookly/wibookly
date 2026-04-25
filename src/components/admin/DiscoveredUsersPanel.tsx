@@ -100,10 +100,18 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     try {
       const res = await invoke('sync_discovered_users', { domain_id: selectedDomainId });
       if (res?.error) throw new Error(res.error);
-      toast({
-        title: 'Directory sync complete',
-        description: `${res.licensed_on_domain ?? 0} licensed users found in this tenant.`,
-      });
+      const found = res?.licensed_on_domain ?? 0;
+      const matched = res?.domain_matched;
+      const total = res?.total_in_tenant;
+      let description = `${found} eligible user${found === 1 ? '' : 's'} found.`;
+      if (found === 0 && typeof matched === 'number' && typeof total === 'number') {
+        if (matched === 0) {
+          description = `Found ${total} users in the tenant, but none have an email address ending in @${res?.configured_domain}. Check that the domain is spelled correctly under "Domains".`;
+        } else {
+          description = `Found ${matched} users on @${res?.configured_domain} but none had an active mailbox license.`;
+        }
+      }
+      toast({ title: 'Directory sync complete', description });
       await loadUsers(selectedDomainId);
     } catch (e: any) {
       toast({ title: 'Sync failed', description: e.message, variant: 'destructive' });
