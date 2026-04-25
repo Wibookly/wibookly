@@ -47,6 +47,16 @@ interface AllowedDomain {
 
 const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
 const MICROSOFT_ADMIN_CONSENT_CALLBACK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-admin-consent-callback`;
+const MICROSOFT_REQUIRED_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'offline_access',
+  'https://graph.microsoft.com/User.Read',
+  'https://graph.microsoft.com/Mail.ReadWrite',
+  'https://graph.microsoft.com/Mail.Send',
+  'https://graph.microsoft.com/Calendars.ReadWrite',
+].join(' ');
 
 interface UserFeature {
   user_id: string;
@@ -219,9 +229,10 @@ export default function AdminDashboard() {
     const params = new URLSearchParams({
       client_id: MICROSOFT_CLIENT_ID,
       redirect_uri: MICROSOFT_ADMIN_CONSENT_CALLBACK,
+      scope: MICROSOFT_REQUIRED_SCOPES,
       state,
     });
-    return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/adminconsent?${params.toString()}`;
+    return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/v2.0/adminconsent?${params.toString()}`;
   };
 
   const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
@@ -240,23 +251,6 @@ export default function AdminDashboard() {
         .update({ microsoft_tenant_id: tenantId.trim() || null })
         .eq('id', id);
       if (error) throw error;
-      fetchData();
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  const handleToggleConsentGranted = async (id: string, granted: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('allowed_domains')
-        .update({
-          microsoft_consent_granted: granted,
-          microsoft_consent_granted_at: granted ? new Date().toISOString() : null,
-        })
-        .eq('id', id);
-      if (error) throw error;
-      toast({ title: granted ? 'Consent updated' : 'Consent reset' });
       fetchData();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -814,20 +808,17 @@ export default function AdminDashboard() {
                             <ExternalLink className="w-4 h-4" />
                             Grant Microsoft Consent
                           </Button>
-                          {domain.microsoft_consent_granted ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleConsentGranted(domain.id, false)}
-                            >
-                              Reset
-                            </Button>
-                          ) : null}
                         </div>
 
                         {domain.microsoft_consent_granted_at && (
                           <p className="text-xs text-muted-foreground">
                             Consent granted {new Date(domain.microsoft_consent_granted_at).toLocaleString()}
+                          </p>
+                        )}
+
+                        {!domain.microsoft_consent_granted && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">
+                            This only changes to granted after Microsoft returns to the callback successfully. Manual marking is disabled.
                           </p>
                         )}
                       </div>
