@@ -22,6 +22,7 @@ import AIChat from "./pages/AIChat";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
+                <Route path="/microsoft-consent-complete" element={<MicrosoftConsentComplete />} />
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />

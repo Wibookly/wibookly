@@ -7,7 +7,7 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
     const adminConsent = url.searchParams.get('admin_consent');
-    const tenantId = url.searchParams.get('tenant');
+    const tenantId = url.searchParams.get('tenant') || url.searchParams.get('tenant_id') || url.searchParams.get('tid');
     const stateParam = url.searchParams.get('state');
 
     const state = parseState(stateParam);
@@ -23,6 +23,10 @@ serve(async (req) => {
 
     if (adminConsent !== 'True') {
       return renderResult(appUrl, 'error', 'Microsoft consent was not completed.', state.domainId);
+    }
+
+    if (!tenantId) {
+      return renderResult(appUrl, 'error', 'Microsoft consent completed but no tenant ID was returned. Please try again.', state.domainId);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -63,9 +67,8 @@ serve(async (req) => {
   }
 });
 
-function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string, domainId?: string): string {
+function buildCompletionRedirect(appUrl: string, status: 'success' | 'error', message: string, domainId?: string): string {
   const params = new URLSearchParams({
-    tab: 'discovered',
     ms_consent: status,
     message,
   });
@@ -78,62 +81,16 @@ function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message
     }
   }
 
-  return `${appUrl}/admin?${params.toString()}`;
+  return `${appUrl}/microsoft-consent-complete?${params.toString()}`;
 }
 
-/**
- * Render an HTML page that:
- *  - If opened as a popup: posts a message to the opener and closes itself.
- *    The opener will pick up the result and refresh the dashboard.
- *  - Otherwise: redirects the current tab to /admin?tab=discovered with the result.
- */
 function renderResult(appUrl: string, status: 'success' | 'error', message: string, domainId?: string): Response {
-  const fallback = buildAdminRedirect(appUrl, status, message, domainId);
-  const payload = JSON.stringify({
-    type: 'ms-admin-consent-result',
-    status,
-    message,
-    domainId: domainId || null,
-  });
-
-  const safeMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>Microsoft consent</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 32px; text-align: center; color: #1f2937; }
-  .ok { color: #059669; }
-  .err { color: #dc2626; }
-</style>
-</head>
-<body>
-  <h2 class="${status === 'success' ? 'ok' : 'err'}">
-    ${status === 'success' ? '✓ Microsoft consent granted' : '⚠ Microsoft consent failed'}
-  </h2>
-  <p>${safeMessage}</p>
-  <p id="closing">You can close this window.</p>
-  <script>
-    (function () {
-      try {
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(${payload}, '*');
-          setTimeout(function () { window.close(); }, 400);
-          return;
-        }
-      } catch (e) { /* ignore cross-origin issues */ }
-      // Not a popup — fall back to a full redirect into the dashboard.
-      window.location.replace(${JSON.stringify(fallback)});
-    })();
-  </script>
-</body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: buildCompletionRedirect(appUrl, status, message, domainId),
+      'Cache-Control': 'no-store',
+    },
   });
 }
 
