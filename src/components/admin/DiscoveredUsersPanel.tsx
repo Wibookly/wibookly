@@ -69,6 +69,8 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
   const [search, setSearch] = useState('');
   const [actingId, setActingId] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<DiscoveredUser | null>(null);
+  const [groups, setGroups] = useState<PermissionGroup[]>([]);
+  const [groupsBusyId, setGroupsBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialDomainId && initialDomainId !== selectedDomainId) {
