@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck,
-  Pause, Play, Trash2,
+  Pause, Play, Trash2, UsersRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -31,6 +33,15 @@ interface DiscoveredUser {
   last_seen_at: string;
   /** True when this user has been provisioned but their auth account is currently banned (suspended in app). */
   app_disabled?: boolean;
+  /** Permission group ids the user currently belongs to (empty if not provisioned). */
+  group_ids?: string[];
+}
+
+interface PermissionGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  organization_id: string;
 }
 
 interface DomainOption {
@@ -58,6 +69,8 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
   const [search, setSearch] = useState('');
   const [actingId, setActingId] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<DiscoveredUser | null>(null);
+  const [groups, setGroups] = useState<PermissionGroup[]>([]);
+  const [groupsBusyId, setGroupsBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialDomainId && initialDomainId !== selectedDomainId) {
@@ -82,6 +95,39 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load all permission groups so admins can assign discovered users inline.
+  const loadGroups = async () => {
+    try {
+      const res = await invoke('list_groups');
+      setGroups(res?.groups || []);
+    } catch (e: any) {
+      // Non-fatal — picker will just show "No groups available".
+      console.warn('Failed to load groups', e);
+    }
+  };
+
+  useEffect(() => {
+    void loadGroups();
+  }, []);
+
+  // Replace the user's group memberships with the new selection.
+  // Optimistic update so the UI feels instant; revert on error.
+  const handleSetGroups = async (u: DiscoveredUser, newGroupIds: string[]) => {
+    if (!u.invited_user_id) return;
+    const prev = u.group_ids || [];
+    setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: newGroupIds } : x)));
+    setGroupsBusyId(u.id);
+    try {
+      await invoke('set_user_groups', { user_id: u.invited_user_id, group_ids: newGroupIds });
+    } catch (e: any) {
+      // Revert on failure
+      setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: prev } : x)));
+      toast({ title: 'Failed to update groups', description: e.message, variant: 'destructive' });
+    } finally {
+      setGroupsBusyId(null);
     }
   };
 
@@ -353,6 +399,16 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                       </Badge>
                     )}
 
+                    {/* Inline group assignment — only available once provisioned */}
+                    {u.invited_user_id && (
+                      <GroupPicker
+                        user={u}
+                        groups={groups}
+                        busy={groupsBusyId === u.id}
+                        onChange={(ids) => handleSetGroups(u, ids)}
+                      />
+                    )}
+
                     {/* Actions for "discovered" — invite or silently provision */}
                     {u.status === 'discovered' && (
                       <>
@@ -475,5 +531,95 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  );
+}
+
+/**
+ * Compact multi-select for assigning a discovered/active user to one or more
+ * permission groups. Selections persist immediately via `set_user_groups`.
+ */
+function GroupPicker({
+  user,
+  groups,
+  busy,
+  onChange,
+}: {
+  user: DiscoveredUser;
+  groups: PermissionGroup[];
+  busy: boolean;
+  onChange: (groupIds: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = user.group_ids || [];
+  // Only show groups that belong to this user's organization.
+  const orgGroups = groups.filter((g) => g.organization_id === user.organization_id);
+
+  const toggle = (groupId: string) => {
+    const next = selected.includes(groupId)
+      ? selected.filter((id) => id !== groupId)
+      : [...selected, groupId];
+    onChange(next);
+  };
+
+  const label =
+    selected.length === 0
+      ? 'No group'
+      : selected.length === 1
+        ? orgGroups.find((g) => g.id === selected[0])?.name || '1 group'
+        : `${selected.length} groups`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 h-8 max-w-[160px]"
+          disabled={busy}
+          title="Assign permission groups"
+        >
+          {busy ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+          ) : (
+            <UsersRound className="w-3.5 h-3.5 shrink-0" />
+          )}
+          <span className="truncate text-xs">{label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2" align="end">
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          Assign to groups
+        </div>
+        {orgGroups.length === 0 ? (
+          <div className="px-2 py-3 text-xs text-muted-foreground">
+            No groups available. Create one in the Groups tab.
+          </div>
+        ) : (
+          <div className="max-h-64 overflow-y-auto">
+            {orgGroups.map((g) => {
+              const checked = selected.includes(g.id);
+              return (
+                <label
+                  key={g.id}
+                  className="flex items-start gap-2 px-2 py-2 rounded-md hover:bg-muted/60 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggle(g.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{g.name}</div>
+                    {g.description && (
+                      <div className="text-xs text-muted-foreground truncate">{g.description}</div>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
