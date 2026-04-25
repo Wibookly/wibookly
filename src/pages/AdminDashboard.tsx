@@ -72,6 +72,7 @@ interface ManagedUser {
   full_name: string | null;
   created_at: string;
   organization_id: string;
+  domain_id?: string | null;
   is_disabled: boolean;
   features: UserFeature[];
   group_ids?: string[];
@@ -239,6 +240,15 @@ export default function AdminDashboard() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshGroups = async () => {
+    try {
+      const groupsRes = await adminInvoke('list_groups');
+      if (groupsRes?.groups) setGroups(groupsRes.groups);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -468,9 +478,37 @@ export default function AdminDashboard() {
   const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
   const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
 
-  const getUserFeatureEnabled = (user: ManagedUser, featureKey: string) => {
-    const feature = user.features.find(f => f.feature_key === featureKey);
-    return feature?.is_enabled ?? false;
+  const getUserFeatureState = (user: ManagedUser, featureKey: string) => {
+    const directFeature = user.features.find((feature) => feature.feature_key === featureKey);
+    if (directFeature?.is_enabled) {
+      return { enabled: true, source: 'direct' as const };
+    }
+
+    for (const groupId of user.group_ids || []) {
+      const group = groups.find((item) => item.id === groupId);
+      if (!group) continue;
+
+      const override = group.overrides?.find(
+        (item) => item.domain_id === user.domain_id && item.feature_key === featureKey,
+      );
+
+      if (override) {
+        if (override.is_enabled) {
+          return { enabled: true, source: 'group' as const };
+        }
+        continue;
+      }
+
+      const groupFeature = group.features.find(
+        (item) => item.feature_key === featureKey && item.is_enabled,
+      );
+
+      if (groupFeature) {
+        return { enabled: true, source: 'group' as const };
+      }
+    }
+
+    return { enabled: false, source: 'none' as const };
   };
 
   if (loading) {
@@ -583,7 +621,7 @@ export default function AdminDashboard() {
             invoke={adminInvoke}
             groups={groups}
             domains={domains}
-            onChanged={fetchData}
+            onChanged={refreshGroups}
           />
         </TabsContent>
 
@@ -695,11 +733,15 @@ export default function AdminDashboard() {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {FEATURE_KEYS.map(feat => {
-                                  const enabled = getUserFeatureEnabled(user, feat.key);
+                                  const featureState = getUserFeatureState(user, feat.key);
+                                  const enabled = featureState.enabled;
                                   return (
                                     <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
                                       <div>
                                         <p className="text-xs font-medium text-foreground">{feat.label}</p>
+                                        {featureState.source === 'group' && (
+                                          <p className="text-[10px] text-muted-foreground">From group</p>
+                                        )}
                                       </div>
                                       <Switch
                                         checked={enabled}
@@ -714,12 +756,15 @@ export default function AdminDashboard() {
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">AI Models</p>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {AI_MODEL_KEYS.map(model => {
-                                  const enabled = getUserFeatureEnabled(user, model.key);
+                                  const featureState = getUserFeatureState(user, model.key);
+                                  const enabled = featureState.enabled;
                                   return (
                                     <div key={model.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
                                       <div>
                                         <p className="text-xs font-medium text-foreground">{model.label}</p>
-                                        <p className="text-[10px] text-muted-foreground">{model.description}</p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                          {featureState.source === 'group' ? 'From group' : model.description}
+                                        </p>
                                       </div>
                                       <Switch
                                         checked={enabled}

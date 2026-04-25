@@ -220,11 +220,12 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   if (roleErr) return await rollback(`Role create failed: ${roleErr.message}`);
 
   if (input.group_ids && input.group_ids.length > 0) {
+    const requestedGroupIds = input.group_ids.slice(0, 1);
     // Validate that each chosen group either belongs to this domain or is unscoped (global).
     const { data: validGroups } = await adminClient
       .from('permission_groups')
       .select('id, domain_id')
-      .in('id', input.group_ids);
+      .in('id', requestedGroupIds);
     const allowedGroupIds = (validGroups || [])
       .filter((g: any) => !g.domain_id || g.domain_id === domainData!.id)
       .map((g: any) => g.id);
@@ -852,9 +853,10 @@ serve(async (req) => {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+        const normalizedGroupIds = group_ids.slice(0, 1);
         const { data: profile } = await adminClient
           .from('user_profiles')
-          .select('organization_id')
+          .select('organization_id, domain_id')
           .eq('user_id', user_id)
           .maybeSingle();
         if (!profile) {
@@ -865,12 +867,24 @@ serve(async (req) => {
 
         // Replace memberships
         await adminClient.from('user_group_memberships').delete().eq('user_id', user_id);
-        if (group_ids.length > 0) {
-          const rows = group_ids.map((gid: string) => ({
+        if (normalizedGroupIds.length > 0) {
+          const { data: validGroups, error: groupsError } = await adminClient
+            .from('permission_groups')
+            .select('id, domain_id')
+            .in('id', normalizedGroupIds);
+          if (groupsError) throw groupsError;
+
+          const allowedGroupIds = (validGroups || [])
+            .filter((g: any) => !g.domain_id || g.domain_id === profile.domain_id)
+            .map((g: any) => g.id);
+
+          const rows = allowedGroupIds.map((gid: string) => ({
             group_id: gid, user_id, organization_id: profile.organization_id, created_by: caller.id,
           }));
-          const { error } = await adminClient.from('user_group_memberships').insert(rows);
-          if (error) throw error;
+          if (rows.length > 0) {
+            const { error } = await adminClient.from('user_group_memberships').insert(rows);
+            if (error) throw error;
+          }
         }
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,11 +53,16 @@ interface Props {
 
 export default function PermissionGroupsPanel({ organizationId, invoke, groups, domains, onChanged }: Props) {
   const { toast } = useToast();
+  const [localGroups, setLocalGroups] = useState<PermissionGroup[]>(groups);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [domainId, setDomainId] = useState<string>(GLOBAL_GROUP_VALUE);
   const [filterDomain, setFilterDomain] = useState<string>('all');
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    setLocalGroups(groups);
+  }, [groups]);
 
   const domainLabel = (id: string | null) => {
     if (!id) return 'All domains';
@@ -89,6 +94,73 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   const handleToggleFeature = async (groupId: string, featureKey: string, enabled: boolean) => {
     try {
       await invoke('set_group_feature', { group_id: groupId, feature_key: featureKey, is_enabled: enabled });
+      setLocalGroups((prev) => prev.map((group) => (
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              features: group.features.some((feature) => feature.feature_key === featureKey)
+                ? group.features.map((feature) => (
+                    feature.feature_key === featureKey ? { ...feature, is_enabled: enabled } : feature
+                  ))
+                : [...group.features, { feature_key: featureKey, is_enabled: enabled }],
+            }
+      )));
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSetOverride = async (groupId: string, domainIdValue: string, featureKey: string, enabled: boolean) => {
+    try {
+      await invoke('set_group_feature_override', {
+        group_id: groupId,
+        domain_id: domainIdValue,
+        feature_key: featureKey,
+        is_enabled: enabled,
+      });
+      setLocalGroups((prev) => prev.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextOverrides = group.overrides || [];
+        const hasOverride = nextOverrides.some(
+          (override) => override.domain_id === domainIdValue && override.feature_key === featureKey,
+        );
+
+        return {
+          ...group,
+          overrides: hasOverride
+            ? nextOverrides.map((override) => (
+                override.domain_id === domainIdValue && override.feature_key === featureKey
+                  ? { ...override, is_enabled: enabled }
+                  : override
+              ))
+            : [...nextOverrides, { domain_id: domainIdValue, feature_key: featureKey, is_enabled: enabled }],
+        };
+      }));
+      onChanged();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleClearOverride = async (groupId: string, domainIdValue: string, featureKey: string) => {
+    try {
+      await invoke('clear_group_feature_override', {
+        group_id: groupId,
+        domain_id: domainIdValue,
+        feature_key: featureKey,
+      });
+      setLocalGroups((prev) => prev.map((group) => (
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              overrides: (group.overrides || []).filter(
+                (override) => !(override.domain_id === domainIdValue && override.feature_key === featureKey),
+              ),
+            }
+      )));
       onChanged();
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -114,10 +186,10 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   // still surfaces the existing global Standard / Power User / Executive
   // groups so admins can configure per-domain overrides on them.
   const visibleGroups = filterDomain === 'all'
-    ? groups
+    ? localGroups
     : filterDomain === GLOBAL_GROUP_VALUE
-      ? groups.filter(g => !g.domain_id)
-      : groups.filter(g => g.domain_id === filterDomain || g.domain_id === null);
+      ? localGroups.filter(g => !g.domain_id)
+      : localGroups.filter(g => g.domain_id === filterDomain || g.domain_id === null);
 
   return (
     <div className="space-y-6">
@@ -194,14 +266,16 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           {visibleGroups.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No groups for this filter. Create one above.</p>
           ) : (
-            <div className="space-y-4">
-              {visibleGroups.map(group => (
+              <div className="space-y-4">
+               {visibleGroups.map(group => (
                 <GroupCard
-                  key={`${group.id}-${filterDomain}`}
+                   key={group.id}
                   group={group}
                   domains={domains}
                   isFeatureEnabled={isFeatureEnabled}
                   onToggleFeature={handleToggleFeature}
+                   onSetOverride={handleSetOverride}
+                   onClearOverride={handleClearOverride}
                   onDelete={handleDelete}
                   invoke={invoke}
                   onChanged={onChanged}
@@ -232,6 +306,8 @@ function GroupCard({
   domains,
   isFeatureEnabled,
   onToggleFeature,
+  onSetOverride,
+  onClearOverride,
   onDelete,
   invoke,
   onChanged,
@@ -242,18 +318,24 @@ function GroupCard({
   domains: AdminDomain[];
   isFeatureEnabled: (group: PermissionGroup, key: string) => boolean;
   onToggleFeature: (groupId: string, featureKey: string, enabled: boolean) => Promise<void>;
+  onSetOverride: (groupId: string, domainIdValue: string, featureKey: string, enabled: boolean) => Promise<void>;
+  onClearOverride: (groupId: string, domainIdValue: string, featureKey: string) => Promise<void>;
   onDelete: (groupId: string) => Promise<void>;
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   onChanged: () => void;
   domainLabel: (id: string | null) => string;
   initialScope?: string;
 }) {
-  const { toast } = useToast();
   const isGlobal = !group.domain_id;
   // For global groups, admins can toggle the editor between "global defaults"
   // and "override for domain X". For non-global groups, this is fixed.
   const [editScope, setEditScope] = useState<string>(initialScope);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isGlobal) return;
+    setEditScope(initialScope);
+  }, [initialScope, isGlobal]);
 
   const overridesForScope = useMemo(() => {
     if (!isGlobal || editScope === GLOBAL_GROUP_VALUE) return new Map<string, boolean>();
@@ -279,21 +361,12 @@ function GroupCard({
 
   const handleToggle = async (key: string, value: boolean) => {
     if (!editingOverride) {
-      // Global default for this group
       await onToggleFeature(group.id, key, value);
       return;
     }
     setBusyKey(key);
     try {
-      await invoke('set_group_feature_override', {
-        group_id: group.id,
-        domain_id: editScope,
-        feature_key: key,
-        is_enabled: value,
-      });
-      onChanged();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      await onSetOverride(group.id, editScope, key, value);
     } finally {
       setBusyKey(null);
     }
@@ -303,14 +376,7 @@ function GroupCard({
     if (!editingOverride) return;
     setBusyKey(key);
     try {
-      await invoke('clear_group_feature_override', {
-        group_id: group.id,
-        domain_id: editScope,
-        feature_key: key,
-      });
-      onChanged();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      await onClearOverride(group.id, editScope, key);
     } finally {
       setBusyKey(null);
     }
