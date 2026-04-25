@@ -154,6 +154,60 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     }
   };
 
+  // Temporarily blocks sign-in for a provisioned user. All their data
+  // (profile, connections, categories, history) is preserved.
+  const handleSuspend = async (u: DiscoveredUser) => {
+    if (!u.invited_user_id) return;
+    setActingId(u.id);
+    try {
+      await invoke('disable_user', { user_id: u.invited_user_id });
+      toast({
+        title: 'Access suspended',
+        description: `${u.email} can no longer sign in. Their data is kept and can be restored at any time.`,
+      });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to suspend', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // Reverses a suspension — restores sign-in immediately.
+  const handleReactivate = async (u: DiscoveredUser) => {
+    if (!u.invited_user_id) return;
+    setActingId(u.id);
+    try {
+      await invoke('enable_user', { user_id: u.invited_user_id });
+      toast({ title: 'Access restored', description: `${u.email} can sign in again.` });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to reactivate', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // Permanently deletes the user's app account, profile, and memberships.
+  // The directory row stays so the admin can re-invite them later if needed.
+  const handleRemove = async (u: DiscoveredUser) => {
+    setActingId(u.id);
+    try {
+      await invoke('remove_discovered_user', { discovered_id: u.id });
+      toast({
+        title: 'User removed',
+        description: `${u.email} has been removed from the app. They can be re-invited at any time.`,
+      });
+      await loadUsers(selectedDomainId);
+    } catch (e: any) {
+      toast({ title: 'Failed to remove', description: e.message, variant: 'destructive' });
+    } finally {
+      setActingId(null);
+      setRemoveTarget(null);
+    }
+  };
+
+
   const filtered = users.filter((u) => {
     if (!u.account_enabled || !u.is_licensed) return false;
     if (!search) return true;
