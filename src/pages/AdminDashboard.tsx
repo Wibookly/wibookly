@@ -500,6 +500,7 @@ export default function AdminDashboard() {
             organizationId={profile?.organization_id ?? null}
             invoke={adminInvoke}
             groups={groups}
+            domains={domains}
             onChanged={fetchData}
           />
         </TabsContent>
@@ -516,6 +517,7 @@ export default function AdminDashboard() {
                 </div>
                 <BulkCreateUsersDialog
                   groups={groups}
+                  domains={domains}
                   invoke={adminInvoke}
                   onCompleted={fetchData}
                 />
