@@ -517,6 +517,7 @@ export default function AdminDashboard() {
                 </div>
                 <BulkCreateUsersDialog
                   groups={groups}
+                  domains={domains}
                   invoke={adminInvoke}
                   onCompleted={fetchData}
                 />
