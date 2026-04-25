@@ -40,7 +40,7 @@ serve(async (req) => {
     if (!isSuperAdmin) {
       const { data: domainData } = await adminClient
         .from('allowed_domains')
-        .select('id')
+        .select('id, microsoft_consent_granted')
         .eq('domain', domain)
         .eq('is_active', true)
         .maybeSingle();
@@ -48,6 +48,13 @@ serve(async (req) => {
       if (!domainData) {
         return new Response(
           JSON.stringify({ error: 'Your email domain is not authorized. Please contact your administrator.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!domainData.microsoft_consent_granted) {
+        return new Response(
+          JSON.stringify({ error: 'Your organization has not completed Microsoft tenant authorization yet. Please ask your administrator to grant Microsoft consent for your domain first.' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
