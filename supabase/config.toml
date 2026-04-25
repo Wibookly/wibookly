@@ -1,49 +1,33 @@
 project_id = "jbzctydskdpzrejvpwpn"
 
-[functions.oauth-init]
-verify_jwt = false
-
-[functions.oauth-callback]
-verify_jwt = false
-
-[functions.process-sync-job]
-verify_jwt = false
-
-[functions.sync-categories]
-verify_jwt = false
-
-# draft-email now validates JWT manually via supabaseClient.auth.getUser()
-# verify_jwt = false is kept because function handles auth internally with proper error messages
-[functions.draft-email]
-verify_jwt = false
-
-[functions.sync-rules]
-verify_jwt = false
-
-[functions.cleanup-rule]
-verify_jwt = false
-
-# Process AI emails - creates drafts and sends auto-replies for AI-enabled categories
-[functions.process-ai-emails]
-verify_jwt = false
-
-# Log calendar events scheduled by AI
-[functions.log-calendar-event]
-verify_jwt = false
-
-# Microsoft SSO - no JWT needed (pre-auth)
-[functions.microsoft-sso-init]
-verify_jwt = false
-
-[functions.microsoft-sso-callback]
-verify_jwt = false
-
-[functions.microsoft-admin-consent-callback]
-verify_jwt = false
-
-# Admin API - handles auth internally
-[functions.admin-api]
-verify_jwt = false
-
-[functions.process-email-queue]
-verify_jwt = true
+[functions]
+  [functions.admin-api]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.cleanup-rule]
+    verify_jwt = false
+  [functions.draft-email]
+    verify_jwt = false
+  [functions.log-calendar-event]
+    verify_jwt = false
+  [functions.microsoft-admin-consent-callback]
+    verify_jwt = false
+  [functions.microsoft-sso-callback]
+    verify_jwt = false
+  [functions.microsoft-sso-init]
+    verify_jwt = false
+  [functions.oauth-callback]
+    verify_jwt = false
+  [functions.oauth-init]
+    verify_jwt = false
+  [functions.process-ai-emails]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.process-sync-job]
+    verify_jwt = false
+  [functions.sync-categories]
+    verify_jwt = false
+  [functions.sync-rules]
+    verify_jwt = false
