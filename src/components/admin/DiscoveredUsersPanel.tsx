@@ -533,3 +533,93 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     </Card>
   );
 }
+
+/**
+ * Compact multi-select for assigning a discovered/active user to one or more
+ * permission groups. Selections persist immediately via `set_user_groups`.
+ */
+function GroupPicker({
+  user,
+  groups,
+  busy,
+  onChange,
+}: {
+  user: DiscoveredUser;
+  groups: PermissionGroup[];
+  busy: boolean;
+  onChange: (groupIds: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = user.group_ids || [];
+  // Only show groups that belong to this user's organization.
+  const orgGroups = groups.filter((g) => g.organization_id === user.organization_id);
+
+  const toggle = (groupId: string) => {
+    const next = selected.includes(groupId)
+      ? selected.filter((id) => id !== groupId)
+      : [...selected, groupId];
+    onChange(next);
+  };
+
+  const label =
+    selected.length === 0
+      ? 'No group'
+      : selected.length === 1
+        ? orgGroups.find((g) => g.id === selected[0])?.name || '1 group'
+        : `${selected.length} groups`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 h-8 max-w-[160px]"
+          disabled={busy}
+          title="Assign permission groups"
+        >
+          {busy ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+          ) : (
+            <UsersRound className="w-3.5 h-3.5 shrink-0" />
+          )}
+          <span className="truncate text-xs">{label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2" align="end">
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          Assign to groups
+        </div>
+        {orgGroups.length === 0 ? (
+          <div className="px-2 py-3 text-xs text-muted-foreground">
+            No groups available. Create one in the Groups tab.
+          </div>
+        ) : (
+          <div className="max-h-64 overflow-y-auto">
+            {orgGroups.map((g) => {
+              const checked = selected.includes(g.id);
+              return (
+                <label
+                  key={g.id}
+                  className="flex items-start gap-2 px-2 py-2 rounded-md hover:bg-muted/60 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggle(g.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{g.name}</div>
+                    {g.description && (
+                      <div className="text-xs text-muted-foreground truncate">{g.description}</div>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
