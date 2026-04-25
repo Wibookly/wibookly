@@ -35,9 +35,11 @@ interface DomainOption {
 interface Props {
   invoke: (action: string, payload?: Record<string, any>) => Promise<any>;
   domains: DomainOption[];
+  initialDomainId?: string | null;
+  autoSyncNonce?: number;
 }
 
-export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
+export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId = null, autoSyncNonce = 0 }: Props) {
   const { toast } = useToast();
   const consentedDomains = domains.filter((d) => d.microsoft_consent_granted && d.microsoft_tenant_id);
   const [selectedDomainId, setSelectedDomainId] = useState<string>('');
@@ -46,6 +48,12 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
   const [actingId, setActingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialDomainId && initialDomainId !== selectedDomainId) {
+      setSelectedDomainId(initialDomainId);
+    }
+  }, [initialDomainId, selectedDomainId]);
 
   // Auto-pick the first consented domain so admins land somewhere useful.
   useEffect(() => {
@@ -70,6 +78,11 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   useEffect(() => {
     if (selectedDomainId) loadUsers(selectedDomainId);
   }, [selectedDomainId]);
+
+  useEffect(() => {
+    if (!autoSyncNonce || !selectedDomainId) return;
+    void handleSync();
+  }, [autoSyncNonce, selectedDomainId]);
 
   const handleSync = async () => {
     if (!selectedDomainId) return;
@@ -132,6 +145,7 @@ export default function DiscoveredUsersPanel({ invoke, domains }: Props) {
   };
 
   const filtered = users.filter((u) => {
+    if (!u.account_enabled || !u.is_licensed) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
