@@ -42,6 +42,8 @@ interface PermissionGroup {
   name: string;
   description: string | null;
   organization_id: string;
+  /** When set, this group only applies to that specific domain. NULL = global (hidden in this picker). */
+  domain_id: string | null;
 }
 
 interface DomainOption {
