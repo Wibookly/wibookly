@@ -237,6 +237,22 @@ export default function AdminDashboard() {
 
   const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
     const url = buildAdminConsentUrl(domain);
+    const isEmbeddedPreview = window.self !== window.top;
+
+    if (isEmbeddedPreview) {
+      const popup = window.open(url, '_blank', 'noopener,noreferrer');
+
+      if (!popup) {
+        window.location.assign(url);
+      } else {
+        toast({
+          title: 'Microsoft consent opened',
+          description: `Continue in the new tab as a global admin for ${domain.domain}.`,
+        });
+        return;
+      }
+    }
+
     window.location.assign(url);
     toast({
       title: 'Microsoft consent opened',
@@ -754,7 +770,7 @@ export default function AdminDashboard() {
                           <div className="flex-1">
                             <p className="text-sm font-medium text-foreground">Microsoft Tenant Authorization</p>
                             <p className="text-xs text-muted-foreground">
-                              The Global Admin of <span className="font-medium">{domain.domain}</span> must click below and sign in to grant InboxIQ tenant-wide access. Once granted, this status updates automatically and all users from this domain can sign in without admin approval prompts.
+                              The Global Admin of <span className="font-medium">{domain.domain}</span> must click below and sign in to grant InboxIQ tenant-wide access. Once granted, this status updates automatically and users from this domain can sign in with Microsoft and have Outlook mail/calendar connected automatically on first sign-in.
                             </p>
                           </div>
                         </div>
