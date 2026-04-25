@@ -114,7 +114,7 @@ export default function BulkCreateUsersDialog({ groups, domains, invoke, onCompl
       return;
     }
     const payload = valid.map(r => {
-      const groupIds = r.groups.split(',').map(n => groupNameToId(n)).filter((v): v is string => Boolean(v));
+      const groupIds = r.groups.split(',').map(n => groupNameToId(n)).filter((v): v is string => Boolean(v)).slice(0, 1);
       // Ensure email matches the selected domain (auto-append if user only typed the local part)
       let email = r.email.trim().toLowerCase();
       if (!email.includes('@')) email = `${email}@${selectedDomain.domain}`;
@@ -149,7 +149,7 @@ export default function BulkCreateUsersDialog({ groups, domains, invoke, onCompl
   };
 
   const downloadTemplate = () => {
-    const csv = 'email,full_name,password,groups\njohn@company.com,John Doe,,Standard\njane@company.com,Jane Smith,SecurePass123,"Power User,Executive"\n';
+    const csv = 'email,full_name,password,groups\njohn@company.com,John Doe,,Standard\njane@company.com,Jane Smith,SecurePass123,Executive\n';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -226,8 +226,8 @@ export default function BulkCreateUsersDialog({ groups, domains, invoke, onCompl
                 <Input type="text" placeholder="Auto-generate" value={row.password} onChange={e => updateRow(idx, { password: e.target.value })} />
               </div>
               <div className="space-y-1">
-                {idx === 0 && <Label className="text-xs">Groups (comma-separated)</Label>}
-                <Input placeholder="Standard,Power User" value={row.groups} onChange={e => updateRow(idx, { groups: e.target.value })} />
+                {idx === 0 && <Label className="text-xs">Group</Label>}
+                <Input placeholder="Standard" value={row.groups} onChange={e => updateRow(idx, { groups: e.target.value })} />
               </div>
               <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} disabled={rows.length === 1}>
                 <Trash2 className="w-4 h-4" />
