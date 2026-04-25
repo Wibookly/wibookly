@@ -617,6 +617,357 @@ serve(async (req) => {
         });
       }
 
+      // ============================================================
+      //  Discovered Tenant Users (M365 directory sync)
+      // ============================================================
+
+      case 'list_discovered_users': {
+        const { domain_id } = payload;
+        let q = adminClient
+          .from('discovered_tenant_users')
+          .select('id, domain_id, organization_id, ms_user_id, email, display_name, job_title, is_licensed, account_enabled, status, invited_user_id, invited_at, last_seen_at, updated_at')
+          .order('display_name', { ascending: true });
+        if (domain_id) q = q.eq('domain_id', domain_id);
+        const { data, error } = await q;
+        if (error) throw error;
+        return new Response(JSON.stringify({ users: data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'sync_discovered_users': {
+        // Trigger the discover-tenant-users edge function. We just proxy the call so
+        // the admin UI only has to know about /admin-api.
+        const { domain_id } = payload;
+        if (!domain_id) {
+          return new Response(JSON.stringify({ error: 'domain_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const resp = await fetch(`${supabaseUrl}/functions/v1/discover-tenant-users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify({ domain_id }),
+        });
+        const body = await resp.json().catch(() => ({}));
+        return new Response(JSON.stringify(body), {
+          status: resp.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'invite_discovered_user': {
+        // Sends a welcome email with a one-time SSO/magic-link invitation token.
+        // Used when the discovered user is "discovered" (not yet active in InboxIQ).
+        const { discovered_id, mode = 'sso_magic_link', group_id } = payload;
+        if (!discovered_id) {
+          return new Response(JSON.stringify({ error: 'discovered_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { data: discovered, error: dErr } = await adminClient
+          .from('discovered_tenant_users')
+          .select('id, domain_id, organization_id, email, display_name')
+          .eq('id', discovered_id)
+          .maybeSingle();
+        if (dErr || !discovered) {
+          return new Response(JSON.stringify({ error: 'Discovered user not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Resolve org name for the email greeting
+        const { data: org } = await adminClient
+          .from('organizations').select('name').eq('id', discovered.organization_id).maybeSingle();
+
+        // Create invitation token
+        const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+        const { data: invitation, error: iErr } = await adminClient
+          .from('user_invitations')
+          .insert({
+            organization_id: discovered.organization_id,
+            domain_id: discovered.domain_id,
+            email: discovered.email,
+            full_name: discovered.display_name,
+            mode,
+            token,
+            invited_by: caller.id,
+            group_id: group_id || null,
+          })
+          .select('id, token')
+          .single();
+        if (iErr) throw iErr;
+
+        // Mark discovered user as invited
+        await adminClient
+          .from('discovered_tenant_users')
+          .update({ status: 'invited', invited_at: new Date().toISOString() })
+          .eq('id', discovered_id);
+
+        // Build invitation URL — must match the Azure redirect URI we registered.
+        // Sender = M365 tenant; we use send-transactional-email with the welcome-sso template.
+        const appOrigin = req.headers.get('origin') || 'https://inboxiq.energyforward.com';
+        const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
+
+        try {
+          const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              templateName: mode === 'temp_password' ? 'welcome-temp-password' : 'welcome-sso',
+              recipientEmail: discovered.email,
+              idempotencyKey: `invite-${invitation.id}`,
+              templateData: {
+                fullName: discovered.display_name || '',
+                invitationUrl,
+                organizationName: org?.name || '',
+              },
+            }),
+          });
+          const sendBody = await sendResp.json().catch(() => ({}));
+          if (!sendResp.ok) {
+            console.error('Welcome email send failed', sendBody);
+          }
+        } catch (sendErr) {
+          console.error('Welcome email send threw', sendErr);
+        }
+
+        return new Response(JSON.stringify({ success: true, invitation_id: invitation.id, invitation_url: invitationUrl }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'resend_discovered_invitation': {
+        // Same as invite, but always uses the latest unused invitation if one exists.
+        const { discovered_id } = payload;
+        if (!discovered_id) {
+          return new Response(JSON.stringify({ error: 'discovered_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: discovered } = await adminClient
+          .from('discovered_tenant_users')
+          .select('email, domain_id, organization_id, display_name')
+          .eq('id', discovered_id).maybeSingle();
+        if (!discovered) {
+          return new Response(JSON.stringify({ error: 'Discovered user not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: existing } = await adminClient
+          .from('user_invitations')
+          .select('id, token, expires_at, used_at')
+          .eq('email', discovered.email)
+          .is('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let invitation = existing;
+        if (!invitation) {
+          const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+          const { data: created, error: iErr } = await adminClient
+            .from('user_invitations')
+            .insert({
+              organization_id: discovered.organization_id,
+              domain_id: discovered.domain_id,
+              email: discovered.email,
+              full_name: discovered.display_name,
+              mode: 'sso_magic_link',
+              token,
+              invited_by: caller.id,
+            })
+            .select('id, token, expires_at, used_at')
+            .single();
+          if (iErr) throw iErr;
+          invitation = created;
+        }
+
+        const { data: org } = await adminClient
+          .from('organizations').select('name').eq('id', discovered.organization_id).maybeSingle();
+
+        const appOrigin = req.headers.get('origin') || 'https://inboxiq.energyforward.com';
+        const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
+
+        await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            templateName: 'welcome-sso',
+            recipientEmail: discovered.email,
+            idempotencyKey: `resend-${invitation.id}-${Date.now()}`,
+            templateData: {
+              fullName: discovered.display_name || '',
+              invitationUrl,
+              organizationName: org?.name || '',
+            },
+          }),
+        }).catch((e) => console.error('Resend email failed', e));
+
+        await adminClient
+          .from('discovered_tenant_users')
+          .update({ status: 'invited', invited_at: new Date().toISOString() })
+          .eq('id', discovered_id);
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'enable_discovered_user': {
+        // Ensures an auth user + profile exists immediately (no email sent).
+        // Useful when the admin wants to provision the account but invite later.
+        const { discovered_id } = payload;
+        if (!discovered_id) {
+          return new Response(JSON.stringify({ error: 'discovered_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { data: discovered } = await adminClient
+          .from('discovered_tenant_users')
+          .select('id, email, display_name, domain_id, organization_id')
+          .eq('id', discovered_id).maybeSingle();
+        if (!discovered) {
+          return new Response(JSON.stringify({ error: 'Discovered user not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Find or create auth user
+        const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+        let authUser = existingUsers?.users?.find((u) => u.email?.toLowerCase() === discovered.email.toLowerCase());
+
+        if (!authUser) {
+          const tempPassword = crypto.randomUUID() + '!Aa1';
+          const { data: created, error: cErr } = await adminClient.auth.admin.createUser({
+            email: discovered.email,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: {
+              full_name: discovered.display_name,
+              auto_connect_microsoft: true,
+              domain_id: discovered.domain_id,
+            },
+          });
+          if (cErr || !created?.user) throw new Error(cErr?.message || 'Failed to create auth user');
+          authUser = created.user;
+        }
+
+        // Profile + membership
+        const { data: existingProfile } = await adminClient
+          .from('user_profiles').select('id').eq('user_id', authUser.id).maybeSingle();
+        if (!existingProfile) {
+          await adminClient.from('user_profiles').insert({
+            user_id: authUser.id,
+            email: discovered.email,
+            full_name: discovered.display_name,
+            organization_id: discovered.organization_id,
+            domain_id: discovered.domain_id,
+            microsoft_auto_connect: true,
+            requires_outlook_connect: true,
+          });
+          await adminClient.from('organization_members').insert({
+            user_id: authUser.id, organization_id: discovered.organization_id, role: 'member',
+          });
+          await adminClient.from('user_roles').insert({
+            user_id: authUser.id, organization_id: discovered.organization_id, role: 'member',
+          });
+        }
+
+        await adminClient
+          .from('discovered_tenant_users')
+          .update({ status: 'active', invited_user_id: authUser.id })
+          .eq('id', discovered_id);
+
+        return new Response(JSON.stringify({ success: true, user_id: authUser.id }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'check_azure_permissions': {
+        // Best-effort self-check: tries to obtain a Graph app-only token for each
+        // domain that has a tenant id, and probes /users with $top=1 to confirm
+        // User.Read.All has been consented.
+        const { data: doms } = await adminClient
+          .from('allowed_domains')
+          .select('id, domain, microsoft_tenant_id, microsoft_consent_granted')
+          .eq('is_active', true);
+
+        const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
+        const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+        const credentialsConfigured = Boolean(clientId && clientSecret);
+
+        const results: any[] = [];
+        for (const d of doms || []) {
+          if (!d.microsoft_tenant_id) {
+            results.push({ domain: d.domain, status: 'no_tenant_id', message: 'Tenant ID not set' });
+            continue;
+          }
+          if (!credentialsConfigured) {
+            results.push({ domain: d.domain, status: 'no_credentials', message: 'Azure client credentials not configured' });
+            continue;
+          }
+          try {
+            const tokenResp = await fetch(`https://login.microsoftonline.com/${d.microsoft_tenant_id}/oauth2/v2.0/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                client_id: clientId!,
+                client_secret: clientSecret!,
+                grant_type: 'client_credentials',
+                scope: 'https://graph.microsoft.com/.default',
+              }),
+            });
+            if (!tokenResp.ok) {
+              const errBody = await tokenResp.text();
+              let msg = `Token request failed (${tokenResp.status})`;
+              try {
+                const parsed = JSON.parse(errBody);
+                if (parsed.error_description) msg = parsed.error_description.split('.')[0];
+              } catch { /* */ }
+              results.push({ domain: d.domain, status: 'token_failed', message: msg });
+              continue;
+            }
+            const { access_token } = await tokenResp.json();
+            const probe = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
+              headers: { Authorization: `Bearer ${access_token}` },
+            });
+            if (probe.ok) {
+              results.push({ domain: d.domain, status: 'ok', message: 'All required permissions verified' });
+            } else {
+              const errBody = await probe.text();
+              let msg = `Graph call failed (${probe.status})`;
+              try {
+                const parsed = JSON.parse(errBody);
+                if (parsed?.error?.code === 'Authorization_RequestDenied') {
+                  msg = 'Missing User.Read.All application permission or admin consent not granted';
+                } else if (parsed?.error?.message) {
+                  msg = parsed.error.message;
+                }
+              } catch { /* */ }
+              results.push({ domain: d.domain, status: 'permission_missing', message: msg });
+            }
+          } catch (e) {
+            results.push({ domain: d.domain, status: 'error', message: e instanceof Error ? e.message : String(e) });
+          }
+        }
+
+        return new Response(JSON.stringify({ results, credentials_configured: credentialsConfigured }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import AIChat from "./pages/AIChat";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
+import AcceptInvitation from "./pages/AcceptInvitation";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />

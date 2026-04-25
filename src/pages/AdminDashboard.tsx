@@ -15,11 +15,13 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, Trash2, Globe, Users, Shield, Settings, UserPlus, Ban, CheckCircle2, Key, Eye, EyeOff, KeyRound, ShieldCheck, ExternalLink, Building2 } from 'lucide-react';
 import PermissionGroupsPanel, { type PermissionGroup } from '@/components/admin/PermissionGroupsPanel';
 import BulkCreateUsersDialog from '@/components/admin/BulkCreateUsersDialog';
 import UserGroupsAssignment from '@/components/admin/UserGroupsAssignment';
 import OnboardingWizard from '@/components/admin/OnboardingWizard';
+import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
+import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -481,6 +483,7 @@ export default function AdminDashboard() {
         <TabsList>
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
+          <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Directory</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
@@ -493,6 +496,11 @@ export default function AdminDashboard() {
             organizationId={profile?.organization_id ?? null}
             onCompleted={fetchData}
           />
+        </TabsContent>
+
+        <TabsContent value="discovered" className="space-y-6">
+          <DiscoveredUsersPanel invoke={adminInvoke} domains={domains as any} />
+          <AzurePermissionsCheck invoke={adminInvoke} />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
