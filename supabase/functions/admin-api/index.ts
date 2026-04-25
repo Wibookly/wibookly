@@ -977,11 +977,16 @@ serve(async (req) => {
             if (!tokenResp.ok) {
               const errBody = await tokenResp.text();
               let msg = `Token request failed (${tokenResp.status})`;
+              let status = 'token_failed';
               try {
                 const parsed = JSON.parse(errBody);
                 if (parsed.error_description) msg = parsed.error_description.split('.')[0];
+                if (parsed.error === 'invalid_client') {
+                  msg = 'Invalid client secret value. Use the Azure secret Value, not the Secret ID.';
+                  status = 'invalid_client_secret';
+                }
               } catch { /* */ }
-              results.push({ domain: d.domain, status: 'token_failed', message: msg });
+              results.push({ domain: d.domain, status, message: msg });
               continue;
             }
             const { access_token } = await tokenResp.json();
