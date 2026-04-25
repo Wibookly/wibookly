@@ -174,6 +174,41 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin, loading]);
 
+  // Receive consent result from the popup window (renders an HTML page that
+  // postMessages the result and self-closes).
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data as { type?: string; status?: string; message?: string; domainId?: string | null } | null;
+      if (!data || data.type !== 'ms-admin-consent-result') return;
+
+      if (data.status === 'success') {
+        toast({
+          title: 'Microsoft consent granted',
+          description: data.message || 'Tenant authorization recorded.',
+        });
+        setActiveTab('discovered');
+        fetchData();
+        if (data.domainId) {
+          setAutoSyncDomainId(data.domainId);
+          setAutoSyncNonce((v) => v + 1);
+        }
+        setAutoCheckNonce((v) => v + 1);
+      } else {
+        toast({
+          title: 'Microsoft consent failed',
+          description: data.message || 'Unknown error',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin]);
+
   const adminInvoke = async (action: string, payload: Record<string, any> = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-api', {
       body: { action, ...payload },
