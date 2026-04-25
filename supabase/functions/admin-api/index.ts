@@ -29,6 +29,36 @@ async function enqueueWelcomeEmail(
     const text = await renderAsync(React.createElement(tmpl.component, opts.templateData), { plainText: true });
 
     const messageId = crypto.randomUUID();
+    const normalizedEmail = opts.recipientEmail.toLowerCase();
+
+    // Get or create the unsubscribe token for this recipient (required by email API)
+    let unsubscribeToken: string;
+    const { data: existingToken } = await adminClient
+      .from('email_unsubscribe_tokens')
+      .select('token, used_at')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existingToken && !existingToken.used_at) {
+      unsubscribeToken = existingToken.token;
+    } else if (!existingToken) {
+      // Generate a 32-byte hex token
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const newToken = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+      await adminClient
+        .from('email_unsubscribe_tokens')
+        .upsert({ token: newToken, email: normalizedEmail }, { onConflict: 'email', ignoreDuplicates: true });
+      const { data: stored } = await adminClient
+        .from('email_unsubscribe_tokens')
+        .select('token')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+      if (!stored) return { ok: false, error: 'Failed to create unsubscribe token' };
+      unsubscribeToken = stored.token;
+    } else {
+      return { ok: false, error: 'Recipient has unsubscribed' };
+    }
 
     await adminClient.from('email_send_log').insert({
       message_id: messageId,
@@ -50,6 +80,7 @@ async function enqueueWelcomeEmail(
         text,
         purpose: 'transactional',
         label: opts.templateName,
+        unsubscribe_token: unsubscribeToken,
         queued_at: new Date().toISOString(),
       },
     });
