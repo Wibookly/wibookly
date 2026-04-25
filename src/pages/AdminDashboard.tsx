@@ -180,6 +180,7 @@ export default function AdminDashboard() {
     if (!isSuperAdmin) return;
 
     const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
       const data = event.data as { type?: string; status?: string; message?: string; domainId?: string | null } | null;
       if (!data || data.type !== 'ms-admin-consent-result') return;
 
