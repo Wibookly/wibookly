@@ -618,7 +618,6 @@ serve(async (req) => {
         });
       }
 
-
       case 'update_group': {
         const { group_id, name, description } = payload;
         if (!group_id) {
