@@ -160,7 +160,7 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" /> Discovered Users
+            <Users className="w-5 h-5" /> M365 Users
           </CardTitle>
           <CardDescription>
             Pull licensed users directly from a customer's Microsoft 365 tenant.
@@ -184,10 +184,10 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" /> Discovered Users
+              <Users className="w-5 h-5" /> M365 Users
             </CardTitle>
             <CardDescription>
-              Pulled from the customer's Microsoft 365 tenant directory. Invite licensed users
+              Pulled from the customer's Microsoft 365 tenant directory. Showing active licensed users
               with a one-click sign-in link — no password required.
             </CardDescription>
           </div>
