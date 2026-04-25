@@ -898,26 +898,18 @@ serve(async (req) => {
         const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
 
         try {
-          const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${serviceRoleKey}`,
+          const sendResult = await enqueueWelcomeEmail(adminClient, {
+            templateName: mode === 'temp_password' ? 'welcome-temp-password' : 'welcome-sso',
+            recipientEmail: discovered.email,
+            idempotencyKey: `invite-${invitation.id}`,
+            templateData: {
+              fullName: discovered.display_name || '',
+              invitationUrl,
+              organizationName: org?.name || '',
             },
-            body: JSON.stringify({
-              templateName: mode === 'temp_password' ? 'welcome-temp-password' : 'welcome-sso',
-              recipientEmail: discovered.email,
-              idempotencyKey: `invite-${invitation.id}`,
-              templateData: {
-                fullName: discovered.display_name || '',
-                invitationUrl,
-                organizationName: org?.name || '',
-              },
-            }),
           });
-          const sendBody = await sendResp.json().catch(() => ({}));
-          if (!sendResp.ok) {
-            console.error('Welcome email send failed', sendBody);
+          if (!sendResult.ok) {
+            console.error('Welcome email enqueue failed', sendResult.error);
           }
         } catch (sendErr) {
           console.error('Welcome email send threw', sendErr);
