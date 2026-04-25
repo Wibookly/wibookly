@@ -149,7 +149,7 @@ async function getValidAccessToken(
   
   if (tokenData.provider === 'google') {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft') {
+  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
   
@@ -173,7 +173,7 @@ async function getValidAccessToken(
   };
   
   // Microsoft may return a new refresh token
-  if (tokenData.provider === 'microsoft' && 'refresh_token' in newTokens && newTokens.refresh_token) {
+  if ((tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') && 'refresh_token' in newTokens && newTokens.refresh_token) {
     updatePayload.encrypted_refresh_token = await encryptToken(String(newTokens.refresh_token), encryptionKey);
   }
   
@@ -814,7 +814,7 @@ serve(async (req) => {
             } else {
               console.log(`Gmail label "${labelName}" not found - please sync categories first`);
             }
-          } else if (tokenRecord.provider === 'microsoft') {
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             const folderId = await getOutlookFolderId(accessToken, labelName);
             if (folderId) {
               const ruleName = `Wibookly: ${rule.rule_type} - ${rule.rule_value}`;
