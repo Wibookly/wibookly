@@ -1,20 +1,21 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Trash2, Upload, UserPlus, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import type { PermissionGroup } from './PermissionGroupsPanel';
+import type { PermissionGroup, AdminDomain } from './PermissionGroupsPanel';
 
 interface RowDraft {
   email: string;
   full_name: string;
   password: string;
-  groups: string; // comma-separated names while editing
+  groups: string;
 }
 
 interface BulkResult {
@@ -25,6 +26,7 @@ interface BulkResult {
 
 interface Props {
   groups: PermissionGroup[];
+  domains: AdminDomain[];
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   onCompleted: () => void;
 }
@@ -36,24 +38,32 @@ const generatePassword = () => {
   return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 };
 
-export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: Props) {
+export default function BulkCreateUsersDialog({ groups, domains, invoke, onCompleted }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<RowDraft[]>([emptyRow(), emptyRow(), emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
   const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [domainId, setDomainId] = useState<string>(domains[0]?.id ?? '');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const selectedDomain = useMemo(() => domains.find(d => d.id === domainId), [domains, domainId]);
+
+  // Filter groups: only ones scoped to the chosen domain OR global ones
+  const visibleGroups = useMemo(
+    () => groups.filter(g => !g.domain_id || g.domain_id === domainId),
+    [groups, domainId]
+  );
 
   const updateRow = (idx: number, patch: Partial<RowDraft>) => {
     setRows(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
   };
-
   const addRow = () => setRows(prev => [...prev, emptyRow()]);
   const removeRow = (idx: number) => setRows(prev => prev.filter((_, i) => i !== idx));
 
   const groupNameToId = (name: string) => {
     const trimmed = name.trim().toLowerCase();
-    return groups.find(g => g.name.toLowerCase() === trimmed)?.id ?? null;
+    return visibleGroups.find(g => g.name.toLowerCase() === trimmed)?.id ?? null;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,26 +79,23 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
       } else if (ext === 'xlsx' || ext === 'xls') {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        parsedRows = XLSX.utils.sheet_to_json(sheet);
+        parsedRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
       } else {
-        toast({ title: 'Unsupported file', description: 'Please upload .csv, .xlsx, or .xls', variant: 'destructive' });
+        toast({ title: 'Unsupported file', description: 'Use .csv, .xlsx, or .xls', variant: 'destructive' });
         return;
       }
-
       const imported: RowDraft[] = parsedRows.map((r: any) => ({
         email: String(r.email ?? r.Email ?? '').trim(),
         full_name: String(r.full_name ?? r['Full Name'] ?? r.name ?? r.Name ?? '').trim(),
         password: String(r.password ?? r.Password ?? '').trim() || generatePassword(),
         groups: String(r.groups ?? r.Groups ?? '').trim(),
       })).filter(r => r.email);
-
       if (imported.length === 0) {
-        toast({ title: 'No rows found', description: 'Check that your file has email, full_name, password, groups columns.', variant: 'destructive' });
+        toast({ title: 'No rows found', variant: 'destructive' });
         return;
       }
       setRows(imported);
-      toast({ title: 'File imported', description: `${imported.length} rows ready. Review then click Create.` });
+      toast({ title: 'File imported', description: `${imported.length} rows ready.` });
     } catch (err: any) {
       toast({ title: 'Import failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -97,18 +104,27 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
   };
 
   const handleSubmit = async () => {
+    if (!selectedDomain) {
+      toast({ title: 'Pick a domain', description: 'Choose which domain these users belong to.', variant: 'destructive' });
+      return;
+    }
     const valid = rows.filter(r => r.email.trim() && r.full_name.trim());
     if (valid.length === 0) {
-      toast({ title: 'No rows to submit', description: 'Add at least one user with email and name.', variant: 'destructive' });
+      toast({ title: 'No rows', description: 'Add at least one user.', variant: 'destructive' });
       return;
     }
     const payload = valid.map(r => {
       const groupIds = r.groups.split(',').map(n => groupNameToId(n)).filter((v): v is string => Boolean(v));
+      // Ensure email matches the selected domain (auto-append if user only typed the local part)
+      let email = r.email.trim().toLowerCase();
+      if (!email.includes('@')) email = `${email}@${selectedDomain.domain}`;
       return {
-        email: r.email.trim(),
+        email,
         full_name: r.full_name.trim(),
         password: r.password.trim() || generatePassword(),
         group_ids: groupIds,
+        domain_id: selectedDomain.id,
+        auto_connect_microsoft: true,
       };
     });
 
@@ -159,10 +175,30 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
         <DialogHeader>
           <DialogTitle>Create Multiple Users</DialogTitle>
           <DialogDescription>
-            Add users one row at a time, paste from a spreadsheet, or import a CSV/Excel file. Their domain must already be authorized.
-            Groups column accepts comma-separated group names (e.g. <code className="text-xs bg-muted px-1 rounded">Standard,Power User</code>).
+            Pick the target domain, then add users. They'll be auto-redirected to connect their Outlook on first sign-in.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-1 sm:grid-cols-[300px_1fr] gap-3 items-end">
+          <div className="space-y-1">
+            <Label>Target domain</Label>
+            <Select value={domainId} onValueChange={setDomainId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a domain" />
+              </SelectTrigger>
+              <SelectContent>
+                {domains.map(d => (
+                  <SelectItem key={d.id} value={d.id}>@{d.domain}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {visibleGroups.length > 0
+              ? <>Available groups for this domain: {visibleGroups.map(g => g.name).join(', ')}</>
+              : 'No groups scoped to this domain — users will be created without group assignments.'}
+          </div>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-2">
@@ -172,11 +208,6 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
           <Button variant="ghost" size="sm" onClick={downloadTemplate} className="gap-2">
             <FileSpreadsheet className="w-4 h-4" /> Download CSV template
           </Button>
-          {groups.length > 0 && (
-            <div className="ml-auto text-xs text-muted-foreground">
-              Available groups: {groups.map(g => g.name).join(', ')}
-            </div>
-          )}
         </div>
 
         <div className="space-y-2">
@@ -188,7 +219,7 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
               </div>
               <div className="space-y-1">
                 {idx === 0 && <Label className="text-xs">Email</Label>}
-                <Input type="email" placeholder="john@company.com" value={row.email} onChange={e => updateRow(idx, { email: e.target.value })} />
+                <Input type="email" placeholder={selectedDomain ? `john@${selectedDomain.domain}` : 'john@company.com'} value={row.email} onChange={e => updateRow(idx, { email: e.target.value })} />
               </div>
               <div className="space-y-1">
                 {idx === 0 && <Label className="text-xs">Password (auto if blank)</Label>}
@@ -225,7 +256,7 @@ export default function BulkCreateUsersDialog({ groups, invoke, onCompleted }: P
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
+          <Button onClick={handleSubmit} disabled={submitting || !domainId}>
             {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
             Create {rows.filter(r => r.email.trim()).length} Users
           </Button>

@@ -11,6 +11,8 @@ interface CreateUserInput {
   password: string;
   full_name: string;
   group_ids?: string[];
+  domain_id?: string | null;
+  auto_connect_microsoft?: boolean;
 }
 
 interface CreateUserResult {
@@ -21,20 +23,39 @@ interface CreateUserResult {
 
 async function createSingleUser(adminClient: SupabaseClient, input: CreateUserInput): Promise<CreateUserResult> {
   const email = input.email.trim().toLowerCase();
-  const domain = email.split('@')[1];
-  if (!domain) return { success: false, error: 'Invalid email' };
+  const emailDomain = email.split('@')[1];
+  if (!emailDomain) return { success: false, error: 'Invalid email' };
   if (!input.password || input.password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
 
-  const { data: domainData } = await adminClient
-    .from('allowed_domains')
-    .select('id, organization_name')
-    .eq('domain', domain)
-    .eq('is_active', true)
-    .maybeSingle();
-  if (!domainData) return { success: false, error: `Domain ${domain} is not authorized` };
+  // Resolve target domain. If `domain_id` is supplied, use it (and validate the email matches).
+  // Otherwise look it up by the email's domain part.
+  let domainData: { id: string; domain: string; organization_name: string | null } | null = null;
+
+  if (input.domain_id) {
+    const { data } = await adminClient
+      .from('allowed_domains')
+      .select('id, domain, organization_name')
+      .eq('id', input.domain_id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!data) return { success: false, error: 'Selected domain not found or inactive' };
+    if (data.domain.toLowerCase() !== emailDomain) {
+      return { success: false, error: `Email must end in @${data.domain}` };
+    }
+    domainData = data;
+  } else {
+    const { data } = await adminClient
+      .from('allowed_domains')
+      .select('id, domain, organization_name')
+      .eq('domain', emailDomain)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!data) return { success: false, error: `Domain ${emailDomain} is not authorized` };
+    domainData = data;
+  }
 
   // Find existing org for this domain (avoid duplicates)
-  const orgName = domainData.organization_name || domain;
+  const orgName = domainData.organization_name || domainData.domain;
   let { data: org } = await adminClient
     .from('organizations')
     .select('id')
@@ -55,7 +76,12 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
     email,
     password: input.password,
     email_confirm: true,
-    user_metadata: { full_name: input.full_name },
+    user_metadata: {
+      full_name: input.full_name,
+      // Marker read by the client after first sign-in to auto-launch the Outlook OAuth flow.
+      auto_connect_microsoft: input.auto_connect_microsoft !== false,
+      domain_id: domainData.id,
+    },
   });
   if (createError || !newUser?.user) return { success: false, error: createError?.message || 'Failed to create auth user' };
 
@@ -71,7 +97,11 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   };
 
   const { error: profileErr } = await adminClient.from('user_profiles').insert({
-    user_id: userId, email, full_name: input.full_name, organization_id: org!.id,
+    user_id: userId,
+    email,
+    full_name: input.full_name,
+    organization_id: org!.id,
+    domain_id: domainData.id,
   });
   if (profileErr) return await rollback(`Profile create failed: ${profileErr.message}`);
 
@@ -86,15 +116,26 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   if (roleErr) return await rollback(`Role create failed: ${roleErr.message}`);
 
   if (input.group_ids && input.group_ids.length > 0) {
-    const memberships = input.group_ids.map(gid => ({
-      group_id: gid, user_id: userId, organization_id: org!.id,
-    }));
-    const { error: groupErr } = await adminClient.from('user_group_memberships').insert(memberships);
-    if (groupErr) return await rollback(`Group assignment failed: ${groupErr.message}`);
+    // Validate that each chosen group either belongs to this domain or is unscoped (global).
+    const { data: validGroups } = await adminClient
+      .from('permission_groups')
+      .select('id, domain_id')
+      .in('id', input.group_ids);
+    const allowedGroupIds = (validGroups || [])
+      .filter((g: any) => !g.domain_id || g.domain_id === domainData!.id)
+      .map((g: any) => g.id);
+    if (allowedGroupIds.length > 0) {
+      const memberships = allowedGroupIds.map(gid => ({
+        group_id: gid, user_id: userId, organization_id: org!.id,
+      }));
+      const { error: groupErr } = await adminClient.from('user_group_memberships').insert(memberships);
+      if (groupErr) return await rollback(`Group assignment failed: ${groupErr.message}`);
+    }
   }
 
   return { success: true, user_id: userId };
 }
+
 
 
 serve(async (req) => {
@@ -137,7 +178,7 @@ serve(async (req) => {
         // List all user profiles
         const { data: profiles, error } = await adminClient
           .from('user_profiles')
-          .select('id, user_id, email, full_name, title, organization_id, created_at')
+          .select('id, user_id, email, full_name, title, organization_id, domain_id, created_at')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -172,14 +213,43 @@ serve(async (req) => {
         });
       }
 
+      case 'list_domains': {
+        const { data: doms, error } = await adminClient
+          .from('allowed_domains')
+          .select('id, domain, organization_name, is_active')
+          .order('domain');
+        if (error) throw error;
+        return new Response(JSON.stringify({ domains: doms || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'set_user_domain': {
+        const { user_id, domain_id } = payload;
+        if (!user_id) {
+          return new Response(JSON.stringify({ error: 'user_id is required' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        const { error } = await adminClient
+          .from('user_profiles')
+          .update({ domain_id: domain_id || null })
+          .eq('user_id', user_id);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+
       case 'create_user': {
-        const { email, password, full_name, group_ids } = payload;
+        const { email, password, full_name, group_ids, domain_id, auto_connect_microsoft } = payload;
         if (!email || !password || !full_name) {
           return new Response(JSON.stringify({ error: 'email, password, and full_name are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids });
+        const result = await createSingleUser(adminClient, { email, password, full_name, group_ids, domain_id, auto_connect_microsoft });
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -191,7 +261,7 @@ serve(async (req) => {
       }
 
       case 'bulk_create_users': {
-        const { users } = payload as { users: Array<{ email: string; password: string; full_name: string; group_ids?: string[] }> };
+        const { users } = payload as { users: Array<CreateUserInput> };
         if (!Array.isArray(users) || users.length === 0) {
           return new Response(JSON.stringify({ error: 'users array is required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -218,6 +288,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
 
       case 'disable_user': {
@@ -408,7 +479,7 @@ serve(async (req) => {
       case 'list_groups': {
         const { data: groups, error } = await adminClient
           .from('permission_groups')
-          .select('id, name, description, organization_id, created_at')
+          .select('id, name, description, organization_id, domain_id, created_at')
           .order('name');
         if (error) throw error;
 
@@ -432,7 +503,7 @@ serve(async (req) => {
       }
 
       case 'create_group': {
-        const { name, description, organization_id } = payload;
+        const { name, description, organization_id, domain_id } = payload;
         if (!name || !organization_id) {
           return new Response(JSON.stringify({ error: 'name and organization_id are required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -440,7 +511,13 @@ serve(async (req) => {
         }
         const { data, error } = await adminClient
           .from('permission_groups')
-          .insert({ name: name.trim(), description: description?.trim() || null, organization_id, created_by: caller.id })
+          .insert({
+            name: name.trim(),
+            description: description?.trim() || null,
+            organization_id,
+            domain_id: domain_id || null,
+            created_by: caller.id,
+          })
           .select()
           .single();
         if (error) {
@@ -453,6 +530,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
+
 
       case 'update_group': {
         const { group_id, name, description } = payload;

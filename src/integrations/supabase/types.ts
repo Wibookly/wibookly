@@ -766,6 +766,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          domain_id: string | null
           id: string
           name: string
           organization_id: string
@@ -775,6 +776,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          domain_id?: string | null
           id?: string
           name: string
           organization_id: string
@@ -784,12 +786,20 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          domain_id?: string | null
           id?: string
           name?: string
           organization_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "permission_groups_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "permission_groups_organization_id_fkey"
             columns: ["organization_id"]
@@ -1139,6 +1149,7 @@ export type Database = {
       user_profiles: {
         Row: {
           created_at: string
+          domain_id: string | null
           email: string
           email_signature: string | null
           full_name: string | null
@@ -1156,6 +1167,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          domain_id?: string | null
           email: string
           email_signature?: string | null
           full_name?: string | null
@@ -1173,6 +1185,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          domain_id?: string | null
           email?: string
           email_signature?: string | null
           full_name?: string | null
@@ -1189,6 +1202,13 @@ export type Database = {
           website?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_profiles_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_profiles_organization_id_fkey"
             columns: ["organization_id"]
