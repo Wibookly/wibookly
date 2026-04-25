@@ -34,6 +34,7 @@ interface Props {
   existingGroups: PermissionGroup[];
   organizationId: string | null;
   onCompleted: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
@@ -51,7 +52,7 @@ const MICROSOFT_REQUIRED_SCOPES = [
 
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
 
-export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
+export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted, onNavigateToTab }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -129,23 +130,28 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       // Auto-launch Microsoft consent flow in a new tab
       const consentUrl = buildAdminConsentUrl(d, domainRowId);
       const popup = window.open(consentUrl, '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        // Popup blocked — fall back to top-level redirect
+      if (!popup || popup.closed) {
+        // Popup blocked — show inline action so we DON'T navigate away from /admin
         toast({
-          title: 'Allow popups to continue',
-          description: 'Redirecting to Microsoft consent in this tab…',
+          title: 'Popups blocked',
+          description: 'Allow popups for this site, then click "Save & Grant Microsoft Consent" again.',
+          variant: 'destructive',
         });
-        window.location.assign(consentUrl);
         return;
       }
 
       toast({
         title: 'Microsoft consent opened',
-        description: `Sign in with a Global Admin of ${d} and click Accept. Then come back and continue to Groups.`,
+        description: `Sign in with a Global Admin of ${d} and click Accept. We'll take you to M365 Directory to sync users.`,
       });
 
-      // Move to step 2 immediately so admin can prep groups while consent is signed
-      setStep(2);
+      // Refresh parent data, then jump straight to M365 Directory tab to run sync
+      onCompleted();
+      if (onNavigateToTab) {
+        onNavigateToTab('discovered');
+      } else {
+        setStep(3);
+      }
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
