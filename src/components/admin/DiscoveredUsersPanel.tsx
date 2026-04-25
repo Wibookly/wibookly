@@ -3,11 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck } from 'lucide-react';
+import {
+  Loader2, Users, RefreshCw, Send, Search, CheckCircle2, Mail, UserCheck,
+  Pause, Play, Trash2,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DiscoveredUser {
   id: string;
@@ -22,6 +29,8 @@ interface DiscoveredUser {
   invited_user_id: string | null;
   invited_at: string | null;
   last_seen_at: string;
+  /** True when this user has been provisioned but their auth account is currently banned (suspended in app). */
+  app_disabled?: boolean;
 }
 
 interface DomainOption {
