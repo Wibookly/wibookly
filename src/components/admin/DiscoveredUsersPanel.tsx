@@ -553,11 +553,14 @@ function GroupPicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = user.group_ids || [];
-  // Only show groups that belong to this user's organization AND are scoped
-  // to this user's specific domain. Global groups are intentionally hidden
-  // here — assign them from the Groups tab if you want to apply them broadly.
+  // Show groups in this user's organization that are either:
+  //   - Global (apply to all domains in the org), OR
+  //   - Specifically scoped to this user's domain.
+  // Groups scoped to a *different* domain are hidden.
   const orgGroups = groups.filter(
-    (g) => g.organization_id === user.organization_id && g.domain_id === user.domain_id,
+    (g) =>
+      g.organization_id === user.organization_id &&
+      (g.domain_id === null || g.domain_id === user.domain_id),
   );
 
   const toggle = (groupId: string) => {
