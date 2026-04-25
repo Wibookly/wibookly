@@ -14,22 +14,22 @@ serve(async (req) => {
     const appUrl = resolveAppUrl(state.appOrigin);
 
     if (!state.domainId) {
-      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Missing domain reference.')}`);
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Missing domain reference.'));
     }
 
     if (error) {
-      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent(errorDescription || error)}`);
+      return redirect(buildAdminRedirect(appUrl, 'error', errorDescription || error));
     }
 
     if (adminConsent !== 'True') {
-      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Microsoft consent was not completed.')}`);
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Microsoft consent was not completed.'));
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Backend configuration is incomplete.')}`);
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Backend configuration is incomplete.'));
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -52,16 +52,20 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Failed to persist Microsoft admin consent', updateError);
-      return redirect(`${appUrl}/admin?ms_consent=error&message=${encodeURIComponent('Failed to save Microsoft consent.')}`);
+      return redirect(buildAdminRedirect(appUrl, 'error', 'Failed to save Microsoft consent.'));
     }
 
-    return redirect(`${appUrl}/admin?ms_consent=success&message=${encodeURIComponent('Tenant authorization recorded.')}`);
+    return redirect(buildAdminRedirect(appUrl, 'success', 'Tenant authorization recorded.'));
   } catch (error) {
     console.error('Microsoft admin consent callback error', error);
     const fallbackUrl = getFallbackAppUrl();
-    return redirect(`${fallbackUrl}/admin?ms_consent=error&message=${encodeURIComponent('Unexpected Microsoft consent error.')}`);
+    return redirect(buildAdminRedirect(fallbackUrl, 'error', 'Unexpected Microsoft consent error.'));
   }
 });
+
+function buildAdminRedirect(appUrl: string, status: 'success' | 'error', message: string): string {
+  return `${appUrl}/admin?tab=discovered&ms_consent=${status}&message=${encodeURIComponent(message)}`;
+}
 
 function parseState(stateParam: string | null): { domainId?: string; appOrigin?: string } {
   if (!stateParam) return {};
