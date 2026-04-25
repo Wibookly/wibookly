@@ -949,8 +949,8 @@ serve(async (req) => {
           .select('id, domain, microsoft_tenant_id, microsoft_consent_granted')
           .eq('is_active', true);
 
-        const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-        const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+        const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
+        const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET')?.trim();
         const credentialsConfigured = Boolean(clientId && clientSecret);
 
         const results: any[] = [];
@@ -981,9 +981,11 @@ serve(async (req) => {
               try {
                 const parsed = JSON.parse(errBody);
                 if (parsed.error_description) msg = parsed.error_description.split('.')[0];
-                if (parsed.error === 'invalid_client') {
+                if (parsed.error_codes?.includes?.(7000215)) {
                   msg = 'Invalid client secret value. Use the Azure secret Value, not the Secret ID.';
                   status = 'invalid_client_secret';
+                } else if (parsed.error === 'invalid_client') {
+                  msg = 'Microsoft rejected the app credentials. Check the Azure app Client ID and secret Value.';
                 }
               } catch { /* */ }
               results.push({ domain: d.domain, status, message: msg });
