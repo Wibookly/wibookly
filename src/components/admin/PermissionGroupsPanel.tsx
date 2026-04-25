@@ -236,6 +236,7 @@ function GroupCard({
   invoke,
   onChanged,
   domainLabel,
+  initialScope = GLOBAL_GROUP_VALUE,
 }: {
   group: PermissionGroup;
   domains: AdminDomain[];
@@ -245,12 +246,13 @@ function GroupCard({
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   onChanged: () => void;
   domainLabel: (id: string | null) => string;
+  initialScope?: string;
 }) {
   const { toast } = useToast();
   const isGlobal = !group.domain_id;
   // For global groups, admins can toggle the editor between "global defaults"
   // and "override for domain X". For non-global groups, this is fixed.
-  const [editScope, setEditScope] = useState<string>(GLOBAL_GROUP_VALUE);
+  const [editScope, setEditScope] = useState<string>(initialScope);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const overridesForScope = useMemo(() => {
