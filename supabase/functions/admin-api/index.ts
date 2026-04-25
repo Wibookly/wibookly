@@ -640,9 +640,16 @@ serve(async (req) => {
           .from('user_group_memberships')
           .select('group_id, user_id');
 
+        // Per-domain feature overrides for global groups. Empty for non-global
+        // groups (they're already domain-scoped, so no override is needed).
+        const { data: overrides } = await adminClient
+          .from('group_feature_overrides')
+          .select('group_id, domain_id, feature_key, is_enabled');
+
         const enriched = (groups || []).map((g: any) => ({
           ...g,
           features: (groupFeatures || []).filter((f: any) => f.group_id === g.id),
+          overrides: (overrides || []).filter((o: any) => o.group_id === g.id),
           member_count: (members || []).filter((m: any) => m.group_id === g.id).length,
         }));
 
