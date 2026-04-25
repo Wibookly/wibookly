@@ -98,6 +98,39 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     }
   };
 
+  // Load all permission groups so admins can assign discovered users inline.
+  const loadGroups = async () => {
+    try {
+      const res = await invoke('list_groups');
+      setGroups(res?.groups || []);
+    } catch (e: any) {
+      // Non-fatal — picker will just show "No groups available".
+      console.warn('Failed to load groups', e);
+    }
+  };
+
+  useEffect(() => {
+    void loadGroups();
+  }, []);
+
+  // Replace the user's group memberships with the new selection.
+  // Optimistic update so the UI feels instant; revert on error.
+  const handleSetGroups = async (u: DiscoveredUser, newGroupIds: string[]) => {
+    if (!u.invited_user_id) return;
+    const prev = u.group_ids || [];
+    setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: newGroupIds } : x)));
+    setGroupsBusyId(u.id);
+    try {
+      await invoke('set_user_groups', { user_id: u.invited_user_id, group_ids: newGroupIds });
+    } catch (e: any) {
+      // Revert on failure
+      setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, group_ids: prev } : x)));
+      toast({ title: 'Failed to update groups', description: e.message, variant: 'destructive' });
+    } finally {
+      setGroupsBusyId(null);
+    }
+  };
+
   useEffect(() => {
     if (selectedDomainId) loadUsers(selectedDomainId);
   }, [selectedDomainId]);
