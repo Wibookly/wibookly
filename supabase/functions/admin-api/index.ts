@@ -1,5 +1,78 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as React from 'npm:react@18.3.1';
+import { renderAsync } from 'npm:@react-email/components@0.0.22';
+import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts';
+
+// Email sending config — must match send-transactional-email
+const EMAIL_SITE_NAME = 'energyforwardai';
+const EMAIL_SENDER_DOMAIN = 'noreply.energyforward.com';
+const EMAIL_FROM_DOMAIN = 'energyforward.com';
+
+// Render a transactional template and enqueue it directly into the email queue,
+// bypassing the send-transactional-email HTTP function (and its JWT gateway).
+async function enqueueWelcomeEmail(
+  adminClient: SupabaseClient,
+  opts: {
+    templateName: 'welcome-sso' | 'welcome-temp-password';
+    recipientEmail: string;
+    templateData: Record<string, any>;
+    idempotencyKey: string;
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const tmpl = TEMPLATES[opts.templateName];
+    if (!tmpl) return { ok: false, error: `Unknown template: ${opts.templateName}` };
+
+    const subject = typeof tmpl.subject === 'function' ? tmpl.subject(opts.templateData) : tmpl.subject;
+    const html = await renderAsync(React.createElement(tmpl.component, opts.templateData));
+    const text = await renderAsync(React.createElement(tmpl.component, opts.templateData), { plainText: true });
+
+    const messageId = crypto.randomUUID();
+
+    await adminClient.from('email_send_log').insert({
+      message_id: messageId,
+      template_name: opts.templateName,
+      recipient_email: opts.recipientEmail,
+      status: 'pending',
+    });
+
+    const { error: enqueueError } = await adminClient.rpc('enqueue_email', {
+      queue_name: 'transactional_emails',
+      payload: {
+        message_id: messageId,
+        idempotency_key: opts.idempotencyKey,
+        to: opts.recipientEmail,
+        from: `${EMAIL_SITE_NAME} <noreply@${EMAIL_FROM_DOMAIN}>`,
+        sender_domain: EMAIL_SENDER_DOMAIN,
+        subject,
+        html,
+        text,
+        purpose: 'transactional',
+        label: opts.templateName,
+        queued_at: new Date().toISOString(),
+      },
+    });
+
+    if (enqueueError) {
+      console.error('Failed to enqueue welcome email', enqueueError);
+      await adminClient.from('email_send_log').insert({
+        message_id: messageId,
+        template_name: opts.templateName,
+        recipient_email: opts.recipientEmail,
+        status: 'failed',
+        error_message: 'Failed to enqueue email',
+      });
+      return { ok: false, error: enqueueError.message };
+    }
+
+    console.log('Welcome email enqueued', { template: opts.templateName, to: opts.recipientEmail, messageId });
+    return { ok: true };
+  } catch (e) {
+    console.error('enqueueWelcomeEmail threw', e);
+    return { ok: false, error: e instanceof Error ? e.message : 'unknown error' };
+  }
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
