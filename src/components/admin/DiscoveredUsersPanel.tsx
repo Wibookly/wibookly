@@ -33,6 +33,15 @@ interface DiscoveredUser {
   last_seen_at: string;
   /** True when this user has been provisioned but their auth account is currently banned (suspended in app). */
   app_disabled?: boolean;
+  /** Permission group ids the user currently belongs to (empty if not provisioned). */
+  group_ids?: string[];
+}
+
+interface PermissionGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  organization_id: string;
 }
 
 interface DomainOption {
