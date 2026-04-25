@@ -498,6 +498,11 @@ export default function AdminDashboard() {
           />
         </TabsContent>
 
+        <TabsContent value="discovered" className="space-y-6">
+          <DiscoveredUsersPanel invoke={adminInvoke} domains={domains as any} />
+          <AzurePermissionsCheck invoke={adminInvoke} />
+        </TabsContent>
+
         <TabsContent value="groups" className="space-y-6">
           <PermissionGroupsPanel
             organizationId={profile?.organization_id ?? null}
