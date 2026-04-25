@@ -1,16 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Loader2, Check, Globe, ShieldCheck, UserPlus, Plus, Trash2,
-  ArrowRight, ArrowLeft, Sparkles
+  Loader2, Check, Globe, ShieldCheck, Plus, Trash2,
+  ArrowRight, ArrowLeft, Sparkles, Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PermissionGroup } from './PermissionGroupsPanel';
@@ -30,13 +29,6 @@ interface GroupDraft {
   features: Record<string, boolean>;
 }
 
-interface UserDraft {
-  full_name: string;
-  email: string;
-  password: string;
-  groupNames: string[]; // names of groups created in step 2 (or existing)
-}
-
 interface Props {
   invoke: (action: string, payload?: Record<string, unknown>) => Promise<any>;
   existingGroups: PermissionGroup[];
@@ -44,26 +36,32 @@ interface Props {
   onCompleted: () => void;
 }
 
-const generatePassword = () => {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-};
+const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
+const MICROSOFT_ADMIN_CONSENT_CALLBACK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-admin-consent-callback`;
+const MICROSOFT_REQUIRED_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'offline_access',
+  'https://graph.microsoft.com/User.Read',
+  'https://graph.microsoft.com/Mail.ReadWrite',
+  'https://graph.microsoft.com/Mail.Send',
+  'https://graph.microsoft.com/Calendars.ReadWrite',
+].join(' ');
 
 const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} });
-// `email` here stores ONLY the local part (left of @). Full email is composed at submit time.
-const emptyUser = (): UserDraft => ({ full_name: '', email: '', password: '', groupNames: [] });
 
 export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1
+  // Step 1 — Domain + auto-consent
   const [domain, setDomain] = useState('');
   const [orgName, setOrgName] = useState('');
-  const [domainSaved, setDomainSaved] = useState(false);
+  const [savedDomainId, setSavedDomainId] = useState<string | null>(null);
   const [savingDomain, setSavingDomain] = useState(false);
 
-  // Step 2
+  // Step 2 — Groups
   const [groupDrafts, setGroupDrafts] = useState<GroupDraft[]>([
     { name: 'Standard', description: 'Basic users', features: { ai_draft: true } },
     { name: 'Power User', description: 'Drafting + auto reply', features: { ai_draft: true, ai_auto_reply: true, reports: true } },
@@ -72,20 +70,21 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const [savingGroups, setSavingGroups] = useState(false);
   const [createdGroups, setCreatedGroups] = useState<PermissionGroup[]>([]);
 
-  // Step 3
-  const [userDrafts, setUserDrafts] = useState<UserDraft[]>([emptyUser()]);
-  const [submittingUsers, setSubmittingUsers] = useState(false);
-  const [results, setResults] = useState<{ email: string; success: boolean; error?: string }[] | null>(null);
+  // ───────────────────────── Step 1: Domain + Microsoft consent ─────────────────────────
+  const buildAdminConsentUrl = (domainName: string, domainRowId: string) => {
+    const state = btoa(JSON.stringify({
+      domainId: domainRowId,
+      appOrigin: window.location.origin,
+    }));
+    const params = new URLSearchParams({
+      client_id: MICROSOFT_CLIENT_ID,
+      redirect_uri: MICROSOFT_ADMIN_CONSENT_CALLBACK,
+      scope: MICROSOFT_REQUIRED_SCOPES,
+      state,
+    });
+    return `https://login.microsoftonline.com/${encodeURIComponent(domainName)}/v2.0/adminconsent?${params.toString()}`;
+  };
 
-  // Combined view of available groups for assigning to users
-  const allGroups = useMemo(() => {
-    const map = new Map<string, PermissionGroup>();
-    existingGroups.forEach(g => map.set(g.name.toLowerCase(), g));
-    createdGroups.forEach(g => map.set(g.name.toLowerCase(), g));
-    return Array.from(map.values());
-  }, [existingGroups, createdGroups]);
-
-  // ───────────────────────── Step 1: Domain ─────────────────────────
   const handleSaveDomain = async () => {
     const d = domain.trim().toLowerCase();
     if (!/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/.test(d)) {
@@ -94,20 +93,58 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     }
     setSavingDomain(true);
     try {
-      const { error } = await supabase.from('allowed_domains').insert({
-        domain: d,
-        organization_name: orgName.trim() || null,
-        is_active: true,
-      });
+      // Insert (or fetch existing) domain row
+      let domainRowId: string | null = null;
+      const { data: inserted, error } = await supabase
+        .from('allowed_domains')
+        .insert({
+          domain: d,
+          organization_name: orgName.trim() || null,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+
       if (error && error.code !== '23505') throw error;
+
       if (error?.code === '23505') {
-        toast({ title: 'Domain already authorized', description: `${d} was already added — continuing.` });
+        // Already exists — fetch it
+        const { data: existing } = await supabase
+          .from('allowed_domains')
+          .select('id')
+          .eq('domain', d)
+          .maybeSingle();
+        domainRowId = existing?.id ?? null;
+        toast({ title: 'Domain already authorized', description: `${d} was already added — continuing to consent.` });
       } else {
+        domainRowId = inserted?.id ?? null;
         toast({ title: 'Domain added', description: `${d} is now authorized.` });
       }
+
+      if (!domainRowId) throw new Error('Could not resolve domain row id.');
+
       setDomain(d);
-      setDomainSaved(true);
-      setUserDrafts([emptyUser()]);
+      setSavedDomainId(domainRowId);
+
+      // Auto-launch Microsoft consent flow in a new tab
+      const consentUrl = buildAdminConsentUrl(d, domainRowId);
+      const popup = window.open(consentUrl, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        // Popup blocked — fall back to top-level redirect
+        toast({
+          title: 'Allow popups to continue',
+          description: 'Redirecting to Microsoft consent in this tab…',
+        });
+        window.location.assign(consentUrl);
+        return;
+      }
+
+      toast({
+        title: 'Microsoft consent opened',
+        description: `Sign in with a Global Admin of ${d} and click Accept. Then come back and continue to Groups.`,
+      });
+
+      // Move to step 2 immediately so admin can prep groups while consent is signed
       setStep(2);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -129,7 +166,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
   const handleSaveGroups = async () => {
     const valid = groupDrafts.filter(g => g.name.trim());
     if (valid.length === 0 && existingGroups.length === 0) {
-      toast({ title: 'Add at least one group', description: 'Or skip to step 3 to use existing groups.', variant: 'destructive' });
+      toast({ title: 'Add at least one group', description: 'Define at least one permission group, or skip to finish.', variant: 'destructive' });
       return;
     }
     if (!organizationId) {
@@ -140,7 +177,6 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     try {
       const created: PermissionGroup[] = [];
       for (const g of valid) {
-        // Skip if a group with this name already exists
         const dup = existingGroups.find(x => x.name.toLowerCase() === g.name.trim().toLowerCase())
                   || createdGroups.find(x => x.name.toLowerCase() === g.name.trim().toLowerCase());
         if (dup) {
@@ -153,7 +189,6 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
           organization_id: organizationId,
         });
         const newGroup: PermissionGroup = res?.group || { id: res?.id, name: g.name.trim(), description: g.description.trim() || null, organization_id: '', features: [], member_count: 0 };
-        // Apply feature toggles
         for (const feat of FEATURE_KEYS) {
           const enabled = g.features[feat.key];
           if (enabled) {
@@ -171,6 +206,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
         return merged;
       });
       toast({ title: 'Groups ready', description: `${created.length} group(s) configured.` });
+      onCompleted();
       setStep(3);
     } catch (e: any) {
       toast({ title: 'Error creating groups', description: e.message, variant: 'destructive' });
@@ -179,79 +215,19 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     }
   };
 
-  // ───────────────────────── Step 3: Users ─────────────────────────
-  const updateUserDraft = (idx: number, patch: Partial<UserDraft>) => {
-    setUserDrafts(prev => prev.map((u, i) => i === idx ? { ...u, ...patch } : u));
-  };
-  const toggleUserGroup = (idx: number, groupName: string) => {
-    setUserDrafts(prev => prev.map((u, i) => {
-      if (i !== idx) return u;
-      const has = u.groupNames.includes(groupName);
-      return { ...u, groupNames: has ? u.groupNames.filter(n => n !== groupName) : [...u.groupNames, groupName] };
-    }));
-  };
-  const addUserDraft = () => setUserDrafts(prev => [...prev, emptyUser()]);
-  const removeUserDraft = (idx: number) => setUserDrafts(prev => prev.filter((_, i) => i !== idx));
-
-  const handleSubmitUsers = async () => {
-    // Build full email from local part + authorized domain
-    const enriched = userDrafts.map(u => {
-      const local = u.email.trim().toLowerCase().replace(/@.*$/, '').replace(/^@/, '');
-      return { ...u, fullEmail: local ? `${local}@${domain}` : '' };
-    });
-    const valid = enriched.filter(u => u.fullEmail && u.full_name.trim());
-    if (valid.length === 0) {
-      const missingName = enriched.some(u => u.fullEmail && !u.full_name.trim());
-      const missingEmail = enriched.some(u => !u.fullEmail && u.full_name.trim());
-      let msg = 'Add at least one user with both a name and an email username.';
-      if (missingName && !missingEmail) msg = 'Please fill in the Full Name for each user.';
-      else if (missingEmail && !missingName) msg = 'Please fill in the email username (the part before @) for each user.';
-      toast({ title: 'No users to create', description: msg, variant: 'destructive' });
-      return;
-    }
-    setSubmittingUsers(true);
-    setResults(null);
-    try {
-      const payload = valid.map(u => ({
-        email: u.fullEmail,
-        full_name: u.full_name.trim(),
-        password: u.password.trim() || generatePassword(),
-        group_ids: u.groupNames
-          .map(n => allGroups.find(g => g.name.toLowerCase() === n.toLowerCase())?.id)
-          .filter((v): v is string => Boolean(v)),
-      }));
-      const data = await invoke('bulk_create_users', { users: payload });
-      setResults(data.results || []);
-      const succeeded = data.summary?.succeeded ?? data.results?.filter((r: any) => r.success).length ?? 0;
-      const failed = data.summary?.failed ?? data.results?.filter((r: any) => !r.success).length ?? 0;
-      toast({
-        title: 'Users created',
-        description: `${succeeded} created, ${failed} failed.`,
-        variant: failed > 0 ? 'destructive' : 'default',
-      });
-      if (succeeded > 0) onCompleted();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
-    } finally {
-      setSubmittingUsers(false);
-    }
-  };
-
   const resetWizard = () => {
     setStep(1);
     setDomain('');
     setOrgName('');
-    setDomainSaved(false);
+    setSavedDomainId(null);
     setCreatedGroups([]);
-    setUserDrafts([emptyUser()]);
-    setResults(null);
   };
 
   // ───────────────────────── Stepper UI ─────────────────────────
   const steps = [
-    { n: 1, label: 'Add Domain', icon: Globe },
+    { n: 1, label: 'Add Domain & Consent', icon: Globe },
     { n: 2, label: 'Create Groups', icon: ShieldCheck },
-    { n: 3, label: 'Add Users', icon: UserPlus },
+    { n: 3, label: 'Sync M365 Users', icon: Building2 },
   ];
 
   return (
@@ -263,7 +239,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
             Guided Onboarding
           </CardTitle>
           <CardDescription>
-            Authorize a domain, create permission groups for it, then add users assigned to those groups — all in 3 steps.
+            Authorize a domain (Microsoft consent runs automatically), define permission groups, then sync users from the customer's Microsoft 365 directory.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -306,7 +282,9 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Globe className="w-5 h-5" /> Step 1 — Authorize Domain</CardTitle>
-            <CardDescription>Only users whose email ends in this domain will be allowed to sign up and use the app.</CardDescription>
+            <CardDescription>
+              Only users whose email ends in this domain will be allowed to use the app. After saving, the Microsoft Global Admin consent screen will open automatically in a new tab — sign in once and approve to grant tenant-wide access.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -321,8 +299,8 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
             </div>
             <div className="flex justify-end">
               <Button onClick={handleSaveDomain} disabled={savingDomain || !domain.trim()}>
-                {savingDomain ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Save & Continue <ArrowRight className="w-4 h-4 ml-2" />
+                {savingDomain ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                Save & Grant Microsoft Consent <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </CardContent>
@@ -392,7 +370,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setStep(3)}>
+                <Button variant="outline" onClick={() => { onCompleted(); setStep(3); }}>
                   Skip groups <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button onClick={handleSaveGroups} disabled={savingGroups}>
@@ -405,113 +383,47 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
         </Card>
       )}
 
-      {/* STEP 3 */}
+      {/* STEP 3 — Done; point to M365 Directory tab */}
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5" /> Step 3 — Add Users to <span className="text-primary">@{domain}</span></CardTitle>
+            <CardTitle className="flex items-center gap-2"><Building2 className="w-5 h-5" /> Step 3 — Sync users from Microsoft 365</CardTitle>
             <CardDescription>
-              Add users one row at a time. Tick the groups each user should belong to. Passwords auto-generate if blank.
+              Domain authorized and groups configured. Now head to the <strong>M365 Directory</strong> tab and click <strong>Sync now</strong> to pull licensed users from the customer's tenant directory. Each user can then be invited with one click — no password setup required.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {allGroups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No groups available — users will be created without group assignments. You can assign groups later from the Users tab.</p>
-            ) : (
-              <div className="text-xs text-muted-foreground">
-                Available groups: {allGroups.map(g => g.name).join(', ')}
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                <Check className="w-5 h-5" /> <span className="font-semibold">Setup complete for @{domain || 'your domain'}</span>
               </div>
-            )}
-
-            <div className="space-y-3">
-              {userDrafts.map((u, idx) => (
-                <div key={idx} className="p-4 rounded-lg border border-border bg-background space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-[1.5fr_2fr_1.5fr_auto] gap-2 items-end">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Full Name</Label>
-                      <Input placeholder="John Doe" value={u.full_name} onChange={e => updateUserDraft(idx, { full_name: e.target.value })} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Email username</Label>
-                      <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                        <Input
-                          type="text"
-                          placeholder="john"
-                          value={u.email}
-                          onChange={e => updateUserDraft(idx, { email: e.target.value.replace(/@.*$/, '') })}
-                          className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none flex-1"
-                        />
-                        <div className="flex items-center px-3 bg-muted text-sm text-muted-foreground border-l border-input whitespace-nowrap">
-                          @{domain}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Password (auto if blank)</Label>
-                      <Input type="text" placeholder="Auto-generate" value={u.password} onChange={e => updateUserDraft(idx, { password: e.target.value })} />
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => removeUserDraft(idx)} disabled={userDrafts.length === 1}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {allGroups.length > 0 && (
-                    <div className="pt-2 border-t border-border/50">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Assign to groups</p>
-                      <div className="flex flex-wrap gap-2">
-                        {allGroups.map(g => {
-                          const checked = u.groupNames.includes(g.name);
-                          return (
-                            <label key={g.id} className={cn(
-                              'flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer transition-colors',
-                              checked ? 'border-primary bg-primary/10' : 'border-border bg-background hover:bg-muted/50'
-                            )}>
-                              <Checkbox checked={checked} onCheckedChange={() => toggleUserGroup(idx, g.name)} />
-                              <span className="text-sm">{g.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>Domain saved and Microsoft consent launched.</li>
+                <li>{createdGroups.length > 0 ? `${createdGroups.length} permission group(s) configured.` : 'Groups skipped (you can add them later).'}</li>
+                <li>Ready to discover and invite Microsoft 365 users.</li>
+              </ul>
             </div>
 
-            <Button variant="outline" size="sm" onClick={addUserDraft} className="gap-2">
-              <Plus className="w-4 h-4" /> Add another user
-            </Button>
-
-            {results && (
-              <div className="border-t border-border pt-3 space-y-1 max-h-48 overflow-y-auto">
-                <p className="text-sm font-semibold">Results</p>
-                {results.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span>{r.email}</span>
-                    {r.success
-                      ? <Badge variant="default">Created</Badge>
-                      : <Badge variant="destructive" title={r.error}>{r.error || 'Failed'}</Badge>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-between pt-2">
-              <Button variant="ghost" onClick={() => setStep(2)}>
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <Button variant="ghost" onClick={resetWizard}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Onboard another domain
               </Button>
-              <div className="flex gap-2">
-                {results && results.some(r => r.success) && (
-                  <Button variant="outline" onClick={resetWizard}>
-                    Start over with another domain
-                  </Button>
-                )}
-                <Button onClick={handleSubmitUsers} disabled={submittingUsers}>
-                  {submittingUsers ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                  Create {userDrafts.filter(u => u.email.trim() && u.full_name.trim()).length} User(s)
-                </Button>
-              </div>
+              <Button
+                onClick={() => {
+                  // Switch to M365 Directory tab (radix Tabs uses data-value triggers)
+                  const trigger = document.querySelector<HTMLButtonElement>('[role="tab"][data-state][value="discovered"]')
+                    || document.querySelector<HTMLButtonElement>('[role="tab"][data-radix-collection-item][value="discovered"]')
+                    || Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(el => el.textContent?.toLowerCase().includes('m365'));
+                  trigger?.click();
+                }}
+              >
+                <Building2 className="w-4 h-4 mr-2" /> Go to M365 Directory
+              </Button>
             </div>
+
+            <p className="text-xs text-muted-foreground border-t border-border/50 pt-3">
+              If the consent tab is still open, finish approval there first. The <strong>Domains</strong> tab will automatically show the green “MS Consent” badge once Microsoft confirms.
+            </p>
           </CardContent>
         </Card>
       )}
