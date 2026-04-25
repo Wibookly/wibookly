@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,11 +163,11 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
     }
   };
 
-  useState(() => {
+  useEffect(() => {
     void invoke('get_microsoft_oauth_config')
       .then((res) => setMicrosoftClientId(res?.client_id || null))
       .catch(() => setMicrosoftClientId(null));
-  });
+  }, [invoke]);
 
   // ───────────────────────── Step 2: Groups ─────────────────────────
   const updateGroupDraft = (idx: number, patch: Partial<GroupDraft>) => {
