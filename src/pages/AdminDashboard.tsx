@@ -256,7 +256,11 @@ export default function AdminDashboard() {
   };
 
   const buildAdminConsentUrl = (domain: AllowedDomain) => {
-    const tenant = (domain.microsoft_tenant_id?.trim() || domain.domain).trim();
+    // Prefer the verified tenant id once we have it; otherwise let Microsoft
+    // resolve the tenant from the signing-in admin via the "organizations"
+    // endpoint. Passing the raw typed domain (which may be misspelled or not
+    // yet verified in Azure) caused a white error page from login.microsoftonline.com.
+    const tenant = domain.microsoft_tenant_id?.trim() || 'organizations';
     const state = btoa(JSON.stringify({
       domainId: domain.id,
       appOrigin: window.location.origin,
@@ -283,7 +287,11 @@ export default function AdminDashboard() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
-    window.location.assign(url);
+    // Open in a popup so the admin keeps their dashboard session.
+    const popup = window.open(url, 'ms-admin-consent', 'width=600,height=720');
+    if (!popup) {
+      window.location.assign(url);
+    }
   };
 
   const handleSetTenantId = async (id: string, tenantId: string) => {
