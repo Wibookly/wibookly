@@ -1000,8 +1000,7 @@ serve(async (req) => {
         const { data: org } = await adminClient
           .from('organizations').select('name').eq('id', discovered.organization_id).maybeSingle();
 
-        const appOrigin = req.headers.get('origin') || 'https://inboxiq.energyforward.com';
-        const invitationUrl = `${appOrigin}/auth/accept-invitation?token=${invitation.token}`;
+        const invitationUrl = `https://inboxiq.energyforward.com/auth/accept-invitation?token=${invitation.token}`;
 
         const resendResult = await enqueueWelcomeEmail(adminClient, {
           templateName: 'welcome-sso',
