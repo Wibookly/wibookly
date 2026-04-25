@@ -95,7 +95,7 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
   const users: GraphUser[] = [];
   let url: string | null =
     'https://graph.microsoft.com/v1.0/users' +
-    '?$select=id,userPrincipalName,mail,displayName,jobTitle,accountEnabled,assignedLicenses,userType' +
+    '?$select=id,userPrincipalName,mail,displayName,jobTitle,accountEnabled,assignedLicenses,assignedPlans,userType' +
     '&$top=999';
 
   while (url) {
