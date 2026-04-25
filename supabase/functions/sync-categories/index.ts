@@ -150,7 +150,7 @@ async function getValidAccessToken(
   
   if (tokenData.provider === 'google') {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft') {
+  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
   
@@ -174,7 +174,7 @@ async function getValidAccessToken(
   };
   
   // Microsoft may return a new refresh token
-  if (tokenData.provider === 'microsoft' && 'refresh_token' in newTokens && newTokens.refresh_token) {
+  if ((tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') && 'refresh_token' in newTokens && newTokens.refresh_token) {
     updatePayload.encrypted_refresh_token = await encryptToken(String(newTokens.refresh_token), encryptionKey);
   }
   
@@ -592,7 +592,7 @@ serve(async (req) => {
           
           if (tokenRecord.provider === 'google') {
             success = await createGmailLabel(accessToken, labelName, category.color);
-          } else if (tokenRecord.provider === 'microsoft') {
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             success = await createOutlookFolder(accessToken, labelName);
           }
           
@@ -614,7 +614,7 @@ serve(async (req) => {
           
           if (tokenRecord.provider === 'google') {
             success = await deleteGmailLabel(accessToken, labelName);
-          } else if (tokenRecord.provider === 'microsoft') {
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             success = await deleteOutlookFolder(accessToken, labelName);
           }
           
@@ -629,7 +629,7 @@ serve(async (req) => {
         for (const legacyLabel of legacyLabelsToClean) {
           if (tokenRecord.provider === 'google') {
             await deleteGmailLabel(accessToken, legacyLabel);
-          } else if (tokenRecord.provider === 'microsoft') {
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             await deleteOutlookFolder(accessToken, legacyLabel);
           }
         }
