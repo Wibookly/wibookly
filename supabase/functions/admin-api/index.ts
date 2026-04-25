@@ -11,6 +11,8 @@ interface CreateUserInput {
   password: string;
   full_name: string;
   group_ids?: string[];
+  domain_id?: string | null;
+  auto_connect_microsoft?: boolean;
 }
 
 interface CreateUserResult {
@@ -21,20 +23,39 @@ interface CreateUserResult {
 
 async function createSingleUser(adminClient: SupabaseClient, input: CreateUserInput): Promise<CreateUserResult> {
   const email = input.email.trim().toLowerCase();
-  const domain = email.split('@')[1];
-  if (!domain) return { success: false, error: 'Invalid email' };
+  const emailDomain = email.split('@')[1];
+  if (!emailDomain) return { success: false, error: 'Invalid email' };
   if (!input.password || input.password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
 
-  const { data: domainData } = await adminClient
-    .from('allowed_domains')
-    .select('id, organization_name')
-    .eq('domain', domain)
-    .eq('is_active', true)
-    .maybeSingle();
-  if (!domainData) return { success: false, error: `Domain ${domain} is not authorized` };
+  // Resolve target domain. If `domain_id` is supplied, use it (and validate the email matches).
+  // Otherwise look it up by the email's domain part.
+  let domainData: { id: string; domain: string; organization_name: string | null } | null = null;
+
+  if (input.domain_id) {
+    const { data } = await adminClient
+      .from('allowed_domains')
+      .select('id, domain, organization_name')
+      .eq('id', input.domain_id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!data) return { success: false, error: 'Selected domain not found or inactive' };
+    if (data.domain.toLowerCase() !== emailDomain) {
+      return { success: false, error: `Email must end in @${data.domain}` };
+    }
+    domainData = data;
+  } else {
+    const { data } = await adminClient
+      .from('allowed_domains')
+      .select('id, domain, organization_name')
+      .eq('domain', emailDomain)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!data) return { success: false, error: `Domain ${emailDomain} is not authorized` };
+    domainData = data;
+  }
 
   // Find existing org for this domain (avoid duplicates)
-  const orgName = domainData.organization_name || domain;
+  const orgName = domainData.organization_name || domainData.domain;
   let { data: org } = await adminClient
     .from('organizations')
     .select('id')
@@ -55,7 +76,12 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
     email,
     password: input.password,
     email_confirm: true,
-    user_metadata: { full_name: input.full_name },
+    user_metadata: {
+      full_name: input.full_name,
+      // Marker read by the client after first sign-in to auto-launch the Outlook OAuth flow.
+      auto_connect_microsoft: input.auto_connect_microsoft !== false,
+      domain_id: domainData.id,
+    },
   });
   if (createError || !newUser?.user) return { success: false, error: createError?.message || 'Failed to create auth user' };
 
@@ -71,7 +97,11 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   };
 
   const { error: profileErr } = await adminClient.from('user_profiles').insert({
-    user_id: userId, email, full_name: input.full_name, organization_id: org!.id,
+    user_id: userId,
+    email,
+    full_name: input.full_name,
+    organization_id: org!.id,
+    domain_id: domainData.id,
   });
   if (profileErr) return await rollback(`Profile create failed: ${profileErr.message}`);
 
@@ -86,15 +116,26 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   if (roleErr) return await rollback(`Role create failed: ${roleErr.message}`);
 
   if (input.group_ids && input.group_ids.length > 0) {
-    const memberships = input.group_ids.map(gid => ({
-      group_id: gid, user_id: userId, organization_id: org!.id,
-    }));
-    const { error: groupErr } = await adminClient.from('user_group_memberships').insert(memberships);
-    if (groupErr) return await rollback(`Group assignment failed: ${groupErr.message}`);
+    // Validate that each chosen group either belongs to this domain or is unscoped (global).
+    const { data: validGroups } = await adminClient
+      .from('permission_groups')
+      .select('id, domain_id')
+      .in('id', input.group_ids);
+    const allowedGroupIds = (validGroups || [])
+      .filter((g: any) => !g.domain_id || g.domain_id === domainData!.id)
+      .map((g: any) => g.id);
+    if (allowedGroupIds.length > 0) {
+      const memberships = allowedGroupIds.map(gid => ({
+        group_id: gid, user_id: userId, organization_id: org!.id,
+      }));
+      const { error: groupErr } = await adminClient.from('user_group_memberships').insert(memberships);
+      if (groupErr) return await rollback(`Group assignment failed: ${groupErr.message}`);
+    }
   }
 
   return { success: true, user_id: userId };
 }
+
 
 
 serve(async (req) => {
