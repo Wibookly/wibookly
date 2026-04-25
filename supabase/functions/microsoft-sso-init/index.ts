@@ -82,7 +82,7 @@ serve(async (req) => {
       client_id: clientId,
       redirect_uri: callbackUrl,
       response_type: 'code',
-      scope: 'openid email profile',
+      scope: 'openid email profile offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite',
       response_mode: 'query',
       state: stateData,
       login_hint: email,
