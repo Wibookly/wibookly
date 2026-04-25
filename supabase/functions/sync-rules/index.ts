@@ -762,13 +762,18 @@ serve(async (req) => {
     }
 
     // Get ENABLED categories for numbering - use sort_order for label names
-    const { data: enabledCategories } = await supabaseAdmin
+    let enabledCategoriesQuery = supabaseAdmin
       .from('categories')
       .select('id, name, sort_order')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
-      .eq('connection_id', connectionId ?? '')
       .order('sort_order');
+
+    if (connectionId) {
+      enabledCategoriesQuery = enabledCategoriesQuery.eq('connection_id', connectionId);
+    }
+
+    const { data: enabledCategories } = await enabledCategoriesQuery;
 
     // Map category ID to its sort_order (used for label naming)
     const categoryMap = new Map(enabledCategories?.map((c) => [c.id, { name: c.name, sortOrder: c.sort_order }]));
