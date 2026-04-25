@@ -134,9 +134,13 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       setDomain(d);
       setSavedDomainId(domainRowId);
 
-      // Redirect in the same tab so the admin returns directly into the dashboard session.
-      const consentUrl = buildAdminConsentUrl(d, domainRowId);
-      window.location.assign(consentUrl);
+      // Open consent in a popup so the dashboard session is preserved.
+      // If the popup is blocked, fall back to a same-tab navigation.
+      const consentUrl = buildAdminConsentUrl(domainRowId);
+      const popup = window.open(consentUrl, 'ms-admin-consent', 'width=600,height=720');
+      if (!popup) {
+        window.location.assign(consentUrl);
+      }
       return;
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
