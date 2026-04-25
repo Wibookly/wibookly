@@ -326,7 +326,6 @@ function GroupCard({
   domainLabel: (id: string | null) => string;
   initialScope?: string;
 }) {
-  const { toast } = useToast();
   const isGlobal = !group.domain_id;
   // For global groups, admins can toggle the editor between "global defaults"
   // and "override for domain X". For non-global groups, this is fixed.
@@ -362,21 +361,12 @@ function GroupCard({
 
   const handleToggle = async (key: string, value: boolean) => {
     if (!editingOverride) {
-      // Global default for this group
       await onToggleFeature(group.id, key, value);
       return;
     }
     setBusyKey(key);
     try {
-      await invoke('set_group_feature_override', {
-        group_id: group.id,
-        domain_id: editScope,
-        feature_key: key,
-        is_enabled: value,
-      });
-      onChanged();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      await onSetOverride(group.id, editScope, key, value);
     } finally {
       setBusyKey(null);
     }
@@ -386,14 +376,7 @@ function GroupCard({
     if (!editingOverride) return;
     setBusyKey(key);
     try {
-      await invoke('clear_group_feature_override', {
-        group_id: group.id,
-        domain_id: editScope,
-        feature_key: key,
-      });
-      onChanged();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      await onClearOverride(group.id, editScope, key);
     } finally {
       setBusyKey(null);
     }
