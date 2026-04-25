@@ -72,6 +72,7 @@ interface ManagedUser {
   full_name: string | null;
   created_at: string;
   organization_id: string;
+  domain_id?: string | null;
   is_disabled: boolean;
   features: UserFeature[];
   group_ids?: string[];
@@ -239,6 +240,15 @@ export default function AdminDashboard() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshGroups = async () => {
+    try {
+      const groupsRes = await adminInvoke('list_groups');
+      if (groupsRes?.groups) setGroups(groupsRes.groups);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -468,9 +478,37 @@ export default function AdminDashboard() {
   const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
   const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
 
-  const getUserFeatureEnabled = (user: ManagedUser, featureKey: string) => {
-    const feature = user.features.find(f => f.feature_key === featureKey);
-    return feature?.is_enabled ?? false;
+  const getUserFeatureState = (user: ManagedUser, featureKey: string) => {
+    const directFeature = user.features.find((feature) => feature.feature_key === featureKey);
+    if (directFeature?.is_enabled) {
+      return { enabled: true, source: 'direct' as const };
+    }
+
+    for (const groupId of user.group_ids || []) {
+      const group = groups.find((item) => item.id === groupId);
+      if (!group) continue;
+
+      const override = group.overrides?.find(
+        (item) => item.domain_id === user.domain_id && item.feature_key === featureKey,
+      );
+
+      if (override) {
+        if (override.is_enabled) {
+          return { enabled: true, source: 'group' as const };
+        }
+        continue;
+      }
+
+      const groupFeature = group.features.find(
+        (item) => item.feature_key === featureKey && item.is_enabled,
+      );
+
+      if (groupFeature) {
+        return { enabled: true, source: 'group' as const };
+      }
+    }
+
+    return { enabled: false, source: 'none' as const };
   };
 
   if (loading) {
