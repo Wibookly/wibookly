@@ -14,11 +14,6 @@ import {
 import { cn } from '@/lib/utils';
 import type { PermissionGroup } from './PermissionGroupsPanel';
 
-const PREFERRED_APP_ORIGIN =
-  window.location.hostname.endsWith('.lovableproject.com')
-    ? 'https://inboxiq.energyforward.com'
-    : window.location.origin;
-
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft' },
   { key: 'ai_auto_reply', label: 'AI Auto Reply' },
@@ -84,7 +79,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
 
     const state = btoa(JSON.stringify({
       domainId: domainRowId,
-      appOrigin: PREFERRED_APP_ORIGIN,
+      appOrigin: window.location.origin,
     }));
     const params = new URLSearchParams({
       client_id: microsoftClientId,
