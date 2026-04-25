@@ -47,7 +47,6 @@ interface AllowedDomain {
   microsoft_consent_granted_at: string | null;
 }
 
-const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
 const MICROSOFT_ADMIN_CONSENT_CALLBACK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-admin-consent-callback`;
 const MICROSOFT_REQUIRED_SCOPES = [
   'openid',
@@ -97,6 +96,7 @@ export default function AdminDashboard() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
+  const [microsoftClientId, setMicrosoftClientId] = useState<string | null>(null);
 
   // New user form
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -116,6 +116,14 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    void adminInvoke('get_microsoft_oauth_config')
+      .then((res) => setMicrosoftClientId(res?.client_id || null))
+      .catch(() => setMicrosoftClientId(null));
+  }, [isSuperAdmin, session?.access_token]);
 
   // Detect Microsoft admin consent result after the backend callback redirects back here.
   useEffect(() => {
@@ -229,8 +237,13 @@ export default function AdminDashboard() {
       domainId: domain.id,
       appOrigin: window.location.origin,
     }));
+
+    if (!microsoftClientId) {
+      throw new Error('Microsoft app configuration is missing.');
+    }
+
     const params = new URLSearchParams({
-      client_id: MICROSOFT_CLIENT_ID,
+      client_id: microsoftClientId,
       redirect_uri: MICROSOFT_ADMIN_CONSENT_CALLBACK,
       scope: MICROSOFT_REQUIRED_SCOPES,
       state,
@@ -239,7 +252,13 @@ export default function AdminDashboard() {
   };
 
   const handleGrantMicrosoftConsent = (domain: AllowedDomain) => {
-    const url = buildAdminConsentUrl(domain);
+    let url = '';
+    try {
+      url = buildAdminConsentUrl(domain);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
     const isEmbeddedPreview = window.self !== window.top;
 
     if (isEmbeddedPreview) {
