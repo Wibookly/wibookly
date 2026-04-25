@@ -73,7 +73,7 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
     '&$top=999';
 
   while (url) {
-    const resp = await fetch(url, {
+    const resp: Response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' },
     });
     if (!resp.ok) {
@@ -88,7 +88,7 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
       } catch { /* ignore */ }
       return { error: errMsg };
     }
-    const json = await resp.json();
+    const json: any = await resp.json();
     users.push(...(json.value as GraphUser[]));
     url = (json['@odata.nextLink'] as string | undefined) ?? null;
   }
