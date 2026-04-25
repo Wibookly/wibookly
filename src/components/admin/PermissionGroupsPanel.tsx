@@ -211,10 +211,10 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           {visibleGroups.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No groups for this filter. Create one above.</p>
           ) : (
-            <div className="space-y-4">
-              {visibleGroups.map(group => (
+              <div className="space-y-4">
+               {visibleGroups.map(group => (
                 <GroupCard
-                  key={`${group.id}-${filterDomain}`}
+                   key={group.id}
                   group={group}
                   domains={domains}
                   isFeatureEnabled={isFeatureEnabled}
@@ -271,6 +271,11 @@ function GroupCard({
   // and "override for domain X". For non-global groups, this is fixed.
   const [editScope, setEditScope] = useState<string>(initialScope);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isGlobal) return;
+    setEditScope(initialScope);
+  }, [initialScope, isGlobal]);
 
   const overridesForScope = useMemo(() => {
     if (!isGlobal || editScope === GLOBAL_GROUP_VALUE) return new Map<string, boolean>();
