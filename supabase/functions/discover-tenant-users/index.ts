@@ -209,14 +209,15 @@ serve(async (req) => {
       });
     }
 
-    // Filter: licensed members on the matching domain only
+    // Filter: only active members on the matching domain who have an
+    // Exchange Online (mailbox) license. This is the InboxIQ access criterion.
     const domainLower = domain.domain.toLowerCase();
     const filtered = usersRes.users.filter((u) => {
       const email = (u.mail || u.userPrincipalName || '').toLowerCase();
       if (!email.endsWith('@' + domainLower)) return false;
       if (u.userType && u.userType.toLowerCase() === 'guest') return false;
-      const licensed = Array.isArray(u.assignedLicenses) && u.assignedLicenses.length > 0;
-      return licensed;
+      if (!u.accountEnabled) return false;
+      return hasActiveExchangeLicense(u);
     });
 
     // Build payload — preserve existing invited_user_id / status by upserting on (domain_id, ms_user_id)
