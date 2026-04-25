@@ -840,9 +840,23 @@ serve(async (req) => {
           }
         }
 
+        // Pull current group memberships for provisioned users so the UI can
+        // pre-select their existing groups in the inline group picker.
+        let groupsByUser: Record<string, string[]> = {};
+        if (provisionedIds.length > 0) {
+          const { data: memberships } = await adminClient
+            .from('user_group_memberships')
+            .select('user_id, group_id')
+            .in('user_id', provisionedIds);
+          for (const m of (memberships || [])) {
+            (groupsByUser[m.user_id] ||= []).push(m.group_id);
+          }
+        }
+
         const enriched = rows.map((r: any) => ({
           ...r,
           app_disabled: r.invited_user_id ? !!bannedMap[r.invited_user_id] : false,
+          group_ids: r.invited_user_id ? (groupsByUser[r.invited_user_id] || []) : [],
         }));
 
         return new Response(JSON.stringify({ users: enriched }), {
