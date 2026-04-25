@@ -618,8 +618,19 @@ function GroupPicker({
                     onCheckedChange={() => toggle(g.id)}
                     className="mt-0.5"
                   />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{g.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium truncate">{g.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                          g.domain_id
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {g.domain_id ? 'Domain' : 'Global'}
+                      </span>
+                    </div>
                     {g.description && (
                       <div className="text-xs text-muted-foreground truncate">{g.description}</div>
                     )}
