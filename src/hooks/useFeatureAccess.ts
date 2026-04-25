@@ -74,12 +74,7 @@ export function useFeatureAccess() {
 
   useEffect(() => {
     fetchFeatures();
-  }, [fetchFeatures]);
 
-  // Refresh when the tab regains focus / becomes visible. This way, if an
-  // admin grants new permissions in another window, the user sees them as
-  // soon as they switch back without needing a hard refresh.
-  useEffect(() => {
     if (!user?.id) return;
 
     const maybeRefresh = () => {
@@ -95,8 +90,7 @@ export function useFeatureAccess() {
     window.addEventListener('focus', maybeRefresh);
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Also poll every 60s as a safety net in case the tab stays open for
-    // a long time while admin tweaks groups.
+    // Safety-net poll while the tab stays open.
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') fetchFeatures();
     }, 60_000);
