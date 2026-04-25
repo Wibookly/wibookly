@@ -37,7 +37,6 @@ interface Props {
   onNavigateToTab?: (tab: string) => void;
 }
 
-const MICROSOFT_CLIENT_ID = 'a72108fc-2c1f-43a2-8ed6-0d99839c618b';
 const MICROSOFT_ADMIN_CONSENT_CALLBACK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/microsoft-admin-consent-callback`;
 const MICROSOFT_REQUIRED_SCOPES = [
   'openid',
@@ -55,6 +54,7 @@ const emptyGroup = (): GroupDraft => ({ name: '', description: '', features: {} 
 export default function OnboardingWizard({ invoke, existingGroups, organizationId, onCompleted, onNavigateToTab }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [microsoftClientId, setMicrosoftClientId] = useState<string | null>(null);
 
   // Step 1 — Domain + auto-consent
   const [domain, setDomain] = useState('');
@@ -73,12 +73,16 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
 
   // ───────────────────────── Step 1: Domain + Microsoft consent ─────────────────────────
   const buildAdminConsentUrl = (domainName: string, domainRowId: string) => {
+    if (!microsoftClientId) {
+      throw new Error('Microsoft app configuration is missing.');
+    }
+
     const state = btoa(JSON.stringify({
       domainId: domainRowId,
       appOrigin: window.location.origin,
     }));
     const params = new URLSearchParams({
-      client_id: MICROSOFT_CLIENT_ID,
+      client_id: microsoftClientId,
       redirect_uri: MICROSOFT_ADMIN_CONSENT_CALLBACK,
       scope: MICROSOFT_REQUIRED_SCOPES,
       state,
@@ -158,6 +162,12 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
       setSavingDomain(false);
     }
   };
+
+  useState(() => {
+    void invoke('get_microsoft_oauth_config')
+      .then((res) => setMicrosoftClientId(res?.client_id || null))
+      .catch(() => setMicrosoftClientId(null));
+  });
 
   // ───────────────────────── Step 2: Groups ─────────────────────────
   const updateGroupDraft = (idx: number, patch: Partial<GroupDraft>) => {
@@ -304,7 +314,7 @@ export default function OnboardingWizard({ invoke, existingGroups, organizationI
               </div>
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSaveDomain} disabled={savingDomain || !domain.trim()}>
+              <Button onClick={handleSaveDomain} disabled={savingDomain || !domain.trim() || !microsoftClientId}>
                 {savingDomain ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
                 Save & Grant Microsoft Consent <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
