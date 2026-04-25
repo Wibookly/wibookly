@@ -197,7 +197,7 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
             <div className="space-y-4">
               {visibleGroups.map(group => (
                 <GroupCard
-                  key={group.id}
+                  key={`${group.id}-${filterDomain}`}
                   group={group}
                   domains={domains}
                   isFeatureEnabled={isFeatureEnabled}
@@ -206,6 +206,11 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
                   invoke={invoke}
                   onChanged={onChanged}
                   domainLabel={domainLabel}
+                  initialScope={
+                    filterDomain !== 'all' && filterDomain !== GLOBAL_GROUP_VALUE
+                      ? filterDomain
+                      : GLOBAL_GROUP_VALUE
+                  }
                 />
               ))}
             </div>
