@@ -2053,7 +2053,7 @@ async function processConnectionEmails(
             console.error(`Gmail search failed: ${await searchRes.text()}`);
           }
         }
-      } else if (tokenRecord.provider === 'microsoft') {
+      } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
         // Search for unread emails with the category
         const categoryFilter = `categories/any(c:c eq '${categoryLabelName}') and isRead eq false`;
         console.log(`Outlook category filter: ${categoryFilter}`);
