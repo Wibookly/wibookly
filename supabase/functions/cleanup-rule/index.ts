@@ -485,7 +485,7 @@ serve(async (req) => {
 
     console.log(`Cleaning up rule: ${rule_type}=${rule_value} for category "${category_name}" (sort_order: ${category_sort_order})`);
 
-    const labelName = `${category_sort_order + 1}: ${category_name}`;
+    const labelName = `${String(category_sort_order + 1).padStart(2, '0')}: ${category_name}`;
     console.log(`Looking for label/folder: ${labelName}`);
 
     const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
