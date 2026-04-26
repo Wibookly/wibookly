@@ -43,3 +43,9 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.sync-rules]
     verify_jwt = false
+  [functions.graph-mail-webhook]
+    verify_jwt = false
+  [functions.teams-bot]
+    verify_jwt = false
+  [functions.agent-setup]
+    verify_jwt = true
