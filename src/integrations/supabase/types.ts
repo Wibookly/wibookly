@@ -316,6 +316,51 @@ export type Database = {
           },
         ]
       }
+      ai_usage_logs: {
+        Row: {
+          action: string
+          completion_tokens: number
+          cost_usd: number
+          created_at: string
+          id: string
+          metadata: Json
+          model: string
+          organization_id: string
+          prompt_tokens: number
+          provider: string
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model: string
+          organization_id: string
+          prompt_tokens?: number
+          provider: string
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model?: string
+          organization_id?: string
+          prompt_tokens?: number
+          provider?: string
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       allowed_domains: {
         Row: {
           created_at: string
@@ -448,6 +493,7 @@ export type Database = {
           created_at: string
           id: string
           is_enabled: boolean
+          is_follow_up: boolean
           last_synced_at: string | null
           name: string
           organization_id: string
@@ -463,6 +509,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          is_follow_up?: boolean
           last_synced_at?: string | null
           name: string
           organization_id: string
@@ -478,6 +525,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          is_follow_up?: boolean
           last_synced_at?: string | null
           name?: string
           organization_id?: string
@@ -780,6 +828,53 @@ export type Database = {
           used_at?: string | null
         }
         Relationships: []
+      }
+      follow_up_steps: {
+        Row: {
+          action: string
+          category_id: string
+          created_at: string
+          days_after_send: number
+          id: string
+          is_enabled: boolean
+          message_template: string | null
+          organization_id: string
+          step_order: number
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          category_id: string
+          created_at?: string
+          days_after_send: number
+          id?: string
+          is_enabled?: boolean
+          message_template?: string | null
+          organization_id: string
+          step_order: number
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          category_id?: string
+          created_at?: string
+          days_after_send?: number
+          id?: string
+          is_enabled?: boolean
+          message_template?: string | null
+          organization_id?: string
+          step_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_steps_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       group_feature_overrides: {
         Row: {
