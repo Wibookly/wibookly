@@ -444,6 +444,51 @@ async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, 
   return movedTotal;
 }
 
+async function moveOutlookFolderMessages(
+  accessToken: string,
+  sourceFolderId: string,
+  sourceFolderName: string,
+  destinationFolderId: string,
+  destinationFolderName: string,
+): Promise<number> {
+  let movedTotal = 0;
+  let nextLink: string | null = `https://graph.microsoft.com/v1.0/me/mailFolders/${sourceFolderId}/messages?$select=id&$top=50`;
+
+  while (nextLink) {
+    const res: Response = await fetch(nextLink, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      console.error(`Failed to list messages in "${sourceFolderName}":`, await res.text());
+      break;
+    }
+
+    const data = await res.json();
+    const messages: Array<{ id: string }> = data?.value ?? [];
+    for (const message of messages) {
+      const moveRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${message.id}/move`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ destinationId: destinationFolderId })
+      });
+
+      if (moveRes.ok) movedTotal++;
+      else console.error(`Move failed for message ${message.id} into "${destinationFolderName}":`, await moveRes.text());
+    }
+
+    nextLink = data?.['@odata.nextLink'] ?? null;
+  }
+
+  if (movedTotal > 0) {
+    console.log(`Moved ${movedTotal} message(s) from "${sourceFolderName}" into "${destinationFolderName}"`);
+  }
+
+  return movedTotal;
+}
+
 // Delete Outlook folder — also removes ALL legacy/duplicate variants
 // (e.g., deleting "01: Urgent" also clears stray "1: Urgent", "1. Urgent",
 // or unnumbered "Urgent" folders so the mailbox stays clean).
@@ -524,37 +569,44 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const matches: Array<{ id: string; displayName: string }> =
       (folders ?? []).filter((f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore);
 
-    // Prefer the canonical (zero-padded) name; delete any others
-    const canonical = matches.find((f) => f.displayName === folderName);
+    let canonical = matches.find((f) => f.displayName === folderName) ?? null;
+    if (!canonical) {
+      const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ displayName: folderName })
+      });
+
+      if (!createRes.ok) {
+        console.error(`Failed to create Outlook folder "${folderName}":`, await createRes.text());
+        return false;
+      }
+
+      canonical = await createRes.json();
+      console.log(`Created Outlook folder: ${folderName}`);
+    }
+
     const toDelete = matches.filter((f) => f.displayName !== folderName);
     for (const dup of toDelete) {
-      console.log(`Deleting duplicate Outlook folder "${dup.displayName}" (kept "${folderName}")`);
+      console.log(`Deduplicating Outlook folder "${dup.displayName}" into "${folderName}"`);
+      try {
+        await moveOutlookFolderMessages(accessToken, dup.id, dup.displayName, canonical.id, folderName);
+      } catch (moveErr) {
+        console.error(`Failed moving messages from duplicate folder "${dup.displayName}":`, moveErr);
+      }
       await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${dup.id}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` }
       }).catch(() => null);
     }
 
-    if (canonical) {
+    if (matches.some((f) => f.displayName === folderName)) {
       console.log(`Outlook folder "${folderName}" already exists`);
       return true;
     }
-    
-    // Create the folder
-    const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ displayName: folderName })
-    });
-    
-    if (!createRes.ok) {
-      console.error(`Failed to create Outlook folder "${folderName}":`, await createRes.text());
-      return false;
-    }
-    
-    console.log(`Created Outlook folder: ${folderName}`);
+
     return true;
   } catch (error) {
     console.error(`Error creating Outlook folder "${folderName}":`, error);
