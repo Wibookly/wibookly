@@ -453,7 +453,7 @@ serve(async (req) => {
     if (connection.provider === 'google') {
       calendarEvents = await fetchGoogleCalendarEventsToday(accessToken);
       unreadEmails = await fetchGmailUnreadEmails(accessToken);
-    } else if (connection.provider === 'microsoft') {
+    } else if (connection.provider === 'microsoft' || connection.provider === 'outlook') {
       calendarEvents = await fetchMicrosoftCalendarEventsToday(accessToken);
       unreadEmails = await fetchOutlookUnreadEmails(accessToken);
     }
