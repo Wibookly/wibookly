@@ -478,6 +478,12 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
 
     let allOk = true;
     for (const f of matches) {
+      // First move any remaining messages back to Inbox so the user doesn't lose mail
+      try {
+        await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
+      } catch (moveErr) {
+        console.error(`Error emptying "${f.displayName}":`, moveErr);
+      }
       const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` }
