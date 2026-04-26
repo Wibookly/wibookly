@@ -40,7 +40,7 @@ serve(async (req) => {
     if (!isSuperAdmin) {
       const { data: domainData } = await adminClient
         .from('allowed_domains')
-        .select('id, microsoft_consent_granted')
+        .select('id, microsoft_consent_granted, microsoft_tenant_id')
         .eq('domain', domain)
         .eq('is_active', true)
         .maybeSingle();
@@ -58,6 +58,8 @@ serve(async (req) => {
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      const tenantId = domainData.microsoft_tenant_id || 'common';
     }
 
     const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
@@ -88,6 +90,14 @@ serve(async (req) => {
       login_hint: email,
       prompt: 'select_account',
     });
+
+      const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
+
+      return new Response(
+        JSON.stringify({ authUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
 
