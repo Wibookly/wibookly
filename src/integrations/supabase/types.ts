@@ -14,6 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_messages: {
+        Row: {
+          channel: string
+          content: string | null
+          conversation_id: string | null
+          created_at: string
+          direction: string
+          external_message_id: string | null
+          id: string
+          metadata: Json
+          organization_id: string
+          rejected_reason: string | null
+          response_to_id: string | null
+          sender_aad_id: string | null
+          sender_domain: string | null
+          sender_email: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          channel: string
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction: string
+          external_message_id?: string | null
+          id?: string
+          metadata?: Json
+          organization_id: string
+          rejected_reason?: string | null
+          response_to_id?: string | null
+          sender_aad_id?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          channel?: string
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction?: string
+          external_message_id?: string | null
+          id?: string
+          metadata?: Json
+          organization_id?: string
+          rejected_reason?: string | null
+          response_to_id?: string | null
+          sender_aad_id?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_messages_response_to_id_fkey"
+            columns: ["response_to_id"]
+            isOneToOne: false
+            referencedRelation: "agent_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_settings: {
+        Row: {
+          allowed_sender_domains: string[]
+          created_at: string
+          email_agent_enabled: boolean
+          graph_subscription_expires_at: string | null
+          graph_subscription_id: string | null
+          id: string
+          organization_id: string
+          shared_mailbox_address: string | null
+          shared_mailbox_user_id: string | null
+          teams_agent_enabled: boolean
+          teams_bot_app_id: string | null
+          teams_tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          allowed_sender_domains?: string[]
+          created_at?: string
+          email_agent_enabled?: boolean
+          graph_subscription_expires_at?: string | null
+          graph_subscription_id?: string | null
+          id?: string
+          organization_id: string
+          shared_mailbox_address?: string | null
+          shared_mailbox_user_id?: string | null
+          teams_agent_enabled?: boolean
+          teams_bot_app_id?: string | null
+          teams_tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allowed_sender_domains?: string[]
+          created_at?: string
+          email_agent_enabled?: boolean
+          graph_subscription_expires_at?: string | null
+          graph_subscription_id?: string | null
+          id?: string
+          organization_id?: string
+          shared_mailbox_address?: string | null
+          shared_mailbox_user_id?: string | null
+          teams_agent_enabled?: boolean
+          teams_bot_app_id?: string | null
+          teams_tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_activity_logs: {
         Row: {
           activity_type: string
