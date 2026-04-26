@@ -35,6 +35,33 @@ interface AgentMessage {
   created_at: string;
 }
 
+async function getFunctionErrorMessage(error: unknown, fallback?: string) {
+  const context = typeof error === 'object' && error !== null && 'context' in error
+    ? (error as { context?: Response }).context
+    : undefined;
+
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json();
+      if (typeof payload?.error === 'string' && payload.error) {
+        return payload.error;
+      }
+      if (typeof payload?.detail === 'string' && payload.detail) {
+        return payload.detail;
+      }
+    } catch {
+      try {
+        const text = await context.clone().text();
+        if (text) return text;
+      } catch {
+        // ignore parse failures
+      }
+    }
+  }
+
+  return fallback || (error instanceof Error ? error.message : 'Request failed');
+}
+
 export default function AgentPanel({ organizationId }: { organizationId: string | null }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -118,7 +145,11 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
     });
     setSaving(false);
     if (error || data?.error) {
-      toast({ title: 'Save failed', description: error?.message || data?.error, variant: 'destructive' });
+      toast({
+        title: 'Save failed',
+        description: await getFunctionErrorMessage(error, data?.error),
+        variant: 'destructive',
+      });
       return false;
     }
     setSettings(data.settings);
@@ -150,9 +181,13 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
     });
     setCreating(false);
     if (error || data?.error) {
+      const detail = await getFunctionErrorMessage(
+        error,
+        data?.error || (data?.detail ? JSON.stringify(data.detail) : undefined)
+      );
       toast({
         title: 'Subscription failed',
-        description: error?.message || data?.error || JSON.stringify(data?.detail ?? {}),
+        description: detail,
         variant: 'destructive',
       });
       return;
