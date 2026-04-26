@@ -678,6 +678,11 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    const cronUserId = req.headers.get('x-cron-user-id');
+    const cronOrgId = req.headers.get('x-cron-org-id');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const isCronCall = authHeader === `Bearer ${serviceRoleKey}` && !!cronUserId && !!cronOrgId;
+
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
@@ -685,18 +690,38 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUserClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    let user: { id: string } | null = null;
+    let profile: { organization_id: string } | null = null;
 
-    const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    if (isCronCall) {
+      // Cron impersonation — service role + headers identifying which user
+      user = { id: cronUserId! };
+      profile = { organization_id: cronOrgId! };
+    } else {
+      const supabaseUserClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
       );
+
+      const { data: { user: u }, error: authError } = await supabaseUserClient.auth.getUser();
+      if (authError || !u) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user = u;
+
+      const { data: profileData } = await supabaseUserClient.rpc('get_my_profile');
+      const p = profileData?.[0];
+      if (!p?.organization_id) {
+        return new Response(
+          JSON.stringify({ error: 'User profile not found' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      profile = { organization_id: p.organization_id };
     }
 
     // Parse request body for optional rule_id and connection scoping
@@ -708,17 +733,6 @@ serve(async (req) => {
       connectionId = body?.connection_id || body?.connectionId || null;
     } catch {
       // No body or invalid JSON - run all rules
-    }
-
-    // Get user's organization using RPC function
-    const { data: profileData } = await supabaseUserClient.rpc('get_my_profile');
-    const profile = profileData?.[0];
-    
-    if (!profile?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Create service role client for privileged operations
