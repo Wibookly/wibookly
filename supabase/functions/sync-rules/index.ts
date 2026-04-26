@@ -803,8 +803,8 @@ serve(async (req) => {
           const catInfo = categoryMap.get(rule.category_id);
           if (!catInfo) continue;
 
-          // Use actual sort_order for label name (1-indexed)
-          const labelName = `${catInfo.sortOrder + 1}: ${catInfo.name}`;
+          // Use actual sort_order for label name (1-indexed, zero-padded to 2 digits)
+          const labelName = `${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
