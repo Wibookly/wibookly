@@ -99,15 +99,20 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean);
 
+    const norm = (v: string | null | undefined) => {
+      const t = (v ?? '').trim();
+      return t.length ? t : null;
+    };
+
     const { data, error } = await supabase.functions.invoke('agent-setup', {
       body: {
         action: 'save',
         email_agent_enabled: settings.email_agent_enabled,
         teams_agent_enabled: settings.teams_agent_enabled,
-        shared_mailbox_address: settings.shared_mailbox_address,
-        shared_mailbox_user_id: settings.shared_mailbox_user_id,
-        teams_tenant_id: settings.teams_tenant_id,
-        teams_bot_app_id: settings.teams_bot_app_id,
+        shared_mailbox_address: norm(settings.shared_mailbox_address),
+        shared_mailbox_user_id: norm(settings.shared_mailbox_user_id),
+        teams_tenant_id: norm(settings.teams_tenant_id),
+        teams_bot_app_id: norm(settings.teams_bot_app_id),
         allowed_sender_domains: domains,
       },
     });
