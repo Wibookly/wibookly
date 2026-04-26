@@ -17,6 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface DiscoveredUser {
   id: string;
@@ -73,6 +74,11 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
   const [removeTarget, setRemoveTarget] = useState<DiscoveredUser | null>(null);
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
   const [groupsBusyId, setGroupsBusyId] = useState<string | null>(null);
+  const [cleanupStatus, setCleanupStatus] = useState<{ open: boolean; title: string; description: string }>({
+    open: false,
+    title: '',
+    description: '',
+  });
 
   useEffect(() => {
     if (initialDomainId && initialDomainId !== selectedDomainId) {
@@ -234,8 +240,16 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     if (!u.invited_user_id) return;
     setActingId(u.id);
     try {
-      await invoke('enable_user', { user_id: u.invited_user_id });
-      toast({ title: 'Access restored', description: `${u.email} can sign in again.` });
+      const res = await invoke('enable_user', { user_id: u.invited_user_id });
+      if (res?.magic_link) {
+        await navigator.clipboard.writeText(res.magic_link).catch(() => null);
+      }
+      toast({
+        title: 'Access restored',
+        description: res?.magic_link
+          ? `${u.email} can sign in again. A fresh sign-in link was generated and copied.`
+          : `${u.email} can sign in again.`,
+      });
       await loadUsers(selectedDomainId);
     } catch (e: any) {
       toast({ title: 'Failed to reactivate', description: e.message, variant: 'destructive' });
@@ -249,13 +263,24 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
   const handleRemove = async (u: DiscoveredUser) => {
     setActingId(u.id);
     try {
+      setCleanupStatus({
+        open: true,
+        title: 'Reorganizing mailbox',
+        description: 'Please wait while category emails are moved back to Inbox and old folders are removed.',
+      });
       await invoke('remove_discovered_user', { discovered_id: u.id });
+      setCleanupStatus({
+        open: true,
+        title: 'Done',
+        description: 'Mailbox cleanup is finished and the account access has been removed.',
+      });
       toast({
         title: 'User removed',
         description: `${u.email} has been removed from the app. They can be re-invited at any time.`,
       });
       await loadUsers(selectedDomainId);
     } catch (e: any) {
+      setCleanupStatus({ open: false, title: '', description: '' });
       toast({ title: 'Failed to remove', description: e.message, variant: 'destructive' });
     } finally {
       setActingId(null);
@@ -532,6 +557,23 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={cleanupStatus.open}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{cleanupStatus.title}</DialogTitle>
+            <DialogDescription className="flex items-center gap-2 pt-2">
+              {cleanupStatus.title !== 'Done' && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>{cleanupStatus.description}</span>
+            </DialogDescription>
+          </DialogHeader>
+          {cleanupStatus.title === 'Done' && (
+            <div className="flex justify-end">
+              <Button onClick={() => setCleanupStatus({ open: false, title: '', description: '' })}>Close</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

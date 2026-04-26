@@ -288,12 +288,12 @@ async function restoreOutlookFolderToInbox(accessToken: string, folderId: string
   let nextLink: string | null = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$select=id&$top=50`;
 
   while (nextLink) {
-    const listRes = await fetch(nextLink, {
+    const listRes: Response = await fetch(nextLink, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!listRes.ok) break;
 
-    const payload = await listRes.json();
+    const payload: { value?: Array<{ id: string }>; '@odata.nextLink'?: string } = await listRes.json();
     for (const message of payload.value ?? []) {
       const moveRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${message.id}/move`, {
         method: 'POST',
@@ -365,10 +365,18 @@ async function cleanupOutlookProvider(
 
 export async function cleanupUserMailboxAndDisconnect(
   adminClient: SupabaseClient,
-  options: { userId: string; organizationId: string; disconnectAfterCleanup?: boolean },
+  options: {
+    userId: string;
+    organizationId: string;
+    disconnectAfterCleanup?: boolean;
+    providerFilter?: string | string[];
+  },
 ): Promise<MailboxCleanupResult> {
-  const { userId, organizationId, disconnectAfterCleanup = true } = options;
+  const { userId, organizationId, disconnectAfterCleanup = true, providerFilter } = options;
   const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+  const normalizedProviderFilter = providerFilter
+    ? new Set((Array.isArray(providerFilter) ? providerFilter : [providerFilter]).map((provider) => normalizeProvider(provider)))
+    : null;
 
   const summary: MailboxCleanupResult = {
     movedMessages: 0,
@@ -384,7 +392,9 @@ export async function cleanupUserMailboxAndDisconnect(
     .eq('user_id', userId)
     .eq('organization_id', organizationId);
 
-  const connectionRows = (connections ?? []) as ProviderConnection[];
+  const connectionRows = ((connections ?? []) as ProviderConnection[]).filter((connection) =>
+    normalizedProviderFilter ? normalizedProviderFilter.has(normalizeProvider(connection.provider)) : true,
+  );
   if (connectionRows.length === 0) return summary;
 
   const connectionIds = connectionRows.map((connection) => connection.id);
@@ -467,7 +477,7 @@ export async function cleanupUserMailboxAndDisconnect(
   }
 
   if (disconnectAfterCleanup) {
-    await adminClient
+    let disconnectQuery = adminClient
       .from('provider_connections')
       .update({
         is_connected: false,
@@ -479,7 +489,17 @@ export async function cleanupUserMailboxAndDisconnect(
       .eq('user_id', userId)
       .eq('organization_id', organizationId);
 
-    await adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
+    if (normalizedProviderFilter) {
+      disconnectQuery = disconnectQuery.in('provider', Array.from(normalizedProviderFilter));
+    }
+
+    await disconnectQuery;
+
+    let tokenDeleteQuery = adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
+    if (normalizedProviderFilter) {
+      tokenDeleteQuery = tokenDeleteQuery.in('provider', Array.from(normalizedProviderFilter));
+    }
+    await tokenDeleteQuery;
     summary.disconnectedProviders = connectionRows.length;
   }
 
@@ -505,4 +525,31 @@ export async function purgeUserConnectionData(adminClient: SupabaseClient, userI
 
   await adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
   await adminClient.from('provider_connections').delete().eq('user_id', userId);
+}
+
+export async function purgeProviderConnectionData(
+  adminClient: SupabaseClient,
+  userId: string,
+  provider: string,
+): Promise<void> {
+  const normalizedProvider = normalizeProvider(provider);
+  const { data: connections } = await adminClient
+    .from('provider_connections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', normalizedProvider);
+
+  const connectionIds = (connections ?? []).map((connection: { id: string }) => connection.id);
+  if (connectionIds.length > 0) {
+    await adminClient.from('availability_hours').delete().in('connection_id', connectionIds);
+    await adminClient.from('email_profiles').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_settings').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_activity_logs').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_chat_conversations').delete().in('connection_id', connectionIds);
+    await adminClient.from('rules').delete().in('connection_id', connectionIds);
+    await adminClient.from('categories').delete().in('connection_id', connectionIds);
+  }
+
+  await adminClient.from('oauth_token_vault').delete().eq('user_id', userId).eq('provider', normalizedProvider);
+  await adminClient.from('provider_connections').delete().eq('user_id', userId).eq('provider', normalizedProvider);
 }

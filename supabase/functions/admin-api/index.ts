@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import * as React from 'npm:react@18.3.1';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts';
+import { cleanupUserMailboxAndDisconnect, purgeUserConnectionData } from '../_shared/mailbox-cleanup.ts';
 
 // Email sending config — must match send-transactional-email
 const EMAIL_SITE_NAME = 'energyforwardai';
@@ -241,6 +242,24 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   return { success: true, user_id: userId };
 }
 
+async function sendReactivationMagicLink(
+  adminClient: SupabaseClient,
+  email: string,
+  redirectTo = 'https://inboxiq.energyforward.com/integrations',
+) {
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo },
+  });
+
+  if (error || !data?.properties?.action_link) {
+    throw new Error(error?.message || 'Failed to generate reactivation sign-in link');
+  }
+
+  return data.properties.action_link;
+}
+
 
 
 serve(async (req) => {
@@ -465,7 +484,18 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        return new Response(JSON.stringify({ success: true }), {
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('email')
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        let magicLink: string | null = null;
+        if (profile?.email) {
+          magicLink = await sendReactivationMagicLink(adminClient, profile.email);
+        }
+
+        return new Response(JSON.stringify({ success: true, magic_link: magicLink }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -500,6 +530,21 @@ serve(async (req) => {
           return new Response(JSON.stringify({ error: 'user_id is required' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
+        }
+
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('organization_id')
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        if (profile?.organization_id) {
+          await cleanupUserMailboxAndDisconnect(adminClient, {
+            userId: user_id,
+            organizationId: profile.organization_id,
+            disconnectAfterCleanup: true,
+          });
+          await purgeUserConnectionData(adminClient, user_id);
         }
 
         // Delete profile, memberships, roles first
@@ -710,6 +755,21 @@ serve(async (req) => {
 
         if (discovered.invited_user_id) {
           const uid = discovered.invited_user_id;
+          const { data: profile } = await adminClient
+            .from('user_profiles')
+            .select('organization_id')
+            .eq('user_id', uid)
+            .maybeSingle();
+
+          if (profile?.organization_id) {
+            await cleanupUserMailboxAndDisconnect(adminClient, {
+              userId: uid,
+              organizationId: profile.organization_id,
+              disconnectAfterCleanup: true,
+            });
+            await purgeUserConnectionData(adminClient, uid);
+          }
+
           await adminClient.from('user_feature_access').delete().eq('user_id', uid);
           await adminClient.from('user_roles').delete().eq('user_id', uid);
           await adminClient.from('organization_members').delete().eq('user_id', uid);
