@@ -30,7 +30,6 @@ const WelcomeTempPasswordEmail = ({
   loginUrl,
   organizationName,
 }: WelcomeTempPasswordProps) => {
-  const greetingName = fullName?.split(' ')[0] || 'there'
   const orgLine = organizationName
     ? `Your administrator at ${organizationName} has created an InboxIQ account for you.`
     : 'Your administrator has created an InboxIQ account for you.'
@@ -41,7 +40,7 @@ const WelcomeTempPasswordEmail = ({
       <Preview>Your {SITE_NAME} account is ready — temporary password inside</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to {SITE_NAME}, {greetingName}!</Heading>
+          <Heading style={h1}>Welcome to {SITE_NAME}!</Heading>
           <Text style={text}>{orgLine}</Text>
           <Text style={text}>Here are your sign-in details:</Text>
 

@@ -26,7 +26,6 @@ const WelcomeSsoEmail = ({
   invitationUrl,
   organizationName,
 }: WelcomeSsoProps) => {
-  const greetingName = fullName?.split(' ')[0] || 'there'
   const orgLine = organizationName
     ? `Your administrator at ${organizationName} has set you up with an InboxIQ account.`
     : 'Your administrator has set you up with an InboxIQ account.'
@@ -37,7 +36,7 @@ const WelcomeSsoEmail = ({
       <Preview>Welcome to {SITE_NAME} — connect your Outlook in one click</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to {SITE_NAME}, {greetingName}!</Heading>
+          <Heading style={h1}>Welcome to {SITE_NAME}!</Heading>
           <Text style={text}>{orgLine}</Text>
           <Text style={text}>
             InboxIQ uses AI to triage your inbox, draft replies, and surface what
@@ -66,8 +65,7 @@ const WelcomeSsoEmail = ({
 
 export const template = {
   component: WelcomeSsoEmail,
-  subject: (data: Record<string, any>) =>
-    `Welcome to ${SITE_NAME}${data.fullName ? `, ${String(data.fullName).split(' ')[0]}` : ''} — sign in with Microsoft`,
+  subject: () => `Welcome to ${SITE_NAME} — sign in with Microsoft`,
   displayName: 'Welcome (SSO magic link)',
   previewData: {
     fullName: 'Jane Doe',
