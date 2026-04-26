@@ -146,6 +146,10 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
   const subActive = settings.graph_subscription_id && settings.graph_subscription_expires_at &&
     new Date(settings.graph_subscription_expires_at) > new Date();
 
+  const canCreateSubscription = Boolean(
+    settings.shared_mailbox_user_id?.trim() && settings.teams_tenant_id?.trim()
+  );
+
   return (
     <div className="space-y-6">
       {/* Email Agent */}
@@ -205,26 +209,38 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4">
-            <div className="flex items-center gap-3">
-              <RefreshCw className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-sm">Microsoft Graph webhook</p>
-                <p className="text-xs text-muted-foreground">
-                  {subActive ? (
-                    <>Active — expires {new Date(settings.graph_subscription_expires_at!).toLocaleString()}</>
-                  ) : (
-                    'Not active — create one to start receiving emails'
-                  )}
-                </p>
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">Microsoft Graph webhook</p>
+                  <p className="text-xs text-muted-foreground">
+                    {subActive ? (
+                      <>Active — expires {new Date(settings.graph_subscription_expires_at!).toLocaleString()}</>
+                    ) : (
+                      'Not active — create one to start receiving emails'
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {subActive ? <Badge variant="secondary">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCreateSubscription}
+                  disabled={creating || !canCreateSubscription}
+                >
+                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (subActive ? 'Renew' : 'Create')}
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {subActive ? <Badge variant="secondary">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
-              <Button size="sm" variant="outline" onClick={handleCreateSubscription} disabled={creating}>
-                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (subActive ? 'Renew' : 'Create')}
-              </Button>
-            </div>
+            {!canCreateSubscription && (
+              <p className="text-xs text-destructive">
+                Fill in <strong>Shared mailbox user ID</strong> and <strong>Microsoft tenant ID</strong> above, then click <strong>Save settings</strong> before creating the webhook.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
