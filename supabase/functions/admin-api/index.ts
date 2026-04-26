@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import * as React from 'npm:react@18.3.1';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts';
+import { cleanupUserMailboxAndDisconnect, purgeUserConnectionData } from '../_shared/mailbox-cleanup.ts';
 
 // Email sending config — must match send-transactional-email
 const EMAIL_SITE_NAME = 'energyforwardai';
@@ -239,6 +240,24 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
   }
 
   return { success: true, user_id: userId };
+}
+
+async function sendReactivationMagicLink(
+  adminClient: SupabaseClient,
+  email: string,
+  redirectTo = 'https://inboxiq.energyforward.com/integrations',
+) {
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo },
+  });
+
+  if (error || !data?.properties?.action_link) {
+    throw new Error(error?.message || 'Failed to generate reactivation sign-in link');
+  }
+
+  return data.properties.action_link;
 }
 
 
