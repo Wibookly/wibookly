@@ -558,6 +558,9 @@ export default function Categories() {
     }
   };
 
+  // Track which rules need syncing (modified but not synced)
+  const [rulesNeedingSync, setRulesNeedingSync] = useState<Set<string>>(new Set());
+
   // Re-sync everything for the active connection: rebuild folders/labels (and clean up
   // legacy single-digit duplicates), then re-apply every rule against existing emails.
   const [resyncing, setResyncing] = useState(false);
@@ -600,8 +603,6 @@ export default function Categories() {
     }
   };
 
-  // Track which rules need syncing (modified but not synced)
-  const [rulesNeedingSync, setRulesNeedingSync] = useState<Set<string>>(new Set());
 
   // Mark rule as needing sync when modified
   const markRuleNeedsSync = (ruleId: string) => {
