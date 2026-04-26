@@ -100,30 +100,6 @@ serve(async (req) => {
       return redirect(`${appUrl}/auth?error=${encodeURIComponent('Could not retrieve email from Microsoft account')}`);
     }
 
-    if (inviteToken) {
-      const { data: invitation } = await adminClient
-        .from('user_invitations')
-        .select('id, organization_id, domain_id, email, full_name, used_at, expires_at, group_id')
-        .eq('token', inviteToken)
-        .maybeSingle();
-
-      if (!invitation) {
-        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation link is invalid.')}`);
-      }
-
-      if (invitation.used_at) {
-        return redirect(`${appUrl}/auth?info=${encodeURIComponent('This invitation has already been used. Please sign in normally.')}&email=${encodeURIComponent(invitation.email)}`);
-      }
-
-      if (new Date(invitation.expires_at) < new Date()) {
-        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation has expired. Please ask your administrator to resend it.')}`);
-      }
-
-      if (invitation.email.toLowerCase() !== email) {
-        return redirect(`${appUrl}/auth?error=${encodeURIComponent('Please sign in with the same Microsoft email address that received the invitation.')}`);
-      }
-    }
-
     console.log(`Microsoft SSO: user ${email}, name: ${fullName}`);
 
     // Check domain allowlist
@@ -150,6 +126,30 @@ serve(async (req) => {
       }
 
       authorizedDomain = domainData;
+    }
+
+    if (inviteToken) {
+      const { data: invitation } = await adminClient
+        .from('user_invitations')
+        .select('id, organization_id, domain_id, email, full_name, used_at, expires_at, group_id')
+        .eq('token', inviteToken)
+        .maybeSingle();
+
+      if (!invitation) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation link is invalid.')}`);
+      }
+
+      if (invitation.used_at) {
+        return redirect(`${appUrl}/auth?info=${encodeURIComponent('This invitation has already been used. Please sign in normally.')}&email=${encodeURIComponent(invitation.email)}`);
+      }
+
+      if (new Date(invitation.expires_at) < new Date()) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation has expired. Please ask your administrator to resend it.')}`);
+      }
+
+      if (invitation.email.toLowerCase() !== email) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('Please sign in with the same Microsoft email address that received the invitation.')}`);
+      }
     }
 
     // Check if user exists in Supabase Auth
