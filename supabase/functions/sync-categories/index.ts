@@ -322,7 +322,9 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
   }
 }
 
-// Delete Gmail label
+// Move all messages with this Gmail label back to Inbox, then delete the label.
+// Gmail keeps the message in INBOX automatically when we just remove the custom label;
+// but if INBOX was removed (label-as-folder behaviour), we add it back explicitly.
 async function deleteGmailLabel(accessToken: string, labelName: string): Promise<boolean> {
   try {
     const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
@@ -337,6 +339,44 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     if (!label) {
       console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
       return true;
+    }
+
+    // Step 1: pull every message that still carries this label and re-add INBOX,
+    // remove the custom label so the user sees them back in their main inbox.
+    try {
+      let pageToken: string | undefined = undefined;
+      let movedTotal = 0;
+      do {
+        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+        url.searchParams.set('labelIds', label.id);
+        url.searchParams.set('maxResults', '500');
+        if (pageToken) url.searchParams.set('pageToken', pageToken);
+        const msgRes = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!msgRes.ok) break;
+        const { messages, nextPageToken } = await msgRes.json();
+        if (messages?.length) {
+          // batchModify supports up to 1000 ids per call
+          const ids = messages.map((m: { id: string }) => m.id);
+          const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ids,
+              addLabelIds: ['INBOX'],
+              removeLabelIds: [label.id]
+            })
+          });
+          if (modRes.ok) movedTotal += ids.length;
+          else console.error(`batchModify failed for "${labelName}":`, await modRes.text());
+        }
+        pageToken = nextPageToken;
+      } while (pageToken);
+      if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${labelName}" back to Inbox`);
+    } catch (moveErr) {
+      console.error(`Error moving messages out of "${labelName}":`, moveErr);
+      // continue with deletion regardless
     }
     
     const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
@@ -355,6 +395,53 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     console.error(`Error deleting Gmail label "${labelName}":`, error);
     return false;
   }
+}
+
+// Move every message inside an Outlook folder to the Inbox, paginating through results.
+async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, folderName: string): Promise<number> {
+  // Resolve the well-known Inbox id once
+  let inboxId = 'inbox';
+  try {
+    const inboxRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=id', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (inboxRes.ok) {
+      const j = await inboxRes.json();
+      if (j?.id) inboxId = j.id;
+    }
+  } catch { /* fall back to 'inbox' alias */ }
+
+  let movedTotal = 0;
+  let nextLink: string | null =
+    `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$select=id&$top=50`;
+
+  while (nextLink) {
+    const res: Response = await fetch(nextLink, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      console.error(`Failed to list messages in "${folderName}":`, await res.text());
+      break;
+    }
+    const data = await res.json();
+    const messages: Array<{ id: string }> = data?.value ?? [];
+    for (const m of messages) {
+      const moveRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${m.id}/move`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ destinationId: inboxId })
+        }
+      );
+      if (moveRes.ok) movedTotal++;
+      else console.error(`Move failed for message ${m.id}:`, await moveRes.text());
+    }
+    nextLink = data?.['@odata.nextLink'] ?? null;
+  }
+
+  if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${folderName}" back to Inbox`);
+  return movedTotal;
 }
 
 // Delete Outlook folder — also removes ALL legacy/duplicate variants
