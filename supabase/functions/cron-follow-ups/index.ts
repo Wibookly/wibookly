@@ -1,7 +1,18 @@
-// Follow-up cron — runs hourly. For each active follow_up_steps row, finds the
-// org's connected mailbox, scans the user's Sent folder for messages sent
-// `days_after_send` days ago that have NOT received a reply, and either
-// drafts or auto-sends an AI follow-up nudge.
+// Per-email BCC follow-up cron — runs every 15 minutes.
+//
+// How it works:
+// 1. Scans each connected mailbox's Sent Items (last 30 days, paged).
+// 2. For every sent message, looks at the BCC recipients. If any of them match
+//    N@<our-domain> where N ∈ {2,3,5,7,10,14}, we record a tracker row with
+//    due_at = sentDateTime + N days. We keep the BCC visible in the message
+//    so the user can always see when the follow-up was originally scheduled.
+// 3. For every tracker that is now due (due_at <= now), we check the
+//    conversation for any reply from one of the original TO/CC recipients.
+//      - If a reply exists → mark `replied`, no action.
+//      - Otherwise → move the original message into a single "Follow-up"
+//        Outlook folder + create an AI-drafted reply. Status becomes `drafted`.
+// 4. Every run also re-checks pending trackers (due in the future) for early
+//    replies and cancels them.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -17,7 +28,10 @@ const TOKEN_ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-// === AES-GCM token decryption (same as other functions) ===
+// Aliases we recognise. Anything matching `^N@` where N is one of these.
+const ALLOWED_DAY_BUCKETS = new Set([2, 3, 5, 7, 10, 14]);
+
+// === AES-GCM token decryption (same scheme as other functions) ===
 async function importKey(): Promise<CryptoKey> {
   const raw = new TextEncoder().encode(TOKEN_ENC_KEY.padEnd(32).slice(0, 32));
   return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
@@ -34,29 +48,26 @@ async function decrypt(b64: string): Promise<string> {
 async function getValidToken(userId: string, provider: string): Promise<string | null> {
   const { data } = await supabase
     .from('oauth_token_vault')
-    .select('encrypted_access_token,encrypted_refresh_token,expires_at')
+    .select('encrypted_access_token,expires_at')
     .eq('user_id', userId).eq('provider', provider).maybeSingle();
   if (!data) return null;
   if (data.expires_at && new Date(data.expires_at) > new Date(Date.now() + 60_000)) {
     return decrypt(data.encrypted_access_token);
   }
-  // Token expired — let the existing process-ai-emails handle refresh; skip this run
   return null;
 }
 
-async function logAiUsage(orgId: string, userId: string | null, provider: string, model: string, action: string, prompt: number, completion: number) {
-  // OpenAI gpt-4o-mini pricing (USD per 1M tokens)
+async function logAiUsage(orgId: string, userId: string | null, model: string, action: string, prompt: number, completion: number) {
   const PRICES: Record<string, { in: number; out: number }> = {
     'gpt-4o-mini': { in: 0.15, out: 0.60 },
     'gpt-4o': { in: 2.50, out: 10.00 },
-    'gpt-4-turbo': { in: 10.00, out: 30.00 },
   };
   const p = PRICES[model] ?? { in: 0.15, out: 0.60 };
   const cost = (prompt / 1_000_000) * p.in + (completion / 1_000_000) * p.out;
   await supabase.from('ai_usage_logs').insert({
     organization_id: orgId,
     user_id: userId,
-    provider,
+    provider: 'openai',
     model,
     action,
     prompt_tokens: prompt,
@@ -65,19 +76,73 @@ async function logAiUsage(orgId: string, userId: string | null, provider: string
   });
 }
 
-interface SentMessage {
-  id: string;
-  subject?: string;
-  conversationId?: string;
-  toRecipients?: Array<{ emailAddress?: { address?: string; name?: string } }>;
-  bodyPreview?: string;
-  body?: { contentType?: string; content?: string };
-  sentDateTime?: string;
+// Ensure the dedicated "Follow-up" Outlook folder exists; cache its id on the connection.
+async function ensureFollowupFolder(token: string, connectionId: string, cachedId: string | null): Promise<string | null> {
+  if (cachedId) {
+    // Quick existence check
+    const r = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${cachedId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (r.ok) return cachedId;
+  }
+  // Look it up by name (and dedupe duplicates)
+  const list = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders?$top=100&$select=id,displayName`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!list.ok) return null;
+  const data = await list.json();
+  const matches = (data.value ?? []).filter((f: any) => f.displayName === 'Follow-up');
+  let folderId: string | null = matches[0]?.id ?? null;
+
+  // Delete any duplicates beyond the first
+  for (let i = 1; i < matches.length; i++) {
+    await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${matches[i].id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  if (!folderId) {
+    const create = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Follow-up' }),
+    });
+    if (!create.ok) return null;
+    const created = await create.json();
+    folderId = created.id;
+  }
+
+  if (folderId) {
+    await supabase.from('provider_connections')
+      .update({ inbox_followup_folder_id: folderId })
+      .eq('id', connectionId);
+  }
+  return folderId;
 }
 
-async function generateFollowUp(originalSubject: string, originalBody: string, recipientName: string, instructions: string): Promise<{ html: string; promptTokens: number; completionTokens: number }> {
-  const sys = 'You write short, polite professional follow-up emails. Reply with ONLY the email body in clean HTML, no subject line, no signature, no greetings beyond a brief opener.';
-  const user = `Original subject: ${originalSubject}\nRecipient: ${recipientName}\n\nOriginal email I sent:\n${originalBody.slice(0, 1500)}\n\nInstructions for follow-up: ${instructions}\n\nWrite a short follow-up nudge (2-4 sentences max). Do NOT include "Subject:" or any signature.`;
+interface ParsedAlias { alias: string; days: number }
+function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | null {
+  for (const raw of addresses) {
+    const a = raw.toLowerCase().trim();
+    const m = a.match(/^(\d+)@(.+)$/);
+    if (!m) continue;
+    if (m[2] !== domain) continue;
+    const days = parseInt(m[1], 10);
+    if (ALLOWED_DAY_BUCKETS.has(days)) return { alias: a, days };
+  }
+  return null;
+}
+
+async function generateFollowUp(originalSubject: string, originalBody: string, recipientName: string, days: number): Promise<{ html: string; promptTokens: number; completionTokens: number }> {
+  const sys = 'You write short, polite professional follow-up emails. Reply with ONLY the email body in clean HTML, 2-4 sentences max, no subject line, no signature, no greetings beyond a brief opener.';
+  const user = `Original subject: ${originalSubject}
+Recipient: ${recipientName}
+Days since I sent the original: ${days}
+
+Original email I sent:
+${originalBody.slice(0, 1500)}
+
+Write a short, polite follow-up nudge. Acknowledge the time that has passed, restate the ask in one line, and invite a reply. No subject line, no signature.`;
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -85,7 +150,7 @@ async function generateFollowUp(originalSubject: string, originalBody: string, r
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
-      max_tokens: 400,
+      max_tokens: 350,
     }),
   });
   if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
@@ -98,122 +163,208 @@ async function generateFollowUp(originalSubject: string, originalBody: string, r
   };
 }
 
-async function processConnection(connectionId: string, organizationId: string, userId: string, provider: string) {
-  if (provider !== 'outlook') return; // start with Outlook only
-  const token = await getValidToken(userId, provider);
-  if (!token) {
-    console.log(`Skip ${connectionId}: no valid token`);
-    return;
-  }
+interface Connection {
+  id: string; user_id: string; organization_id: string; provider: string;
+  inbox_followup_folder_id: string | null; connected_email: string | null;
+}
 
-  // Get follow-up steps for categories on this connection
-  const { data: steps } = await supabase
-    .from('follow_up_steps')
-    .select('id,category_id,step_order,days_after_send,action,message_template,is_enabled,categories!inner(connection_id,name,is_enabled)')
-    .eq('organization_id', organizationId)
-    .eq('is_enabled', true);
-
-  const relevant = (steps ?? []).filter((s: any) => s.categories.connection_id === connectionId && s.categories.is_enabled);
-  if (relevant.length === 0) return;
-
-  // For each step, scan sent messages from N days ago (±12h window for hourly cron)
-  for (const step of relevant as any[]) {
-    const target = new Date(Date.now() - step.days_after_send * 86400000);
-    const from = new Date(target.getTime() - 12 * 3600000).toISOString();
-    const to = new Date(target.getTime() + 12 * 3600000).toISOString();
-
-    const url = `https://graph.microsoft.com/v1.0/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${from} and sentDateTime le ${to}&$select=id,subject,conversationId,toRecipients,bodyPreview,body,sentDateTime&$top=25`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+async function scanSentForTriggers(conn: Connection, token: string, ourDomain: string): Promise<number> {
+  // Look back 30 days; the BCC tag survives forever, so we catch anything we missed too.
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  let url: string | null =
+    `https://graph.microsoft.com/v1.0/me/mailFolders/SentItems/messages` +
+    `?$filter=sentDateTime ge ${since}` +
+    `&$select=id,subject,conversationId,toRecipients,ccRecipients,bccRecipients,sentDateTime,bodyPreview` +
+    `&$orderby=sentDateTime desc&$top=50`;
+  let added = 0;
+  let pages = 0;
+  while (url && pages < 6) {
+    const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
-      console.error(`Sent fetch failed: ${res.status}`);
-      continue;
+      console.error(`scan sent failed: ${res.status} ${await res.text()}`);
+      break;
     }
     const json = await res.json();
-    const messages: SentMessage[] = json.value ?? [];
+    for (const m of (json.value ?? [])) {
+      const bccs: string[] = (m.bccRecipients ?? []).map((r: any) => r.emailAddress?.address ?? '').filter(Boolean);
+      if (bccs.length === 0) continue;
+      const parsed = parseFollowupAlias(bccs, ourDomain);
+      if (!parsed) continue;
 
-    for (const msg of messages) {
-      // Idempotency: have we already processed this message+step?
-      const { data: existing } = await supabase
-        .from('processed_emails')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('email_id', `followup:${step.id}:${msg.id}`)
-        .maybeSingle();
-      if (existing) continue;
+      const sentAt = new Date(m.sentDateTime);
+      const dueAt = new Date(sentAt.getTime() + parsed.days * 86400000);
 
-      // Check thread for any reply newer than original
-      const convoUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${msg.conversationId}'&$select=id,from,sentDateTime,receivedDateTime&$top=20`;
-      const convoRes = await fetch(convoUrl, { headers: { Authorization: `Bearer ${token}` } });
-      if (!convoRes.ok) continue;
-      const convo = await convoRes.json();
-      const myEmail = (await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json())).mail?.toLowerCase();
-      const hasReply = (convo.value ?? []).some((m: any) => {
-        const sender = m.from?.emailAddress?.address?.toLowerCase();
-        return sender && sender !== myEmail && new Date(m.receivedDateTime ?? m.sentDateTime) > new Date(msg.sentDateTime ?? 0);
-      });
-      if (hasReply) continue;
-
-      const recipient = msg.toRecipients?.[0]?.emailAddress;
-      if (!recipient?.address) continue;
-
-      // Generate follow-up
-      const { html, promptTokens, completionTokens } = await generateFollowUp(
-        msg.subject ?? '(no subject)',
-        msg.body?.content ?? msg.bodyPreview ?? '',
-        recipient.name ?? recipient.address,
-        step.message_template ?? 'Polite follow-up nudge',
-      );
-      await logAiUsage(organizationId, userId, 'openai', 'gpt-4o-mini', 'follow_up', promptTokens, completionTokens);
-
-      if (step.action === 'auto_send') {
-        // Send a reply on the original message
-        const replyRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${msg.id}/reply`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: { body: { contentType: 'HTML', content: html } } }),
-        });
-        if (!replyRes.ok) {
-          console.error('reply failed', await replyRes.text());
-          continue;
-        }
-      } else {
-        // Create draft reply
-        const draftRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${msg.id}/createReply`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!draftRes.ok) continue;
-        const draft = await draftRes.json();
-        await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body: { contentType: 'HTML', content: html } }),
-        });
-      }
-
-      // Record idempotency
-      await supabase.from('processed_emails').insert({
-        organization_id: organizationId,
-        user_id: userId,
-        email_id: `followup:${step.id}:${msg.id}`,
-        provider,
-        category_id: step.category_id,
-        action_type: step.action === 'auto_send' ? 'follow_up_sent' : 'follow_up_draft',
-        sent_at: step.action === 'auto_send' ? new Date().toISOString() : null,
-      });
-
-      await supabase.from('ai_activity_logs').insert({
-        organization_id: organizationId,
-        user_id: userId,
-        connection_id: connectionId,
-        category_id: step.category_id,
-        category_name: `Follow-up Step ${step.step_order}`,
-        activity_type: step.action === 'auto_send' ? 'follow_up_sent' : 'follow_up_draft',
-        email_subject: msg.subject ?? null,
-        email_from: recipient.address,
-      });
+      // Insert tracker (idempotent via unique index)
+      const { error } = await supabase.from('follow_up_trackers').upsert({
+        organization_id: conn.organization_id,
+        connection_id: conn.id,
+        user_id: conn.user_id,
+        message_id: m.id,
+        conversation_id: m.conversationId ?? null,
+        subject: m.subject ?? null,
+        to_recipients: m.toRecipients ?? [],
+        cc_recipients: m.ccRecipients ?? [],
+        bcc_alias: parsed.alias,
+        days_after_send: parsed.days,
+        sent_at: sentAt.toISOString(),
+        due_at: dueAt.toISOString(),
+        status: 'pending',
+      }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+      if (!error) added++;
     }
+    pages++;
+    url = json['@odata.nextLink'] ?? null;
   }
+  return added;
+}
+
+async function conversationHasReply(token: string, conversationId: string, originalSentAt: string, originalRecipients: string[], myEmail: string | null): Promise<boolean> {
+  const url = `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${conversationId}'&$select=id,from,sentDateTime,receivedDateTime&$top=50`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) return false;
+  const data = await r.json();
+  const lower = (s: string | undefined | null) => (s ?? '').toLowerCase();
+  const recips = new Set(originalRecipients.map(lower));
+  const me = lower(myEmail);
+  for (const m of (data.value ?? [])) {
+    const sender = lower(m.from?.emailAddress?.address);
+    if (!sender || sender === me) continue;
+    if (!recips.has(sender)) continue;
+    const ts = new Date(m.receivedDateTime ?? m.sentDateTime ?? 0);
+    if (ts > new Date(originalSentAt)) return true;
+  }
+  return false;
+}
+
+async function processDueTrackers(conn: Connection, token: string, myEmail: string | null) {
+  // Fetch all tracker rows that are pending (we'll cancel early replies and act on overdue)
+  const { data: trackers } = await supabase
+    .from('follow_up_trackers')
+    .select('*')
+    .eq('connection_id', conn.id)
+    .eq('status', 'pending')
+    .order('due_at', { ascending: true })
+    .limit(100);
+
+  if (!trackers || trackers.length === 0) return { drafted: 0, replied: 0 };
+
+  let drafted = 0, replied = 0;
+  let folderId: string | null = conn.inbox_followup_folder_id;
+
+  for (const t of trackers as any[]) {
+    const recips = [
+      ...((t.to_recipients ?? []) as any[]).map((r: any) => r.emailAddress?.address).filter(Boolean),
+      ...((t.cc_recipients ?? []) as any[]).map((r: any) => r.emailAddress?.address).filter(Boolean),
+    ];
+
+    const hasReply = t.conversation_id
+      ? await conversationHasReply(token, t.conversation_id, t.sent_at, recips, myEmail)
+      : false;
+
+    if (hasReply) {
+      await supabase.from('follow_up_trackers').update({
+        status: 'replied', replied_at: new Date().toISOString(),
+      }).eq('id', t.id);
+      replied++;
+      continue;
+    }
+
+    // Not yet due → leave pending
+    if (new Date(t.due_at) > new Date()) continue;
+
+    // === Due, no reply: move to Follow-up folder + create AI draft ===
+    if (!folderId) {
+      folderId = await ensureFollowupFolder(token, conn.id, conn.inbox_followup_folder_id);
+    }
+
+    if (folderId) {
+      // Move (best effort — failure shouldn't block drafting)
+      await fetch(`https://graph.microsoft.com/v1.0/me/messages/${t.message_id}/move`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destinationId: folderId }),
+      }).catch(() => null);
+    }
+
+    // Get original body for context
+    let body = '';
+    const fullRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${t.message_id}?$select=body,bodyPreview`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (fullRes.ok) {
+      const f = await fullRes.json();
+      body = f.body?.content ?? f.bodyPreview ?? '';
+    }
+
+    const recipientName = ((t.to_recipients ?? [])[0]?.emailAddress?.name) ?? recips[0] ?? 'there';
+    let html: string, promptTokens = 0, completionTokens = 0;
+    try {
+      const gen = await generateFollowUp(t.subject ?? '(no subject)', body, recipientName, t.days_after_send);
+      html = gen.html; promptTokens = gen.promptTokens; completionTokens = gen.completionTokens;
+    } catch (e) {
+      console.error('AI generation failed', e);
+      continue;
+    }
+    await logAiUsage(conn.organization_id, conn.user_id, 'gpt-4o-mini', 'follow_up_draft', promptTokens, completionTokens);
+
+    // Create reply draft on the original thread (preserves conversation + BCC trail in original).
+    const draftRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${t.message_id}/createReply`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!draftRes.ok) {
+      console.error('createReply failed', await draftRes.text());
+      continue;
+    }
+    const draft = await draftRes.json();
+    // Patch body
+    await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        body: { contentType: 'HTML', content: `${html}<br><br><em style="color:#888;font-size:11px;">[InboxIQ follow-up — original BCC trigger: ${t.bcc_alias}, sent ${t.days_after_send} days ago]</em>` },
+      }),
+    });
+
+    await supabase.from('follow_up_trackers').update({
+      status: 'drafted', drafted_at: new Date().toISOString(), draft_id: draft.id,
+    }).eq('id', t.id);
+
+    await supabase.from('ai_activity_logs').insert({
+      organization_id: conn.organization_id,
+      user_id: conn.user_id,
+      connection_id: conn.id,
+      category_id: null,
+      category_name: `Follow-up (${t.days_after_send}d)`,
+      activity_type: 'follow_up_draft',
+      email_subject: t.subject,
+      email_from: recips[0] ?? null,
+    });
+    drafted++;
+  }
+  return { drafted, replied };
+}
+
+async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number }> {
+  if (conn.provider !== 'outlook') return { added: 0, drafted: 0, replied: 0 };
+  const token = await getValidToken(conn.user_id, conn.provider);
+  if (!token) {
+    console.log(`Skip ${conn.id}: no valid token`);
+    return { added: 0, drafted: 0, replied: 0 };
+  }
+
+  // Resolve user's email + domain
+  const meRes = await fetch(`https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!meRes.ok) return { added: 0, drafted: 0, replied: 0 };
+  const me = await meRes.json();
+  const myEmail: string = (me.mail ?? me.userPrincipalName ?? conn.connected_email ?? '').toLowerCase();
+  const ourDomain = myEmail.split('@')[1];
+  if (!ourDomain) return { added: 0, drafted: 0, replied: 0 };
+
+  const added = await scanSentForTriggers(conn, token, ourDomain);
+  const { drafted, replied } = await processDueTrackers(conn, token, myEmail);
+  return { added, drafted, replied };
 }
 
 Deno.serve(async (req) => {
@@ -222,20 +373,21 @@ Deno.serve(async (req) => {
   try {
     const { data: connections } = await supabase
       .from('provider_connections')
-      .select('id,user_id,provider,organization_id')
+      .select('id,user_id,provider,organization_id,inbox_followup_folder_id,connected_email')
       .eq('is_connected', true);
 
-    let processed = 0;
-    for (const c of connections ?? []) {
+    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, processed = 0;
+    for (const c of (connections ?? []) as Connection[]) {
       try {
-        await processConnection(c.id, c.organization_id, c.user_id, c.provider);
+        const r = await processConnection(c);
+        totalAdded += r.added; totalDrafted += r.drafted; totalReplied += r.replied;
         processed++;
       } catch (e) {
         console.error(`connection ${c.id} failed:`, e);
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed }), {
+    return new Response(JSON.stringify({ ok: true, processed, added: totalAdded, drafted: totalDrafted, replied: totalReplied }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
