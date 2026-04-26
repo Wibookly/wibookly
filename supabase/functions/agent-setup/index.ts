@@ -14,6 +14,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const MS_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID')!;
 const MS_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
+const MS_TENANT_ID_FALLBACK = Deno.env.get('MICROSOFT_TENANT_ID') ?? '';
 
 async function getAppToken(tenantId: string): Promise<string> {
   const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
@@ -151,13 +152,14 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('organization_id', profile.organization_id)
         .maybeSingle();
-      if (!settings || !settings.shared_mailbox_user_id || !settings.teams_tenant_id) {
+      const tenantId = settings?.teams_tenant_id || MS_TENANT_ID_FALLBACK;
+      if (!settings || !settings.shared_mailbox_user_id || !tenantId) {
         return errorResponse(400, 'Shared mailbox user id and tenant id required');
       }
 
       let token: string;
       try {
-        token = await getAppToken(settings.teams_tenant_id);
+        token = await getAppToken(tenantId);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Token exchange failed';
         const invalidClient = message.includes('AADSTS7000215') || message.includes('invalid_client');
