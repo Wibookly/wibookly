@@ -241,10 +241,13 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     setActingId(u.id);
     try {
       const res = await invoke('enable_user', { user_id: u.invited_user_id });
+      if (res?.magic_link) {
+        await navigator.clipboard.writeText(res.magic_link).catch(() => null);
+      }
       toast({
         title: 'Access restored',
         description: res?.magic_link
-          ? `${u.email} can sign in again. A fresh sign-in link is ready.`
+          ? `${u.email} can sign in again. A fresh sign-in link was generated and copied.`
           : `${u.email} can sign in again.`,
       });
       await loadUsers(selectedDomainId);
@@ -556,7 +559,7 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
       </AlertDialog>
 
       <Dialog open={cleanupStatus.open}>
-        <DialogContent hideCloseButton>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{cleanupStatus.title}</DialogTitle>
             <DialogDescription className="flex items-center gap-2 pt-2">
