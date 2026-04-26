@@ -531,16 +531,13 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
-    if (!folderEmailsRes.ok) {
+    // deno-lint-ignore no-explicit-any
+    let folderEmails: any[] = [];
+    if (folderEmailsRes.ok) {
+      const body = await folderEmailsRes.json();
+      folderEmails = body.value || [];
+    } else {
       console.log('Could not fetch folder emails for cleanup');
-      return true;
-    }
-
-    const { value: folderEmails } = await folderEmailsRes.json();
-    
-    if (!folderEmails || folderEmails.length === 0) {
-      console.log('No emails in folder to check');
-      return true;
     }
 
     // Build search filter and find matching emails across the mailbox
