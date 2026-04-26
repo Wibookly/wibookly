@@ -406,8 +406,12 @@ export default function Categories() {
     setHasChanges(true);
   };
 
-  const saveChanges = useCallback(async (showToast = false) => {
+  const saveChanges = useCallback(async (
+    showToast = false,
+    options: { syncCategories?: boolean } = {}
+  ): Promise<boolean> => {
     if (!organization?.id) return;
+    const shouldSyncCategories = options.syncCategories ?? true;
 
     // Validate all category data before saving
     for (const category of categories) {
@@ -420,7 +424,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
 
       const colorValidation = validateField(categoryColorSchema, category.color);
@@ -432,7 +436,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
     }
 
@@ -448,7 +452,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
     }
 
@@ -513,7 +517,11 @@ export default function Categories() {
 
       // Only sync categories automatically, NOT rules
       // Rules require manual sync via the Play button
-      syncCategoriesToEmailProvider();
+      if (shouldSyncCategories) {
+        await syncCategoriesToEmailProvider();
+      }
+
+      return true;
     } catch (error) {
       if (showToast) {
         toast({
@@ -522,6 +530,7 @@ export default function Categories() {
           variant: 'destructive'
         });
       }
+      return false;
     } finally {
       setSaving(false);
     }
@@ -532,9 +541,17 @@ export default function Categories() {
     if (!activeConnection?.id) return;
     
     try {
-      await supabase.functions.invoke('sync-categories', {
+      const { data, error } = await supabase.functions.invoke('sync-categories', {
         body: { connection_id: activeConnection.id }
       });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       
       // Refetch categories to get updated sync timestamps
       const categoriesRes = await supabase
@@ -568,6 +585,18 @@ export default function Categories() {
     if (!activeConnection?.id) return;
     setResyncing(true);
     try {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      if (hasChanges) {
+        const saved = await saveChanges(true, { syncCategories: false });
+        if (!saved) {
+          throw new Error('Failed to save your latest category changes before re-syncing.');
+        }
+      }
+
       toast({
         title: 'Re-sync started',
         description: 'Rebuilding folders and re-applying rules. This can take a minute…'
