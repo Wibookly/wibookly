@@ -785,6 +785,58 @@ serve(async (req) => {
           }
         }
 
+        // FINAL SWEEP — single-digit legacy duplicates ("1: Urgent" .. "9: Finance")
+        // The canonical folder names always use zero-padded prefixes ("01:" .. "10:"),
+        // so any folder whose displayName starts with a single digit followed by ":" is
+        // by definition a duplicate left behind from older versions. Delete unconditionally.
+        // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
+        // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
+        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          try {
+            const listRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (listRes.ok) {
+              const { value: folders } = await listRes.json();
+              const legacy = (folders ?? []).filter((f: { displayName: string }) =>
+                /^\s*\d\s*[:.\-]/.test(f.displayName)   // single digit prefix
+              );
+              for (const f of legacy as Array<{ id: string; displayName: string }>) {
+                console.log(`Cleaning legacy single-digit folder: ${f.displayName}`);
+                try {
+                  await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
+                } catch (e) {
+                  console.error(`Empty failed for ${f.displayName}:`, e);
+                }
+                await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${accessToken}` }
+                }).catch((e) => console.error(`Delete failed for ${f.displayName}:`, e));
+              }
+            }
+          } catch (e) {
+            console.error('Single-digit sweep failed:', e);
+          }
+        } else if (tokenRecord.provider === 'google') {
+          try {
+            const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            if (listRes.ok) {
+              const { labels } = await listRes.json();
+              const legacy = (labels ?? []).filter((l: { name: string }) =>
+                /^\s*\d\s*[:.\-]/.test(l.name)
+              );
+              for (const l of legacy as Array<{ name: string }>) {
+                console.log(`Cleaning legacy single-digit label: ${l.name}`);
+                await deleteGmailLabel(accessToken, l.name);
+              }
+            }
+          } catch (e) {
+            console.error('Single-digit Gmail sweep failed:', e);
+          }
+        }
 
         results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
