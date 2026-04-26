@@ -140,7 +140,7 @@ async function getValidAccessToken(
   
   if (tokenData.provider === 'google') {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft') {
+  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
   
