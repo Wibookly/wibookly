@@ -240,6 +240,11 @@ export default function Categories() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
+  const getSyncFailureMessage = (data: any, fallback: string) => {
+    const failedResult = data?.results?.find((result: any) => result?.failed > 0 || result?.error);
+    return failedResult?.error || fallback;
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -406,8 +411,12 @@ export default function Categories() {
     setHasChanges(true);
   };
 
-  const saveChanges = useCallback(async (showToast = false) => {
-    if (!organization?.id) return;
+  const saveChanges = useCallback(async (
+    showToast = false,
+    options: { syncCategories?: boolean } = {}
+  ): Promise<boolean> => {
+    if (!organization?.id) return false;
+    const shouldSyncCategories = options.syncCategories ?? true;
 
     // Validate all category data before saving
     for (const category of categories) {
@@ -420,7 +429,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
 
       const colorValidation = validateField(categoryColorSchema, category.color);
@@ -432,7 +441,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
     }
 
@@ -448,7 +457,7 @@ export default function Categories() {
             variant: 'destructive'
           });
         }
-        return;
+          return false;
       }
     }
 
@@ -513,7 +522,11 @@ export default function Categories() {
 
       // Only sync categories automatically, NOT rules
       // Rules require manual sync via the Play button
-      syncCategoriesToEmailProvider();
+      if (shouldSyncCategories) {
+        await syncCategoriesToEmailProvider();
+      }
+
+      return true;
     } catch (error) {
       if (showToast) {
         toast({
@@ -522,6 +535,7 @@ export default function Categories() {
           variant: 'destructive'
         });
       }
+      return false;
     } finally {
       setSaving(false);
     }
@@ -532,9 +546,21 @@ export default function Categories() {
     if (!activeConnection?.id) return;
     
     try {
-      await supabase.functions.invoke('sync-categories', {
+      const { data, error } = await supabase.functions.invoke('sync-categories', {
         body: { connection_id: activeConnection.id }
       });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(data, 'Failed to sync category folders.'));
+      }
       
       // Refetch categories to get updated sync timestamps
       const categoriesRes = await supabase
@@ -568,6 +594,18 @@ export default function Categories() {
     if (!activeConnection?.id) return;
     setResyncing(true);
     try {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
+      if (hasChanges) {
+        const saved = await saveChanges(true, { syncCategories: false });
+        if (!saved) {
+          throw new Error('Failed to save your latest category changes before re-syncing.');
+        }
+      }
+
       toast({
         title: 'Re-sync started',
         description: 'Rebuilding folders and re-applying rules. This can take a minute…'
@@ -577,11 +615,19 @@ export default function Categories() {
         body: { connection_id: activeConnection.id }
       });
       if (catRes.error) throw catRes.error;
+      if (catRes.data?.error) throw new Error(catRes.data.error);
+      if (catRes.data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(catRes.data, 'Failed to sync category folders.'));
+      }
 
       const ruleRes = await supabase.functions.invoke('sync-rules', {
         body: { connection_id: activeConnection.id }
       });
       if (ruleRes.error) throw ruleRes.error;
+      if (ruleRes.data?.error) throw new Error(ruleRes.data.error);
+      if (ruleRes.data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(ruleRes.data, 'Failed to re-apply category rules.'));
+      }
 
       // Clear per-rule "needs sync" markers and refetch fresh timestamps
       setRulesNeedingSync(new Set());
