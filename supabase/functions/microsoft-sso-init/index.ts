@@ -116,6 +116,7 @@ serve(async (req) => {
       email,
       appOrigin: req.headers.get('origin') || undefined,
       inviteToken: inviteToken || undefined,
+      tenantId: tenantId || undefined,
     }));
 
     const params = new URLSearchParams({
