@@ -17,7 +17,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!;
 const BOT_APP_ID = Deno.env.get('TEAMS_BOT_APP_ID');
 const BOT_APP_PASSWORD = Deno.env.get('TEAMS_BOT_APP_PASSWORD');
 
@@ -79,11 +79,12 @@ async function sendReply(activity: TeamsActivity, text: string) {
 }
 
 async function generateAIReply(question: string, userName: string): Promise<string> {
-  const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -91,9 +92,10 @@ async function generateAIReply(question: string, userName: string): Promise<stri
         },
         { role: 'user', content: question },
       ],
+      temperature: 0.4,
     }),
   });
-  if (!res.ok) throw new Error(`AI gateway failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   return data.choices?.[0]?.message?.content ?? '(no response)';
 }
