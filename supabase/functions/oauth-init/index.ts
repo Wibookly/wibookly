@@ -146,7 +146,7 @@ serve(async (req) => {
       // Use calendar-only scopes if requested
       const scope = calendarOnly
         ? 'openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite'
-        : 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Calendars.ReadWrite';
+        : 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
 
       const params = new URLSearchParams({
         client_id: clientId,
