@@ -654,7 +654,7 @@ async function findMultipleAvailableSlots(
   let existingEvents: CalendarEvent[] = [];
   if (provider === 'google') {
     existingEvents = await fetchGoogleCalendarEvents(accessToken, now, twoWeeksFromNow);
-  } else if (provider === 'microsoft') {
+  } else if (provider === 'microsoft' || provider === 'outlook') {
     existingEvents = await fetchMicrosoftCalendarEvents(accessToken, now, twoWeeksFromNow);
   }
   
