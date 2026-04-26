@@ -23,7 +23,9 @@ import OnboardingWizard from '@/components/admin/OnboardingWizard';
 import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
-import { Bot } from 'lucide-react';
+import AIUsagePanel from '@/components/admin/AIUsagePanel';
+import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
+import { Bot, BarChart3, Clock } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -597,11 +599,21 @@ export default function AdminDashboard() {
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
           <TabsTrigger value="agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
+          <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
+          <TabsTrigger value="usage" className="gap-2"><BarChart3 className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="agent" className="space-y-6">
           <AgentPanel organizationId={profile?.organization_id ?? null} />
+        </TabsContent>
+
+        <TabsContent value="followups" className="space-y-6">
+          <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
+        </TabsContent>
+
+        <TabsContent value="usage" className="space-y-6">
+          <AIUsagePanel organizationId={profile?.organization_id ?? null} />
         </TabsContent>
 
         <TabsContent value="setup" className="space-y-6">
