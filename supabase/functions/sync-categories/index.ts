@@ -667,6 +667,32 @@ serve(async (req) => {
           }
         }
 
+        // Aggressive cleanup: nuke EVERY variant of the 10 default category names
+        // (handles old "1: Urgent" duplicates left over after we moved to "01:" padding
+        // and after disabling all default categories in favor of the dedicated Follow-up folder)
+        const defaultCategoryNames = [
+          'Urgent', 'Follow Up', 'Approvals', 'Events', 'Customers',
+          'Vendors', 'Internal', 'Projects', 'Finance', 'FYI', 'Meetings'
+        ];
+        // Skip names that match an enabled category for THIS connection so we don't
+        // delete a folder we just created.
+        const enabledNamesLower = new Set(
+          enabledCategories
+            .filter((c) => c.connection_id === undefined || true)
+            .map((c) => c.name.trim().toLowerCase())
+        );
+        for (const baseName of defaultCategoryNames) {
+          if (enabledNamesLower.has(baseName.toLowerCase())) continue;
+          // deleteOutlookFolder / deleteGmailLabel already strip numeric prefixes
+          // and remove every matching variant in one call.
+          if (tokenRecord.provider === 'google') {
+            await deleteGmailLabel(accessToken, baseName);
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+            await deleteOutlookFolder(accessToken, baseName);
+          }
+        }
+
+
         results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
