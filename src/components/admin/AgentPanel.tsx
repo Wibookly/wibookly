@@ -242,13 +242,6 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
               </p>
             )}
           </div>
-            <div className="flex items-center gap-2">
-              {subActive ? <Badge variant="secondary">Active</Badge> : <Badge variant="outline">Inactive</Badge>}
-              <Button size="sm" variant="outline" onClick={handleCreateSubscription} disabled={creating}>
-                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (subActive ? 'Renew' : 'Create')}
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
