@@ -1,0 +1,1 @@
+UPDATE public.categories SET is_enabled = false WHERE is_enabled = true;
