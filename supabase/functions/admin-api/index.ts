@@ -245,7 +245,7 @@ async function createSingleUser(adminClient: SupabaseClient, input: CreateUserIn
 async function sendReactivationMagicLink(
   adminClient: SupabaseClient,
   email: string,
-  redirectTo = 'https://inboxiq.energyforward.com/integrations',
+  redirectTo = 'https://inboxiq.energyforward.com/integrations?welcome=1',
 ) {
   const { data, error } = await adminClient.auth.admin.generateLink({
     type: 'magiclink',

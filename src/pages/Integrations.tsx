@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,6 +114,7 @@ export default function Integrations() {
   // Meeting duration state
   const [meetingDuration, setMeetingDuration] = useState(30);
   const [savingDuration, setSavingDuration] = useState(false);
+  const inviteAutoConnectAttemptedRef = useRef(false);
 
   // Fetch availability and meeting duration when active connection changes
   useEffect(() => {
@@ -281,6 +282,33 @@ export default function Integrations() {
     }
     fetchConnections();
   }, [organization?.id, authLoading]);
+
+  useEffect(() => {
+    const shouldAutoConnect = searchParams.get('welcome') === '1';
+
+    if (!shouldAutoConnect || authLoading || loading || connecting || inviteAutoConnectAttemptedRef.current) {
+      return;
+    }
+
+    const hasOutlookConnection = connections.some(
+      (connection) => connection.provider === 'outlook' && (connection.is_connected || !!connection.connected_email),
+    );
+
+    inviteAutoConnectAttemptedRef.current = true;
+
+    if (hasOutlookConnection) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('welcome');
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('welcome');
+    setSearchParams(nextParams, { replace: true });
+
+    void startConnect('outlook');
+  }, [authLoading, loading, connecting, connections, searchParams, setSearchParams]);
 
   // Show connections that are connected OR have a connected_email (to handle cases where is_connected may be stale)
   const getConnectionsByProvider = (provider: ProviderId) => 
