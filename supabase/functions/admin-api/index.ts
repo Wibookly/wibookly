@@ -532,6 +532,21 @@ serve(async (req) => {
           });
         }
 
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('organization_id')
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        if (profile?.organization_id) {
+          await cleanupUserMailboxAndDisconnect(adminClient, {
+            userId: user_id,
+            organizationId: profile.organization_id,
+            disconnectAfterCleanup: true,
+          });
+          await purgeUserConnectionData(adminClient, user_id);
+        }
+
         // Delete profile, memberships, roles first
         await adminClient.from('user_feature_access').delete().eq('user_id', user_id);
         await adminClient.from('user_roles').delete().eq('user_id', user_id);
@@ -740,6 +755,21 @@ serve(async (req) => {
 
         if (discovered.invited_user_id) {
           const uid = discovered.invited_user_id;
+          const { data: profile } = await adminClient
+            .from('user_profiles')
+            .select('organization_id')
+            .eq('user_id', uid)
+            .maybeSingle();
+
+          if (profile?.organization_id) {
+            await cleanupUserMailboxAndDisconnect(adminClient, {
+              userId: uid,
+              organizationId: profile.organization_id,
+              disconnectAfterCleanup: true,
+            });
+            await purgeUserConnectionData(adminClient, uid);
+          }
+
           await adminClient.from('user_feature_access').delete().eq('user_id', uid);
           await adminClient.from('user_roles').delete().eq('user_id', uid);
           await adminClient.from('organization_members').delete().eq('user_id', uid);
