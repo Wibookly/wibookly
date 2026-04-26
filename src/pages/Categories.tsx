@@ -240,6 +240,11 @@ export default function Categories() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
+  const getSyncFailureMessage = (data: any, fallback: string) => {
+    const failedResult = data?.results?.find((result: any) => result?.failed > 0 || result?.error);
+    return failedResult?.error || fallback;
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -410,7 +415,7 @@ export default function Categories() {
     showToast = false,
     options: { syncCategories?: boolean } = {}
   ): Promise<boolean> => {
-    if (!organization?.id) return;
+    if (!organization?.id) return false;
     const shouldSyncCategories = options.syncCategories ?? true;
 
     // Validate all category data before saving
@@ -552,6 +557,10 @@ export default function Categories() {
       if (data?.error) {
         throw new Error(data.error);
       }
+
+      if (data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(data, 'Failed to sync category folders.'));
+      }
       
       // Refetch categories to get updated sync timestamps
       const categoriesRes = await supabase
@@ -606,11 +615,19 @@ export default function Categories() {
         body: { connection_id: activeConnection.id }
       });
       if (catRes.error) throw catRes.error;
+      if (catRes.data?.error) throw new Error(catRes.data.error);
+      if (catRes.data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(catRes.data, 'Failed to sync category folders.'));
+      }
 
       const ruleRes = await supabase.functions.invoke('sync-rules', {
         body: { connection_id: activeConnection.id }
       });
       if (ruleRes.error) throw ruleRes.error;
+      if (ruleRes.data?.error) throw new Error(ruleRes.data.error);
+      if (ruleRes.data?.results?.some((result: any) => result?.failed > 0 || result?.error)) {
+        throw new Error(getSyncFailureMessage(ruleRes.data, 'Failed to re-apply category rules.'));
+      }
 
       // Clear per-rule "needs sync" markers and refetch fresh timestamps
       setRulesNeedingSync(new Set());
