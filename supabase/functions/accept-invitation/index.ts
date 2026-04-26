@@ -198,39 +198,20 @@ serve(async (req) => {
       .eq('email', invitation.email)
       .eq('domain_id', invitation.domain_id || '');
 
-    // Sign the invited user in via Microsoft SSO (NOT a Supabase magic link).
-    // We redirect straight to Microsoft's authorize endpoint with the invitee's
-    // email as login_hint. The existing microsoft-sso-callback handler will
-    // exchange the code, create/find the Supabase auth user, link tokens, and
-    // bounce them back to /integrations?welcome=1.
-    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-    if (!clientId) {
-      console.error('MICROSOFT_CLIENT_ID not configured');
-      return redirect(`${appUrl}/auth?error=${encodeURIComponent('Microsoft sign-in is not configured. Please contact your administrator.')}`);
-    }
-
-    const callbackUrl = `${supabaseUrl}/functions/v1/microsoft-sso-callback`;
-    const stateData = btoa(JSON.stringify({
-      state: crypto.randomUUID(),
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: 'magiclink',
       email: invitation.email,
-      appOrigin: appUrl,
-      invitationId: invitation.id,
-      redirectTo: `${appUrl}/integrations?welcome=1`,
-    }));
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: callbackUrl,
-      response_type: 'code',
-      scope: 'openid email profile offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite',
-      response_mode: 'query',
-      state: stateData,
-      login_hint: invitation.email,
-      prompt: 'select_account',
+      options: {
+        redirectTo: `${appUrl}/integrations?welcome=1`,
+      },
     });
 
-    const authorizeUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
-    return redirect(authorizeUrl);
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('Failed to generate invitation magic link', linkError);
+      return redirect(`${appUrl}/auth?error=${encodeURIComponent('Your account was prepared, but sign-in could not be completed. Please try the email sign-in form.')}`);
+    }
+
+    return redirect(linkData.properties.action_link);
 
   } catch (e) {
     console.error('accept-invitation error', e);
