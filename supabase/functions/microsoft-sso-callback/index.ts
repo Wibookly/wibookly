@@ -58,7 +58,12 @@ serve(async (req) => {
       return redirect(`${appUrl}/auth?error=${encodeURIComponent('Authentication is not configured correctly.')}`);
     }
 
-    const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    const tenantIdFromState = typeof stateData.tenantId === 'string' && stateData.tenantId.trim()
+      ? stateData.tenantId.trim()
+      : null;
+    const tenantSegment = tenantIdFromState || 'common';
+
+    const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
