@@ -538,7 +538,7 @@ serve(async (req) => {
         
         if (folderId) {
           const { moved } = await moveOutlookEmailsToInbox(accessToken, rule_type, rule_value, folderId);
-          const ruleName = `Wibookly: ${labelName} - ${rule_type}:${rule_value}`;
+          const ruleName = `InboxIQ: ${labelName} - ${rule_type}:${rule_value}`;
           const ruleDeleted = await deleteOutlookRule(accessToken, ruleName);
           
           results.push({
