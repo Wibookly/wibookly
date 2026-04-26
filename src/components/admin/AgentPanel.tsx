@@ -325,7 +325,7 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={() => handleSave()} disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
           Save settings
         </Button>
