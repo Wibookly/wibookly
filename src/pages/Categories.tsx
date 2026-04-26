@@ -737,6 +737,19 @@ export default function Categories() {
                 </>
               ) : null}
             </div>
+            <Button
+              variant="outline"
+              onClick={resyncAll}
+              disabled={resyncing || !activeConnection?.id}
+              title="Re-create folders/labels and re-apply all rules to existing emails. Disabled categories' emails are moved back to Inbox before their folder is removed."
+            >
+              {resyncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Re-sync All
+            </Button>
           </div>
         </div>
 
