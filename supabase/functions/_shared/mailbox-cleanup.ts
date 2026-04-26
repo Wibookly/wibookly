@@ -365,10 +365,18 @@ async function cleanupOutlookProvider(
 
 export async function cleanupUserMailboxAndDisconnect(
   adminClient: SupabaseClient,
-  options: { userId: string; organizationId: string; disconnectAfterCleanup?: boolean },
+  options: {
+    userId: string;
+    organizationId: string;
+    disconnectAfterCleanup?: boolean;
+    providerFilter?: string | string[];
+  },
 ): Promise<MailboxCleanupResult> {
-  const { userId, organizationId, disconnectAfterCleanup = true } = options;
+  const { userId, organizationId, disconnectAfterCleanup = true, providerFilter } = options;
   const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY');
+  const normalizedProviderFilter = providerFilter
+    ? new Set((Array.isArray(providerFilter) ? providerFilter : [providerFilter]).map((provider) => normalizeProvider(provider)))
+    : null;
 
   const summary: MailboxCleanupResult = {
     movedMessages: 0,
@@ -384,7 +392,9 @@ export async function cleanupUserMailboxAndDisconnect(
     .eq('user_id', userId)
     .eq('organization_id', organizationId);
 
-  const connectionRows = (connections ?? []) as ProviderConnection[];
+  const connectionRows = ((connections ?? []) as ProviderConnection[]).filter((connection) =>
+    normalizedProviderFilter ? normalizedProviderFilter.has(normalizeProvider(connection.provider)) : true,
+  );
   if (connectionRows.length === 0) return summary;
 
   const connectionIds = connectionRows.map((connection) => connection.id);
@@ -467,7 +477,7 @@ export async function cleanupUserMailboxAndDisconnect(
   }
 
   if (disconnectAfterCleanup) {
-    await adminClient
+    let disconnectQuery = adminClient
       .from('provider_connections')
       .update({
         is_connected: false,
@@ -479,7 +489,17 @@ export async function cleanupUserMailboxAndDisconnect(
       .eq('user_id', userId)
       .eq('organization_id', organizationId);
 
-    await adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
+    if (normalizedProviderFilter) {
+      disconnectQuery = disconnectQuery.in('provider', Array.from(normalizedProviderFilter));
+    }
+
+    await disconnectQuery;
+
+    let tokenDeleteQuery = adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
+    if (normalizedProviderFilter) {
+      tokenDeleteQuery = tokenDeleteQuery.in('provider', Array.from(normalizedProviderFilter));
+    }
+    await tokenDeleteQuery;
     summary.disconnectedProviders = connectionRows.length;
   }
 
