@@ -2165,7 +2165,7 @@ async function processConnectionEmails(
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache[eventsLabelName]);
                 console.log(`Applied Events label to email ${msg.id} (detected as event-related)`);
               }
-            } else if (isEventEmail && eventsLabelName && tokenRecord.provider === 'microsoft') {
+            } else if (isEventEmail && eventsLabelName && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')) {
               if (!outlookCategoryCache[eventsLabelName]) {
                 await getOrCreateOutlookCategory(accessToken, eventsLabelName, eventsCategoryColor);
                 outlookCategoryCache[eventsLabelName] = true;
