@@ -267,21 +267,21 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
                   size="sm"
                   variant="outline"
                   onClick={handleCreateSubscription}
-                  disabled={creating || !canCreateSubscription}
+                  disabled={creating || saving || !hasLocalSubscriptionFields}
                 >
-                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (subActive ? 'Renew' : 'Create')}
+                  {creating || saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (subActive ? 'Renew' : 'Create')}
                 </Button>
               </div>
             </div>
-            {!canCreateSubscription && (
+            {!hasLocalSubscriptionFields ? (
               <p className="text-xs text-destructive">
-                {!hasLocalSubscriptionFields
-                  ? <><strong>Shared mailbox user ID</strong> and <strong>Microsoft tenant ID</strong> are required before you can create the webhook.</>
-                  : !hasSavedSubscriptionFields || hasUnsavedSubscriptionChanges
-                    ? <>Click <strong>Save settings</strong> to persist the mailbox details before creating the webhook.</>
-                    : null}
+                <strong>Shared mailbox user ID</strong> and <strong>Microsoft tenant ID</strong> are required before you can create the webhook.
               </p>
-            )}
+            ) : hasUnsavedSubscriptionChanges || !hasSavedSubscriptionFields ? (
+              <p className="text-xs text-muted-foreground">
+                Clicking <strong>Create</strong> will save your settings first, then create the webhook.
+              </p>
+            ) : null}
           </div>
         </CardContent>
       </Card>
