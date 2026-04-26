@@ -288,12 +288,12 @@ async function restoreOutlookFolderToInbox(accessToken: string, folderId: string
   let nextLink: string | null = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$select=id&$top=50`;
 
   while (nextLink) {
-    const listRes = await fetch(nextLink, {
+    const listRes: Response = await fetch(nextLink, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!listRes.ok) break;
 
-    const payload = await listRes.json();
+    const payload: { value?: Array<{ id: string }>; '@odata.nextLink'?: string } = await listRes.json();
     for (const message of payload.value ?? []) {
       const moveRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${message.id}/move`, {
         method: 'POST',
