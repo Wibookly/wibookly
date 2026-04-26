@@ -543,15 +543,47 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
       return true;
     }
 
-    // Build search filter and find matching emails in inbox
+    // Build search filter and find matching emails across the mailbox
     const searchFilter = buildOutlookSearchFilter(rule);
     const matchingRes = await fetch(
-      `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(searchFilter)}&$top=500&$select=id`,
+      `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(searchFilter)}&$top=500&$select=id,parentFolderId,subject`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
-    const matchingEmails = matchingRes.ok ? (await matchingRes.json()).value || [] : [];
+    // deno-lint-ignore no-explicit-any
+    const matchingEmails: any[] = matchingRes.ok ? (await matchingRes.json()).value || [] : [];
     const matchingIds = new Set(matchingEmails.map((m: { id: string }) => m.id));
+
+    // Move matching emails currently in the inbox into the category folder
+    // (Outlook server-side rules only fire on NEW arrivals; we need to move existing ones manually)
+    // deno-lint-ignore no-explicit-any
+    const inboxMatches = matchingEmails.filter((email: any) => email.parentFolderId === inboxId);
+    let movedIntoFolder = 0;
+    for (const email of inboxMatches) {
+      try {
+        const moveRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${email.id}/move`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ destinationId: folderId })
+          }
+        );
+        if (moveRes.ok) {
+          movedIntoFolder++;
+        } else {
+          console.error(`Failed to move email "${email.subject}" into folder:`, await moveRes.text());
+        }
+      } catch (err) {
+        console.error('Error moving email into folder:', err);
+      }
+    }
+    if (movedIntoFolder > 0) {
+      console.log(`Moved ${movedIntoFolder} matching inbox emails into folder for rule "${ruleName}"`);
+    }
 
     // Find emails in folder that don't match the rule anymore
     // deno-lint-ignore no-explicit-any
