@@ -98,6 +98,11 @@ export default function Integrations() {
   // Disconnect confirmation state
   const [disconnectTarget, setDisconnectTarget] = useState<{ provider: ProviderId; connectionId: string; email: string | null } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [cleanupStatus, setCleanupStatus] = useState<{ open: boolean; title: string; description: string }>({
+    open: false,
+    title: '',
+    description: '',
+  });
 
   // Tab state
   const currentTab = searchParams.get('tab') || 'email';
@@ -442,9 +447,14 @@ export default function Integrations() {
 
     setDisconnecting(true);
     try {
-      // Use secure RPC function to disconnect - clears tokens and all related data server-side
-      const { error } = await supabase.rpc('disconnect_provider', {
-        _provider: provider,
+      setCleanupStatus({
+        open: true,
+        title: 'Reorganizing mailbox',
+        description: 'Please wait while category emails are moved back to Inbox and category folders are removed.',
+      });
+
+      const { error } = await supabase.functions.invoke('disconnect-mailbox', {
+        body: { provider },
       });
 
       if (error) throw error;
@@ -455,6 +465,11 @@ export default function Integrations() {
         title: 'Disconnected',
         description: `Your ${provider === 'google' ? 'Google' : 'Microsoft Outlook'} account and all related data have been removed. Signing out...`,
       });
+      setCleanupStatus({
+        open: true,
+        title: 'Done',
+        description: 'Mailbox cleanup is finished and the account has been disconnected.',
+      });
 
       setDisconnectTarget(null);
       
@@ -462,6 +477,7 @@ export default function Integrations() {
       await supabase.auth.signOut();
       window.location.href = '/auth';
     } catch (error: any) {
+      setCleanupStatus({ open: false, title: '', description: '' });
       toast({
         title: 'Error',
         description: error.message || 'Failed to disconnect',
@@ -612,6 +628,25 @@ export default function Integrations() {
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={cleanupStatus.open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{cleanupStatus.title}</AlertDialogTitle>
+            <AlertDialogDescription className="flex items-center gap-2 pt-2">
+              {cleanupStatus.title !== 'Done' && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>{cleanupStatus.description}</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {cleanupStatus.title === 'Done' && (
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setCleanupStatus({ open: false, title: '', description: '' })}>
+                Close
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
