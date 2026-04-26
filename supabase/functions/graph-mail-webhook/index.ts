@@ -147,6 +147,25 @@ ${companyContext}
   });
   if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
+
+  // Log usage for admin reporting
+  try {
+    const pt = data.usage?.prompt_tokens ?? 0;
+    const ct = data.usage?.completion_tokens ?? 0;
+    const cost = (pt / 1_000_000) * 0.15 + (ct / 1_000_000) * 0.60;
+    await supabase.from('ai_usage_logs').insert({
+      organization_id: organizationId,
+      user_id: null,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      action: 'agent_email_reply',
+      prompt_tokens: pt,
+      completion_tokens: ct,
+      cost_usd: cost.toFixed(6),
+      metadata: { sender: senderEmail },
+    });
+  } catch (e) { console.error('usage log failed', e); }
+
   return data.choices?.[0]?.message?.content ?? '<p>(no response)</p>';
 }
 
