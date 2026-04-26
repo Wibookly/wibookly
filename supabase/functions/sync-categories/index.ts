@@ -357,35 +357,52 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
   }
 }
 
-// Delete Outlook folder
+// Delete Outlook folder — also removes ALL legacy/duplicate variants
+// (e.g., deleting "01: Urgent" also clears stray "1: Urgent", "1. Urgent",
+// or unnumbered "Urgent" folders so the mailbox stays clean).
+// IMPORTANT: never deletes the special "Follow-up" folder used by cron-follow-ups.
 async function deleteOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
-    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
-    
+
     if (!listRes.ok) return false;
-    
+
     const { value: folders } = await listRes.json();
-    const folder = folders?.find((f: { displayName: string }) => f.displayName === folderName);
-    
-    if (!folder) {
-      console.log(`Outlook folder "${folderName}" doesn't exist, nothing to delete`);
+    const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const targetCore = stripPrefix(folderName);
+
+    // Protected folders we must never touch
+    const PROTECTED = new Set(['follow-up', 'follow up', 'followup']);
+    if (PROTECTED.has(targetCore)) {
+      console.log(`Refusing to delete protected folder "${folderName}"`);
       return true;
     }
-    
-    const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    if (!deleteRes.ok && deleteRes.status !== 404) {
-      console.error(`Failed to delete Outlook folder "${folderName}":`, await deleteRes.text());
-      return false;
+
+    const matches = (folders ?? []).filter(
+      (f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore
+    );
+
+    if (matches.length === 0) {
+      console.log(`Outlook folder matching "${folderName}" doesn't exist, nothing to delete`);
+      return true;
     }
-    
-    console.log(`Deleted Outlook folder: ${folderName}`);
-    return true;
+
+    let allOk = true;
+    for (const f of matches) {
+      const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!deleteRes.ok && deleteRes.status !== 404) {
+        console.error(`Failed to delete Outlook folder "${f.displayName}":`, await deleteRes.text());
+        allOk = false;
+      } else {
+        console.log(`Deleted Outlook folder: ${f.displayName}`);
+      }
+    }
+    return allOk;
   } catch (error) {
     console.error(`Error deleting Outlook folder "${folderName}":`, error);
     return false;
