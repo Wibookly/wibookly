@@ -154,7 +154,7 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         </div>
       </TableCell>
       <TableCell className="w-12 font-medium text-muted-foreground">
-        {category.sort_order + 1}:
+        {String(category.sort_order + 1).padStart(2, '0')}:
       </TableCell>
       <TableCell>
         <div className="relative">

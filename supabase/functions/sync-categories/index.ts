@@ -585,9 +585,9 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with number prefix based on actual sort_order (1-indexed)
-          // Format: "1: Name" (single digit, no padding)
-          const labelName = `${category.sort_order + 1}: ${category.name}`;
+          // Create label/folder name with zero-padded number prefix based on actual sort_order (1-indexed)
+          // Format: "01: Name" so alphabetical sorting matches numeric order (01..09, 10, 11)
+          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
@@ -609,7 +609,7 @@ serve(async (req) => {
 
         // Delete labels/folders for disabled categories
         for (const category of disabledCategories) {
-          const labelName = `${category.sort_order + 1}: ${category.name}`;
+          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
