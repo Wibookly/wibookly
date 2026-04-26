@@ -838,7 +838,7 @@ serve(async (req) => {
     // Map category ID to its sort_order (used for label naming)
     const categoryMap = new Map(enabledCategories?.map((c) => [c.id, { name: c.name, sortOrder: c.sort_order }]));
 
-    const results: { provider: string; synced: number; failed: number }[] = [];
+    const results: { provider: string; synced: number; failed: number; error?: string }[] = [];
 
     // Process each connected provider
     for (const tokenRecord of tokenDataList) {
@@ -852,7 +852,12 @@ serve(async (req) => {
         
         if (!accessToken) {
           console.error(`Could not get valid access token for ${tokenRecord.provider}`);
-          results.push({ provider: tokenRecord.provider, synced: 0, failed: enabledRules.length });
+          results.push({
+            provider: tokenRecord.provider,
+            synced: 0,
+            failed: enabledRules.length,
+            error: 'Reconnect your Microsoft mailbox, then run Re-sync All again.'
+          });
           continue;
         }
 
@@ -899,7 +904,12 @@ serve(async (req) => {
         results.push({ provider: tokenRecord.provider, synced, failed });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
-        results.push({ provider: tokenRecord.provider, synced: 0, failed: enabledRules.length });
+        results.push({
+          provider: tokenRecord.provider,
+          synced: 0,
+          failed: enabledRules.length,
+          error: error instanceof Error ? error.message : 'Unknown sync error'
+        });
       }
     }
 
