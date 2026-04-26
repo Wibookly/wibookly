@@ -94,9 +94,34 @@ serve(async (req) => {
     const userInfo = await userInfoResponse.json();
     const email = (userInfo.mail || userInfo.userPrincipalName)?.toLowerCase();
     const fullName = userInfo.displayName || '';
+    const inviteToken = typeof stateData.inviteToken === 'string' ? stateData.inviteToken : null;
 
     if (!email) {
       return redirect(`${appUrl}/auth?error=${encodeURIComponent('Could not retrieve email from Microsoft account')}`);
+    }
+
+    if (inviteToken) {
+      const { data: invitation } = await adminClient
+        .from('user_invitations')
+        .select('id, organization_id, domain_id, email, full_name, used_at, expires_at, group_id')
+        .eq('token', inviteToken)
+        .maybeSingle();
+
+      if (!invitation) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation link is invalid.')}`);
+      }
+
+      if (invitation.used_at) {
+        return redirect(`${appUrl}/auth?info=${encodeURIComponent('This invitation has already been used. Please sign in normally.')}&email=${encodeURIComponent(invitation.email)}`);
+      }
+
+      if (new Date(invitation.expires_at) < new Date()) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('This invitation has expired. Please ask your administrator to resend it.')}`);
+      }
+
+      if (invitation.email.toLowerCase() !== email) {
+        return redirect(`${appUrl}/auth?error=${encodeURIComponent('Please sign in with the same Microsoft email address that received the invitation.')}`);
+      }
     }
 
     console.log(`Microsoft SSO: user ${email}, name: ${fullName}`);
@@ -140,11 +165,26 @@ serve(async (req) => {
 
       const { data: existingProfile } = await adminClient
         .from('user_profiles')
-        .select('organization_id')
+        .select('organization_id, domain_id')
         .eq('user_id', userId)
         .maybeSingle();
 
       organizationId = existingProfile?.organization_id ?? null;
+
+      if (inviteToken && existingProfile?.domain_id == null) {
+        const { data: invitation } = await adminClient
+          .from('user_invitations')
+          .select('domain_id')
+          .eq('token', inviteToken)
+          .maybeSingle();
+
+        if (invitation?.domain_id) {
+          await adminClient
+            .from('user_profiles')
+            .update({ domain_id: invitation.domain_id, email, full_name: fullName || undefined })
+            .eq('user_id', userId);
+        }
+      }
     } else {
       // Create new user
       const tempPassword = crypto.randomUUID() + '!Aa1';
@@ -288,6 +328,53 @@ serve(async (req) => {
         calendar_connected: true,
         calendar_connected_at: new Date().toISOString(),
       }, { onConflict: 'user_id,provider' });
+
+      if (inviteToken) {
+        const { data: invitation } = await adminClient
+          .from('user_invitations')
+          .select('id, organization_id, domain_id, group_id')
+          .eq('token', inviteToken)
+          .maybeSingle();
+
+        if (invitation) {
+          await adminClient
+            .from('user_profiles')
+            .upsert({
+              user_id: userId,
+              email,
+              full_name: fullName || null,
+              organization_id: invitation.organization_id,
+              domain_id: invitation.domain_id,
+              microsoft_auto_connect: false,
+              requires_outlook_connect: false,
+            }, { onConflict: 'user_id' });
+
+          await adminClient
+            .from('organization_members')
+            .upsert({ user_id: userId, organization_id: invitation.organization_id, role: 'member' }, { onConflict: 'user_id,organization_id' });
+
+          await adminClient
+            .from('user_roles')
+            .upsert({ user_id: userId, organization_id: invitation.organization_id, role: 'member' }, { onConflict: 'user_id,organization_id,role' });
+
+          if (invitation.group_id) {
+            await adminClient
+              .from('user_group_memberships')
+              .upsert({ user_id: userId, organization_id: invitation.organization_id, group_id: invitation.group_id }, { onConflict: 'user_id,group_id' });
+          }
+
+          await adminClient
+            .from('user_invitations')
+            .update({ used_at: new Date().toISOString(), user_id: userId })
+            .eq('id', invitation.id);
+
+          await adminClient
+            .from('discovered_tenant_users')
+            .update({ status: 'active', invited_user_id: userId, invited_at: new Date().toISOString() })
+            .eq('email', email)
+            .eq('domain_id', invitation.domain_id || '');
+        }
+      }
     }
 
     // Generate a magic link / sign the user in by creating a session
