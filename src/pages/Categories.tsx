@@ -561,6 +561,49 @@ export default function Categories() {
   // Track which rules need syncing (modified but not synced)
   const [rulesNeedingSync, setRulesNeedingSync] = useState<Set<string>>(new Set());
 
+  // Re-sync everything for the active connection: rebuild folders/labels (and clean up
+  // legacy single-digit duplicates), then re-apply every rule against existing emails.
+  const [resyncing, setResyncing] = useState(false);
+  const resyncAll = async () => {
+    if (!activeConnection?.id) return;
+    setResyncing(true);
+    try {
+      toast({
+        title: 'Re-sync started',
+        description: 'Rebuilding folders and re-applying rules. This can take a minute…'
+      });
+
+      const catRes = await supabase.functions.invoke('sync-categories', {
+        body: { connection_id: activeConnection.id }
+      });
+      if (catRes.error) throw catRes.error;
+
+      const ruleRes = await supabase.functions.invoke('sync-rules', {
+        body: { connection_id: activeConnection.id }
+      });
+      if (ruleRes.error) throw ruleRes.error;
+
+      // Clear per-rule "needs sync" markers and refetch fresh timestamps
+      setRulesNeedingSync(new Set());
+      await fetchData();
+
+      toast({
+        title: 'Re-sync complete',
+        description: 'Folders rebuilt, duplicates cleaned, rules re-applied.'
+      });
+    } catch (err: any) {
+      console.error('Re-sync all failed:', err);
+      toast({
+        title: 'Re-sync failed',
+        description: err?.message ?? String(err),
+        variant: 'destructive'
+      });
+    } finally {
+      setResyncing(false);
+    }
+  };
+
+
   // Mark rule as needing sync when modified
   const markRuleNeedsSync = (ruleId: string) => {
     if (!ruleId.startsWith('temp-')) {
@@ -737,6 +780,19 @@ export default function Categories() {
                 </>
               ) : null}
             </div>
+            <Button
+              variant="outline"
+              onClick={resyncAll}
+              disabled={resyncing || !activeConnection?.id}
+              title="Re-create folders/labels and re-apply all rules to existing emails. Disabled categories' emails are moved back to Inbox before their folder is removed."
+            >
+              {resyncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Re-sync All
+            </Button>
           </div>
         </div>
 

@@ -322,7 +322,9 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
   }
 }
 
-// Delete Gmail label
+// Move all messages with this Gmail label back to Inbox, then delete the label.
+// Gmail keeps the message in INBOX automatically when we just remove the custom label;
+// but if INBOX was removed (label-as-folder behaviour), we add it back explicitly.
 async function deleteGmailLabel(accessToken: string, labelName: string): Promise<boolean> {
   try {
     const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
@@ -337,6 +339,44 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     if (!label) {
       console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
       return true;
+    }
+
+    // Step 1: pull every message that still carries this label and re-add INBOX,
+    // remove the custom label so the user sees them back in their main inbox.
+    try {
+      let pageToken: string | undefined = undefined;
+      let movedTotal = 0;
+      do {
+        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+        url.searchParams.set('labelIds', label.id);
+        url.searchParams.set('maxResults', '500');
+        if (pageToken) url.searchParams.set('pageToken', pageToken);
+        const msgRes = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!msgRes.ok) break;
+        const { messages, nextPageToken } = await msgRes.json();
+        if (messages?.length) {
+          // batchModify supports up to 1000 ids per call
+          const ids = messages.map((m: { id: string }) => m.id);
+          const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ids,
+              addLabelIds: ['INBOX'],
+              removeLabelIds: [label.id]
+            })
+          });
+          if (modRes.ok) movedTotal += ids.length;
+          else console.error(`batchModify failed for "${labelName}":`, await modRes.text());
+        }
+        pageToken = nextPageToken;
+      } while (pageToken);
+      if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${labelName}" back to Inbox`);
+    } catch (moveErr) {
+      console.error(`Error moving messages out of "${labelName}":`, moveErr);
+      // continue with deletion regardless
     }
     
     const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
@@ -355,6 +395,53 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     console.error(`Error deleting Gmail label "${labelName}":`, error);
     return false;
   }
+}
+
+// Move every message inside an Outlook folder to the Inbox, paginating through results.
+async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, folderName: string): Promise<number> {
+  // Resolve the well-known Inbox id once
+  let inboxId = 'inbox';
+  try {
+    const inboxRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=id', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (inboxRes.ok) {
+      const j = await inboxRes.json();
+      if (j?.id) inboxId = j.id;
+    }
+  } catch { /* fall back to 'inbox' alias */ }
+
+  let movedTotal = 0;
+  let nextLink: string | null =
+    `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$select=id&$top=50`;
+
+  while (nextLink) {
+    const res: Response = await fetch(nextLink, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      console.error(`Failed to list messages in "${folderName}":`, await res.text());
+      break;
+    }
+    const data = await res.json();
+    const messages: Array<{ id: string }> = data?.value ?? [];
+    for (const m of messages) {
+      const moveRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${m.id}/move`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ destinationId: inboxId })
+        }
+      );
+      if (moveRes.ok) movedTotal++;
+      else console.error(`Move failed for message ${m.id}:`, await moveRes.text());
+    }
+    nextLink = data?.['@odata.nextLink'] ?? null;
+  }
+
+  if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${folderName}" back to Inbox`);
+  return movedTotal;
 }
 
 // Delete Outlook folder — also removes ALL legacy/duplicate variants
@@ -391,6 +478,12 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
 
     let allOk = true;
     for (const f of matches) {
+      // First move any remaining messages back to Inbox so the user doesn't lose mail
+      try {
+        await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
+      } catch (moveErr) {
+        console.error(`Error emptying "${f.displayName}":`, moveErr);
+      }
       const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` }
@@ -692,6 +785,58 @@ serve(async (req) => {
           }
         }
 
+        // FINAL SWEEP — single-digit legacy duplicates ("1: Urgent" .. "9: Finance")
+        // The canonical folder names always use zero-padded prefixes ("01:" .. "10:"),
+        // so any folder whose displayName starts with a single digit followed by ":" is
+        // by definition a duplicate left behind from older versions. Delete unconditionally.
+        // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
+        // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
+        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          try {
+            const listRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (listRes.ok) {
+              const { value: folders } = await listRes.json();
+              const legacy = (folders ?? []).filter((f: { displayName: string }) =>
+                /^\s*\d\s*[:.\-]/.test(f.displayName)   // single digit prefix
+              );
+              for (const f of legacy as Array<{ id: string; displayName: string }>) {
+                console.log(`Cleaning legacy single-digit folder: ${f.displayName}`);
+                try {
+                  await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
+                } catch (e) {
+                  console.error(`Empty failed for ${f.displayName}:`, e);
+                }
+                await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${accessToken}` }
+                }).catch((e) => console.error(`Delete failed for ${f.displayName}:`, e));
+              }
+            }
+          } catch (e) {
+            console.error('Single-digit sweep failed:', e);
+          }
+        } else if (tokenRecord.provider === 'google') {
+          try {
+            const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            if (listRes.ok) {
+              const { labels } = await listRes.json();
+              const legacy = (labels ?? []).filter((l: { name: string }) =>
+                /^\s*\d\s*[:.\-]/.test(l.name)
+              );
+              for (const l of legacy as Array<{ name: string }>) {
+                console.log(`Cleaning legacy single-digit label: ${l.name}`);
+                await deleteGmailLabel(accessToken, l.name);
+              }
+            }
+          } catch (e) {
+            console.error('Single-digit Gmail sweep failed:', e);
+          }
+        }
 
         results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
