@@ -846,7 +846,7 @@ serve(async (req) => {
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             const folderId = await getOutlookFolderId(accessToken, labelName);
             if (folderId) {
-              const ruleName = `Wibookly: ${rule.rule_type} - ${rule.rule_value}`;
+              const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
               success = await applyOutlookRule(accessToken, rule, folderId, ruleName);
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
