@@ -392,11 +392,11 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
   }
 }
 
-// Create Outlook folder
+// Create Outlook folder (also dedupes legacy duplicates like "1: X" vs "01: X")
 async function createOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
-    // Check if folder already exists
-    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+    // Check if folder already exists; pull a wide page so we see all of them
+    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     
@@ -406,9 +406,25 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     }
     
     const { value: folders } = await listRes.json();
-    const exists = folders?.some((f: { displayName: string }) => f.displayName === folderName);
-    
-    if (exists) {
+
+    // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
+    const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const targetCore = stripPrefix(folderName);
+
+    const matches: Array<{ id: string; displayName: string }> =
+      (folders ?? []).filter((f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore);
+
+    // Prefer the canonical (zero-padded) name; delete any others
+    const canonical = matches.find((f) => f.displayName === folderName);
+    const toDelete = matches.filter((f) => f.displayName !== folderName);
+    for (const dup of toDelete) {
+      console.log(`Deleting duplicate Outlook folder "${dup.displayName}" (kept "${folderName}")`);
+      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${dup.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` }
+      }).catch(() => null);
+    }
+
+    if (canonical) {
       console.log(`Outlook folder "${folderName}" already exists`);
       return true;
     }
