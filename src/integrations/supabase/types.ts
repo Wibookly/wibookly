@@ -829,52 +829,74 @@ export type Database = {
         }
         Relationships: []
       }
-      follow_up_steps: {
+      follow_up_trackers: {
         Row: {
-          action: string
-          category_id: string
+          bcc_alias: string
+          cc_recipients: Json
+          connection_id: string
+          conversation_id: string | null
           created_at: string
           days_after_send: number
+          draft_id: string | null
+          drafted_at: string | null
+          due_at: string
           id: string
-          is_enabled: boolean
-          message_template: string | null
+          message_id: string
+          metadata: Json
           organization_id: string
-          step_order: number
+          replied_at: string | null
+          sent_at: string
+          status: string
+          subject: string | null
+          to_recipients: Json
           updated_at: string
+          user_id: string
         }
         Insert: {
-          action?: string
-          category_id: string
+          bcc_alias: string
+          cc_recipients?: Json
+          connection_id: string
+          conversation_id?: string | null
           created_at?: string
           days_after_send: number
+          draft_id?: string | null
+          drafted_at?: string | null
+          due_at: string
           id?: string
-          is_enabled?: boolean
-          message_template?: string | null
+          message_id: string
+          metadata?: Json
           organization_id: string
-          step_order: number
+          replied_at?: string | null
+          sent_at: string
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
           updated_at?: string
+          user_id: string
         }
         Update: {
-          action?: string
-          category_id?: string
+          bcc_alias?: string
+          cc_recipients?: Json
+          connection_id?: string
+          conversation_id?: string | null
           created_at?: string
           days_after_send?: number
+          draft_id?: string | null
+          drafted_at?: string | null
+          due_at?: string
           id?: string
-          is_enabled?: boolean
-          message_template?: string | null
+          message_id?: string
+          metadata?: Json
           organization_id?: string
-          step_order?: number
+          replied_at?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
           updated_at?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "follow_up_steps_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       group_feature_overrides: {
         Row: {
@@ -1199,6 +1221,7 @@ export type Database = {
           connected_email: string | null
           created_at: string
           id: string
+          inbox_followup_folder_id: string | null
           is_connected: boolean
           organization_id: string
           provider: string
@@ -1212,6 +1235,7 @@ export type Database = {
           connected_email?: string | null
           created_at?: string
           id?: string
+          inbox_followup_folder_id?: string | null
           is_connected?: boolean
           organization_id: string
           provider: string
@@ -1225,6 +1249,7 @@ export type Database = {
           connected_email?: string | null
           created_at?: string
           id?: string
+          inbox_followup_folder_id?: string | null
           is_connected?: boolean
           organization_id?: string
           provider?: string

@@ -2,370 +2,232 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, Clock, Save, Zap, FileEdit } from 'lucide-react';
+import { Loader2, Copy, Mail, CheckCircle2, Clock, AlertTriangle, RefreshCw, FileEdit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { format, formatDistanceToNow } from 'date-fns';
 
-interface Category {
+interface Tracker {
   id: string;
-  name: string;
-  color: string;
-  is_enabled: boolean;
-  is_follow_up: boolean;
-  ai_draft_enabled: boolean;
-  auto_reply_enabled: boolean;
-  organization_id: string;
-  connection_id: string | null;
-}
-
-interface Step {
-  id: string;
-  category_id: string;
-  step_order: number;
+  subject: string | null;
+  bcc_alias: string;
   days_after_send: number;
-  action: 'draft' | 'auto_send';
-  message_template: string | null;
-  is_enabled: boolean;
+  sent_at: string;
+  due_at: string;
+  status: 'pending' | 'replied' | 'drafted' | 'sent' | 'cancelled';
+  to_recipients: Array<{ emailAddress?: { name?: string; address?: string } }>;
+  drafted_at: string | null;
+  replied_at: string | null;
 }
 
-const COLORS = ['#8B5CF6', '#A855F7', '#D946EF', '#EC4899', '#F43F5E', '#F97316', '#EAB308', '#10B981', '#06B6D4', '#3B82F6'];
+const ALIASES = [2, 3, 5, 7, 10, 14];
+
+const STATUS_META: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }> = {
+  pending:   { label: 'Waiting',  variant: 'outline',     icon: Clock },
+  drafted:   { label: 'Drafted',  variant: 'default',     icon: FileEdit },
+  sent:      { label: 'Sent',     variant: 'default',     icon: CheckCircle2 },
+  replied:   { label: 'Replied',  variant: 'secondary',   icon: CheckCircle2 },
+  cancelled: { label: 'Cancelled',variant: 'outline',     icon: AlertTriangle },
+};
 
 export default function FollowUpsPanel({ organizationId }: { organizationId: string | null }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [stepsByCat, setStepsByCat] = useState<Record<string, Step[]>>({});
+  const [running, setRunning] = useState(false);
+  const [trackers, setTrackers] = useState<Tracker[]>([]);
+  const [domain, setDomain] = useState<string>('energyforward.com');
 
   async function load() {
     if (!organizationId) return;
     setLoading(true);
-    const { data: cats } = await supabase
-      .from('categories')
-      .select('id,name,color,is_enabled,is_follow_up,ai_draft_enabled,auto_reply_enabled,organization_id,connection_id')
+
+    // Discover the org's primary domain from the agent_settings or first connected email
+    const { data: agent } = await supabase
+      .from('agent_settings')
+      .select('shared_mailbox_address')
       .eq('organization_id', organizationId)
-      .eq('is_follow_up', true)
-      .order('sort_order');
-
-    const catList = (cats as Category[]) ?? [];
-    setCategories(catList);
-
-    if (catList.length > 0) {
-      const { data: steps } = await supabase
-        .from('follow_up_steps')
-        .select('id,category_id,step_order,days_after_send,action,message_template,is_enabled')
-        .in('category_id', catList.map((c) => c.id))
-        .order('step_order');
-
-      const grouped: Record<string, Step[]> = {};
-      catList.forEach((c) => { grouped[c.id] = []; });
-      (steps ?? []).forEach((s) => {
-        grouped[s.category_id] = [...(grouped[s.category_id] ?? []), s as Step];
-      });
-      setStepsByCat(grouped);
+      .maybeSingle();
+    if (agent?.shared_mailbox_address?.includes('@')) {
+      setDomain(agent.shared_mailbox_address.split('@')[1]);
     }
+
+    const { data: t } = await supabase
+      .from('follow_up_trackers')
+      .select('id,subject,bcc_alias,days_after_send,sent_at,due_at,status,to_recipients,drafted_at,replied_at')
+      .eq('organization_id', organizationId)
+      .order('due_at', { ascending: false })
+      .limit(50);
+
+    setTrackers((t ?? []) as Tracker[]);
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [organizationId]);
 
-  function updateCategory(id: string, patch: Partial<Category>) {
-    setCategories((prev) => prev.map((c) => c.id === id ? { ...c, ...patch } : c));
+  function copy(text: string) {
+    navigator.clipboard.writeText(text);
+    toast({ title: 'Copied', description: text });
   }
 
-  function updateStep(catId: string, stepId: string, patch: Partial<Step>) {
-    setStepsByCat((prev) => ({
-      ...prev,
-      [catId]: (prev[catId] ?? []).map((s) => s.id === stepId ? { ...s, ...patch } : s),
-    }));
-  }
-
-  function addStep(catId: string) {
-    const existing = stepsByCat[catId] ?? [];
-    if (existing.length >= 3) {
-      toast({ title: 'Max 3 reminders per category', variant: 'destructive' });
-      return;
-    }
-    const order = existing.length + 1;
-    const tempStep: Step = {
-      id: `new-${Date.now()}`,
-      category_id: catId,
-      step_order: order,
-      days_after_send: order * 2,
-      action: 'draft',
-      message_template: 'Polite follow-up — no response yet. Reference the original message.',
-      is_enabled: true,
-    };
-    setStepsByCat((prev) => ({ ...prev, [catId]: [...existing, tempStep] }));
-  }
-
-  function removeStep(catId: string, stepId: string) {
-    setStepsByCat((prev) => ({
-      ...prev,
-      [catId]: (prev[catId] ?? []).filter((s) => s.id !== stepId),
-    }));
-  }
-
-  async function addCategory() {
-    if (!organizationId) return;
-    const conn = categories[0]?.connection_id;
-    if (!conn) {
-      toast({ title: 'Connect a mailbox first to add follow-up categories', variant: 'destructive' });
-      return;
-    }
-    const idx = categories.length + 1;
-    const { data, error } = await supabase
-      .from('categories')
-      .insert({
-        organization_id: organizationId,
-        connection_id: conn,
-        name: `Follow-up · custom ${idx}`,
-        color: COLORS[idx % COLORS.length],
-        is_enabled: true,
-        is_follow_up: true,
-        ai_draft_enabled: true,
-        auto_reply_enabled: false,
-        sort_order: 100 + idx,
-      })
-      .select()
-      .single();
-    if (error) {
-      toast({ title: 'Failed to create', description: error.message, variant: 'destructive' });
-      return;
-    }
-    setCategories((prev) => [...prev, data as Category]);
-    setStepsByCat((prev) => ({ ...prev, [(data as Category).id]: [] }));
-  }
-
-  async function saveAll() {
-    setSaving(true);
+  async function runNow() {
+    setRunning(true);
     try {
-      // Update categories
-      for (const c of categories) {
-        await supabase.from('categories').update({
-          name: c.name,
-          color: c.color,
-          is_enabled: c.is_enabled,
-          ai_draft_enabled: c.ai_draft_enabled,
-          auto_reply_enabled: c.auto_reply_enabled,
-        }).eq('id', c.id);
-      }
-
-      // Reconcile steps: delete missing, upsert present
-      for (const cat of categories) {
-        const currentSteps = stepsByCat[cat.id] ?? [];
-        const { data: existing } = await supabase
-          .from('follow_up_steps')
-          .select('id')
-          .eq('category_id', cat.id);
-        const existingIds = new Set((existing ?? []).map((e) => e.id));
-        const keepIds = new Set(currentSteps.filter((s) => !s.id.startsWith('new-')).map((s) => s.id));
-
-        // Delete removed
-        const toDelete = Array.from(existingIds).filter((id) => !keepIds.has(id));
-        if (toDelete.length > 0) {
-          await supabase.from('follow_up_steps').delete().in('id', toDelete);
-        }
-
-        // Upsert each
-        for (let i = 0; i < currentSteps.length; i++) {
-          const s = currentSteps[i];
-          const payload = {
-            category_id: cat.id,
-            organization_id: cat.organization_id,
-            step_order: i + 1,
-            days_after_send: s.days_after_send,
-            action: s.action,
-            message_template: s.message_template,
-            is_enabled: s.is_enabled,
-          };
-          if (s.id.startsWith('new-')) {
-            await supabase.from('follow_up_steps').insert(payload);
-          } else {
-            await supabase.from('follow_up_steps').update(payload).eq('id', s.id);
-          }
-        }
-      }
-
-      toast({ title: 'Follow-ups saved' });
-      load();
-    } catch (e) {
-      toast({ title: 'Save failed', description: String(e), variant: 'destructive' });
+      const { error } = await supabase.functions.invoke('cron-follow-ups', { body: {} });
+      if (error) throw error;
+      toast({ title: 'Follow-up scan started', description: 'New trackers and drafts will appear in a moment.' });
+      setTimeout(load, 2500);
+    } catch (e: any) {
+      toast({ title: 'Scan failed', description: e?.message ?? String(e), variant: 'destructive' });
     } finally {
-      setSaving(false);
+      setRunning(false);
     }
   }
 
-  async function deleteCategory(id: string) {
-    if (!confirm('Delete this follow-up category and all its reminders?')) return;
-    await supabase.from('categories').delete().eq('id', id);
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    setStepsByCat((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }
-
-  if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
-  }
+  const counts = trackers.reduce(
+    (acc, t) => { acc[t.status] = (acc[t.status] ?? 0) + 1; return acc; },
+    {} as Record<string, number>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Follow-up Reminders</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Smart Follow-ups</h2>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Configure follow-up categories that automatically nudge recipients who haven't replied to your sent emails.
-            Each category can have up to 3 escalating reminder steps with custom days, action, and message tone.
+            BCC any of the addresses below from Outlook (or anywhere) to track an email for follow-up.
+            If the recipient hasn't replied by the due date, the original is moved to your <strong>Follow-up</strong>
+            {' '}folder and an AI nudge is drafted. The BCC stays visible in your sent message so you always know
+            when the original follow-up was scheduled.
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" onClick={addCategory}><Plus className="w-4 h-4 mr-1" /> Add category</Button>
-          <Button onClick={saveAll} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save all
-          </Button>
-        </div>
+        <Button onClick={runNow} disabled={running} variant="outline" className="shrink-0">
+          {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          Run scan now
+        </Button>
       </div>
 
-      {categories.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No follow-up categories yet. Click <strong>Add category</strong> to create one.
-          </CardContent>
-        </Card>
-      ) : (
-        categories.map((cat) => {
-          const steps = stepsByCat[cat.id] ?? [];
-          return (
-            <Card key={cat.id} className="overflow-hidden">
-              <CardHeader className="bg-muted/30">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 grid gap-3 md:grid-cols-3">
-                    <div>
-                      <Label className="text-xs">Name</Label>
-                      <Input value={cat.name} onChange={(e) => updateCategory(cat.id, { name: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Color</Label>
-                      <div className="flex gap-1 flex-wrap mt-1.5">
-                        {COLORS.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => updateCategory(cat.id, { color: c })}
-                            className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
-                            style={{
-                              backgroundColor: c,
-                              borderColor: cat.color === c ? 'hsl(var(--foreground))' : 'transparent',
-                            }}
-                            aria-label={`Color ${c}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-end gap-4">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={cat.is_enabled} onCheckedChange={(v) => updateCategory(cat.id, { is_enabled: v })} />
-                        <Label className="text-xs">Active</Label>
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={() => deleteCategory(cat.id)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+      {/* Aliases */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mail className="w-4 h-4" /> Your follow-up BCC addresses
+          </CardTitle>
+          <CardDescription>
+            Click any address to copy it. Then BCC it on the email you want tracked. Hidden from recipients.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {ALIASES.map((d) => {
+              const addr = `${d}@${domain}`;
+              return (
+                <button
+                  key={d}
+                  onClick={() => copy(addr)}
+                  className="group flex items-center justify-between rounded-lg border bg-card hover:bg-accent transition-colors p-3 text-left"
+                >
+                  <div>
+                    <div className="font-mono text-sm">{addr}</div>
+                    <div className="text-xs text-muted-foreground">Follow up after {d} {d === 1 ? 'day' : 'days'}</div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <Clock className="w-3 h-3" />
-                  Reminder steps fire automatically based on days since the original email was sent.
-                </div>
+                  <Copy className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+                </button>
+              );
+            })}
+          </div>
 
-                {steps.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No reminder steps. Add one below.</p>
-                ) : (
-                  steps.map((step, idx) => (
-                    <div key={step.id} className="rounded-lg border p-4 space-y-3 bg-card">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Step {idx + 1}</Badge>
-                          <Switch
-                            checked={step.is_enabled}
-                            onCheckedChange={(v) => updateStep(cat.id, step.id, { is_enabled: v })}
-                          />
-                          <span className="text-xs text-muted-foreground">{step.is_enabled ? 'Active' : 'Disabled'}</span>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => removeStep(cat.id, step.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
+          <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-4 text-sm">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-2">
+                <p className="font-medium">One-time Microsoft 365 setup required</p>
+                <p className="text-muted-foreground">
+                  For these BCC addresses to actually deliver, your M365 admin needs to create
+                  6 mail-enabled aliases (<code className="font-mono text-xs">2@</code>, <code className="font-mono text-xs">3@</code>, <code className="font-mono text-xs">5@</code>, <code className="font-mono text-xs">7@</code>, <code className="font-mono text-xs">10@</code>, <code className="font-mono text-xs">14@{domain}</code>) — each forwarding to a single
+                  inbox (the agent mailbox is fine). The system only needs the BCC trail; it does not need to read those mailboxes.
+                </p>
+                <p className="text-muted-foreground">
+                  Easiest: in Exchange admin → <em>Mail flow → Rules</em>, create one rule that matches recipient
+                  addresses <code className="font-mono text-xs">2@, 3@, 5@, 7@, 10@, 14@{domain}</code> and BCCs/forwards to
+                  <code className="font-mono text-xs"> agent@{domain}</code>. Or create them as distribution groups with no members.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tracker list */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">Tracked emails</CardTitle>
+              <CardDescription>
+                {trackers.length === 0 ? 'No emails tracked yet.' : `${trackers.length} most recent`}
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(['pending', 'drafted', 'replied', 'sent'] as const).map((s) => {
+                const M = STATUS_META[s];
+                return (
+                  <Badge key={s} variant={M.variant} className="gap-1">
+                    <M.icon className="w-3 h-3" /> {M.label}: {counts[s] ?? 0}
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : trackers.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-12">
+              Nothing tracked yet. BCC one of the addresses above on your next email and click <strong>Run scan now</strong>.
+            </div>
+          ) : (
+            <div className="divide-y">
+              {trackers.map((t) => {
+                const M = STATUS_META[t.status] ?? STATUS_META.pending;
+                const recipient = t.to_recipients?.[0]?.emailAddress?.address ?? '—';
+                const due = new Date(t.due_at);
+                const overdue = t.status === 'pending' && due < new Date();
+                return (
+                  <div key={t.id} className="py-3 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{t.subject ?? '(no subject)'}</span>
+                        <Badge variant="outline" className="font-mono text-[10px]">{t.bcc_alias}</Badge>
                       </div>
-
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div>
-                          <Label className="text-xs">Trigger after (days)</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={365}
-                            value={step.days_after_send}
-                            onChange={(e) => updateStep(cat.id, step.id, { days_after_send: Math.max(1, parseInt(e.target.value) || 1) })}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Action</Label>
-                          <Select
-                            value={step.action}
-                            onValueChange={(v) => updateStep(cat.id, step.id, { action: v as 'draft' | 'auto_send' })}
-                          >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="draft">
-                                <span className="flex items-center gap-2"><FileEdit className="w-3 h-3" /> Create AI draft</span>
-                              </SelectItem>
-                              <SelectItem value="auto_send">
-                                <span className="flex items-center gap-2"><Zap className="w-3 h-3" /> Auto-send reminder</span>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-end">
-                          <Badge variant={step.action === 'auto_send' ? 'default' : 'outline'} className="text-xs">
-                            {step.action === 'auto_send' ? '⚡ Sends automatically' : '✏️ User reviews draft'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Message instructions for AI</Label>
-                        <Textarea
-                          rows={2}
-                          placeholder="e.g. Polite nudge referencing the original message and asking for a quick update."
-                          value={step.message_template ?? ''}
-                          onChange={(e) => updateStep(cat.id, step.id, { message_template: e.target.value })}
-                        />
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        To <span className="font-mono">{recipient}</span> · sent {format(new Date(t.sent_at), 'MMM d')}
+                        {' · '}
+                        {overdue ? (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            overdue by {formatDistanceToNow(due)}
+                          </span>
+                        ) : t.status === 'pending' ? (
+                          <span>due {formatDistanceToNow(due, { addSuffix: true })}</span>
+                        ) : t.status === 'drafted' && t.drafted_at ? (
+                          <span>drafted {formatDistanceToNow(new Date(t.drafted_at), { addSuffix: true })}</span>
+                        ) : t.status === 'replied' && t.replied_at ? (
+                          <span>replied {formatDistanceToNow(new Date(t.replied_at), { addSuffix: true })}</span>
+                        ) : null}
                       </div>
                     </div>
-                  ))
-                )}
-
-                {steps.length < 3 && (
-                  <Button variant="outline" size="sm" onClick={() => addStep(cat.id)}>
-                    <Plus className="w-3 h-3 mr-1" /> Add reminder step ({steps.length}/3)
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })
-      )}
+                    <Badge variant={M.variant} className="gap-1 shrink-0">
+                      <M.icon className="w-3 h-3" /> {M.label}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
