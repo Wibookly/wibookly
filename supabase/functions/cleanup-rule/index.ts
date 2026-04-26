@@ -533,7 +533,7 @@ serve(async (req) => {
           console.log(`Gmail label "${labelName}" not found`);
           results.push({ provider: 'google', emailsProcessed: 0, filterDeleted: false });
         }
-      } else if (tokenData.provider === 'microsoft') {
+      } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
         const folderId = await getOutlookFolderId(accessToken, labelName);
         
         if (folderId) {
