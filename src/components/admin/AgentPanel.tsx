@@ -91,8 +91,8 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
     }
   }, [organizationId]);
 
-  async function handleSave() {
-    if (!settings) return;
+  async function handleSave(silent = false): Promise<boolean> {
+    if (!settings) return false;
     setSaving(true);
     const domains = domainsInput
       .split(/[\s,]+/)
@@ -119,31 +119,29 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
     setSaving(false);
     if (error || data?.error) {
       toast({ title: 'Save failed', description: error?.message || data?.error, variant: 'destructive' });
-      return;
+      return false;
     }
     setSettings(data.settings);
     setSavedSettings(data.settings);
     setDomainsInput((data.settings.allowed_sender_domains ?? []).join(', '));
-    toast({ title: 'Settings saved' });
+    if (!silent) toast({ title: 'Settings saved' });
+    return true;
   }
 
   async function handleCreateSubscription() {
-    if (!hasSavedSubscriptionFields) {
+    if (!hasLocalSubscriptionFields) {
       toast({
-        title: 'Save settings first',
-        description: 'Enter the shared mailbox user ID and Microsoft tenant ID, then click Save settings before creating the webhook.',
+        title: 'Missing fields',
+        description: 'Enter the shared mailbox user ID and Microsoft tenant ID before creating the webhook.',
         variant: 'destructive',
       });
       return;
     }
 
-    if (hasUnsavedSubscriptionChanges) {
-      toast({
-        title: 'Unsaved changes',
-        description: 'Your mailbox or tenant IDs changed locally. Click Save settings, then create the webhook.',
-        variant: 'destructive',
-      });
-      return;
+    // Auto-save first so the edge function can read the persisted row.
+    if (!hasSavedSubscriptionFields || hasUnsavedSubscriptionChanges) {
+      const ok = await handleSave(true);
+      if (!ok) return;
     }
 
     setCreating(true);
