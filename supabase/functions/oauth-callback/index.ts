@@ -99,7 +99,7 @@ serve(async (req) => {
       tokens = result.tokens;
       exchangeError = result.error;
     } else if (provider === 'outlook') {
-      const result = await exchangeMicrosoftCode(code, supabaseUrl);
+      const result = await exchangeMicrosoftCode(code, supabaseUrl, stateData.microsoftTenantId);
       tokens = result.tokens;
       exchangeError = result.error;
     } else {
@@ -343,7 +343,7 @@ async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<Ex
   return { tokens: await response.json(), error: null };
 }
 
-async function exchangeMicrosoftCode(code: string, supabaseUrl: string): Promise<ExchangeResult> {
+async function exchangeMicrosoftCode(code: string, supabaseUrl: string, tenantId?: string): Promise<ExchangeResult> {
   const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
   const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
   const clientSecret = clientSecretRaw?.trim();
@@ -373,7 +373,9 @@ async function exchangeMicrosoftCode(code: string, supabaseUrl: string): Promise
     console.error('MICROSOFT_CLIENT_SECRET looks like a Secret ID (UUID), not a Secret VALUE!');
   }
 
-  const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+  const tenantSegment = tenantId?.trim() || 'common';
+
+  const response = await fetch(`https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({

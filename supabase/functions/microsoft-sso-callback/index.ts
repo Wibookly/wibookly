@@ -58,7 +58,12 @@ serve(async (req) => {
       return redirect(`${appUrl}/auth?error=${encodeURIComponent('Authentication is not configured correctly.')}`);
     }
 
-    const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    const tenantIdFromState = typeof stateData.tenantId === 'string' && stateData.tenantId.trim()
+      ? stateData.tenantId.trim()
+      : null;
+    const tenantSegment = tenantIdFromState || 'common';
+
+    const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -171,18 +176,47 @@ serve(async (req) => {
 
       organizationId = existingProfile?.organization_id ?? null;
 
-      if (inviteToken && existingProfile?.domain_id == null) {
+      if (inviteToken) {
         const { data: invitation } = await adminClient
           .from('user_invitations')
-          .select('domain_id')
+          .select('organization_id, domain_id, group_id')
           .eq('token', inviteToken)
           .maybeSingle();
 
-        if (invitation?.domain_id) {
+        if (invitation) {
           await adminClient
             .from('user_profiles')
-            .update({ domain_id: invitation.domain_id, email, full_name: fullName || undefined })
-            .eq('user_id', userId);
+            .upsert({
+              user_id: userId,
+              email,
+              full_name: fullName || null,
+              organization_id: invitation.organization_id,
+              domain_id: invitation.domain_id,
+              microsoft_auto_connect: false,
+              requires_outlook_connect: false,
+            }, { onConflict: 'user_id' });
+
+          await adminClient
+            .from('organization_members')
+            .upsert({ user_id: userId, organization_id: invitation.organization_id, role: 'member' }, { onConflict: 'user_id,organization_id' });
+
+          await adminClient
+            .from('user_roles')
+            .upsert({ user_id: userId, organization_id: invitation.organization_id, role: 'member' }, { onConflict: 'user_id,organization_id,role' });
+
+          if (invitation.group_id) {
+            await adminClient
+              .from('user_group_memberships')
+              .upsert({ user_id: userId, organization_id: invitation.organization_id, group_id: invitation.group_id }, { onConflict: 'user_id,group_id' });
+          }
+
+          await adminClient
+            .from('discovered_tenant_users')
+            .update({ status: 'active', invited_user_id: userId, invited_at: new Date().toISOString() })
+            .eq('email', email)
+            .eq('domain_id', invitation.domain_id || '');
+
+          organizationId = invitation.organization_id;
         }
       }
     } else {
