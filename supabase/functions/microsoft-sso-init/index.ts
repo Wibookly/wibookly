@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email, inviteToken } = await req.json();
     
     if (!email) {
       return new Response(
@@ -36,6 +36,7 @@ serve(async (req) => {
 
     // Check super admin or allowed domain
     const isSuperAdmin = email.toLowerCase() === 'arahimi@energyforward.com';
+    let tenantId = 'common';
     
     if (!isSuperAdmin) {
       const { data: domainData } = await adminClient
@@ -59,7 +60,43 @@ serve(async (req) => {
         );
       }
 
-      const tenantId = domainData.microsoft_tenant_id || 'common';
+      tenantId = domainData.microsoft_tenant_id || 'common';
+    }
+
+    if (inviteToken) {
+      const { data: invitation } = await adminClient
+        .from('user_invitations')
+        .select('token, email, expires_at, used_at')
+        .eq('token', inviteToken)
+        .maybeSingle();
+
+      if (!invitation) {
+        return new Response(
+          JSON.stringify({ error: 'This invitation link is invalid.' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (invitation.used_at) {
+        return new Response(
+          JSON.stringify({ error: 'This invitation has already been used. Please sign in normally.' }),
+          { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (new Date(invitation.expires_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'This invitation has expired. Please ask your administrator to resend it.' }),
+          { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+        return new Response(
+          JSON.stringify({ error: 'Invitation email does not match this Microsoft account.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
@@ -78,6 +115,7 @@ serve(async (req) => {
       state,
       email,
       appOrigin: req.headers.get('origin') || undefined,
+      inviteToken: inviteToken || undefined,
     }));
 
     const params = new URLSearchParams({
@@ -91,15 +129,7 @@ serve(async (req) => {
       prompt: 'select_account',
     });
 
-      const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
-
-      return new Response(
-        JSON.stringify({ authUrl }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
 
     return new Response(
       JSON.stringify({ authUrl }),
