@@ -609,7 +609,7 @@ serve(async (req) => {
 
         // Delete labels/folders for disabled categories
         for (const category of disabledCategories) {
-          const labelName = `${category.sort_order + 1}: ${category.name}`;
+          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
