@@ -593,7 +593,9 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     for (const dup of toDelete) {
       console.log(`Deduplicating Outlook folder "${dup.displayName}" into "${folderName}"`);
       try {
-        await moveOutlookFolderMessages(accessToken, dup.id, dup.displayName, canonical.id, folderName);
+        if (canonical?.id) {
+          await moveOutlookFolderMessages(accessToken, dup.id, dup.displayName, canonical.id, folderName);
+        }
       } catch (moveErr) {
         console.error(`Failed moving messages from duplicate folder "${dup.displayName}":`, moveErr);
       }
@@ -738,7 +740,7 @@ serve(async (req) => {
       );
     }
 
-    const results: { provider: string; created: number; deleted: number; failed: number }[] = [];
+    const results: { provider: string; created: number; deleted: number; failed: number; error?: string }[] = [];
     const syncedCategoryIds: string[] = [];
 
     // Process each connected provider
@@ -754,7 +756,13 @@ serve(async (req) => {
         
         if (!accessToken) {
           console.error(`Could not get valid access token for ${tokenRecord.provider}`);
-          results.push({ provider: tokenRecord.provider, created: 0, deleted: 0, failed: enabledCategories.length });
+          results.push({
+            provider: tokenRecord.provider,
+            created: 0,
+            deleted: 0,
+            failed: enabledCategories.length + disabledCategories.length,
+            error: 'Reconnect your Microsoft mailbox, then run Re-sync All again.'
+          });
           continue;
         }
         let created = 0;
@@ -893,7 +901,13 @@ serve(async (req) => {
         results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
-        results.push({ provider: tokenRecord.provider, created: 0, deleted: 0, failed: enabledCategories.length });
+        results.push({
+          provider: tokenRecord.provider,
+          created: 0,
+          deleted: 0,
+          failed: enabledCategories.length + disabledCategories.length,
+          error: error instanceof Error ? error.message : 'Unknown sync error'
+        });
       }
     }
 
