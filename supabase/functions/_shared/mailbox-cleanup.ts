@@ -526,3 +526,30 @@ export async function purgeUserConnectionData(adminClient: SupabaseClient, userI
   await adminClient.from('oauth_token_vault').delete().eq('user_id', userId);
   await adminClient.from('provider_connections').delete().eq('user_id', userId);
 }
+
+export async function purgeProviderConnectionData(
+  adminClient: SupabaseClient,
+  userId: string,
+  provider: string,
+): Promise<void> {
+  const normalizedProvider = normalizeProvider(provider);
+  const { data: connections } = await adminClient
+    .from('provider_connections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', normalizedProvider);
+
+  const connectionIds = (connections ?? []).map((connection: { id: string }) => connection.id);
+  if (connectionIds.length > 0) {
+    await adminClient.from('availability_hours').delete().in('connection_id', connectionIds);
+    await adminClient.from('email_profiles').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_settings').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_activity_logs').delete().in('connection_id', connectionIds);
+    await adminClient.from('ai_chat_conversations').delete().in('connection_id', connectionIds);
+    await adminClient.from('rules').delete().in('connection_id', connectionIds);
+    await adminClient.from('categories').delete().in('connection_id', connectionIds);
+  }
+
+  await adminClient.from('oauth_token_vault').delete().eq('user_id', userId).eq('provider', normalizedProvider);
+  await adminClient.from('provider_connections').delete().eq('user_id', userId).eq('provider', normalizedProvider);
+}
