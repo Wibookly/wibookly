@@ -22,6 +22,8 @@ const FEATURE_KEYS = [
   { key: 'reports', label: 'AI Activity Reports' },
   { key: 'ai_model_chatgpt', label: 'ChatGPT Model' },
   { key: 'ai_model_claude', label: 'Claude Model' },
+  { key: 'email_agent', label: 'Email Agent' },
+  { key: 'teams_agent', label: 'Teams Agent' },
 ] as const;
 
 const GLOBAL_GROUP_VALUE = '__global__';

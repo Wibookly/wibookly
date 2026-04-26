@@ -8,7 +8,9 @@ export type FeatureKey =
   | 'ai_assistant'
   | 'reports'
   | 'ai_model_chatgpt'
-  | 'ai_model_claude';
+  | 'ai_model_claude'
+  | 'email_agent'
+  | 'teams_agent';
 
 const ALL_FEATURES: FeatureKey[] = [
   'ai_draft',
@@ -17,6 +19,8 @@ const ALL_FEATURES: FeatureKey[] = [
   'reports',
   'ai_model_chatgpt',
   'ai_model_claude',
+  'email_agent',
+  'teams_agent',
 ];
 
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';

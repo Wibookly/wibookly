@@ -28,6 +28,8 @@ const FEATURE_KEYS = [
   { key: 'ai_auto_reply', label: 'AI Auto Reply', description: 'Automatic AI email replies' },
   { key: 'ai_assistant', label: 'AI Chat', description: 'Daily Brief & AI Chat' },
   { key: 'reports', label: 'AI Activity Reports', description: 'AI activity reports & analytics' },
+  { key: 'email_agent', label: 'Email Agent', description: 'AI replies to emails sent to the shared agent mailbox' },
+  { key: 'teams_agent', label: 'Teams Agent', description: 'AI responds to @mentions and DMs in Microsoft Teams' },
 ] as const;
 
 const AI_MODEL_KEYS = [
