@@ -146,6 +146,10 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
   const subActive = settings.graph_subscription_id && settings.graph_subscription_expires_at &&
     new Date(settings.graph_subscription_expires_at) > new Date();
 
+  const canCreateSubscription = Boolean(
+    settings.shared_mailbox_user_id?.trim() && settings.teams_tenant_id?.trim()
+  );
+
   return (
     <div className="space-y-6">
       {/* Email Agent */}
