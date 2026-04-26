@@ -100,10 +100,15 @@ export default function FollowUpsPanel({ organizationId }: { organizationId: str
             when the original follow-up was scheduled.
           </p>
         </div>
-        <Button onClick={runNow} disabled={running} variant="outline" className="shrink-0">
-          {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          Run scan now
-        </Button>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <Button onClick={runNow} disabled={running} variant="outline">
+            {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Run scan now
+          </Button>
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Clock className="w-3 h-3" /> Auto-runs every 15 min
+          </span>
+        </div>
       </div>
 
       {/* Aliases */}
