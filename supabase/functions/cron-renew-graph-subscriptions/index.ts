@@ -53,12 +53,13 @@ Deno.serve(async (req) => {
   const results: Array<{ org: string; status: string; detail?: string }> = [];
 
   for (const s of settingsList ?? []) {
-    if (!s.teams_tenant_id) {
+    const tenantId = s.teams_tenant_id || Deno.env.get('MICROSOFT_TENANT_ID') || '';
+    if (!tenantId) {
       results.push({ org: s.organization_id, status: 'skip_no_tenant' });
       continue;
     }
     try {
-      const token = await getAppToken(s.teams_tenant_id);
+      const token = await getAppToken(tenantId);
       const newExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 2 - 60_000).toISOString();
       const res = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${s.graph_subscription_id}`, {
         method: 'PATCH',
