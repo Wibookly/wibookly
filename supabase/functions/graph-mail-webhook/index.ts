@@ -228,7 +228,7 @@ async function processNotification(n: GraphNotification) {
 
   // Generate AI reply
   const question = stripHtml(msg.body?.content ?? msg.bodyPreview ?? '');
-  const replyHtml = await generateAIReply(question, senderEmail);
+  const replyHtml = await generateAIReply(question, senderEmail, settings.organization_id);
 
   await replyToMessage(token, settings.shared_mailbox_user_id, messageId, replyHtml);
 
