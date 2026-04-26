@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Landing page for invitation links sent via email.
- * Hits the accept-invitation edge function which validates the token,
- * provisions the auth user, and immediately redirects via a magic link.
+ * Validates the invitation token, then starts the Microsoft sign-in flow so the
+ * user lands in the app with Outlook already connected.
  */
 export default function AcceptInvitation() {
   const [params] = useSearchParams();
@@ -19,16 +19,72 @@ export default function AcceptInvitation() {
   const [email, setEmail] = useState<string>('');
 
   useEffect(() => {
-    if (!token) {
-      setStatus('invalid');
-      setMessage('This invitation link is missing required information.');
-      return;
-    }
-    // The GET endpoint of accept-invitation does the full server-side flow
-    // and 302-redirects to the magic link. We just navigate there.
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation?token=${encodeURIComponent(token)}`;
-    setStatus('redirecting');
-    window.location.replace(url);
+    let cancelled = false;
+
+    const startInvitationFlow = async () => {
+      if (!token) {
+        setStatus('invalid');
+        setMessage('This invitation link is missing required information.');
+        return;
+      }
+
+      setStatus('loading');
+
+      const validateResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-invitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ token, validate_only: true }),
+      });
+
+      const validation = await validateResponse.json().catch(() => ({}));
+
+      if (cancelled) return;
+
+      if (!validateResponse.ok || !validation?.valid || !validation?.email) {
+        if (validateResponse.status === 410 && validation?.already_used) {
+          setStatus('used');
+          setEmail(validation.email || '');
+          setMessage(validation.error || 'This invitation has already been used. Please sign in normally.');
+          return;
+        }
+
+        if (validateResponse.status === 410 && validation?.expired) {
+          setStatus('expired');
+          setMessage(validation.error || 'This invitation has expired. Please ask your administrator to resend it.');
+          return;
+        }
+
+        setStatus('invalid');
+        setMessage(validation.error || 'This invitation link is invalid.');
+        return;
+      }
+
+      setEmail(validation.email);
+      setStatus('redirecting');
+
+      const response = await supabase.functions.invoke('microsoft-sso-init', {
+        body: { email: validation.email, inviteToken: token },
+      });
+
+      if (cancelled) return;
+
+      if (response.error || response.data?.error || !response.data?.authUrl) {
+        setStatus('invalid');
+        setMessage(response.error?.message || response.data?.error || 'Could not start Microsoft sign-in.');
+        return;
+      }
+
+      window.location.replace(response.data.authUrl);
+    };
+
+    void startInvitationFlow();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   // Fallback UI if redirect is slow / blocked.
