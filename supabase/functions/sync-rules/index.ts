@@ -435,6 +435,23 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     }
 
     const { value: existingRules } = await listRes.json();
+
+    // Clean up legacy rules from old branding (Wibookly) for the same rule semantics
+    const legacyRule = existingRules?.find((r: { displayName: string }) =>
+      r.displayName === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`
+    );
+    if (legacyRule) {
+      try {
+        await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${legacyRule.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        console.log(`Deleted legacy Outlook rule "${legacyRule.displayName}"`);
+      } catch (err) {
+        console.error('Failed to delete legacy rule:', err);
+      }
+    }
+
     const exists = existingRules?.some((r: { displayName: string }) => r.displayName === ruleName);
 
     if (exists) {
