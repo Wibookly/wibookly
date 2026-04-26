@@ -152,13 +152,14 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('organization_id', profile.organization_id)
         .maybeSingle();
-      if (!settings || !settings.shared_mailbox_user_id || !settings.teams_tenant_id) {
+      const tenantId = settings?.teams_tenant_id || MS_TENANT_ID_FALLBACK;
+      if (!settings || !settings.shared_mailbox_user_id || !tenantId) {
         return errorResponse(400, 'Shared mailbox user id and tenant id required');
       }
 
       let token: string;
       try {
-        token = await getAppToken(settings.teams_tenant_id);
+        token = await getAppToken(tenantId);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Token exchange failed';
         const invalidClient = message.includes('AADSTS7000215') || message.includes('invalid_client');
