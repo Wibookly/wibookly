@@ -30,6 +30,25 @@ async function getAppToken(tenantId: string): Promise<string> {
   return (await res.json()).access_token;
 }
 
+async function getGraphAccessDiagnostic(token: string, mailboxUserId: string) {
+  const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxUserId)}?$select=id,mail,userPrincipalName`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  let detail: unknown = null;
+  try {
+    detail = await res.json();
+  } catch {
+    detail = await res.text();
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    detail,
+  };
+}
+
 function errorResponse(status: number, error: string, detail?: unknown) {
   return new Response(JSON.stringify({ error, detail }), {
     status,
@@ -168,6 +187,22 @@ Deno.serve(async (req) => {
 
       const subData = await subRes.json();
       if (!subRes.ok) {
+        if (subRes.status === 403) {
+          const diagnostic = await getGraphAccessDiagnostic(token, settings.shared_mailbox_user_id);
+          const graphMessage = typeof subData?.error?.message === 'string' ? subData.error.message : null;
+
+          return errorResponse(
+            403,
+            'Microsoft Graph access denied. In Azure, add Microsoft Graph application permission Mail.Read and grant admin consent for the app. Also confirm the shared mailbox user ID/email belongs to this tenant.',
+            {
+              subscription_error: subData,
+              mailbox_access_check: diagnostic,
+              hint: graphMessage?.includes('Access is denied')
+                ? 'The app secret is working, but Microsoft is blocking mailbox access or subscription creation for this mailbox.'
+                : 'Check Microsoft Graph application permissions and the mailbox identifier entered in Admin → AI Agent.',
+            }
+          );
+        }
         return errorResponse(500, 'Graph subscription failed', subData);
       }
 
