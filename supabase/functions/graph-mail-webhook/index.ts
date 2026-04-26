@@ -67,17 +67,77 @@ async function replyToMessage(token: string, mailboxUserId: string, messageId: s
   if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
 }
 
-async function generateAIReply(question: string, senderEmail: string): Promise<string> {
+async function buildCompanyContext(organizationId: string): Promise<string> {
+  // Pull rules, categories, and recent activity to give the AI real org context
+  const [{ data: cats }, { data: rules }, { data: connections }, { data: recentActivity }] = await Promise.all([
+    supabase.from('categories').select('name,color,is_enabled,ai_draft_enabled,auto_reply_enabled,writing_style').eq('organization_id', organizationId).limit(50),
+    supabase.from('rules').select('rule_type,rule_value,subject_contains,body_contains,is_enabled,category_id').eq('organization_id', organizationId).limit(100),
+    supabase.from('provider_connections').select('connected_email,provider,is_connected').eq('organization_id', organizationId).limit(50),
+    supabase.from('ai_activity_logs').select('category_name,activity_type,email_subject,email_from,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(20),
+  ]);
+
+  const lines: string[] = [];
+  lines.push(`Organization has ${connections?.length ?? 0} connected mailboxes:`);
+  (connections ?? []).forEach((c) => lines.push(`  - ${c.connected_email} (${c.provider}, ${c.is_connected ? 'connected' : 'disconnected'})`));
+
+  lines.push(`\nEmail categories (${cats?.length ?? 0}):`);
+  (cats ?? []).forEach((c) =>
+    lines.push(`  - ${c.name} [${c.is_enabled ? 'on' : 'off'}${c.ai_draft_enabled ? ', AI drafts on' : ''}${c.auto_reply_enabled ? ', auto-reply on' : ''}]`)
+  );
+
+  lines.push(`\nCategorization rules (${rules?.length ?? 0}):`);
+  (rules ?? []).slice(0, 30).forEach((r) => {
+    const cat = (cats ?? []).find((c: any) => false); // category id->name not joined here
+    const detail =
+      r.rule_type === 'sender' ? `from "${r.rule_value}"`
+      : r.rule_type === 'recipient' ? `to "${r.rule_value}"`
+      : r.subject_contains ? `subject contains "${r.subject_contains}"`
+      : r.body_contains ? `body contains "${r.body_contains}"`
+      : r.rule_value;
+    lines.push(`  - ${r.is_enabled ? '✓' : '✗'} ${detail}`);
+  });
+
+  if (recentActivity && recentActivity.length > 0) {
+    lines.push(`\nRecent AI activity:`);
+    recentActivity.slice(0, 10).forEach((a) =>
+      lines.push(`  - ${a.activity_type} on "${a.email_subject ?? '(no subject)'}" from ${a.email_from ?? '?'} → ${a.category_name}`)
+    );
+  }
+
+  return lines.join('\n');
+}
+
+async function generateAIReply(question: string, senderEmail: string, organizationId: string): Promise<string> {
+  let companyContext = '';
+  try {
+    companyContext = await buildCompanyContext(organizationId);
+  } catch (e) {
+    console.error('context build failed', e);
+  }
+
+  const systemPrompt = `You are InboxIQ, the internal AI assistant for this organization. You're replying via email to ${senderEmail}, an internal team member.
+
+You have access to live company data below. Use it to answer questions about:
+- Connected email accounts and integrations
+- Email categorization rules and categories
+- Recent AI activity (drafts, sent emails, categorizations)
+- Inbox organization and best practices
+
+If asked about something not in the context, say so honestly.
+
+Reply in clean HTML suitable for email — short paragraphs, <ul> lists where helpful, no <html> or <body> wrapper. Be concise and professional.
+
+=== LIVE COMPANY CONTEXT ===
+${companyContext}
+=== END CONTEXT ===`;
+
   const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        {
-          role: 'system',
-          content: `You are InboxIQ, an internal AI assistant replying to ${senderEmail}. Be concise, professional, helpful. Reply in HTML format suitable for email.`,
-        },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: question },
       ],
     }),
@@ -168,7 +228,7 @@ async function processNotification(n: GraphNotification) {
 
   // Generate AI reply
   const question = stripHtml(msg.body?.content ?? msg.bodyPreview ?? '');
-  const replyHtml = await generateAIReply(question, senderEmail);
+  const replyHtml = await generateAIReply(question, senderEmail, settings.organization_id);
 
   await replyToMessage(token, settings.shared_mailbox_user_id, messageId, replyHtml);
 
