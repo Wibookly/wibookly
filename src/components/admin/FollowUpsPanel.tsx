@@ -139,21 +139,57 @@ export default function FollowUpsPanel({ organizationId }: { organizationId: str
           <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-4 text-sm">
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p className="font-medium">One-time Microsoft 365 setup required</p>
                 <p className="text-muted-foreground">
-                  For these BCC addresses to actually deliver, your M365 admin needs to create
-                  6 mail-enabled aliases (<code className="font-mono text-xs">2@</code>, <code className="font-mono text-xs">3@</code>, <code className="font-mono text-xs">5@</code>, <code className="font-mono text-xs">7@</code>, <code className="font-mono text-xs">10@</code>, <code className="font-mono text-xs">14@{domain}</code>) — each forwarding to a single
-                  inbox (the agent mailbox is fine). The system only needs the BCC trail; it does not need to read those mailboxes.
+                  For these BCC addresses to deliver, your M365 admin needs ONE Exchange mail-flow rule that catches
+                  the 6 numeric addresses and BCCs them to <code className="font-mono text-xs">agent@{domain}</code>.
+                  No new mailboxes required.
                 </p>
-                <p className="text-muted-foreground">
-                  Easiest: in Exchange admin → <em>Mail flow → Rules</em>, create one rule that matches recipient
-                  addresses <code className="font-mono text-xs">2@, 3@, 5@, 7@, 10@, 14@{domain}</code> and BCCs/forwards to
-                  <code className="font-mono text-xs"> agent@{domain}</code>. Or create them as distribution groups with no members.
-                </p>
+                <div className="rounded bg-background border p-3 space-y-1.5 text-xs">
+                  <p className="font-medium text-foreground">Exchange admin → Mail flow → Rules → New rule:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                    <li>Name: <code className="font-mono">InboxIQ Follow-up BCC capture</code></li>
+                    <li>Apply if: <em>The recipient address matches any of these patterns</em>:
+                      <div className="ml-5 mt-1 font-mono">
+                        2@{domain}<br />3@{domain}<br />5@{domain}<br />7@{domain}<br />10@{domain}<br />14@{domain}
+                      </div>
+                    </li>
+                    <li>Do the following: <em>Bcc the message to</em> → <code className="font-mono">agent@{domain}</code></li>
+                    <li>Save & enable. Done — BCCs now route to the agent inbox while staying invisible to recipients.</li>
+                  </ol>
+                </div>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Microsoft consent / reconnect prompt */}
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-4 h-4" /> Action required: Microsoft consent
+          </CardTitle>
+          <CardDescription>
+            Recent logs show the test mailbox token can't refresh because Microsoft is asking for consent again
+            (<code className="font-mono text-xs">AADSTS65001</code>). Until this is resolved, AI drafts, auto-replies,
+            agent inbox processing, and follow-up scanning all stop working for that user.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Re-grant tenant-wide admin consent</strong> for the InboxIQ app
+              from the <em>Domains</em> tab → click <em>Re-run Microsoft consent</em>. This refreshes permissions
+              for everyone in your tenant in one shot.
+            </li>
+            <li>
+              Then have the affected user open <code className="font-mono text-xs">/integrations</code>, click
+              <strong className="text-foreground"> Disconnect</strong> on Outlook, and connect again. This issues a fresh
+              token that includes the new permissions.
+            </li>
+          </ol>
         </CardContent>
       </Card>
 
