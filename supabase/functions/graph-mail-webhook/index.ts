@@ -1,4 +1,5 @@
 // Microsoft Graph webhook receiver for the shared Email Agent mailbox.
+// PUBLIC ENDPOINT — verify_jwt = false (set in supabase/config.toml).
 // Flow:
 // 1. Graph POSTs change notifications when new mail lands in the shared mailbox.
 // 2. We fetch each new message via Graph using app-only credentials (client credentials grant).

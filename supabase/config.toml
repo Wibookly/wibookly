@@ -1,13 +1,25 @@
 project_id = "jbzctydskdpzrejvpwpn"
 
 [functions]
+  [functions.accept-invitation]
+    verify_jwt = false
   [functions.admin-api]
     verify_jwt = false
+  [functions.agent-setup]
+    verify_jwt = true
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.cleanup-rule]
     verify_jwt = false
+  [functions.discover-tenant-users]
+    verify_jwt = false
   [functions.draft-email]
+    verify_jwt = false
+  [functions.graph-mail-webhook]
+    verify_jwt = false
+  [functions.handle-email-suppression]
+    verify_jwt = false
+  [functions.handle-email-unsubscribe]
     verify_jwt = false
   [functions.log-calendar-event]
     verify_jwt = false
@@ -21,31 +33,19 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.oauth-init]
     verify_jwt = false
+  [functions.preview-transactional-email]
+    verify_jwt = false
   [functions.process-ai-emails]
     verify_jwt = false
   [functions.process-email-queue]
     verify_jwt = true
-  [functions.send-transactional-email]
-    verify_jwt = true
-  [functions.preview-transactional-email]
-    verify_jwt = false
-  [functions.handle-email-unsubscribe]
-    verify_jwt = false
-  [functions.handle-email-suppression]
-    verify_jwt = false
-  [functions.discover-tenant-users]
-    verify_jwt = false
-  [functions.accept-invitation]
-    verify_jwt = false
   [functions.process-sync-job]
     verify_jwt = false
+  [functions.send-transactional-email]
+    verify_jwt = true
   [functions.sync-categories]
     verify_jwt = false
   [functions.sync-rules]
     verify_jwt = false
-  [functions.graph-mail-webhook]
-    verify_jwt = false
   [functions.teams-bot]
     verify_jwt = false
-  [functions.agent-setup]
-    verify_jwt = true
