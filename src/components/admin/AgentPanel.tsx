@@ -41,6 +41,7 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
+  const [savedSettings, setSavedSettings] = useState<AgentSettings | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [domainsInput, setDomainsInput] = useState('');
 
@@ -51,6 +52,7 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
     });
     if (!error && data?.settings) {
       setSettings(data.settings);
+      setSavedSettings(data.settings);
       setDomainsInput((data.settings.allowed_sender_domains ?? []).join(', '));
     } else if (organizationId) {
       // Initialize empty
@@ -66,6 +68,7 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
         graph_subscription_id: null,
         graph_subscription_expires_at: null,
       });
+      setSavedSettings(null);
     }
     setLoading(false);
   }
@@ -114,10 +117,30 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
       return;
     }
     setSettings(data.settings);
+    setSavedSettings(data.settings);
+    setDomainsInput((data.settings.allowed_sender_domains ?? []).join(', '));
     toast({ title: 'Settings saved' });
   }
 
   async function handleCreateSubscription() {
+    if (!hasSavedSubscriptionFields) {
+      toast({
+        title: 'Save settings first',
+        description: 'Enter the shared mailbox user ID and Microsoft tenant ID, then click Save settings before creating the webhook.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (hasUnsavedSubscriptionChanges) {
+      toast({
+        title: 'Unsaved changes',
+        description: 'Your mailbox or tenant IDs changed locally. Click Save settings, then create the webhook.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setCreating(true);
     const { data, error } = await supabase.functions.invoke('agent-setup', {
       body: { action: 'create_subscription' },
@@ -146,9 +169,20 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
   const subActive = settings.graph_subscription_id && settings.graph_subscription_expires_at &&
     new Date(settings.graph_subscription_expires_at) > new Date();
 
-  const canCreateSubscription = Boolean(
+  const hasLocalSubscriptionFields = Boolean(
     settings.shared_mailbox_user_id?.trim() && settings.teams_tenant_id?.trim()
   );
+
+  const hasSavedSubscriptionFields = Boolean(
+    savedSettings?.shared_mailbox_user_id?.trim() && savedSettings?.teams_tenant_id?.trim()
+  );
+
+  const hasUnsavedSubscriptionChanges =
+    (settings.shared_mailbox_user_id?.trim() ?? '') !== (savedSettings?.shared_mailbox_user_id?.trim() ?? '') ||
+    (settings.teams_tenant_id?.trim() ?? '') !== (savedSettings?.teams_tenant_id?.trim() ?? '') ||
+    (settings.shared_mailbox_address?.trim() ?? '') !== (savedSettings?.shared_mailbox_address?.trim() ?? '');
+
+  const canCreateSubscription = hasSavedSubscriptionFields && !hasUnsavedSubscriptionChanges;
 
   return (
     <div className="space-y-6">
@@ -238,7 +272,11 @@ export default function AgentPanel({ organizationId }: { organizationId: string 
             </div>
             {!canCreateSubscription && (
               <p className="text-xs text-destructive">
-                Fill in <strong>Shared mailbox user ID</strong> and <strong>Microsoft tenant ID</strong> above, then click <strong>Save settings</strong> before creating the webhook.
+                {!hasLocalSubscriptionFields
+                  ? <><strong>Shared mailbox user ID</strong> and <strong>Microsoft tenant ID</strong> are required before you can create the webhook.</>
+                  : !hasSavedSubscriptionFields || hasUnsavedSubscriptionChanges
+                    ? <>Click <strong>Save settings</strong> to persist the mailbox details before creating the webhook.</>
+                    : null}
               </p>
             )}
           </div>
