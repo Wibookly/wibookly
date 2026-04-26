@@ -291,7 +291,7 @@ export default function Integrations() {
     }
 
     const hasOutlookConnection = connections.some(
-      (connection) => connection.provider === 'outlook' && (connection.is_connected || !!connection.connected_email),
+      (connection) => connection.provider === 'outlook' && connection.is_connected,
     );
 
     inviteAutoConnectAttemptedRef.current = true;
@@ -312,7 +312,7 @@ export default function Integrations() {
 
   // Show connections that are connected OR have a connected_email (to handle cases where is_connected may be stale)
   const getConnectionsByProvider = (provider: ProviderId) => 
-    connections.filter((c) => c.provider === provider && (c.is_connected || c.connected_email));
+    connections.filter((c) => c.provider === provider && c.is_connected);
 
   const providerLabel = useMemo(
     () => ({
