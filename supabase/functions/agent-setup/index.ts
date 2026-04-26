@@ -14,6 +14,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const MS_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID')!;
 const MS_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
+const MS_TENANT_ID_FALLBACK = Deno.env.get('MICROSOFT_TENANT_ID') ?? '';
 
 async function getAppToken(tenantId: string): Promise<string> {
   const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
