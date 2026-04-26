@@ -510,7 +510,7 @@ async function createCalendarEventAndLog(
     
     if (provider === 'google') {
       eventResult = await createGoogleCalendarEvent(accessToken, meeting, eventColor);
-    } else if (provider === 'microsoft') {
+    } else if (provider === 'microsoft' || provider === 'outlook') {
       eventResult = await createMicrosoftCalendarEvent(accessToken, meeting, eventColor);
     }
     
