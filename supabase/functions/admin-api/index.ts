@@ -484,7 +484,18 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        return new Response(JSON.stringify({ success: true }), {
+        const { data: profile } = await adminClient
+          .from('user_profiles')
+          .select('email')
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        let magicLink: string | null = null;
+        if (profile?.email) {
+          magicLink = await sendReactivationMagicLink(adminClient, profile.email);
+        }
+
+        return new Response(JSON.stringify({ success: true, magic_link: magicLink }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
