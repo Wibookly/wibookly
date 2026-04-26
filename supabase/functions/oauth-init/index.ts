@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await adminClient
       .from('user_profiles')
-      .select('organization_id')
+      .select('organization_id, email, domain_id')
       .eq('user_id', user.id)
       .single();
 
@@ -79,6 +79,17 @@ serve(async (req) => {
         JSON.stringify({ error: 'Unauthorized: Organization mismatch' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    let microsoftTenantId: string | null = null;
+    if (provider === 'outlook' && profile?.domain_id) {
+      const { data: domainData } = await adminClient
+        .from('allowed_domains')
+        .select('microsoft_tenant_id')
+        .eq('id', profile.domain_id)
+        .maybeSingle();
+
+      microsoftTenantId = domainData?.microsoft_tenant_id ?? null;
     }
 
     // Generate a random state parameter for CSRF protection
@@ -93,7 +104,8 @@ serve(async (req) => {
       // Remember which web origin started the flow so the callback can return there.
       // This avoids redirecting to an unpublished/stale domain.
       appOrigin: req.headers.get('origin') || undefined,
-      redirectUrl: redirectUrl || '/integrations'
+      redirectUrl: redirectUrl || '/integrations',
+      microsoftTenantId: microsoftTenantId || undefined,
     }));
 
     let authUrl: string;
@@ -146,7 +158,9 @@ serve(async (req) => {
       // Use calendar-only scopes if requested
       const scope = calendarOnly
         ? 'openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite'
-        : 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
+        : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
+
+      const tenantSegment = microsoftTenantId || 'common';
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -154,10 +168,11 @@ serve(async (req) => {
         response_type: 'code',
         scope,
         response_mode: 'query',
-        state: stateData
+        state: stateData,
+        ...(profile?.email ? { login_hint: profile.email } : {}),
       });
 
-      authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+      authUrl = `https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/authorize?${params.toString()}`;
       console.log(`Generated Microsoft OAuth URL with ${calendarOnly ? 'calendar-only' : 'full'} scopes`);
 
     } else {
