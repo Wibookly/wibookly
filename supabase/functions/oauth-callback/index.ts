@@ -92,19 +92,37 @@ serve(async (req) => {
     await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_received', appOrigin);
 
     let tokens;
+    let exchangeError: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null = null;
 
     if (provider === 'google') {
-      tokens = await exchangeGoogleCode(code, supabaseUrl);
+      const result = await exchangeGoogleCode(code, supabaseUrl);
+      tokens = result.tokens;
+      exchangeError = result.error;
     } else if (provider === 'outlook') {
-      tokens = await exchangeMicrosoftCode(code, supabaseUrl);
+      const result = await exchangeMicrosoftCode(code, supabaseUrl);
+      tokens = result.tokens;
+      exchangeError = result.error;
     } else {
       await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'unsupported_provider');
       return redirectWithError(`Unsupported provider: ${provider}`, resolvedAppUrl, provider);
     }
 
     if (!tokens) {
-      await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'token_exchange_failed');
-      return redirectWithError('Failed to exchange authorization code', resolvedAppUrl, provider);
+      const detail = exchangeError
+        ? `${exchangeError.error || 'token_exchange_failed'}: ${exchangeError.error_description || exchangeError.raw || 'no detail'}`
+        : 'Failed to exchange authorization code';
+      console.error('Token exchange failed, surfacing detail:', detail);
+      await logConnectAttempt(
+        supabase,
+        userId,
+        organizationId,
+        provider,
+        'callback_error',
+        appOrigin,
+        exchangeError?.error || 'token_exchange_failed',
+        detail.slice(0, 1000),
+      );
+      return redirectWithError(detail, resolvedAppUrl, provider);
     }
 
     console.log(`Successfully obtained tokens for ${provider}`);
@@ -290,7 +308,12 @@ serve(async (req) => {
   }
 });
 
-async function exchangeGoogleCode(code: string, supabaseUrl: string) {
+type ExchangeResult = {
+  tokens: any | null;
+  error: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null;
+};
+
+async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<ExchangeResult> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
@@ -312,13 +335,15 @@ async function exchangeGoogleCode(code: string, supabaseUrl: string) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Google token exchange failed:', errorText);
-    return null;
+    let parsed: any = {};
+    try { parsed = JSON.parse(errorText); } catch {}
+    return { tokens: null, error: { error: parsed.error, error_description: parsed.error_description, raw: errorText } };
   }
 
-  return await response.json();
+  return { tokens: await response.json(), error: null };
 }
 
-async function exchangeMicrosoftCode(code: string, supabaseUrl: string) {
+async function exchangeMicrosoftCode(code: string, supabaseUrl: string): Promise<ExchangeResult> {
   const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
   const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
   const clientSecret = clientSecretRaw?.trim();
@@ -326,14 +351,26 @@ async function exchangeMicrosoftCode(code: string, supabaseUrl: string) {
 
   console.log('Exchanging Microsoft authorization code', {
     hasClientId: Boolean(clientId),
+    clientIdPrefix: clientId?.slice(0, 8),
     hasClientSecret: Boolean(clientSecret),
     clientSecretLength: clientSecret?.length ?? 0,
+    clientSecretFirstChar: clientSecret?.[0],
     clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
+    callbackUrl,
   });
 
   if (!clientId || !clientSecret) {
     console.error('Microsoft OAuth credentials are not configured correctly');
-    return null;
+    return {
+      tokens: null,
+      error: { error: 'config_error', error_description: 'MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET is not set' },
+    };
+  }
+
+  // Heuristic: client secret VALUE starts with random chars and is ~40 chars; SECRET ID is a UUID (36 chars with dashes)
+  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientSecret);
+  if (looksLikeUuid) {
+    console.error('MICROSOFT_CLIENT_SECRET looks like a Secret ID (UUID), not a Secret VALUE!');
   }
 
   const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
@@ -344,20 +381,28 @@ async function exchangeMicrosoftCode(code: string, supabaseUrl: string) {
       client_id: clientId,
       client_secret: clientSecret,
       redirect_uri: callbackUrl,
-      grant_type: 'authorization_code'
+      grant_type: 'authorization_code',
+      scope: 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read',
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Microsoft token exchange failed:', errorText, {
-      clientSecretLength: clientSecret.length,
-      clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
-    });
-    return null;
+    console.error('Microsoft token exchange failed. Full response:', errorText);
+    let parsed: any = {};
+    try { parsed = JSON.parse(errorText); } catch {}
+    return {
+      tokens: null,
+      error: {
+        error: parsed.error,
+        error_description: parsed.error_description,
+        error_codes: parsed.error_codes,
+        raw: errorText.slice(0, 800),
+      },
+    };
   }
 
-  return await response.json();
+  return { tokens: await response.json(), error: null };
 }
 
 // Fetch email from Google userinfo endpoint
