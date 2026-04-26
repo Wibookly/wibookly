@@ -139,7 +139,7 @@ async function getValidAccessToken(
   
   if (tokenData.provider === 'google') {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft') {
+  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
   
@@ -158,7 +158,7 @@ async function getValidAccessToken(
     updated_at: new Date().toISOString()
   };
   
-  if (tokenData.provider === 'microsoft' && 'refresh_token' in newTokens && newTokens.refresh_token) {
+  if ((tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') && 'refresh_token' in newTokens && newTokens.refresh_token) {
     updatePayload.encrypted_refresh_token = await encryptToken(String(newTokens.refresh_token), encryptionKey);
   }
   
@@ -510,7 +510,7 @@ async function createCalendarEventAndLog(
     
     if (provider === 'google') {
       eventResult = await createGoogleCalendarEvent(accessToken, meeting, eventColor);
-    } else if (provider === 'microsoft') {
+    } else if (provider === 'microsoft' || provider === 'outlook') {
       eventResult = await createMicrosoftCalendarEvent(accessToken, meeting, eventColor);
     }
     
@@ -654,7 +654,7 @@ async function findMultipleAvailableSlots(
   let existingEvents: CalendarEvent[] = [];
   if (provider === 'google') {
     existingEvents = await fetchGoogleCalendarEvents(accessToken, now, twoWeeksFromNow);
-  } else if (provider === 'microsoft') {
+  } else if (provider === 'microsoft' || provider === 'outlook') {
     existingEvents = await fetchMicrosoftCalendarEvents(accessToken, now, twoWeeksFromNow);
   }
   
@@ -2053,7 +2053,7 @@ async function processConnectionEmails(
             console.error(`Gmail search failed: ${await searchRes.text()}`);
           }
         }
-      } else if (tokenRecord.provider === 'microsoft') {
+      } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
         // Search for unread emails with the category
         const categoryFilter = `categories/any(c:c eq '${categoryLabelName}') and isRead eq false`;
         console.log(`Outlook category filter: ${categoryFilter}`);
@@ -2165,7 +2165,7 @@ async function processConnectionEmails(
                 await applyGmailLabel(accessToken, msg.id, gmailLabelCache[eventsLabelName]);
                 console.log(`Applied Events label to email ${msg.id} (detected as event-related)`);
               }
-            } else if (isEventEmail && eventsLabelName && tokenRecord.provider === 'microsoft') {
+            } else if (isEventEmail && eventsLabelName && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')) {
               if (!outlookCategoryCache[eventsLabelName]) {
                 await getOrCreateOutlookCategory(accessToken, eventsLabelName, eventsCategoryColor);
                 outlookCategoryCache[eventsLabelName] = true;

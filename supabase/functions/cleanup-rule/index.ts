@@ -138,7 +138,7 @@ async function getValidAccessToken(
   
   if (tokenData.provider === 'google') {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft') {
+  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
   
@@ -160,7 +160,7 @@ async function getValidAccessToken(
     updated_at: new Date().toISOString()
   };
   
-  if (tokenData.provider === 'microsoft' && 'refresh_token' in newTokens && newTokens.refresh_token) {
+  if ((tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') && 'refresh_token' in newTokens && newTokens.refresh_token) {
     updatePayload.encrypted_refresh_token = await encryptToken(String(newTokens.refresh_token), encryptionKey);
   }
   
@@ -533,7 +533,7 @@ serve(async (req) => {
           console.log(`Gmail label "${labelName}" not found`);
           results.push({ provider: 'google', emailsProcessed: 0, filterDeleted: false });
         }
-      } else if (tokenData.provider === 'microsoft') {
+      } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
         const folderId = await getOutlookFolderId(accessToken, labelName);
         
         if (folderId) {
