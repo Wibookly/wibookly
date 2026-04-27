@@ -1156,7 +1156,7 @@ serve(async (req) => {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              const categoryTag = `InboxIQ: ${catInfo.name}`;
+              const categoryTag = `${IQ_TAG_PREFIX}${catInfo.name}`;
               success = await applyOutlookRule(
                 currentAccessToken,
                 rule,
