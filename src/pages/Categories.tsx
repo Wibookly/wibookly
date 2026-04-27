@@ -207,6 +207,19 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         />
       </TableCell>
       <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-2">
+          <Star
+            className={`w-4 h-4 ${category.show_in_favorites ? 'fill-yellow-400 text-yellow-500' : 'text-muted-foreground'}`}
+          />
+          <Switch
+            checked={category.show_in_favorites}
+            onCheckedChange={(checked) => updateCategory(category.id, 'show_in_favorites', checked)}
+            disabled={!category.is_enabled}
+            className={category.show_in_favorites && category.is_enabled ? 'data-[state=checked]:bg-yellow-500' : ''}
+          />
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
         {category.is_enabled ? (
           category.last_synced_at ? (
             <div className="flex items-center justify-center gap-1 text-green-600">
@@ -290,7 +303,8 @@ export default function Categories() {
         ...cat,
         auto_reply_enabled: cat.auto_reply_enabled ?? false,
         writing_style: cat.writing_style ?? 'professional',
-        last_synced_at: cat.last_synced_at ?? null
+        last_synced_at: cat.last_synced_at ?? null,
+        show_in_favorites: (cat as any).show_in_favorites ?? false,
       }));
       setCategories(cats);
     }
