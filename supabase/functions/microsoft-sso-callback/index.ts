@@ -295,12 +295,17 @@ serve(async (req) => {
         console.error('Failed to resolve org for domain:', domain);
         // Continue anyway, profile creation will handle it
       } else {
-        // Create user profile
+        // Create user profile (with Microsoft 365 fields pulled from Graph)
         await adminClient.from('user_profiles').insert({
           user_id: userId,
           organization_id: orgData.id,
           email,
           full_name: fullName,
+          title: msJobTitle,
+          department: msDepartment,
+          company: msCompany,
+          phone: msPhone,
+          mobile: msMobile,
         });
 
         // Create user role
