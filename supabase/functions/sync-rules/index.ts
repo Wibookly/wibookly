@@ -436,98 +436,110 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
 
     const { value: existingRules } = await listRes.json();
 
-    // Clean up legacy rules from old branding (Wibookly) for the same rule semantics
-    const legacyRule = existingRules?.find((r: { displayName: string }) =>
-      r.displayName === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`
-    );
-    if (legacyRule) {
+    // Build conditions based on rule type (used for create AND update)
+    // deno-lint-ignore no-explicit-any
+    const conditions: any = {};
+
+    if (rule.rule_type === 'sender') {
+      conditions.senderContains = [rule.rule_value];
+    } else if (rule.rule_type === 'domain') {
+      conditions.senderContains = [`@${rule.rule_value}`];
+    } else if (rule.rule_type === 'keyword') {
+      conditions.subjectOrBodyContains = [rule.rule_value];
+    }
+
+    // Recipient filter
+    if (rule.recipient_filter) {
+      if (rule.recipient_filter === 'to_me') {
+        conditions.sentToMe = true;
+      } else if (rule.recipient_filter === 'cc_me') {
+        conditions.sentCcMe = true;
+      } else if (rule.recipient_filter === 'to_or_cc_me') {
+        conditions.sentToMe = true;
+      }
+    }
+
+    // Advanced conditions
+    if (rule.is_advanced) {
+      const conditionLogic = rule.condition_logic || 'and';
+
+      if (conditionLogic === 'or') {
+        const orTerms: string[] = [];
+        if (rule.subject_contains) orTerms.push(rule.subject_contains);
+        if (rule.body_contains) orTerms.push(rule.body_contains);
+        if (orTerms.length > 0) {
+          conditions.subjectOrBodyContains = conditions.subjectOrBodyContains
+            ? [...conditions.subjectOrBodyContains, ...orTerms]
+            : orTerms;
+        }
+      } else {
+        if (rule.subject_contains) {
+          conditions.subjectContains = [rule.subject_contains];
+        }
+        if (rule.body_contains) {
+          conditions.bodyContains = [rule.body_contains];
+        }
+      }
+    }
+
+    // Find duplicate / legacy / semantically-equivalent rules.
+    // We delete:
+    //  - Legacy Wibookly rules with same semantics
+    //  - Old InboxIQ rules with the same `rule_type:rule_value` suffix but different
+    //    category folder (user changed mapping or recreated rules)
+    //  - Any existing rule with the EXACT same name (we'll recreate to ensure conditions/folder match)
+    // This guarantees the latest app config is the only enabled rule for this semantic.
+    const ruleSuffix = `${rule.rule_type}:${rule.rule_value}`;
+    const rulesToDelete = (existingRules || []).filter((r: { id: string; displayName: string }) => {
+      const name = r.displayName || '';
+      if (name === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`) return true;
+      if (name === ruleName) return true;
+      // Match any "InboxIQ: <anything> - rule_type:rule_value" (different category folder)
+      if (name.startsWith('InboxIQ: ') && name.endsWith(` - ${ruleSuffix}`)) return true;
+      return false;
+    });
+
+    for (const dup of rulesToDelete) {
       try {
-        await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${legacyRule.id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        console.log(`Deleted legacy Outlook rule "${legacyRule.displayName}"`);
-      } catch (err) {
-        console.error('Failed to delete legacy rule:', err);
-      }
-    }
-
-    const exists = existingRules?.some((r: { displayName: string }) => r.displayName === ruleName);
-
-    if (exists) {
-      console.log(`Outlook rule "${ruleName}" already exists`);
-    } else {
-      // Build conditions based on rule type
-      // deno-lint-ignore no-explicit-any
-      let conditions: any = {};
-      
-      if (rule.rule_type === 'sender') {
-        conditions.senderContains = [rule.rule_value];
-      } else if (rule.rule_type === 'domain') {
-        conditions.senderContains = [`@${rule.rule_value}`];
-      } else if (rule.rule_type === 'keyword') {
-        conditions.subjectOrBodyContains = [rule.rule_value];
-      }
-
-      // Recipient filter
-      if (rule.recipient_filter) {
-        if (rule.recipient_filter === 'to_me') {
-          conditions.sentToMe = true;
-        } else if (rule.recipient_filter === 'cc_me') {
-          conditions.sentCcMe = true;
-        } else if (rule.recipient_filter === 'to_or_cc_me') {
-          conditions.sentToMe = true;
-        }
-      }
-
-      // Advanced conditions
-      if (rule.is_advanced) {
-        const conditionLogic = rule.condition_logic || 'and';
-
-        if (conditionLogic === 'or') {
-          const orTerms: string[] = [];
-          if (rule.subject_contains) orTerms.push(rule.subject_contains);
-          if (rule.body_contains) orTerms.push(rule.body_contains);
-          if (orTerms.length > 0) {
-            conditions.subjectOrBodyContains = conditions.subjectOrBodyContains 
-              ? [...conditions.subjectOrBodyContains, ...orTerms]
-              : orTerms;
-          }
+        const delRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${dup.id}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (delRes.ok) {
+          console.log(`Deleted stale/duplicate Outlook rule "${dup.displayName}"`);
         } else {
-          if (rule.subject_contains) {
-            conditions.subjectContains = [rule.subject_contains];
-          }
-          if (rule.body_contains) {
-            conditions.bodyContains = [rule.body_contains];
-          }
+          console.error(`Failed to delete stale Outlook rule "${dup.displayName}":`, await delRes.text());
         }
+      } catch (err) {
+        console.error('Error deleting stale Outlook rule:', err);
       }
-
-      // Create rule
-      const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          displayName: ruleName,
-          sequence: 1,
-          isEnabled: true,
-          conditions,
-          actions: {
-            moveToFolder: folderId
-          }
-        })
-      });
-
-      if (!createRes.ok) {
-        console.error(`Failed to create Outlook rule "${ruleName}":`, await createRes.text());
-        return false;
-      }
-
-      console.log(`Created Outlook rule: ${ruleName}`);
     }
+
+    // Create the rule fresh with current conditions and target folder, enabled
+    const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        displayName: ruleName,
+        sequence: 1,
+        isEnabled: true,
+        conditions,
+        actions: {
+          moveToFolder: folderId,
+          stopProcessingRules: false
+        }
+      })
+    });
+
+    if (!createRes.ok) {
+      console.error(`Failed to create Outlook rule "${ruleName}":`, await createRes.text());
+      return false;
+    }
+
+    console.log(`Created/refreshed Outlook rule: ${ruleName} (enabled)`);
 
     // Get inbox folder ID
     const inboxRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox', {
