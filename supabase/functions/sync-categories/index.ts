@@ -764,13 +764,24 @@ async function tagOutlookFolderMessages(
     const { value: messages } = await listRes.json();
     for (const m of messages ?? []) {
       const existing: string[] = Array.isArray(m.categories) ? m.categories : [];
-      if (existing.includes(categoryName)) continue;
+      // Strip ALL InboxIQ-managed tags (current + legacy) so each email ends
+      // up with exactly one IQ category — eliminates duplicates like
+      // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" + "IQ: Approvals".
+      const preserved = existing.filter((c) => !isManagedCategoryName(c));
+      const next = [...preserved, categoryName];
+      // Skip the PATCH if nothing actually changes.
+      if (
+        existing.length === next.length &&
+        existing.every((c, i) => c === next[i])
+      ) {
+        continue;
+      }
       const patchRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categories: [...existing, categoryName] }),
+          body: JSON.stringify({ categories: next }),
         },
       );
       if (patchRes.ok) tagged++;
