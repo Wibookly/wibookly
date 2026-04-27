@@ -126,8 +126,8 @@ function formatThreadForPrompt(thread: ThreadMsg[], currentMessageId: string, cu
   const lines: string[] = [];
   all.forEach((m, idx) => {
     const from = m.from?.emailAddress?.address ?? 'unknown';
-    const to = (m.toRecipients ?? []).map((r) => r.emailAddress?.address).filter(Boolean).join(', ');
-    const cc = (m.ccRecipients ?? []).map((r) => r.emailAddress?.address).filter(Boolean).join(', ');
+    const to = (m.toRecipients ?? []).map((r: any) => r.emailAddress?.address).filter(Boolean).join(', ');
+    const cc = (m.ccRecipients ?? []).map((r: any) => r.emailAddress?.address).filter(Boolean).join(', ');
     const when = m.receivedDateTime ?? '';
     const body = stripHtml(m.body?.content ?? m.bodyPreview ?? '').slice(0, 4000);
     lines.push(`--- Message ${idx + 1} of ${all.length} (${when}) ---`);
