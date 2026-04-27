@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 
 interface DailyBrief {
   greeting: string;
