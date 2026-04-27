@@ -229,7 +229,6 @@ export function AppSidebar() {
           {/* Settings */}
           <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
             <NavItem href="/settings?section=profile" icon={User}>My Profile</NavItem>
-            <NavItem href="/settings?section=about" icon={User}>About Me</NavItem>
             <NavItem href="/settings?section=signature" icon={PenTool}>My Signature</NavItem>
           </NavSection>
 
