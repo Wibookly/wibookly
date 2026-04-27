@@ -355,10 +355,30 @@ export default function Categories() {
 
   const updateCategory = (id: string, field: keyof Category, value: any) => {
     setCategories(prev =>
-      prev.map(cat =>
-        cat.id === id ? { ...cat, [field]: value } : cat
-      )
+      prev.map(cat => {
+        if (cat.id !== id) return cat;
+        // Cascade: turning a category OFF also disables AI Draft, AI Auto-Reply,
+        // and Favorite. Rules for this category are disabled below.
+        if (field === 'is_enabled' && value === false) {
+          return {
+            ...cat,
+            is_enabled: false,
+            ai_draft_enabled: false,
+            auto_reply_enabled: false,
+            show_in_favorites: false,
+          };
+        }
+        // Turning AI Draft off also disables Auto-Reply (which depends on it).
+        if (field === 'ai_draft_enabled' && value === false) {
+          return { ...cat, ai_draft_enabled: false, auto_reply_enabled: false };
+        }
+        return { ...cat, [field]: value };
+      })
     );
+    // Also disable any rules attached to this category when the category is turned off.
+    if (field === 'is_enabled' && value === false) {
+      setRules(prev => prev.map(r => (r.category_id === id ? { ...r, is_enabled: false } : r)));
+    }
     setHasChanges(true);
   };
 
