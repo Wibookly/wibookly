@@ -306,6 +306,11 @@ ${opts.details ? `Details: ${opts.details}\n` : ''}
       userPrompt = `Write the code requested: "${opts.topic}". ${opts.details ?? ''}
 Output the file contents only — no markdown fences.`;
       break;
+    case 'docx_document':
+      // Handled separately via generateDocxBuffer — should not hit this path.
+      systemPrompt = '';
+      userPrompt = '';
+      break;
     default:
       systemPrompt = 'You produce the requested artifact in full, no truncation.';
       userPrompt = `${opts.topic}\n${opts.details ?? ''}`;
