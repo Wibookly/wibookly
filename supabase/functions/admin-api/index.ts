@@ -603,9 +603,22 @@ serve(async (req) => {
       case 'get_api_keys': {
         const { data: keys } = await adminClient
           .from('api_key_config')
-          .select('key_name, updated_at');
+          .select('key_name, encrypted_value, updated_at');
 
-        return new Response(JSON.stringify({ keys: keys || [] }), {
+        // Strip raw secret values; only expose plaintext for non-secret prefs.
+        const NON_SECRET = new Set([
+          'ai_provider_preference',
+          'ai_openai_model',
+          'ai_claude_model',
+          'ai_enable_web_search',
+        ]);
+        const sanitized = (keys || []).map((k: any) => ({
+          key_name: k.key_name,
+          updated_at: k.updated_at,
+          value: NON_SECRET.has(k.key_name) ? k.encrypted_value : undefined,
+        }));
+
+        return new Response(JSON.stringify({ keys: sanitized }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
