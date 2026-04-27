@@ -26,6 +26,7 @@ interface DiscoveredUser {
   email: string;
   display_name: string | null;
   job_title: string | null;
+  profile_photo_url?: string | null;
   is_licensed: boolean;
   account_enabled: boolean;
   status: 'discovered' | 'invited' | 'active' | string;
@@ -387,9 +388,17 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                   className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-                      {(u.display_name || u.email)[0]?.toUpperCase()}
-                    </div>
+                    {u.profile_photo_url ? (
+                      <img
+                        src={u.profile_photo_url}
+                        alt={u.display_name || u.email}
+                        className="w-9 h-9 rounded-full object-cover shrink-0 border border-border"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                        {(u.display_name || u.email)[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="font-medium text-foreground truncate">
                         {u.display_name || u.email}
