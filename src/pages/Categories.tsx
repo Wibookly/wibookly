@@ -604,6 +604,44 @@ export default function Categories() {
     }
   };
 
+  // Background sync of rules — fired automatically after each save so the user
+  // never has to click the per-rule Play button or "Re-sync All".
+  const syncRulesToEmailProvider = async () => {
+    if (!activeConnection?.id) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-rules', {
+        body: { connection_id: activeConnection.id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Clear any per-rule "needs sync" markers and refresh timestamps.
+      setRulesNeedingSync(new Set());
+      const { data: updatedRules } = await supabase
+        .from('rules')
+        .select('*')
+        .eq('organization_id', organization?.id)
+        .eq('connection_id', activeConnection.id);
+      if (updatedRules) {
+        setRules(prev => {
+          const tempRules = prev.filter(r => r.id.startsWith('temp-'));
+          const dbRules = updatedRules.map(r => ({
+            ...r,
+            is_advanced: r.is_advanced ?? false,
+            subject_contains: r.subject_contains ?? null,
+            body_contains: r.body_contains ?? null,
+            condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
+            recipient_filter: r.recipient_filter ?? null,
+            last_synced_at: r.last_synced_at ?? null,
+          }));
+          return [...dbRules, ...tempRules];
+        });
+      }
+    } catch (error) {
+      console.error('Background rule sync failed:', error);
+    }
+  };
+
   // Track which rules need syncing (modified but not synced)
   const [rulesNeedingSync, setRulesNeedingSync] = useState<Set<string>>(new Set());
 
