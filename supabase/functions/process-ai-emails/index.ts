@@ -1524,14 +1524,13 @@ async function detectArtifactRequest(opts: {
 }): Promise<
   | null
   | {
-      kind: 'html_dashboard' | 'html_page' | 'markdown' | 'code' | 'text';
+      kind: 'docx_document' | 'html_dashboard' | 'html_page' | 'markdown' | 'code' | 'text';
       topic: string;
       details: string;
       filename: string;
     }
 > {
   const text = `${opts.emailSubject}\n${opts.emailBody}`.toLowerCase();
-  // Cheap keyword pre-filter so we don't burn an LLM call on every email.
   const keywords = [
     'dashboard', 'report', 'presentation', 'slides', 'deck', 'pptx',
     'pdf', 'spreadsheet', 'excel', 'xlsx', 'cash flow', 'p&l',
@@ -1540,6 +1539,8 @@ async function detectArtifactRequest(opts: {
     'mock up', 'mockup', 'template', 'one-pager', 'one pager',
     'html', 'webpage', 'web page', 'document', 'doc for', 'write a',
     'draft a report', 'put together', 'prepare a', 'cheat sheet',
+    'policy', 'policies', 'memo', 'handbook', 'procedure', 'sop',
+    'word doc', '.docx', 'contract', 'agreement', 'proposal', 'plan',
   ];
   if (!keywords.some((k) => text.includes(k))) return null;
 
@@ -1560,11 +1561,11 @@ async function detectArtifactRequest(opts: {
           {
             role: 'system',
             content:
-              'You decide whether an inbound email is asking an AI assistant to CREATE a deliverable artifact (a dashboard, report, presentation, slide deck, spreadsheet, HTML page, document, or code file) — the kind of thing ChatGPT or Claude would generate. Reply with strict JSON only.',
+              'You decide whether an inbound email is asking an AI assistant to CREATE a deliverable artifact (a Word document/policy/memo/plan, dashboard, report, presentation, slide deck, spreadsheet, HTML page, or code file) — the kind of thing ChatGPT or Claude would generate. Reply with strict JSON only.',
           },
           {
             role: 'user',
-            content: `Email subject: ${opts.emailSubject}\n\nEmail body:\n${opts.emailBody.substring(0, 2500)}\n\nReturn JSON: { "wants_artifact": boolean, "kind": "html_dashboard"|"html_page"|"markdown"|"code"|"text", "topic": string (short title), "details": string (everything the requester specified — numbers, sections, branding, audience, time period, dummy-data permission, etc.), "filename": string (kebab-case, no extension) }. Use "html_dashboard" for anything visual/financial/KPI/report-like. Use "markdown" only for plain long-form docs. If unsure, set wants_artifact=false.`,
+            content: `Email subject: ${opts.emailSubject}\n\nEmail body:\n${opts.emailBody.substring(0, 2500)}\n\nReturn JSON: { "wants_artifact": boolean, "kind": "docx_document"|"html_dashboard"|"html_page"|"markdown"|"code"|"text", "topic": string (short title), "details": string (EVERY specific detail the requester gave — company name, roles, sections, tone, audience, IT/security requirements, scenarios to cover, branding, etc.), "filename": string (kebab-case, no extension) }. KIND SELECTION: Use "docx_document" for policies, memos, contracts, procedures, handbooks, plans, proposals, agreements, SOPs, or anything the requester would expect as a Word document. Use "html_dashboard" for visual KPI/financial/charts dashboards. Use "markdown" only for plain long-form docs. If unsure, set wants_artifact=false.`,
           },
         ],
       }),
@@ -1574,9 +1575,9 @@ async function detectArtifactRequest(opts: {
     const raw = data.choices?.[0]?.message?.content ?? '{}';
     const parsed = JSON.parse(raw);
     if (!parsed.wants_artifact) return null;
-    const kind = ['html_dashboard', 'html_page', 'markdown', 'code', 'text'].includes(parsed.kind)
+    const kind = ['docx_document', 'html_dashboard', 'html_page', 'markdown', 'code', 'text'].includes(parsed.kind)
       ? parsed.kind
-      : 'html_dashboard';
+      : 'docx_document';
     return {
       kind,
       topic: String(parsed.topic || opts.emailSubject || 'requested-artifact').slice(0, 200),
