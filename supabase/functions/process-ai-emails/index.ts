@@ -63,7 +63,39 @@ async function loadAdminAIKeys(): Promise<AdminAIKeys> {
   }
 }
 
-async function callOpenAI(apiKey: string, messages: any[], model = 'gpt-4o-mini'): Promise<string> {
+// Token usage + provider/model returned alongside the generated text so we
+// can write rich rows to ai_usage_logs (cost dashboard).
+export type AIUsage = {
+  text: string;
+  provider: 'openai' | 'claude' | 'lovable';
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+};
+
+// Approximate per-1K-token pricing in USD. Off by a little is fine — this
+// drives the cost dashboard, not billing. Update when models change.
+const OPENAI_PRICING: Record<string, { input: number; output: number }> = {
+  'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+  'gpt-4o': { input: 0.0025, output: 0.01 },
+  'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
+  'gpt-4.1': { input: 0.002, output: 0.008 },
+};
+const CLAUDE_PRICING: Record<string, { input: number; output: number }> = {
+  'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
+  'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
+  'claude-3-opus-latest': { input: 0.015, output: 0.075 },
+};
+function priceFor(provider: 'openai' | 'claude' | 'lovable', model: string, prompt: number, completion: number): number {
+  const table = provider === 'openai' ? OPENAI_PRICING : provider === 'claude' ? CLAUDE_PRICING : null;
+  if (!table) return 0;
+  const p = table[model] ?? { input: 0, output: 0 };
+  return (prompt / 1000) * p.input + (completion / 1000) * p.output;
+}
+
+async function callOpenAI(apiKey: string, messages: any[], model = 'gpt-4o-mini'): Promise<AIUsage> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -76,10 +108,21 @@ async function callOpenAI(apiKey: string, messages: any[], model = 'gpt-4o-mini'
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('OpenAI returned empty content');
-  return content;
+  const promptTokens = data.usage?.prompt_tokens ?? 0;
+  const completionTokens = data.usage?.completion_tokens ?? 0;
+  const totalTokens = data.usage?.total_tokens ?? promptTokens + completionTokens;
+  return {
+    text: content,
+    provider: 'openai',
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costUsd: priceFor('openai', model, promptTokens, completionTokens),
+  };
 }
 
-async function callClaude(apiKey: string, messages: any[], model = 'claude-3-5-sonnet-latest'): Promise<string> {
+async function callClaude(apiKey: string, messages: any[], model = 'claude-3-5-sonnet-latest'): Promise<AIUsage> {
   const sys = messages.find((m) => m.role === 'system')?.content ?? '';
   const convo = messages.filter((m) => m.role !== 'system');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -98,11 +141,23 @@ async function callClaude(apiKey: string, messages: any[], model = 'claude-3-5-s
   const data = await res.json();
   const content = data.content?.[0]?.text;
   if (!content) throw new Error('Claude returned empty content');
-  return content;
+  const promptTokens = data.usage?.input_tokens ?? 0;
+  const completionTokens = data.usage?.output_tokens ?? 0;
+  return {
+    text: content,
+    provider: 'claude',
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    costUsd: priceFor('claude', model, promptTokens, completionTokens),
+  };
 }
 
-// Honors admin "preference" — auto / openai / claude.
-async function generateWithAdminAI(messages: any[]): Promise<string | null> {
+// Honors admin "preference" — auto / openai / claude. Returns full usage info
+// (or null when no provider was reachable) so callers can write rich rows to
+// ai_usage_logs for the live cost dashboard.
+async function generateWithAdminAIUsage(messages: any[]): Promise<AIUsage | null> {
   const keys = await loadAdminAIKeys();
 
   const tryOpenAI = async () => keys.openai ? await callOpenAI(keys.openai, messages, keys.openaiModel) : null;
@@ -115,14 +170,13 @@ async function generateWithAdminAI(messages: any[]): Promise<string | null> {
     try { const r = await tryClaude(); if (r) return r; }
     catch (e) { console.warn('Claude failed (forced):', (e as Error).message); }
   } else {
-    // auto: OpenAI first, Claude fallback
     try { const r = await tryOpenAI(); if (r) return r; }
     catch (e) { console.warn('OpenAI failed, trying Claude:', (e as Error).message); }
     try { const r = await tryClaude(); if (r) return r; }
     catch (e) { console.warn('Claude failed:', (e as Error).message); }
   }
 
-  // Last resort: Lovable AI Gateway
+  // Last resort: Lovable AI Gateway. Cost reported as 0 since it's bundled.
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (LOVABLE_API_KEY) {
     try {
@@ -133,7 +187,20 @@ async function generateWithAdminAI(messages: any[]): Promise<string | null> {
       });
       if (res.ok) {
         const data = await res.json();
-        return data.choices?.[0]?.message?.content || null;
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          const pt = data.usage?.prompt_tokens ?? 0;
+          const ct = data.usage?.completion_tokens ?? 0;
+          return {
+            text: content,
+            provider: 'lovable',
+            model: 'google/gemini-2.5-flash',
+            promptTokens: pt,
+            completionTokens: ct,
+            totalTokens: pt + ct,
+            costUsd: 0,
+          };
+        }
       }
       console.warn(`Lovable AI fallback ${res.status}: ${(await res.text()).slice(0, 200)}`);
     } catch (e) {
@@ -141,6 +208,42 @@ async function generateWithAdminAI(messages: any[]): Promise<string | null> {
     }
   }
   return null;
+}
+
+// Backwards-compatible wrapper used by older call sites that only need text.
+async function generateWithAdminAI(messages: any[]): Promise<string | null> {
+  const r = await generateWithAdminAIUsage(messages);
+  return r?.text ?? null;
+}
+
+// Insert a row into ai_usage_logs so the Admin → AI Usage dashboard can show
+// live spend. Failures are swallowed so AI flows never break on logging.
+async function logAIUsage(
+  client: any,
+  args: {
+    organizationId: string;
+    userId?: string | null;
+    action: string;
+    usage: AIUsage;
+    metadata?: Record<string, any>;
+  }
+): Promise<void> {
+  try {
+    await client.from('ai_usage_logs').insert({
+      organization_id: args.organizationId,
+      user_id: args.userId ?? null,
+      provider: args.usage.provider,
+      model: args.usage.model,
+      action: args.action,
+      prompt_tokens: args.usage.promptTokens,
+      completion_tokens: args.usage.completionTokens,
+      total_tokens: args.usage.totalTokens,
+      cost_usd: args.usage.costUsd.toFixed(6),
+      metadata: args.metadata ?? {},
+    });
+  } catch (e) {
+    console.warn('logAIUsage failed:', e);
+  }
 }
 
 // AES-GCM decryption for tokens
