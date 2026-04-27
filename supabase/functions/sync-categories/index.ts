@@ -1262,17 +1262,32 @@ serve(async (req) => {
             // tag (legacy prefixes, numbered mirrors, AI Draft/Sent, and any
             // stale IQ chips left over from earlier rules). We cap at 1000
             // messages per sync to stay inside Graph throttling.
-            // Build folderId -> "IQ: <Category>" map from the categories we
-            // just synced for this connection.
+            // Build folderId -> "IQ: <Category>" map by listing the user's
+            // mail folders and matching their displayName (with or without
+            // numeric prefix like "02: ") to the connection's category names.
             const folderToIqTag = new Map<string, string>();
             try {
               const { data: cats2 } = await supabaseAdmin
                 .from('categories')
-                .select('name, outlook_folder_id')
+                .select('name')
                 .eq('connection_id', connectionId);
-              for (const c of (cats2 ?? []) as Array<{ name: string; outlook_folder_id: string | null }>) {
-                if (c.outlook_folder_id) {
-                  folderToIqTag.set(c.outlook_folder_id, `${IQ_TAG_PREFIX}${c.name}`);
+              const catNames = new Map<string, string>(); // lower(name) -> "IQ: <Name>"
+              for (const c of (cats2 ?? []) as Array<{ name: string }>) {
+                catNames.set(c.name.trim().toLowerCase(), `${IQ_TAG_PREFIX}${c.name}`);
+              }
+              if (catNames.size > 0) {
+                const fRes = await fetch(
+                  'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+                  { headers: { Authorization: `Bearer ${accessToken}` } },
+                );
+                if (fRes.ok) {
+                  const { value: folders } = await fRes.json();
+                  for (const f of (folders ?? []) as Array<{ id: string; displayName: string }>) {
+                    // Strip a leading numeric prefix like "02: " so "02: Follow Up" still matches "Follow Up".
+                    const core = String(f.displayName || '').replace(/^\s*\d{1,2}\s*[:.\-]\s*/, '').trim().toLowerCase();
+                    const iqTag = catNames.get(core);
+                    if (iqTag) folderToIqTag.set(f.id, iqTag);
+                  }
                 }
               }
             } catch (_) { /* best-effort */ }
