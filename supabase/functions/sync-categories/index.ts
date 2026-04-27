@@ -694,7 +694,36 @@ async function ensureOutlookMasterCategory(
   }
 }
 
-// Retroactively tag every message currently inside an Outlook folder with the
+// Delete a single Outlook Master Category by displayName (no-op if missing).
+async function deleteOutlookMasterCategory(
+  accessToken: string,
+  displayName: string,
+): Promise<boolean> {
+  try {
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!listRes.ok) return false;
+    const { value } = await listRes.json();
+    const existing = (value || []).find(
+      (c: { displayName: string; id: string }) => c.displayName === displayName,
+    );
+    if (!existing) return true;
+    const delRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+    return delRes.ok;
+  } catch (err) {
+    console.warn('deleteOutlookMasterCategory failed:', err);
+    return false;
+  }
+}
+
 // colored Master Category so existing emails — not just new arrivals — show
 // the color stripe in Outlook.
 async function tagOutlookFolderMessages(
