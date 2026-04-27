@@ -840,17 +840,23 @@ serve(async (req) => {
           }
         }
 
-        // Delete labels/folders for disabled categories
+        // Delete labels/folders for disabled categories AND remove the
+        // server-side Outlook rules that were routing email into them, so
+        // newly-arriving messages stop being filed under a disabled category
+        // and land in the Inbox instead. Existing messages are moved back
+        // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
           const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
-          
+
           if (tokenRecord.provider === 'google') {
             success = await deleteGmailLabel(accessToken, labelName);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+            // Remove Outlook server-side rules first so they don't recreate the folder.
+            await deleteOutlookRulesForLabel(accessToken, labelName);
             success = await deleteOutlookFolder(accessToken, labelName);
           }
-          
+
           if (success) {
             deleted++;
           }
