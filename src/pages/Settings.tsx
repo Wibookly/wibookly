@@ -229,7 +229,13 @@ export default function Settings() {
         mobile: data.mobile || '',
         website: data.website || '',
         signatureLogoUrl: data.signature_logo_url || '',
-        profilePhotoUrl: (data as Record<string, unknown>).profile_photo_url as string || '',
+        // Prefer the per-account override; fall back to the M365 photo we
+        // pulled into the user profile so signatures default to the same
+        // image the rest of the app shows.
+        profilePhotoUrl:
+          ((data as Record<string, unknown>).profile_photo_url as string) ||
+          ((profile as unknown as { profile_photo_url?: string | null })?.profile_photo_url ?? '') ||
+          '',
         showProfilePhoto: (data as Record<string, unknown>).show_profile_photo as boolean || false,
         showCompanyLogo: (data as Record<string, unknown>).show_company_logo !== false,
         font: data.signature_font || 'Arial, sans-serif',
