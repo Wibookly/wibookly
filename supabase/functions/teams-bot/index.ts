@@ -1,14 +1,16 @@
-// Microsoft Teams bot endpoint (Bot Framework v4 messaging endpoint).
-// Receives Activity JSON from the Bot Connector when a Teams user @-mentions
-// the bot or sends it a DM. Validates the user's tenant + email domain,
-// generates an AI reply, and posts it back via the activity's serviceUrl.
-//
-// Auth: Bot Framework signs requests with a JWT. For internal-only use we
-// validate the tenant ID inside the activity matches our configured tenant.
-// (Full JWT signature validation against the Bot Framework JWKS can be added
-// later — for now the bot is locked down by tenant + Bot Framework App ID.)
+// Microsoft Teams bot endpoint for InboxIQ.
+// Handles 1:1 chat, group chats, and @-mentions in channels.
+// The bot is a full conversational agent: it can search the user's
+// emails, calendar, OneDrive files, Teams chats, AND the live web.
+// All internal data access is performed AS THE USER (per-user OAuth),
+// so each user only ever sees their own data.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  resolveTeamsUser,
+  TOOL_DEFINITIONS,
+  executeTool,
+} from '../_shared/teams-tools.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,22 +28,19 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 interface TeamsActivity {
   type: string;
   id: string;
-  timestamp?: string;
   serviceUrl: string;
   channelId: string;
   from?: { id: string; name?: string; aadObjectId?: string };
   conversation?: { id: string; tenantId?: string; conversationType?: string };
   recipient?: { id: string; name?: string };
   text?: string;
-  textFormat?: string;
   channelData?: { tenant?: { id?: string } };
-  replyToId?: string;
 }
 
+/* ---------------- Bot Framework auth + reply ---------------- */
+
 async function getBotToken(): Promise<string> {
-  if (!BOT_APP_ID || !BOT_APP_PASSWORD) {
-    throw new Error('TEAMS_BOT_APP_ID / TEAMS_BOT_APP_PASSWORD not configured');
-  }
+  if (!BOT_APP_ID || !BOT_APP_PASSWORD) throw new Error('Bot credentials missing');
   const res = await fetch('https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -53,72 +52,54 @@ async function getBotToken(): Promise<string> {
     }),
   });
   if (!res.ok) throw new Error(`Bot token failed: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  return data.access_token as string;
+  return (await res.json()).access_token as string;
 }
 
 async function sendReply(activity: TeamsActivity, text: string) {
   const token = await getBotToken();
-  const reply = {
-    type: 'message',
-    from: activity.recipient,
-    conversation: activity.conversation,
-    recipient: activity.from,
-    replyToId: activity.id,
-    text,
-  };
   const url = `${activity.serviceUrl.replace(/\/$/, '')}/v3/conversations/${encodeURIComponent(
     activity.conversation!.id
   )}/activities/${encodeURIComponent(activity.id)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(reply),
-  });
-  if (!res.ok) throw new Error(`Teams reply failed: ${res.status} ${await res.text()}`);
-}
-
-async function generateAIReply(question: string, userName: string): Promise<string> {
-  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are InboxIQ, an internal AI assistant talking to ${userName} in Microsoft Teams. Be concise, professional, helpful. Plain text only — no markdown headings.`,
-        },
-        { role: 'user', content: question },
-      ],
-      temperature: 0.4,
+      type: 'message',
+      from: activity.recipient,
+      conversation: activity.conversation,
+      recipient: activity.from,
+      replyToId: activity.id,
+      text,
+      textFormat: 'markdown',
     }),
   });
-  if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? '(no response)';
+  if (!res.ok) console.error('Teams reply failed', res.status, await res.text());
+}
+
+async function sendTyping(activity: TeamsActivity) {
+  try {
+    const token = await getBotToken();
+    const url = `${activity.serviceUrl.replace(/\/$/, '')}/v3/conversations/${encodeURIComponent(
+      activity.conversation!.id
+    )}/activities`;
+    await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'typing',
+        from: activity.recipient,
+        conversation: activity.conversation,
+        recipient: activity.from,
+      }),
+    });
+  } catch (_) { /* typing indicator best-effort */ }
 }
 
 function stripMentions(text: string): string {
-  // Strip Teams @mention HTML tags like <at>InboxIQ</at>
-  return text.replace(/<at>[^<]*<\/at>/gi, '').replace(/\s+/g, ' ').trim();
+  return (text ?? '').replace(/<at>[^<]*<\/at>/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-async function lookupAadDomain(token: string, aadObjectId: string): Promise<string | null> {
-  // Use Graph to look up the user's mail/userPrincipalName
-  try {
-    const res = await fetch(`https://graph.microsoft.com/v1.0/users/${aadObjectId}?$select=mail,userPrincipalName`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const email: string = (data.mail ?? data.userPrincipalName ?? '').toLowerCase();
-    return email.split('@')[1] ?? null;
-  } catch {
-    return null;
-  }
-}
+/* ---------------- Look up sender email via Graph (app-only) ---------------- */
 
 async function getAppGraphToken(tenantId: string): Promise<string> {
   const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
@@ -131,79 +112,170 @@ async function getAppGraphToken(tenantId: string): Promise<string> {
       grant_type: 'client_credentials',
     }),
   });
-  if (!res.ok) throw new Error(`Graph token failed: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  return data.access_token as string;
+  if (!res.ok) throw new Error(`App graph token failed: ${res.status}`);
+  return (await res.json()).access_token as string;
 }
+
+async function lookupSenderEmail(appToken: string, aadObjectId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://graph.microsoft.com/v1.0/users/${aadObjectId}?$select=mail,userPrincipalName`, {
+      headers: { Authorization: `Bearer ${appToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return ((data.mail ?? data.userPrincipalName ?? '') as string).toLowerCase() || null;
+  } catch { return null; }
+}
+
+/* ---------------- Conversation memory ---------------- */
+
+async function loadHistory(orgId: string, conversationId: string, limit = 20) {
+  const { data } = await supabase
+    .from('agent_messages')
+    .select('direction, content, created_at')
+    .eq('organization_id', orgId)
+    .eq('conversation_id', conversationId)
+    .eq('channel', 'teams')
+    .eq('status', 'sent')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  const rows = (data ?? []).reverse();
+  return rows
+    .filter(r => !!r.content)
+    .map(r => ({
+      role: r.direction === 'inbound' ? 'user' : 'assistant',
+      content: r.content as string,
+    }));
+}
+
+/* ---------------- OpenAI tool-calling loop ---------------- */
+
+async function runAgent(opts: {
+  userText: string;
+  userName: string;
+  history: { role: string; content: string }[];
+  graphToken: string | null;
+}): Promise<string> {
+  const systemPrompt = `You are InboxIQ, an AI assistant for ${opts.userName} inside Microsoft Teams.
+
+You have access to tools that let you search:
+- The live INTERNET (search_web) — for any current event, fact, public info, news, definitions, etc.
+- The user's OUTLOOK EMAILS (search_emails, get_email_thread)
+- The user's CALENDAR (get_calendar)
+- The user's ONEDRIVE / SHAREPOINT FILES (search_documents)
+- The user's TEAMS CHAT HISTORY (search_teams_chats)
+
+RULES:
+- Decide which tool(s) to call based on the question. You can call multiple tools, in sequence or parallel.
+- For questions about the outside world (news, prices, definitions, "who is...", "latest...") → use search_web.
+- For "find that email about...", "what did X say about..." → search_emails.
+- For "what's on my calendar", "next meeting", "am I free Friday" → get_calendar.
+- For "find that document/spreadsheet/proposal" → search_documents.
+- For "what did we discuss in Teams about..." → search_teams_chats.
+- Combine sources when useful (e.g. summarize the meeting AND the related email thread).
+- Always answer in plain text or light markdown (no big headings). Be concise but complete.
+- Cite email subjects, file names, meeting titles, or web URLs so the user can verify.
+- Never fabricate. If a tool returns nothing, say so plainly.`;
+
+  const messages: any[] = [
+    { role: 'system', content: systemPrompt },
+    ...opts.history,
+    { role: 'user', content: opts.userText },
+  ];
+
+  // Up to 5 tool-call turns
+  for (let turn = 0; turn < 5; turn++) {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages,
+        tools: TOOL_DEFINITIONS,
+        tool_choice: 'auto',
+        temperature: 0.3,
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error('OpenAI error', res.status, txt);
+      return 'Sorry, I had trouble thinking through that. Please try again.';
+    }
+
+    const data = await res.json();
+    const msg = data.choices?.[0]?.message;
+    if (!msg) return '(no response)';
+
+    // No tool calls → final answer
+    if (!msg.tool_calls?.length) {
+      return msg.content ?? '(no response)';
+    }
+
+    // Execute tool calls in parallel
+    messages.push(msg);
+    const results = await Promise.all(
+      msg.tool_calls.map(async (tc: any) => {
+        let args: any = {};
+        try { args = JSON.parse(tc.function.arguments ?? '{}'); } catch { /* ignore */ }
+        console.log(`[tool] ${tc.function.name}`, args);
+        const out = await executeTool(tc.function.name, args, opts.graphToken);
+        return {
+          tool_call_id: tc.id,
+          role: 'tool',
+          name: tc.function.name,
+          content: out.slice(0, 12000),
+        };
+      })
+    );
+    messages.push(...results);
+  }
+
+  return 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.';
+}
+
+/* ---------------- HTTP entry point ---------------- */
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-  if (req.method !== 'POST') {
-    return new Response('ok', { status: 200 });
-  }
+  if (req.method !== 'POST') return new Response('ok', { status: 200 });
 
   let activity: TeamsActivity;
-  try {
-    activity = await req.json();
-  } catch {
-    return new Response('bad request', { status: 400 });
-  }
+  try { activity = await req.json(); } catch { return new Response('bad request', { status: 400 }); }
 
-  // Only respond to message activities
-  if (activity.type !== 'message') {
-    return new Response('', { status: 200 });
-  }
+  if (activity.type !== 'message') return new Response('', { status: 200 });
 
-  const tenantId =
-    activity.channelData?.tenant?.id ?? activity.conversation?.tenantId ?? null;
+  const tenantId = activity.channelData?.tenant?.id ?? activity.conversation?.tenantId ?? null;
+  if (!tenantId) return new Response('', { status: 200 });
 
-  if (!tenantId) {
-    return new Response('', { status: 200 });
-  }
-
-  // Find org settings by tenant id
+  // Find org by tenant
   const { data: settings } = await supabase
     .from('agent_settings')
     .select('*')
     .eq('teams_tenant_id', tenantId)
     .maybeSingle();
 
-  if (!settings || !settings.teams_agent_enabled) {
-    return new Response('', { status: 200 });
-  }
+  if (!settings || !settings.teams_agent_enabled) return new Response('', { status: 200 });
 
-  const userName = activity.from?.name ?? 'there';
   const aadId = activity.from?.aadObjectId ?? null;
-
-  // Domain check via Graph
-  let senderDomain: string | null = null;
-  let allowedDomains: string[] = (settings.allowed_sender_domains ?? []).map((d: string) => d.toLowerCase());
-  if (allowedDomains.length === 0) {
-    const { data: profiles } = await supabase
-      .from('user_profiles')
-      .select('email')
-      .eq('organization_id', settings.organization_id);
-    const orgDomains = new Set<string>();
-    (profiles ?? []).forEach((p) => {
-      const d = (p.email ?? '').toLowerCase().split('@')[1];
-      if (d) orgDomains.add(d);
-    });
-    allowedDomains = Array.from(orgDomains);
-  }
-
-  if (aadId) {
-    try {
-      const graphToken = await getAppGraphToken(tenantId);
-      senderDomain = await lookupAadDomain(graphToken, aadId);
-    } catch (e) {
-      console.warn('Graph lookup failed', e);
-    }
-  }
-
-  const isAllowed = senderDomain ? allowedDomains.includes(senderDomain) : false;
-
+  const userName = activity.from?.name ?? 'there';
   const userText = stripMentions(activity.text ?? '');
 
+  // Resolve sender email via app-only Graph
+  let senderEmail: string | null = null;
+  if (aadId) {
+    try {
+      const appToken = await getAppGraphToken(tenantId);
+      senderEmail = await lookupSenderEmail(appToken, aadId);
+    } catch (e) { console.warn('email lookup failed', e); }
+  }
+
+  // Domain allow-list
+  const allowedDomains: string[] = (settings.allowed_sender_domains ?? []).map((d: string) => d.toLowerCase());
+  const senderDomain = senderEmail?.split('@')[1] ?? null;
+  let isAllowed = senderDomain ? (allowedDomains.length === 0 || allowedDomains.includes(senderDomain)) : false;
+
+  // Log inbound
   const { data: inbound } = await supabase
     .from('agent_messages')
     .insert({
@@ -211,7 +283,7 @@ Deno.serve(async (req) => {
       channel: 'teams',
       direction: 'inbound',
       sender_aad_id: aadId,
-      sender_email: senderDomain ? `unknown@${senderDomain}` : null,
+      sender_email: senderEmail,
       sender_domain: senderDomain,
       content: userText.slice(0, 4000),
       external_message_id: activity.id,
@@ -222,37 +294,57 @@ Deno.serve(async (req) => {
     .select('id')
     .single();
 
-  if (!isAllowed) {
-    // Silent rejection — do not reply to external users
-    return new Response('', { status: 200 });
-  }
+  if (!isAllowed) return new Response('', { status: 200 });
 
-  try {
-    const replyText = await generateAIReply(userText || 'Hello', userName);
-    await sendReply(activity, replyText);
+  // Resolve InboxIQ user + Microsoft access token
+  const resolved = await resolveTeamsUser({
+    aadObjectId: aadId,
+    senderEmail,
+    organizationId: settings.organization_id,
+  });
 
-    await supabase.from('agent_messages').insert({
-      organization_id: settings.organization_id,
-      channel: 'teams',
-      direction: 'outbound',
-      content: replyText.slice(0, 8000),
-      response_to_id: inbound?.id ?? null,
-      conversation_id: activity.conversation?.id ?? null,
-      status: 'sent',
-    });
-  } catch (e) {
-    console.error('Teams reply failed', e);
-    await supabase.from('agent_messages').insert({
-      organization_id: settings.organization_id,
-      channel: 'teams',
-      direction: 'outbound',
-      content: null,
-      response_to_id: inbound?.id ?? null,
-      conversation_id: activity.conversation?.id ?? null,
-      status: 'failed',
-      rejected_reason: String(e).slice(0, 500),
-    });
-  }
+  // Background processing (Teams Bot Framework expects 200 quickly)
+  (async () => {
+    try {
+      await sendTyping(activity);
+      const history = await loadHistory(settings.organization_id, activity.conversation?.id ?? '');
+      const reply = await runAgent({
+        userText: userText || 'Hello',
+        userName: resolved?.fullName ?? userName,
+        history,
+        graphToken: resolved?.microsoftAccessToken ?? null,
+      });
+
+      const finalReply = resolved
+        ? reply
+        : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
+
+      await sendReply(activity, finalReply);
+
+      await supabase.from('agent_messages').insert({
+        organization_id: settings.organization_id,
+        channel: 'teams',
+        direction: 'outbound',
+        content: finalReply.slice(0, 8000),
+        response_to_id: inbound?.id ?? null,
+        conversation_id: activity.conversation?.id ?? null,
+        status: 'sent',
+      });
+    } catch (e) {
+      console.error('agent run failed', e);
+      try { await sendReply(activity, 'Sorry — something went wrong on my end. Please try again.'); } catch (_) {}
+      await supabase.from('agent_messages').insert({
+        organization_id: settings.organization_id,
+        channel: 'teams',
+        direction: 'outbound',
+        content: null,
+        response_to_id: inbound?.id ?? null,
+        conversation_id: activity.conversation?.id ?? null,
+        status: 'failed',
+        rejected_reason: String(e).slice(0, 500),
+      });
+    }
+  })();
 
   return new Response('', { status: 200, headers: corsHeaders });
 });
