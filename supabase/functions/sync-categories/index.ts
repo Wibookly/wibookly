@@ -1224,16 +1224,27 @@ serve(async (req) => {
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const legacyTagNames = new Set<string>();
+            // Build the allow-list of currently-valid IQ tags so the sweep
+            // never deletes the chip the user is actively using.
+            const currentValid = new Set<string>();
+            try {
+              const { data: cats } = await supabaseAdmin
+                .from('categories')
+                .select('name')
+                .eq('connection_id', connectionId);
+              for (const c of (cats ?? []) as Array<{ name: string }>) {
+                currentValid.add(`${IQ_TAG_PREFIX}${c.name}`);
+              }
+            } catch (_) { /* best-effort */ }
             if (mcRes.ok) {
               const { value: mcList } = await mcRes.json();
               for (const c of (mcList ?? []) as Array<{ id: string; displayName: string }>) {
                 const dn = c.displayName || '';
-                if (
-                  dn.startsWith('InboxIQ: ') ||
-                  dn.startsWith('★ InboxIQ: ') ||
-                  dn.startsWith('★ IQ: ') ||
-                  dn.startsWith('Wibookly: ')
-                ) {
+                // Skip the live, currently-used IQ chips.
+                if (currentValid.has(dn)) continue;
+                // Anything else our system has ever produced gets purged:
+                // legacy prefixes, numbered Gmail mirrors, AI Draft / AI Sent.
+                if (isManagedCategoryName(dn)) {
                   legacyTagNames.add(dn);
                   // Delete the orphan colored chip so it disappears from the
                   // Outlook Categorize menu.
