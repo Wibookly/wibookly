@@ -1,5 +1,5 @@
 import { useAuth } from '@/lib/auth';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,23 +21,42 @@ export function UserAvatarDropdown() {
     }
     return 'User';
   };
-  
+
   const firstName = getFirstName();
+  const initials = firstName.slice(0, 2).toUpperCase();
+  const photoUrl = profile?.profile_photo_url ?? undefined;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="h-9 px-4 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
-            {firstName}
-          </div>
+          {photoUrl ? (
+            <Avatar className="h-9 w-9 border-2 border-white shadow-md">
+              <AvatarImage src={photoUrl} alt={firstName} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <div className="h-9 px-4 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
+              {firstName}
+            </div>
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
-            <p className="text-xs text-muted-foreground">{profile?.email}</p>
+          <div className="flex items-center gap-3">
+            {photoUrl ? (
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={photoUrl} alt={firstName} />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+            ) : null}
+            <div className="flex flex-col space-y-1 min-w-0">
+              <p className="text-sm font-medium truncate">{profile?.full_name || 'User'}</p>
+              <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

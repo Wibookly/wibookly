@@ -594,6 +594,158 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Outlook Master Categories: the only API-surfaced way to show a color in
+// the Outlook UI. Folders themselves cannot be colored via Graph (Microsoft
+// limitation). We create a Master Category that mirrors each app category's
+// color, then tag every message that lives inside the folder with it so
+// the colored stripe shows next to the email subject in Outlook.
+// ────────────────────────────────────────────────────────────────────────
+const OUTLOOK_PRESET_COLORS: Array<{ preset: string; hex: [number, number, number] }> = [
+  { preset: 'preset0',  hex: [0xE7, 0x4C, 0x3C] },
+  { preset: 'preset1',  hex: [0xE6, 0x7E, 0x22] },
+  { preset: 'preset2',  hex: [0xC1, 0x9A, 0x6B] },
+  { preset: 'preset3',  hex: [0xF1, 0xC4, 0x0F] },
+  { preset: 'preset4',  hex: [0x2E, 0xCC, 0x71] },
+  { preset: 'preset5',  hex: [0x16, 0xA0, 0x85] },
+  { preset: 'preset6',  hex: [0x95, 0xA5, 0xA6] },
+  { preset: 'preset7',  hex: [0x34, 0x98, 0xDB] },
+  { preset: 'preset8',  hex: [0x9B, 0x59, 0xB6] },
+  { preset: 'preset9',  hex: [0xE8, 0x4F, 0x9C] },
+  { preset: 'preset10', hex: [0x7F, 0x8C, 0x8D] },
+  { preset: 'preset11', hex: [0x2C, 0x3E, 0x50] },
+  { preset: 'preset12', hex: [0xBD, 0xC3, 0xC7] },
+  { preset: 'preset13', hex: [0x34, 0x49, 0x5E] },
+  { preset: 'preset14', hex: [0x00, 0x00, 0x00] },
+  { preset: 'preset15', hex: [0xC0, 0x39, 0x2B] },
+  { preset: 'preset16', hex: [0xD3, 0x54, 0x00] },
+  { preset: 'preset17', hex: [0x8B, 0x4F, 0x2F] },
+  { preset: 'preset18', hex: [0xB7, 0x95, 0x0B] },
+  { preset: 'preset19', hex: [0x27, 0xAE, 0x60] },
+  { preset: 'preset20', hex: [0x0E, 0x80, 0x68] },
+  { preset: 'preset21', hex: [0x6B, 0x6F, 0x39] },
+  { preset: 'preset22', hex: [0x21, 0x6F, 0xA8] },
+  { preset: 'preset23', hex: [0x71, 0x36, 0x8A] },
+  { preset: 'preset24', hex: [0xAD, 0x14, 0x57] },
+];
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = hex.replace('#', '').match(/^([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const v = parseInt(m[1], 16);
+  return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
+}
+
+function nearestOutlookPreset(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 'preset7';
+  let best = OUTLOOK_PRESET_COLORS[0];
+  let bestDist = Infinity;
+  for (const p of OUTLOOK_PRESET_COLORS) {
+    const d = (rgb[0] - p.hex[0]) ** 2 + (rgb[1] - p.hex[1]) ** 2 + (rgb[2] - p.hex[2]) ** 2;
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best.preset;
+}
+
+async function ensureOutlookMasterCategory(
+  accessToken: string,
+  displayName: string,
+  hexColor: string,
+): Promise<boolean> {
+  try {
+    const preset = nearestOutlookPreset(hexColor);
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!listRes.ok) {
+      console.warn('listMasterCategories failed:', (await listRes.text()).slice(0, 200));
+      return false;
+    }
+    const { value } = await listRes.json();
+    const existing = (value || []).find(
+      (c: { displayName: string; id: string; color: string }) => c.displayName === displayName,
+    );
+    if (existing) {
+      if (existing.color === preset) return true;
+      const patchRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ color: preset }),
+        },
+      );
+      return patchRes.ok;
+    }
+    const createRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, color: preset }),
+      },
+    );
+    return createRes.ok;
+  } catch (err) {
+    console.warn('ensureOutlookMasterCategory failed:', err);
+    return false;
+  }
+}
+
+// Retroactively tag every message currently inside an Outlook folder with the
+// colored Master Category so existing emails — not just new arrivals — show
+// the color stripe in Outlook.
+async function tagOutlookFolderMessages(
+  accessToken: string,
+  folderId: string,
+  categoryName: string,
+  maxMessages = 200,
+): Promise<number> {
+  let tagged = 0;
+  try {
+    const listRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$top=${maxMessages}&$select=id,categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!listRes.ok) return 0;
+    const { value: messages } = await listRes.json();
+    for (const m of messages ?? []) {
+      const existing: string[] = Array.isArray(m.categories) ? m.categories : [];
+      if (existing.includes(categoryName)) continue;
+      const patchRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: [...existing, categoryName] }),
+        },
+      );
+      if (patchRes.ok) tagged++;
+    }
+  } catch (err) {
+    console.warn(`tagOutlookFolderMessages(${categoryName}) failed:`, err);
+  }
+  return tagged;
+}
+
+// Look up an Outlook folder ID by displayName (handles numeric prefix variants).
+async function findOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) return null;
+    const { value: folders } = await res.json();
+    const exact = (folders ?? []).find((f: { displayName: string; id: string }) => f.displayName === folderName);
+    return exact?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Create Outlook folder (also dedupes legacy duplicates like "1: X" vs "01: X")
 async function createOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
@@ -827,6 +979,21 @@ serve(async (req) => {
             success = await createGmailLabel(accessToken, labelName, category.color);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             success = await createOutlookFolder(accessToken, labelName);
+            // Also create / refresh the colored Outlook Master Category and
+            // retroactively tag every message inside the folder so the
+            // color stripe is visible in the Outlook UI today (folders
+            // themselves cannot be colored via Graph).
+            if (success) {
+              const categoryTag = `InboxIQ: ${category.name}`;
+              await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
+              const folderId = await findOutlookFolderId(accessToken, labelName);
+              if (folderId) {
+                const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
+                if (tagged > 0) {
+                  console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
+                }
+              }
+            }
           }
           
           if (success) {

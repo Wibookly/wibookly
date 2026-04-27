@@ -122,6 +122,53 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
   return { users };
 }
 
+// Fetch a user's profile photo from Graph and return a small data: URI we can
+// store directly in the database. Returns null if the user has no photo or
+// the app lacks User.ReadBasic.All / User.Read.All permission.
+async function fetchUserPhotoDataUri(token: string, userId: string): Promise<string | null> {
+  try {
+    // 96x96 is the smallest sized photo Graph guarantees; falls back to default.
+    const sizes = ['96x96', '120x120', '240x240'];
+    for (const size of sizes) {
+      const res = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${userId}/photos/${size}/$value`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.status === 404) continue; // try next size
+      if (!res.ok) return null;
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length === 0) return null;
+      // Encode to base64 in chunks to avoid stack overflow on large blobs.
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < buf.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
+      }
+      const b64 = btoa(binary);
+      const ct = res.headers.get('content-type') ?? 'image/jpeg';
+      return `data:${ct};base64,${b64}`;
+    }
+    // Fallback: default photo endpoint
+    const fallback = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userId}/photo/$value`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!fallback.ok) return null;
+    const buf = new Uint8Array(await fallback.arrayBuffer());
+    if (buf.length === 0) return null;
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
+    }
+    const ct = fallback.headers.get('content-type') ?? 'image/jpeg';
+    return `data:${ct};base64,${btoa(binary)}`;
+  } catch (err) {
+    console.warn(`fetchUserPhotoDataUri(${userId}) failed:`, err);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -228,6 +275,19 @@ serve(async (req) => {
       return hasMailbox || hasExchange || hasAnyLicense;
     });
 
+    // Fetch profile photos in parallel with bounded concurrency so a 100-user
+    // tenant doesn't blow the function timeout. Photos are stored as data URIs
+    // so we don't need to round-trip through storage on every user load.
+    const PHOTO_CONCURRENCY = 8;
+    const photoByMsId = new Map<string, string | null>();
+    for (let i = 0; i < filtered.length; i += PHOTO_CONCURRENCY) {
+      const batch = filtered.slice(i, i + PHOTO_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map((u) => fetchUserPhotoDataUri(tokenRes.token!, u.id).then((p) => [u.id, p] as const)),
+      );
+      for (const [id, photo] of results) photoByMsId.set(id, photo);
+    }
+
     // Build payload — preserve existing invited_user_id / status by upserting on (domain_id, ms_user_id)
     const rows = filtered.map((u) => ({
       domain_id: domain.id,
@@ -236,6 +296,7 @@ serve(async (req) => {
       email: (u.mail || u.userPrincipalName || '').toLowerCase(),
       display_name: u.displayName,
       job_title: u.jobTitle,
+      profile_photo_url: photoByMsId.get(u.id) ?? null,
       is_licensed: true,
       account_enabled: u.accountEnabled,
       last_seen_at: new Date().toISOString(),
@@ -256,6 +317,21 @@ serve(async (req) => {
             status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+      }
+
+      // Propagate the freshly-fetched photo + display_name + job_title onto any
+      // user_profiles that already exist for these discovered accounts, so the
+      // app sidebar avatar and email signature pick up the M365 photo on next
+      // login without requiring the user to manually upload one.
+      for (const r of rows) {
+        await adminClient
+          .from('user_profiles')
+          .update({
+            profile_photo_url: r.profile_photo_url,
+            full_name: r.display_name ?? undefined,
+            title: r.job_title ?? undefined,
+          })
+          .eq('email', r.email);
       }
     }
 
