@@ -122,11 +122,10 @@ const formatPhoneNumber = (value: string): string => {
   return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
 };
 
-type SettingsSection = 'profile' | 'about' | 'signature';
+type SettingsSection = 'profile' | 'signature';
 
 const SETTINGS_SECTIONS = [
-  { value: 'profile' as const, label: 'Update Profile', icon: Mail },
-  { value: 'about' as const, label: 'About Me', icon: User2 },
+  { value: 'profile' as const, label: 'My Profile', icon: Mail },
   { value: 'signature' as const, label: 'Update Signature', icon: Mail },
 ];
 
@@ -137,7 +136,10 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
-  const activeSection = (searchParams.get('section') as SettingsSection) || 'profile';
+  const rawSection = (searchParams.get('section') as string) || 'profile';
+  // Legacy '/settings?section=about' links land on the merged Profile section.
+  const activeSection: SettingsSection =
+    rawSection === 'about' ? 'profile' : (rawSection as SettingsSection);
   const [orgName, setOrgName] = useState('');
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'business'>('personal');
   const [fullName, setFullName] = useState('');
