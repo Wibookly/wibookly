@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateArtifact } from "../_shared/teams-tools.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1501,6 +1502,93 @@ async function removeOutlookCategory(
 
 // Generate AI draft for an email (body only, signature added separately).
 // Returns the generated text + usage so callers can log to ai_usage_logs.
+function escapeHtml(s: string): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ---------------- Artifact request detection ----------------
+ * Looks at the inbound email and decides if the sender is asking the
+ * AI agent to PRODUCE something (dashboard, report, presentation,
+ * spreadsheet, slides, document, code, HTML page, etc.) — the same
+ * kinds of things ChatGPT or Claude would happily generate.
+ * Returns a structured spec the agent can hand to generateArtifact().
+ */
+async function detectArtifactRequest(opts: {
+  emailSubject: string;
+  emailBody: string;
+}): Promise<
+  | null
+  | {
+      kind: 'html_dashboard' | 'html_page' | 'markdown' | 'code' | 'text';
+      topic: string;
+      details: string;
+      filename: string;
+    }
+> {
+  const text = `${opts.emailSubject}\n${opts.emailBody}`.toLowerCase();
+  // Cheap keyword pre-filter so we don't burn an LLM call on every email.
+  const keywords = [
+    'dashboard', 'report', 'presentation', 'slides', 'deck', 'pptx',
+    'pdf', 'spreadsheet', 'excel', 'xlsx', 'cash flow', 'p&l',
+    'forecast', 'projection', 'budget', 'analysis', 'summary report',
+    'create me', 'build me', 'generate', 'make me a', 'design a',
+    'mock up', 'mockup', 'template', 'one-pager', 'one pager',
+    'html', 'webpage', 'web page', 'document', 'doc for', 'write a',
+    'draft a report', 'put together', 'prepare a', 'cheat sheet',
+  ];
+  if (!keywords.some((k) => text.includes(k))) return null;
+
+  try {
+    const keys = await loadAdminAIKeys();
+    if (!keys.openai) return null;
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${keys.openai}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You decide whether an inbound email is asking an AI assistant to CREATE a deliverable artifact (a dashboard, report, presentation, slide deck, spreadsheet, HTML page, document, or code file) — the kind of thing ChatGPT or Claude would generate. Reply with strict JSON only.',
+          },
+          {
+            role: 'user',
+            content: `Email subject: ${opts.emailSubject}\n\nEmail body:\n${opts.emailBody.substring(0, 2500)}\n\nReturn JSON: { "wants_artifact": boolean, "kind": "html_dashboard"|"html_page"|"markdown"|"code"|"text", "topic": string (short title), "details": string (everything the requester specified — numbers, sections, branding, audience, time period, dummy-data permission, etc.), "filename": string (kebab-case, no extension) }. Use "html_dashboard" for anything visual/financial/KPI/report-like. Use "markdown" only for plain long-form docs. If unsure, set wants_artifact=false.`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content ?? '{}';
+    const parsed = JSON.parse(raw);
+    if (!parsed.wants_artifact) return null;
+    const kind = ['html_dashboard', 'html_page', 'markdown', 'code', 'text'].includes(parsed.kind)
+      ? parsed.kind
+      : 'html_dashboard';
+    return {
+      kind,
+      topic: String(parsed.topic || opts.emailSubject || 'requested-artifact').slice(0, 200),
+      details: String(parsed.details || opts.emailBody.substring(0, 1500)),
+      filename: String(parsed.filename || 'artifact').slice(0, 60),
+    };
+  } catch (e) {
+    console.warn('detectArtifactRequest failed', e);
+    return null;
+  }
+}
+
 async function generateAIDraft(
   emailSubject: string,
   emailBody: string,
@@ -2433,12 +2521,60 @@ async function processConnectionEmails(
           }
         }
 
+        // ===== Artifact generation (run BEFORE drafting the reply) =====
+        // If the sender asked the agent to PRODUCE something (dashboard,
+        // financial report, presentation, slide deck, HTML page, document...),
+        // generate it the same way ChatGPT/Claude would, save it to OneDrive
+        // (Outlook only), and tell the reply-LLM that the deliverable is ready
+        // so it acknowledges it instead of saying "I can't create that".
+        let artifactBlockHtml = '';
+        let artifactReplyHint = '';
+        try {
+          const artifactSpec = await detectArtifactRequest({
+            emailSubject: emailDetails.subject,
+            emailBody: emailDetails.body,
+          });
+          if (artifactSpec) {
+            console.log(`Artifact requested: kind=${artifactSpec.kind}, topic="${artifactSpec.topic}"`);
+            const graphToken = tokenRecord.provider === 'microsoft' ? accessToken : null;
+            const artifactJson = await generateArtifact(graphToken, {
+              kind: artifactSpec.kind,
+              topic: artifactSpec.topic,
+              details: artifactSpec.details,
+              filename: artifactSpec.filename,
+            });
+            let parsed: any = null;
+            try { parsed = JSON.parse(artifactJson); } catch { /* ignore */ }
+            if (parsed?.ok && parsed.delivered === 'onedrive' && parsed.share_url) {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;margin-bottom:8px;">I built this for you and saved it to your OneDrive. Click below to open, present, or download it.</div>` +
+                `<div><a href="${parsed.share_url}" style="display:inline-block;background:#1e40af;color:#ffffff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open ${escapeHtml(parsed.filename || 'the file')}</a></div>` +
+                `<div style="color:#6b7280;font-size:12px;margin-top:8px;">File: ${escapeHtml(parsed.filename)} • saved to OneDrive › InboxIQ-Artifacts</div>` +
+                `</div>`;
+              artifactReplyHint = `\n\n[SYSTEM NOTE FOR YOUR REPLY: A complete "${artifactSpec.topic}" (${artifactSpec.kind.replace('_', ' ')}, file: ${parsed.filename}) has ALREADY been generated for the sender and saved to their OneDrive. A clickable button with the share link will be appended automatically below your message. Your job: acknowledge that it's ready, briefly describe what's inside (1-3 short sentences), invite them to open the link below for the full version, and offer to refine it. Do NOT say you cannot create files. Do NOT include any URL yourself — the link button is appended for you.]`;
+            } else if (parsed?.ok && parsed.delivered === 'inline') {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;">I generated the requested file (${escapeHtml(parsed.filename)}). To enable automatic delivery to OneDrive, please connect a Microsoft 365 account in InboxIQ.</div>` +
+                `</div>`;
+              artifactReplyHint = `\n\n[SYSTEM NOTE FOR YOUR REPLY: A "${artifactSpec.topic}" file has been generated (${parsed.filename}) but cannot be auto-delivered because no Microsoft 365 account is linked. Acknowledge it, summarize what's inside in 1-3 sentences, and invite them to reply if they want it sent another way. Do NOT say you cannot create files.]`;
+            } else if (parsed && parsed.error) {
+              console.warn('Artifact generation returned error:', parsed.error);
+            }
+          }
+        } catch (e) {
+          console.warn('Artifact pipeline failed (non-fatal):', e);
+        }
+
         // Generate AI draft content (without signature - AI will just create the body)
         // Use Events category context if this is an event-related email
         const categoryNameForAI = shouldUseEventLogic ? 'Events' : category.name;
         const aiDraftResult = await generateAIDraft(
           emailDetails.subject,
-          emailDetails.body,
+          emailDetails.body + artifactReplyHint,
           emailDetails.from,
           categoryNameForAI,
           category.writing_style,
@@ -2491,13 +2627,15 @@ async function processConnectionEmails(
         // Remove meeting marker from the response for clean email body
         const cleanAIDraftBody = removeMeetingMarkerFromResponse(aiDraftBody);
 
+        // (Artifact was generated earlier; artifactBlockHtml is already in scope.)
+
         // Generate the email signature from profile
         const emailSignature = generateEmailSignature(profile);
-        
+
         // Combine draft body with signature for final content
         // Convert plain text body to HTML and append HTML signature
         const htmlBody = cleanAIDraftBody.replace(/\n/g, '<br>');
-        const draftContent = `<div>${htmlBody}</div>${emailSignature}`;
+        const draftContent = `<div>${htmlBody}</div>${artifactBlockHtml}${emailSignature}`;
         
         console.log(`Generated draft with signature for email ${msg.id}${parsedMeeting ? ' (includes meeting)' : ''}`);
 
