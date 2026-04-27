@@ -682,6 +682,73 @@ export default function Settings() {
         </section>
         )}
 
+        {/* About Me - personalizes AI replies */}
+        {activeSection === 'about' && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">About Me</h2>
+            <p className="text-sm text-muted-foreground">
+              These details help the AI understand who you are so it can write
+              drafts and replies that sound like you.
+            </p>
+          </div>
+          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="aboutCompany">Company</Label>
+                <Input
+                  id="aboutCompany"
+                  value={aboutMe.company}
+                  onChange={(e) => setAboutMe(p => ({ ...p, company: e.target.value }))}
+                  placeholder="e.g. Energy Forward"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="aboutDept">Department</Label>
+                <Input
+                  id="aboutDept"
+                  value={aboutMe.department}
+                  onChange={(e) => setAboutMe(p => ({ ...p, department: e.target.value }))}
+                  placeholder="e.g. Operations, Sales"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutRole">Role / What you do</Label>
+              <Input
+                id="aboutRole"
+                value={aboutMe.role_description}
+                onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
+                placeholder="e.g. CEO, Account Manager handling enterprise clients"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutResp">Responsibilities</Label>
+              <Textarea
+                id="aboutResp"
+                value={aboutMe.responsibilities}
+                onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
+                placeholder="What you typically handle: approvals, follow-ups, contracts, scheduling, etc."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutStyle">Communication style</Label>
+              <Textarea
+                id="aboutStyle"
+                value={aboutMe.communication_style}
+                onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
+                placeholder="e.g. Friendly but concise. Use first names. Avoid jargon. Always end with 'Thanks!'"
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tell the AI how you prefer to write — tone, length, signoffs, things to avoid.
+              </p>
+            </div>
+          </div>
+        </section>
+        )}
+
         {/* Email Signature Builder */}
         {activeSection === 'signature' && (
         <section className="space-y-4">
