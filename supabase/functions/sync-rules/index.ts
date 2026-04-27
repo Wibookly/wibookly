@@ -1032,7 +1032,7 @@ serve(async (req) => {
     // Get ENABLED categories for numbering - use sort_order for label names
     let enabledCategoriesQuery = supabaseAdmin
       .from('categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, color')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
       .order('sort_order');
@@ -1043,8 +1043,13 @@ serve(async (req) => {
 
     const { data: enabledCategories } = await enabledCategoriesQuery;
 
-    // Map category ID to its sort_order (used for label naming)
-    const categoryMap = new Map(enabledCategories?.map((c) => [c.id, { name: c.name, sortOrder: c.sort_order }]));
+    // Map category ID to its sort_order (used for label naming) + color (for Outlook tagging)
+    const categoryMap = new Map(
+      enabledCategories?.map((c) => [
+        c.id,
+        { name: c.name, sortOrder: c.sort_order, color: c.color || '#6366f1' },
+      ])
+    );
 
     const results: { provider: string; synced: number; failed: number; error?: string }[] = [];
 
