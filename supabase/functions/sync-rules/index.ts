@@ -6,7 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/MailboxSettings.ReadWrite';
+// IMPORTANT: Do NOT request MailboxSettings.* scopes — they trigger Microsoft 365
+// admin-consent prompts that block end users from completing OAuth.
+// Inbox-rule management is therefore not available; we enforce categorization by
+// directly MOVING matching emails into the target folder using Mail.ReadWrite.
+const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
 
 function isOutlookRuleAccessDenied(errorText: string): boolean {
   return errorText.includes('ErrorAccessDenied') || errorText.includes('Access is denied');
@@ -428,143 +432,139 @@ function buildOutlookSearchFilter(rule: any): string {
   return filters.join(' and ');
 }
 
-// Apply Outlook rule
+// Apply Outlook rule.
+//
+// We try to create a server-side Outlook inbox rule (so future emails are auto-moved
+// by Microsoft itself), BUT this requires the MailboxSettings.ReadWrite scope which
+// triggers admin-consent prompts in M365 tenants. When that scope is not granted
+// (the normal case for our users), the rules API returns ErrorAccessDenied.
+//
+// In that case we silently fall back to MOVING matching emails into the folder
+// directly via Mail.ReadWrite. Combined with the 5-minute `cron-apply-rules` job,
+// new arrivals are continuously moved into the right category folder. From the
+// user's perspective the rule is fully enforced — without any admin approval.
 // deno-lint-ignore no-explicit-any
 async function applyOutlookRule(accessToken: string, rule: any, folderId: string, ruleName: string): Promise<boolean> {
+  // Build conditions (used if server-side rule creation succeeds)
+  // deno-lint-ignore no-explicit-any
+  const conditions: any = {};
+
+  if (rule.rule_type === 'sender') {
+    conditions.senderContains = [rule.rule_value];
+  } else if (rule.rule_type === 'domain') {
+    conditions.senderContains = [`@${rule.rule_value}`];
+  } else if (rule.rule_type === 'keyword') {
+    conditions.subjectOrBodyContains = [rule.rule_value];
+  }
+
+  if (rule.recipient_filter) {
+    if (rule.recipient_filter === 'to_me') {
+      conditions.sentToMe = true;
+    } else if (rule.recipient_filter === 'cc_me') {
+      conditions.sentCcMe = true;
+    } else if (rule.recipient_filter === 'to_or_cc_me') {
+      conditions.sentToMe = true;
+    }
+  }
+
+  if (rule.is_advanced) {
+    const conditionLogic = rule.condition_logic || 'and';
+    if (conditionLogic === 'or') {
+      const orTerms: string[] = [];
+      if (rule.subject_contains) orTerms.push(rule.subject_contains);
+      if (rule.body_contains) orTerms.push(rule.body_contains);
+      if (orTerms.length > 0) {
+        conditions.subjectOrBodyContains = conditions.subjectOrBodyContains
+          ? [...conditions.subjectOrBodyContains, ...orTerms]
+          : orTerms;
+      }
+    } else {
+      if (rule.subject_contains) conditions.subjectContains = [rule.subject_contains];
+      if (rule.body_contains) conditions.bodyContains = [rule.body_contains];
+    }
+  }
+
+  // ---- Best-effort server-side rule creation (skipped silently if no permission) ----
+  let serverRuleCreated = false;
   try {
-    // Check if rule already exists
     const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
 
-    if (!listRes.ok) {
-      const errorText = await listRes.text();
-      console.error('Failed to list Outlook rules:', errorText);
-      throw new Error(`OUTLOOK_RULE_LIST_FAILED:${errorText}`);
-    }
+    if (listRes.ok) {
+      const { value: existingRules } = await listRes.json();
 
-    const { value: existingRules } = await listRes.json();
+      // Cleanup duplicate / legacy rules
+      const ruleSuffix = `${rule.rule_type}:${rule.rule_value}`;
+      const rulesToDelete = (existingRules || []).filter((r: { id: string; displayName: string }) => {
+        const name = r.displayName || '';
+        if (name === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`) return true;
+        if (name === ruleName) return true;
+        if (name.startsWith('InboxIQ: ') && name.endsWith(` - ${ruleSuffix}`)) return true;
+        return false;
+      });
 
-    // Build conditions based on rule type (used for create AND update)
-    // deno-lint-ignore no-explicit-any
-    const conditions: any = {};
-
-    if (rule.rule_type === 'sender') {
-      conditions.senderContains = [rule.rule_value];
-    } else if (rule.rule_type === 'domain') {
-      conditions.senderContains = [`@${rule.rule_value}`];
-    } else if (rule.rule_type === 'keyword') {
-      conditions.subjectOrBodyContains = [rule.rule_value];
-    }
-
-    // Recipient filter
-    if (rule.recipient_filter) {
-      if (rule.recipient_filter === 'to_me') {
-        conditions.sentToMe = true;
-      } else if (rule.recipient_filter === 'cc_me') {
-        conditions.sentCcMe = true;
-      } else if (rule.recipient_filter === 'to_or_cc_me') {
-        conditions.sentToMe = true;
+      for (const dup of rulesToDelete) {
+        try {
+          await fetch(
+            `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${dup.id}`,
+            { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+        } catch (_) { /* ignore */ }
       }
-    }
 
-    // Advanced conditions
-    if (rule.is_advanced) {
-      const conditionLogic = rule.condition_logic || 'and';
+      const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: ruleName,
+          sequence: 1,
+          isEnabled: true,
+          conditions,
+          actions: { moveToFolder: folderId, stopProcessingRules: false }
+        })
+      });
 
-      if (conditionLogic === 'or') {
-        const orTerms: string[] = [];
-        if (rule.subject_contains) orTerms.push(rule.subject_contains);
-        if (rule.body_contains) orTerms.push(rule.body_contains);
-        if (orTerms.length > 0) {
-          conditions.subjectOrBodyContains = conditions.subjectOrBodyContains
-            ? [...conditions.subjectOrBodyContains, ...orTerms]
-            : orTerms;
-        }
+      if (createRes.ok) {
+        serverRuleCreated = true;
+        console.log(`Created Outlook server-side rule: ${ruleName}`);
       } else {
-        if (rule.subject_contains) {
-          conditions.subjectContains = [rule.subject_contains];
-        }
-        if (rule.body_contains) {
-          conditions.bodyContains = [rule.body_contains];
-        }
-      }
-    }
-
-    // Find duplicate / legacy / semantically-equivalent rules.
-    // We delete:
-    //  - Legacy Wibookly rules with same semantics
-    //  - Old InboxIQ rules with the same `rule_type:rule_value` suffix but different
-    //    category folder (user changed mapping or recreated rules)
-    //  - Any existing rule with the EXACT same name (we'll recreate to ensure conditions/folder match)
-    // This guarantees the latest app config is the only enabled rule for this semantic.
-    const ruleSuffix = `${rule.rule_type}:${rule.rule_value}`;
-    const rulesToDelete = (existingRules || []).filter((r: { id: string; displayName: string }) => {
-      const name = r.displayName || '';
-      if (name === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`) return true;
-      if (name === ruleName) return true;
-      // Match any "InboxIQ: <anything> - rule_type:rule_value" (different category folder)
-      if (name.startsWith('InboxIQ: ') && name.endsWith(` - ${ruleSuffix}`)) return true;
-      return false;
-    });
-
-    for (const dup of rulesToDelete) {
-      try {
-        const delRes = await fetch(
-          `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${dup.id}`,
-          { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (delRes.ok) {
-          console.log(`Deleted stale/duplicate Outlook rule "${dup.displayName}"`);
+        const errorText = await createRes.text();
+        if (isOutlookRuleAccessDenied(errorText)) {
+          console.log(`Outlook server-side rule for "${ruleName}" not created (no MailboxSettings permission) — will enforce by moving emails directly.`);
         } else {
-          console.error(`Failed to delete stale Outlook rule "${dup.displayName}":`, await delRes.text());
+          console.warn(`Could not create Outlook server-side rule "${ruleName}": ${errorText.slice(0, 300)}. Falling back to direct move.`);
         }
-      } catch (err) {
-        console.error('Error deleting stale Outlook rule:', err);
+      }
+    } else {
+      const errorText = await listRes.text();
+      if (isOutlookRuleAccessDenied(errorText)) {
+        console.log(`Outlook server-side rules unavailable (no MailboxSettings permission) — will enforce "${ruleName}" by moving emails directly.`);
+      } else {
+        console.warn(`Could not list Outlook rules: ${errorText.slice(0, 300)}. Falling back to direct move.`);
       }
     }
+  } catch (err) {
+    console.warn('Outlook server-side rule step failed, continuing with direct move:', err);
+  }
 
-    // Create the rule fresh with current conditions and target folder, enabled
-    const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        displayName: ruleName,
-        sequence: 1,
-        isEnabled: true,
-        conditions,
-        actions: {
-          moveToFolder: folderId,
-          stopProcessingRules: false
-        }
-      })
-    });
-
-    if (!createRes.ok) {
-      const errorText = await createRes.text();
-      console.error(`Failed to create Outlook rule "${ruleName}":`, errorText);
-      throw new Error(`OUTLOOK_RULE_CREATE_FAILED:${errorText}`);
-    }
-
-    console.log(`Created/refreshed Outlook rule: ${ruleName} (enabled)`);
-
+  // ---- Direct move enforcement (always runs, works with Mail.ReadWrite alone) ----
+  try {
     // Get inbox folder ID
     const inboxRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
-    
+
     if (!inboxRes.ok) {
-      console.error('Failed to get inbox folder');
-      return true; // Rule created, but couldn't clean up
+      console.error(`Failed to get inbox folder for "${ruleName}":`, await inboxRes.text());
+      // We may still have created the server-side rule successfully
+      return serverRuleCreated;
     }
-    
+
     const inboxFolder = await inboxRes.json();
     const inboxId = inboxFolder.id;
 
-    // Get emails currently in the folder
+    // Get emails currently in the target folder (to detect ones that no longer match)
     const folderEmailsRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$top=500&$select=id,from,subject,body`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -575,23 +575,25 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     if (folderEmailsRes.ok) {
       const body = await folderEmailsRes.json();
       folderEmails = body.value || [];
-    } else {
-      console.log('Could not fetch folder emails for cleanup');
     }
 
-    // Build search filter and find matching emails across the mailbox
+    // Find matching emails across the whole mailbox
     const searchFilter = buildOutlookSearchFilter(rule);
     const matchingRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(searchFilter)}&$top=500&$select=id,parentFolderId,subject`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
+    if (!matchingRes.ok) {
+      console.error(`Failed to search matching Outlook emails for "${ruleName}":`, await matchingRes.text());
+      return serverRuleCreated;
+    }
+
     // deno-lint-ignore no-explicit-any
-    const matchingEmails: any[] = matchingRes.ok ? (await matchingRes.json()).value || [] : [];
+    const matchingEmails: any[] = (await matchingRes.json()).value || [];
     const matchingIds = new Set(matchingEmails.map((m: { id: string }) => m.id));
 
-    // Move matching emails currently in the inbox into the category folder
-    // (Outlook server-side rules only fire on NEW arrivals; we need to move existing ones manually)
+    // Move matching inbox emails INTO the target folder
     // deno-lint-ignore no-explicit-any
     const inboxMatches = matchingEmails.filter((email: any) => email.parentFolderId === inboxId);
     let movedIntoFolder = 0;
@@ -601,61 +603,43 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
           `https://graph.microsoft.com/v1.0/me/messages/${email.id}/move`,
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ destinationId: folderId })
           }
         );
-        if (moveRes.ok) {
-          movedIntoFolder++;
-        } else {
-          console.error(`Failed to move email "${email.subject}" into folder:`, await moveRes.text());
-        }
-      } catch (err) {
-        console.error('Error moving email into folder:', err);
-      }
+        if (moveRes.ok) movedIntoFolder++;
+      } catch (_) { /* skip */ }
     }
     if (movedIntoFolder > 0) {
-      console.log(`Moved ${movedIntoFolder} matching inbox emails into folder for rule "${ruleName}"`);
+      console.log(`Moved ${movedIntoFolder} matching inbox emails into folder for "${ruleName}"`);
     }
 
-    // Find emails in folder that don't match the rule anymore
+    // Move non-matching emails currently in the folder back to inbox
     // deno-lint-ignore no-explicit-any
     const nonMatchingEmails = folderEmails.filter((email: any) => !matchingIds.has(email.id));
-
-    // Move non-matching emails back to inbox
+    let movedOut = 0;
     for (const email of nonMatchingEmails) {
       try {
         const moveRes = await fetch(
           `https://graph.microsoft.com/v1.0/me/messages/${email.id}/move`,
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ destinationId: inboxId })
           }
         );
-        
-        if (moveRes.ok) {
-          console.log(`Moved non-matching email back to inbox: ${email.subject}`);
-        }
-      } catch (err) {
-        console.error('Error moving email to inbox:', err);
-      }
+        if (moveRes.ok) movedOut++;
+      } catch (_) { /* skip */ }
+    }
+    if (movedOut > 0) {
+      console.log(`Moved ${movedOut} non-matching emails back to inbox for "${ruleName}"`);
     }
 
-    if (nonMatchingEmails.length > 0) {
-      console.log(`Moved ${nonMatchingEmails.length} non-matching emails back to inbox`);
-    }
-
+    // Success: even if the server-side rule wasn't created, direct move enforces the rule
     return true;
   } catch (error) {
-    console.error(`Error creating Outlook rule "${ruleName}":`, error);
-    return false;
+    console.error(`Direct-move enforcement failed for Outlook rule "${ruleName}":`, error);
+    return serverRuleCreated;
   }
 }
 
@@ -921,35 +905,7 @@ serve(async (req) => {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              try {
-                success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (isOutlookRuleAccessDenied(message) && activeTokenRecord.encrypted_refresh_token) {
-                  console.warn('Outlook rules access denied, forcing Microsoft token refresh with mailbox settings scopes...');
-                  accessToken = await getValidAccessToken(activeTokenRecord, encryptionKey, user.id, true);
-
-                  const { data: refreshedTokenRecord } = await supabaseAdmin
-                    .from('oauth_token_vault')
-                    .select('provider, encrypted_access_token, encrypted_refresh_token, expires_at')
-                    .eq('user_id', user.id)
-                    .eq('provider', tokenRecord.provider)
-                    .maybeSingle();
-
-                  if (refreshedTokenRecord) {
-                    activeTokenRecord = refreshedTokenRecord as TokenData;
-                  }
-
-                  if (accessToken) {
-                    const refreshedFolderId = await getOutlookFolderId(accessToken, labelName);
-                    if (refreshedFolderId) {
-                      success = await applyOutlookRule(accessToken, rule, refreshedFolderId, ruleName);
-                    }
-                  }
-                } else {
-                  throw error;
-                }
-              }
+              success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
             }
@@ -967,8 +923,8 @@ serve(async (req) => {
           }
         }
 
-        const providerError = failed > 0 && synced === 0 && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')
-          ? 'Microsoft blocked mailbox rule access for this token. Please reconnect Outlook once so the updated permissions can be granted.'
+        const providerError = failed > 0 && synced === 0
+          ? 'Could not enforce categorization rules — please verify the mailbox is connected and folders exist.'
           : undefined;
 
         results.push({ provider: tokenRecord.provider, synced, failed, ...(providerError ? { error: providerError } : {}) });

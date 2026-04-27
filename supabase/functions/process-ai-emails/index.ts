@@ -1273,9 +1273,10 @@ async function generateAIDraft(
   nextAvailableSlot: { start: Date; end: Date } | null = null, // For meeting scheduling (single slot)
   multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string } // For multiple time options
 ): Promise<string | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    console.error('OPENAI_API_KEY not configured');
+  if (!LOVABLE_API_KEY && !OPENAI_API_KEY) {
+    console.error('No AI API key configured (LOVABLE_API_KEY or OPENAI_API_KEY)');
     return null;
   }
 
@@ -1394,6 +1395,46 @@ ${emailBody.substring(0, 3000)}`;
 
   console.log(`Generating AI draft with style: ${writingStyle}, format: ${formatStyle}, sender: ${senderName || 'not specified'}${meetingContext ? ', with meeting slot' : ''}`);
 
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ];
+
+  // PRIMARY: Lovable AI Gateway (no per-user quota issues, uses Gemini)
+  if (LOVABLE_API_KEY) {
+    try {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return content;
+        console.warn('Lovable AI returned empty content, trying OpenAI fallback');
+      } else {
+        const errText = await response.text();
+        console.warn(`Lovable AI gateway error ${response.status}: ${errText.slice(0, 300)} — trying OpenAI fallback`);
+      }
+    } catch (error) {
+      console.warn('Lovable AI generation error, trying OpenAI fallback:', error);
+    }
+  }
+
+  // FALLBACK: OpenAI (only if Lovable failed and key is configured)
+  if (!OPENAI_API_KEY) {
+    console.error('Lovable AI failed and no OpenAI fallback configured');
+    return null;
+  }
+
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -1402,23 +1443,20 @@ ${emailBody.substring(0, 3000)}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+        model: 'gpt-4o-mini',
+        messages,
       }),
     });
 
     if (!response.ok) {
-      console.error('AI API error:', response.status, await response.text());
+      console.error('OpenAI API error:', response.status, await response.text());
       return null;
     }
 
     const data = await response.json();
     return data.choices?.[0]?.message?.content || null;
   } catch (error) {
-    console.error('AI generation error:', error);
+    console.error('OpenAI generation error:', error);
     return null;
   }
 }
