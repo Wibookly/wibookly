@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Single short prefix for all InboxIQ-managed Outlook Master Categories
+// (must match the value used by the sync-categories function).
+const IQ_TAG_PREFIX = 'IQ: ';
+
+// Returns true if the given Outlook category name was created/managed by
+// InboxIQ (current short prefix or any legacy variant).
+function isManagedCategoryName(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim();
+  return (
+    n.startsWith('IQ: ') ||
+    n.startsWith('★ IQ: ') ||
+    n.startsWith('InboxIQ: ') ||
+    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Wibookly: ') ||
+    n.startsWith('vBookly: ') ||
+    n.startsWith('Vbookly: ')
+  );
+}
+
 // IMPORTANT: Do NOT request MailboxSettings.* scopes — they trigger Microsoft 365
 // admin-consent prompts that block end users from completing OAuth.
 // Inbox-rule management is therefore not available; we enforce categorization by
