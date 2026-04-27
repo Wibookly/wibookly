@@ -17,7 +17,11 @@ const IQ_TAG_PREFIX = 'IQ: ';
 function isManagedCategoryName(name: string): boolean {
   if (!name) return false;
   const n = name.trim();
-  return (
+  // Current short prefix + every legacy variant InboxIQ has ever applied to
+  // an Outlook message. Includes the numbered Gmail-style labels we used to
+  // mirror onto Outlook ("02: Follow Up", "0. AI Draft", "11. AI Sent") so
+  // each email ends up with exactly ONE current "IQ: <Category>" chip.
+  if (
     n.startsWith('IQ: ') ||
     n.startsWith('★ IQ: ') ||
     n.startsWith('InboxIQ: ') ||
@@ -25,7 +29,13 @@ function isManagedCategoryName(name: string): boolean {
     n.startsWith('Wibookly: ') ||
     n.startsWith('vBookly: ') ||
     n.startsWith('Vbookly: ')
-  );
+  ) return true;
+  // AI Draft / AI Sent helper tags — never expose these in Outlook.
+  if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  // Numbered category mirrors like "02: Follow Up" or "10: FYI".
+  if (/^\d{1,2}:\s/.test(n)) return true;
+  return false;
 }
 
 // AES-GCM decryption for tokens (server-side only)
@@ -1214,16 +1224,27 @@ serve(async (req) => {
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const legacyTagNames = new Set<string>();
+            // Build the allow-list of currently-valid IQ tags so the sweep
+            // never deletes the chip the user is actively using.
+            const currentValid = new Set<string>();
+            try {
+              const { data: cats } = await supabaseAdmin
+                .from('categories')
+                .select('name')
+                .eq('connection_id', connectionId);
+              for (const c of (cats ?? []) as Array<{ name: string }>) {
+                currentValid.add(`${IQ_TAG_PREFIX}${c.name}`);
+              }
+            } catch (_) { /* best-effort */ }
             if (mcRes.ok) {
               const { value: mcList } = await mcRes.json();
               for (const c of (mcList ?? []) as Array<{ id: string; displayName: string }>) {
                 const dn = c.displayName || '';
-                if (
-                  dn.startsWith('InboxIQ: ') ||
-                  dn.startsWith('★ InboxIQ: ') ||
-                  dn.startsWith('★ IQ: ') ||
-                  dn.startsWith('Wibookly: ')
-                ) {
+                // Skip the live, currently-used IQ chips.
+                if (currentValid.has(dn)) continue;
+                // Anything else our system has ever produced gets purged:
+                // legacy prefixes, numbered Gmail mirrors, AI Draft / AI Sent.
+                if (isManagedCategoryName(dn)) {
                   legacyTagNames.add(dn);
                   // Delete the orphan colored chip so it disappears from the
                   // Outlook Categorize menu.
@@ -1235,38 +1256,77 @@ serve(async (req) => {
               }
             }
 
-            // 2) Scan recent messages across the mailbox and strip any
-            // legacy/managed tags that are no longer current. We cap at
-            // 1000 messages per sync to stay well inside Graph throttling.
-            if (legacyTagNames.size > 0) {
-              const scanRes = await fetch(
-                'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories&$orderby=receivedDateTime desc',
-                { headers: { Authorization: `Bearer ${accessToken}` } },
-              );
-              if (scanRes.ok) {
-                const { value: msgs } = await scanRes.json();
-                let stripped = 0;
-                for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[] }>) {
-                  const existing = Array.isArray(m.categories) ? m.categories : [];
-                  if (existing.length === 0) continue;
-                  const next = existing.filter((c) => !legacyTagNames.has(c));
-                  if (next.length === existing.length) continue;
-                  const patchRes = await fetch(
-                    `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
-                    {
-                      method: 'PATCH',
-                      headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ categories: next }),
+            // 2) Scan recent messages across the mailbox and enforce that
+            // each message has AT MOST ONE managed "IQ:" tag — the one that
+            // matches its current parent folder. Strip every other managed
+            // tag (legacy prefixes, numbered mirrors, AI Draft/Sent, and any
+            // stale IQ chips left over from earlier rules). We cap at 1000
+            // messages per sync to stay inside Graph throttling.
+            // Build folderId -> "IQ: <Category>" map by listing the user's
+            // mail folders and matching their displayName (with or without
+            // numeric prefix like "02: ") to the connection's category names.
+            const folderToIqTag = new Map<string, string>();
+            try {
+              const { data: cats2 } = await supabaseAdmin
+                .from('categories')
+                .select('name')
+                .eq('connection_id', connectionId);
+              const catNames = new Map<string, string>(); // lower(name) -> "IQ: <Name>"
+              for (const c of (cats2 ?? []) as Array<{ name: string }>) {
+                catNames.set(c.name.trim().toLowerCase(), `${IQ_TAG_PREFIX}${c.name}`);
+              }
+              if (catNames.size > 0) {
+                const fRes = await fetch(
+                  'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+                  { headers: { Authorization: `Bearer ${accessToken}` } },
+                );
+                if (fRes.ok) {
+                  const { value: folders } = await fRes.json();
+                  for (const f of (folders ?? []) as Array<{ id: string; displayName: string }>) {
+                    // Strip a leading numeric prefix like "02: " so "02: Follow Up" still matches "Follow Up".
+                    const core = String(f.displayName || '').replace(/^\s*\d{1,2}\s*[:.\-]\s*/, '').trim().toLowerCase();
+                    const iqTag = catNames.get(core);
+                    if (iqTag) folderToIqTag.set(f.id, iqTag);
+                  }
+                }
+              }
+            } catch (_) { /* best-effort */ }
+
+            const scanRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories,parentFolderId&$orderby=receivedDateTime desc',
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            if (scanRes.ok) {
+              const { value: msgs } = await scanRes.json();
+              let stripped = 0;
+              for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[]; parentFolderId?: string }>) {
+                const existing = Array.isArray(m.categories) ? m.categories : [];
+                if (existing.length === 0) continue;
+                // Keep all non-managed (user) categories untouched.
+                const userTags = existing.filter((c) => !isManagedCategoryName(c));
+                // Decide which (if any) single managed tag this message
+                // should keep, based on the folder it's currently in.
+                const folderTag = m.parentFolderId ? folderToIqTag.get(m.parentFolderId) : undefined;
+                const next = folderTag ? [...userTags, folderTag] : userTags;
+                if (
+                  existing.length === next.length &&
+                  existing.every((c, i) => c === next[i])
+                ) continue;
+                const patchRes = await fetch(
+                  `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
+                  {
+                    method: 'PATCH',
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json',
                     },
-                  );
-                  if (patchRes.ok) stripped++;
-                }
-                if (stripped > 0) {
-                  console.log(`Stripped legacy IQ tags from ${stripped} message(s)`);
-                }
+                    body: JSON.stringify({ categories: next }),
+                  },
+                );
+                if (patchRes.ok) stripped++;
+              }
+              if (stripped > 0) {
+                console.log(`Normalized IQ tags on ${stripped} message(s)`);
               }
             }
           } catch (e) {
