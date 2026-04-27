@@ -86,8 +86,9 @@ serve(async (req) => {
 
     const tokens = await tokenResponse.json();
 
-    // Get user info from Microsoft Graph
-    const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+    // Get user info from Microsoft Graph — request expanded profile fields
+    const graphSelect = '$select=id,displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,companyName,officeLocation,mobilePhone,businessPhones,preferredLanguage';
+    const userInfoResponse = await fetch(`https://graph.microsoft.com/v1.0/me?${graphSelect}`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
@@ -99,6 +100,12 @@ serve(async (req) => {
     const userInfo = await userInfoResponse.json();
     const email = (userInfo.mail || userInfo.userPrincipalName)?.toLowerCase();
     const fullName = userInfo.displayName || '';
+    const msJobTitle: string | null = userInfo.jobTitle || null;
+    const msDepartment: string | null = userInfo.department || null;
+    const msCompany: string | null = userInfo.companyName || null;
+    const msMobile: string | null = userInfo.mobilePhone || null;
+    const msPhone: string | null = (Array.isArray(userInfo.businessPhones) && userInfo.businessPhones[0]) || null;
+    const msOffice: string | null = userInfo.officeLocation || null;
     const inviteToken = typeof stateData.inviteToken === 'string' ? stateData.inviteToken : null;
 
     if (!email) {
@@ -176,6 +183,22 @@ serve(async (req) => {
 
       organizationId = existingProfile?.organization_id ?? null;
 
+      // Refresh Microsoft 365 profile fields on every sign-in so the app
+      // stays in sync with the user's tenant data (job title, dept, phones).
+      if (organizationId) {
+        await adminClient
+          .from('user_profiles')
+          .update({
+            full_name: fullName || null,
+            title: msJobTitle,
+            department: msDepartment,
+            company: msCompany,
+            phone: msPhone,
+            mobile: msMobile,
+          })
+          .eq('user_id', userId);
+      }
+
       if (inviteToken) {
         const { data: invitation } = await adminClient
           .from('user_invitations')
@@ -190,6 +213,11 @@ serve(async (req) => {
               user_id: userId,
               email,
               full_name: fullName || null,
+              title: msJobTitle,
+              department: msDepartment,
+              company: msCompany,
+              phone: msPhone,
+              mobile: msMobile,
               organization_id: invitation.organization_id,
               domain_id: invitation.domain_id,
               microsoft_auto_connect: false,
@@ -267,12 +295,17 @@ serve(async (req) => {
         console.error('Failed to resolve org for domain:', domain);
         // Continue anyway, profile creation will handle it
       } else {
-        // Create user profile
+        // Create user profile (with Microsoft 365 fields pulled from Graph)
         await adminClient.from('user_profiles').insert({
           user_id: userId,
           organization_id: orgData.id,
           email,
           full_name: fullName,
+          title: msJobTitle,
+          department: msDepartment,
+          company: msCompany,
+          phone: msPhone,
+          mobile: msMobile,
         });
 
         // Create user role
@@ -377,6 +410,11 @@ serve(async (req) => {
               user_id: userId,
               email,
               full_name: fullName || null,
+              title: msJobTitle,
+              department: msDepartment,
+              company: msCompany,
+              phone: msPhone,
+              mobile: msMobile,
               organization_id: invitation.organization_id,
               domain_id: invitation.domain_id,
               microsoft_auto_connect: false,
