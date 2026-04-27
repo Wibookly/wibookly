@@ -900,24 +900,29 @@ serve(async (req) => {
         for (const rule of enabledRules) {
           const catInfo = categoryMap.get(rule.category_id);
           if (!catInfo) continue;
+          const currentAccessToken = accessToken;
+          if (!currentAccessToken) {
+            failed++;
+            continue;
+          }
 
           // Use actual sort_order for label name (1-indexed, zero-padded to 2 digits)
           const labelName = `${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
-            const labelId = await getGmailLabelId(accessToken, labelName);
+            const labelId = await getGmailLabelId(currentAccessToken, labelName);
             if (labelId) {
-              success = await applyGmailFilter(accessToken, rule, labelId);
+              success = await applyGmailFilter(currentAccessToken, rule, labelId);
             } else {
               console.log(`Gmail label "${labelName}" not found - please sync categories first`);
             }
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
-            const folderId = await getOutlookFolderId(accessToken, labelName);
+            const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
               try {
-                success = await applyOutlookRule(accessToken, rule, folderId, ruleName);
+                success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 if (isOutlookRuleAccessDenied(message) && activeTokenRecord.encrypted_refresh_token) {
