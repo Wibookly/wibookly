@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function canRetryInvitation(adminClient: any, invitationUserId: string | null): Promise<boolean> {
+  if (!invitationUserId) return true;
+
+  const [{ data: profile }, { data: connection }] = await Promise.all([
+    adminClient.from('user_profiles').select('user_id').eq('user_id', invitationUserId).maybeSingle(),
+    adminClient.from('provider_connections').select('id, is_connected').eq('user_id', invitationUserId).eq('provider', 'outlook').maybeSingle(),
+  ]);
+
+  const connectionRow = connection as { is_connected?: boolean } | null;
+  return !profile || !connectionRow?.is_connected;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -66,7 +78,7 @@ serve(async (req) => {
     if (inviteToken) {
       const { data: invitation } = await adminClient
         .from('user_invitations')
-        .select('token, email, expires_at, used_at')
+        .select('token, email, expires_at, used_at, user_id')
         .eq('token', inviteToken)
         .maybeSingle();
 
@@ -77,7 +89,7 @@ serve(async (req) => {
         );
       }
 
-      if (invitation.used_at) {
+      if (invitation.used_at && !(await canRetryInvitation(adminClient, invitation.user_id))) {
         return new Response(
           JSON.stringify({ error: 'This invitation has already been used. Please sign in normally.' }),
           { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

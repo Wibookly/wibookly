@@ -32,6 +32,27 @@ function redirect(url: string): Response {
   return new Response(null, { status: 302, headers: { Location: url } });
 }
 
+async function canRetryInvitation(adminClient: any, invitationUserId: string | null): Promise<boolean> {
+  if (!invitationUserId) return false;
+
+  const [{ data: profile }, { data: connection }] = await Promise.all([
+    adminClient
+      .from('user_profiles')
+      .select('user_id')
+      .eq('user_id', invitationUserId)
+      .maybeSingle(),
+    adminClient
+      .from('provider_connections')
+      .select('id, is_connected')
+      .eq('user_id', invitationUserId)
+      .eq('provider', 'outlook')
+      .maybeSingle(),
+  ]);
+
+  const connectionRow = connection as { is_connected?: boolean } | null;
+  return !profile || !connectionRow?.is_connected;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -83,6 +104,18 @@ serve(async (req) => {
     }
 
     if (invitation.used_at) {
+      const canRetry = validateOnly ? await canRetryInvitation(adminClient, invitation.user_id) : false;
+
+      if (canRetry) {
+        return new Response(JSON.stringify({
+          valid: true,
+          email: invitation.email,
+          full_name: invitation.full_name,
+          mode: invitation.mode,
+          retry: true,
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       const msg = 'This invitation has already been used. Please sign in normally.';
       if (validateOnly) {
         return new Response(JSON.stringify({ error: msg, already_used: true, email: invitation.email }), {
