@@ -7,7 +7,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Sparkles, Shield, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import logo from '@/assets/logo-icon.png';
+
+// Energy Forward company logo (uploaded by admin to org-logos bucket)
+const ENERGY_FORWARD_LOGO =
+  'https://jbzctydskdpzrejvpwpn.supabase.co/storage/v1/object/public/org-logos/00000000-0000-0000-0000-000000000001/logo-1777275910874.png';
 
 // Microsoft icon
 const MicrosoftIcon = () => (
@@ -82,12 +85,12 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
-        {/* Logo */}
+        {/* Energy Forward company logo */}
         <div className="flex justify-center mb-6">
           <img
-            src={logo}
-            alt="InboxIQ logo"
-            className="h-14 w-auto"
+            src={ENERGY_FORWARD_LOGO}
+            alt="Energy Forward"
+            className="h-16 w-auto object-contain"
           />
         </div>
 
