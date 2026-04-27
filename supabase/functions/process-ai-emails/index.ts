@@ -1391,12 +1391,7 @@ async function generateAIDraft(
   nextAvailableSlot: { start: Date; end: Date } | null = null, // For meeting scheduling (single slot)
   multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string } // For multiple time options
 ): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!LOVABLE_API_KEY && !OPENAI_API_KEY) {
-    console.error('No AI API key configured (LOVABLE_API_KEY or OPENAI_API_KEY)');
-    return null;
-  }
+  // AI keys are loaded inside generateWithAdminAI (admin-managed OpenAI/Claude with Lovable AI fallback)
 
   const cleanCategory = categoryName.replace(/^\d+:\s*/, '').trim();
   const stylePrompt = WRITING_STYLE_PROMPTS[writingStyle] || WRITING_STYLE_PROMPTS.professional;
