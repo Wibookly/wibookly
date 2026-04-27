@@ -618,10 +618,51 @@ async function renderDocxBuffer(spec: DocxSpec, brandColor?: string): Promise<Ui
 
 export async function generateArtifact(
   graphToken: string | null,
-  args: { kind: string; topic: string; details?: string; brand_color?: string; filename?: string },
+  args: { kind: string; topic: string; details?: string; brand_color?: string; filename?: string; company_name?: string },
 ): Promise<string> {
   try {
     const kind = args.kind || 'html_dashboard';
+
+    // ---- DOCX branch (binary) ----
+    if (kind === 'docx_document') {
+      const spec = await buildDocxSpec({
+        topic: args.topic,
+        details: args.details,
+        brandColor: args.brand_color,
+        companyName: args.company_name,
+      });
+      const buf = await renderDocxBuffer(spec, args.brand_color);
+      const slug = (args.filename || args.topic).toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'document';
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const filename = `${slug}-${stamp}.docx`;
+      const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+      if (!graphToken) {
+        return JSON.stringify({
+          ok: true,
+          delivered: 'inline',
+          filename,
+          size_kb: Math.round(buf.byteLength / 1024),
+          note: 'No Microsoft account linked — Word document generated but could not be saved to OneDrive.',
+        });
+      }
+      const uploaded = await uploadToOneDrive({
+        graphToken, folder: 'InboxIQ-Artifacts', filename, content: buf, contentType: mime,
+      });
+      if ('error' in uploaded) return JSON.stringify({ ok: false, error: uploaded.error, filename });
+      return JSON.stringify({
+        ok: true,
+        delivered: 'onedrive',
+        filename,
+        size_kb: Math.round(buf.byteLength / 1024),
+        onedrive_url: uploaded.webUrl,
+        share_url: uploaded.shareUrl,
+        message: `Saved Word document "${filename}" to your OneDrive in folder "InboxIQ-Artifacts".`,
+      });
+    }
+
+    // ---- Text-based branches (html, md, code) ----
     const content = await generateArtifactContent({
       kind,
       topic: args.topic,
