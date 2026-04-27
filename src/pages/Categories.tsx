@@ -490,8 +490,9 @@ export default function Categories() {
             ai_draft_enabled: category.ai_draft_enabled,
             auto_reply_enabled: category.auto_reply_enabled,
             writing_style: category.writing_style,
-            sort_order: category.sort_order
-          })
+            sort_order: category.sort_order,
+            show_in_favorites: category.show_in_favorites,
+          } as any)
           .eq('id', category.id);
       }
 
@@ -590,7 +591,8 @@ export default function Categories() {
           ...cat,
           auto_reply_enabled: cat.auto_reply_enabled ?? false,
           writing_style: cat.writing_style ?? 'professional',
-          last_synced_at: cat.last_synced_at ?? null
+          last_synced_at: cat.last_synced_at ?? null,
+          show_in_favorites: (cat as any).show_in_favorites ?? false,
         }));
         setCategories(cats);
       }
