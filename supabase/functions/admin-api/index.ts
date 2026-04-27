@@ -6,7 +6,10 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { cleanupUserMailboxAndDisconnect, purgeUserConnectionData } from '../_shared/mailbox-cleanup.ts';
 
 // Email sending config — must match send-transactional-email
-const EMAIL_SITE_NAME = 'energyforwardai';
+// Friendly From name shown in the recipient's inbox. Use the product brand,
+// NOT the underlying project slug, so the address renders cleanly as
+// `InboxIQ <noreply@energyforward.com>` instead of being doubled up.
+const EMAIL_SITE_NAME = 'InboxIQ';
 const EMAIL_SENDER_DOMAIN = 'noreply.energyforward.com';
 const EMAIL_FROM_DOMAIN = 'energyforward.com';
 
