@@ -404,7 +404,7 @@ async function processNotification(n: GraphNotification) {
       sender_domain: senderDomain,
       subject: msg.subject ?? null,
       content: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 4000),
-      external_message_id: msg.internetMessageId ?? messageId,
+      external_message_id: `inbound:${msg.internetMessageId ?? messageId}`,
       conversation_id: msg.conversationId ?? null,
       status: isAllowed ? 'received' : 'rejected',
       rejected_reason: isAllowed ? null : 'sender_domain_not_allowed',
