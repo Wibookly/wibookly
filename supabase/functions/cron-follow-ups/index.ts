@@ -273,6 +273,19 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     if (new Date(t.due_at) > new Date()) continue;
 
     // === Due, no reply: move to Follow-up folder + create AI draft ===
+    // Auto-enable the user's Follow-up category (and its AI Draft flag) so
+    // the surfaced draft is visible in their workflow even if they had
+    // toggled the category off. Best-effort — never block the draft.
+    try {
+      await supabase
+        .from('categories')
+        .update({ is_enabled: true, ai_draft_enabled: true })
+        .eq('connection_id', conn.id)
+        .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%');
+    } catch (e) {
+      console.warn('Auto-enable follow-up category failed', e);
+    }
+
     if (!folderId) {
       folderId = await ensureFollowupFolder(token, conn.id, conn.inbox_followup_folder_id);
     }
