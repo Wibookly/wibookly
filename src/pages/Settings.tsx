@@ -645,35 +645,77 @@ export default function Settings() {
         {/* Profile — identity + AI personalization context, merged into one card */}
         {activeSection === 'profile' && (
         <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">My Profile</h2>
-            <p className="text-sm text-muted-foreground">
-              Your identity and the context the AI uses to write drafts and replies that sound like you.
-            </p>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold">My Profile</h2>
+              <p className="text-sm text-muted-foreground">
+                Synced from your Microsoft 365 account. Update it in Microsoft 365 (or your IT admin) and click Sync.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saving}
+              onClick={async () => {
+                try {
+                  setSaving(true);
+                  const { data, error } = await supabase.functions.invoke('sync-microsoft-profile');
+                  if (error || (data as { error?: string })?.error) {
+                    throw new Error((data as { error?: string })?.error || error?.message || 'Sync failed');
+                  }
+                  const p = (data as { profile?: Record<string, string | null> }).profile || {};
+                  setFullName(p.full_name || '');
+                  setTitle(p.title || '');
+                  setAboutMe(prev => ({
+                    ...prev,
+                    company: p.company || prev.company,
+                    department: p.department || prev.department,
+                  }));
+                  setSignatureFields(prev => ({
+                    ...prev,
+                    phone: p.phone || prev.phone,
+                    mobile: p.mobile || prev.mobile,
+                  }));
+                  toast({ title: 'Profile synced', description: 'Pulled latest from Microsoft 365.' });
+                } catch (e) {
+                  toast({
+                    title: 'Sync failed',
+                    description: e instanceof Error ? e.message : 'Could not sync from Microsoft 365.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+              Sync from Microsoft 365
+            </Button>
           </div>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Full Name <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
               <Input
                 id="fullName"
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
+                disabled
+                className="bg-muted"
+                placeholder="Pulled from your Microsoft 365 displayName"
               />
               <p className="text-xs text-muted-foreground">Used in your email signature and for AI personalization.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="title">Title {workspaceType === 'personal' ? '(Optional)' : '(Recommended)'}</Label>
+              <Label htmlFor="title">Title <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
               <Input
                 id="title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. CEO, Sales Manager, Developer"
+                disabled
+                className="bg-muted"
+                placeholder="Pulled from your Microsoft 365 jobTitle"
               />
               <p className="text-xs text-muted-foreground">
-                {workspaceType === 'business'
-                  ? 'Your title is included in email signatures and helps AI tailor responses to your role.'
-                  : 'Optional for personal workspaces.'}
+                Managed by your IT admin in Microsoft 365 / Entra ID.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -690,26 +732,38 @@ export default function Settings() {
 
             <div className="border-t border-border pt-4 grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="aboutCompany">Company</Label>
+                <Label htmlFor="aboutCompany">Company <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
                 <Input
                   id="aboutCompany"
                   value={aboutMe.company}
-                  onChange={(e) => setAboutMe(p => ({ ...p, company: e.target.value }))}
-                  placeholder="e.g. Energy Forward"
+                  disabled
+                  className="bg-muted"
+                  placeholder="Pulled from companyName"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="aboutDept">Department</Label>
+                <Label htmlFor="aboutDept">Department <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
                 <Input
                   id="aboutDept"
                   value={aboutMe.department}
-                  onChange={(e) => setAboutMe(p => ({ ...p, department: e.target.value }))}
-                  placeholder="e.g. Operations, Sales"
+                  disabled
+                  className="bg-muted"
+                  placeholder="Pulled from department"
                 />
               </div>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Business Phone <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
+                <Input value={signatureFields.phone || ''} disabled className="bg-muted" placeholder="Pulled from businessPhones" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mobile Phone <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
+                <Input value={signatureFields.mobile || ''} disabled className="bg-muted" placeholder="Pulled from mobilePhone" />
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="aboutRole">Role / What you do</Label>
+              <Label htmlFor="aboutRole">Role / What you do <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
               <Input
                 id="aboutRole"
                 value={aboutMe.role_description}
@@ -718,7 +772,7 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="aboutResp">Responsibilities</Label>
+              <Label htmlFor="aboutResp">Responsibilities <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
               <Textarea
                 id="aboutResp"
                 value={aboutMe.responsibilities}
@@ -728,7 +782,7 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="aboutStyle">Communication style</Label>
+              <Label htmlFor="aboutStyle">Communication style <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
               <Textarea
                 id="aboutStyle"
                 value={aboutMe.communication_style}
