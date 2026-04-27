@@ -1,4 +1,23 @@
 // Shared tool implementations for the InboxIQ Teams bot.
+// deno-lint-ignore-file no-explicit-any
+import {
+  Document as DocxDocument,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  Table as DocxTable,
+  TableRow as DocxTableRow,
+  TableCell as DocxTableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
+  PageNumber,
+  Header as DocxHeader,
+  Footer as DocxFooter,
+  LevelFormat,
+} from "https://esm.sh/docx@8.5.0";
 // All Microsoft Graph calls run as the END USER (per-user OAuth tokens
 // stored in oauth_token_vault, decrypted with TOKEN_ENCRYPTION_KEY).
 // Web search runs through OpenAI's web-enabled chat model so we don't
