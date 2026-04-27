@@ -1511,7 +1511,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-
+/* ---------------- Artifact request detection ----------------
  * Looks at the inbound email and decides if the sender is asking the
  * AI agent to PRODUCE something (dashboard, report, presentation,
  * spreadsheet, slides, document, code, HTML page, etc.) — the same
