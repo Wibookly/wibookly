@@ -489,10 +489,49 @@ async function moveOutlookFolderMessages(
   return movedTotal;
 }
 
+// Delete every Outlook server-side messageRule whose name targets the given
+// label (e.g. "02: Follow Up"). We match the InboxIQ-managed rule name shape
+// `InboxIQ: <label> - <type>:<value>` so we don't touch unrelated user rules.
+async function deleteOutlookRulesForLabel(accessToken: string, labelName: string): Promise<number> {
+  try {
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!listRes.ok) return 0;
+    const { value } = await listRes.json();
+    let deleted = 0;
+    const labelLower = labelName.toLowerCase();
+    const baseLower = labelName.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    for (const r of value || []) {
+      const name = String(r.displayName || '');
+      const nameLower = name.toLowerCase();
+      const isManaged =
+        nameLower.startsWith('inboxiq:') ||
+        nameLower.startsWith('wibookly:') ||
+        nameLower.startsWith('vbookly:');
+      if (!isManaged) continue;
+      // Must reference this category label (with or without numeric prefix).
+      if (!nameLower.includes(labelLower) && !nameLower.includes(baseLower)) continue;
+      const delRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${r.id}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (delRes.ok || delRes.status === 404) deleted++;
+    }
+    if (deleted > 0) console.log(`Deleted ${deleted} Outlook rule(s) for label "${labelName}"`);
+    return deleted;
+  } catch (err) {
+    console.warn(`deleteOutlookRulesForLabel failed for "${labelName}":`, err);
+    return 0;
+  }
+}
+
 // Delete Outlook folder — also removes ALL legacy/duplicate variants
 // (e.g., deleting "01: Urgent" also clears stray "1: Urgent", "1. Urgent",
 // or unnumbered "Urgent" folders so the mailbox stays clean).
-// IMPORTANT: never deletes the special "Follow-up" folder used by cron-follow-ups.
+// IMPORTANT: never deletes the special unprefixed "Follow-up" tracker folder
+// used by cron-follow-ups; numbered "02: Follow Up" categories ARE deletable.
 async function deleteOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
     const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
