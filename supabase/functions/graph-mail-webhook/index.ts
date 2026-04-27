@@ -418,6 +418,53 @@ async function processNotification(n: GraphNotification) {
     return;
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Follow-up alias guard.
+  // The user CCs / BCCs aliases like "2@<their-domain>", "3@", "5@",
+  // "7@", "10@", "14@" so that cron-follow-ups can schedule a reminder
+  // N days later. These aliases route to the shared agent mailbox, but
+  // the user does NOT want the agent to auto-reply to those tracking
+  // emails — the only reply they expect is the AI-drafted follow-up
+  // produced by cron-follow-ups when the timer fires.
+  //
+  // If ANY of the message's to/cc/bcc recipients matches the follow-up
+  // alias pattern AND the sender belongs to the same allowed domain
+  // (i.e. it's the user themselves CC/BCCing themselves for tracking),
+  // we silently log and exit before generating an AI reply.
+  // ──────────────────────────────────────────────────────────────────
+  const FOLLOWUP_BUCKETS = new Set(['2', '3', '5', '7', '10', '14']);
+  const allRecipientAddrs: string[] = [
+    ...((msg.toRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+    ...((msg.ccRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+    ...((msg.bccRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+  ]
+    .map((r) => (r?.emailAddress?.address ?? '').toLowerCase().trim())
+    .filter(Boolean);
+
+  const hasFollowupAlias = allRecipientAddrs.some((addr) => {
+    const m = addr.match(/^(\d+)@(.+)$/);
+    if (!m) return false;
+    if (!FOLLOWUP_BUCKETS.has(m[1])) return false;
+    return allowedDomains.includes(m[2]);
+  });
+
+  if (hasFollowupAlias) {
+    console.log(
+      `Skipping AI reply for ${messageId} — message contains a follow-up alias ` +
+        `(2|3|5|7|10|14@<domain>); cron-follow-ups will handle tracking.`,
+    );
+    if (inbound?.id) {
+      await supabase
+        .from('agent_messages')
+        .update({
+          status: 'received',
+          rejected_reason: 'followup_alias_tracking_only',
+        })
+        .eq('id', inbound.id);
+    }
+    return;
+  }
+
   // Fetch the full conversation thread for context (so the agent sees what you forwarded)
   const thread = msg.conversationId
     ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
