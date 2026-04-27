@@ -43,11 +43,21 @@ function fmtTokens(v: number) {
   return v.toLocaleString();
 }
 
+interface ProviderSpend {
+  provider: 'openai' | 'anthropic';
+  available: boolean;
+  total_usd: number | null;
+  currency: string;
+  error?: string;
+}
+
 export default function AIUsagePanel({ organizationId }: { organizationId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState('30');
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [users, setUsers] = useState<Record<string, UserMeta>>({});
+  const [liveSpend, setLiveSpend] = useState<ProviderSpend[] | null>(null);
+  const [liveSpendLoading, setLiveSpendLoading] = useState(false);
 
   async function load() {
     if (!organizationId) return;
@@ -75,7 +85,28 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [organizationId, range]);
+  // Pulls live org-wide spend directly from OpenAI + Anthropic billing APIs.
+  // Server returns a per-provider breakdown with friendly errors when an admin
+  // billing key isn't configured, so we always render *something*.
+  async function loadLiveSpend() {
+    setLiveSpendLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('live-ai-cost', {
+        body: { days: parseInt(range) },
+        method: 'POST',
+      });
+      if (error) throw error;
+      setLiveSpend((data?.providers as ProviderSpend[]) ?? []);
+    } catch (e) {
+      console.warn('live-ai-cost failed', e);
+      setLiveSpend([]);
+    } finally {
+      setLiveSpendLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); loadLiveSpend(); }, [organizationId, range]);
+
 
   const totals = useMemo(() => {
     const totalCost = rows.reduce((s, r) => s + Number(r.cost_usd || 0), 0);
