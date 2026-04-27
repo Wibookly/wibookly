@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Single short prefix for all InboxIQ-managed Outlook Master Categories
+// (must match the value used by the sync-categories function).
+const IQ_TAG_PREFIX = 'IQ: ';
+
+// Returns true if the given Outlook category name was created/managed by
+// InboxIQ (current short prefix or any legacy variant).
+function isManagedCategoryName(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim();
+  return (
+    n.startsWith('IQ: ') ||
+    n.startsWith('★ IQ: ') ||
+    n.startsWith('InboxIQ: ') ||
+    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Wibookly: ') ||
+    n.startsWith('vBookly: ') ||
+    n.startsWith('Vbookly: ')
+  );
+}
+
 // IMPORTANT: Do NOT request MailboxSettings.* scopes — they trigger Microsoft 365
 // admin-consent prompts that block end users from completing OAuth.
 // Inbox-rule management is therefore not available; we enforce categorization by
@@ -128,14 +148,17 @@ async function ensureOutlookMasterCategory(
   }
 }
 
-// Tag an Outlook message with a category name (adds to existing categories).
+// Tag an Outlook message with a single InboxIQ-managed category. Strips
+// any other managed (legacy or current) tags so each message ends up with
+// exactly one IQ category — eliminates the duplicate chips users were
+// seeing in Outlook (e.g. "InboxIQ: Approvals" + "★ InboxIQ: Approvals" +
+// "IQ: Approvals" all on the same message).
 async function tagOutlookMessageCategory(
   accessToken: string,
   messageId: string,
   categoryName: string
 ): Promise<boolean> {
   try {
-    // Read existing categories first to avoid wiping them
     const getRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -145,7 +168,15 @@ async function tagOutlookMessageCategory(
       const body = await getRes.json();
       existing = Array.isArray(body.categories) ? body.categories : [];
     }
-    if (existing.includes(categoryName)) return true;
+    // Keep only non-managed user categories, then add the single new tag.
+    const preserved = existing.filter((c) => !isManagedCategoryName(c));
+    const next = [...preserved, categoryName];
+    if (
+      existing.length === next.length &&
+      existing.every((c, i) => c === next[i])
+    ) {
+      return true;
+    }
     const patchRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
       {
@@ -154,7 +185,7 @@ async function tagOutlookMessageCategory(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ categories: [...existing, categoryName] }),
+        body: JSON.stringify({ categories: next }),
       }
     );
     return patchRes.ok;
@@ -1096,7 +1127,7 @@ serve(async (req) => {
         if (isOutlook && enabledCategories?.length) {
           await purgeLegacyOutlookRules(accessToken);
           for (const cat of enabledCategories) {
-            const tagName = `InboxIQ: ${cat.name}`;
+            const tagName = `${IQ_TAG_PREFIX}${cat.name}`;
             await ensureOutlookMasterCategory(accessToken, tagName, cat.color || '#6366f1');
           }
         }
@@ -1125,7 +1156,7 @@ serve(async (req) => {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              const categoryTag = `InboxIQ: ${catInfo.name}`;
+              const categoryTag = `${IQ_TAG_PREFIX}${catInfo.name}`;
               success = await applyOutlookRule(
                 currentAccessToken,
                 rule,

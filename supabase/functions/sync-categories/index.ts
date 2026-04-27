@@ -6,6 +6,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Single short prefix for all InboxIQ-managed Outlook Master Categories.
+// Keep this short — it shows on every email row in Outlook next to the
+// category name (e.g. "IQ: Approvals").
+const IQ_TAG_PREFIX = 'IQ: ';
+
+// Returns true if the given Outlook category name was created/managed by
+// InboxIQ (current short prefix or any legacy variant) and should therefore
+// be cleaned up before applying the current single category tag.
+function isManagedCategoryName(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim();
+  return (
+    n.startsWith('IQ: ') ||
+    n.startsWith('★ IQ: ') ||
+    n.startsWith('InboxIQ: ') ||
+    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Wibookly: ') ||
+    n.startsWith('vBookly: ') ||
+    n.startsWith('Vbookly: ')
+  );
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -742,13 +764,24 @@ async function tagOutlookFolderMessages(
     const { value: messages } = await listRes.json();
     for (const m of messages ?? []) {
       const existing: string[] = Array.isArray(m.categories) ? m.categories : [];
-      if (existing.includes(categoryName)) continue;
+      // Strip ALL InboxIQ-managed tags (current + legacy) so each email ends
+      // up with exactly one IQ category — eliminates duplicates like
+      // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" + "IQ: Approvals".
+      const preserved = existing.filter((c) => !isManagedCategoryName(c));
+      const next = [...preserved, categoryName];
+      // Skip the PATCH if nothing actually changes.
+      if (
+        existing.length === next.length &&
+        existing.every((c, i) => c === next[i])
+      ) {
+        continue;
+      }
       const patchRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categories: [...existing, categoryName] }),
+          body: JSON.stringify({ categories: next }),
         },
       );
       if (patchRes.ok) tagged++;
@@ -1012,11 +1045,11 @@ serve(async (req) => {
             // retroactively tag every message inside the folder so the
             // color stripe is visible in the Outlook UI today (folders
             // themselves cannot be colored via Graph).
-            // Favorites are prefixed with "★ " so they sort to the top of
-            // the Outlook Categorize menu and stand out visually.
+            // The tag uses the short "IQ: <name>" prefix so it stays compact
+            // in the email row. Each email is guaranteed to carry exactly one
+            // managed category — see tagOutlookFolderMessages for dedupe.
             if (success) {
-              const isFavorite = (category as any).show_in_favorites === true;
-              const categoryTag = `${isFavorite ? '★ ' : ''}InboxIQ: ${category.name}`;
+              const categoryTag = `${IQ_TAG_PREFIX}${category.name}`;
               await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
               const folderId = await findOutlookFolderId(accessToken, labelName);
               if (folderId) {
@@ -1025,14 +1058,21 @@ serve(async (req) => {
                   console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
                 }
               }
-              // Clean up the non-favorite version when the user toggles favorite ON,
-              // and the favorite version when they toggle it OFF — prevents duplicate
-              // master categories accumulating in Outlook.
-              const stalePrefix = isFavorite ? '' : '★ ';
-              const staleTag = `${stalePrefix}InboxIQ: ${category.name}`;
-              if (staleTag !== categoryTag) {
-                await deleteOutlookMasterCategory(accessToken, staleTag).catch((e: unknown) =>
-                  console.warn(`Failed deleting stale category "${staleTag}":`, e)
+              // Clean up legacy master-category variants for this same
+              // category name (long "InboxIQ:" prefix, the old "★ " favorite
+              // prefix, and the legacy "Wibookly:" prefix). Without this,
+              // Outlook accumulates stale colored chips that show up
+              // alongside the new IQ: tag on every message.
+              const staleVariants = [
+                `InboxIQ: ${category.name}`,
+                `★ InboxIQ: ${category.name}`,
+                `★ IQ: ${category.name}`,
+                `Wibookly: ${category.name}`,
+              ];
+              for (const stale of staleVariants) {
+                if (stale === categoryTag) continue;
+                await deleteOutlookMasterCategory(accessToken, stale).catch((e: unknown) =>
+                  console.warn(`Failed deleting stale category "${stale}":`, e),
                 );
               }
             }
@@ -1157,6 +1197,80 @@ serve(async (req) => {
             }
           } catch (e) {
             console.error('Single-digit Gmail sweep failed:', e);
+          }
+        }
+
+        // FINAL SWEEP — Outlook only — remove legacy managed category tags
+        // ("InboxIQ:" / "★ InboxIQ:" / "Wibookly:") from every message in
+        // the mailbox AND delete the orphan colored master categories.
+        // Without this, emails keep displaying duplicate chips like
+        // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" alongside the new
+        // short "IQ: Approvals" chip.
+        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          try {
+            // 1) List every master category and pick out the legacy ones.
+            const mcRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            const legacyTagNames = new Set<string>();
+            if (mcRes.ok) {
+              const { value: mcList } = await mcRes.json();
+              for (const c of (mcList ?? []) as Array<{ id: string; displayName: string }>) {
+                const dn = c.displayName || '';
+                if (
+                  dn.startsWith('InboxIQ: ') ||
+                  dn.startsWith('★ InboxIQ: ') ||
+                  dn.startsWith('★ IQ: ') ||
+                  dn.startsWith('Wibookly: ')
+                ) {
+                  legacyTagNames.add(dn);
+                  // Delete the orphan colored chip so it disappears from the
+                  // Outlook Categorize menu.
+                  await fetch(
+                    `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${c.id}`,
+                    { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } },
+                  ).catch(() => {});
+                }
+              }
+            }
+
+            // 2) Scan recent messages across the mailbox and strip any
+            // legacy/managed tags that are no longer current. We cap at
+            // 1000 messages per sync to stay well inside Graph throttling.
+            if (legacyTagNames.size > 0) {
+              const scanRes = await fetch(
+                'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories&$orderby=receivedDateTime desc',
+                { headers: { Authorization: `Bearer ${accessToken}` } },
+              );
+              if (scanRes.ok) {
+                const { value: msgs } = await scanRes.json();
+                let stripped = 0;
+                for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[] }>) {
+                  const existing = Array.isArray(m.categories) ? m.categories : [];
+                  if (existing.length === 0) continue;
+                  const next = existing.filter((c) => !legacyTagNames.has(c));
+                  if (next.length === existing.length) continue;
+                  const patchRes = await fetch(
+                    `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ categories: next }),
+                    },
+                  );
+                  if (patchRes.ok) stripped++;
+                }
+                if (stripped > 0) {
+                  console.log(`Stripped legacy IQ tags from ${stripped} message(s)`);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Legacy IQ tag sweep failed:', e);
           }
         }
 

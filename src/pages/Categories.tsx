@@ -207,17 +207,31 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         />
       </TableCell>
       <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-2">
-          <Star
-            className={`w-4 h-4 ${category.show_in_favorites ? 'fill-yellow-400 text-yellow-500' : 'text-muted-foreground'}`}
-          />
-          <Switch
-            checked={category.show_in_favorites}
-            onCheckedChange={(checked) => updateCategory(category.id, 'show_in_favorites', checked)}
-            disabled={!category.is_enabled}
-            className={category.show_in_favorites && category.is_enabled ? 'data-[state=checked]:bg-yellow-500' : ''}
-          />
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center justify-center gap-2">
+                <Star
+                  className={`w-4 h-4 ${category.show_in_favorites ? 'fill-yellow-400 text-yellow-500' : 'text-muted-foreground'}`}
+                />
+                <Switch
+                  checked={category.show_in_favorites}
+                  onCheckedChange={(checked) => updateCategory(category.id, 'show_in_favorites', checked)}
+                  disabled={!category.is_enabled}
+                  className={category.show_in_favorites && category.is_enabled ? 'data-[state=checked]:bg-yellow-500' : ''}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <p className="text-xs">
+                Marks this category as a favorite inside InboxIQ. Outlook does not
+                allow apps to add folders to its <strong>Favorites</strong> pane —
+                right-click the folder in Outlook once and choose
+                <em> "Show in Favorites"</em> to pin it there.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
       <TableCell className="text-center">
         {category.is_enabled ? (
