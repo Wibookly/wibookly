@@ -1499,7 +1499,8 @@ async function removeOutlookCategory(
   }
 }
 
-// Generate AI draft for an email (body only, signature added separately)
+// Generate AI draft for an email (body only, signature added separately).
+// Returns the generated text + usage so callers can log to ai_usage_logs.
 async function generateAIDraft(
   emailSubject: string,
   emailBody: string,
@@ -1511,7 +1512,7 @@ async function generateAIDraft(
   _senderTitle: string | null = null, // Unused - signature handled separately
   nextAvailableSlot: { start: Date; end: Date } | null = null, // For meeting scheduling (single slot)
   multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string } // For multiple time options
-): Promise<string | null> {
+): Promise<{ content: string | null; usage: AIUsage | null }> {
   // AI keys are loaded inside generateWithAdminAI (admin-managed OpenAI/Claude with Lovable AI fallback)
 
   const cleanCategory = categoryName.replace(/^\d+:\s*/, '').trim();
