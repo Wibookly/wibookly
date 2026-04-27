@@ -2558,35 +2558,15 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: Create/get category labels
-              if (!outlookCategoryCache[categoryLabelName]) {
-                const { data: catData } = await supabaseAdmin
-                  .from('categories')
-                  .select('color')
-                  .eq('id', category.id)
-                  .single();
-                const catColor = catData?.color || '#3B82F6';
-                await getOrCreateOutlookCategory(accessToken, categoryLabelName, catColor);
-                outlookCategoryCache[categoryLabelName] = true;
-              }
-              if (!outlookCategoryCache[aiDraftLabelName]) {
-                await getOrCreateOutlookCategory(accessToken, aiDraftLabelName, aiDraftLabelColor);
-                outlookCategoryCache[aiDraftLabelName] = true;
-              }
-              
-              // Apply category label to original email
-              await applyOutlookCategory(accessToken, msg.id, categoryLabelName);
-              console.log(`Applied ${categoryLabelName} category to original email ${msg.id}`);
-              
-              // Apply AI Draft label to original email
-              await applyOutlookCategory(accessToken, msg.id, aiDraftLabelName);
-              
-              // Also apply both labels to the draft message
-              if (draftId) {
-                await applyOutlookCategory(accessToken, draftId, categoryLabelName);
-                await applyOutlookCategory(accessToken, draftId, aiDraftLabelName);
-                console.log(`Applied ${categoryLabelName} and ${aiDraftLabelName} categories to draft message ${draftId}`);
-              }
+              // Outlook: We intentionally do NOT apply numbered category
+              // mirrors ("02: Follow Up") or the "0. AI Draft" helper tag
+              // here. Outlook already shows the colored "IQ: <Category>"
+              // chip via sync-categories/sync-rules, and stacking extra
+              // helper chips on every email creates visual noise. The
+              // sync-categories sweep treats any leftover numbered/AI
+              // tags as managed and strips them on the next run.
+              void categoryLabelName; // referenced for clarity / future use
+              void aiDraftLabelName;
             }
             
             // Add to processed set to prevent duplicate processing
