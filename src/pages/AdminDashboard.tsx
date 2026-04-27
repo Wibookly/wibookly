@@ -1036,6 +1036,9 @@ export default function AdminDashboard() {
 
         {/* SETTINGS TAB */}
         <TabsContent value="settings" className="space-y-6">
+          {/* Company Logo (shown in app sidebar + transactional emails) */}
+          <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+
           {/* API Keys */}
           <Card>
             <CardHeader>
