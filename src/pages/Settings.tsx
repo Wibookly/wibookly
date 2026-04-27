@@ -121,10 +121,11 @@ const formatPhoneNumber = (value: string): string => {
   return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
 };
 
-type SettingsSection = 'profile' | 'signature';
+type SettingsSection = 'profile' | 'about' | 'signature';
 
 const SETTINGS_SECTIONS = [
   { value: 'profile' as const, label: 'Update Profile', icon: Mail },
+  { value: 'about' as const, label: 'About Me', icon: User2 },
   { value: 'signature' as const, label: 'Update Signature', icon: Mail },
 ];
 
