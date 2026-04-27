@@ -252,7 +252,7 @@ export default function Settings() {
         mobile: (profileData?.mobile as string) || '',
         website: (profileData?.website as string) || '',
         signatureLogoUrl: (profileData?.signature_logo_url as string) || '',
-        profilePhotoUrl: '',
+        profilePhotoUrl: ((profile as unknown as { profile_photo_url?: string | null })?.profile_photo_url ?? '') || '',
         showProfilePhoto: false,
         showCompanyLogo: true,
         font: (profileData?.signature_font as string) || 'Arial, sans-serif',
