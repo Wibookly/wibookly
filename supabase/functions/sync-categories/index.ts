@@ -1256,38 +1256,62 @@ serve(async (req) => {
               }
             }
 
-            // 2) Scan recent messages across the mailbox and strip any
-            // legacy/managed tags that are no longer current. We cap at
-            // 1000 messages per sync to stay well inside Graph throttling.
-            if (legacyTagNames.size > 0) {
-              const scanRes = await fetch(
-                'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories&$orderby=receivedDateTime desc',
-                { headers: { Authorization: `Bearer ${accessToken}` } },
-              );
-              if (scanRes.ok) {
-                const { value: msgs } = await scanRes.json();
-                let stripped = 0;
-                for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[] }>) {
-                  const existing = Array.isArray(m.categories) ? m.categories : [];
-                  if (existing.length === 0) continue;
-                  const next = existing.filter((c) => !legacyTagNames.has(c));
-                  if (next.length === existing.length) continue;
-                  const patchRes = await fetch(
-                    `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
-                    {
-                      method: 'PATCH',
-                      headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ categories: next }),
+            // 2) Scan recent messages across the mailbox and enforce that
+            // each message has AT MOST ONE managed "IQ:" tag — the one that
+            // matches its current parent folder. Strip every other managed
+            // tag (legacy prefixes, numbered mirrors, AI Draft/Sent, and any
+            // stale IQ chips left over from earlier rules). We cap at 1000
+            // messages per sync to stay inside Graph throttling.
+            // Build folderId -> "IQ: <Category>" map from the categories we
+            // just synced for this connection.
+            const folderToIqTag = new Map<string, string>();
+            try {
+              const { data: cats2 } = await supabaseAdmin
+                .from('categories')
+                .select('name, outlook_folder_id')
+                .eq('connection_id', connectionId);
+              for (const c of (cats2 ?? []) as Array<{ name: string; outlook_folder_id: string | null }>) {
+                if (c.outlook_folder_id) {
+                  folderToIqTag.set(c.outlook_folder_id, `${IQ_TAG_PREFIX}${c.name}`);
+                }
+              }
+            } catch (_) { /* best-effort */ }
+
+            const scanRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories,parentFolderId&$orderby=receivedDateTime desc',
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            if (scanRes.ok) {
+              const { value: msgs } = await scanRes.json();
+              let stripped = 0;
+              for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[]; parentFolderId?: string }>) {
+                const existing = Array.isArray(m.categories) ? m.categories : [];
+                if (existing.length === 0) continue;
+                // Keep all non-managed (user) categories untouched.
+                const userTags = existing.filter((c) => !isManagedCategoryName(c));
+                // Decide which (if any) single managed tag this message
+                // should keep, based on the folder it's currently in.
+                const folderTag = m.parentFolderId ? folderToIqTag.get(m.parentFolderId) : undefined;
+                const next = folderTag ? [...userTags, folderTag] : userTags;
+                if (
+                  existing.length === next.length &&
+                  existing.every((c, i) => c === next[i])
+                ) continue;
+                const patchRes = await fetch(
+                  `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
+                  {
+                    method: 'PATCH',
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json',
                     },
-                  );
-                  if (patchRes.ok) stripped++;
-                }
-                if (stripped > 0) {
-                  console.log(`Stripped legacy IQ tags from ${stripped} message(s)`);
-                }
+                    body: JSON.stringify({ categories: next }),
+                  },
+                );
+                if (patchRes.ok) stripped++;
+              }
+              if (stripped > 0) {
+                console.log(`Normalized IQ tags on ${stripped} message(s)`);
               }
             }
           } catch (e) {
