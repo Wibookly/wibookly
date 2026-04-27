@@ -604,6 +604,7 @@ export type Database = {
           last_seen_at: string
           ms_user_id: string
           organization_id: string
+          profile_photo_url: string | null
           status: string
           updated_at: string
         }
@@ -621,6 +622,7 @@ export type Database = {
           last_seen_at?: string
           ms_user_id: string
           organization_id: string
+          profile_photo_url?: string | null
           status?: string
           updated_at?: string
         }
@@ -638,6 +640,7 @@ export type Database = {
           last_seen_at?: string
           ms_user_id?: string
           organization_id?: string
+          profile_photo_url?: string | null
           status?: string
           updated_at?: string
         }
@@ -1587,6 +1590,7 @@ export type Database = {
           mobile: string | null
           organization_id: string
           phone: string | null
+          profile_photo_url: string | null
           requires_outlook_connect: boolean
           signature_color: string | null
           signature_font: string | null
@@ -1607,6 +1611,7 @@ export type Database = {
           mobile?: string | null
           organization_id: string
           phone?: string | null
+          profile_photo_url?: string | null
           requires_outlook_connect?: boolean
           signature_color?: string | null
           signature_font?: string | null
@@ -1627,6 +1632,7 @@ export type Database = {
           mobile?: string | null
           organization_id?: string
           phone?: string | null
+          profile_photo_url?: string | null
           requires_outlook_connect?: boolean
           signature_color?: string | null
           signature_font?: string | null
