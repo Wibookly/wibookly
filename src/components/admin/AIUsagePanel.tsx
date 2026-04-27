@@ -192,11 +192,70 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
 
       {/* Summary */}
       <div className="grid gap-4 md:grid-cols-4">
-        <SummaryCard icon={<DollarSign className="w-4 h-4" />} label="Total cost" value={fmtMoney(totals.totalCost)} />
+        <SummaryCard icon={<DollarSign className="w-4 h-4" />} label="Total cost (logged)" value={fmtMoney(totals.totalCost)} />
         <SummaryCard icon={<Zap className="w-4 h-4" />} label="Total tokens" value={fmtTokens(totals.totalTokens)} />
         <SummaryCard icon={<Activity className="w-4 h-4" />} label="API calls" value={totals.callCount.toLocaleString()} />
         <SummaryCard icon={<UsersIcon className="w-4 h-4" />} label="Active users" value={totals.activeUsers.toString()} />
       </div>
+
+      {/* Live provider spend (org-wide) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Live provider spend</CardTitle>
+              <CardDescription>
+                Org-wide totals pulled directly from OpenAI and Anthropic billing APIs for the selected period.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="icon" onClick={loadLiveSpend} disabled={liveSpendLoading}>
+              {liveSpendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {liveSpendLoading && !liveSpend ? (
+            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {(liveSpend ?? []).map((p) => (
+                <div
+                  key={p.provider}
+                  className="rounded-lg border border-border bg-background p-4 flex flex-col gap-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold capitalize">{p.provider}</span>
+                    {p.available ? (
+                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                        Live
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Unavailable
+                      </Badge>
+                    )}
+                  </div>
+                  {p.available ? (
+                    <div className="text-2xl font-semibold tabular-nums">
+                      {fmtMoney(p.total_usd ?? 0)}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {p.error || 'Live spend not available for this provider yet.'}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {(!liveSpend || liveSpend.length === 0) && (
+                <p className="text-sm text-muted-foreground py-2">
+                  Live spend service unavailable. Per-user totals below are computed from logged usage.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* By user */}
       <Card>
