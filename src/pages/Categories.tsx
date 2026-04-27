@@ -422,6 +422,8 @@ export default function Categories() {
       await supabase.from('rules').delete().eq('id', id);
       setRules(prev => prev.filter(r => r.id !== id));
       toast({ title: 'Rule deleted' });
+      // Live sync after delete so the provider rule is removed immediately.
+      syncRulesToEmailProvider().catch((e) => console.error('Auto rule sync after delete failed:', e));
     }
     setHasChanges(true);
   };
