@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/MailboxSettings.ReadWrite';
+
+function isOutlookRuleAccessDenied(errorText: string): boolean {
+  return errorText.includes('ErrorAccessDenied') || errorText.includes('Access is denied');
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -101,7 +107,8 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<{ access_tok
       refresh_token: refreshToken,
       client_id: clientId!,
       client_secret: clientSecret!,
-      grant_type: 'refresh_token'
+      grant_type: 'refresh_token',
+      scope: MICROSOFT_OUTLOOK_SCOPES,
     })
   });
   
@@ -127,12 +134,13 @@ interface TokenData {
 async function getValidAccessToken(
   tokenData: TokenData,
   encryptionKey: string,
-  userId: string
+  userId: string,
+  forceRefresh = false,
 ): Promise<string | null> {
   const isExpired = tokenData.expires_at && new Date(tokenData.expires_at) < new Date();
   
   // If not expired, return decrypted access token
-  if (!isExpired) {
+  if (!forceRefresh && !isExpired) {
     return await decryptToken(tokenData.encrypted_access_token, encryptionKey);
   }
   
@@ -430,8 +438,9 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     });
 
     if (!listRes.ok) {
-      console.error('Failed to list Outlook rules:', await listRes.text());
-      return false;
+      const errorText = await listRes.text();
+      console.error('Failed to list Outlook rules:', errorText);
+      throw new Error(`OUTLOOK_RULE_LIST_FAILED:${errorText}`);
     }
 
     const { value: existingRules } = await listRes.json();
@@ -535,8 +544,9 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     });
 
     if (!createRes.ok) {
-      console.error(`Failed to create Outlook rule "${ruleName}":`, await createRes.text());
-      return false;
+      const errorText = await createRes.text();
+      console.error(`Failed to create Outlook rule "${ruleName}":`, errorText);
+      throw new Error(`OUTLOOK_RULE_CREATE_FAILED:${errorText}`);
     }
 
     console.log(`Created/refreshed Outlook rule: ${ruleName} (enabled)`);
@@ -856,7 +866,8 @@ serve(async (req) => {
     for (const tokenRecord of tokenDataList) {
       try {
         // Get valid access token (will refresh if expired)
-        const accessToken = await getValidAccessToken(
+        let activeTokenRecord = tokenRecord as TokenData;
+        let accessToken = await getValidAccessToken(
           tokenRecord as TokenData,
           encryptionKey,
           user.id
@@ -873,29 +884,72 @@ serve(async (req) => {
           continue;
         }
 
+        if (!accessToken) {
+          results.push({
+            provider: tokenRecord.provider,
+            synced: 0,
+            failed: enabledRules.length,
+            error: 'Microsoft mailbox access token is unavailable. Please reconnect Outlook once, then try Re-sync All again.'
+          });
+          continue;
+        }
+
         let synced = 0;
         let failed = 0;
 
         for (const rule of enabledRules) {
           const catInfo = categoryMap.get(rule.category_id);
           if (!catInfo) continue;
+          const currentAccessToken = accessToken;
+          if (!currentAccessToken) {
+            failed++;
+            continue;
+          }
 
           // Use actual sort_order for label name (1-indexed, zero-padded to 2 digits)
           const labelName = `${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
-            const labelId = await getGmailLabelId(accessToken, labelName);
+            const labelId = await getGmailLabelId(currentAccessToken, labelName);
             if (labelId) {
-              success = await applyGmailFilter(accessToken, rule, labelId);
+              success = await applyGmailFilter(currentAccessToken, rule, labelId);
             } else {
               console.log(`Gmail label "${labelName}" not found - please sync categories first`);
             }
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
-            const folderId = await getOutlookFolderId(accessToken, labelName);
+            const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              success = await applyOutlookRule(accessToken, rule, folderId, ruleName);
+              try {
+                success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (isOutlookRuleAccessDenied(message) && activeTokenRecord.encrypted_refresh_token) {
+                  console.warn('Outlook rules access denied, forcing Microsoft token refresh with mailbox settings scopes...');
+                  accessToken = await getValidAccessToken(activeTokenRecord, encryptionKey, user.id, true);
+
+                  const { data: refreshedTokenRecord } = await supabaseAdmin
+                    .from('oauth_token_vault')
+                    .select('provider, encrypted_access_token, encrypted_refresh_token, expires_at')
+                    .eq('user_id', user.id)
+                    .eq('provider', tokenRecord.provider)
+                    .maybeSingle();
+
+                  if (refreshedTokenRecord) {
+                    activeTokenRecord = refreshedTokenRecord as TokenData;
+                  }
+
+                  if (accessToken) {
+                    const refreshedFolderId = await getOutlookFolderId(accessToken, labelName);
+                    if (refreshedFolderId) {
+                      success = await applyOutlookRule(accessToken, rule, refreshedFolderId, ruleName);
+                    }
+                  }
+                } else {
+                  throw error;
+                }
+              }
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
             }
@@ -913,7 +967,11 @@ serve(async (req) => {
           }
         }
 
-        results.push({ provider: tokenRecord.provider, synced, failed });
+        const providerError = failed > 0 && synced === 0 && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')
+          ? 'Microsoft blocked mailbox rule access for this token. Please reconnect Outlook once so the updated permissions can be granted.'
+          : undefined;
+
+        results.push({ provider: tokenRecord.provider, synced, failed, ...(providerError ? { error: providerError } : {}) });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
         results.push({
