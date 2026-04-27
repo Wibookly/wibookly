@@ -979,6 +979,21 @@ serve(async (req) => {
             success = await createGmailLabel(accessToken, labelName, category.color);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
             success = await createOutlookFolder(accessToken, labelName);
+            // Also create / refresh the colored Outlook Master Category and
+            // retroactively tag every message inside the folder so the
+            // color stripe is visible in the Outlook UI today (folders
+            // themselves cannot be colored via Graph).
+            if (success) {
+              const categoryTag = `InboxIQ: ${category.name}`;
+              await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
+              const folderId = await findOutlookFolderId(accessToken, labelName);
+              if (folderId) {
+                const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
+                if (tagged > 0) {
+                  console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
+                }
+              }
+            }
           }
           
           if (success) {
