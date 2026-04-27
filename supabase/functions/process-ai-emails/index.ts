@@ -1518,65 +1518,12 @@ ${emailBody.substring(0, 3000)}`;
     { role: 'user', content: userPrompt }
   ];
 
-  // PRIMARY: Lovable AI Gateway (no per-user quota issues, uses Gemini)
-  if (LOVABLE_API_KEY) {
-    try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) return content;
-        console.warn('Lovable AI returned empty content, trying OpenAI fallback');
-      } else {
-        const errText = await response.text();
-        console.warn(`Lovable AI gateway error ${response.status}: ${errText.slice(0, 300)} — trying OpenAI fallback`);
-      }
-    } catch (error) {
-      console.warn('Lovable AI generation error, trying OpenAI fallback:', error);
-    }
+  // Use admin-managed OpenAI primary, Claude fallback, Lovable AI last resort.
+  const content = await generateWithAdminAI(messages);
+  if (!content) {
+    console.error('All AI providers failed (OpenAI, Claude, Lovable AI). Configure an admin API key in Admin → Settings.');
   }
-
-  // FALLBACK: OpenAI (only if Lovable failed and key is configured)
-  if (!OPENAI_API_KEY) {
-    console.error('Lovable AI failed and no OpenAI fallback configured');
-    return null;
-  }
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, await response.text());
-      return null;
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (error) {
-    console.error('OpenAI generation error:', error);
-    return null;
-  }
+  return content;
 }
 
 // Get Gmail email details
