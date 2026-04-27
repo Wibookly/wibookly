@@ -470,7 +470,7 @@ export default function AdminDashboard() {
       setShowOpenaiKey(false);
       setShowClaudeKey(false);
       const keysRes = await adminInvoke('get_api_keys');
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -483,7 +483,7 @@ export default function AdminDashboard() {
       await adminInvoke('delete_api_key', { key_name: keyName });
       toast({ title: 'API Key removed', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been removed.` });
       const keysRes = await adminInvoke('get_api_keys');
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -491,6 +491,35 @@ export default function AdminDashboard() {
 
   const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
   const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
+
+  // Hydrate non-secret AI preference rows from the get_api_keys response
+  const hydrateAIPrefs = (rows: { key_name: string; value?: string }[]) => {
+    const get = (k: string) => rows.find(r => r.key_name === k)?.value;
+    const pref = (get('ai_provider_preference') || 'auto').toLowerCase();
+    if (pref === 'auto' || pref === 'openai' || pref === 'claude') setProviderPref(pref as any);
+    const om = get('ai_openai_model'); if (om) setOpenaiModel(om);
+    const cm = get('ai_claude_model'); if (cm) setClaudeModel(cm);
+    const ws = get('ai_enable_web_search'); if (ws !== undefined) setEnableWebSearch(ws !== 'false');
+  };
+
+  const handleSaveAIPrefs = async () => {
+    setSavingPref(true);
+    try {
+      await Promise.all([
+        adminInvoke('set_api_key', { key_name: 'ai_provider_preference', key_value: providerPref }),
+        adminInvoke('set_api_key', { key_name: 'ai_openai_model', key_value: openaiModel }),
+        adminInvoke('set_api_key', { key_name: 'ai_claude_model', key_value: claudeModel }),
+        adminInvoke('set_api_key', { key_name: 'ai_enable_web_search', key_value: enableWebSearch ? 'true' : 'false' }),
+      ]);
+      toast({ title: 'AI preferences saved' });
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingPref(false);
+    }
+  };
 
   const getUserFeatureState = (user: ManagedUser, featureKey: string) => {
     const directFeature = user.features.find((feature) => feature.feature_key === featureKey);
