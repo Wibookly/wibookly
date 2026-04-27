@@ -1088,6 +1088,19 @@ serve(async (req) => {
         let synced = 0;
         let failed = 0;
 
+        // One-time per-sync setup for Outlook accounts:
+        //  - purge any leftover legacy "Wibookly:" rules
+        //  - ensure a colored Master Category exists for each enabled category
+        const isOutlook =
+          tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook';
+        if (isOutlook && enabledCategories?.length) {
+          await purgeLegacyOutlookRules(accessToken);
+          for (const cat of enabledCategories) {
+            const tagName = `InboxIQ: ${cat.name}`;
+            await ensureOutlookMasterCategory(accessToken, tagName, cat.color || '#6366f1');
+          }
+        }
+
         for (const rule of enabledRules) {
           const catInfo = categoryMap.get(rule.category_id);
           if (!catInfo) continue;
@@ -1108,11 +1121,18 @@ serve(async (req) => {
             } else {
               console.log(`Gmail label "${labelName}" not found - please sync categories first`);
             }
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (isOutlook) {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
+              const categoryTag = `InboxIQ: ${catInfo.name}`;
+              success = await applyOutlookRule(
+                currentAccessToken,
+                rule,
+                folderId,
+                ruleName,
+                categoryTag,
+              );
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
             }
