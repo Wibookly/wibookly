@@ -1607,13 +1607,32 @@ If the sender is requesting a meeting, call, appointment, or any scheduled event
 4. The marker will be removed before sending and used to create a calendar event with invite`;
   }
 
+  // Build About Me block from user/category personalization
+  let aboutBlock = '';
+  if (aboutMe) {
+    const lines: string[] = [];
+    if (aboutMe.full_name) lines.push(`Name: ${aboutMe.full_name}`);
+    if (aboutMe.role_description) lines.push(`Role: ${aboutMe.role_description}`);
+    if (aboutMe.department) lines.push(`Department: ${aboutMe.department}`);
+    if (aboutMe.company) lines.push(`Company: ${aboutMe.company}`);
+    if (aboutMe.responsibilities) lines.push(`Responsibilities: ${aboutMe.responsibilities}`);
+    if (aboutMe.communication_style) lines.push(`Preferred communication style: ${aboutMe.communication_style}`);
+    if (aboutMe.additional_context) lines.push(`Additional context: ${aboutMe.additional_context}`);
+    if (lines.length) {
+      aboutBlock = `\nABOUT ME (the person whose voice you are writing in):\n${lines.join('\n')}\n`;
+    }
+    if (aboutMe.example_reply_template) {
+      aboutBlock += `\nEXAMPLE REPLY (mirror tone, length, and structure — do not copy verbatim):\n${aboutMe.example_reply_template}\n`;
+    }
+  }
+
   // AI should generate body text only - NO signature (we add HTML signature separately)
   const systemPrompt = `You are an expert email assistant. Generate a reply to the email below.
 
 ${stylePrompt}
 
 ${formatPrompt}
-
+${aboutBlock}
 CATEGORY: ${cleanCategory}
 ${categoryContext}
 ${meetingContext}
@@ -1621,14 +1640,15 @@ ${meetingContext}
 CRITICAL RULES (MUST FOLLOW):
 1. STRICTLY FOLLOW the writing style requirements above - this is the most important rule
 2. STRICTLY FOLLOW the response format requirements above
-3. Generate a complete, ready-to-send email reply BODY ONLY
-4. Do NOT include the subject line
-5. Start with an appropriate greeting matching the style (e.g., "Dear ${senderName ? 'Ali' : 'recipient'},")
-6. DO NOT include any closing phrases like "Thank you", "Thanks", "Best regards", "Sincerely", "Kind regards", "Warm regards", or similar sign-offs - the signature will be added automatically and already contains these
-7. End your response with the last sentence of your actual email content, NOT a closing phrase or sign-off
-8. Address the sender's main points
-9. Output ONLY the email text - no explanations or notes
-${meetingContext ? '10. If scheduling a meeting, ALWAYS include the [[MEETING:...]] marker at the very end' : ''}`;
+3. If "ABOUT ME" is provided, write in that voice, role, and tone
+4. Generate a complete, ready-to-send email reply BODY ONLY
+5. Do NOT include the subject line
+6. Start with an appropriate greeting matching the style (e.g., "Dear ${senderName ? 'Ali' : 'recipient'},")
+7. DO NOT include any closing phrases like "Thank you", "Thanks", "Best regards", "Sincerely", "Kind regards", "Warm regards", or similar sign-offs - the signature will be added automatically and already contains these
+8. End your response with the last sentence of your actual email content, NOT a closing phrase or sign-off
+9. Address the sender's main points
+10. Output ONLY the email text - no explanations or notes
+${meetingContext ? '11. If scheduling a meeting, ALWAYS include the [[MEETING:...]] marker at the very end' : ''}`;
 
   const userPrompt = `Reply to this email:
 
