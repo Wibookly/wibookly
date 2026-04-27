@@ -267,33 +267,42 @@ export type Database = {
       }
       ai_settings: {
         Row: {
+          additional_context: string | null
           ai_calendar_event_color: string | null
           ai_draft_label_color: string | null
           ai_sent_label_color: string | null
           connection_id: string | null
           created_at: string
+          example_reply_template: string | null
+          format_style: string | null
           id: string
           organization_id: string
           updated_at: string
           writing_style: string
         }
         Insert: {
+          additional_context?: string | null
           ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
           created_at?: string
+          example_reply_template?: string | null
+          format_style?: string | null
           id?: string
           organization_id: string
           updated_at?: string
           writing_style?: string
         }
         Update: {
+          additional_context?: string | null
           ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
           created_at?: string
+          example_reply_template?: string | null
+          format_style?: string | null
           id?: string
           organization_id?: string
           updated_at?: string
@@ -486,11 +495,14 @@ export type Database = {
       }
       categories: {
         Row: {
+          additional_context: string | null
           ai_draft_enabled: boolean
           auto_reply_enabled: boolean
           color: string
           connection_id: string | null
           created_at: string
+          example_reply_template: string | null
+          format_style: string | null
           id: string
           is_enabled: boolean
           is_follow_up: boolean
@@ -503,11 +515,14 @@ export type Database = {
           writing_style: string
         }
         Insert: {
+          additional_context?: string | null
           ai_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           color?: string
           connection_id?: string | null
           created_at?: string
+          example_reply_template?: string | null
+          format_style?: string | null
           id?: string
           is_enabled?: boolean
           is_follow_up?: boolean
@@ -520,11 +535,14 @@ export type Database = {
           writing_style?: string
         }
         Update: {
+          additional_context?: string | null
           ai_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           color?: string
           connection_id?: string | null
           created_at?: string
+          example_reply_template?: string | null
+          format_style?: string | null
           id?: string
           is_enabled?: boolean
           is_follow_up?: boolean
@@ -588,6 +606,57 @@ export type Database = {
           organization_id?: string
           provider?: string
           stage?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_brief_schedules: {
+        Row: {
+          brief_type: string
+          connection_id: string | null
+          created_at: string
+          day_of_week: number
+          id: string
+          is_enabled: boolean
+          last_sent_at: string | null
+          organization_id: string
+          recipient_email: string | null
+          send_time: string
+          sender_email: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brief_type?: string
+          connection_id?: string | null
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_enabled?: boolean
+          last_sent_at?: string | null
+          organization_id: string
+          recipient_email?: string | null
+          send_time: string
+          sender_email?: string
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brief_type?: string
+          connection_id?: string | null
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_enabled?: boolean
+          last_sent_at?: string | null
+          organization_id?: string
+          recipient_email?: string | null
+          send_time?: string
+          sender_email?: string
+          timezone?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1583,7 +1652,10 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          communication_style: string | null
+          company: string | null
           created_at: string
+          department: string | null
           domain_id: string | null
           email: string
           email_signature: string | null
@@ -1595,6 +1667,8 @@ export type Database = {
           phone: string | null
           profile_photo_url: string | null
           requires_outlook_connect: boolean
+          responsibilities: string | null
+          role_description: string | null
           signature_color: string | null
           signature_font: string | null
           signature_logo_url: string | null
@@ -1604,7 +1678,10 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          communication_style?: string | null
+          company?: string | null
           created_at?: string
+          department?: string | null
           domain_id?: string | null
           email: string
           email_signature?: string | null
@@ -1616,6 +1693,8 @@ export type Database = {
           phone?: string | null
           profile_photo_url?: string | null
           requires_outlook_connect?: boolean
+          responsibilities?: string | null
+          role_description?: string | null
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
@@ -1625,7 +1704,10 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          communication_style?: string | null
+          company?: string | null
           created_at?: string
+          department?: string | null
           domain_id?: string | null
           email?: string
           email_signature?: string | null
@@ -1637,6 +1719,8 @@ export type Database = {
           phone?: string | null
           profile_photo_url?: string | null
           requires_outlook_connect?: boolean
+          responsibilities?: string | null
+          role_description?: string | null
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
