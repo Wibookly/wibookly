@@ -2442,11 +2442,21 @@ async function processConnectionEmails(
           emailDetails.from,
           categoryNameForAI,
           category.writing_style,
-          'concise',
+          (category as { format_style?: string }).format_style || 'concise',
           profile.full_name || null,
           null, // Don't pass title to AI - we'll add signature separately
           nextAvailableSlot, // Pass available slot for meeting scheduling (legacy)
-          multipleSlots // Pass multiple slots with conflict info (preferred)
+          multipleSlots, // Pass multiple slots with conflict info (preferred)
+          {
+            full_name: aboutProfile?.full_name || profile.full_name || null,
+            company: (aboutProfile as { company?: string } | null)?.company || null,
+            role_description: (aboutProfile as { role_description?: string } | null)?.role_description || null,
+            department: (aboutProfile as { department?: string } | null)?.department || null,
+            responsibilities: (aboutProfile as { responsibilities?: string } | null)?.responsibilities || null,
+            communication_style: (aboutProfile as { communication_style?: string } | null)?.communication_style || null,
+            example_reply_template: (category as { example_reply_template?: string }).example_reply_template || null,
+            additional_context: (category as { additional_context?: string }).additional_context || null,
+          }
         );
 
         const aiDraftBody = aiDraftResult.content;
