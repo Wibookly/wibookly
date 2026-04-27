@@ -183,6 +183,22 @@ serve(async (req) => {
 
       organizationId = existingProfile?.organization_id ?? null;
 
+      // Refresh Microsoft 365 profile fields on every sign-in so the app
+      // stays in sync with the user's tenant data (job title, dept, phones).
+      if (organizationId) {
+        await adminClient
+          .from('user_profiles')
+          .update({
+            full_name: fullName || null,
+            title: msJobTitle,
+            department: msDepartment,
+            company: msCompany,
+            phone: msPhone,
+            mobile: msMobile,
+          })
+          .eq('user_id', userId);
+      }
+
       if (inviteToken) {
         const { data: invitation } = await adminClient
           .from('user_invitations')
