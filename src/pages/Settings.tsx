@@ -642,10 +642,15 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* Profile Settings */}
+        {/* Profile — identity + AI personalization context, merged into one card */}
         {activeSection === 'profile' && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Profile</h2>
+          <div>
+            <h2 className="text-lg font-semibold">My Profile</h2>
+            <p className="text-sm text-muted-foreground">
+              Your identity and the context the AI uses to write drafts and replies that sound like you.
+            </p>
+          </div>
           <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
@@ -666,37 +671,24 @@ export default function Settings() {
                 placeholder="e.g. CEO, Sales Manager, Developer"
               />
               <p className="text-xs text-muted-foreground">
-                {workspaceType === 'business' 
+                {workspaceType === 'business'
                   ? 'Your title is included in email signatures and helps AI tailor responses to your role.'
                   : 'Optional for personal workspaces.'}
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value={profile?.email || ''} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Input value="Admin" disabled className="bg-muted" />
-            </div>
-          </div>
-        </section>
-        )}
-
-        {/* About Me — lives on the same Profile page so users see their identity
-            and the AI personalization context together. */}
-        {activeSection === 'profile' && (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">About Me</h2>
-            <p className="text-sm text-muted-foreground">
-              These details help the AI understand who you are so it can write
-              drafts and replies that sound like you.
-            </p>
-          </div>
-          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={profile?.email || ''} disabled className="bg-muted" />
+                <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Input value="Admin" disabled className="bg-muted" />
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4 grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="aboutCompany">Company</Label>
                 <Input
@@ -751,6 +743,7 @@ export default function Settings() {
           </div>
         </section>
         )}
+
 
         {/* Email Signature Builder */}
         {activeSection === 'signature' && (
