@@ -391,11 +391,25 @@ async function processNotification(n: GraphNotification) {
     return;
   }
 
-  // Generate AI reply
-  const question = stripHtml(msg.body?.content ?? msg.bodyPreview ?? '');
-  const replyHtml = await generateAIReply(question, senderEmail, settings.organization_id);
+  // Fetch the full conversation thread for context (so the agent sees what you forwarded)
+  const thread = msg.conversationId
+    ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
+    : [];
+  const threadText = formatThreadForPrompt(thread, messageId, msg);
+  const senderName = msg.from?.emailAddress?.name ?? '';
 
-  await replyToMessage(token, settings.shared_mailbox_user_id, messageId, replyHtml);
+  // Generate AI reply (focused on email content + thread)
+  const aiResult = await generateAIReply({
+    threadText,
+    senderEmail,
+    senderName,
+    subject: msg.subject ?? '',
+    organizationId: settings.organization_id,
+  });
+  const replyHtml = aiResult.content;
+
+  // Reply ONLY to the person who emailed the agent — never CC/BCC the original recipients
+  await replyToMessage(token, settings.shared_mailbox_user_id, messageId, replyHtml, senderEmail);
 
   await supabase.from('agent_messages').insert({
     organization_id: settings.organization_id,
@@ -408,7 +422,23 @@ async function processNotification(n: GraphNotification) {
     response_to_id: inbound?.id ?? null,
     conversation_id: msg.conversationId ?? null,
     status: 'sent',
+    metadata: { provider: aiResult.provider, model: aiResult.model, reply_to: senderEmail },
   });
+
+  // Log usage
+  try {
+    await supabase.from('ai_usage_logs').insert({
+      organization_id: settings.organization_id,
+      user_id: null,
+      provider: aiResult.provider,
+      model: aiResult.model,
+      action: 'agent_email_reply',
+      prompt_tokens: aiResult.promptTokens,
+      completion_tokens: aiResult.completionTokens,
+      cost_usd: '0',
+      metadata: { sender: senderEmail },
+    });
+  } catch (e) { console.error('usage log failed', e); }
 }
 
 Deno.serve(async (req) => {
