@@ -905,35 +905,7 @@ serve(async (req) => {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              try {
-                success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                if (isOutlookRuleAccessDenied(message) && activeTokenRecord.encrypted_refresh_token) {
-                  console.warn('Outlook rules access denied, forcing Microsoft token refresh with mailbox settings scopes...');
-                  accessToken = await getValidAccessToken(activeTokenRecord, encryptionKey, user.id, true);
-
-                  const { data: refreshedTokenRecord } = await supabaseAdmin
-                    .from('oauth_token_vault')
-                    .select('provider, encrypted_access_token, encrypted_refresh_token, expires_at')
-                    .eq('user_id', user.id)
-                    .eq('provider', tokenRecord.provider)
-                    .maybeSingle();
-
-                  if (refreshedTokenRecord) {
-                    activeTokenRecord = refreshedTokenRecord as TokenData;
-                  }
-
-                  if (accessToken) {
-                    const refreshedFolderId = await getOutlookFolderId(accessToken, labelName);
-                    if (refreshedFolderId) {
-                      success = await applyOutlookRule(accessToken, rule, refreshedFolderId, ruleName);
-                    }
-                  }
-                } else {
-                  throw error;
-                }
-              }
+              success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
             }
@@ -951,8 +923,8 @@ serve(async (req) => {
           }
         }
 
-        const providerError = failed > 0 && synced === 0 && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')
-          ? 'Microsoft blocked mailbox rule access for this token. Please reconnect Outlook once so the updated permissions can be granted.'
+        const providerError = failed > 0 && synced === 0
+          ? 'Could not enforce categorization rules — please verify the mailbox is connected and folders exist.'
           : undefined;
 
         results.push({ provider: tokenRecord.provider, synced, failed, ...(providerError ? { error: providerError } : {}) });
