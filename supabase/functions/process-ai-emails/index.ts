@@ -2521,12 +2521,60 @@ async function processConnectionEmails(
           }
         }
 
+        // ===== Artifact generation (run BEFORE drafting the reply) =====
+        // If the sender asked the agent to PRODUCE something (dashboard,
+        // financial report, presentation, slide deck, HTML page, document...),
+        // generate it the same way ChatGPT/Claude would, save it to OneDrive
+        // (Outlook only), and tell the reply-LLM that the deliverable is ready
+        // so it acknowledges it instead of saying "I can't create that".
+        let artifactBlockHtml = '';
+        let artifactReplyHint = '';
+        try {
+          const artifactSpec = await detectArtifactRequest({
+            emailSubject: emailDetails.subject,
+            emailBody: emailDetails.body,
+          });
+          if (artifactSpec) {
+            console.log(`Artifact requested: kind=${artifactSpec.kind}, topic="${artifactSpec.topic}"`);
+            const graphToken = tokenRecord.provider === 'microsoft' ? accessToken : null;
+            const artifactJson = await generateArtifact(graphToken, {
+              kind: artifactSpec.kind,
+              topic: artifactSpec.topic,
+              details: artifactSpec.details,
+              filename: artifactSpec.filename,
+            });
+            let parsed: any = null;
+            try { parsed = JSON.parse(artifactJson); } catch { /* ignore */ }
+            if (parsed?.ok && parsed.delivered === 'onedrive' && parsed.share_url) {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;margin-bottom:8px;">I built this for you and saved it to your OneDrive. Click below to open, present, or download it.</div>` +
+                `<div><a href="${parsed.share_url}" style="display:inline-block;background:#1e40af;color:#ffffff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open ${escapeHtml(parsed.filename || 'the file')}</a></div>` +
+                `<div style="color:#6b7280;font-size:12px;margin-top:8px;">File: ${escapeHtml(parsed.filename)} • saved to OneDrive › InboxIQ-Artifacts</div>` +
+                `</div>`;
+              artifactReplyHint = `\n\n[SYSTEM NOTE FOR YOUR REPLY: A complete "${artifactSpec.topic}" (${artifactSpec.kind.replace('_', ' ')}, file: ${parsed.filename}) has ALREADY been generated for the sender and saved to their OneDrive. A clickable button with the share link will be appended automatically below your message. Your job: acknowledge that it's ready, briefly describe what's inside (1-3 short sentences), invite them to open the link below for the full version, and offer to refine it. Do NOT say you cannot create files. Do NOT include any URL yourself — the link button is appended for you.]`;
+            } else if (parsed?.ok && parsed.delivered === 'inline') {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;">I generated the requested file (${escapeHtml(parsed.filename)}). To enable automatic delivery to OneDrive, please connect a Microsoft 365 account in InboxIQ.</div>` +
+                `</div>`;
+              artifactReplyHint = `\n\n[SYSTEM NOTE FOR YOUR REPLY: A "${artifactSpec.topic}" file has been generated (${parsed.filename}) but cannot be auto-delivered because no Microsoft 365 account is linked. Acknowledge it, summarize what's inside in 1-3 sentences, and invite them to reply if they want it sent another way. Do NOT say you cannot create files.]`;
+            } else if (parsed && parsed.error) {
+              console.warn('Artifact generation returned error:', parsed.error);
+            }
+          }
+        } catch (e) {
+          console.warn('Artifact pipeline failed (non-fatal):', e);
+        }
+
         // Generate AI draft content (without signature - AI will just create the body)
         // Use Events category context if this is an event-related email
         const categoryNameForAI = shouldUseEventLogic ? 'Events' : category.name;
         const aiDraftResult = await generateAIDraft(
           emailDetails.subject,
-          emailDetails.body,
+          emailDetails.body + artifactReplyHint,
           emailDetails.from,
           categoryNameForAI,
           category.writing_style,
