@@ -2570,13 +2570,59 @@ async function processConnectionEmails(
         // Remove meeting marker from the response for clean email body
         const cleanAIDraftBody = removeMeetingMarkerFromResponse(aiDraftBody);
 
+        // ===== Artifact generation (dashboards, reports, presentations, etc.) =====
+        // If the sender is asking the agent to PRODUCE something (a dashboard,
+        // financial report, presentation, slide deck, HTML page, document...),
+        // generate it just like ChatGPT/Claude would, save it to the user's
+        // OneDrive (Outlook only), and append a clean call-out + share link
+        // to the email reply. This removes the "I'm just text-based" limitation.
+        let artifactBlockHtml = '';
+        try {
+          const artifactSpec = await detectArtifactRequest({
+            emailSubject: emailDetails.subject,
+            emailBody: emailDetails.body,
+          });
+          if (artifactSpec) {
+            console.log(`Artifact requested: kind=${artifactSpec.kind}, topic="${artifactSpec.topic}"`);
+            // OneDrive upload only works for Microsoft accounts (Graph token).
+            const graphToken = tokenRecord.provider === 'microsoft' ? accessToken : null;
+            const artifactJson = await generateArtifact(graphToken, {
+              kind: artifactSpec.kind,
+              topic: artifactSpec.topic,
+              details: artifactSpec.details,
+              filename: artifactSpec.filename,
+            });
+            let parsed: any = null;
+            try { parsed = JSON.parse(artifactJson); } catch { /* ignore */ }
+            if (parsed?.ok && parsed.delivered === 'onedrive' && parsed.share_url) {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;margin-bottom:8px;">I built this for you and saved it to your OneDrive. Click below to open, present, or download it.</div>` +
+                `<div><a href="${parsed.share_url}" style="display:inline-block;background:#1e40af;color:#ffffff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Open ${escapeHtml(parsed.filename || 'the file')}</a></div>` +
+                `<div style="color:#6b7280;font-size:12px;margin-top:8px;">File: ${escapeHtml(parsed.filename)} • saved to OneDrive › InboxIQ-Artifacts</div>` +
+                `</div>`;
+            } else if (parsed?.ok && parsed.delivered === 'inline') {
+              artifactBlockHtml =
+                `<div style="margin-top:18px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;font-family:Arial,sans-serif;">` +
+                `<div style="font-weight:600;color:#111827;margin-bottom:6px;">📎 ${escapeHtml(artifactSpec.topic)}</div>` +
+                `<div style="color:#374151;font-size:14px;">I generated the requested file (${escapeHtml(parsed.filename)}). To enable automatic delivery to OneDrive, connect a Microsoft 365 account in InboxIQ.</div>` +
+                `</div>`;
+            } else if (parsed && parsed.error) {
+              console.warn('Artifact generation returned error:', parsed.error);
+            }
+          }
+        } catch (e) {
+          console.warn('Artifact pipeline failed (non-fatal):', e);
+        }
+
         // Generate the email signature from profile
         const emailSignature = generateEmailSignature(profile);
-        
+
         // Combine draft body with signature for final content
         // Convert plain text body to HTML and append HTML signature
         const htmlBody = cleanAIDraftBody.replace(/\n/g, '<br>');
-        const draftContent = `<div>${htmlBody}</div>${emailSignature}`;
+        const draftContent = `<div>${htmlBody}</div>${artifactBlockHtml}${emailSignature}`;
         
         console.log(`Generated draft with signature for email ${msg.id}${parsedMeeting ? ' (includes meeting)' : ''}`);
 
