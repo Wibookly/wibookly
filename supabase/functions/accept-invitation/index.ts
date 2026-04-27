@@ -32,7 +32,7 @@ function redirect(url: string): Response {
   return new Response(null, { status: 302, headers: { Location: url } });
 }
 
-async function canRetryInvitation(adminClient: ReturnType<typeof createClient>, invitationUserId: string | null): Promise<boolean> {
+async function canRetryInvitation(adminClient: any, invitationUserId: string | null): Promise<boolean> {
   if (!invitationUserId) return false;
 
   const [{ data: profile }, { data: connection }] = await Promise.all([
@@ -49,7 +49,8 @@ async function canRetryInvitation(adminClient: ReturnType<typeof createClient>, 
       .maybeSingle(),
   ]);
 
-  return !profile || !connection?.is_connected;
+  const connectionRow = connection as { is_connected?: boolean } | null;
+  return !profile || !connectionRow?.is_connected;
 }
 
 serve(async (req) => {
@@ -103,7 +104,7 @@ serve(async (req) => {
     }
 
     if (invitation.used_at) {
-      const canRetry = await canRetryInvitation(adminClient, invitation.user_id);
+      const canRetry = validateOnly ? await canRetryInvitation(adminClient, invitation.user_id) : false;
 
       if (canRetry) {
         return new Response(JSON.stringify({
