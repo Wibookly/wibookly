@@ -536,10 +536,13 @@ export default function Categories() {
       setHasChanges(false);
       setLastSaved(new Date());
 
-      // Only sync categories automatically, NOT rules
-      // Rules require manual sync via the Play button
+      // Live auto-sync: push category folders/colors AND rules to the provider
+      // on every change so the user never needs to click "Re-sync All".
       if (shouldSyncCategories) {
         await syncCategoriesToEmailProvider();
+        // Sync rules in the background (non-blocking) so newly-saved rules
+        // start filtering email immediately.
+        syncRulesToEmailProvider().catch((e) => console.error('Auto rule sync failed:', e));
       }
 
       return true;
