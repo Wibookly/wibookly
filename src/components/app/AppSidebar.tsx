@@ -198,14 +198,22 @@ export function AppSidebar() {
           {/* AI Settings - show if user has ai_draft or ai_auto_reply, or is super admin */}
           {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
             <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
-              {(isSuperAdmin || hasFeature('ai_draft')) && (
-                <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
-              )}
-              {(isSuperAdmin || hasFeature('ai_auto_reply')) && (
-                <NavItem href="/email-draft?tab=auto-reply" icon={MessageSquare}>AI Auto Reply</NavItem>
-              )}
               {(isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
-                <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+                <>
+                  {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
+                    <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
+                  ) : (
+                    <>
+                      {(isSuperAdmin || hasFeature('ai_draft')) && (
+                        <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+                      )}
+                      {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
+                        <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                      )}
+                    </>
+                  )}
+                  <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+                </>
               )}
             </NavSection>
           )}
