@@ -49,20 +49,48 @@ async function getAppToken(tenantId: string): Promise<string> {
 
 async function fetchMessage(token: string, mailboxUserId: string, messageId: string) {
   const res = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}?$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,conversationId,internetMessageId`,
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}?$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,conversationId,internetMessageId,receivedDateTime`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   if (!res.ok) throw new Error(`Fetch message failed: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
-async function replyToMessage(token: string, mailboxUserId: string, messageId: string, html: string) {
+// Pull the last N messages in this conversation so the AI can see the full thread.
+async function fetchConversation(token: string, mailboxUserId: string, conversationId: string, take = 10) {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages?$filter=${encodeURIComponent(`conversationId eq '${conversationId}'`)}&$orderby=receivedDateTime asc&$top=${take}&$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,receivedDateTime`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      console.warn(`fetchConversation ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data?.value) ? data.value : [];
+  } catch (e) {
+    console.warn('fetchConversation error', e);
+    return [];
+  }
+}
+
+// Reply ONLY to the original sender (no CC/BCC of the rest of the thread).
+async function replyToMessage(token: string, mailboxUserId: string, messageId: string, html: string, replyToEmail: string) {
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/reply`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: { body: { contentType: 'HTML', content: html } } }),
+      body: JSON.stringify({
+        message: {
+          // Force the reply to go to the original sender only — no CC/BCC of other thread participants.
+          toRecipients: [{ emailAddress: { address: replyToEmail } }],
+          ccRecipients: [],
+          bccRecipients: [],
+          body: { contentType: 'HTML', content: html },
+        },
+      }),
     }
   );
   if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
