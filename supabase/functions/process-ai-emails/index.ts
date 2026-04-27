@@ -1511,7 +1511,17 @@ async function generateAIDraft(
   senderName: string | null = null,
   _senderTitle: string | null = null, // Unused - signature handled separately
   nextAvailableSlot: { start: Date; end: Date } | null = null, // For meeting scheduling (single slot)
-  multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string } // For multiple time options
+  multipleSlots?: { slots: { start: Date; end: Date }[]; conflictInfo?: string }, // For multiple time options
+  aboutMe?: {
+    full_name?: string | null;
+    company?: string | null;
+    role_description?: string | null;
+    department?: string | null;
+    responsibilities?: string | null;
+    communication_style?: string | null;
+    example_reply_template?: string | null;
+    additional_context?: string | null;
+  } | null
 ): Promise<{ content: string | null; usage: AIUsage | null }> {
   // AI keys are loaded inside generateWithAdminAI (admin-managed OpenAI/Claude with Lovable AI fallback)
 
