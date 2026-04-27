@@ -1045,11 +1045,11 @@ serve(async (req) => {
             // retroactively tag every message inside the folder so the
             // color stripe is visible in the Outlook UI today (folders
             // themselves cannot be colored via Graph).
-            // Favorites are prefixed with "★ " so they sort to the top of
-            // the Outlook Categorize menu and stand out visually.
+            // The tag uses the short "IQ: <name>" prefix so it stays compact
+            // in the email row. Each email is guaranteed to carry exactly one
+            // managed category — see tagOutlookFolderMessages for dedupe.
             if (success) {
-              const isFavorite = (category as any).show_in_favorites === true;
-              const categoryTag = `${isFavorite ? '★ ' : ''}InboxIQ: ${category.name}`;
+              const categoryTag = `${IQ_TAG_PREFIX}${category.name}`;
               await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
               const folderId = await findOutlookFolderId(accessToken, labelName);
               if (folderId) {
@@ -1058,14 +1058,21 @@ serve(async (req) => {
                   console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
                 }
               }
-              // Clean up the non-favorite version when the user toggles favorite ON,
-              // and the favorite version when they toggle it OFF — prevents duplicate
-              // master categories accumulating in Outlook.
-              const stalePrefix = isFavorite ? '' : '★ ';
-              const staleTag = `${stalePrefix}InboxIQ: ${category.name}`;
-              if (staleTag !== categoryTag) {
-                await deleteOutlookMasterCategory(accessToken, staleTag).catch((e: unknown) =>
-                  console.warn(`Failed deleting stale category "${staleTag}":`, e)
+              // Clean up legacy master-category variants for this same
+              // category name (long "InboxIQ:" prefix, the old "★ " favorite
+              // prefix, and the legacy "Wibookly:" prefix). Without this,
+              // Outlook accumulates stale colored chips that show up
+              // alongside the new IQ: tag on every message.
+              const staleVariants = [
+                `InboxIQ: ${category.name}`,
+                `★ InboxIQ: ${category.name}`,
+                `★ IQ: ${category.name}`,
+                `Wibookly: ${category.name}`,
+              ];
+              for (const stale of staleVariants) {
+                if (stale === categoryTag) continue;
+                await deleteOutlookMasterCategory(accessToken, stale).catch((e: unknown) =>
+                  console.warn(`Failed deleting stale category "${stale}":`, e),
                 );
               }
             }
