@@ -502,19 +502,27 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     if (!listRes.ok) return false;
 
     const { value: folders } = await listRes.json();
+    const hasNumericPrefix = (s: string) => /^\s*\d+\s*[:.\-]/.test(s);
     const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
-    // Protected folders we must never touch
-    const PROTECTED = new Set(['follow-up', 'follow up', 'followup']);
-    if (PROTECTED.has(targetCore)) {
-      console.log(`Refusing to delete protected folder "${folderName}"`);
-      return true;
-    }
+    // Protected folders we must NEVER delete: only the dedicated unprefixed
+    // "Follow-up" tracker folder used by cron-follow-ups. A user-created
+    // category called "Follow Up" lives at "02: Follow Up" (numeric prefix)
+    // and MUST be deletable when the user disables the category.
+    const PROTECTED_UNPREFIXED = new Set(['follow-up', 'follow up', 'followup']);
 
+    // Match every folder whose normalized name equals our target.
+    // For each match, only skip the unprefixed tracker folder.
     const matches = (folders ?? []).filter(
       (f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore
-    );
+    ).filter((f: { displayName: string }) => {
+      if (!hasNumericPrefix(f.displayName) && PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))) {
+        console.log(`Skipping protected unprefixed folder "${f.displayName}"`);
+        return false;
+      }
+      return true;
+    });
 
     if (matches.length === 0) {
       console.log(`Outlook folder matching "${folderName}" doesn't exist, nothing to delete`);
