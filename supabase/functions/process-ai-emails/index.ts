@@ -2387,12 +2387,11 @@ async function processConnectionEmails(
                 console.log(`Applied Events label to email ${msg.id} (detected as event-related)`);
               }
             } else if (isEventEmail && eventsLabelName && (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook')) {
-              if (!outlookCategoryCache[eventsLabelName]) {
-                await getOrCreateOutlookCategory(accessToken, eventsLabelName, eventsCategoryColor);
-                outlookCategoryCache[eventsLabelName] = true;
-              }
-              await applyOutlookCategory(accessToken, msg.id, eventsLabelName);
-              console.log(`Applied Events category to email ${msg.id} (detected as event-related)`);
+              // Outlook: do NOT apply the numbered "04: Events" mirror tag.
+              // The Events category is already represented by the colored
+              // "IQ: Events" chip applied via sync-categories. Adding the
+              // numbered mirror creates duplicate chips on every email.
+              void eventsLabelName;
             }
           }
         }
