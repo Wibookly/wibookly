@@ -85,12 +85,12 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
-        {/* Logo */}
+        {/* Energy Forward company logo */}
         <div className="flex justify-center mb-6">
           <img
-            src={logo}
-            alt="InboxIQ logo"
-            className="h-14 w-auto"
+            src={ENERGY_FORWARD_LOGO}
+            alt="Energy Forward"
+            className="h-16 w-auto object-contain"
           />
         </div>
 
