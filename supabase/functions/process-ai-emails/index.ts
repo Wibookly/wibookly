@@ -1636,11 +1636,12 @@ ${emailBody.substring(0, 3000)}`;
   ];
 
   // Use admin-managed OpenAI primary, Claude fallback, Lovable AI last resort.
-  const content = await generateWithAdminAI(messages);
-  if (!content) {
+  const usage = await generateWithAdminAIUsage(messages);
+  if (!usage) {
     console.error('All AI providers failed (OpenAI, Claude, Lovable AI). Configure an admin API key in Admin → Settings.');
+    return { content: null, usage: null };
   }
-  return content;
+  return { content: usage.text, usage };
 }
 
 // Get Gmail email details
