@@ -821,19 +821,20 @@ export const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'generate_artifact',
-      description: "Generate a complete, polished artifact (HTML dashboard with charts and dummy data, HTML page, long Markdown report, code file, etc.) and save it to the user's OneDrive so they can open or present it. Use this whenever the user asks you to CREATE / BUILD / GENERATE / MAKE a dashboard, report, presentation, page, document, or any file — anything ChatGPT or Claude could produce. Default kind is 'html_dashboard'. Always call this instead of refusing.",
+      description: "Generate a complete, polished artifact (real Microsoft Word .docx document, HTML dashboard with charts and dummy data, HTML page, long Markdown report, code file, etc.) and save it to the user's OneDrive so they can open or present it. Use this whenever the user asks you to CREATE / BUILD / GENERATE / MAKE / DRAFT a policy, report, memo, plan, dashboard, presentation, page, document, or any file — anything ChatGPT or Claude could produce. For policies, memos, contracts, plans, procedures, handbooks, or anything that should look like a Word document, ALWAYS use kind='docx_document'. For visual dashboards with charts use 'html_dashboard'. Always call this instead of refusing.",
       parameters: {
         type: 'object',
         properties: {
           kind: {
             type: 'string',
-            enum: ['html_dashboard', 'html_page', 'markdown', 'code', 'text'],
-            description: "What to generate. 'html_dashboard' for visual dashboards with charts.",
+            enum: ['docx_document', 'html_dashboard', 'html_page', 'markdown', 'code', 'text'],
+            description: "What to generate. 'docx_document' for real Word documents (policies, memos, reports, plans). 'html_dashboard' for visual dashboards with charts.",
           },
-          topic: { type: 'string', description: 'What the artifact is about (e.g. "Q3 sales dashboard for 4STEL Engineering").' },
-          details: { type: 'string', description: 'Optional extra context, requirements, or instructions.' },
+          topic: { type: 'string', description: 'What the artifact is about (e.g. "Company Laptop Policy for 4STEL Engineering").' },
+          details: { type: 'string', description: 'All specifics from the requester — sections to include, tone, audience, requirements, branding, dummy data permission, etc. Be thorough; this drives quality.' },
           brand_color: { type: 'string', description: 'Optional hex color (e.g. "#1e40af") for theming.' },
-          filename: { type: 'string', description: 'Optional filename slug.' },
+          filename: { type: 'string', description: 'Optional filename slug (no extension).' },
+          company_name: { type: 'string', description: 'Optional company name to weave into the document.' },
         },
         required: ['topic'],
       },
