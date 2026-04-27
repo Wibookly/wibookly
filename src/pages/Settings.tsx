@@ -684,8 +684,9 @@ export default function Settings() {
         </section>
         )}
 
-        {/* About Me - personalizes AI replies */}
-        {activeSection === 'about' && (
+        {/* About Me — lives on the same Profile page so users see their identity
+            and the AI personalization context together. */}
+        {activeSection === 'profile' && (
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold">About Me</h2>
