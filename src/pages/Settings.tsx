@@ -168,6 +168,34 @@ export default function Settings() {
   const [emailProfileId, setEmailProfileId] = useState<string | null>(null);
   const [signatureEnabled, setSignatureEnabled] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
+  const [aboutMe, setAboutMe] = useState({
+    company: '',
+    role_description: '',
+    department: '',
+    responsibilities: '',
+    communication_style: '',
+  });
+
+  // Load About Me from user_profiles
+  useEffect(() => {
+    if (!profile?.user_id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('company, role_description, department, responsibilities, communication_style')
+        .eq('user_id', profile.user_id)
+        .maybeSingle() as { data: Record<string, string | null> | null };
+      if (data) {
+        setAboutMe({
+          company: data.company || '',
+          role_description: data.role_description || '',
+          department: data.department || '',
+          responsibilities: data.responsibilities || '',
+          communication_style: data.communication_style || '',
+        });
+      }
+    })();
+  }, [profile?.user_id]);
 
   // Fetch email profile for active connection
   useEffect(() => {
