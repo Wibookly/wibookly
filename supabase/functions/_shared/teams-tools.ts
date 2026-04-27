@@ -510,6 +510,28 @@ export const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'generate_artifact',
+      description: "Generate a complete, polished artifact (HTML dashboard with charts and dummy data, HTML page, long Markdown report, code file, etc.) and save it to the user's OneDrive so they can open or present it. Use this whenever the user asks you to CREATE / BUILD / GENERATE / MAKE a dashboard, report, presentation, page, document, or any file — anything ChatGPT or Claude could produce. Default kind is 'html_dashboard'. Always call this instead of refusing.",
+      parameters: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['html_dashboard', 'html_page', 'markdown', 'code', 'text'],
+            description: "What to generate. 'html_dashboard' for visual dashboards with charts.",
+          },
+          topic: { type: 'string', description: 'What the artifact is about (e.g. "Q3 sales dashboard for 4STEL Engineering").' },
+          details: { type: 'string', description: 'Optional extra context, requirements, or instructions.' },
+          brand_color: { type: 'string', description: 'Optional hex color (e.g. "#1e40af") for theming.' },
+          filename: { type: 'string', description: 'Optional filename slug.' },
+        },
+        required: ['topic'],
+      },
+    },
+  },
 ];
 
 export async function executeTool(
