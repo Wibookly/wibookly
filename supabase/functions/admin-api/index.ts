@@ -628,7 +628,14 @@ serve(async (req) => {
           });
         }
 
-        const allowedKeys = ['openai_api_key', 'claude_api_key'];
+        const allowedKeys = [
+          'openai_api_key',
+          'claude_api_key',
+          'ai_provider_preference', // 'auto' | 'openai' | 'claude'
+          'ai_openai_model',         // e.g. 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1-mini'
+          'ai_claude_model',         // e.g. 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'
+          'ai_enable_web_search',    // 'true' | 'false' — let agent reason with general knowledge & note when web context would help
+        ];
         if (!allowedKeys.includes(key_name)) {
           return new Response(JSON.stringify({ error: 'Invalid key_name' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
