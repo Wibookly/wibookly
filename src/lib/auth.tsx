@@ -10,6 +10,7 @@ interface UserProfile {
   email: string;
   full_name: string | null;
   title: string | null;
+  profile_photo_url: string | null;
 }
 
 interface Organization {
