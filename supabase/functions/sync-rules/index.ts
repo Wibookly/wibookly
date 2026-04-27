@@ -619,7 +619,13 @@ function buildOutlookSearchFilter(rule: any): string {
 // new arrivals are continuously moved into the right category folder. From the
 // user's perspective the rule is fully enforced — without any admin approval.
 // deno-lint-ignore no-explicit-any
-async function applyOutlookRule(accessToken: string, rule: any, folderId: string, ruleName: string): Promise<boolean> {
+async function applyOutlookRule(
+  accessToken: string,
+  rule: any,
+  folderId: string,
+  ruleName: string,
+  categoryTag?: string,
+): Promise<boolean> {
   // Build conditions (used if server-side rule creation succeeds)
   // deno-lint-ignore no-explicit-any
   const conditions: any = {};
