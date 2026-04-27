@@ -1,4 +1,23 @@
 // Shared tool implementations for the InboxIQ Teams bot.
+// deno-lint-ignore-file no-explicit-any
+import {
+  Document as DocxDocument,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  Table as DocxTable,
+  TableRow as DocxTableRow,
+  TableCell as DocxTableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
+  PageNumber,
+  Header as DocxHeader,
+  Footer as DocxFooter,
+  LevelFormat,
+} from "https://esm.sh/docx@8.5.0";
 // All Microsoft Graph calls run as the END USER (per-user OAuth tokens
 // stored in oauth_token_vault, decrypted with TOKEN_ENCRYPTION_KEY).
 // Web search runs through OpenAI's web-enabled chat model so we don't
@@ -287,6 +306,11 @@ ${opts.details ? `Details: ${opts.details}\n` : ''}
       userPrompt = `Write the code requested: "${opts.topic}". ${opts.details ?? ''}
 Output the file contents only — no markdown fences.`;
       break;
+    case 'docx_document':
+      // Handled separately via generateDocxBuffer — should not hit this path.
+      systemPrompt = '';
+      userPrompt = '';
+      break;
     default:
       systemPrompt = 'You produce the requested artifact in full, no truncation.';
       userPrompt = `${opts.topic}\n${opts.details ?? ''}`;
@@ -316,7 +340,7 @@ async function uploadToOneDrive(opts: {
   graphToken: string;
   folder: string;
   filename: string;
-  content: string;
+  content: string | Uint8Array;
   contentType: string;
 }): Promise<{ webUrl: string; shareUrl: string; fileId: string } | { error: string }> {
   const uploadRes = await fetch(
@@ -324,7 +348,7 @@ async function uploadToOneDrive(opts: {
     {
       method: 'PUT',
       headers: { Authorization: `Bearer ${opts.graphToken}`, 'Content-Type': opts.contentType },
-      body: opts.content,
+      body: opts.content as any,
     }
   );
   if (!uploadRes.ok) {
@@ -350,12 +374,295 @@ async function uploadToOneDrive(opts: {
   return { webUrl: file.webUrl, shareUrl, fileId: file.id };
 }
 
+/* ---------------- DOCX (real Word document) generator ----------------
+ * Asks GPT to produce a structured JSON outline describing the policy /
+ * report / memo, then renders a real .docx with the `docx` library and
+ * uploads the binary to OneDrive. This is what lets the email agent
+ * produce ChatGPT/Claude-quality Word documents.
+ */
+
+interface DocxBlock {
+  type: 'heading' | 'paragraph' | 'bullets' | 'numbered' | 'table' | 'pagebreak' | 'signature';
+  level?: 1 | 2 | 3;
+  text?: string;
+  items?: string[];
+  rows?: string[][]; // first row = header
+}
+
+interface DocxSpec {
+  title: string;
+  subtitle?: string;
+  meta?: { label: string; value: string }[]; // top metadata table
+  blocks: DocxBlock[];
+  footer?: string;
+}
+
+async function buildDocxSpec(opts: {
+  topic: string;
+  details?: string;
+  brandColor?: string;
+  companyName?: string;
+}): Promise<DocxSpec> {
+  const sys = `You produce a JSON outline for a polished, executive-ready Microsoft Word document (policy, report, memo, plan, or guide). Output STRICT JSON only — no markdown, no commentary. Match the depth and rigor of a document Claude or ChatGPT would produce: comprehensive, well-sectioned, with realistic detail. Aim for 8–14 substantive sections.`;
+
+  const schemaHint = `Return JSON with this exact shape:
+{
+  "title": string,
+  "subtitle": string (optional one-line tagline),
+  "meta": [ { "label": string, "value": string } ]   // 4-6 rows for the cover metadata table (Document Name, Version, Effective Date, Review Date, Owner, Applies To, etc.)
+  "blocks": [
+    { "type": "heading", "level": 1|2|3, "text": string },
+    { "type": "paragraph", "text": string },
+    { "type": "bullets", "items": [string, ...] },
+    { "type": "numbered", "items": [string, ...] },
+    { "type": "table", "rows": [ [headerCells...], [cells...], ... ] },
+    { "type": "pagebreak" },
+    { "type": "signature" }   // renders signature block (Employee Name/Date, Employee Signature/Manager Signature)
+  ],
+  "footer": string   // short confidentiality / footer line
+}
+Rules:
+- Use heading level 1 for major numbered sections (1. Purpose, 2. Scope, ...).
+- Use heading level 2 for sub-sections (3.1 Eligibility, ...).
+- Be substantive — each paragraph must add real content (no placeholders like "TBD").
+- If the request involves a policy, ALWAYS include sections covering: Purpose, Scope, Eligibility/Issuance, Acceptable Use, Prohibited Use, Security Requirements, Care/Maintenance, Remote/Off-site Use, Loss/Theft/Damage (with IT + manager notification, police report, remote wipe), Return of Device, Monitoring/Privacy, Policy Violations, and an Acknowledgement signature block at the end.
+- If the user's email mentions specific roles/titles/company name, weave them into the document naturally.`;
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: `Topic / request: "${opts.topic}"\n\nAdditional context from the requester:\n${opts.details ?? '(none)'}\n\nCompany: ${opts.companyName ?? '(infer from context if mentioned, otherwise use "the Company")'}\n\n${schemaHint}` },
+      ],
+      temperature: 0.5,
+      max_tokens: 8000,
+    }),
+  });
+  if (!res.ok) throw new Error(`Docx outline gen failed: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  const raw = data.choices?.[0]?.message?.content ?? '{}';
+  const spec = JSON.parse(raw) as DocxSpec;
+  if (!spec.blocks || !Array.isArray(spec.blocks)) throw new Error('Invalid docx outline');
+  return spec;
+}
+
+function hexToDocxColor(hex?: string): string {
+  if (!hex) return '1E40AF';
+  return hex.replace('#', '').toUpperCase().padStart(6, '0').slice(0, 6);
+}
+
+async function renderDocxBuffer(spec: DocxSpec, brandColor?: string): Promise<Uint8Array> {
+  const color = hexToDocxColor(brandColor);
+  const children: any[] = [];
+
+  // Title
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 240, after: 120 },
+    children: [new TextRun({ text: spec.title, bold: true, size: 44, color })],
+  }));
+  if (spec.subtitle) {
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 320 },
+      children: [new TextRun({ text: spec.subtitle, italics: true, size: 24, color: '555555' })],
+    }));
+  }
+
+  // Metadata table
+  if (spec.meta?.length) {
+    const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+    const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
+    children.push(new DocxTable({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [3120, 6240],
+      rows: spec.meta.map(m => new DocxTableRow({
+        children: [
+          new DocxTableCell({
+            borders,
+            width: { size: 3120, type: WidthType.DXA },
+            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR, color: 'auto' },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: m.label, bold: true })] })],
+          }),
+          new DocxTableCell({
+            borders,
+            width: { size: 6240, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun(m.value)] })],
+          }),
+        ],
+      })),
+    }));
+    children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
+  }
+
+  // Blocks
+  for (const b of spec.blocks) {
+    if (b.type === 'heading') {
+      const level = b.level ?? 1;
+      children.push(new Paragraph({
+        heading: level === 1 ? HeadingLevel.HEADING_1 : level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
+        spacing: { before: level === 1 ? 320 : 200, after: 120 },
+        children: [new TextRun({
+          text: b.text ?? '',
+          bold: true,
+          color: level === 1 ? color : '111827',
+          size: level === 1 ? 30 : level === 2 ? 26 : 24,
+        })],
+      }));
+    } else if (b.type === 'paragraph') {
+      children.push(new Paragraph({
+        spacing: { after: 160 },
+        children: [new TextRun({ text: b.text ?? '', size: 22 })],
+      }));
+    } else if (b.type === 'bullets') {
+      for (const it of b.items ?? []) {
+        children.push(new Paragraph({
+          numbering: { reference: 'bullets', level: 0 },
+          spacing: { after: 80 },
+          children: [new TextRun({ text: it, size: 22 })],
+        }));
+      }
+    } else if (b.type === 'numbered') {
+      for (const it of b.items ?? []) {
+        children.push(new Paragraph({
+          numbering: { reference: 'numbers', level: 0 },
+          spacing: { after: 80 },
+          children: [new TextRun({ text: it, size: 22 })],
+        }));
+      }
+    } else if (b.type === 'table' && b.rows?.length) {
+      const cols = b.rows[0].length || 1;
+      const totalWidth = 9360;
+      const colWidth = Math.floor(totalWidth / cols);
+      const colWidths = Array.from({ length: cols }, () => colWidth);
+      const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+      const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
+      children.push(new DocxTable({
+        width: { size: totalWidth, type: WidthType.DXA },
+        columnWidths: colWidths,
+        rows: b.rows.map((row, idx) => new DocxTableRow({
+          children: row.map(cell => new DocxTableCell({
+            borders,
+            width: { size: colWidth, type: WidthType.DXA },
+            shading: idx === 0 ? { fill: 'E5E7EB', type: ShadingType.CLEAR, color: 'auto' } : undefined,
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: cell ?? '', bold: idx === 0, size: 22 })] })],
+          })),
+        })),
+      }));
+      children.push(new Paragraph({ text: '', spacing: { after: 160 } }));
+    } else if (b.type === 'pagebreak') {
+      children.push(new Paragraph({ pageBreakBefore: true, children: [new TextRun('')] }));
+    } else if (b.type === 'signature') {
+      const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+      const borders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
+      children.push(new Paragraph({ text: '', spacing: { before: 200 } }));
+      children.push(new DocxTable({
+        width: { size: 9360, type: WidthType.DXA },
+        columnWidths: [4680, 4680],
+        rows: [
+          new DocxTableRow({
+            children: [
+              new DocxTableCell({ borders, width: { size: 4680, type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: 'Employee Name', bold: true })] }), new Paragraph({ text: '' }), new Paragraph({ text: '' })] }),
+              new DocxTableCell({ borders, width: { size: 4680, type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: 'Date', bold: true })] }), new Paragraph({ text: '' }), new Paragraph({ text: '' })] }),
+            ],
+          }),
+          new DocxTableRow({
+            children: [
+              new DocxTableCell({ borders, width: { size: 4680, type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: 'Employee Signature', bold: true })] }), new Paragraph({ text: '' }), new Paragraph({ text: '' })] }),
+              new DocxTableCell({ borders, width: { size: 4680, type: WidthType.DXA }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: 'Manager Signature', bold: true })] }), new Paragraph({ text: '' }), new Paragraph({ text: '' })] }),
+            ],
+          }),
+        ],
+      }));
+    }
+  }
+
+  const doc = new DocxDocument({
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22 } } },
+    },
+    numbering: {
+      config: [
+        { reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
+        { reference: 'numbers', levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
+      ],
+    },
+    sections: [{
+      properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+      footers: {
+        default: new DocxFooter({
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: spec.footer ?? 'Confidential — Internal Use Only', italics: true, size: 18, color: '6B7280' }),
+              new TextRun({ text: '   |   Page ', size: 18, color: '6B7280' }),
+              new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '6B7280' }),
+            ],
+          })],
+        }),
+      },
+      children,
+    }],
+  });
+
+  const buffer = await Packer.toBuffer(doc);
+  return new Uint8Array(buffer);
+}
+
 export async function generateArtifact(
   graphToken: string | null,
-  args: { kind: string; topic: string; details?: string; brand_color?: string; filename?: string },
+  args: { kind: string; topic: string; details?: string; brand_color?: string; filename?: string; company_name?: string },
 ): Promise<string> {
   try {
     const kind = args.kind || 'html_dashboard';
+
+    // ---- DOCX branch (binary) ----
+    if (kind === 'docx_document') {
+      const spec = await buildDocxSpec({
+        topic: args.topic,
+        details: args.details,
+        brandColor: args.brand_color,
+        companyName: args.company_name,
+      });
+      const buf = await renderDocxBuffer(spec, args.brand_color);
+      const slug = (args.filename || args.topic).toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'document';
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const filename = `${slug}-${stamp}.docx`;
+      const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+      if (!graphToken) {
+        return JSON.stringify({
+          ok: true,
+          delivered: 'inline',
+          filename,
+          size_kb: Math.round(buf.byteLength / 1024),
+          note: 'No Microsoft account linked — Word document generated but could not be saved to OneDrive.',
+        });
+      }
+      const uploaded = await uploadToOneDrive({
+        graphToken, folder: 'InboxIQ-Artifacts', filename, content: buf, contentType: mime,
+      });
+      if ('error' in uploaded) return JSON.stringify({ ok: false, error: uploaded.error, filename });
+      return JSON.stringify({
+        ok: true,
+        delivered: 'onedrive',
+        filename,
+        size_kb: Math.round(buf.byteLength / 1024),
+        onedrive_url: uploaded.webUrl,
+        share_url: uploaded.shareUrl,
+        message: `Saved Word document "${filename}" to your OneDrive in folder "InboxIQ-Artifacts".`,
+      });
+    }
+
+    // ---- Text-based branches (html, md, code) ----
     const content = await generateArtifactContent({
       kind,
       topic: args.topic,
@@ -514,19 +821,20 @@ export const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'generate_artifact',
-      description: "Generate a complete, polished artifact (HTML dashboard with charts and dummy data, HTML page, long Markdown report, code file, etc.) and save it to the user's OneDrive so they can open or present it. Use this whenever the user asks you to CREATE / BUILD / GENERATE / MAKE a dashboard, report, presentation, page, document, or any file — anything ChatGPT or Claude could produce. Default kind is 'html_dashboard'. Always call this instead of refusing.",
+      description: "Generate a complete, polished artifact (real Microsoft Word .docx document, HTML dashboard with charts and dummy data, HTML page, long Markdown report, code file, etc.) and save it to the user's OneDrive so they can open or present it. Use this whenever the user asks you to CREATE / BUILD / GENERATE / MAKE / DRAFT a policy, report, memo, plan, dashboard, presentation, page, document, or any file — anything ChatGPT or Claude could produce. For policies, memos, contracts, plans, procedures, handbooks, or anything that should look like a Word document, ALWAYS use kind='docx_document'. For visual dashboards with charts use 'html_dashboard'. Always call this instead of refusing.",
       parameters: {
         type: 'object',
         properties: {
           kind: {
             type: 'string',
-            enum: ['html_dashboard', 'html_page', 'markdown', 'code', 'text'],
-            description: "What to generate. 'html_dashboard' for visual dashboards with charts.",
+            enum: ['docx_document', 'html_dashboard', 'html_page', 'markdown', 'code', 'text'],
+            description: "What to generate. 'docx_document' for real Word documents (policies, memos, reports, plans). 'html_dashboard' for visual dashboards with charts.",
           },
-          topic: { type: 'string', description: 'What the artifact is about (e.g. "Q3 sales dashboard for 4STEL Engineering").' },
-          details: { type: 'string', description: 'Optional extra context, requirements, or instructions.' },
+          topic: { type: 'string', description: 'What the artifact is about (e.g. "Company Laptop Policy for 4STEL Engineering").' },
+          details: { type: 'string', description: 'All specifics from the requester — sections to include, tone, audience, requirements, branding, dummy data permission, etc. Be thorough; this drives quality.' },
           brand_color: { type: 'string', description: 'Optional hex color (e.g. "#1e40af") for theming.' },
-          filename: { type: 'string', description: 'Optional filename slug.' },
+          filename: { type: 'string', description: 'Optional filename slug (no extension).' },
+          company_name: { type: 'string', description: 'Optional company name to weave into the document.' },
         },
         required: ['topic'],
       },
