@@ -1200,6 +1200,80 @@ serve(async (req) => {
           }
         }
 
+        // FINAL SWEEP — Outlook only — remove legacy managed category tags
+        // ("InboxIQ:" / "★ InboxIQ:" / "Wibookly:") from every message in
+        // the mailbox AND delete the orphan colored master categories.
+        // Without this, emails keep displaying duplicate chips like
+        // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" alongside the new
+        // short "IQ: Approvals" chip.
+        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          try {
+            // 1) List every master category and pick out the legacy ones.
+            const mcRes = await fetch(
+              'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            const legacyTagNames = new Set<string>();
+            if (mcRes.ok) {
+              const { value: mcList } = await mcRes.json();
+              for (const c of (mcList ?? []) as Array<{ id: string; displayName: string }>) {
+                const dn = c.displayName || '';
+                if (
+                  dn.startsWith('InboxIQ: ') ||
+                  dn.startsWith('★ InboxIQ: ') ||
+                  dn.startsWith('★ IQ: ') ||
+                  dn.startsWith('Wibookly: ')
+                ) {
+                  legacyTagNames.add(dn);
+                  // Delete the orphan colored chip so it disappears from the
+                  // Outlook Categorize menu.
+                  await fetch(
+                    `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${c.id}`,
+                    { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } },
+                  ).catch(() => {});
+                }
+              }
+            }
+
+            // 2) Scan recent messages across the mailbox and strip any
+            // legacy/managed tags that are no longer current. We cap at
+            // 1000 messages per sync to stay well inside Graph throttling.
+            if (legacyTagNames.size > 0) {
+              const scanRes = await fetch(
+                'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories&$orderby=receivedDateTime desc',
+                { headers: { Authorization: `Bearer ${accessToken}` } },
+              );
+              if (scanRes.ok) {
+                const { value: msgs } = await scanRes.json();
+                let stripped = 0;
+                for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[] }>) {
+                  const existing = Array.isArray(m.categories) ? m.categories : [];
+                  if (existing.length === 0) continue;
+                  const next = existing.filter((c) => !legacyTagNames.has(c));
+                  if (next.length === existing.length) continue;
+                  const patchRes = await fetch(
+                    `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ categories: next }),
+                    },
+                  );
+                  if (patchRes.ok) stripped++;
+                }
+                if (stripped > 0) {
+                  console.log(`Stripped legacy IQ tags from ${stripped} message(s)`);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Legacy IQ tag sweep failed:', e);
+          }
+        }
+
         results.push({ provider: tokenRecord.provider, created, deleted, failed });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
