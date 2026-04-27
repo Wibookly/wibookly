@@ -337,6 +337,33 @@ async function processNotification(n: GraphNotification) {
   const messageId = n.resourceData?.id;
   if (!messageId) return;
 
+  // ──────────────────────────────────────────────────────────────────
+  // Idempotency guard: Microsoft Graph delivers the same change
+  // notification multiple times (this is documented behaviour, not a
+  // bug). Without a guard we replied 2-3× per inbound email. We claim
+  // the message by inserting a marker row keyed on (organization, graph
+  // message id). The unique index makes the second insert fail, and we
+  // bail out before generating another AI reply.
+  // ──────────────────────────────────────────────────────────────────
+  const claimKey = `graph:${messageId}`;
+  const { error: claimError } = await supabase
+    .from('agent_messages')
+    .insert({
+      organization_id: settings.organization_id,
+      channel: 'email',
+      direction: 'inbound',
+      sender_email: 'pending@graph',
+      external_message_id: claimKey,
+      status: 'processing',
+      content: 'claim',
+    });
+  if (claimError) {
+    // Duplicate delivery (unique violation) or transient db error — either
+    // way, do NOT process this notification a second time.
+    console.log(`Skipping duplicate Graph notification for ${messageId}: ${claimError.message}`);
+    return;
+  }
+
   const token = await getAppToken(settings.teams_tenant_id);
   const msg = await fetchMessage(token, settings.shared_mailbox_user_id, messageId);
 
