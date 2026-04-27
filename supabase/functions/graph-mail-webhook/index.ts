@@ -16,7 +16,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!;
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
 const MS_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID')!;
 const MS_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
 
@@ -132,41 +132,122 @@ Reply in clean HTML suitable for email — short paragraphs, <ul> lists where he
 ${companyContext}
 === END CONTEXT ===`;
 
-  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured');
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: question },
-      ],
-      temperature: 0.4,
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
-  const data = await res.json();
+  // Load admin-managed API keys (OpenAI primary, Claude fallback)
+  const { data: keyRows } = await supabase
+    .from('api_key_config')
+    .select('key_name, encrypted_value')
+    .in('key_name', ['openai_api_key', 'claude_api_key']);
+  const keyMap: Record<string, string> = {};
+  (keyRows ?? []).forEach((r: any) => { keyMap[r.key_name] = (r.encrypted_value || '').trim(); });
+  const openaiKey = keyMap['openai_api_key'] || '';
+  const claudeKey = keyMap['claude_api_key'] || '';
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: question },
+  ];
+
+  let providerUsed: 'openai' | 'claude' | 'lovable' | null = null;
+  let modelUsed = '';
+  let content = '';
+  let promptTokens = 0;
+  let completionTokens = 0;
+
+  // Try OpenAI first
+  if (openaiKey) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.4 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        content = data.choices?.[0]?.message?.content ?? '';
+        promptTokens = data.usage?.prompt_tokens ?? 0;
+        completionTokens = data.usage?.completion_tokens ?? 0;
+        providerUsed = 'openai';
+        modelUsed = 'gpt-4o-mini';
+      } else {
+        console.warn(`OpenAI failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      }
+    } catch (e) {
+      console.warn('OpenAI error, trying Claude:', e);
+    }
+  }
+
+  // Fallback to Claude
+  if (!content && claudeKey) {
+    try {
+      const sys = systemPrompt;
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-latest',
+          max_tokens: 1500,
+          system: sys,
+          messages: [{ role: 'user', content: question }],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        content = data.content?.[0]?.text ?? '';
+        promptTokens = data.usage?.input_tokens ?? 0;
+        completionTokens = data.usage?.output_tokens ?? 0;
+        providerUsed = 'claude';
+        modelUsed = 'claude-3-5-sonnet-latest';
+      } else {
+        console.warn(`Claude failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      }
+    } catch (e) {
+      console.warn('Claude error, trying Lovable AI:', e);
+    }
+  }
+
+  // Last resort: Lovable AI Gateway
+  if (!content && LOVABLE_API_KEY) {
+    try {
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'google/gemini-2.5-flash', messages }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        content = data.choices?.[0]?.message?.content ?? '';
+        providerUsed = 'lovable';
+        modelUsed = 'google/gemini-2.5-flash';
+      }
+    } catch (e) {
+      console.warn('Lovable AI fallback error:', e);
+    }
+  }
+
+  if (!content) {
+    throw new Error('All AI providers failed. Configure OpenAI or Claude API key in Admin → Settings.');
+  }
 
   // Log usage for admin reporting
   try {
-    const pt = data.usage?.prompt_tokens ?? 0;
-    const ct = data.usage?.completion_tokens ?? 0;
-    const cost = (pt / 1_000_000) * 0.15 + (ct / 1_000_000) * 0.60;
     await supabase.from('ai_usage_logs').insert({
       organization_id: organizationId,
       user_id: null,
-      provider: 'openai',
-      model: 'gpt-4o-mini',
+      provider: providerUsed,
+      model: modelUsed,
       action: 'agent_email_reply',
-      prompt_tokens: pt,
-      completion_tokens: ct,
-      cost_usd: cost.toFixed(6),
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      cost_usd: '0',
       metadata: { sender: senderEmail },
     });
   } catch (e) { console.error('usage log failed', e); }
 
-  return data.choices?.[0]?.message?.content ?? '<p>(no response)</p>';
+  return content || '<p>(no response)</p>';
 }
 
 function stripHtml(html: string): string {
