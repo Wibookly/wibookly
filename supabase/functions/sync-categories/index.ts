@@ -694,7 +694,36 @@ async function ensureOutlookMasterCategory(
   }
 }
 
-// Retroactively tag every message currently inside an Outlook folder with the
+// Delete a single Outlook Master Category by displayName (no-op if missing).
+async function deleteOutlookMasterCategory(
+  accessToken: string,
+  displayName: string,
+): Promise<boolean> {
+  try {
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!listRes.ok) return false;
+    const { value } = await listRes.json();
+    const existing = (value || []).find(
+      (c: { displayName: string; id: string }) => c.displayName === displayName,
+    );
+    if (!existing) return true;
+    const delRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+    return delRes.ok;
+  } catch (err) {
+    console.warn('deleteOutlookMasterCategory failed:', err);
+    return false;
+  }
+}
+
 // colored Master Category so existing emails — not just new arrivals — show
 // the color stripe in Outlook.
 async function tagOutlookFolderMessages(
@@ -909,7 +938,7 @@ serve(async (req) => {
     // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, color, is_enabled, sort_order, connection_id')
+      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites')
       .eq('organization_id', profile.organization_id)
       .in('connection_id', scopedConnectionIds)
       .order('sort_order');
@@ -983,8 +1012,11 @@ serve(async (req) => {
             // retroactively tag every message inside the folder so the
             // color stripe is visible in the Outlook UI today (folders
             // themselves cannot be colored via Graph).
+            // Favorites are prefixed with "★ " so they sort to the top of
+            // the Outlook Categorize menu and stand out visually.
             if (success) {
-              const categoryTag = `InboxIQ: ${category.name}`;
+              const isFavorite = (category as any).show_in_favorites === true;
+              const categoryTag = `${isFavorite ? '★ ' : ''}InboxIQ: ${category.name}`;
               await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
               const folderId = await findOutlookFolderId(accessToken, labelName);
               if (folderId) {
@@ -992,6 +1024,16 @@ serve(async (req) => {
                 if (tagged > 0) {
                   console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
                 }
+              }
+              // Clean up the non-favorite version when the user toggles favorite ON,
+              // and the favorite version when they toggle it OFF — prevents duplicate
+              // master categories accumulating in Outlook.
+              const stalePrefix = isFavorite ? '' : '★ ';
+              const staleTag = `${stalePrefix}InboxIQ: ${category.name}`;
+              if (staleTag !== categoryTag) {
+                await deleteOutlookMasterCategory(accessToken, staleTag).catch((e: unknown) =>
+                  console.warn(`Failed deleting stale category "${staleTag}":`, e)
+                );
               }
             }
           }

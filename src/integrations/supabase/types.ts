@@ -497,6 +497,7 @@ export type Database = {
           last_synced_at: string | null
           name: string
           organization_id: string
+          show_in_favorites: boolean
           sort_order: number
           updated_at: string
           writing_style: string
@@ -513,6 +514,7 @@ export type Database = {
           last_synced_at?: string | null
           name: string
           organization_id: string
+          show_in_favorites?: boolean
           sort_order?: number
           updated_at?: string
           writing_style?: string
@@ -529,6 +531,7 @@ export type Database = {
           last_synced_at?: string | null
           name?: string
           organization_id?: string
+          show_in_favorites?: boolean
           sort_order?: number
           updated_at?: string
           writing_style?: string

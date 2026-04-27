@@ -1,0 +1,1 @@
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS show_in_favorites boolean NOT NULL DEFAULT false;

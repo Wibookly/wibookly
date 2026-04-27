@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -68,6 +68,7 @@ interface Category {
   writing_style: string;
   sort_order: number;
   last_synced_at: string | null;
+  show_in_favorites: boolean;
 }
 
 interface Rule {
@@ -206,6 +207,19 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
         />
       </TableCell>
       <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-2">
+          <Star
+            className={`w-4 h-4 ${category.show_in_favorites ? 'fill-yellow-400 text-yellow-500' : 'text-muted-foreground'}`}
+          />
+          <Switch
+            checked={category.show_in_favorites}
+            onCheckedChange={(checked) => updateCategory(category.id, 'show_in_favorites', checked)}
+            disabled={!category.is_enabled}
+            className={category.show_in_favorites && category.is_enabled ? 'data-[state=checked]:bg-yellow-500' : ''}
+          />
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
         {category.is_enabled ? (
           category.last_synced_at ? (
             <div className="flex items-center justify-center gap-1 text-green-600">
@@ -289,7 +303,8 @@ export default function Categories() {
         ...cat,
         auto_reply_enabled: cat.auto_reply_enabled ?? false,
         writing_style: cat.writing_style ?? 'professional',
-        last_synced_at: cat.last_synced_at ?? null
+        last_synced_at: cat.last_synced_at ?? null,
+        show_in_favorites: (cat as any).show_in_favorites ?? false,
       }));
       setCategories(cats);
     }
@@ -407,6 +422,8 @@ export default function Categories() {
       await supabase.from('rules').delete().eq('id', id);
       setRules(prev => prev.filter(r => r.id !== id));
       toast({ title: 'Rule deleted' });
+      // Live sync after delete so the provider rule is removed immediately.
+      syncRulesToEmailProvider().catch((e) => console.error('Auto rule sync after delete failed:', e));
     }
     setHasChanges(true);
   };
@@ -475,8 +492,9 @@ export default function Categories() {
             ai_draft_enabled: category.ai_draft_enabled,
             auto_reply_enabled: category.auto_reply_enabled,
             writing_style: category.writing_style,
-            sort_order: category.sort_order
-          })
+            sort_order: category.sort_order,
+            show_in_favorites: category.show_in_favorites,
+          } as any)
           .eq('id', category.id);
       }
 
@@ -520,10 +538,13 @@ export default function Categories() {
       setHasChanges(false);
       setLastSaved(new Date());
 
-      // Only sync categories automatically, NOT rules
-      // Rules require manual sync via the Play button
+      // Live auto-sync: push category folders/colors AND rules to the provider
+      // on every change so the user never needs to click "Re-sync All".
       if (shouldSyncCategories) {
         await syncCategoriesToEmailProvider();
+        // Sync rules in the background (non-blocking) so newly-saved rules
+        // start filtering email immediately.
+        syncRulesToEmailProvider().catch((e) => console.error('Auto rule sync failed:', e));
       }
 
       return true;
@@ -575,12 +596,51 @@ export default function Categories() {
           ...cat,
           auto_reply_enabled: cat.auto_reply_enabled ?? false,
           writing_style: cat.writing_style ?? 'professional',
-          last_synced_at: cat.last_synced_at ?? null
+          last_synced_at: cat.last_synced_at ?? null,
+          show_in_favorites: (cat as any).show_in_favorites ?? false,
         }));
         setCategories(cats);
       }
     } catch (error) {
       console.error('Background category sync failed:', error);
+    }
+  };
+
+  // Background sync of rules — fired automatically after each save so the user
+  // never has to click the per-rule Play button or "Re-sync All".
+  const syncRulesToEmailProvider = async () => {
+    if (!activeConnection?.id) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-rules', {
+        body: { connection_id: activeConnection.id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Clear any per-rule "needs sync" markers and refresh timestamps.
+      setRulesNeedingSync(new Set());
+      const { data: updatedRules } = await supabase
+        .from('rules')
+        .select('*')
+        .eq('organization_id', organization?.id)
+        .eq('connection_id', activeConnection.id);
+      if (updatedRules) {
+        setRules(prev => {
+          const tempRules = prev.filter(r => r.id.startsWith('temp-'));
+          const dbRules = updatedRules.map(r => ({
+            ...r,
+            is_advanced: r.is_advanced ?? false,
+            subject_contains: r.subject_contains ?? null,
+            body_contains: r.body_contains ?? null,
+            condition_logic: (r.condition_logic as 'and' | 'or') ?? 'and',
+            recipient_filter: r.recipient_filter ?? null,
+            last_synced_at: r.last_synced_at ?? null,
+          }));
+          return [...dbRules, ...tempRules];
+        });
+      }
+    } catch (error) {
+      console.error('Background rule sync failed:', error);
     }
   };
 
@@ -855,6 +915,7 @@ export default function Categories() {
               <TableHead className="w-24 text-center">Active</TableHead>
               <TableHead className="w-24 text-center">AI Draft</TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
+              <TableHead className="w-28 text-center">Favorite</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
             </TableRow>
           </TableHeader>
