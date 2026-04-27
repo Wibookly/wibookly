@@ -7,6 +7,7 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 
 
 import { useState, useEffect } from 'react';
@@ -108,6 +109,7 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
 
 export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
