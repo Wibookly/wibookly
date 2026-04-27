@@ -25,6 +25,7 @@ import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
 import AIUsagePanel from '@/components/admin/AIUsagePanel';
+import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import { Bot, BarChart3, Clock } from 'lucide-react';
 
@@ -1035,6 +1036,9 @@ export default function AdminDashboard() {
 
         {/* SETTINGS TAB */}
         <TabsContent value="settings" className="space-y-6">
+          {/* Company Logo (shown in app sidebar + transactional emails) */}
+          <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+
           {/* API Keys */}
           <Card>
             <CardHeader>

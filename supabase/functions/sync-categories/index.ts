@@ -489,10 +489,49 @@ async function moveOutlookFolderMessages(
   return movedTotal;
 }
 
+// Delete every Outlook server-side messageRule whose name targets the given
+// label (e.g. "02: Follow Up"). We match the InboxIQ-managed rule name shape
+// `InboxIQ: <label> - <type>:<value>` so we don't touch unrelated user rules.
+async function deleteOutlookRulesForLabel(accessToken: string, labelName: string): Promise<number> {
+  try {
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!listRes.ok) return 0;
+    const { value } = await listRes.json();
+    let deleted = 0;
+    const labelLower = labelName.toLowerCase();
+    const baseLower = labelName.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    for (const r of value || []) {
+      const name = String(r.displayName || '');
+      const nameLower = name.toLowerCase();
+      const isManaged =
+        nameLower.startsWith('inboxiq:') ||
+        nameLower.startsWith('wibookly:') ||
+        nameLower.startsWith('vbookly:');
+      if (!isManaged) continue;
+      // Must reference this category label (with or without numeric prefix).
+      if (!nameLower.includes(labelLower) && !nameLower.includes(baseLower)) continue;
+      const delRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${r.id}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (delRes.ok || delRes.status === 404) deleted++;
+    }
+    if (deleted > 0) console.log(`Deleted ${deleted} Outlook rule(s) for label "${labelName}"`);
+    return deleted;
+  } catch (err) {
+    console.warn(`deleteOutlookRulesForLabel failed for "${labelName}":`, err);
+    return 0;
+  }
+}
+
 // Delete Outlook folder — also removes ALL legacy/duplicate variants
 // (e.g., deleting "01: Urgent" also clears stray "1: Urgent", "1. Urgent",
 // or unnumbered "Urgent" folders so the mailbox stays clean).
-// IMPORTANT: never deletes the special "Follow-up" folder used by cron-follow-ups.
+// IMPORTANT: never deletes the special unprefixed "Follow-up" tracker folder
+// used by cron-follow-ups; numbered "02: Follow Up" categories ARE deletable.
 async function deleteOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
     const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
@@ -502,19 +541,27 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     if (!listRes.ok) return false;
 
     const { value: folders } = await listRes.json();
+    const hasNumericPrefix = (s: string) => /^\s*\d+\s*[:.\-]/.test(s);
     const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
-    // Protected folders we must never touch
-    const PROTECTED = new Set(['follow-up', 'follow up', 'followup']);
-    if (PROTECTED.has(targetCore)) {
-      console.log(`Refusing to delete protected folder "${folderName}"`);
-      return true;
-    }
+    // Protected folders we must NEVER delete: only the dedicated unprefixed
+    // "Follow-up" tracker folder used by cron-follow-ups. A user-created
+    // category called "Follow Up" lives at "02: Follow Up" (numeric prefix)
+    // and MUST be deletable when the user disables the category.
+    const PROTECTED_UNPREFIXED = new Set(['follow-up', 'follow up', 'followup']);
 
+    // Match every folder whose normalized name equals our target.
+    // For each match, only skip the unprefixed tracker folder.
     const matches = (folders ?? []).filter(
       (f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore
-    );
+    ).filter((f: { displayName: string }) => {
+      if (!hasNumericPrefix(f.displayName) && PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))) {
+        console.log(`Skipping protected unprefixed folder "${f.displayName}"`);
+        return false;
+      }
+      return true;
+    });
 
     if (matches.length === 0) {
       console.log(`Outlook folder matching "${folderName}" doesn't exist, nothing to delete`);
@@ -793,17 +840,23 @@ serve(async (req) => {
           }
         }
 
-        // Delete labels/folders for disabled categories
+        // Delete labels/folders for disabled categories AND remove the
+        // server-side Outlook rules that were routing email into them, so
+        // newly-arriving messages stop being filed under a disabled category
+        // and land in the Inbox instead. Existing messages are moved back
+        // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
           const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
-          
+
           if (tokenRecord.provider === 'google') {
             success = await deleteGmailLabel(accessToken, labelName);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+            // Remove Outlook server-side rules first so they don't recreate the folder.
+            await deleteOutlookRulesForLabel(accessToken, labelName);
             success = await deleteOutlookFolder(accessToken, labelName);
           }
-          
+
           if (success) {
             deleted++;
           }
