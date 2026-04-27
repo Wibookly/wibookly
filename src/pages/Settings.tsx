@@ -345,6 +345,17 @@ export default function Settings() {
         .update({ name: orgNameValidation.data })
         .eq('id', organization.id);
 
+      // Update About Me on user_profiles
+      await supabase
+        .from('user_profiles')
+        .update({
+          company: aboutMe.company || null,
+          role_description: aboutMe.role_description || null,
+          department: aboutMe.department || null,
+          responsibilities: aboutMe.responsibilities || null,
+          communication_style: aboutMe.communication_style || null,
+        } as Record<string, unknown>)
+        .eq('user_id', profile.user_id);
       // Update or create email profile for this connection
       const emailProfileData = {
         connection_id: activeConnection.id,
