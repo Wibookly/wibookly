@@ -418,6 +418,61 @@ async function processNotification(n: GraphNotification) {
     return;
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Follow-up / silent-tracking guard.
+  // The user CCs / BCCs aliases like "2@<their-domain>", "3@", "5@",
+  // "7@", "10@", "14@" so that cron-follow-ups can schedule a reminder
+  // N days later. These aliases forward to the shared agent mailbox.
+  // The user does NOT want the agent to auto-reply to those tracking
+  // emails — the only reply they expect is the AI-drafted follow-up
+  // produced by cron-follow-ups when the timer fires.
+  //
+  // Detection (BCC-aware — Microsoft Graph hides BCC fields on the
+  // delivered copy, so we can't read bccRecipients reliably):
+  //   1. If ANY visible to/cc recipient matches the follow-up alias
+  //      pattern (N@<allowed-domain>, N ∈ {2,3,5,7,10,14}) → skip.
+  //   2. Otherwise, if the agent mailbox address is NOT in the visible
+  //      to/cc list, the agent was BCC'd (silent recipient) → skip.
+  //   3. The agent only auto-replies when it's an explicit to/cc
+  //      recipient AND no follow-up alias is involved.
+  // ──────────────────────────────────────────────────────────────────
+  const FOLLOWUP_BUCKETS = new Set(['2', '3', '5', '7', '10', '14']);
+  const visibleRecipientAddrs: string[] = [
+    ...((msg.toRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+    ...((msg.ccRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+  ]
+    .map((r) => (r?.emailAddress?.address ?? '').toLowerCase().trim())
+    .filter(Boolean);
+
+  const hasFollowupAlias = visibleRecipientAddrs.some((addr) => {
+    const m = addr.match(/^(\d+)@(.+)$/);
+    if (!m) return false;
+    if (!FOLLOWUP_BUCKETS.has(m[1])) return false;
+    return allowedDomains.includes(m[2]);
+  });
+
+  const agentAddr = (settings.shared_mailbox_address ?? '').toLowerCase().trim();
+  const agentIsVisibleRecipient =
+    !!agentAddr && visibleRecipientAddrs.includes(agentAddr);
+
+  if (hasFollowupAlias || !agentIsVisibleRecipient) {
+    const reason = hasFollowupAlias
+      ? 'followup_alias_tracking_only'
+      : 'bcc_silent_tracking_only';
+    console.log(
+      `Skipping AI reply for ${messageId} — ${reason} ` +
+        `(visibleRecipients=${JSON.stringify(visibleRecipientAddrs)}, ` +
+        `agent=${agentAddr})`,
+    );
+    if (inbound?.id) {
+      await supabase
+        .from('agent_messages')
+        .update({ status: 'received', rejected_reason: reason })
+        .eq('id', inbound.id);
+    }
+    return;
+  }
+
   // Fetch the full conversation thread for context (so the agent sees what you forwarded)
   const thread = msg.conversationId
     ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
