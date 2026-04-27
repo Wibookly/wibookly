@@ -884,6 +884,16 @@ serve(async (req) => {
           continue;
         }
 
+        if (!accessToken) {
+          results.push({
+            provider: tokenRecord.provider,
+            synced: 0,
+            failed: enabledRules.length,
+            error: 'Microsoft mailbox access token is unavailable. Please reconnect Outlook once, then try Re-sync All again.'
+          });
+          continue;
+        }
+
         let synced = 0;
         let failed = 0;
 
