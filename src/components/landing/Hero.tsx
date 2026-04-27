@@ -10,16 +10,22 @@ export function Hero({ onGetStartedClick }: HeroProps) {
     <section className="pt-32 pb-16 md:pt-44 md:pb-24 overflow-hidden">
       <div className="container mx-auto px-6">
         <div className="max-w-3xl mx-auto text-center">
+          {/* Eyebrow */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6 animate-fade-in">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary tracking-wide uppercase">InboxIQ Intelligence</span>
+          </div>
+
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.1] animate-fade-in text-foreground">
-            Your inbox, organized
+            Email intelligence that
             <br />
-            and handled for you.
+            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">thinks like you do.</span>
           </h1>
-          
+
           {/* Sub-headline */}
           <p className="mt-8 text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '100ms' }}>
-            Bring clarity to your inbox by organizing messages, creating smart categories, and drafting thoughtful replies — all with AI working quietly in the background.
+            InboxIQ reads, categorizes, and drafts replies across every email, thread, and calendar event — turning your Microsoft 365 inbox into a calm, prioritized workspace where nothing important slips through.
           </p>
           
           {/* CTA Button */}
