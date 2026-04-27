@@ -425,8 +425,23 @@ async function processNotification(n: GraphNotification) {
     metadata: { provider: aiResult.provider, model: aiResult.model, reply_to: senderEmail },
   });
 
-  // Log usage
+  // Log usage with approximate USD cost so the Admin → AI Usage dashboard
+  // reflects live spend for the email-agent (agent@energyforward.com).
   try {
+    const OPENAI_PRICE: Record<string, { input: number; output: number }> = {
+      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+      'gpt-4o': { input: 0.0025, output: 0.01 },
+      'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
+      'gpt-4.1': { input: 0.002, output: 0.008 },
+    };
+    const CLAUDE_PRICE: Record<string, { input: number; output: number }> = {
+      'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
+      'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
+      'claude-3-opus-latest': { input: 0.015, output: 0.075 },
+    };
+    const table = aiResult.provider === 'openai' ? OPENAI_PRICE : aiResult.provider === 'claude' ? CLAUDE_PRICE : null;
+    const p = table?.[aiResult.model] ?? { input: 0, output: 0 };
+    const cost = (aiResult.promptTokens / 1000) * p.input + (aiResult.completionTokens / 1000) * p.output;
     await supabase.from('ai_usage_logs').insert({
       organization_id: settings.organization_id,
       user_id: null,
@@ -435,7 +450,8 @@ async function processNotification(n: GraphNotification) {
       action: 'agent_email_reply',
       prompt_tokens: aiResult.promptTokens,
       completion_tokens: aiResult.completionTokens,
-      cost_usd: '0',
+      total_tokens: aiResult.promptTokens + aiResult.completionTokens,
+      cost_usd: cost.toFixed(6),
       metadata: { sender: senderEmail },
     });
   } catch (e) { console.error('usage log failed', e); }
