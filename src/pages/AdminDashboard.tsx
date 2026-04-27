@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -98,12 +99,18 @@ export default function AdminDashboard() {
   const [addingDomain, setAddingDomain] = useState(false);
 
   // API Keys state
-  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string }[]>([]);
+  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string; value?: string }[]>([]);
   const [openaiKey, setOpenaiKey] = useState('');
   const [claudeKey, setClaudeKey] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
+  // AI provider preference (Auto = OpenAI primary, Claude fallback)
+  const [providerPref, setProviderPref] = useState<'auto' | 'openai' | 'claude'>('auto');
+  const [openaiModel, setOpenaiModel] = useState<string>('gpt-4o-mini');
+  const [claudeModel, setClaudeModel] = useState<string>('claude-3-5-sonnet-latest');
+  const [enableWebSearch, setEnableWebSearch] = useState<boolean>(true);
+  const [savingPref, setSavingPref] = useState(false);
   const [microsoftClientId, setMicrosoftClientId] = useState<string | null>(null);
   const [autoSyncDomainId, setAutoSyncDomainId] = useState<string | null>(null);
   const [autoSyncNonce, setAutoSyncNonce] = useState(0);
@@ -240,7 +247,7 @@ export default function AdminDashboard() {
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
       if (groupsRes?.groups) setGroups(groupsRes.groups);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
@@ -463,7 +470,7 @@ export default function AdminDashboard() {
       setShowOpenaiKey(false);
       setShowClaudeKey(false);
       const keysRes = await adminInvoke('get_api_keys');
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -476,7 +483,7 @@ export default function AdminDashboard() {
       await adminInvoke('delete_api_key', { key_name: keyName });
       toast({ title: 'API Key removed', description: `${keyName === 'openai_api_key' ? 'OpenAI' : 'Claude'} API key has been removed.` });
       const keysRes = await adminInvoke('get_api_keys');
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -484,6 +491,35 @@ export default function AdminDashboard() {
 
   const isKeyConfigured = (keyName: string) => apiKeys.some(k => k.key_name === keyName);
   const getKeyUpdatedAt = (keyName: string) => apiKeys.find(k => k.key_name === keyName)?.updated_at;
+
+  // Hydrate non-secret AI preference rows from the get_api_keys response
+  const hydrateAIPrefs = (rows: { key_name: string; value?: string }[]) => {
+    const get = (k: string) => rows.find(r => r.key_name === k)?.value;
+    const pref = (get('ai_provider_preference') || 'auto').toLowerCase();
+    if (pref === 'auto' || pref === 'openai' || pref === 'claude') setProviderPref(pref as any);
+    const om = get('ai_openai_model'); if (om) setOpenaiModel(om);
+    const cm = get('ai_claude_model'); if (cm) setClaudeModel(cm);
+    const ws = get('ai_enable_web_search'); if (ws !== undefined) setEnableWebSearch(ws !== 'false');
+  };
+
+  const handleSaveAIPrefs = async () => {
+    setSavingPref(true);
+    try {
+      await Promise.all([
+        adminInvoke('set_api_key', { key_name: 'ai_provider_preference', key_value: providerPref }),
+        adminInvoke('set_api_key', { key_name: 'ai_openai_model', key_value: openaiModel }),
+        adminInvoke('set_api_key', { key_name: 'ai_claude_model', key_value: claudeModel }),
+        adminInvoke('set_api_key', { key_name: 'ai_enable_web_search', key_value: enableWebSearch ? 'true' : 'false' }),
+      ]);
+      toast({ title: 'AI preferences saved' });
+      const keysRes = await adminInvoke('get_api_keys');
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingPref(false);
+    }
+  };
 
   const getUserFeatureState = (user: ManagedUser, featureKey: string) => {
     const directFeature = user.features.find((feature) => feature.feature_key === featureKey);
@@ -1132,6 +1168,77 @@ export default function AdminDashboard() {
                     </AlertDialog>
                   )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Provider Preference */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Bot className="w-5 h-5" /> AI Provider Preference</CardTitle>
+              <CardDescription>
+                Choose which AI engine powers auto-drafts, auto-replies, and the email agent
+                (agent@energyforward.com). Applies to AI Chat / Daily Brief as well.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select value={providerPref} onValueChange={(v: any) => setProviderPref(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (OpenAI primary, Claude fallback)</SelectItem>
+                      <SelectItem value="openai">OpenAI only (ChatGPT)</SelectItem>
+                      <SelectItem value="claude">Claude only (Anthropic)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    "Auto" tries the first provider, then falls back if it fails or runs out of credits.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>General-knowledge reasoning</Label>
+                  <div className="flex items-center gap-3 p-3 rounded-md border border-border">
+                    <Switch checked={enableWebSearch} onCheckedChange={setEnableWebSearch} id="ws" />
+                    <Label htmlFor="ws" className="cursor-pointer flex-1">
+                      Allow agent to answer broad / technical questions using general knowledge
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    When ON, the agent answers technology / strategy questions even when the email
+                    body alone is not enough. When OFF, it stays strictly within email content.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>OpenAI model</Label>
+                  <Select value={openaiModel} onValueChange={setOpenaiModel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o-mini">gpt-4o-mini (fast, cheap)</SelectItem>
+                      <SelectItem value="gpt-4o">gpt-4o (highest quality)</SelectItem>
+                      <SelectItem value="gpt-4.1-mini">gpt-4.1-mini</SelectItem>
+                      <SelectItem value="gpt-4.1">gpt-4.1</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Claude model</Label>
+                  <Select value={claudeModel} onValueChange={setClaudeModel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (balanced)</SelectItem>
+                      <SelectItem value="claude-3-5-haiku-latest">Claude 3.5 Haiku (fast)</SelectItem>
+                      <SelectItem value="claude-3-opus-latest">Claude 3 Opus (highest quality)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveAIPrefs} disabled={savingPref}>
+                  {savingPref ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Save AI Preferences
+                </Button>
               </div>
             </CardContent>
           </Card>
