@@ -148,14 +148,17 @@ async function ensureOutlookMasterCategory(
   }
 }
 
-// Tag an Outlook message with a category name (adds to existing categories).
+// Tag an Outlook message with a single InboxIQ-managed category. Strips
+// any other managed (legacy or current) tags so each message ends up with
+// exactly one IQ category — eliminates the duplicate chips users were
+// seeing in Outlook (e.g. "InboxIQ: Approvals" + "★ InboxIQ: Approvals" +
+// "IQ: Approvals" all on the same message).
 async function tagOutlookMessageCategory(
   accessToken: string,
   messageId: string,
   categoryName: string
 ): Promise<boolean> {
   try {
-    // Read existing categories first to avoid wiping them
     const getRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -165,7 +168,15 @@ async function tagOutlookMessageCategory(
       const body = await getRes.json();
       existing = Array.isArray(body.categories) ? body.categories : [];
     }
-    if (existing.includes(categoryName)) return true;
+    // Keep only non-managed user categories, then add the single new tag.
+    const preserved = existing.filter((c) => !isManagedCategoryName(c));
+    const next = [...preserved, categoryName];
+    if (
+      existing.length === next.length &&
+      existing.every((c, i) => c === next[i])
+    ) {
+      return true;
+    }
     const patchRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
       {
@@ -174,7 +185,7 @@ async function tagOutlookMessageCategory(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ categories: [...existing, categoryName] }),
+        body: JSON.stringify({ categories: next }),
       }
     );
     return patchRes.ok;
