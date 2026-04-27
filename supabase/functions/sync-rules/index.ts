@@ -788,8 +788,29 @@ async function applyOutlookRule(
             body: JSON.stringify({ destinationId: folderId })
           }
         );
-        if (moveRes.ok) movedIntoFolder++;
+        if (moveRes.ok) {
+          movedIntoFolder++;
+          // The move returns the new message id; tag it with the colored category
+          if (categoryTag) {
+            try {
+              const moved = await moveRes.json();
+              if (moved?.id) {
+                await tagOutlookMessageCategory(accessToken, moved.id, categoryTag);
+              }
+            } catch (_) { /* ignore tag failure */ }
+          }
+        }
       } catch (_) { /* skip */ }
+    }
+    // Also tag any emails that already live in the folder (so existing items get color too)
+    if (categoryTag) {
+      for (const email of folderEmails) {
+        if (matchingIds.has(email.id)) {
+          try {
+            await tagOutlookMessageCategory(accessToken, email.id, categoryTag);
+          } catch (_) { /* ignore */ }
+        }
+      }
     }
     if (movedIntoFolder > 0) {
       console.log(`Moved ${movedIntoFolder} matching inbox emails into folder for "${ruleName}"`);
