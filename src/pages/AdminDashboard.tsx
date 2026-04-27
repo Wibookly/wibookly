@@ -25,6 +25,7 @@ import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
 import AIUsagePanel from '@/components/admin/AIUsagePanel';
+import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import { Bot, BarChart3, Clock } from 'lucide-react';
 
