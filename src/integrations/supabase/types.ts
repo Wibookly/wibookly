@@ -1726,6 +1726,7 @@ export type Database = {
           full_name: string
           id: string
           organization_id: string
+          profile_photo_url: string
           title: string
           updated_at: string
           user_id: string
