@@ -6,6 +6,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Single short prefix for all InboxIQ-managed Outlook Master Categories.
+// Keep this short — it shows on every email row in Outlook next to the
+// category name (e.g. "IQ: Approvals").
+const IQ_TAG_PREFIX = 'IQ: ';
+
+// Returns true if the given Outlook category name was created/managed by
+// InboxIQ (current short prefix or any legacy variant) and should therefore
+// be cleaned up before applying the current single category tag.
+function isManagedCategoryName(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim();
+  return (
+    n.startsWith('IQ: ') ||
+    n.startsWith('★ IQ: ') ||
+    n.startsWith('InboxIQ: ') ||
+    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Wibookly: ') ||
+    n.startsWith('vBookly: ') ||
+    n.startsWith('Vbookly: ')
+  );
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
