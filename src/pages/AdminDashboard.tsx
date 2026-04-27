@@ -1172,6 +1172,77 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
+          {/* AI Provider Preference */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Bot className="w-5 h-5" /> AI Provider Preference</CardTitle>
+              <CardDescription>
+                Choose which AI engine powers auto-drafts, auto-replies, and the email agent
+                (agent@energyforward.com). Applies to AI Chat / Daily Brief as well.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select value={providerPref} onValueChange={(v: any) => setProviderPref(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (OpenAI primary, Claude fallback)</SelectItem>
+                      <SelectItem value="openai">OpenAI only (ChatGPT)</SelectItem>
+                      <SelectItem value="claude">Claude only (Anthropic)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    "Auto" tries the first provider, then falls back if it fails or runs out of credits.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>General-knowledge reasoning</Label>
+                  <div className="flex items-center gap-3 p-3 rounded-md border border-border">
+                    <Switch checked={enableWebSearch} onCheckedChange={setEnableWebSearch} id="ws" />
+                    <Label htmlFor="ws" className="cursor-pointer flex-1">
+                      Allow agent to answer broad / technical questions using general knowledge
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    When ON, the agent answers technology / strategy questions even when the email
+                    body alone is not enough. When OFF, it stays strictly within email content.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>OpenAI model</Label>
+                  <Select value={openaiModel} onValueChange={setOpenaiModel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o-mini">gpt-4o-mini (fast, cheap)</SelectItem>
+                      <SelectItem value="gpt-4o">gpt-4o (highest quality)</SelectItem>
+                      <SelectItem value="gpt-4.1-mini">gpt-4.1-mini</SelectItem>
+                      <SelectItem value="gpt-4.1">gpt-4.1</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Claude model</Label>
+                  <Select value={claudeModel} onValueChange={setClaudeModel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet (balanced)</SelectItem>
+                      <SelectItem value="claude-3-5-haiku-latest">Claude 3.5 Haiku (fast)</SelectItem>
+                      <SelectItem value="claude-3-opus-latest">Claude 3 Opus (highest quality)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveAIPrefs} disabled={savingPref}>
+                  {savingPref ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Save AI Preferences
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>System Settings</CardTitle>
