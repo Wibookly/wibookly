@@ -2160,7 +2160,7 @@ async function processConnectionEmails(
   // Get categories with AI draft or auto-reply enabled for this connection
   let categoriesQuery = supabaseAdmin
     .from('categories')
-    .select('id, name, writing_style, ai_draft_enabled, auto_reply_enabled, sort_order')
+    .select('id, name, writing_style, ai_draft_enabled, auto_reply_enabled, sort_order, format_style, additional_context, example_reply_template')
     .eq('organization_id', organizationId)
     .eq('connection_id', connectionId)
     .eq('is_enabled', true)
@@ -2176,6 +2176,13 @@ async function processConnectionEmails(
     console.log(`No AI-enabled categories for user ${userId}`);
     return results;
   }
+
+  // Load About Me personalization once per connection.
+  const { data: aboutProfile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('full_name, company, role_description, department, responsibilities, communication_style')
+    .eq('user_id', userId)
+    .maybeSingle();
 
   console.log(`Found ${aiCategories.length} AI-enabled categories for user ${userId}`);
 
