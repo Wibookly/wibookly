@@ -86,8 +86,9 @@ serve(async (req) => {
 
     const tokens = await tokenResponse.json();
 
-    // Get user info from Microsoft Graph
-    const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+    // Get user info from Microsoft Graph — request expanded profile fields
+    const graphSelect = '$select=id,displayName,givenName,surname,mail,userPrincipalName,jobTitle,department,companyName,officeLocation,mobilePhone,businessPhones,preferredLanguage';
+    const userInfoResponse = await fetch(`https://graph.microsoft.com/v1.0/me?${graphSelect}`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
@@ -99,6 +100,12 @@ serve(async (req) => {
     const userInfo = await userInfoResponse.json();
     const email = (userInfo.mail || userInfo.userPrincipalName)?.toLowerCase();
     const fullName = userInfo.displayName || '';
+    const msJobTitle: string | null = userInfo.jobTitle || null;
+    const msDepartment: string | null = userInfo.department || null;
+    const msCompany: string | null = userInfo.companyName || null;
+    const msMobile: string | null = userInfo.mobilePhone || null;
+    const msPhone: string | null = (Array.isArray(userInfo.businessPhones) && userInfo.businessPhones[0]) || null;
+    const msOffice: string | null = userInfo.officeLocation || null;
     const inviteToken = typeof stateData.inviteToken === 'string' ? stateData.inviteToken : null;
 
     if (!email) {
