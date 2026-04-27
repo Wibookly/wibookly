@@ -15,7 +15,10 @@ const IQ_TAG_PREFIX = 'IQ: ';
 function isManagedCategoryName(name: string): boolean {
   if (!name) return false;
   const n = name.trim();
-  return (
+  // Mirrors the matcher in sync-categories — keep both in sync. Includes
+  // numbered Gmail-style mirrors ("02: Follow Up") and the AI helper tags
+  // ("0. AI Draft", "11. AI Sent") so they get stripped on every sync.
+  if (
     n.startsWith('IQ: ') ||
     n.startsWith('★ IQ: ') ||
     n.startsWith('InboxIQ: ') ||
@@ -23,7 +26,11 @@ function isManagedCategoryName(name: string): boolean {
     n.startsWith('Wibookly: ') ||
     n.startsWith('vBookly: ') ||
     n.startsWith('Vbookly: ')
-  );
+  ) return true;
+  if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^\d{1,2}:\s/.test(n)) return true;
+  return false;
 }
 
 // IMPORTANT: Do NOT request MailboxSettings.* scopes — they trigger Microsoft 365

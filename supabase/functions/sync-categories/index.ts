@@ -17,7 +17,11 @@ const IQ_TAG_PREFIX = 'IQ: ';
 function isManagedCategoryName(name: string): boolean {
   if (!name) return false;
   const n = name.trim();
-  return (
+  // Current short prefix + every legacy variant InboxIQ has ever applied to
+  // an Outlook message. Includes the numbered Gmail-style labels we used to
+  // mirror onto Outlook ("02: Follow Up", "0. AI Draft", "11. AI Sent") so
+  // each email ends up with exactly ONE current "IQ: <Category>" chip.
+  if (
     n.startsWith('IQ: ') ||
     n.startsWith('★ IQ: ') ||
     n.startsWith('InboxIQ: ') ||
@@ -25,7 +29,13 @@ function isManagedCategoryName(name: string): boolean {
     n.startsWith('Wibookly: ') ||
     n.startsWith('vBookly: ') ||
     n.startsWith('Vbookly: ')
-  );
+  ) return true;
+  // AI Draft / AI Sent helper tags — never expose these in Outlook.
+  if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  // Numbered category mirrors like "02: Follow Up" or "10: FYI".
+  if (/^\d{1,2}:\s/.test(n)) return true;
+  return false;
 }
 
 // AES-GCM decryption for tokens (server-side only)
