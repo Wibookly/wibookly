@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -98,12 +99,18 @@ export default function AdminDashboard() {
   const [addingDomain, setAddingDomain] = useState(false);
 
   // API Keys state
-  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string }[]>([]);
+  const [apiKeys, setApiKeys] = useState<{ key_name: string; updated_at: string; value?: string }[]>([]);
   const [openaiKey, setOpenaiKey] = useState('');
   const [claudeKey, setClaudeKey] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
+  // AI provider preference (Auto = OpenAI primary, Claude fallback)
+  const [providerPref, setProviderPref] = useState<'auto' | 'openai' | 'claude'>('auto');
+  const [openaiModel, setOpenaiModel] = useState<string>('gpt-4o-mini');
+  const [claudeModel, setClaudeModel] = useState<string>('claude-3-5-sonnet-latest');
+  const [enableWebSearch, setEnableWebSearch] = useState<boolean>(true);
+  const [savingPref, setSavingPref] = useState(false);
   const [microsoftClientId, setMicrosoftClientId] = useState<string | null>(null);
   const [autoSyncDomainId, setAutoSyncDomainId] = useState<string | null>(null);
   const [autoSyncNonce, setAutoSyncNonce] = useState(0);
