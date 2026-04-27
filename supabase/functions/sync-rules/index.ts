@@ -16,6 +16,181 @@ function isOutlookRuleAccessDenied(errorText: string): boolean {
   return errorText.includes('ErrorAccessDenied') || errorText.includes('Access is denied');
 }
 
+// Outlook only supports a fixed set of 25 named "preset" colors on Master Categories.
+// Map any hex color (from our categories.color field) to the closest preset.
+const OUTLOOK_PRESET_COLORS: Array<{ preset: string; hex: [number, number, number] }> = [
+  { preset: 'preset0',  hex: [0xE7, 0x4C, 0x3C] }, // Red
+  { preset: 'preset1',  hex: [0xE6, 0x7E, 0x22] }, // Orange
+  { preset: 'preset2',  hex: [0xC1, 0x9A, 0x6B] }, // Brown
+  { preset: 'preset3',  hex: [0xF1, 0xC4, 0x0F] }, // Yellow
+  { preset: 'preset4',  hex: [0x2E, 0xCC, 0x71] }, // Green
+  { preset: 'preset5',  hex: [0x16, 0xA0, 0x85] }, // Teal
+  { preset: 'preset6',  hex: [0x95, 0xA5, 0xA6] }, // Olive
+  { preset: 'preset7',  hex: [0x34, 0x98, 0xDB] }, // Blue
+  { preset: 'preset8',  hex: [0x9B, 0x59, 0xB6] }, // Purple
+  { preset: 'preset9',  hex: [0xE8, 0x4F, 0x9C] }, // Cranberry
+  { preset: 'preset10', hex: [0x7F, 0x8C, 0x8D] }, // Steel
+  { preset: 'preset11', hex: [0x2C, 0x3E, 0x50] }, // Dark Steel
+  { preset: 'preset12', hex: [0xBD, 0xC3, 0xC7] }, // Gray
+  { preset: 'preset13', hex: [0x34, 0x49, 0x5E] }, // Dark Gray
+  { preset: 'preset14', hex: [0x00, 0x00, 0x00] }, // Black
+  { preset: 'preset15', hex: [0xC0, 0x39, 0x2B] }, // Dark Red
+  { preset: 'preset16', hex: [0xD3, 0x54, 0x00] }, // Dark Orange
+  { preset: 'preset17', hex: [0x8B, 0x4F, 0x2F] }, // Dark Brown
+  { preset: 'preset18', hex: [0xB7, 0x95, 0x0B] }, // Dark Yellow
+  { preset: 'preset19', hex: [0x27, 0xAE, 0x60] }, // Dark Green
+  { preset: 'preset20', hex: [0x0E, 0x80, 0x68] }, // Dark Teal
+  { preset: 'preset21', hex: [0x6B, 0x6F, 0x39] }, // Dark Olive
+  { preset: 'preset22', hex: [0x21, 0x6F, 0xA8] }, // Dark Blue
+  { preset: 'preset23', hex: [0x71, 0x36, 0x8A] }, // Dark Purple
+  { preset: 'preset24', hex: [0xAD, 0x14, 0x57] }, // Dark Cranberry
+];
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = hex.replace('#', '').match(/^([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const v = parseInt(m[1], 16);
+  return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
+}
+
+function nearestOutlookPreset(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 'preset7'; // default Blue
+  let best = OUTLOOK_PRESET_COLORS[0];
+  let bestDist = Infinity;
+  for (const p of OUTLOOK_PRESET_COLORS) {
+    const d =
+      (rgb[0] - p.hex[0]) ** 2 +
+      (rgb[1] - p.hex[1]) ** 2 +
+      (rgb[2] - p.hex[2]) ** 2;
+    if (d < bestDist) {
+      bestDist = d;
+      best = p;
+    }
+  }
+  return best.preset;
+}
+
+// Ensure an Outlook Master Category exists with the given name + color preset.
+// Returns true on success (created or already exists with correct color).
+async function ensureOutlookMasterCategory(
+  accessToken: string,
+  displayName: string,
+  hexColor: string
+): Promise<boolean> {
+  try {
+    const preset = nearestOutlookPreset(hexColor);
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!listRes.ok) {
+      const errText = await listRes.text();
+      console.warn(`Could not list Outlook master categories: ${errText.slice(0, 200)}`);
+      return false;
+    }
+    const { value } = await listRes.json();
+    const existing = (value || []).find(
+      (c: { displayName: string; id: string; color: string }) =>
+        c.displayName === displayName
+    );
+    if (existing) {
+      if (existing.color === preset) return true;
+      // Update color to match
+      const patchRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ color: preset }),
+        }
+      );
+      return patchRes.ok;
+    }
+    const createRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ displayName, color: preset }),
+      }
+    );
+    return createRes.ok;
+  } catch (err) {
+    console.warn('ensureOutlookMasterCategory failed:', err);
+    return false;
+  }
+}
+
+// Tag an Outlook message with a category name (adds to existing categories).
+async function tagOutlookMessageCategory(
+  accessToken: string,
+  messageId: string,
+  categoryName: string
+): Promise<boolean> {
+  try {
+    // Read existing categories first to avoid wiping them
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    let existing: string[] = [];
+    if (getRes.ok) {
+      const body = await getRes.json();
+      existing = Array.isArray(body.categories) ? body.categories : [];
+    }
+    if (existing.includes(categoryName)) return true;
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ categories: [...existing, categoryName] }),
+      }
+    );
+    return patchRes.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Remove all legacy "Wibookly:" prefixed rules from Outlook (one-shot per sync).
+async function purgeLegacyOutlookRules(accessToken: string): Promise<number> {
+  try {
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!listRes.ok) return 0;
+    const { value } = await listRes.json();
+    let deleted = 0;
+    for (const r of value || []) {
+      const name = String(r.displayName || '');
+      if (name.startsWith('Wibookly:') || name.startsWith('Wibookly ')) {
+        const delRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${r.id}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (delRes.ok || delRes.status === 404) deleted++;
+      }
+    }
+    if (deleted > 0) console.log(`Purged ${deleted} legacy Wibookly: Outlook rule(s)`);
+    return deleted;
+  } catch (err) {
+    console.warn('purgeLegacyOutlookRules failed:', err);
+    return 0;
+  }
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -444,7 +619,13 @@ function buildOutlookSearchFilter(rule: any): string {
 // new arrivals are continuously moved into the right category folder. From the
 // user's perspective the rule is fully enforced — without any admin approval.
 // deno-lint-ignore no-explicit-any
-async function applyOutlookRule(accessToken: string, rule: any, folderId: string, ruleName: string): Promise<boolean> {
+async function applyOutlookRule(
+  accessToken: string,
+  rule: any,
+  folderId: string,
+  ruleName: string,
+  categoryTag?: string,
+): Promise<boolean> {
   // Build conditions (used if server-side rule creation succeeds)
   // deno-lint-ignore no-explicit-any
   const conditions: any = {};
@@ -607,8 +788,29 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
             body: JSON.stringify({ destinationId: folderId })
           }
         );
-        if (moveRes.ok) movedIntoFolder++;
+        if (moveRes.ok) {
+          movedIntoFolder++;
+          // The move returns the new message id; tag it with the colored category
+          if (categoryTag) {
+            try {
+              const moved = await moveRes.json();
+              if (moved?.id) {
+                await tagOutlookMessageCategory(accessToken, moved.id, categoryTag);
+              }
+            } catch (_) { /* ignore tag failure */ }
+          }
+        }
       } catch (_) { /* skip */ }
+    }
+    // Also tag any emails that already live in the folder (so existing items get color too)
+    if (categoryTag) {
+      for (const email of folderEmails) {
+        if (matchingIds.has(email.id)) {
+          try {
+            await tagOutlookMessageCategory(accessToken, email.id, categoryTag);
+          } catch (_) { /* ignore */ }
+        }
+      }
     }
     if (movedIntoFolder > 0) {
       console.log(`Moved ${movedIntoFolder} matching inbox emails into folder for "${ruleName}"`);
@@ -830,7 +1032,7 @@ serve(async (req) => {
     // Get ENABLED categories for numbering - use sort_order for label names
     let enabledCategoriesQuery = supabaseAdmin
       .from('categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, color')
       .eq('organization_id', profile.organization_id)
       .eq('is_enabled', true)
       .order('sort_order');
@@ -841,8 +1043,13 @@ serve(async (req) => {
 
     const { data: enabledCategories } = await enabledCategoriesQuery;
 
-    // Map category ID to its sort_order (used for label naming)
-    const categoryMap = new Map(enabledCategories?.map((c) => [c.id, { name: c.name, sortOrder: c.sort_order }]));
+    // Map category ID to its sort_order (used for label naming) + color (for Outlook tagging)
+    const categoryMap = new Map(
+      enabledCategories?.map((c) => [
+        c.id,
+        { name: c.name, sortOrder: c.sort_order, color: c.color || '#6366f1' },
+      ])
+    );
 
     const results: { provider: string; synced: number; failed: number; error?: string }[] = [];
 
@@ -881,6 +1088,19 @@ serve(async (req) => {
         let synced = 0;
         let failed = 0;
 
+        // One-time per-sync setup for Outlook accounts:
+        //  - purge any leftover legacy "Wibookly:" rules
+        //  - ensure a colored Master Category exists for each enabled category
+        const isOutlook =
+          tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook';
+        if (isOutlook && enabledCategories?.length) {
+          await purgeLegacyOutlookRules(accessToken);
+          for (const cat of enabledCategories) {
+            const tagName = `InboxIQ: ${cat.name}`;
+            await ensureOutlookMasterCategory(accessToken, tagName, cat.color || '#6366f1');
+          }
+        }
+
         for (const rule of enabledRules) {
           const catInfo = categoryMap.get(rule.category_id);
           if (!catInfo) continue;
@@ -901,11 +1121,18 @@ serve(async (req) => {
             } else {
               console.log(`Gmail label "${labelName}" not found - please sync categories first`);
             }
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (isOutlook) {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
               const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
-              success = await applyOutlookRule(currentAccessToken, rule, folderId, ruleName);
+              const categoryTag = `InboxIQ: ${catInfo.name}`;
+              success = await applyOutlookRule(
+                currentAccessToken,
+                rule,
+                folderId,
+                ruleName,
+                categoryTag,
+              );
             } else {
               console.log(`Outlook folder "${labelName}" not found - please sync categories first`);
             }

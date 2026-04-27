@@ -7,6 +7,7 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 
 
 import { useState, useEffect } from 'react';
@@ -108,6 +109,7 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
 
 export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
@@ -124,7 +126,14 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
-      <div className="p-4 border-b border-border flex flex-col items-center">
+      <div className="p-4 border-b border-border flex flex-col items-center gap-2">
+        {orgLogoUrl ? (
+          <img
+            src={orgLogoUrl}
+            alt={organization?.name || 'Organization logo'}
+            className="max-h-10 w-auto object-contain"
+          />
+        ) : null}
         <span className="text-lg font-semibold text-foreground">InboxIQ</span>
       </div>
 

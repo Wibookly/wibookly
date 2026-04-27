@@ -6,7 +6,10 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { cleanupUserMailboxAndDisconnect, purgeUserConnectionData } from '../_shared/mailbox-cleanup.ts';
 
 // Email sending config — must match send-transactional-email
-const EMAIL_SITE_NAME = 'energyforwardai';
+// Friendly From name shown in the recipient's inbox. Use the product brand,
+// NOT the underlying project slug, so the address renders cleanly as
+// `InboxIQ <noreply@energyforward.com>` instead of being doubled up.
+const EMAIL_SITE_NAME = 'InboxIQ';
 const EMAIL_SENDER_DOMAIN = 'noreply.energyforward.com';
 const EMAIL_FROM_DOMAIN = 'energyforward.com';
 
@@ -1075,7 +1078,7 @@ serve(async (req) => {
 
         // Resolve org name for the email greeting
         const { data: org } = await adminClient
-          .from('organizations').select('name').eq('id', discovered.organization_id).maybeSingle();
+          .from('organizations').select('name, logo_url').eq('id', discovered.organization_id).maybeSingle();
 
         // Create invitation token
         const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
@@ -1114,6 +1117,7 @@ serve(async (req) => {
               fullName: discovered.display_name || '',
               invitationUrl,
               organizationName: org?.name || '',
+              organizationLogoUrl: (org as any)?.logo_url || '',
             },
           });
           if (!sendResult.ok) {
@@ -1176,7 +1180,7 @@ serve(async (req) => {
         }
 
         const { data: org } = await adminClient
-          .from('organizations').select('name').eq('id', discovered.organization_id).maybeSingle();
+          .from('organizations').select('name, logo_url').eq('id', discovered.organization_id).maybeSingle();
 
         const invitationUrl = `https://inboxiq.energyforward.com/auth/accept-invitation?token=${invitation.token}`;
 
@@ -1188,6 +1192,7 @@ serve(async (req) => {
             fullName: discovered.display_name || '',
             invitationUrl,
             organizationName: org?.name || '',
+            organizationLogoUrl: (org as any)?.logo_url || '',
           },
         });
         if (!resendResult.ok) {

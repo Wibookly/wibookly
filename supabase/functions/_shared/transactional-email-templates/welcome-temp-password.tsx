@@ -7,6 +7,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -21,6 +22,7 @@ interface WelcomeTempPasswordProps {
   tempPassword?: string
   loginUrl?: string
   organizationName?: string
+  organizationLogoUrl?: string
 }
 
 const WelcomeTempPasswordEmail = ({
@@ -29,20 +31,33 @@ const WelcomeTempPasswordEmail = ({
   tempPassword,
   loginUrl,
   organizationName,
+  organizationLogoUrl,
 }: WelcomeTempPasswordProps) => {
+  const greeting = fullName ? `Hi ${fullName.split(' ')[0]},` : 'Hi,'
   const orgLine = organizationName
-    ? `Your administrator at ${organizationName} has created an InboxIQ account for you.`
-    : 'Your administrator has created an InboxIQ account for you.'
+    ? `Your team at ${organizationName} has created an ${SITE_NAME} account for you.`
+    : `Your administrator has created an ${SITE_NAME} account for you.`
 
   return (
     <Html lang="en" dir="ltr">
       <Head />
-      <Preview>Your {SITE_NAME} account is ready — temporary password inside</Preview>
+      <Preview>Your {SITE_NAME} account is ready</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to {SITE_NAME}!</Heading>
+          {organizationLogoUrl ? (
+            <Section style={logoSection}>
+              <Img
+                src={organizationLogoUrl}
+                alt={organizationName || 'Company logo'}
+                style={logoImg}
+              />
+            </Section>
+          ) : null}
+
+          <Heading style={h1}>Your {SITE_NAME} account is ready</Heading>
+          <Text style={text}>{greeting}</Text>
           <Text style={text}>{orgLine}</Text>
-          <Text style={text}>Here are your sign-in details:</Text>
+          <Text style={text}>Use the credentials below to sign in:</Text>
 
           <Section style={credBox}>
             <Text style={credLabel}>Email</Text>
@@ -53,14 +68,12 @@ const WelcomeTempPasswordEmail = ({
 
           <Section style={buttonSection}>
             <Button style={button} href={loginUrl || '#'}>
-              Sign in to {SITE_NAME}
+              Sign in
             </Button>
           </Section>
 
           <Text style={text}>
-            <strong>Important:</strong> You'll be asked to set a new password
-            on your first login. After that, you can connect your Outlook
-            inbox from the Integrations page.
+            You'll be asked to set a new password on first sign-in.
           </Text>
 
           <Text style={footer}>
@@ -82,6 +95,7 @@ export const template = {
     tempPassword: 'Temp-9X4k!q2P',
     loginUrl: 'https://inboxiq.energyforward.com/auth',
     organizationName: 'Acme Corp',
+    organizationLogoUrl: '',
   },
 } satisfies TemplateEntry
 
@@ -91,6 +105,12 @@ const main = {
     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 }
 const container = { padding: '32px 28px', maxWidth: '560px' }
+const logoSection = { margin: '0 0 24px', textAlign: 'left' as const }
+const logoImg = {
+  maxHeight: '40px',
+  width: 'auto',
+  display: 'block',
+}
 const h1 = {
   fontSize: '24px',
   fontWeight: '600',

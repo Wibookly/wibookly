@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "energyforwardai"
+const SITE_NAME = "InboxIQ"
 const SENDER_DOMAIN = "noreply.energyforward.com"
 const ROOT_DOMAIN = "energyforward.com"
 const FROM_DOMAIN = "energyforward.com" // Domain shown in From address (may be root or sender subdomain)
