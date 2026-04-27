@@ -557,6 +557,8 @@ export async function executeTool(
     case 'search_teams_chats':
       if (!graphToken) return 'No Microsoft account connected — cannot read Teams chats.';
       return await searchTeamsChats(graphToken, args.query);
+    case 'generate_artifact':
+      return await generateArtifact(graphToken, args);
     default:
       return `Unknown tool: ${name}`;
   }
