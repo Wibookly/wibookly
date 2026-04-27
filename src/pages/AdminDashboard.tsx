@@ -247,7 +247,7 @@ export default function AdminDashboard() {
 
       if (domainsRes.data) setDomains(domainsRes.data as AllowedDomain[]);
       if (usersRes?.users) setUsers(usersRes.users);
-      if (keysRes?.keys) setApiKeys(keysRes.keys);
+      if (keysRes?.keys) { setApiKeys(keysRes.keys); hydrateAIPrefs(keysRes.keys); }
       if (groupsRes?.groups) setGroups(groupsRes.groups);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
