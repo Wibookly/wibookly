@@ -610,6 +610,9 @@ export default function AIDailyBrief() {
             </CardContent>
           </Card>
 
+          {/* Daily Brief Schedule */}
+          <DailyBriefSchedule />
+
           {/* Settings Section */}
           <Card>
             <CardHeader 
