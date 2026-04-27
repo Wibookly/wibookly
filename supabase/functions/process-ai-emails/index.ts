@@ -7,6 +7,124 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// =============================================================================
+// Admin-managed AI keys (OpenAI primary, Claude fallback) loaded from
+// public.api_key_config. Cached in-memory per cold start to avoid extra reads.
+// =============================================================================
+type AdminAIKeys = { openai: string | null; claude: string | null };
+let _adminAIKeysCache: AdminAIKeys | null = null;
+
+async function loadAdminAIKeys(): Promise<AdminAIKeys> {
+  if (_adminAIKeysCache) return _adminAIKeysCache;
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!;
+    const srk = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const client = createClient(url, srk);
+    const { data, error } = await client
+      .from('api_key_config')
+      .select('key_name, encrypted_value')
+      .in('key_name', ['openai_api_key', 'claude_api_key']);
+    if (error) {
+      console.warn('Failed to load admin AI keys:', error.message);
+      _adminAIKeysCache = { openai: null, claude: null };
+      return _adminAIKeysCache;
+    }
+    const map: Record<string, string> = {};
+    (data ?? []).forEach((r: any) => { map[r.key_name] = r.encrypted_value; });
+    _adminAIKeysCache = {
+      openai: (map['openai_api_key'] || '').trim() || null,
+      claude: (map['claude_api_key'] || '').trim() || null,
+    };
+    console.log(`Admin AI keys loaded — openai: ${_adminAIKeysCache.openai ? 'yes' : 'no'}, claude: ${_adminAIKeysCache.claude ? 'yes' : 'no'}`);
+    return _adminAIKeysCache;
+  } catch (e) {
+    console.warn('loadAdminAIKeys threw:', e);
+    _adminAIKeysCache = { openai: null, claude: null };
+    return _adminAIKeysCache;
+  }
+}
+
+// Calls OpenAI chat completion. Returns content or throws on failure.
+async function callOpenAI(apiKey: string, messages: any[], model = 'gpt-4o-mini'): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages, temperature: 0.4 }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${txt.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI returned empty content');
+  return content;
+}
+
+// Calls Anthropic Claude messages API. Returns content or throws on failure.
+async function callClaude(apiKey: string, messages: any[], model = 'claude-3-5-sonnet-latest'): Promise<string> {
+  // Anthropic expects system separately and only user/assistant in messages
+  const sys = messages.find((m) => m.role === 'system')?.content ?? '';
+  const convo = messages.filter((m) => m.role !== 'system');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model, max_tokens: 1500, system: sys, messages: convo }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Claude ${res.status}: ${txt.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const content = data.content?.[0]?.text;
+  if (!content) throw new Error('Claude returned empty content');
+  return content;
+}
+
+// Try OpenAI then Claude using admin-managed keys. Falls back to Lovable AI Gateway
+// only if both fail/are missing. Returns null when nothing is available.
+async function generateWithAdminAI(messages: any[]): Promise<string | null> {
+  const keys = await loadAdminAIKeys();
+
+  if (keys.openai) {
+    try {
+      return await callOpenAI(keys.openai, messages);
+    } catch (e) {
+      console.warn('OpenAI failed, trying Claude:', (e as Error).message);
+    }
+  }
+  if (keys.claude) {
+    try {
+      return await callClaude(keys.claude, messages);
+    } catch (e) {
+      console.warn('Claude failed:', (e as Error).message);
+    }
+  }
+  // Last resort: Lovable AI Gateway
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (LOVABLE_API_KEY) {
+    try {
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'google/gemini-2.5-flash', messages }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || null;
+      }
+      console.warn(`Lovable AI fallback ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    } catch (e) {
+      console.warn('Lovable AI fallback failed:', e);
+    }
+  }
+  return null;
+}
+
 // AES-GCM decryption for tokens
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
