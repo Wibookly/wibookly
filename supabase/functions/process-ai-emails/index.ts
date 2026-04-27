@@ -2400,7 +2400,7 @@ async function processConnectionEmails(
         // Generate AI draft content (without signature - AI will just create the body)
         // Use Events category context if this is an event-related email
         const categoryNameForAI = shouldUseEventLogic ? 'Events' : category.name;
-        const aiDraftBody = await generateAIDraft(
+        const aiDraftResult = await generateAIDraft(
           emailDetails.subject,
           emailDetails.body,
           emailDetails.from,
@@ -2413,10 +2413,26 @@ async function processConnectionEmails(
           multipleSlots // Pass multiple slots with conflict info (preferred)
         );
 
+        const aiDraftBody = aiDraftResult.content;
         if (!aiDraftBody) {
           console.error('Failed to generate AI draft');
           results.errors++;
           continue;
+        }
+
+        // Log AI usage so the Admin → AI Usage dashboard reflects live spend.
+        if (aiDraftResult.usage) {
+          await logAIUsage(supabaseAdmin, {
+            organizationId,
+            userId,
+            action: needsAutoReply ? 'auto_reply' : 'auto_draft',
+            usage: aiDraftResult.usage,
+            metadata: {
+              category: categoryNameForAI,
+              email_subject: emailDetails.subject?.slice(0, 200) ?? null,
+              email_from: emailDetails.from?.slice(0, 200) ?? null,
+            },
+          });
         }
 
         // Parse any meeting from AI response
