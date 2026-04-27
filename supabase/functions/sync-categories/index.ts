@@ -1031,7 +1031,7 @@ serve(async (req) => {
               const stalePrefix = isFavorite ? '' : '★ ';
               const staleTag = `${stalePrefix}InboxIQ: ${category.name}`;
               if (staleTag !== categoryTag) {
-                await deleteOutlookMasterCategory(accessToken, staleTag).catch((e) =>
+                await deleteOutlookMasterCategory(accessToken, staleTag).catch((e: unknown) =>
                   console.warn(`Failed deleting stale category "${staleTag}":`, e)
                 );
               }
