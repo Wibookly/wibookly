@@ -90,7 +90,7 @@ export default function Auth() {
           <img
             src={ENERGY_FORWARD_LOGO}
             alt="Energy Forward"
-            className="h-16 w-auto object-contain"
+            className="h-48 w-auto object-contain"
           />
         </div>
 
