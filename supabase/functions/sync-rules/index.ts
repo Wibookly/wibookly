@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/MailboxSettings.ReadWrite';
+
+function isOutlookRuleAccessDenied(errorText: string): boolean {
+  return errorText.includes('ErrorAccessDenied') || errorText.includes('Access is denied');
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -101,7 +107,8 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<{ access_tok
       refresh_token: refreshToken,
       client_id: clientId!,
       client_secret: clientSecret!,
-      grant_type: 'refresh_token'
+      grant_type: 'refresh_token',
+      scope: MICROSOFT_OUTLOOK_SCOPES,
     })
   });
   
@@ -127,12 +134,13 @@ interface TokenData {
 async function getValidAccessToken(
   tokenData: TokenData,
   encryptionKey: string,
-  userId: string
+  userId: string,
+  forceRefresh = false,
 ): Promise<string | null> {
   const isExpired = tokenData.expires_at && new Date(tokenData.expires_at) < new Date();
   
   // If not expired, return decrypted access token
-  if (!isExpired) {
+  if (!forceRefresh && !isExpired) {
     return await decryptToken(tokenData.encrypted_access_token, encryptionKey);
   }
   
