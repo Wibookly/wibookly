@@ -6,7 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/MailboxSettings.ReadWrite';
+// IMPORTANT: Do NOT request MailboxSettings.* scopes — they trigger Microsoft 365
+// admin-consent prompts that block end users from completing OAuth.
+// Inbox-rule management is therefore not available; we enforce categorization by
+// directly MOVING matching emails into the target folder using Mail.ReadWrite.
+const MICROSOFT_OUTLOOK_SCOPES = 'openid email profile offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
 
 function isOutlookRuleAccessDenied(errorText: string): boolean {
   return errorText.includes('ErrorAccessDenied') || errorText.includes('Access is denied');
