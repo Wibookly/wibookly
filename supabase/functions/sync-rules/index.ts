@@ -1127,7 +1127,7 @@ serve(async (req) => {
         if (isOutlook && enabledCategories?.length) {
           await purgeLegacyOutlookRules(accessToken);
           for (const cat of enabledCategories) {
-            const tagName = `InboxIQ: ${cat.name}`;
+            const tagName = `${IQ_TAG_PREFIX}${cat.name}`;
             await ensureOutlookMasterCategory(accessToken, tagName, cat.color || '#6366f1');
           }
         }
