@@ -438,8 +438,9 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     });
 
     if (!listRes.ok) {
-      console.error('Failed to list Outlook rules:', await listRes.text());
-      return false;
+      const errorText = await listRes.text();
+      console.error('Failed to list Outlook rules:', errorText);
+      throw new Error(`OUTLOOK_RULE_LIST_FAILED:${errorText}`);
     }
 
     const { value: existingRules } = await listRes.json();
@@ -543,8 +544,9 @@ async function applyOutlookRule(accessToken: string, rule: any, folderId: string
     });
 
     if (!createRes.ok) {
-      console.error(`Failed to create Outlook rule "${ruleName}":`, await createRes.text());
-      return false;
+      const errorText = await createRes.text();
+      console.error(`Failed to create Outlook rule "${ruleName}":`, errorText);
+      throw new Error(`OUTLOOK_RULE_CREATE_FAILED:${errorText}`);
     }
 
     console.log(`Created/refreshed Outlook rule: ${ruleName} (enabled)`);
