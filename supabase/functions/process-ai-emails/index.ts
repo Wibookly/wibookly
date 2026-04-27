@@ -1502,7 +1502,16 @@ async function removeOutlookCategory(
 
 // Generate AI draft for an email (body only, signature added separately).
 // Returns the generated text + usage so callers can log to ai_usage_logs.
-/* ---------------- Artifact request detection ----------------
+function escapeHtml(s: string): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+
  * Looks at the inbound email and decides if the sender is asking the
  * AI agent to PRODUCE something (dashboard, report, presentation,
  * spreadsheet, slides, document, code, HTML page, etc.) — the same
