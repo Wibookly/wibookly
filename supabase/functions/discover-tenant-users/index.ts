@@ -122,6 +122,53 @@ async function fetchAllUsers(token: string): Promise<{ users?: GraphUser[]; erro
   return { users };
 }
 
+// Fetch a user's profile photo from Graph and return a small data: URI we can
+// store directly in the database. Returns null if the user has no photo or
+// the app lacks User.ReadBasic.All / User.Read.All permission.
+async function fetchUserPhotoDataUri(token: string, userId: string): Promise<string | null> {
+  try {
+    // 96x96 is the smallest sized photo Graph guarantees; falls back to default.
+    const sizes = ['96x96', '120x120', '240x240'];
+    for (const size of sizes) {
+      const res = await fetch(
+        `https://graph.microsoft.com/v1.0/users/${userId}/photos/${size}/$value`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.status === 404) continue; // try next size
+      if (!res.ok) return null;
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length === 0) return null;
+      // Encode to base64 in chunks to avoid stack overflow on large blobs.
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < buf.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
+      }
+      const b64 = btoa(binary);
+      const ct = res.headers.get('content-type') ?? 'image/jpeg';
+      return `data:${ct};base64,${b64}`;
+    }
+    // Fallback: default photo endpoint
+    const fallback = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userId}/photo/$value`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!fallback.ok) return null;
+    const buf = new Uint8Array(await fallback.arrayBuffer());
+    if (buf.length === 0) return null;
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < buf.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
+    }
+    const ct = fallback.headers.get('content-type') ?? 'image/jpeg';
+    return `data:${ct};base64,${btoa(binary)}`;
+  } catch (err) {
+    console.warn(`fetchUserPhotoDataUri(${userId}) failed:`, err);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
