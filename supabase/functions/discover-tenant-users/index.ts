@@ -275,6 +275,19 @@ serve(async (req) => {
       return hasMailbox || hasExchange || hasAnyLicense;
     });
 
+    // Fetch profile photos in parallel with bounded concurrency so a 100-user
+    // tenant doesn't blow the function timeout. Photos are stored as data URIs
+    // so we don't need to round-trip through storage on every user load.
+    const PHOTO_CONCURRENCY = 8;
+    const photoByMsId = new Map<string, string | null>();
+    for (let i = 0; i < filtered.length; i += PHOTO_CONCURRENCY) {
+      const batch = filtered.slice(i, i + PHOTO_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map((u) => fetchUserPhotoDataUri(tokenRes.token!, u.id).then((p) => [u.id, p] as const)),
+      );
+      for (const [id, photo] of results) photoByMsId.set(id, photo);
+    }
+
     // Build payload — preserve existing invited_user_id / status by upserting on (domain_id, ms_user_id)
     const rows = filtered.map((u) => ({
       domain_id: domain.id,
@@ -283,6 +296,7 @@ serve(async (req) => {
       email: (u.mail || u.userPrincipalName || '').toLowerCase(),
       display_name: u.displayName,
       job_title: u.jobTitle,
+      profile_photo_url: photoByMsId.get(u.id) ?? null,
       is_licensed: true,
       account_enabled: u.accountEnabled,
       last_seen_at: new Date().toISOString(),
@@ -303,6 +317,21 @@ serve(async (req) => {
             status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
+      }
+
+      // Propagate the freshly-fetched photo + display_name + job_title onto any
+      // user_profiles that already exist for these discovered accounts, so the
+      // app sidebar avatar and email signature pick up the M365 photo on next
+      // login without requiring the user to manually upload one.
+      for (const r of rows) {
+        await adminClient
+          .from('user_profiles')
+          .update({
+            profile_photo_url: r.profile_photo_url,
+            full_name: r.display_name ?? undefined,
+            title: r.job_title ?? undefined,
+          })
+          .eq('email', r.email);
       }
     }
 
