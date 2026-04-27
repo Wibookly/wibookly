@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 
 // Helper to escape HTML entities for safe rendering
@@ -121,10 +122,11 @@ const formatPhoneNumber = (value: string): string => {
   return `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
 };
 
-type SettingsSection = 'profile' | 'signature';
+type SettingsSection = 'profile' | 'about' | 'signature';
 
 const SETTINGS_SECTIONS = [
   { value: 'profile' as const, label: 'Update Profile', icon: Mail },
+  { value: 'about' as const, label: 'About Me', icon: User2 },
   { value: 'signature' as const, label: 'Update Signature', icon: Mail },
 ];
 
@@ -166,6 +168,34 @@ export default function Settings() {
   const [emailProfileId, setEmailProfileId] = useState<string | null>(null);
   const [signatureEnabled, setSignatureEnabled] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
+  const [aboutMe, setAboutMe] = useState({
+    company: '',
+    role_description: '',
+    department: '',
+    responsibilities: '',
+    communication_style: '',
+  });
+
+  // Load About Me from user_profiles
+  useEffect(() => {
+    if (!profile?.user_id) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('company, role_description, department, responsibilities, communication_style')
+        .eq('user_id', profile.user_id)
+        .maybeSingle() as { data: Record<string, string | null> | null };
+      if (data) {
+        setAboutMe({
+          company: data.company || '',
+          role_description: data.role_description || '',
+          department: data.department || '',
+          responsibilities: data.responsibilities || '',
+          communication_style: data.communication_style || '',
+        });
+      }
+    })();
+  }, [profile?.user_id]);
 
   // Fetch email profile for active connection
   useEffect(() => {
@@ -315,6 +345,17 @@ export default function Settings() {
         .update({ name: orgNameValidation.data })
         .eq('id', organization.id);
 
+      // Update About Me on user_profiles
+      await supabase
+        .from('user_profiles')
+        .update({
+          company: aboutMe.company || null,
+          role_description: aboutMe.role_description || null,
+          department: aboutMe.department || null,
+          responsibilities: aboutMe.responsibilities || null,
+          communication_style: aboutMe.communication_style || null,
+        } as Record<string, unknown>)
+        .eq('user_id', profile.user_id);
       // Update or create email profile for this connection
       const emailProfileData = {
         connection_id: activeConnection.id,
@@ -636,6 +677,73 @@ export default function Settings() {
             <div className="space-y-2">
               <Label>Role</Label>
               <Input value="Admin" disabled className="bg-muted" />
+            </div>
+          </div>
+        </section>
+        )}
+
+        {/* About Me - personalizes AI replies */}
+        {activeSection === 'about' && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">About Me</h2>
+            <p className="text-sm text-muted-foreground">
+              These details help the AI understand who you are so it can write
+              drafts and replies that sound like you.
+            </p>
+          </div>
+          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="aboutCompany">Company</Label>
+                <Input
+                  id="aboutCompany"
+                  value={aboutMe.company}
+                  onChange={(e) => setAboutMe(p => ({ ...p, company: e.target.value }))}
+                  placeholder="e.g. Energy Forward"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="aboutDept">Department</Label>
+                <Input
+                  id="aboutDept"
+                  value={aboutMe.department}
+                  onChange={(e) => setAboutMe(p => ({ ...p, department: e.target.value }))}
+                  placeholder="e.g. Operations, Sales"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutRole">Role / What you do</Label>
+              <Input
+                id="aboutRole"
+                value={aboutMe.role_description}
+                onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
+                placeholder="e.g. CEO, Account Manager handling enterprise clients"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutResp">Responsibilities</Label>
+              <Textarea
+                id="aboutResp"
+                value={aboutMe.responsibilities}
+                onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
+                placeholder="What you typically handle: approvals, follow-ups, contracts, scheduling, etc."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutStyle">Communication style</Label>
+              <Textarea
+                id="aboutStyle"
+                value={aboutMe.communication_style}
+                onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
+                placeholder="e.g. Friendly but concise. Use first names. Avoid jargon. Always end with 'Thanks!'"
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tell the AI how you prefer to write — tone, length, signoffs, things to avoid.
+              </p>
             </div>
           </div>
         </section>
