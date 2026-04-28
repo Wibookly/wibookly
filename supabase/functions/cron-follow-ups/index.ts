@@ -451,12 +451,10 @@ async function processMissedReminders(conn: Connection, settings: FollowUpSettin
       try {
         await supabase.functions.invoke('send-transactional-email', {
           body: {
-            to: recipientEmail,
-            template: 'follow_up_reminder',
-            purpose: 'transactional',
-            idempotency_key: `follow-up-reminder-${t.id}-${nextCount}`,
-            data: {
-              subject: `Reminder: follow up on "${t.subject ?? 'your email'}"`,
+            templateName: 'follow-up-reminder',
+            recipientEmail,
+            idempotencyKey: `follow-up-reminder-${t.id}-${nextCount}`,
+            templateData: {
               tracker_subject: t.subject ?? '(no subject)',
               bcc_alias: t.bcc_alias,
               reminder_number: nextCount,
@@ -540,7 +538,7 @@ Deno.serve(async (req) => {
       .select('id,user_id,provider,organization_id,inbox_followup_folder_id,connected_email')
       .eq('is_connected', true);
 
-    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, processed = 0, skippedNoPermission = 0;
+    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, totalAutoSent = 0, totalLabeled = 0, totalReminded = 0, processed = 0, skippedNoPermission = 0;
     for (const c of (connections ?? []) as Connection[]) {
       try {
         // Backend enforcement: skip BCC scanning + drafting for users without the feature.
@@ -550,7 +548,12 @@ Deno.serve(async (req) => {
           continue;
         }
         const r = await processConnection(c);
-        totalAdded += r.added; totalDrafted += r.drafted; totalReplied += r.replied;
+        totalAdded += r.added;
+        totalDrafted += r.drafted;
+        totalReplied += r.replied;
+        totalAutoSent += r.autoSent;
+        totalLabeled += r.labeled;
+        totalReminded += r.reminded;
         processed++;
       } catch (e) {
         console.error(`connection ${c.id} failed:`, e);
@@ -566,6 +569,9 @@ Deno.serve(async (req) => {
       added: totalAdded,
       drafted: totalDrafted,
       replied: totalReplied,
+      auto_sent: totalAutoSent,
+      labeled: totalLabeled,
+      reminded: totalReminded,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
