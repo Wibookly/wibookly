@@ -1142,14 +1142,22 @@ serve(async (req) => {
         let deleted = 0;
         let failed = 0;
 
-        // Create labels/folders for enabled categories
-        for (const category of enabledCategories) {
-          // Create label/folder name with a leading colored-dot glyph only.
-          // Number prefix removed per user request — Outlook/Gmail will sort
-          // these alphabetically. The dot still gives a visible color cue
-          // on Mac/Web. Format: "🔴 Name".
+        // Create labels/folders for enabled categories.
+        // We sort enabled categories by their dashboard sort_order and prefix
+        // each folder with a zero-padded 2-digit index (e.g. "01: ", "02: ").
+        // Outlook / Gmail sort folders alphabetically, so this guarantees the
+        // mailbox order matches exactly what the user sees in InboxIQ. When
+        // the user reorders / drags categories in the dashboard the next sync
+        // renames the folders in place (see createOutlookFolder rename path)
+        // so messages and folder IDs are preserved.
+        const sortedEnabled = [...enabledCategories].sort(
+          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        );
+        for (let idx = 0; idx < sortedEnabled.length; idx++) {
+          const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${category.name}`;
+          const prefix = String(idx + 1).padStart(2, '0');
+          const labelName = `${prefix}: ${dot} ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
