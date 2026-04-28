@@ -194,9 +194,9 @@ export function DailyBriefSchedule() {
           }
           groups.get(key)!.days.push(day.value);
         }
-        const list = Array.from(groups.values()).map((s, idx) => ({
+        const list = Array.from(groups.values()).map((s) => ({
           ...s,
-          name: `Schedule ${idx + 1}`,
+          name: autoName(s),
         }));
         setSchedules(list);
       } else {
