@@ -916,7 +916,8 @@ async function tagOutlookFolderMessages(
   return tagged;
 }
 
-// Look up an Outlook folder ID by displayName (handles numeric prefix variants).
+// Look up an Outlook folder ID by displayName (handles numeric prefix and
+// invisible zero-width sort-prefix variants).
 async function findOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
   try {
     const res = await fetch(
@@ -926,7 +927,12 @@ async function findOutlookFolderId(accessToken: string, folderName: string): Pro
     if (!res.ok) return null;
     const { value: folders } = await res.json();
     const exact = (folders ?? []).find((f: { displayName: string; id: string }) => f.displayName === folderName);
-    return exact?.id ?? null;
+    if (exact?.id) return exact.id;
+    const target = normalizeManagedCategoryName(folderName);
+    const fuzzy = (folders ?? []).find(
+      (f: { displayName: string; id: string }) => normalizeManagedCategoryName(f.displayName) === target,
+    );
+    return fuzzy?.id ?? null;
   } catch {
     return null;
   }
