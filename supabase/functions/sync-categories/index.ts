@@ -34,9 +34,41 @@ function isManagedCategoryName(name: string): boolean {
   if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
   if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
   // Numbered category mirrors like "02: Follow Up", "10: FYI", or the
-  // current "⭐ 02: Follow Up" favorite-prefixed variant.
-  if (/^\s*[⭐★]?\s*\d{1,2}:\s/.test(n)) return true;
+  // current "⭐ 02: Follow Up" / "🔴 02: Follow Up" prefixed variants.
+  if (/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d{1,2}:\s/u.test(n)) return true;
   return false;
+}
+
+// Map a hex color to the nearest colored Unicode dot — used to prefix folder
+// names so each category shows its color even on Outlook Web / Mac, where the
+// PowerShell setup script can't run.
+const COLOR_DOTS_SYNC: { dot: string; hex: string }[] = [
+  { dot: "🔴", hex: "#E81123" },
+  { dot: "🟠", hex: "#F7630C" },
+  { dot: "🟡", hex: "#FFB900" },
+  { dot: "🟢", hex: "#107C10" },
+  { dot: "🔵", hex: "#0078D4" },
+  { dot: "🟣", hex: "#5C2D91" },
+  { dot: "🟤", hex: "#A4262C" },
+  { dot: "⚫", hex: "#000000" },
+  { dot: "⚪", hex: "#737373" },
+];
+function nearestColorDot(hex: string): string {
+  const h = (hex || "#737373").replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = COLOR_DOTS_SYNC[0];
+  let bestDist = Infinity;
+  for (const c of COLOR_DOTS_SYNC) {
+    const ch = c.hex.replace("#", "");
+    const cr = parseInt(ch.slice(0, 2), 16);
+    const cg = parseInt(ch.slice(2, 4), 16);
+    const cb = parseInt(ch.slice(4, 6), 16);
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best.dot;
 }
 
 // AES-GCM decryption for tokens (server-side only)
@@ -576,8 +608,8 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
-    const hasNumericPrefix = (s: string) => /^\s*[⭐★]?\s*\d+\s*[:.\-]/.test(s);
-    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
@@ -837,7 +869,7 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
-    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     const matches: Array<{ id: string; displayName: string }> =
@@ -1045,12 +1077,13 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with a leading ⭐ glyph + zero-padded
-          // number prefix. The ⭐ sorts above letters and digits in Outlook
-          // and Gmail, mimicking the "Favorites" pinned look at the top of
-          // the folder list. Format: "⭐ 01: Name" so alphanumeric sorting
-          // still matches numeric order (01..09, 10, 11) within the group.
-          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          // Create label/folder name with a leading colored-dot glyph + zero-
+          // padded number prefix. The emoji sorts above letters/digits in
+          // Outlook and Gmail (mimicking the "Favorites" pinned look) AND
+          // gives each folder a visible color cue on Mac/Web where the
+          // PowerShell setup script can't run. Format: "🔴 01: Name".
+          const dot = nearestColorDot(category.color);
+          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
@@ -1111,7 +1144,8 @@ serve(async (req) => {
         // and land in the Inbox instead. Existing messages are moved back
         // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
-          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const dot = nearestColorDot(category.color);
+          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
 
           if (tokenRecord.provider === 'google') {

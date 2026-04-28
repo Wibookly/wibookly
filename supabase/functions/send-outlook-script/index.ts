@@ -72,6 +72,39 @@ function nearestOutlookColor(hex: string): string {
   return best.name;
 }
 
+// Map a hex color to the nearest colored Unicode "dot" emoji.
+// These render as small colored circles in Outlook folder names — a friendlier
+// alternative to a generic ⭐ that lets each folder show its category color.
+const COLOR_DOTS = [
+  { dot: "🔴", hex: "#E81123" }, // red
+  { dot: "🟠", hex: "#F7630C" }, // orange
+  { dot: "🟡", hex: "#FFB900" }, // yellow / peach
+  { dot: "🟢", hex: "#107C10" }, // green
+  { dot: "🔵", hex: "#0078D4" }, // blue
+  { dot: "🟣", hex: "#5C2D91" }, // purple
+  { dot: "🟤", hex: "#A4262C" }, // maroon / brown
+  { dot: "⚫", hex: "#000000" }, // black
+  { dot: "⚪", hex: "#737373" }, // gray
+];
+
+function nearestColorDot(hex: string): string {
+  const h = (hex || "#737373").replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = COLOR_DOTS[0];
+  let bestDist = Infinity;
+  for (const c of COLOR_DOTS) {
+    const ch = c.hex.replace("#", "");
+    const cr = parseInt(ch.slice(0, 2), 16);
+    const cg = parseInt(ch.slice(2, 4), 16);
+    const cb = parseInt(ch.slice(4, 6), 16);
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best.dot;
+}
+
 interface CategoryRow {
   name: string;
   color: string;
@@ -83,7 +116,8 @@ interface CategoryRow {
 function buildPowerShell(userName: string, categories: CategoryRow[]): string {
   const enabled = categories.filter(c => c.is_enabled).sort((a, b) => a.sort_order - b.sort_order);
   const items = enabled.map(c => {
-    const folderName = `⭐ ${String(c.sort_order + 1).padStart(2, "0")}: ${c.name}`;
+    const dot = nearestColorDot(c.color);
+    const folderName = `${dot} ${String(c.sort_order + 1).padStart(2, "0")}: ${c.name}`;
     const colorName = nearestOutlookColor(c.color);
     const fav = c.is_favorite !== false ? "$true" : "$false";
     return `    [pscustomobject]@{ FolderName='${folderName.replace(/'/g, "''")}'; ColorName='${colorName}'; Favorite=${fav} }`;
@@ -209,7 +243,7 @@ function buildEmailHtml(userName: string, categoryCount: number): string {
     <li>Restart Outlook when finished</li>
   </ol>
   <p style="background:#fef3c7;padding:12px;border-radius:6px;font-size:13px">
-    <strong>Requirements:</strong> Windows + Outlook Desktop (this won't work on Outlook Web or Mac).
+    <strong>Requirements:</strong> Windows + Outlook Desktop. <em>On Mac or Outlook Web, the script can't run — but the colored-dot folder names (e.g. 🔴 01: Urgent) still appear correctly because they're set server-side by InboxIQ.</em>
   </p>
   <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0"/>
   <p style="color:#94a3b8;font-size:12px">Sent by InboxIQ Agent</p>
