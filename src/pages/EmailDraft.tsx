@@ -659,9 +659,83 @@ export default function EmailDraft() {
               </Card>
             </div>
 
+            {/* AI Label Colors — compact card placed between settings and overrides */}
+            <Card className="border-border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Palette className="h-4 w-4 text-purple-500" />
+                  AI Label Colors
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Choose colors for AI-processed email labels in your inbox.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
+                    <div className="min-w-0">
+                      <Label htmlFor="aiDraftColor" className="text-sm">AI Draft</Label>
+                      <p className="text-[11px] text-muted-foreground truncate">Drafts AI created for review</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-md border border-border shadow-sm cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: aiSettings.ai_draft_label_color }}
+                      >
+                        <input
+                          type="color"
+                          id="aiDraftColor"
+                          value={aiSettings.ai_draft_label_color}
+                          onChange={(e) =>
+                            setAiSettings((prev) => ({ ...prev, ai_draft_label_color: e.target.value }))
+                          }
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {aiSettings.ai_draft_label_color}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
+                    <div className="min-w-0">
+                      <Label htmlFor="aiSentColor" className="text-sm">AI Auto-Reply</Label>
+                      <p className="text-[11px] text-muted-foreground truncate">Emails AI replied to automatically</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-md border border-border shadow-sm cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: aiSettings.ai_sent_label_color }}
+                      >
+                        <input
+                          type="color"
+                          id="aiSentColor"
+                          value={aiSettings.ai_sent_label_color}
+                          onChange={(e) =>
+                            setAiSettings((prev) => ({ ...prev, ai_sent_label_color: e.target.value }))
+                          }
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {aiSettings.ai_sent_label_color}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={saveAILabelColors} disabled={savingColors} size="sm">
+                  {savingColors && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Colors
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Per-category overrides — only shown when at least one custom override exists */}
             {hasCategoryOverrides && (
-              <Card className="border-purple-500/20 shadow-sm bg-purple-500/[0.03]">
+              <Card className="border-border shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Sparkles className="h-4 w-4 text-purple-500" />
@@ -770,85 +844,6 @@ export default function EmailDraft() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* AI Label Colors — appended at the bottom of the page */}
-            <Card className="border-purple-500/20 shadow-sm">
-              <CardHeader className="bg-gradient-to-r from-purple-500/5 to-transparent rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <Palette className="h-5 w-5 text-purple-500" />
-                  </div>
-                  AI Label Colors
-                </CardTitle>
-                <CardDescription>
-                  Choose colors for AI-processed email labels. These appear in your inbox to help you identify AI-drafted and AI-sent emails.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="aiDraftColor">AI Draft Label Color</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Applied to emails where AI created a draft for your review
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                      style={{ backgroundColor: aiSettings.ai_draft_label_color }}
-                    >
-                      <input
-                        type="color"
-                        id="aiDraftColor"
-                        value={aiSettings.ai_draft_label_color}
-                        onChange={(e) =>
-                          setAiSettings((prev) => ({ ...prev, ai_draft_label_color: e.target.value }))
-                        }
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </div>
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {aiSettings.ai_draft_label_color}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="border-t border-border pt-4" />
-
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="aiSentColor">AI Auto-Reply Label Color</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Applied to emails that AI automatically replied to
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                      style={{ backgroundColor: aiSettings.ai_sent_label_color }}
-                    >
-                      <input
-                        type="color"
-                        id="aiSentColor"
-                        value={aiSettings.ai_sent_label_color}
-                        onChange={(e) =>
-                          setAiSettings((prev) => ({ ...prev, ai_sent_label_color: e.target.value }))
-                        }
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </div>
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {aiSettings.ai_sent_label_color}
-                    </span>
-                  </div>
-                </div>
-
-                <Button onClick={saveAILabelColors} disabled={savingColors}>
-                  {savingColors && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Colors
-                </Button>
-              </CardContent>
-            </Card>
           </>
       </div>
     </div>

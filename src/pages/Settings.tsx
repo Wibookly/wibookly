@@ -313,27 +313,50 @@ export default function Settings() {
     setLoading(false);
   };
 
-  const saveSettings = async () => {
+  // Debounced auto-save: persists profile/signature/AI/availability changes
+  // automatically whenever the user edits any field. No manual Save button.
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveSettings(true);
+    }, 800);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    orgName, fullName, title, emailSignature, useCustomSignature,
+    signatureFields, signatureEnabled, aboutMe, aiSettings, availability,
+  ]);
+
+  const saveSettings = async (silent = false) => {
     if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
 
     // Validate inputs
     const orgNameValidation = validateField(organizationNameSchema, orgName);
     if (!orgNameValidation.success) {
-      toast({
-        title: 'Validation Error',
-        description: orgNameValidation.error,
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Error',
+          description: orgNameValidation.error,
+          variant: 'destructive'
+        });
+      }
       return;
     }
 
     const fullNameValidation = validateField(fullNameSchema, fullName);
     if (!fullNameValidation.success) {
-      toast({
-        title: 'Validation Error',
-        description: fullNameValidation.error,
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Error',
+          description: fullNameValidation.error,
+          variant: 'destructive'
+        });
+      }
       return;
     }
 
@@ -456,16 +479,21 @@ export default function Settings() {
         }
       }
 
-      toast({
-        title: 'Settings saved',
-        description: 'Your changes have been saved successfully.'
-      });
+      if (!silent) {
+        toast({
+          title: 'Settings saved',
+          description: 'Your changes have been saved successfully.'
+        });
+      }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to save settings',
+          variant: 'destructive'
+        });
+      }
+
     } finally {
       setSaving(false);
     }
@@ -1107,32 +1135,13 @@ CEO, Company Name
         )}
 
 
-        <div className="flex justify-end">
-          <Button onClick={saveSettings} disabled={saving}>
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            <Save className="w-4 h-4 mr-2" />
-            Save Settings
-          </Button>
-        </div>
+        {saving && (
+          <div className="flex justify-end text-xs text-muted-foreground">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Auto-saving…
+          </div>
+        )}
 
-        {/* Show Onboarding Section */}
-        <section className="space-y-4 mt-8 pt-6 border-t border-border">
-          <h2 className="text-lg font-semibold">Onboarding</h2>
-          <p className="text-sm text-muted-foreground">
-            Access your setup checklist to update or review your configuration steps.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (organization?.id) {
-                localStorage.removeItem(`onboarding-dismissed-${organization.id}`);
-                window.location.reload();
-              }
-            }}
-          >
-            Show Onboarding Checklist
-          </Button>
-        </section>
         </div>
       </div>
     </div>

@@ -609,19 +609,9 @@ export default function Integrations() {
                   Setup Guide
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={() => setShowDiagnostics(!showDiagnostics)}>
-                <Settings2 className="w-4 h-4 mr-2" />
-                Diagnostics
-              </Button>
             </div>
           </div>
         </header>
-
-      {showDiagnostics && (
-        <div className="mb-6">
-          <OAuthDiagnostics onClose={() => setShowDiagnostics(false)} />
-        </div>
-      )}
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => {
         if (!open) {
