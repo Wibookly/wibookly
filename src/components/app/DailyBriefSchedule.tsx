@@ -541,12 +541,12 @@ export function DailyBriefSchedule() {
                           </div>
                         </div>
 
-                        {/* Times */}
+                        {/* Delivery times */}
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="rounded-md border bg-background p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Sun className="w-3.5 h-3.5 text-amber-500" /> Morning
+                                <Sun className="w-3.5 h-3.5 text-amber-500" /> First delivery time
                               </Label>
                               <Switch
                                 checked={s.morningEnabled}
@@ -559,12 +559,15 @@ export function DailyBriefSchedule() {
                                 onChange={(t) => updateSchedule(s.id, { morningTime: t })}
                                 disabled={!s.morningEnabled}
                               />
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {getBriefToneHint(s.morningTime)}
+                              </p>
                             </div>
                           </div>
                           <div className="rounded-md border bg-background p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Evening
+                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Second delivery time
                               </Label>
                               <Switch
                                 checked={s.eveningEnabled}
@@ -577,8 +580,15 @@ export function DailyBriefSchedule() {
                                 onChange={(t) => updateSchedule(s.id, { eveningTime: t })}
                                 disabled={!s.eveningEnabled}
                               />
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {getBriefToneHint(s.eveningTime)}
+                              </p>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                          The selected time decides the tone automatically: times before <span className="font-medium text-foreground">12:00 PM</span> send a <span className="font-medium text-foreground">Good morning</span> brief, and times from <span className="font-medium text-foreground">12:00 PM onward</span> send a <span className="font-medium text-foreground">Good evening</span> recap.
                         </div>
 
                         <div className="flex justify-end gap-2">
