@@ -1666,12 +1666,14 @@ export type Database = {
           id: string
           microsoft_auto_connect: boolean
           mobile: string | null
+          onboarding_completed_at: string | null
           organization_id: string
           phone: string | null
           profile_photo_url: string | null
           requires_outlook_connect: boolean
           responsibilities: string | null
           role_description: string | null
+          show_help_icons: boolean
           signature_color: string | null
           signature_font: string | null
           signature_logo_url: string | null
@@ -1692,12 +1694,14 @@ export type Database = {
           id?: string
           microsoft_auto_connect?: boolean
           mobile?: string | null
+          onboarding_completed_at?: string | null
           organization_id: string
           phone?: string | null
           profile_photo_url?: string | null
           requires_outlook_connect?: boolean
           responsibilities?: string | null
           role_description?: string | null
+          show_help_icons?: boolean
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
@@ -1718,12 +1722,14 @@ export type Database = {
           id?: string
           microsoft_auto_connect?: boolean
           mobile?: string | null
+          onboarding_completed_at?: string | null
           organization_id?: string
           phone?: string | null
           profile_photo_url?: string | null
           requires_outlook_connect?: boolean
           responsibilities?: string | null
           role_description?: string | null
+          show_help_icons?: boolean
           signature_color?: string | null
           signature_font?: string | null
           signature_logo_url?: string | null
