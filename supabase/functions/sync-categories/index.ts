@@ -943,6 +943,36 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
       (folders ?? []).filter((f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore);
 
     let canonical = matches.find((f) => f.displayName === folderName) ?? null;
+
+    // If we already have a folder with the same core name but a different
+    // displayName (e.g. user reordered categories so prefix changed from
+    // "01: 🟡 Approvals" → "02: 🟡 Approvals"), RENAME it in place via PATCH
+    // instead of creating a new folder + deleting the old one. This preserves
+    // the folder ID, the messages inside, and any Outlook rules pointing at it.
+    if (!canonical && matches.length > 0) {
+      const renameTarget = matches[0];
+      const patchRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/${renameTarget.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ displayName: folderName }),
+        },
+      );
+      if (patchRes.ok) {
+        canonical = await patchRes.json();
+        console.log(`Renamed Outlook folder "${renameTarget.displayName}" → "${folderName}"`);
+      } else {
+        console.warn(
+          `Failed to rename Outlook folder "${renameTarget.displayName}" → "${folderName}":`,
+          await patchRes.text(),
+        );
+      }
+    }
+
     if (!canonical) {
       const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
         method: 'POST',
@@ -962,7 +992,8 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
       console.log(`Created Outlook folder: ${folderName}`);
     }
 
-    const toDelete = matches.filter((f) => f.displayName !== folderName);
+    // Any leftover duplicates (rare): merge their messages into canonical and delete.
+    const toDelete = matches.filter((f) => f.id !== canonical?.id && f.displayName !== folderName);
     for (const dup of toDelete) {
       console.log(`Deduplicating Outlook folder "${dup.displayName}" into "${folderName}"`);
       try {
@@ -975,11 +1006,6 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
       await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${dup.id}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` }
       }).catch(() => null);
-    }
-
-    if (matches.some((f) => f.displayName === folderName)) {
-      console.log(`Outlook folder "${folderName}" already exists`);
-      return true;
     }
 
     return true;
