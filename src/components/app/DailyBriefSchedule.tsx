@@ -232,17 +232,20 @@ export function DailyBriefSchedule() {
 
   const addSchedule = (preset?: { days: number[]; name: string }) => {
     const id = genId();
+    const base = {
+      days: preset?.days ?? [1, 2, 3, 4, 5],
+      morningEnabled: true,
+      morningTime: '08:00',
+      eveningEnabled: false,
+      eveningTime: '17:00',
+    };
     setSchedules(prev => [
       ...prev,
       {
         id,
-        name: preset?.name || `Schedule ${prev.length + 1}`,
+        name: autoName(base),
         enabled: true,
-        days: preset?.days ?? [1, 2, 3, 4, 5],
-        morningEnabled: true,
-        morningTime: '08:00',
-        eveningEnabled: false,
-        eveningTime: '17:00',
+        ...base,
       },
     ]);
     setEditingId(id);
