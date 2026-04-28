@@ -11,6 +11,63 @@ const corsHeaders = {
 // category name (e.g. "IQ: Approvals").
 const IQ_TAG_PREFIX = 'IQ: ';
 
+// ──────────────────────────────────────────────────────────────────────
+// Invisible sort-order prefix for Outlook folders.
+//
+// Outlook sorts mail folders alphabetically by displayName and offers no
+// API to set a manual order. To force the folders to appear in the same
+// order as the app's category list, we prepend a short string of
+// zero-width Unicode characters whose codepoints sort in the desired
+// order. The prefix is invisible in every Outlook surface (Desktop, Web,
+// Mobile) but participates in the lexicographic sort.
+//
+// We use a base-N positional encoding (N = ZW_ALPHABET.length) so the
+// scheme scales beyond 10 categories without collisions.
+// ──────────────────────────────────────────────────────────────────────
+const ZW_ALPHABET = [
+  '\u200B', // ZERO WIDTH SPACE
+  '\u200C', // ZERO WIDTH NON-JOINER
+  '\u200D', // ZERO WIDTH JOINER
+  '\u2060', // WORD JOINER
+  '\u2061', // FUNCTION APPLICATION
+  '\u2062', // INVISIBLE TIMES
+  '\u2063', // INVISIBLE SEPARATOR
+  '\u2064', // INVISIBLE PLUS
+  '\u2065', // (reserved, treated as invisible)
+  '\u2066', // LEFT-TO-RIGHT ISOLATE
+];
+// Char-class matching every zero-width / invisible codepoint we may have
+// ever placed at the start of a managed folder/label name. Used to strip
+// the prefix when normalising names for dedup / lookup.
+const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
+
+// Build a stable invisible prefix string for the given 1-based sort
+// position. Always pads to 2 invisible chars so positions sort correctly
+// regardless of how many categories exist.
+function invisibleSortPrefix(position: number): string {
+  const n = Math.max(1, Math.floor(position || 1));
+  const base = ZW_ALPHABET.length;
+  // Convert to base-N digits (most-significant first), pad to width 2.
+  const digits: number[] = [];
+  let v = n - 1; // 0-indexed
+  if (v === 0) {
+    digits.push(0);
+  } else {
+    while (v > 0) {
+      digits.unshift(v % base);
+      v = Math.floor(v / base);
+    }
+  }
+  while (digits.length < 2) digits.unshift(0);
+  return digits.map((d) => ZW_ALPHABET[d]).join('');
+}
+
+// Strip any leading zero-width / invisible chars from an Outlook folder
+// or category displayName so we can match against the clean app name.
+function stripInvisiblePrefix(name: string): string {
+  return String(name || '').replace(ZW_PREFIX_RE, '');
+}
+
 // Returns true if the given Outlook category name was created/managed by
 // InboxIQ (current short prefix or any legacy variant) and should therefore
 // be cleaned up before applying the current single category tag.
@@ -73,6 +130,7 @@ function nearestColorDot(hex: string): string {
 
 function normalizeManagedCategoryName(value: string): string {
   return String(value || '')
+    .replace(ZW_PREFIX_RE, '') // strip invisible sort-order prefix
     .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
     .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
     .trim()
@@ -858,7 +916,8 @@ async function tagOutlookFolderMessages(
   return tagged;
 }
 
-// Look up an Outlook folder ID by displayName (handles numeric prefix variants).
+// Look up an Outlook folder ID by displayName (handles numeric prefix and
+// invisible zero-width sort-prefix variants).
 async function findOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
   try {
     const res = await fetch(
@@ -868,7 +927,12 @@ async function findOutlookFolderId(accessToken: string, folderName: string): Pro
     if (!res.ok) return null;
     const { value: folders } = await res.json();
     const exact = (folders ?? []).find((f: { displayName: string; id: string }) => f.displayName === folderName);
-    return exact?.id ?? null;
+    if (exact?.id) return exact.id;
+    const target = normalizeManagedCategoryName(folderName);
+    const fuzzy = (folders ?? []).find(
+      (f: { displayName: string; id: string }) => normalizeManagedCategoryName(f.displayName) === target,
+    );
+    return fuzzy?.id ?? null;
   } catch {
     return null;
   }
@@ -1021,9 +1085,9 @@ async function enforceOutlookManagedFolderOrder(
 ): Promise<void> {
   if (categories.length === 0) return;
 
-  const desired = categories.map((category) => ({
+  const desired = categories.map((category, idx) => ({
     ...category,
-    folderName: `${nearestColorDot(category.color)} ${category.name}`,
+    folderName: `${invisibleSortPrefix(idx + 1)}${nearestColorDot(category.color)} ${category.name}`,
     coreName: normalizeManagedCategoryName(category.name),
   }));
 
@@ -1271,15 +1335,22 @@ serve(async (req) => {
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
-        for (const category of sortedEnabled) {
+        for (let idx = 0; idx < sortedEnabled.length; idx++) {
+          const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${category.name}`;
+          // Gmail: clean visible name only — Gmail does not auto-sort labels.
+          // Outlook: prepend an INVISIBLE zero-width prefix so the folder
+          // pane sorts in the same order as the app. The prefix is
+          // imperceptible in Outlook Desktop, Web (OWA), and Mobile.
+          const visibleName = `${dot} ${category.name}`;
+          const outlookSortPrefix = invisibleSortPrefix(idx + 1);
+          const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
           let success = false;
-          
+
           if (tokenRecord.provider === 'google') {
-            success = await createGmailLabel(accessToken, labelName, category.color);
+            success = await createGmailLabel(accessToken, visibleName, category.color);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
-            success = await createOutlookFolder(accessToken, labelName);
+            success = await createOutlookFolder(accessToken, outlookFolderName);
             // Also create / refresh the colored Outlook Master Category and
             // retroactively tag every message inside the folder so the
             // color stripe is visible in the Outlook UI today (folders
@@ -1290,11 +1361,11 @@ serve(async (req) => {
             if (success) {
               const categoryTag = `${IQ_TAG_PREFIX}${category.name}`;
               await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
-              const folderId = await findOutlookFolderId(accessToken, labelName);
+              const folderId = await findOutlookFolderId(accessToken, outlookFolderName);
               if (folderId) {
                 const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
                 if (tagged > 0) {
-                  console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
+                  console.log(`Tagged ${tagged} msg(s) in "${visibleName}" with "${categoryTag}"`);
                 }
                 // Best-effort: pin/unpin in Outlook Favorites pane based on
                 // the category's `show_in_favorites` toggle. Graph beta
@@ -1308,7 +1379,7 @@ serve(async (req) => {
                 );
                 if (favPinned) {
                   console.log(
-                    `Outlook Favorites updated for "${labelName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
+                    `Outlook Favorites updated for "${visibleName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
                   );
                 }
               }
