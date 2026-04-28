@@ -608,8 +608,8 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
-    const hasNumericPrefix = (s: string) => /^\s*[⭐★]?\s*\d+\s*[:.\-]/.test(s);
-    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
