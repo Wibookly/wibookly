@@ -326,6 +326,39 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingDisable} onOpenChange={(o) => !o && setPendingDisable(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable Follow-Up Reminder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDisable && (
+                <>
+                  <span className="font-medium text-foreground">{pendingDisable.affectedUsers}</span>
+                  {' '}user{pendingDisable.affectedUsers === 1 ? '' : 's'} will lose access to Follow-Up Reminder.
+                  {' '}
+                  <span className="font-medium text-foreground">{pendingDisable.pendingReminders}</span>
+                  {' '}pending reminder{pendingDisable.pendingReminders === 1 ? '' : 's'} will be paused
+                  (not deleted) and will resume if you re-enable this permission.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!pendingDisable) return;
+                const { groupId } = pendingDisable;
+                setPendingDisable(null);
+                await applyToggle(groupId, 'feature.follow_up_reminder', false);
+              }}
+            >
+              Disable & pause reminders
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
