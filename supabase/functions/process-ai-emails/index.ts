@@ -2210,7 +2210,7 @@ async function getEventsCategoryLabel(supabaseAdmin: any, connectionId: string):
     .maybeSingle();
   
   if (eventsCategory) {
-    return `${String(eventsCategory.sort_order + 1).padStart(2, '0')}: ${eventsCategory.name}`;
+    return `⭐ ${String(eventsCategory.sort_order + 1).padStart(2, '0')}: ${eventsCategory.name}`;
   }
   return null;
 }
@@ -2699,8 +2699,8 @@ async function processConnectionEmails(
             results.draftsCreated++;
             console.log(`Created draft for email ${msg.id}`);
             
-            // Build category label name (e.g., "10: FYI") - padded to 2 digits
-            const categoryLabelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            // Build category label name (e.g., "⭐ 10: FYI") - padded to 2 digits, ⭐ for top-sort
+            const categoryLabelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
             
             // Apply AI Draft label to original email (0. prefix - before categories)
             const aiDraftLabelName = '0. AI Draft';
@@ -2861,8 +2861,8 @@ async function processConnectionEmails(
             results.autoRepliesSent++;
             console.log(`Sent auto-reply for email ${msg.id}`);
             
-            // Build category label name (e.g., "10: FYI") - padded to 2 digits
-            const categoryLabelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            // Build category label name (e.g., "⭐ 10: FYI") - padded to 2 digits, ⭐ for top-sort
+            const categoryLabelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
             
             // Apply AI Sent label to original email (11. prefix - after 10 categories)
             const aiSentLabelName = '11. AI Sent';

@@ -33,8 +33,9 @@ function isManagedCategoryName(name: string): boolean {
   // AI Draft / AI Sent helper tags — never expose these in Outlook.
   if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
   if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
-  // Numbered category mirrors like "02: Follow Up" or "10: FYI".
-  if (/^\d{1,2}:\s/.test(n)) return true;
+  // Numbered category mirrors like "02: Follow Up", "10: FYI", or the
+  // current "⭐ 02: Follow Up" favorite-prefixed variant.
+  if (/^\s*[⭐★]?\s*\d{1,2}:\s/.test(n)) return true;
   return false;
 }
 
@@ -573,8 +574,10 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     if (!listRes.ok) return false;
 
     const { value: folders } = await listRes.json();
-    const hasNumericPrefix = (s: string) => /^\s*\d+\s*[:.\-]/.test(s);
-    const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
+    // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
+    const hasNumericPrefix = (s: string) => /^\s*[⭐★]?\s*\d+\s*[:.\-]/.test(s);
+    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
@@ -834,7 +837,7 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
-    const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     const matches: Array<{ id: string; displayName: string }> =
@@ -1042,9 +1045,12 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with zero-padded number prefix based on actual sort_order (1-indexed)
-          // Format: "01: Name" so alphabetical sorting matches numeric order (01..09, 10, 11)
-          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          // Create label/folder name with a leading ⭐ glyph + zero-padded
+          // number prefix. The ⭐ sorts above letters and digits in Outlook
+          // and Gmail, mimicking the "Favorites" pinned look at the top of
+          // the folder list. Format: "⭐ 01: Name" so alphanumeric sorting
+          // still matches numeric order (01..09, 10, 11) within the group.
+          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
@@ -1105,7 +1111,7 @@ serve(async (req) => {
         // and land in the Inbox instead. Existing messages are moved back
         // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
-          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
 
           if (tokenRecord.provider === 'google') {
