@@ -71,6 +71,14 @@ function nearestColorDot(hex: string): string {
   return best.dot;
 }
 
+function normalizeManagedCategoryName(value: string): string {
+  return String(value || '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -399,7 +407,8 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     if (!listRes.ok) return false;
     
     const { labels } = await listRes.json();
-    const label = labels?.find((l: { name: string }) => l.name === labelName);
+    const targetCore = normalizeManagedCategoryName(labelName);
+    const label = labels?.find((l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore);
     
     if (!label) {
       console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
@@ -567,7 +576,7 @@ async function deleteOutlookRulesForLabel(accessToken: string, labelName: string
     const { value } = await listRes.json();
     let deleted = 0;
     const labelLower = labelName.toLowerCase();
-    const baseLower = labelName.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const baseLower = normalizeManagedCategoryName(labelName);
     for (const r of value || []) {
       const name = String(r.displayName || '');
       const nameLower = name.toLowerCase();
@@ -609,7 +618,7 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
     const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
-    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
@@ -915,7 +924,7 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
-    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
     const matches: Array<{ id: string; displayName: string }> =
