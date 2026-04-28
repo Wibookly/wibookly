@@ -429,12 +429,8 @@ export default function EmailDraft() {
     aiSettings.format_style;
 
   const targetCategory = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
-  const headerTitle = showLabelsTab
-    ? "AI Label Colors"
-    : "AI Draft / Auto Reply Settings";
-  const headerSubtitle = showLabelsTab
-    ? "Customize colors for AI-processed email labels in your inbox"
-    : "Configure one global default for all categories — or override settings for a specific category";
+  const headerTitle = "AI Draft / Auto Reply Settings";
+  const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Customize AI label colors at the bottom of the page.";
 
   return (
     <div className="min-h-full p-4 lg:p-6">
