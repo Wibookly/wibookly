@@ -1001,7 +1001,7 @@ export default function Categories() {
                     className="w-4 h-4 rounded-full"
                     style={{ backgroundColor: category.color }}
                   />
-                  <span className="font-medium">{displayIndex + 1}: {category.name}</span>
+                  <span className="font-medium">{category.name}</span>
                   <span className="text-sm text-muted-foreground">
                     ({categoryRules.length} rule{categoryRules.length !== 1 ? 's' : ''})
                   </span>
