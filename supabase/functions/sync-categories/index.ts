@@ -1045,9 +1045,12 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with zero-padded number prefix based on actual sort_order (1-indexed)
-          // Format: "01: Name" so alphabetical sorting matches numeric order (01..09, 10, 11)
-          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          // Create label/folder name with a leading ⭐ glyph + zero-padded
+          // number prefix. The ⭐ sorts above letters and digits in Outlook
+          // and Gmail, mimicking the "Favorites" pinned look at the top of
+          // the folder list. Format: "⭐ 01: Name" so alphanumeric sorting
+          // still matches numeric order (01..09, 10, 11) within the group.
+          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
