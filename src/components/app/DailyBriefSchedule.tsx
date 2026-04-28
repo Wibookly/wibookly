@@ -341,7 +341,7 @@ export function DailyBriefSchedule() {
           .insert(rows as never);
         if (error) throw error;
       }
-      toast.success('Daily Brief schedule saved');
+      if (!opts?.silent) toast.success('Daily Brief schedule saved');
     } catch (e) {
       console.error(e);
       toast.error('Failed to save schedule');
