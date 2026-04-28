@@ -414,11 +414,31 @@ serve(async (req) => {
         }
       }
 
+      // Fetch pending follow-ups awaiting reply for this connection
+      let pendingFollowUps: any[] = [];
+      try {
+        const { data: fups } = await supabase
+          .from("follow_up_trackers")
+          .select("id, subject, to_recipients, sent_at, due_at, reminder_count, status")
+          .eq("connection_id", s.connection_id || "")
+          .is("replied_at", null)
+          .in("status", ["pending", "drafted", "reminded"])
+          .order("due_at", { ascending: true })
+          .limit(15);
+        pendingFollowUps = fups || [];
+      } catch (e) {
+        console.warn("follow_up_trackers fetch failed", e);
+      }
+
+      const dateLabel = new Date().toLocaleDateString("en-US", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: tz,
+      });
+
       const subject =
         (requestedBriefType || s.brief_type) === "morning"
           ? `☀️ Your Morning Brief — ${nw.date}`
           : `🌙 Your End-of-Day Recap — ${nw.date}`;
-      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient);
+      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
 
       try {
         await sendGraphEmail(token, fromUserId, recipient, subject, html);
