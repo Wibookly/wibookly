@@ -1168,22 +1168,16 @@ serve(async (req) => {
         let deleted = 0;
         let failed = 0;
 
-        // Create labels/folders for enabled categories.
-        // We sort enabled categories by their dashboard sort_order and prefix
-        // each folder with a zero-padded 2-digit index (e.g. "01: ", "02: ").
-        // Outlook / Gmail sort folders alphabetically, so this guarantees the
-        // mailbox order matches exactly what the user sees in InboxIQ. When
-        // the user reorders / drags categories in the dashboard the next sync
-        // renames the folders in place (see createOutlookFolder rename path)
-        // so messages and folder IDs are preserved.
+        // Create labels/folders for enabled categories using the plain visible
+        // name plus the color dot. Number prefixes are legacy and must not be
+        // recreated because the user wants the mailbox folders shown without
+        // leading order numbers.
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
-        for (let idx = 0; idx < sortedEnabled.length; idx++) {
-          const category = sortedEnabled[idx];
+        for (const category of sortedEnabled) {
           const dot = nearestColorDot(category.color);
-          const prefix = String(idx + 1).padStart(2, '0');
-          const labelName = `${prefix}: ${dot} ${category.name}`;
+          const labelName = `${dot} ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
@@ -1312,10 +1306,9 @@ serve(async (req) => {
           }
         }
 
-        // FINAL SWEEP — single-digit legacy duplicates ("1: Urgent" .. "9: Finance")
-        // The canonical folder names always use zero-padded prefixes ("01:" .. "10:"),
-        // so any folder whose displayName starts with a single digit followed by ":" is
-        // by definition a duplicate left behind from older versions. Delete unconditionally.
+        // FINAL SWEEP — numbered legacy duplicates.
+        // Canonical folder names no longer include any numeric prefix, so any
+        // managed folder whose name starts with digits is stale and should be removed.
         // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
         // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
         if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
@@ -1327,10 +1320,10 @@ serve(async (req) => {
             if (listRes.ok) {
               const { value: folders } = await listRes.json();
               const legacy = (folders ?? []).filter((f: { displayName: string }) =>
-                /^\s*\d\s*[:.\-]/.test(f.displayName)   // single digit prefix
+                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(f.displayName)
               );
               for (const f of legacy as Array<{ id: string; displayName: string }>) {
-                console.log(`Cleaning legacy single-digit folder: ${f.displayName}`);
+                console.log(`Cleaning legacy numbered folder: ${f.displayName}`);
                 try {
                   await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
                 } catch (e) {
@@ -1353,7 +1346,7 @@ serve(async (req) => {
             if (listRes.ok) {
               const { labels } = await listRes.json();
               const legacy = (labels ?? []).filter((l: { name: string }) =>
-                /^\s*\d\s*[:.\-]/.test(l.name)
+                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(l.name)
               );
               for (const l of legacy as Array<{ name: string }>) {
                 console.log(`Cleaning legacy single-digit label: ${l.name}`);
