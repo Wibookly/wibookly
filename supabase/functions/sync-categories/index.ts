@@ -1343,6 +1343,17 @@ serve(async (req) => {
           }
         }
 
+        if ((tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') && sortedEnabled.length > 0) {
+          await enforceOutlookManagedFolderOrder(
+            accessToken,
+            sortedEnabled.map((category) => ({
+              name: category.name,
+              color: category.color,
+              show_in_favorites: category.show_in_favorites,
+            })),
+          );
+        }
+
         // Delete labels/folders for disabled categories AND remove the
         // server-side Outlook rules that were routing email into them, so
         // newly-arriving messages stop being filed under a disabled category
