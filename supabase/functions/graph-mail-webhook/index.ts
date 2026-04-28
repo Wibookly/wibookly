@@ -144,35 +144,9 @@ function formatThreadForPrompt(thread: ThreadMsg[], currentMessageId: string, cu
   return lines.join('\n');
 }
 
-type AdminAIPrefs = {
-  openai: string | null;
-  claude: string | null;
-  preference: 'auto' | 'openai' | 'claude';
-  openaiModel: string;
-  claudeModel: string;
-  enableWebSearch: boolean;
-};
+// (Legacy admin-UI key loader removed — Phase 1 router uses env vars
+//  ANTHROPIC_API_KEY / OPENAI_API_KEY / LOVABLE_API_KEY directly.)
 
-async function loadAIPrefs(): Promise<AdminAIPrefs> {
-  const { data } = await supabase
-    .from('api_key_config')
-    .select('key_name, encrypted_value')
-    .in('key_name', [
-      'openai_api_key', 'claude_api_key',
-      'ai_provider_preference', 'ai_openai_model', 'ai_claude_model', 'ai_enable_web_search',
-    ]);
-  const map: Record<string, string> = {};
-  (data ?? []).forEach((r: any) => { map[r.key_name] = (r.encrypted_value || '').trim(); });
-  const pref = (map['ai_provider_preference'] || 'auto').toLowerCase();
-  return {
-    openai: map['openai_api_key'] || null,
-    claude: map['claude_api_key'] || null,
-    preference: (pref === 'openai' || pref === 'claude') ? pref : 'auto',
-    openaiModel: map['ai_openai_model'] || 'gpt-4o-mini',
-    claudeModel: map['ai_claude_model'] || 'claude-3-5-sonnet-latest',
-    enableWebSearch: (map['ai_enable_web_search'] || 'true') !== 'false',
-  };
-}
 
 // ──────────────────────────────────────────────────────────────────
 // Tiered model router
