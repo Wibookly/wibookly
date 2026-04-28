@@ -15,6 +15,7 @@ import {
 import { Loader2, Plus, Trash2, ShieldCheck, Users as UsersIcon, Globe, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft' },
@@ -230,7 +231,7 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Plus className="w-5 h-5" /> Create Permission Group</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Plus className="w-5 h-5" /> Create Permission Group <HelpDot articleId="admin-groups" label="How permission groups work — open the step-by-step guide." /></CardTitle>
           <CardDescription>
             Bundle features together (e.g. Standard, Power User, Executive) and scope each group to a specific
             authorized domain — or leave it global to apply across all domains. Global groups can be tweaked
@@ -273,7 +274,7 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle>Groups</CardTitle>
+              <CardTitle className="flex items-center gap-2">Groups <HelpDot articleId="admin-groups" label="What can I toggle here? Open the guide." /></CardTitle>
               <CardDescription>
                 Toggle which features each group grants. For global groups, switch the "Configure for"
                 dropdown to a specific domain to override the defaults just for that domain.
