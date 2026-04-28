@@ -21,6 +21,7 @@ import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar,
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
+import { HelpTip } from '@/components/help/HelpTip';
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {
@@ -708,7 +709,7 @@ export default function Settings() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-xs">Full Name</Label>
+                <Label htmlFor="fullName" className="text-xs inline-flex items-center gap-1">Full Name <HelpTip id="profile.fullName" /></Label>
                 <Input id="fullName" value={fullName} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
@@ -751,7 +752,7 @@ export default function Settings() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="title" className="text-xs">Title <span className="text-primary">(used in signature)</span></Label>
+              <Label htmlFor="title" className="text-xs inline-flex items-center gap-1">Title <span className="text-primary">(used in signature)</span> <HelpTip id="profile.title" /></Label>
               <Input
                 id="title"
                 value={title}
@@ -789,7 +790,7 @@ export default function Settings() {
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-border">
             <div>
-              <h2 className="text-lg font-semibold">Email Signature</h2>
+              <h2 className="text-lg font-semibold inline-flex items-center gap-1">Email Signature <HelpTip id="profile.signaturePreview" /></h2>
               <p className="text-sm text-muted-foreground">
                 Turn the signature on or off. Editable fields above + the options below build your final signature.
               </p>
@@ -916,7 +917,7 @@ export default function Settings() {
                 {/* Profile Photo Upload */}
                 <div className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
-                    <Label>Profile Photo (Optional)</Label>
+                    <Label className="inline-flex items-center gap-1">Profile Photo (Optional) <HelpTip id="profile.photo" /></Label>
                     <div className="flex items-center gap-2">
                       <Label htmlFor="showProfilePhoto" className="text-xs font-normal text-muted-foreground">
                         Show in signature

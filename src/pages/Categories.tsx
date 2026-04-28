@@ -47,6 +47,7 @@ const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
   { name: 'Dark Cranberry', hex: '#AD1457' },
 ];
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
+import { HelpTip } from '@/components/help/HelpTip';
 import {
   Table,
   TableBody,
@@ -1039,11 +1040,11 @@ export default function Categories() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
-              <TableHead className="w-16">Color</TableHead>
-              <TableHead className="w-48">Category Name</TableHead>
+              <TableHead className="w-16"><span className="inline-flex items-center gap-1">Color <HelpTip id="category.color" /></span></TableHead>
+              <TableHead className="w-48"><span className="inline-flex items-center gap-1">Category Name <HelpTip id="category.name" /></span></TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
-              <TableHead className="w-24 text-center">Active</TableHead>
-              <TableHead className="w-24 text-center">AI Draft</TableHead>
+              <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">Active <HelpTip id="category.enabled" /></span></TableHead>
+              <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">AI Draft <HelpTip id="category.aiDrafts" /></span></TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
             </TableRow>
@@ -1076,7 +1077,7 @@ export default function Categories() {
       {/* Rules Section */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Rules</h2>
+          <h2 className="text-xl font-semibold tracking-tight inline-flex items-center gap-2">Rules <HelpTip id="rule.conditions" /></h2>
           <p className="mt-1 text-muted-foreground">
             Create rules to automatically categorize emails by sender, domain, or keyword
           </p>

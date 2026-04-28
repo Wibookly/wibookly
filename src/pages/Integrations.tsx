@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { OAuthDiagnostics } from '@/components/integrations/OAuthDiagnostics';
 import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErrorScreen';
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
+import { HelpTip } from '@/components/help/HelpTip';
 
 interface Connection {
   id: string;
@@ -696,7 +697,7 @@ export default function Integrations() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <Clock className="w-5 h-5 text-emerald-500" />
-              <h2 className="text-lg font-semibold">Availability Hours</h2>
+              <h2 className="text-lg font-semibold inline-flex items-center gap-2">Availability Hours <HelpTip id="integration.workingHours" /></h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Set your available hours for events and appointments. AI will only schedule events within these time slots.
@@ -797,7 +798,7 @@ export default function Integrations() {
               <div className="space-y-4 p-4 bg-card rounded-lg border border-border">
                 <div className="flex items-center gap-4">
                   <div className="flex-1 space-y-2">
-                    <Label htmlFor="meetingDuration">Event Duration</Label>
+                    <Label htmlFor="meetingDuration" className="inline-flex items-center gap-1">Event Duration <HelpTip id="integration.meetingDuration" /></Label>
                     <p className="text-xs text-muted-foreground">
                       Applied to all events scheduled by AI from email requests
                     </p>
