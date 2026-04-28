@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import AIChat from "./pages/AIChat";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
+import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 
@@ -70,6 +71,11 @@ const App = () => (
                   <Route path="/ai-daily-brief" element={
                     <FeatureRoute featureKeys={['daily_brief', 'ai_assistant']}>
                       <AIDailyBrief />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/follow-up-reminder" element={
+                    <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
+                      <FollowUpReminder />
                     </FeatureRoute>
                   } />
                   <Route path="/admin" element={<AdminDashboard />} />
