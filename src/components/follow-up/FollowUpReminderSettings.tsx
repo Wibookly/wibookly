@@ -516,8 +516,9 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-muted-foreground">
-          Auto-runs every 15 minutes. <strong>Auto Draft</strong> and <strong>Auto Reply</strong>
-          fire within 15 minutes of a follow-up's due date.
+          Background scan runs every 15 min. <strong>Auto Draft</strong>, <strong>Auto Reply</strong>,
+          and the daily auto-audit only fire during your business hours
+          {settings.timezone ? <> ({settings.timezone})</> : null}.
         </p>
         <Button variant="outline" onClick={runScan} disabled={running}>
           {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
