@@ -34,14 +34,25 @@ import { RESTART_SETUP_WIZARD_EVENT } from './events';
 interface HelpPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Optional article id to deep-link to when the panel opens. */
+  initialArticleId?: string | null;
 }
 
-export function HelpPanel({ open, onOpenChange }: HelpPanelProps) {
+export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<HelpCategoryId | null>(null);
+
+  // Deep-link to a specific article when requested.
+  useEffect(() => {
+    if (open && initialArticleId) {
+      setActiveArticleId(initialArticleId);
+      setActiveCategory(null);
+      setQuery('');
+    }
+  }, [open, initialArticleId]);
 
   // Reset internal state when the panel closes
   useEffect(() => {
