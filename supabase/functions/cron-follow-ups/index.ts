@@ -317,7 +317,7 @@ function pickActionMode(s: FollowUpSettings): 'auto_reply' | 'auto_draft' | 'lab
   return 'label_only';
 }
 
-async function processDueTrackers(conn: Connection, token: string, myEmail: string | null, settings: FollowUpSettings) {
+async function processDueTrackers(conn: Connection, token: string, myEmail: string | null, settings: FollowUpSettings, effectiveTz: string) {
   // Fetch all tracker rows that are pending (we'll cancel early replies and act on overdue)
   const { data: trackers } = await supabase
     .from('follow_up_trackers')
@@ -331,7 +331,12 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
 
   let drafted = 0, replied = 0, autoSent = 0, labeled = 0;
   let folderId: string | null = conn.inbox_followup_folder_id;
-  const mode = pickActionMode(settings);
+  // Outside business hours we still label/move emails into the Follow Up
+  // category, but we DO NOT draft or auto-send. The next run inside business
+  // hours will pick up these trackers and produce the draft/send.
+  const inHours = isWithinBusinessHours(settings, effectiveTz);
+  const requestedMode = pickActionMode(settings);
+  const mode = inHours ? requestedMode : 'label_only';
 
   for (const t of trackers as any[]) {
     const recips = [
