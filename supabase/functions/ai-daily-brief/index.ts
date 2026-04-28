@@ -391,7 +391,9 @@ serve(async (req) => {
       });
     }
 
-    const { connectionId } = await req.json();
+    const { connectionId, briefType: briefTypeRaw } = await req.json();
+    const briefType: "morning" | "evening" =
+      briefTypeRaw === "evening" ? "evening" : "morning";
     
     // Get connection details
     const { data: connection } = await supabase
