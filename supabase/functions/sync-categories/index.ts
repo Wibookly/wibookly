@@ -836,7 +836,7 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
-    const stripPrefix = (s: string) => s.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => s.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
     const targetCore = stripPrefix(folderName);
 
     const matches: Array<{ id: string; displayName: string }> =
