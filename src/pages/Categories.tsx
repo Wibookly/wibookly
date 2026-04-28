@@ -240,6 +240,7 @@ export default function Categories() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
