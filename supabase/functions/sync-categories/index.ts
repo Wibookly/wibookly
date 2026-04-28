@@ -1152,6 +1152,21 @@ serve(async (req) => {
                 if (tagged > 0) {
                   console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
                 }
+                // Best-effort: pin/unpin in Outlook Favorites pane based on
+                // the category's `show_in_favorites` toggle. Graph beta
+                // accepts isFavorite on some tenants; on others it silently
+                // no-ops and the user must drag the folder to Favorites
+                // manually (the UI tooltip already explains this).
+                const favPinned = await setOutlookFolderFavorite(
+                  accessToken,
+                  folderId,
+                  Boolean(category.show_in_favorites),
+                );
+                if (favPinned) {
+                  console.log(
+                    `Outlook Favorites updated for "${labelName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
+                  );
+                }
               }
               // Clean up legacy master-category variants for this same
               // category name (long "InboxIQ:" prefix, the old "★ " favorite
