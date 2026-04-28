@@ -34,9 +34,41 @@ function isManagedCategoryName(name: string): boolean {
   if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
   if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
   // Numbered category mirrors like "02: Follow Up", "10: FYI", or the
-  // current "⭐ 02: Follow Up" favorite-prefixed variant.
-  if (/^\s*[⭐★]?\s*\d{1,2}:\s/.test(n)) return true;
+  // current "⭐ 02: Follow Up" / "🔴 02: Follow Up" prefixed variants.
+  if (/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d{1,2}:\s/u.test(n)) return true;
   return false;
+}
+
+// Map a hex color to the nearest colored Unicode dot — used to prefix folder
+// names so each category shows its color even on Outlook Web / Mac, where the
+// PowerShell setup script can't run.
+const COLOR_DOTS_SYNC: { dot: string; hex: string }[] = [
+  { dot: "🔴", hex: "#E81123" },
+  { dot: "🟠", hex: "#F7630C" },
+  { dot: "🟡", hex: "#FFB900" },
+  { dot: "🟢", hex: "#107C10" },
+  { dot: "🔵", hex: "#0078D4" },
+  { dot: "🟣", hex: "#5C2D91" },
+  { dot: "🟤", hex: "#A4262C" },
+  { dot: "⚫", hex: "#000000" },
+  { dot: "⚪", hex: "#737373" },
+];
+function nearestColorDot(hex: string): string {
+  const h = (hex || "#737373").replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = COLOR_DOTS_SYNC[0];
+  let bestDist = Infinity;
+  for (const c of COLOR_DOTS_SYNC) {
+    const ch = c.hex.replace("#", "");
+    const cr = parseInt(ch.slice(0, 2), 16);
+    const cg = parseInt(ch.slice(2, 4), 16);
+    const cb = parseInt(ch.slice(4, 6), 16);
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best.dot;
 }
 
 // AES-GCM decryption for tokens (server-side only)
