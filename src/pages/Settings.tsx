@@ -655,6 +655,9 @@ export default function Settings() {
                     ...prev,
                     company: p.company || prev.company,
                     department: p.department || prev.department,
+                    business_phone: p.phone || prev.business_phone,
+                    mobile_phone: p.mobile || prev.mobile_phone,
+                    profile_title: p.title || prev.profile_title,
                   }));
                   setSignatureFields(prev => ({
                     ...prev,
