@@ -1116,32 +1116,13 @@ CEO, Company Name
         )}
 
 
-        <div className="flex justify-end">
-          <Button onClick={saveSettings} disabled={saving}>
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            <Save className="w-4 h-4 mr-2" />
-            Save Settings
-          </Button>
-        </div>
+        {saving && (
+          <div className="flex justify-end text-xs text-muted-foreground">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Auto-saving…
+          </div>
+        )}
 
-        {/* Show Onboarding Section */}
-        <section className="space-y-4 mt-8 pt-6 border-t border-border">
-          <h2 className="text-lg font-semibold">Onboarding</h2>
-          <p className="text-sm text-muted-foreground">
-            Access your setup checklist to update or review your configuration steps.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (organization?.id) {
-                localStorage.removeItem(`onboarding-dismissed-${organization.id}`);
-                window.location.reload();
-              }
-            }}
-          >
-            Show Onboarding Checklist
-          </Button>
-        </section>
         </div>
       </div>
     </div>
