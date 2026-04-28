@@ -2302,7 +2302,7 @@ async function processConnectionEmails(
   // Get categories with AI draft or auto-reply enabled for this connection
   let categoriesQuery = supabaseAdmin
     .from('categories')
-    .select('id, name, writing_style, ai_draft_enabled, auto_reply_enabled, sort_order, format_style, additional_context, example_reply_template')
+    .select('id, name, color, writing_style, ai_draft_enabled, auto_reply_enabled, sort_order, format_style, additional_context, example_reply_template')
     .eq('organization_id', organizationId)
     .eq('connection_id', connectionId)
     .eq('is_enabled', true)
