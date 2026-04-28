@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,7 @@ const SETTINGS_SECTIONS = [
 export default function Settings() {
   const { organization, profile } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
@@ -295,7 +297,7 @@ export default function Settings() {
         phone: data.phone || '',
         mobile: data.mobile || '',
         website: data.website || '',
-        signatureLogoUrl: data.signature_logo_url || '',
+        signatureLogoUrl: data.signature_logo_url || orgLogoUrl || '',
         // Prefer the per-account override; fall back to the M365 photo we
         // pulled into the user profile so signatures default to the same
         // image the rest of the app shows.
@@ -318,7 +320,7 @@ export default function Settings() {
         phone: (profileData?.phone as string) || '',
         mobile: (profileData?.mobile as string) || '',
         website: (profileData?.website as string) || '',
-        signatureLogoUrl: (profileData?.signature_logo_url as string) || '',
+        signatureLogoUrl: (profileData?.signature_logo_url as string) || orgLogoUrl || '',
         profilePhotoUrl: ((profile as unknown as { profile_photo_url?: string | null })?.profile_photo_url ?? '') || '',
         showProfilePhoto: false,
         showCompanyLogo: true,
