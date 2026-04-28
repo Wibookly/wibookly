@@ -36,10 +36,14 @@ export function AppLayout() {
       <AppSidebar />
       
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="hidden lg:block">
-          <AppHeader />
-        </div>
-        <main className="flex-1 overflow-auto" style={{ background: 'var(--gradient-hero)' }}>
+        <main className="flex-1 overflow-auto relative" style={{ background: 'var(--gradient-hero)' }}>
+          {orgLogoUrl ? (
+            <img
+              src={orgLogoUrl}
+              alt={organization?.name || 'Company logo'}
+              className="hidden lg:block absolute top-3 left-6 max-h-10 w-auto object-contain mix-blend-multiply opacity-90 pointer-events-none z-10"
+            />
+          ) : null}
           <Outlet />
         </main>
       </div>
