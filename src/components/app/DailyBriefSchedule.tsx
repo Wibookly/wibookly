@@ -290,7 +290,7 @@ export function DailyBriefSchedule() {
     if (editingId === id) setEditingId(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts?: { silent?: boolean }) => {
     if (!profile?.user_id || !organization?.id) return;
     setSaving(true);
     try {
