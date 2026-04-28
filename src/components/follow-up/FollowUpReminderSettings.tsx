@@ -310,9 +310,83 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
+      {/* Manual inbox audit */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="w-4 h-4 text-primary" /> Inbox audit
+          </CardTitle>
+          <CardDescription>
+            Scan your <strong>Sent Items</strong> over a date range and flag every email
+            that hasn't received a reply. Flagged emails are copied into your Outlook
+            <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">Follow-up</code>
+            folder and surfaced in the InboxIQ <strong>Follow Up</strong> category. No
+            drafts are written and nothing is sent — pure audit for your review.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-3 gap-3 items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-from">From</Label>
+              <Input id="audit-from" type="date" value={auditFrom} max={auditTo}
+                onChange={(e) => setAuditFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-to">To</Label>
+              <Input id="audit-to" type="date" value={auditTo} min={auditFrom} max={todayIso()}
+                onChange={(e) => setAuditTo(e.target.value)} />
+            </div>
+            <Button onClick={runAudit} disabled={auditing}>
+              {auditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+              {auditing ? 'Auditing…' : 'Audit now'}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[7, 30, 90].map((d) => (
+              <Button key={d} variant="ghost" size="sm" onClick={() => { setAuditFrom(isoDaysAgo(d)); setAuditTo(todayIso()); }}>
+                Last {d} days
+              </Button>
+            ))}
+          </div>
+
+          <div className="rounded-lg border p-3 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2 rounded-md bg-secondary/60 text-foreground/80 mt-0.5">
+                <CalendarClock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm">Auto-audit every 24 hours</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Each day, InboxIQ scans the previous 24 hours of Sent Items and
+                  flags anything that hasn't been replied to.
+                </div>
+              </div>
+            </div>
+            <Switch
+              checked={settings.daily_audit_enabled}
+              disabled={saving}
+              onCheckedChange={(v) => patch({ daily_audit_enabled: v })}
+            />
+          </div>
+
+          {settings.last_audit_at ? (
+            <div className="text-xs text-muted-foreground">
+              Last audit: {new Date(settings.last_audit_at).toLocaleString()}
+              {settings.last_audit_summary ? (
+                <> — scanned <strong>{settings.last_audit_summary.scanned ?? 0}</strong>,
+                  flagged <strong>{settings.last_audit_summary.flagged ?? 0}</strong>,
+                  already replied <strong>{settings.last_audit_summary.already_replied ?? 0}</strong>
+                  {settings.last_audit_summary.mode === 'daily_cron' ? ' (auto)' : ''}</>
+              ) : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-muted-foreground">
-          Auto-runs every 15 minutes. Replies are auto-detected and trackers cancel themselves.
+          Auto-runs every 15 minutes. <strong>Auto Draft</strong> and <strong>Auto Reply</strong>
+          fire within 15 minutes of a follow-up's due date.
         </p>
         <Button variant="outline" onClick={runScan} disabled={running}>
           {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
