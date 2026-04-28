@@ -128,11 +128,11 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
-      <div className="px-4 py-6 border-b border-border flex flex-col items-center justify-center gap-3">
+      <div className="px-4 py-4 border-b border-border flex items-center justify-center gap-3">
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-40 w-auto object-contain"
+          className="h-12 w-auto object-contain shrink-0 -my-2"
         />
         <InboxIQLogo className="text-2xl" />
       </div>
