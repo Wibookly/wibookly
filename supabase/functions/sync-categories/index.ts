@@ -1181,107 +1181,78 @@ async function enforceOutlookManagedFolderOrder(
     coreName: normalizeManagedCategoryName(category.name),
   }));
 
-  // Always clean up any leftover temp folders from prior interrupted runs first.
+  // Outlook already sorts folders alphabetically by displayName, so the
+  // invisible prefix on each managed folder is the true source of order.
+  // Rebuilding folders through temporary "InboxIQ reorder ..." folders made
+  // the sync path fragile and could leave visible leftovers if Outlook or
+  // Graph lagged. Instead, we now do a non-destructive stabilization pass:
+  // clean up any old temp folders, ensure each canonical folder name exists,
+  // merge duplicates, and leave the existing folder IDs/messages intact.
   await cleanupOrphanedReorderFolders(accessToken, desired);
 
-  const listRes = await fetch(
-    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-
-  if (!listRes.ok) {
-    console.warn('Unable to inspect Outlook folders for ordering:', await listRes.text());
+  let folders = await listOutlookFolders(accessToken);
+  if (folders.length === 0) {
+    console.warn('Unable to inspect Outlook folders for stabilization.');
     return;
   }
 
-  const { value: folders } = await listRes.json();
-  const desiredNames = new Set(desired.map((item) => item.coreName));
-  const currentManagedFolders = (folders ?? []).filter((folder: { id: string; displayName: string }) =>
-    desiredNames.has(normalizeManagedCategoryName(folder.displayName)),
-  );
+  console.log(`Stabilizing Outlook folder names/order: ${desired.map((item) => item.folderName).join(' -> ')}`);
 
-  const currentOrder = currentManagedFolders.map((folder: { displayName: string }) =>
-    normalizeManagedCategoryName(folder.displayName),
-  );
-  const desiredOrder = desired.map((item) => item.coreName);
-
-  if (
-    currentOrder.length === desiredOrder.length &&
-    currentOrder.every((name, index) => name === desiredOrder[index])
-  ) {
-    return;
-  }
-
-  console.log(`Rebuilding Outlook folder order to match app: ${desired.map((item) => item.folderName).join(' -> ')}`);
-
-  for (const item of [...desired].reverse()) {
-    const existingMatches = currentManagedFolders.filter(
-      (folder: { id: string; displayName: string }) =>
-        normalizeManagedCategoryName(folder.displayName) === item.coreName,
+  for (const item of desired) {
+    let matches = folders.filter(
+      (folder) => normalizeManagedCategoryName(folder.displayName) === item.coreName,
     );
 
-    const tempFolderName = `InboxIQ reorder ${crypto.randomUUID().slice(0, 8)} ${item.name}`;
-    const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ displayName: tempFolderName }),
-    });
-
-    if (!createRes.ok) {
-      console.warn(`Failed creating temporary Outlook folder for ${item.folderName}:`, await createRes.text());
-      continue;
-    }
-
-    const createdFolder = await createRes.json();
-
-    for (const folder of existingMatches) {
-      try {
-        await moveOutlookFolderMessages(accessToken, folder.id, folder.displayName, createdFolder.id, tempFolderName);
-      } catch (error) {
-        console.error(`Failed moving messages from ${folder.displayName} during reorder:`, error);
+    if (matches.length === 0) {
+      const created = await createOutlookFolder(accessToken, item.folderName);
+      if (!created) {
+        console.warn(`Failed creating missing Outlook folder during stabilization: ${item.folderName}`);
+        continue;
       }
-
-      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }).catch((error) => console.error(`Failed deleting old Outlook folder ${folder.displayName}:`, error));
+      folders = await listOutlookFolders(accessToken);
+      matches = folders.filter(
+        (folder) => normalizeManagedCategoryName(folder.displayName) === item.coreName,
+      );
     }
 
-    // Retry the rename up to 3 times — failure here is what leaves orphan
-    // "InboxIQ reorder ..." folders visible in Outlook.
-    let renamed = false;
-    let lastErr = '';
-    for (let attempt = 0; attempt < 3 && !renamed; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 400 * attempt));
-      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
+    if (matches.length === 0) continue;
+
+    let canonical = matches.find((folder) => folder.displayName === item.folderName) ?? matches[0];
+
+    if (canonical.displayName !== item.folderName) {
+      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${canonical.id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: item.folderName }),
       });
+
       if (renameRes.ok) {
-        renamed = true;
+        canonical = { ...canonical, displayName: item.folderName };
+        folders = folders.map((folder) => folder.id === canonical.id ? canonical : folder);
+        console.log(`Stabilized Outlook folder "${matches[0].displayName}" → "${item.folderName}"`);
       } else {
-        lastErr = await renameRes.text();
+        console.warn(`Failed stabilizing Outlook folder to ${item.folderName}:`, await renameRes.text());
       }
     }
 
-    if (!renamed) {
-      console.warn(`Failed renaming reordered Outlook folder to ${item.folderName} after retries:`, lastErr);
-      // Best-effort: delete the temp folder so it doesn't show up in Outlook.
-      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
+    for (const duplicate of matches.filter((folder) => folder.id !== canonical.id)) {
+      try {
+        await moveOutlookFolderMessages(accessToken, duplicate.id, duplicate.displayName, canonical.id, canonical.displayName);
+      } catch (error) {
+        console.error(`Failed moving messages from duplicate folder ${duplicate.displayName}:`, error);
+      }
+
+      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${duplicate.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` },
-      }).catch(() => {});
-      continue;
+      }).catch((error) => console.error(`Failed deleting duplicate Outlook folder ${duplicate.displayName}:`, error));
+
+      folders = folders.filter((folder) => folder.id !== duplicate.id);
     }
 
-    await setOutlookFolderFavorite(accessToken, createdFolder.id, Boolean(item.show_in_favorites));
+    await setOutlookFolderFavorite(accessToken, canonical.id, Boolean(item.show_in_favorites));
   }
 
-  // Final safety net: if anything went wrong mid-loop, clean up again.
   await cleanupOrphanedReorderFolders(accessToken, desired);
 }
 
