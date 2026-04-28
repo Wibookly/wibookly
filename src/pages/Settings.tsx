@@ -377,9 +377,6 @@ export default function Settings() {
       await supabase
         .from('user_profiles')
         .update({
-          company: aboutMe.company || null,
-          role_description: aboutMe.role_description || null,
-          department: aboutMe.department || null,
           responsibilities: aboutMe.responsibilities || null,
           communication_style: aboutMe.communication_style || null,
         } as Record<string, unknown>)
