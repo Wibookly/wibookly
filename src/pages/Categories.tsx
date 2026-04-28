@@ -184,7 +184,13 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
       <TableCell className="text-center">
         <Switch
           checked={category.is_enabled}
-          onCheckedChange={(checked) => updateCategory(category.id, 'is_enabled', checked)}
+          onCheckedChange={(checked) => {
+            if (!checked && category.is_enabled) {
+              requestDisable(category);
+            } else {
+              updateCategory(category.id, 'is_enabled', checked);
+            }
+          }}
           className={category.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
         />
       </TableCell>
