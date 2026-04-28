@@ -16,6 +16,7 @@ import { useSearchParams } from "react-router-dom";
 interface Category {
   id: string;
   name: string;
+  color: string;
   writing_style: string;
   sort_order: number;
   ai_draft_enabled: boolean;
@@ -50,6 +51,33 @@ const FORMAT_OPTIONS = [
   { value: "bullet-points", label: "Bullet Points" },
   { value: "highlights", label: "Key Highlights Only" },
 ];
+
+const hasTextValue = (value: string | null | undefined) => Boolean(value?.trim());
+
+const normalizeHex = (hex: string) => {
+  const value = hex.replace("#", "").trim();
+  if (value.length === 3) {
+    return value
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("");
+  }
+  return value.padEnd(6, "0").slice(0, 6);
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const normalized = normalizeHex(hex);
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const isCategoryCustomized = (category: Category, settings: AISettings) =>
+  category.writing_style !== settings.writing_style ||
+  (!!category.format_style && category.format_style !== settings.format_style) ||
+  hasTextValue(category.example_reply_template) ||
+  hasTextValue(category.additional_context);
 
 export default function EmailDraft() {
   const { user, organization, loading: authLoading } = useAuth();
@@ -92,7 +120,7 @@ export default function EmailDraft() {
         supabase
           .from("categories")
           .select(
-            "id, name, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style"
+            "id, name, color, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style"
           )
           .eq("organization_id", organization.id)
           .eq("connection_id", activeConnection.id)
@@ -167,6 +195,7 @@ export default function EmailDraft() {
     setIsSaving(true);
     try {
       if (target === GLOBAL_TARGET) {
+        const inheritingCategories = categories.filter((category) => !isCategoryCustomized(category, aiSettings));
         const payload = {
           organization_id: organization.id,
           connection_id: activeConnection.id,
@@ -194,6 +223,23 @@ export default function EmailDraft() {
           example_reply_template: exampleReply,
           additional_context: additionalContext,
         }));
+        if (inheritingCategories.length > 0) {
+          const inheritingIds = inheritingCategories.map((category) => category.id);
+          const { error: syncCategoryError } = await supabase
+            .from("categories")
+            .update({ writing_style: writingStyle } as never)
+            .in("id", inheritingIds);
+
+          if (syncCategoryError) throw syncCategoryError;
+
+          setCategories((prev) =>
+            prev.map((category) =>
+              inheritingIds.includes(category.id)
+                ? { ...category, writing_style: writingStyle }
+                : category
+            )
+          );
+        }
         toast.success("Global AI default saved — applies to all categories");
       } else {
         await supabase
