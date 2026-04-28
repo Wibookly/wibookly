@@ -375,7 +375,7 @@ export default function AIDailyBrief() {
         </div>
       </div>
 
-      <FollowUpReminderInline />
+      <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
       {isLoading ? (
         <div className="space-y-4">
