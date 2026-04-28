@@ -880,10 +880,13 @@ export default function Categories() {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Set new timeout for auto-save (1.5 seconds debounce)
+    // Wait until the user has been idle for 5 full seconds before saving
+    // and pushing to the email provider. This avoids spamming Outlook with
+    // partial reorders while the user is still dragging categories around —
+    // each new change resets the timer, so only the FINAL state is pushed.
     saveTimeoutRef.current = setTimeout(() => {
       saveChanges(false);
-    }, 1500);
+    }, 5000);
 
     return () => {
       if (saveTimeoutRef.current) {
