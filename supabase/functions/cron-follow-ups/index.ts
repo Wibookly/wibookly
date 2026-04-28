@@ -555,9 +555,24 @@ async function processConnection(conn: Connection): Promise<{ added: number; dra
   const ourDomain = myEmail.split('@')[1];
   if (!ourDomain) return empty;
 
+  // Resolve effective timezone: explicit setting → Outlook mailbox tz → default.
+  let effectiveTz = settings.timezone || '';
+  if (!effectiveTz) {
+    const mboxTz = await fetchMailboxTimezone(token);
+    effectiveTz = mboxTz || 'America/New_York';
+    // Cache it on the settings row so future runs skip the Graph call.
+    if (mboxTz) {
+      await supabase.from('follow_up_settings').update({ timezone: mboxTz }).eq('connection_id', conn.id);
+    }
+  }
+
   const added = await scanSentForTriggers(conn, token, ourDomain);
-  const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings);
-  const reminded = await processMissedReminders(conn, settings, myEmail);
+  const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings, effectiveTz);
+  // Missed-reminder *emails* (transactional reminders to the user) only
+  // go out during business hours so we don't ping people overnight.
+  const reminded = isWithinBusinessHours(settings, effectiveTz)
+    ? await processMissedReminders(conn, settings, myEmail)
+    : 0;
   return { added, drafted, replied, autoSent, labeled, reminded, skipped: false };
 }
 
