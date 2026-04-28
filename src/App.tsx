@@ -68,7 +68,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/ai-daily-brief" element={
-                    <FeatureRoute featureKeys={['ai_assistant']}>
+                    <FeatureRoute featureKeys={['daily_brief', 'ai_assistant']}>
                       <AIDailyBrief />
                     </FeatureRoute>
                   } />
