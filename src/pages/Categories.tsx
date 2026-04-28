@@ -14,6 +14,38 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+// Outlook-compatible category palette. These hex values match what Outlook
+// actually renders for its built-in preset colors (preset0..preset24), so the
+// dot in InboxIQ matches the folder/category color in Outlook Web/Desktop.
+const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
+  { name: 'Red',          hex: '#E74C3C' },
+  { name: 'Orange',       hex: '#E67E22' },
+  { name: 'Brown',        hex: '#C19A6B' },
+  { name: 'Yellow',       hex: '#F1C40F' },
+  { name: 'Green',        hex: '#2ECC71' },
+  { name: 'Teal',         hex: '#16A085' },
+  { name: 'Olive',        hex: '#95A5A6' },
+  { name: 'Blue',         hex: '#3498DB' },
+  { name: 'Purple',       hex: '#9B59B6' },
+  { name: 'Cranberry',    hex: '#E84F9C' },
+  { name: 'Steel',        hex: '#7F8C8D' },
+  { name: 'Dark Steel',   hex: '#2C3E50' },
+  { name: 'Gray',         hex: '#BDC3C7' },
+  { name: 'Dark Gray',    hex: '#34495E' },
+  { name: 'Black',        hex: '#000000' },
+  { name: 'Dark Red',     hex: '#C0392B' },
+  { name: 'Dark Orange',  hex: '#D35400' },
+  { name: 'Dark Brown',   hex: '#8B4F2F' },
+  { name: 'Dark Yellow',  hex: '#B7950B' },
+  { name: 'Dark Green',   hex: '#27AE60' },
+  { name: 'Dark Teal',    hex: '#0E8068' },
+  { name: 'Dark Olive',   hex: '#6B6F39' },
+  { name: 'Dark Blue',    hex: '#216FA8' },
+  { name: 'Dark Purple',  hex: '#71368A' },
+  { name: 'Dark Cranberry', hex: '#AD1457' },
+];
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
@@ -94,16 +126,16 @@ const WRITING_STYLES = [
 ];
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Urgent', color: '#EF4444' },
-  { name: 'Follow Up', color: '#F97316' },
-  { name: 'Approvals', color: '#EAB308' },
-  { name: 'Events', color: '#22C55E' },
-  { name: 'Customers', color: '#06B6D4' },
-  { name: 'Vendors', color: '#3B82F6' },
-  { name: 'Internal', color: '#8B5CF6' },
-  { name: 'Projects', color: '#EC4899' },
-  { name: 'Finance', color: '#14B8A6' },
-  { name: 'FYI', color: '#6B7280' },
+  { name: 'Urgent',    color: '#E74C3C' }, // Red
+  { name: 'Follow Up', color: '#E67E22' }, // Orange
+  { name: 'Approvals', color: '#F1C40F' }, // Yellow
+  { name: 'Events',    color: '#2ECC71' }, // Green
+  { name: 'Customers', color: '#16A085' }, // Teal
+  { name: 'Vendors',   color: '#3498DB' }, // Blue
+  { name: 'Internal',  color: '#9B59B6' }, // Purple
+  { name: 'Projects',  color: '#E84F9C' }, // Cranberry
+  { name: 'Finance',   color: '#27AE60' }, // Dark Green
+  { name: 'FYI',       color: '#7F8C8D' }, // Steel
 ];
 
 interface SortableRowProps {
@@ -156,18 +188,44 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
         </div>
       </TableCell>
       <TableCell>
-        <div className="relative">
-          <div
-            className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer"
-            style={{ backgroundColor: category.color }}
-          />
-          <input
-            type="color"
-            value={category.color}
-            onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
-            className="absolute inset-0 w-6 h-6 opacity-0 cursor-pointer"
-          />
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform"
+              style={{ backgroundColor: category.color }}
+              aria-label="Pick category color"
+            />
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-3" align="start">
+            <div className="text-xs font-medium text-muted-foreground mb-2">
+              Outlook category colors
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {OUTLOOK_PRESET_PALETTE.map((p) => {
+                const selected = category.color?.toUpperCase() === p.hex.toUpperCase();
+                return (
+                  <button
+                    key={p.hex}
+                    type="button"
+                    title={p.name}
+                    onClick={() => updateCategory(category.id, 'color', p.hex)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      selected ? 'border-foreground scale-110' : 'border-white hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: p.hex }}
+                  >
+                    {selected && <Check className="w-4 h-4 mx-auto text-white drop-shadow" />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
+              Only these colors exist in Outlook. Picking one guarantees the
+              folder color matches.
+            </p>
+          </PopoverContent>
+        </Popover>
       </TableCell>
       <TableCell>
         <Input
