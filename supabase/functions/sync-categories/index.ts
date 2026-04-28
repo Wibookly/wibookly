@@ -1111,7 +1111,7 @@ serve(async (req) => {
         // and land in the Inbox instead. Existing messages are moved back
         // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
-          const labelName = `${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
 
           if (tokenRecord.provider === 'google') {
