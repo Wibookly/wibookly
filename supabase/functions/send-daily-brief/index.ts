@@ -184,9 +184,8 @@ serve(async (req) => {
         nw = nowParts(tz);
         tzCache.set(tz, nw);
       }
-      // Allow a body-flag override for testing — `force: true` bypasses time matching.
-      const body = await (async () => { try { return await req.clone().json(); } catch { return {}; } })();
-      const forceSend = body?.force === true && body?.scheduleId === s.id;
+      // `force: true` (with optional scheduleId) bypasses time matching for "Send Test Now".
+      const forceSend = reqBody?.force === true && (!reqBody?.scheduleId || reqBody.scheduleId === s.id);
 
       if (!forceSend) {
         if (nw.dow !== s.day_of_week) continue;
