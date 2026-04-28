@@ -450,7 +450,9 @@ export default function EmailDraft() {
           </div>
         </div>
 
-        {showLabelsTab ? (
+        {/* Main settings always render. AI Label Colors card is appended below. */}
+        <>
+
           <Card className="border-purple-500/20 shadow-sm">
             <CardHeader className="bg-gradient-to-r from-purple-500/5 to-transparent rounded-t-lg">
               <CardTitle className="flex items-center gap-2">
