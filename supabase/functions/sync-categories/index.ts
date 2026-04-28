@@ -1123,13 +1123,12 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with a leading colored-dot glyph + zero-
-          // padded number prefix. The emoji sorts above letters/digits in
-          // Outlook and Gmail (mimicking the "Favorites" pinned look) AND
-          // gives each folder a visible color cue on Mac/Web where the
-          // PowerShell setup script can't run. Format: "🔴 01: Name".
+          // Create label/folder name with a leading colored-dot glyph only.
+          // Number prefix removed per user request — Outlook/Gmail will sort
+          // these alphabetically. The dot still gives a visible color cue
+          // on Mac/Web. Format: "🔴 Name".
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const labelName = `${dot} ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
@@ -1206,7 +1205,7 @@ serve(async (req) => {
         // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const labelName = `${dot} ${category.name}`;
           let success = false;
 
           if (tokenRecord.provider === 'google') {

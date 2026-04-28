@@ -10,6 +10,33 @@ const corsHeaders = {
 // (must match the value used by the sync-categories function).
 const IQ_TAG_PREFIX = 'IQ: ';
 
+// Map a hex color to the nearest colored Unicode dot (must match
+// nearestColorDot in sync-categories so folder/label names stay aligned).
+function nearestColorDot(hex: string): string {
+  const palette: { dot: string; r: number; g: number; b: number }[] = [
+    { dot: '🔴', r: 239, g: 68, b: 68 },
+    { dot: '🟠', r: 249, g: 115, b: 22 },
+    { dot: '🟡', r: 234, g: 179, b: 8 },
+    { dot: '🟢', r: 34, g: 197, b: 94 },
+    { dot: '🔵', r: 59, g: 130, b: 246 },
+    { dot: '🟣', r: 139, g: 92, b: 246 },
+    { dot: '🟤', r: 120, g: 80, b: 60 },
+    { dot: '⚫', r: 30, g: 30, b: 30 },
+    { dot: '⚪', r: 230, g: 230, b: 230 },
+  ];
+  const h = (hex || '').replace('#', '');
+  if (h.length !== 6) return '⚪';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = palette[0]; let bestD = Infinity;
+  for (const p of palette) {
+    const d = (p.r - r) ** 2 + (p.g - g) ** 2 + (p.b - b) ** 2;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best.dot;
+}
+
 // Returns true if the given Outlook category name was created/managed by
 // InboxIQ (current short prefix or any legacy variant).
 function isManagedCategoryName(name: string): boolean {
@@ -1148,10 +1175,10 @@ serve(async (req) => {
             continue;
           }
 
-          // Use actual sort_order for label name (1-indexed, zero-padded to 2 digits)
-          // Prefix with ⭐ glyph so the folder/label sorts to the top of the list
-          // (Outlook Favorites-style). Must match sync-categories naming.
-          const labelName = `⭐ ${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
+          // Label name: colored-dot glyph + category name (no number prefix).
+          // Must match sync-categories naming so the folder/label is found.
+          const dot = nearestColorDot(catInfo.color);
+          const labelName = `${dot} ${catInfo.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
