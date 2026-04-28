@@ -1149,7 +1149,9 @@ serve(async (req) => {
           }
 
           // Use actual sort_order for label name (1-indexed, zero-padded to 2 digits)
-          const labelName = `${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
+          // Prefix with ⭐ glyph so the folder/label sorts to the top of the list
+          // (Outlook Favorites-style). Must match sync-categories naming.
+          const labelName = `⭐ ${String(catInfo.sortOrder + 1).padStart(2, '0')}: ${catInfo.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
