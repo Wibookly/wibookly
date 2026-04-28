@@ -220,15 +220,48 @@ export function DailyBriefSchedule() {
   }, [profile?.user_id, activeConnection?.email, profile?.email]);
 
   const updateSchedule = (id: string, patch: Partial<Schedule>) => {
-    setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+    setSchedules(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const next = { ...s, ...patch };
+      // Auto-rename when days/times change, but never override an explicit name edit.
+      if (!('name' in patch)) {
+        next.name = autoName(next);
+      }
+      return next;
+    }));
   };
 
   const toggleDay = (id: string, day: number) => {
     setSchedules(prev => prev.map(s => {
       if (s.id !== id) return s;
       const has = s.days.includes(day);
-      return { ...s, days: has ? s.days.filter(d => d !== day) : [...s.days, day].sort() };
+      const days = has ? s.days.filter(d => d !== day) : [...s.days, day].sort();
+      const next = { ...s, days };
+      next.name = autoName(next);
+      return next;
     }));
+  };
+
+  const sendTestNow = async (s: Schedule) => {
+    if (!profile?.user_id) return;
+    try {
+      toast.loading('Sending test brief…', { id: `test-${s.id}` });
+      // Persist the latest schedule first so the cron sees the right config.
+      await handleSave({ silent: true });
+      const { data, error } = await supabase.functions.invoke('send-daily-brief', {
+        body: { force: true, userId: profile.user_id },
+      });
+      if (error) throw error;
+      const sent = (data as { sent?: number })?.sent ?? 0;
+      if (sent > 0) {
+        toast.success(`Test brief sent to ${recipient || 'your email'}`, { id: `test-${s.id}` });
+      } else {
+        toast.error('No brief was sent — check that the agent mailbox is configured', { id: `test-${s.id}` });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to send test brief', { id: `test-${s.id}` });
+    }
   };
 
   const addSchedule = (preset?: { days: number[]; name: string }) => {
