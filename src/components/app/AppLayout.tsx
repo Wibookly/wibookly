@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { AppSidebar } from './AppSidebar';
-import { AppHeader } from './AppHeader';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { Loader2 } from 'lucide-react';
 
 export function AppLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, organization } = useAuth();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (loading) {
