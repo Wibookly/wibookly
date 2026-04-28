@@ -134,7 +134,7 @@ export function AppSidebar() {
             className="max-h-10 w-auto object-contain"
           />
         ) : null}
-        <span className="text-lg font-semibold text-foreground">InboxIQ</span>
+        <span className="text-3xl font-semibold text-foreground">InboxIQ</span>
       </div>
 
       {/* Active Email Selector */}
