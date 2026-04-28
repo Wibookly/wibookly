@@ -205,11 +205,25 @@ serve(async (req) => {
       processed++;
 
       // Resolve recipient + agent mailbox for this org.
-      const { data: agent } = await supabase
+      // Fall back to the global default agent_settings row if the org
+      // doesn't have its own (central agent@energyforward.com mailbox).
+      let { data: agent } = await supabase
         .from("agent_settings")
         .select("shared_mailbox_user_id, shared_mailbox_address, teams_tenant_id, email_agent_enabled")
         .eq("organization_id", s.organization_id)
         .maybeSingle();
+
+      if (!agent || !agent.shared_mailbox_user_id) {
+        const { data: fallback } = await supabase
+          .from("agent_settings")
+          .select("shared_mailbox_user_id, shared_mailbox_address, teams_tenant_id, email_agent_enabled")
+          .not("shared_mailbox_user_id", "is", null)
+          .eq("email_agent_enabled", true)
+          .order("organization_id", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (fallback) agent = fallback;
+      }
 
       const recipient =
         s.recipient_email ||
