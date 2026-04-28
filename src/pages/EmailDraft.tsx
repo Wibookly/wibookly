@@ -761,6 +761,68 @@ export default function EmailDraft() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Plain-language summary of every category's effective AI settings */}
+            <Card className="border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  How AI will reply for each category
+                </CardTitle>
+                <CardDescription>
+                  Plain-English summary of the writing style and format that will be used for every enabled category.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No enabled categories yet.</p>
+                ) : (
+                  categories.map((c) => {
+                    const effectiveStyle = c.writing_style || aiSettings.writing_style;
+                    const effectiveFormat = c.format_style || aiSettings.format_style;
+                    const isOverride = !!(c.example_reply_template || c.additional_context || c.format_style);
+                    const styleLabel =
+                      WRITING_STYLES.find((s) => s.value === effectiveStyle)?.label || effectiveStyle;
+                    const formatLabel =
+                      FORMAT_OPTIONS.find((f) => f.value === effectiveFormat)?.label || effectiveFormat;
+                    return (
+                      <button
+                        key={`summary-${c.id}`}
+                        type="button"
+                        onClick={() => setTarget(c.id)}
+                        className="w-full text-left rounded-lg border border-border bg-card p-3 hover:bg-secondary/40 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-sm">{c.name}</span>
+                            {isOverride ? (
+                              <Badge variant="secondary" className="text-xs">Custom</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">Uses Global Default</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {c.ai_draft_enabled && (
+                              <Badge variant="secondary" className="text-xs">AI Draft</Badge>
+                            )}
+                            {c.auto_reply_enabled && (
+                              <Badge variant="secondary" className="text-xs">Auto-Reply</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                          Replies in <strong className="text-foreground">{styleLabel}</strong> tone,
+                          formatted as <strong className="text-foreground">{formatLabel}</strong>.
+                          {c.example_reply_template ? " Using your custom example template." : ""}
+                          {c.additional_context ? " With extra context applied." : ""}
+                        </p>
+                      </button>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
