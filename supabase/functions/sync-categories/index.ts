@@ -1079,6 +1079,96 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
   }
 }
 
+const REORDER_TEMP_PREFIX = 'InboxIQ reorder ';
+
+async function listOutlookFolders(accessToken: string): Promise<Array<{ id: string; displayName: string }>> {
+  const listRes = await fetch(
+    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!listRes.ok) {
+    console.warn('Unable to list Outlook folders:', await listRes.text());
+    return [];
+  }
+  const { value } = await listRes.json();
+  return value ?? [];
+}
+
+async function getOutlookInboxId(accessToken: string): Promise<string | null> {
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.id ?? null;
+}
+
+/**
+ * Cleans up orphaned "InboxIQ reorder ..." temporary folders left behind by
+ * a previously-interrupted reorder pass. If the temp folder name corresponds
+ * to a known category, we try to rename it into its final form. Otherwise we
+ * move any messages back to the Inbox and delete the folder so users never
+ * see these temp folders in Outlook Web/Desktop.
+ */
+async function cleanupOrphanedReorderFolders(
+  accessToken: string,
+  desired: Array<{ folderName: string; coreName: string; name: string; show_in_favorites?: boolean }>,
+): Promise<void> {
+  const folders = await listOutlookFolders(accessToken);
+  const orphans = folders.filter((f) => (f.displayName || '').startsWith(REORDER_TEMP_PREFIX));
+  if (orphans.length === 0) return;
+
+  console.log(`Found ${orphans.length} orphaned reorder folder(s); cleaning up...`);
+  const inboxId = await getOutlookInboxId(accessToken);
+
+  for (const orphan of orphans) {
+    // Extract the original category name: "InboxIQ reorder {8hex} {Name}"
+    const match = orphan.displayName.match(/^InboxIQ reorder [0-9a-f]+\s+(.+)$/i);
+    const originalName = match?.[1]?.trim() ?? '';
+    const matchedDesired = originalName
+      ? desired.find((d) => normalizeManagedCategoryName(d.name) === normalizeManagedCategoryName(originalName))
+      : undefined;
+
+    // Check if a folder with the final desired name already exists.
+    const finalAlreadyExists = matchedDesired
+      ? folders.some(
+          (f) =>
+            f.id !== orphan.id &&
+            normalizeManagedCategoryName(f.displayName) === matchedDesired.coreName,
+        )
+      : false;
+
+    if (matchedDesired && !finalAlreadyExists) {
+      // Recover: rename the temp folder to its proper final name.
+      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: matchedDesired.folderName }),
+      });
+      if (renameRes.ok) {
+        console.log(`Recovered orphan reorder folder -> ${matchedDesired.folderName}`);
+        await setOutlookFolderFavorite(accessToken, orphan.id, Boolean(matchedDesired.show_in_favorites));
+        continue;
+      }
+      console.warn(`Failed to recover orphan ${orphan.displayName}, will delete instead:`, await renameRes.text());
+    }
+
+    // Otherwise: move any messages back to inbox and delete.
+    if (inboxId) {
+      try {
+        await moveOutlookFolderMessages(accessToken, orphan.id, orphan.displayName, inboxId, 'Inbox');
+      } catch (error) {
+        console.error(`Failed moving messages out of orphan ${orphan.displayName}:`, error);
+      }
+    }
+    await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch((error) => console.error(`Failed deleting orphan ${orphan.displayName}:`, error));
+    console.log(`Deleted orphaned reorder folder: ${orphan.displayName}`);
+  }
+}
+
 async function enforceOutlookManagedFolderOrder(
   accessToken: string,
   categories: Array<{ name: string; color: string; show_in_favorites?: boolean }>,
@@ -1090,6 +1180,9 @@ async function enforceOutlookManagedFolderOrder(
     folderName: `${invisibleSortPrefix(idx + 1)}${nearestColorDot(category.color)} ${category.name}`,
     coreName: normalizeManagedCategoryName(category.name),
   }));
+
+  // Always clean up any leftover temp folders from prior interrupted runs first.
+  await cleanupOrphanedReorderFolders(accessToken, desired);
 
   const listRes = await fetch(
     'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
