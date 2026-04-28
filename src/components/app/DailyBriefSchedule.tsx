@@ -110,6 +110,17 @@ function describeTimes(s: Schedule): string {
   return parts.length ? parts.join(' & ') : 'No times set';
 }
 
+// Auto-generate a friendly schedule name from days + times,
+// e.g. "Weekdays · 8:00 AM" or "Mon · 9:19 PM evening".
+function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: string; eveningEnabled: boolean; eveningTime: string }): string {
+  const days = describeDays(s.days);
+  const times: string[] = [];
+  if (s.morningEnabled) times.push(`${formatTime(s.morningTime)} morning`);
+  if (s.eveningEnabled) times.push(`${formatTime(s.eveningTime)} evening`);
+  if (!times.length) return days;
+  return `${days} · ${times.join(' & ')}`;
+}
+
 export function DailyBriefSchedule() {
   const { profile, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
