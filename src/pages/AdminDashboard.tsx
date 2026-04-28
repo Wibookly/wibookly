@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ const FEATURE_KEYS = [
   { key: 'reports', label: 'AI Activity Reports', description: 'AI activity reports & analytics' },
   { key: 'email_agent', label: 'Email Agent', description: 'AI replies to emails sent to the shared agent mailbox' },
   { key: 'teams_agent', label: 'Teams Agent', description: 'AI responds to @mentions and DMs in Microsoft Teams' },
+  { key: 'feature.follow_up_reminder', label: 'Follow-Up Reminder', description: 'BCC-triggered Auto-Reminder feature: timer addresses, settings tab, and Pending Auto-Reminders view' },
 ] as const;
 
 const AI_MODEL_KEYS = [
@@ -91,6 +93,8 @@ interface ManagedUser {
 
 export default function AdminDashboard() {
   const { profile, session } = useAuth();
+  const { hasFeature } = useFeatureAccess();
+  const hasFollowUpReminder = hasFeature('feature.follow_up_reminder');
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('setup');
   const [domains, setDomains] = useState<AllowedDomain[]>([]);
@@ -639,7 +643,9 @@ export default function AdminDashboard() {
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
           <TabsTrigger value="agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
-          <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
+          {hasFollowUpReminder && (
+            <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
+          )}
           <TabsTrigger value="usage" className="gap-2"><BarChart3 className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
@@ -649,9 +655,11 @@ export default function AdminDashboard() {
           <AgentPanel organizationId={profile?.organization_id ?? null} />
         </TabsContent>
 
-        <TabsContent value="followups" className="space-y-6">
-          <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
-        </TabsContent>
+        {hasFollowUpReminder && (
+          <TabsContent value="followups" className="space-y-6">
+            <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
+          </TabsContent>
+        )}
 
         <TabsContent value="usage" className="space-y-6">
           <AIUsagePanel organizationId={profile?.organization_id ?? null} />

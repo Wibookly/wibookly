@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Loader2, Plus, Trash2, ShieldCheck, Users as UsersIcon, Globe, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft' },
@@ -25,6 +26,7 @@ const FEATURE_KEYS = [
   { key: 'ai_model_claude', label: 'Claude Model' },
   { key: 'email_agent', label: 'Email Agent' },
   { key: 'teams_agent', label: 'Teams Agent' },
+  { key: 'feature.follow_up_reminder', label: 'Follow-Up Reminder' },
 ] as const;
 
 const GLOBAL_GROUP_VALUE = '__global__';
@@ -62,6 +64,12 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
   const [domainId, setDomainId] = useState<string>(GLOBAL_GROUP_VALUE);
   const [filterDomain, setFilterDomain] = useState<string>('all');
   const [creating, setCreating] = useState(false);
+  const [pendingDisable, setPendingDisable] = useState<{
+    groupId: string;
+    groupName: string;
+    affectedUsers: number;
+    pendingReminders: number;
+  } | null>(null);
 
   useEffect(() => {
     setLocalGroups(groups);
@@ -94,7 +102,7 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
     }
   };
 
-  const handleToggleFeature = async (groupId: string, featureKey: string, enabled: boolean) => {
+  const applyToggle = async (groupId: string, featureKey: string, enabled: boolean) => {
     try {
       await invoke('set_group_feature', { group_id: groupId, feature_key: featureKey, is_enabled: enabled });
       setLocalGroups((prev) => prev.map((group) => (
@@ -113,6 +121,30 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
+  };
+
+  const handleToggleFeature = async (groupId: string, featureKey: string, enabled: boolean) => {
+    // Special case: disabling Follow-Up Reminder shows a confirmation dialog
+    // with the count of users who will lose access and reminders that will be
+    // paused. (Enabling does NOT need a dialog — paused reminders just resume.)
+    if (featureKey === 'feature.follow_up_reminder' && !enabled) {
+      const group = localGroups.find((g) => g.id === groupId);
+      try {
+        const { data, error } = await supabase.rpc('count_followup_impact', { _group_id: groupId });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        setPendingDisable({
+          groupId,
+          groupName: group?.name ?? 'this group',
+          affectedUsers: row?.affected_users ?? 0,
+          pendingReminders: row?.pending_reminders ?? 0,
+        });
+      } catch (e: any) {
+        toast({ title: 'Could not load impact', description: e.message, variant: 'destructive' });
+      }
+      return;
+    }
+    await applyToggle(groupId, featureKey, enabled);
   };
 
   const handleSetOverride = async (groupId: string, domainIdValue: string, featureKey: string, enabled: boolean) => {
@@ -294,6 +326,39 @@ export default function PermissionGroupsPanel({ organizationId, invoke, groups, 
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingDisable} onOpenChange={(o) => !o && setPendingDisable(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable Follow-Up Reminder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDisable && (
+                <>
+                  <span className="font-medium text-foreground">{pendingDisable.affectedUsers}</span>
+                  {' '}user{pendingDisable.affectedUsers === 1 ? '' : 's'} will lose access to Follow-Up Reminder.
+                  {' '}
+                  <span className="font-medium text-foreground">{pendingDisable.pendingReminders}</span>
+                  {' '}pending reminder{pendingDisable.pendingReminders === 1 ? '' : 's'} will be paused
+                  (not deleted) and will resume if you re-enable this permission.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!pendingDisable) return;
+                const { groupId } = pendingDisable;
+                setPendingDisable(null);
+                await applyToggle(groupId, 'feature.follow_up_reminder', false);
+              }}
+            >
+              Disable & pause reminders
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

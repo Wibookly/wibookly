@@ -380,18 +380,46 @@ async function processConnection(conn: Connection): Promise<{ added: number; dra
   return { added, drafted, replied };
 }
 
+// Permission check: returns true if the user is allowed to use the
+// Follow-Up Reminder feature. Wraps the public has_feature() RPC so
+// permission revocations take effect immediately.
+async function userHasFollowUpPermission(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('has_feature', {
+    _user_id: userId,
+    _feature_key: 'feature.follow_up_reminder',
+  });
+  if (error) {
+    console.error('has_feature check failed', error);
+    return false;
+  }
+  return data === true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    // Lifecycle: pause trackers belonging to users who have lost the permission,
+    // and resume any that were paused but now have it again.
+    const [{ data: paused }, { data: resumed }] = await Promise.all([
+      supabase.rpc('pause_followups_without_permission'),
+      supabase.rpc('resume_followups_with_permission'),
+    ]);
+
     const { data: connections } = await supabase
       .from('provider_connections')
       .select('id,user_id,provider,organization_id,inbox_followup_folder_id,connected_email')
       .eq('is_connected', true);
 
-    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, processed = 0;
+    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, processed = 0, skippedNoPermission = 0;
     for (const c of (connections ?? []) as Connection[]) {
       try {
+        // Backend enforcement: skip BCC scanning + drafting for users without the feature.
+        const allowed = await userHasFollowUpPermission(c.user_id);
+        if (!allowed) {
+          skippedNoPermission++;
+          continue;
+        }
         const r = await processConnection(c);
         totalAdded += r.added; totalDrafted += r.drafted; totalReplied += r.replied;
         processed++;
@@ -400,7 +428,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed, added: totalAdded, drafted: totalDrafted, replied: totalReplied }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      processed,
+      skipped_no_permission: skippedNoPermission,
+      paused: paused ?? 0,
+      resumed: resumed ?? 0,
+      added: totalAdded,
+      drafted: totalDrafted,
+      replied: totalReplied,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
