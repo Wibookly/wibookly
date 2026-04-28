@@ -2,14 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 // Single short prefix for all InboxIQ-managed Outlook Master Categories.
 // Keep this short — it shows on every email row in Outlook next to the
 // category name (e.g. "IQ: Approvals").
-const IQ_TAG_PREFIX = 'IQ: ';
+const IQ_TAG_PREFIX = "IQ: ";
 
 // ──────────────────────────────────────────────────────────────────────
 // Invisible sort-order prefix for Outlook folders.
@@ -25,16 +26,16 @@ const IQ_TAG_PREFIX = 'IQ: ';
 // scheme scales beyond 10 categories without collisions.
 // ──────────────────────────────────────────────────────────────────────
 const ZW_ALPHABET = [
-  '\u200B', // ZERO WIDTH SPACE
-  '\u200C', // ZERO WIDTH NON-JOINER
-  '\u200D', // ZERO WIDTH JOINER
-  '\u2060', // WORD JOINER
-  '\u2061', // FUNCTION APPLICATION
-  '\u2062', // INVISIBLE TIMES
-  '\u2063', // INVISIBLE SEPARATOR
-  '\u2064', // INVISIBLE PLUS
-  '\u2065', // (reserved, treated as invisible)
-  '\u2066', // LEFT-TO-RIGHT ISOLATE
+  "\u200B", // ZERO WIDTH SPACE
+  "\u200C", // ZERO WIDTH NON-JOINER
+  "\u200D", // ZERO WIDTH JOINER
+  "\u2060", // WORD JOINER
+  "\u2061", // FUNCTION APPLICATION
+  "\u2062", // INVISIBLE TIMES
+  "\u2063", // INVISIBLE SEPARATOR
+  "\u2064", // INVISIBLE PLUS
+  "\u2065", // (reserved, treated as invisible)
+  "\u2066", // LEFT-TO-RIGHT ISOLATE
 ];
 // Char-class matching every zero-width / invisible codepoint we may have
 // ever placed at the start of a managed folder/label name. Used to strip
@@ -59,13 +60,13 @@ function invisibleSortPrefix(position: number): string {
     }
   }
   while (digits.length < 2) digits.unshift(0);
-  return digits.map((d) => ZW_ALPHABET[d]).join('');
+  return digits.map((d) => ZW_ALPHABET[d]).join("");
 }
 
 // Strip any leading zero-width / invisible chars from an Outlook folder
 // or category displayName so we can match against the clean app name.
 function stripInvisiblePrefix(name: string): string {
-  return String(name || '').replace(ZW_PREFIX_RE, '');
+  return String(name || "").replace(ZW_PREFIX_RE, "");
 }
 
 // Returns true if the given Outlook category name was created/managed by
@@ -79,20 +80,22 @@ function isManagedCategoryName(name: string): boolean {
   // mirror onto Outlook ("02: Follow Up", "0. AI Draft", "11. AI Sent") so
   // each email ends up with exactly ONE current "IQ: <Category>" chip.
   if (
-    n.startsWith('IQ: ') ||
-    n.startsWith('★ IQ: ') ||
-    n.startsWith('InboxIQ: ') ||
-    n.startsWith('★ InboxIQ: ') ||
-    n.startsWith('Wibookly: ') ||
-    n.startsWith('vBookly: ') ||
-    n.startsWith('Vbookly: ')
-  ) return true;
+    n.startsWith("IQ: ") ||
+    n.startsWith("★ IQ: ") ||
+    n.startsWith("InboxIQ: ") ||
+    n.startsWith("★ InboxIQ: ") ||
+    n.startsWith("Wibookly: ") ||
+    n.startsWith("vBookly: ") ||
+    n.startsWith("Vbookly: ")
+  )
+    return true;
   // AI Draft / AI Sent helper tags — never expose these in Outlook.
   if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
   if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
   // Numbered category mirrors like "02: Follow Up", "10: FYI", or the
   // current "⭐ 02: Follow Up" / "🔴 02: Follow Up" prefixed variants.
-  if (/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d{1,2}:\s/u.test(n)) return true;
+  if (/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d{1,2}:\s/u.test(n))
+    return true;
   return false;
 }
 
@@ -123,126 +126,143 @@ function nearestColorDot(hex: string): string {
     const cg = parseInt(ch.slice(2, 4), 16);
     const cb = parseInt(ch.slice(4, 6), 16);
     const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
-    if (d < bestDist) { bestDist = d; best = c; }
+    if (d < bestDist) {
+      bestDist = d;
+      best = c;
+    }
   }
   return best.dot;
 }
 
 function normalizeManagedCategoryName(value: string): string {
-  return String(value || '')
-    .replace(ZW_PREFIX_RE, '') // strip invisible sort-order prefix
-    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
-    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+  return String(value || "")
+    .replace(ZW_PREFIX_RE, "") // strip invisible sort-order prefix
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, "")
     .trim()
     .toLowerCase();
 }
 
 // AES-GCM decryption for tokens (server-side only)
-async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
-  const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+async function decryptToken(
+  encryptedData: string,
+  keyString: string,
+): Promise<string> {
+  const combined = Uint8Array.from(atob(encryptedData), (c) => c.charCodeAt(0));
   const iv = combined.slice(0, 12);
   const data = combined.slice(12);
-  
+
   const encoder = new TextEncoder();
-  const keyData = encoder.encode(keyString.padEnd(32, '0').slice(0, 32));
-  
+  const keyData = encoder.encode(keyString.padEnd(32, "0").slice(0, 32));
+
   const key = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     keyData,
-    { name: 'AES-GCM' },
+    { name: "AES-GCM" },
     false,
-    ['decrypt']
+    ["decrypt"],
   );
-  
+
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: "AES-GCM", iv },
     key,
-    data
+    data,
   );
-  
+
   return new TextDecoder().decode(decrypted);
 }
 
 // AES-GCM encryption for tokens
 async function encryptToken(token: string, keyString: string): Promise<string> {
   const encoder = new TextEncoder();
-  const keyData = encoder.encode(keyString.padEnd(32, '0').slice(0, 32));
-  
+  const keyData = encoder.encode(keyString.padEnd(32, "0").slice(0, 32));
+
   const key = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     keyData,
-    { name: 'AES-GCM' },
+    { name: "AES-GCM" },
     false,
-    ['encrypt']
+    ["encrypt"],
   );
-  
+
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: "AES-GCM", iv },
     key,
-    encoder.encode(token)
+    encoder.encode(token),
   );
-  
+
   const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
   combined.set(iv, 0);
   combined.set(new Uint8Array(encrypted), iv.length);
-  
+
   return btoa(String.fromCharCode(...combined));
 }
 
 // Refresh Google access token using refresh token
-async function refreshGoogleToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-  
-  console.log('Refreshing Google access token...');
-  
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+async function refreshGoogleToken(
+  refreshToken: string,
+): Promise<{ access_token: string; expires_in: number } | null> {
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+
+  console.log("Refreshing Google access token...");
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       refresh_token: refreshToken,
       client_id: clientId!,
       client_secret: clientSecret!,
-      grant_type: 'refresh_token'
-    })
+      grant_type: "refresh_token",
+    }),
   });
-  
+
   if (!response.ok) {
-    console.error('Failed to refresh Google token:', await response.text());
+    console.error("Failed to refresh Google token:", await response.text());
     return null;
   }
-  
+
   const tokens = await response.json();
-  console.log('Successfully refreshed Google token');
+  console.log("Successfully refreshed Google token");
   return tokens;
 }
 
 // Refresh Microsoft access token using refresh token
-async function refreshMicrosoftToken(refreshToken: string): Promise<{ access_token: string; refresh_token?: string; expires_in: number } | null> {
-  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-  const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-  
-  console.log('Refreshing Microsoft access token...');
-  
-  const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      refresh_token: refreshToken,
-      client_id: clientId!,
-      client_secret: clientSecret!,
-      grant_type: 'refresh_token'
-    })
-  });
-  
+async function refreshMicrosoftToken(
+  refreshToken: string,
+): Promise<{
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+} | null> {
+  const clientId = Deno.env.get("MICROSOFT_CLIENT_ID");
+  const clientSecret = Deno.env.get("MICROSOFT_CLIENT_SECRET");
+
+  console.log("Refreshing Microsoft access token...");
+
+  const response = await fetch(
+    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: refreshToken,
+        client_id: clientId!,
+        client_secret: clientSecret!,
+        grant_type: "refresh_token",
+      }),
+    },
+  );
+
   if (!response.ok) {
-    console.error('Failed to refresh Microsoft token:', await response.text());
+    console.error("Failed to refresh Microsoft token:", await response.text());
     return null;
   }
-  
+
   const tokens = await response.json();
-  console.log('Successfully refreshed Microsoft token');
+  console.log("Successfully refreshed Microsoft token");
   return tokens;
 }
 
@@ -259,112 +279,142 @@ async function getValidAccessToken(
   tokenData: TokenData,
   encryptionKey: string,
   supabaseAdmin: any,
-  userId: string
+  userId: string,
 ): Promise<string | null> {
-  const isExpired = tokenData.expires_at && new Date(tokenData.expires_at) < new Date();
-  
+  const isExpired =
+    tokenData.expires_at && new Date(tokenData.expires_at) < new Date();
+
   // If not expired, return decrypted access token
   if (!isExpired) {
     return await decryptToken(tokenData.encrypted_access_token, encryptionKey);
   }
-  
-  console.log(`Token for ${tokenData.provider} is expired, attempting refresh...`);
-  
+
+  console.log(
+    `Token for ${tokenData.provider} is expired, attempting refresh...`,
+  );
+
   // Need to refresh - check if we have a refresh token
   if (!tokenData.encrypted_refresh_token) {
     console.error(`No refresh token available for ${tokenData.provider}`);
     return null;
   }
-  
-  const refreshToken = await decryptToken(tokenData.encrypted_refresh_token, encryptionKey);
+
+  const refreshToken = await decryptToken(
+    tokenData.encrypted_refresh_token,
+    encryptionKey,
+  );
   let newTokens;
-  
-  if (tokenData.provider === 'google') {
+
+  if (tokenData.provider === "google") {
     newTokens = await refreshGoogleToken(refreshToken);
-  } else if (tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') {
+  } else if (
+    tokenData.provider === "microsoft" ||
+    tokenData.provider === "outlook"
+  ) {
     newTokens = await refreshMicrosoftToken(refreshToken);
   }
-  
+
   if (!newTokens) {
     console.error(`Failed to refresh token for ${tokenData.provider}`);
     return null;
   }
-  
+
   // Encrypt and save new tokens
-  const encryptedAccessToken = await encryptToken(newTokens.access_token, encryptionKey);
-  const expiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
-  
+  const encryptedAccessToken = await encryptToken(
+    newTokens.access_token,
+    encryptionKey,
+  );
+  const expiresAt = new Date(
+    Date.now() + newTokens.expires_in * 1000,
+  ).toISOString();
+
   // Update token in vault using direct fetch to avoid type issues
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
   const updatePayload: Record<string, string> = {
     encrypted_access_token: encryptedAccessToken,
     expires_at: expiresAt,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   };
-  
+
   // Microsoft may return a new refresh token
-  if ((tokenData.provider === 'microsoft' || tokenData.provider === 'outlook') && 'refresh_token' in newTokens && newTokens.refresh_token) {
-    updatePayload.encrypted_refresh_token = await encryptToken(String(newTokens.refresh_token), encryptionKey);
+  if (
+    (tokenData.provider === "microsoft" || tokenData.provider === "outlook") &&
+    "refresh_token" in newTokens &&
+    newTokens.refresh_token
+  ) {
+    updatePayload.encrypted_refresh_token = await encryptToken(
+      String(newTokens.refresh_token),
+      encryptionKey,
+    );
   }
-  
+
   const updateResponse = await fetch(
     `${supabaseUrl}/rest/v1/oauth_token_vault?user_id=eq.${userId}&provider=eq.${tokenData.provider}`,
     {
-      method: 'PATCH',
+      method: "PATCH",
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': serviceRoleKey,
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Prefer': 'return=minimal'
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Prefer: "return=minimal",
       },
-      body: JSON.stringify(updatePayload)
-    }
+      body: JSON.stringify(updatePayload),
+    },
   );
-  
+
   if (!updateResponse.ok) {
-    console.error(`Failed to save refreshed token for ${tokenData.provider}:`, await updateResponse.text());
+    console.error(
+      `Failed to save refreshed token for ${tokenData.provider}:`,
+      await updateResponse.text(),
+    );
   } else {
     console.log(`Saved refreshed token for ${tokenData.provider}`);
   }
-  
+
   return newTokens.access_token;
 }
 
 // Convert hex color to Gmail color palette (Gmail only supports specific colors)
-function hexToGmailColor(hex: string): { backgroundColor: string; textColor: string } {
+function hexToGmailColor(hex: string): {
+  backgroundColor: string;
+  textColor: string;
+} {
   // Gmail only allows specific color values from their palette
   // Map common colors to Gmail's supported palette
-  const colorMap: Record<string, { backgroundColor: string; textColor: string }> = {
+  const colorMap: Record<
+    string,
+    { backgroundColor: string; textColor: string }
+  > = {
     // Reds
-    '#EF4444': { backgroundColor: '#cc3a21', textColor: '#ffffff' },
-    '#DC2626': { backgroundColor: '#cc3a21', textColor: '#ffffff' },
-    '#B91C1C': { backgroundColor: '#ac2b16', textColor: '#ffffff' },
+    "#EF4444": { backgroundColor: "#cc3a21", textColor: "#ffffff" },
+    "#DC2626": { backgroundColor: "#cc3a21", textColor: "#ffffff" },
+    "#B91C1C": { backgroundColor: "#ac2b16", textColor: "#ffffff" },
     // Oranges
-    '#F97316': { backgroundColor: '#f2a600', textColor: '#000000' },
-    '#EA580C': { backgroundColor: '#cf8933', textColor: '#000000' },
+    "#F97316": { backgroundColor: "#f2a600", textColor: "#000000" },
+    "#EA580C": { backgroundColor: "#cf8933", textColor: "#000000" },
     // Yellows
-    '#EAB308': { backgroundColor: '#f2c960', textColor: '#000000' },
-    '#FACC15': { backgroundColor: '#f2c960', textColor: '#000000' },
+    "#EAB308": { backgroundColor: "#f2c960", textColor: "#000000" },
+    "#FACC15": { backgroundColor: "#f2c960", textColor: "#000000" },
     // Greens
-    '#22C55E': { backgroundColor: '#149e60', textColor: '#ffffff' },
-    '#16A34A': { backgroundColor: '#0d804f', textColor: '#ffffff' },
+    "#22C55E": { backgroundColor: "#149e60", textColor: "#ffffff" },
+    "#16A34A": { backgroundColor: "#0d804f", textColor: "#ffffff" },
     // Teals
-    '#14B8A6': { backgroundColor: '#2da2bb', textColor: '#ffffff' },
-    '#06B6D4': { backgroundColor: '#2da2bb', textColor: '#ffffff' },
+    "#14B8A6": { backgroundColor: "#2da2bb", textColor: "#ffffff" },
+    "#06B6D4": { backgroundColor: "#2da2bb", textColor: "#ffffff" },
     // Blues
-    '#3B82F6': { backgroundColor: '#285bac', textColor: '#ffffff' },
-    '#2563EB': { backgroundColor: '#1a73e8', textColor: '#ffffff' },
+    "#3B82F6": { backgroundColor: "#285bac", textColor: "#ffffff" },
+    "#2563EB": { backgroundColor: "#1a73e8", textColor: "#ffffff" },
     // Purples
-    '#8B5CF6': { backgroundColor: '#653e9b', textColor: '#ffffff' },
-    '#7C3AED': { backgroundColor: '#653e9b', textColor: '#ffffff' },
+    "#8B5CF6": { backgroundColor: "#653e9b", textColor: "#ffffff" },
+    "#7C3AED": { backgroundColor: "#653e9b", textColor: "#ffffff" },
     // Pinks
-    '#EC4899': { backgroundColor: '#c9649b', textColor: '#ffffff' },
-    '#DB2777': { backgroundColor: '#c9649b', textColor: '#ffffff' },
+    "#EC4899": { backgroundColor: "#c9649b", textColor: "#ffffff" },
+    "#DB2777": { backgroundColor: "#c9649b", textColor: "#ffffff" },
     // Grays
-    '#6B7280': { backgroundColor: '#666666', textColor: '#ffffff' },
-    '#9CA3AF': { backgroundColor: '#999999', textColor: '#000000' },
+    "#6B7280": { backgroundColor: "#666666", textColor: "#ffffff" },
+    "#9CA3AF": { backgroundColor: "#999999", textColor: "#000000" },
   };
 
   const upperHex = hex.toUpperCase();
@@ -376,80 +426,110 @@ function hexToGmailColor(hex: string): { backgroundColor: string; textColor: str
   const b = parseInt(hex.slice(5, 7), 16);
 
   // Simple heuristic: map to closest category
-  if (r > 180 && g < 100 && b < 100) return { backgroundColor: '#cc3a21', textColor: '#ffffff' }; // Red
-  if (r > 180 && g > 100 && g < 180) return { backgroundColor: '#f2a600', textColor: '#000000' }; // Orange
-  if (r > 180 && g > 180) return { backgroundColor: '#f2c960', textColor: '#000000' }; // Yellow
-  if (g > r && g > b) return { backgroundColor: '#149e60', textColor: '#ffffff' }; // Green
-  if (b > r && b > 150) return { backgroundColor: '#285bac', textColor: '#ffffff' }; // Blue
-  if (r > 100 && b > 100 && g < 100) return { backgroundColor: '#653e9b', textColor: '#ffffff' }; // Purple
-  
-  return { backgroundColor: '#666666', textColor: '#ffffff' }; // Default gray
+  if (r > 180 && g < 100 && b < 100)
+    return { backgroundColor: "#cc3a21", textColor: "#ffffff" }; // Red
+  if (r > 180 && g > 100 && g < 180)
+    return { backgroundColor: "#f2a600", textColor: "#000000" }; // Orange
+  if (r > 180 && g > 180)
+    return { backgroundColor: "#f2c960", textColor: "#000000" }; // Yellow
+  if (g > r && g > b)
+    return { backgroundColor: "#149e60", textColor: "#ffffff" }; // Green
+  if (b > r && b > 150)
+    return { backgroundColor: "#285bac", textColor: "#ffffff" }; // Blue
+  if (r > 100 && b > 100 && g < 100)
+    return { backgroundColor: "#653e9b", textColor: "#ffffff" }; // Purple
+
+  return { backgroundColor: "#666666", textColor: "#ffffff" }; // Default gray
 }
 
 // Create Gmail label with color
-async function createGmailLabel(accessToken: string, labelName: string, hexColor: string): Promise<boolean> {
+async function createGmailLabel(
+  accessToken: string,
+  labelName: string,
+  hexColor: string,
+): Promise<boolean> {
   try {
     // Check if label already exists
-    const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
+    const listRes = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+
     if (!listRes.ok) {
-      console.error('Failed to list Gmail labels:', await listRes.text());
+      console.error("Failed to list Gmail labels:", await listRes.text());
       return false;
     }
-    
+
     const { labels } = await listRes.json();
     const targetCore = normalizeManagedCategoryName(labelName);
     const matchingLabels = (labels || []).filter(
-      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+      (l: { name: string }) =>
+        normalizeManagedCategoryName(l.name) === targetCore,
     );
-    const existingLabel = matchingLabels.find((l: { name: string }) => l.name === labelName) || matchingLabels[0];
+    const existingLabel =
+      matchingLabels.find((l: { name: string }) => l.name === labelName) ||
+      matchingLabels[0];
     const gmailColor = hexToGmailColor(hexColor);
-    
+
     if (existingLabel) {
-      console.log(`Gmail label "${existingLabel.name}" already exists, updating to "${labelName}"...`);
-      const updateRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${existingLabel.id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+      console.log(
+        `Gmail label "${existingLabel.name}" already exists, updating to "${labelName}"...`,
+      );
+      const updateRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/labels/${existingLabel.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: labelName,
+            color: gmailColor,
+          }),
         },
-        body: JSON.stringify({
-          name: labelName,
-          color: gmailColor
-        })
-      });
-      
+      );
+
       if (!updateRes.ok) {
-        console.error(`Failed to update Gmail label color:`, await updateRes.text());
+        console.error(
+          `Failed to update Gmail label color:`,
+          await updateRes.text(),
+        );
       } else {
         console.log(`Updated color for Gmail label: ${labelName}`);
       }
 
       return true;
     }
-    
+
     // Create the label with color
-    const createRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+    const createRes = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: labelName,
+          labelListVisibility: "labelShow",
+          messageListVisibility: "show",
+          color: gmailColor,
+        }),
       },
-      body: JSON.stringify({
-        name: labelName,
-        labelListVisibility: 'labelShow',
-        messageListVisibility: 'show',
-        color: gmailColor
-      })
-    });
-    
+    );
+
     if (!createRes.ok) {
-      console.error(`Failed to create Gmail label "${labelName}":`, await createRes.text());
+      console.error(
+        `Failed to create Gmail label "${labelName}":`,
+        await createRes.text(),
+      );
       return false;
     }
-    
+
     console.log(`Created Gmail label with color: ${labelName}`);
     return true;
   } catch (error) {
@@ -461,22 +541,31 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
 // Move all messages with this Gmail label back to Inbox, then delete the label.
 // Gmail keeps the message in INBOX automatically when we just remove the custom label;
 // but if INBOX was removed (label-as-folder behaviour), we add it back explicitly.
-async function deleteGmailLabel(accessToken: string, labelName: string): Promise<boolean> {
+async function deleteGmailLabel(
+  accessToken: string,
+  labelName: string,
+): Promise<boolean> {
   try {
-    const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
+    const listRes = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+
     if (!listRes.ok) return false;
-    
+
     const { labels } = await listRes.json();
     const targetCore = normalizeManagedCategoryName(labelName);
     const matchingLabels = (labels || []).filter(
-      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+      (l: { name: string }) =>
+        normalizeManagedCategoryName(l.name) === targetCore,
     );
 
     if (matchingLabels.length === 0) {
-      console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
+      console.log(
+        `Gmail label "${labelName}" doesn't exist, nothing to delete`,
+      );
       return true;
     }
 
@@ -486,43 +575,64 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
         let pageToken: string | undefined = undefined;
         let movedTotal = 0;
         do {
-          const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
-          url.searchParams.set('labelIds', label.id);
-          url.searchParams.set('maxResults', '500');
-          if (pageToken) url.searchParams.set('pageToken', pageToken);
+          const url = new URL(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+          );
+          url.searchParams.set("labelIds", label.id);
+          url.searchParams.set("maxResults", "500");
+          if (pageToken) url.searchParams.set("pageToken", pageToken);
           const msgRes = await fetch(url.toString(), {
-            headers: { Authorization: `Bearer ${accessToken}` }
+            headers: { Authorization: `Bearer ${accessToken}` },
           });
           if (!msgRes.ok) break;
           const { messages, nextPageToken } = await msgRes.json();
           if (messages?.length) {
             const ids = messages.map((m: { id: string }) => m.id);
-            const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ids,
-                addLabelIds: ['INBOX'],
-                removeLabelIds: [label.id]
-              })
-            });
+            const modRes = await fetch(
+              "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  ids,
+                  addLabelIds: ["INBOX"],
+                  removeLabelIds: [label.id],
+                }),
+              },
+            );
             if (modRes.ok) movedTotal += ids.length;
-            else console.error(`batchModify failed for "${label.name}":`, await modRes.text());
+            else
+              console.error(
+                `batchModify failed for "${label.name}":`,
+                await modRes.text(),
+              );
           }
           pageToken = nextPageToken;
         } while (pageToken);
-        if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${label.name}" back to Inbox`);
+        if (movedTotal > 0)
+          console.log(
+            `Moved ${movedTotal} message(s) from "${label.name}" back to Inbox`,
+          );
       } catch (moveErr) {
         console.error(`Error moving messages out of "${label.name}":`, moveErr);
       }
 
-      const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const deleteRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
 
       if (!deleteRes.ok && deleteRes.status !== 404) {
-        console.error(`Failed to delete Gmail label "${label.name}":`, await deleteRes.text());
+        console.error(
+          `Failed to delete Gmail label "${label.name}":`,
+          await deleteRes.text(),
+        );
         allOk = false;
       } else {
         console.log(`Deleted Gmail label: ${label.name}`);
@@ -537,18 +647,27 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
 }
 
 // Move every message inside an Outlook folder to the Inbox, paginating through results.
-async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, folderName: string): Promise<number> {
+async function emptyOutlookFolderToInbox(
+  accessToken: string,
+  folderId: string,
+  folderName: string,
+): Promise<number> {
   // Resolve the well-known Inbox id once
-  let inboxId = 'inbox';
+  let inboxId = "inbox";
   try {
-    const inboxRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=id', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    const inboxRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=id",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
     if (inboxRes.ok) {
       const j = await inboxRes.json();
       if (j?.id) inboxId = j.id;
     }
-  } catch { /* fall back to 'inbox' alias */ }
+  } catch {
+    /* fall back to 'inbox' alias */
+  }
 
   let movedTotal = 0;
   let nextLink: string | null =
@@ -556,10 +675,13 @@ async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, 
 
   while (nextLink) {
     const res: Response = await fetch(nextLink, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) {
-      console.error(`Failed to list messages in "${folderName}":`, await res.text());
+      console.error(
+        `Failed to list messages in "${folderName}":`,
+        await res.text(),
+      );
       break;
     }
     const data = await res.json();
@@ -568,18 +690,25 @@ async function emptyOutlookFolderToInbox(accessToken: string, folderId: string, 
       const moveRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${m.id}/move`,
         {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ destinationId: inboxId })
-        }
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ destinationId: inboxId }),
+        },
       );
       if (moveRes.ok) movedTotal++;
-      else console.error(`Move failed for message ${m.id}:`, await moveRes.text());
+      else
+        console.error(`Move failed for message ${m.id}:`, await moveRes.text());
     }
-    nextLink = data?.['@odata.nextLink'] ?? null;
+    nextLink = data?.["@odata.nextLink"] ?? null;
   }
 
-  if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${folderName}" back to Inbox`);
+  if (movedTotal > 0)
+    console.log(
+      `Moved ${movedTotal} message(s) from "${folderName}" back to Inbox`,
+    );
   return movedTotal;
 }
 
@@ -591,38 +720,51 @@ async function moveOutlookFolderMessages(
   destinationFolderName: string,
 ): Promise<number> {
   let movedTotal = 0;
-  let nextLink: string | null = `https://graph.microsoft.com/v1.0/me/mailFolders/${sourceFolderId}/messages?$select=id&$top=50`;
+  let nextLink: string | null =
+    `https://graph.microsoft.com/v1.0/me/mailFolders/${sourceFolderId}/messages?$select=id&$top=50`;
 
   while (nextLink) {
     const res: Response = await fetch(nextLink, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) {
-      console.error(`Failed to list messages in "${sourceFolderName}":`, await res.text());
+      console.error(
+        `Failed to list messages in "${sourceFolderName}":`,
+        await res.text(),
+      );
       break;
     }
 
     const data = await res.json();
     const messages: Array<{ id: string }> = data?.value ?? [];
     for (const message of messages) {
-      const moveRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${message.id}/move`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+      const moveRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${message.id}/move`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ destinationId: destinationFolderId }),
         },
-        body: JSON.stringify({ destinationId: destinationFolderId })
-      });
+      );
 
       if (moveRes.ok) movedTotal++;
-      else console.error(`Move failed for message ${message.id} into "${destinationFolderName}":`, await moveRes.text());
+      else
+        console.error(
+          `Move failed for message ${message.id} into "${destinationFolderName}":`,
+          await moveRes.text(),
+        );
     }
 
-    nextLink = data?.['@odata.nextLink'] ?? null;
+    nextLink = data?.["@odata.nextLink"] ?? null;
   }
 
   if (movedTotal > 0) {
-    console.log(`Moved ${movedTotal} message(s) from "${sourceFolderName}" into "${destinationFolderName}"`);
+    console.log(
+      `Moved ${movedTotal} message(s) from "${sourceFolderName}" into "${destinationFolderName}"`,
+    );
   }
 
   return movedTotal;
@@ -631,11 +773,14 @@ async function moveOutlookFolderMessages(
 // Delete every Outlook server-side messageRule whose name targets the given
 // label (e.g. "02: Follow Up"). We match the InboxIQ-managed rule name shape
 // `InboxIQ: <label> - <type>:<value>` so we don't touch unrelated user rules.
-async function deleteOutlookRulesForLabel(accessToken: string, labelName: string): Promise<number> {
+async function deleteOutlookRulesForLabel(
+  accessToken: string,
+  labelName: string,
+): Promise<number> {
   try {
     const listRes = await fetch(
-      'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules",
+      { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!listRes.ok) return 0;
     const { value } = await listRes.json();
@@ -643,22 +788,29 @@ async function deleteOutlookRulesForLabel(accessToken: string, labelName: string
     const labelLower = labelName.toLowerCase();
     const baseLower = normalizeManagedCategoryName(labelName);
     for (const r of value || []) {
-      const name = String(r.displayName || '');
+      const name = String(r.displayName || "");
       const nameLower = name.toLowerCase();
       const isManaged =
-        nameLower.startsWith('inboxiq:') ||
-        nameLower.startsWith('wibookly:') ||
-        nameLower.startsWith('vbookly:');
+        nameLower.startsWith("inboxiq:") ||
+        nameLower.startsWith("wibookly:") ||
+        nameLower.startsWith("vbookly:");
       if (!isManaged) continue;
       // Must reference this category label (with or without numeric prefix).
-      if (!nameLower.includes(labelLower) && !nameLower.includes(baseLower)) continue;
+      if (!nameLower.includes(labelLower) && !nameLower.includes(baseLower))
+        continue;
       const delRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${r.id}`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
       );
       if (delRes.ok || delRes.status === 404) deleted++;
     }
-    if (deleted > 0) console.log(`Deleted ${deleted} Outlook rule(s) for label "${labelName}"`);
+    if (deleted > 0)
+      console.log(
+        `Deleted ${deleted} Outlook rule(s) for label "${labelName}"`,
+      );
     return deleted;
   } catch (err) {
     console.warn(`deleteOutlookRulesForLabel failed for "${labelName}":`, err);
@@ -671,20 +823,28 @@ async function deleteOutlookRulesForLabel(accessToken: string, labelName: string
 // or unnumbered "Urgent" folders so the mailbox stays clean).
 // IMPORTANT: never deletes the special unprefixed "Follow-up" tracker folder
 // used by cron-follow-ups; numbered "02: Follow Up" categories ARE deletable.
-async function deleteOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
+async function deleteOutlookFolder(
+  accessToken: string,
+  folderName: string,
+): Promise<boolean> {
   try {
-    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    const listRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
 
     if (!listRes.ok) return false;
 
     const { value: folders } = await listRes.json();
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
-    const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+    const hasNumericPrefix = (s: string) =>
+      /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
     // Detect a leading emoji/colored-dot prefix (current label format "🟠 Name").
-    const hasEmojiPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
+    const hasEmojiPrefix = (s: string) =>
+      /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
     const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
@@ -694,23 +854,38 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     // dot prefix ("🟠 Follow Up") — both ARE deletable when the user
     // disables the category. Only a folder with NO prefix at all is the
     // tracker folder.
-    const PROTECTED_UNPREFIXED = new Set(['follow-up', 'follow up', 'followup']);
+    const PROTECTED_UNPREFIXED = new Set([
+      "follow-up",
+      "follow up",
+      "followup",
+    ]);
 
     // Match every folder whose normalized name equals our target.
     // For each match, only skip the unprefixed tracker folder.
-    const matches = (folders ?? []).filter(
-      (f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore
-    ).filter((f: { displayName: string }) => {
-      const isPrefixed = hasNumericPrefix(f.displayName) || hasEmojiPrefix(f.displayName);
-      if (!isPrefixed && PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))) {
-        console.log(`Skipping protected unprefixed folder "${f.displayName}"`);
-        return false;
-      }
-      return true;
-    });
+    const matches = (folders ?? [])
+      .filter(
+        (f: { id: string; displayName: string }) =>
+          stripPrefix(f.displayName) === targetCore,
+      )
+      .filter((f: { displayName: string }) => {
+        const isPrefixed =
+          hasNumericPrefix(f.displayName) || hasEmojiPrefix(f.displayName);
+        if (
+          !isPrefixed &&
+          PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))
+        ) {
+          console.log(
+            `Skipping protected unprefixed folder "${f.displayName}"`,
+          );
+          return false;
+        }
+        return true;
+      });
 
     if (matches.length === 0) {
-      console.log(`Outlook folder matching "${folderName}" doesn't exist, nothing to delete`);
+      console.log(
+        `Outlook folder matching "${folderName}" doesn't exist, nothing to delete`,
+      );
       return true;
     }
 
@@ -722,12 +897,18 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
       } catch (moveErr) {
         console.error(`Error emptying "${f.displayName}":`, moveErr);
       }
-      const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const deleteRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
       if (!deleteRes.ok && deleteRes.status !== 404) {
-        console.error(`Failed to delete Outlook folder "${f.displayName}":`, await deleteRes.text());
+        console.error(
+          `Failed to delete Outlook folder "${f.displayName}":`,
+          await deleteRes.text(),
+        );
         allOk = false;
       } else {
         console.log(`Deleted Outlook folder: ${f.displayName}`);
@@ -747,36 +928,39 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
 // color, then tag every message that lives inside the folder with it so
 // the colored stripe shows next to the email subject in Outlook.
 // ────────────────────────────────────────────────────────────────────────
-const OUTLOOK_PRESET_COLORS: Array<{ preset: string; hex: [number, number, number] }> = [
-  { preset: 'preset0',  hex: [0xE7, 0x4C, 0x3C] },
-  { preset: 'preset1',  hex: [0xE6, 0x7E, 0x22] },
-  { preset: 'preset2',  hex: [0xC1, 0x9A, 0x6B] },
-  { preset: 'preset3',  hex: [0xF1, 0xC4, 0x0F] },
-  { preset: 'preset4',  hex: [0x2E, 0xCC, 0x71] },
-  { preset: 'preset5',  hex: [0x16, 0xA0, 0x85] },
-  { preset: 'preset6',  hex: [0x95, 0xA5, 0xA6] },
-  { preset: 'preset7',  hex: [0x34, 0x98, 0xDB] },
-  { preset: 'preset8',  hex: [0x9B, 0x59, 0xB6] },
-  { preset: 'preset9',  hex: [0xE8, 0x4F, 0x9C] },
-  { preset: 'preset10', hex: [0x7F, 0x8C, 0x8D] },
-  { preset: 'preset11', hex: [0x2C, 0x3E, 0x50] },
-  { preset: 'preset12', hex: [0xBD, 0xC3, 0xC7] },
-  { preset: 'preset13', hex: [0x34, 0x49, 0x5E] },
-  { preset: 'preset14', hex: [0x00, 0x00, 0x00] },
-  { preset: 'preset15', hex: [0xC0, 0x39, 0x2B] },
-  { preset: 'preset16', hex: [0xD3, 0x54, 0x00] },
-  { preset: 'preset17', hex: [0x8B, 0x4F, 0x2F] },
-  { preset: 'preset18', hex: [0xB7, 0x95, 0x0B] },
-  { preset: 'preset19', hex: [0x27, 0xAE, 0x60] },
-  { preset: 'preset20', hex: [0x0E, 0x80, 0x68] },
-  { preset: 'preset21', hex: [0x6B, 0x6F, 0x39] },
-  { preset: 'preset22', hex: [0x21, 0x6F, 0xA8] },
-  { preset: 'preset23', hex: [0x71, 0x36, 0x8A] },
-  { preset: 'preset24', hex: [0xAD, 0x14, 0x57] },
+const OUTLOOK_PRESET_COLORS: Array<{
+  preset: string;
+  hex: [number, number, number];
+}> = [
+  { preset: "preset0", hex: [0xe7, 0x4c, 0x3c] },
+  { preset: "preset1", hex: [0xe6, 0x7e, 0x22] },
+  { preset: "preset2", hex: [0xc1, 0x9a, 0x6b] },
+  { preset: "preset3", hex: [0xf1, 0xc4, 0x0f] },
+  { preset: "preset4", hex: [0x2e, 0xcc, 0x71] },
+  { preset: "preset5", hex: [0x16, 0xa0, 0x85] },
+  { preset: "preset6", hex: [0x95, 0xa5, 0xa6] },
+  { preset: "preset7", hex: [0x34, 0x98, 0xdb] },
+  { preset: "preset8", hex: [0x9b, 0x59, 0xb6] },
+  { preset: "preset9", hex: [0xe8, 0x4f, 0x9c] },
+  { preset: "preset10", hex: [0x7f, 0x8c, 0x8d] },
+  { preset: "preset11", hex: [0x2c, 0x3e, 0x50] },
+  { preset: "preset12", hex: [0xbd, 0xc3, 0xc7] },
+  { preset: "preset13", hex: [0x34, 0x49, 0x5e] },
+  { preset: "preset14", hex: [0x00, 0x00, 0x00] },
+  { preset: "preset15", hex: [0xc0, 0x39, 0x2b] },
+  { preset: "preset16", hex: [0xd3, 0x54, 0x00] },
+  { preset: "preset17", hex: [0x8b, 0x4f, 0x2f] },
+  { preset: "preset18", hex: [0xb7, 0x95, 0x0b] },
+  { preset: "preset19", hex: [0x27, 0xae, 0x60] },
+  { preset: "preset20", hex: [0x0e, 0x80, 0x68] },
+  { preset: "preset21", hex: [0x6b, 0x6f, 0x39] },
+  { preset: "preset22", hex: [0x21, 0x6f, 0xa8] },
+  { preset: "preset23", hex: [0x71, 0x36, 0x8a] },
+  { preset: "preset24", hex: [0xad, 0x14, 0x57] },
 ];
 
 function hexToRgb(hex: string): [number, number, number] | null {
-  const m = hex.replace('#', '').match(/^([0-9a-f]{6})$/i);
+  const m = hex.replace("#", "").match(/^([0-9a-f]{6})$/i);
   if (!m) return null;
   const v = parseInt(m[1], 16);
   return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
@@ -784,12 +968,18 @@ function hexToRgb(hex: string): [number, number, number] | null {
 
 function nearestOutlookPreset(hex: string): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return 'preset7';
+  if (!rgb) return "preset7";
   let best = OUTLOOK_PRESET_COLORS[0];
   let bestDist = Infinity;
   for (const p of OUTLOOK_PRESET_COLORS) {
-    const d = (rgb[0] - p.hex[0]) ** 2 + (rgb[1] - p.hex[1]) ** 2 + (rgb[2] - p.hex[2]) ** 2;
-    if (d < bestDist) { bestDist = d; best = p; }
+    const d =
+      (rgb[0] - p.hex[0]) ** 2 +
+      (rgb[1] - p.hex[1]) ** 2 +
+      (rgb[2] - p.hex[2]) ** 2;
+    if (d < bestDist) {
+      bestDist = d;
+      best = p;
+    }
   }
   return best.preset;
 }
@@ -802,40 +992,50 @@ async function ensureOutlookMasterCategory(
   try {
     const preset = nearestOutlookPreset(hexColor);
     const listRes = await fetch(
-      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!listRes.ok) {
-      console.warn('listMasterCategories failed:', (await listRes.text()).slice(0, 200));
+      console.warn(
+        "listMasterCategories failed:",
+        (await listRes.text()).slice(0, 200),
+      );
       return false;
     }
     const { value } = await listRes.json();
     const existing = (value || []).find(
-      (c: { displayName: string; id: string; color: string }) => c.displayName === displayName,
+      (c: { displayName: string; id: string; color: string }) =>
+        c.displayName === displayName,
     );
     if (existing) {
       if (existing.color === preset) return true;
       const patchRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
         {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ color: preset }),
         },
       );
       return patchRes.ok;
     }
     const createRes = await fetch(
-      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
       {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ displayName, color: preset }),
       },
     );
     return createRes.ok;
   } catch (err) {
-    console.warn('ensureOutlookMasterCategory failed:', err);
+    console.warn("ensureOutlookMasterCategory failed:", err);
     return false;
   }
 }
@@ -847,7 +1047,7 @@ async function deleteOutlookMasterCategory(
 ): Promise<boolean> {
   try {
     const listRes = await fetch(
-      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!listRes.ok) return false;
@@ -859,13 +1059,13 @@ async function deleteOutlookMasterCategory(
     const delRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
       {
-        method: 'DELETE',
+        method: "DELETE",
         headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
     return delRes.ok;
   } catch (err) {
-    console.warn('deleteOutlookMasterCategory failed:', err);
+    console.warn("deleteOutlookMasterCategory failed:", err);
     return false;
   }
 }
@@ -887,7 +1087,9 @@ async function tagOutlookFolderMessages(
     if (!listRes.ok) return 0;
     const { value: messages } = await listRes.json();
     for (const m of messages ?? []) {
-      const existing: string[] = Array.isArray(m.categories) ? m.categories : [];
+      const existing: string[] = Array.isArray(m.categories)
+        ? m.categories
+        : [];
       // Strip ALL InboxIQ-managed tags (current + legacy) so each email ends
       // up with exactly one IQ category — eliminates duplicates like
       // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" + "IQ: Approvals".
@@ -903,8 +1105,11 @@ async function tagOutlookFolderMessages(
       const patchRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
         {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ categories: next }),
         },
       );
@@ -918,19 +1123,25 @@ async function tagOutlookFolderMessages(
 
 // Look up an Outlook folder ID by displayName (handles numeric prefix and
 // invisible zero-width sort-prefix variants).
-async function findOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
+async function findOutlookFolderId(
+  accessToken: string,
+  folderName: string,
+): Promise<string | null> {
   try {
     const res = await fetch(
-      'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+      "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!res.ok) return null;
     const { value: folders } = await res.json();
-    const exact = (folders ?? []).find((f: { displayName: string; id: string }) => f.displayName === folderName);
+    const exact = (folders ?? []).find(
+      (f: { displayName: string; id: string }) => f.displayName === folderName,
+    );
     if (exact?.id) return exact.id;
     const target = normalizeManagedCategoryName(folderName);
     const fuzzy = (folders ?? []).find(
-      (f: { displayName: string; id: string }) => normalizeManagedCategoryName(f.displayName) === target,
+      (f: { displayName: string; id: string }) =>
+        normalizeManagedCategoryName(f.displayName) === target,
     );
     return fuzzy?.id ?? null;
   } catch {
@@ -961,10 +1172,10 @@ async function setOutlookFolderFavorite(
     const res = await fetch(
       `https://graph.microsoft.com/beta/me/mailFolders/${folderId}`,
       {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         // `isFavorite` is recognised by Graph beta on some tenants; older
         // tenants ignore it without error. We always send `isHidden:false`
@@ -981,30 +1192,40 @@ async function setOutlookFolderFavorite(
     }
     return true;
   } catch (e) {
-    console.warn('setOutlookFolderFavorite error:', e);
+    console.warn("setOutlookFolderFavorite error:", e);
     return false;
   }
 }
-async function createOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
+async function createOutlookFolder(
+  accessToken: string,
+  folderName: string,
+): Promise<boolean> {
   try {
     // Check if folder already exists; pull a wide page so we see all of them
-    const listRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
+    const listRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+
     if (!listRes.ok) {
-      console.error('Failed to list Outlook folders:', await listRes.text());
+      console.error("Failed to list Outlook folders:", await listRes.text());
       return false;
     }
-    
+
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
     const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
-    const matches: Array<{ id: string; displayName: string }> =
-      (folders ?? []).filter((f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore);
+    const matches: Array<{ id: string; displayName: string }> = (
+      folders ?? []
+    ).filter(
+      (f: { id: string; displayName: string }) =>
+        stripPrefix(f.displayName) === targetCore,
+    );
 
     let canonical = matches.find((f) => f.displayName === folderName) ?? null;
 
@@ -1018,17 +1239,19 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
       const patchRes = await fetch(
         `https://graph.microsoft.com/v1.0/me/mailFolders/${renameTarget.id}`,
         {
-          method: 'PATCH',
+          method: "PATCH",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ displayName: folderName }),
         },
       );
       if (patchRes.ok) {
         canonical = await patchRes.json();
-        console.log(`Renamed Outlook folder "${renameTarget.displayName}" → "${folderName}"`);
+        console.log(
+          `Renamed Outlook folder "${renameTarget.displayName}" → "${folderName}"`,
+        );
       } else {
         console.warn(
           `Failed to rename Outlook folder "${renameTarget.displayName}" → "${folderName}":`,
@@ -1038,17 +1261,23 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     }
 
     if (!canonical) {
-      const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+      const createRes = await fetch(
+        "https://graph.microsoft.com/v1.0/me/mailFolders",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ displayName: folderName }),
         },
-        body: JSON.stringify({ displayName: folderName })
-      });
+      );
 
       if (!createRes.ok) {
-        console.error(`Failed to create Outlook folder "${folderName}":`, await createRes.text());
+        console.error(
+          `Failed to create Outlook folder "${folderName}":`,
+          await createRes.text(),
+        );
         return false;
       }
 
@@ -1057,18 +1286,32 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     }
 
     // Any leftover duplicates (rare): merge their messages into canonical and delete.
-    const toDelete = matches.filter((f) => f.id !== canonical?.id && f.displayName !== folderName);
+    const toDelete = matches.filter(
+      (f) => f.id !== canonical?.id && f.displayName !== folderName,
+    );
     for (const dup of toDelete) {
-      console.log(`Deduplicating Outlook folder "${dup.displayName}" into "${folderName}"`);
+      console.log(
+        `Deduplicating Outlook folder "${dup.displayName}" into "${folderName}"`,
+      );
       try {
         if (canonical?.id) {
-          await moveOutlookFolderMessages(accessToken, dup.id, dup.displayName, canonical.id, folderName);
+          await moveOutlookFolderMessages(
+            accessToken,
+            dup.id,
+            dup.displayName,
+            canonical.id,
+            folderName,
+          );
         }
       } catch (moveErr) {
-        console.error(`Failed moving messages from duplicate folder "${dup.displayName}":`, moveErr);
+        console.error(
+          `Failed moving messages from duplicate folder "${dup.displayName}":`,
+          moveErr,
+        );
       }
       await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${dup.id}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` }
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
       }).catch(() => null);
     }
 
@@ -1079,15 +1322,17 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
   }
 }
 
-const REORDER_TEMP_PREFIX = 'InboxIQ reorder ';
+const REORDER_TEMP_PREFIX = "InboxIQ reorder ";
 
-async function listOutlookFolders(accessToken: string): Promise<Array<{ id: string; displayName: string }>> {
+async function listOutlookFolders(
+  accessToken: string,
+): Promise<Array<{ id: string; displayName: string }>> {
   const listRes = await fetch(
-    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
   );
   if (!listRes.ok) {
-    console.warn('Unable to list Outlook folders:', await listRes.text());
+    console.warn("Unable to list Outlook folders:", await listRes.text());
     return [];
   }
   const { value } = await listRes.json();
@@ -1095,9 +1340,12 @@ async function listOutlookFolders(accessToken: string): Promise<Array<{ id: stri
 }
 
 async function getOutlookInboxId(accessToken: string): Promise<string | null> {
-  const res = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders/inbox', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await fetch(
+    "https://graph.microsoft.com/v1.0/me/mailFolders/inbox",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!res.ok) return null;
   const data = await res.json();
   return data?.id ?? null;
@@ -1112,21 +1360,36 @@ async function getOutlookInboxId(accessToken: string): Promise<string | null> {
  */
 async function cleanupOrphanedReorderFolders(
   accessToken: string,
-  desired: Array<{ folderName: string; coreName: string; name: string; show_in_favorites?: boolean }>,
+  desired: Array<{
+    folderName: string;
+    coreName: string;
+    name: string;
+    show_in_favorites?: boolean;
+  }>,
 ): Promise<void> {
   const folders = await listOutlookFolders(accessToken);
-  const orphans = folders.filter((f) => (f.displayName || '').startsWith(REORDER_TEMP_PREFIX));
+  const orphans = folders.filter((f) =>
+    (f.displayName || "").startsWith(REORDER_TEMP_PREFIX),
+  );
   if (orphans.length === 0) return;
 
-  console.log(`Found ${orphans.length} orphaned reorder folder(s); cleaning up...`);
+  console.log(
+    `Found ${orphans.length} orphaned reorder folder(s); cleaning up...`,
+  );
   const inboxId = await getOutlookInboxId(accessToken);
 
   for (const orphan of orphans) {
     // Extract the original category name: "InboxIQ reorder {8hex} {Name}"
-    const match = orphan.displayName.match(/^InboxIQ reorder [0-9a-f]+\s+(.+)$/i);
-    const originalName = match?.[1]?.trim() ?? '';
+    const match = orphan.displayName.match(
+      /^InboxIQ reorder [0-9a-f]+\s+(.+)$/i,
+    );
+    const originalName = match?.[1]?.trim() ?? "";
     const matchedDesired = originalName
-      ? desired.find((d) => normalizeManagedCategoryName(d.name) === normalizeManagedCategoryName(originalName))
+      ? desired.find(
+          (d) =>
+            normalizeManagedCategoryName(d.name) ===
+            normalizeManagedCategoryName(originalName),
+        )
       : undefined;
 
     // Check if a folder with the final desired name already exists.
@@ -1134,44 +1397,78 @@ async function cleanupOrphanedReorderFolders(
       ? folders.some(
           (f) =>
             f.id !== orphan.id &&
-            normalizeManagedCategoryName(f.displayName) === matchedDesired.coreName,
+            normalizeManagedCategoryName(f.displayName) ===
+              matchedDesired.coreName,
         )
       : false;
 
     if (matchedDesired && !finalAlreadyExists) {
       // Recover: rename the temp folder to its proper final name.
-      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: matchedDesired.folderName }),
-      });
+      const renameRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ displayName: matchedDesired.folderName }),
+        },
+      );
       if (renameRes.ok) {
-        console.log(`Recovered orphan reorder folder -> ${matchedDesired.folderName}`);
-        await setOutlookFolderFavorite(accessToken, orphan.id, Boolean(matchedDesired.show_in_favorites));
+        console.log(
+          `Recovered orphan reorder folder -> ${matchedDesired.folderName}`,
+        );
+        await setOutlookFolderFavorite(
+          accessToken,
+          orphan.id,
+          Boolean(matchedDesired.show_in_favorites),
+        );
         continue;
       }
-      console.warn(`Failed to recover orphan ${orphan.displayName}, will delete instead:`, await renameRes.text());
+      console.warn(
+        `Failed to recover orphan ${orphan.displayName}, will delete instead:`,
+        await renameRes.text(),
+      );
     }
 
     // Otherwise: move any messages back to inbox and delete.
     if (inboxId) {
       try {
-        await moveOutlookFolderMessages(accessToken, orphan.id, orphan.displayName, inboxId, 'Inbox');
+        await moveOutlookFolderMessages(
+          accessToken,
+          orphan.id,
+          orphan.displayName,
+          inboxId,
+          "Inbox",
+        );
       } catch (error) {
-        console.error(`Failed moving messages out of orphan ${orphan.displayName}:`, error);
+        console.error(
+          `Failed moving messages out of orphan ${orphan.displayName}:`,
+          error,
+        );
       }
     }
-    await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }).catch((error) => console.error(`Failed deleting orphan ${orphan.displayName}:`, error));
+    await fetch(
+      `https://graph.microsoft.com/v1.0/me/mailFolders/${orphan.id}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    ).catch((error) =>
+      console.error(`Failed deleting orphan ${orphan.displayName}:`, error),
+    );
     console.log(`Deleted orphaned reorder folder: ${orphan.displayName}`);
   }
 }
 
 async function enforceOutlookManagedFolderOrder(
   accessToken: string,
-  categories: Array<{ name: string; color: string; show_in_favorites?: boolean }>,
+  categories: Array<{
+    name: string;
+    color: string;
+    show_in_favorites?: boolean;
+  }>,
 ): Promise<void> {
   if (categories.length === 0) return;
 
@@ -1192,65 +1489,109 @@ async function enforceOutlookManagedFolderOrder(
 
   let folders = await listOutlookFolders(accessToken);
   if (folders.length === 0) {
-    console.warn('Unable to inspect Outlook folders for stabilization.');
+    console.warn("Unable to inspect Outlook folders for stabilization.");
     return;
   }
 
-  console.log(`Stabilizing Outlook folder names/order: ${desired.map((item) => item.folderName).join(' -> ')}`);
+  console.log(
+    `Stabilizing Outlook folder names/order: ${desired.map((item) => item.folderName).join(" -> ")}`,
+  );
 
   for (const item of desired) {
     let matches = folders.filter(
-      (folder) => normalizeManagedCategoryName(folder.displayName) === item.coreName,
+      (folder) =>
+        normalizeManagedCategoryName(folder.displayName) === item.coreName,
     );
 
     if (matches.length === 0) {
       const created = await createOutlookFolder(accessToken, item.folderName);
       if (!created) {
-        console.warn(`Failed creating missing Outlook folder during stabilization: ${item.folderName}`);
+        console.warn(
+          `Failed creating missing Outlook folder during stabilization: ${item.folderName}`,
+        );
         continue;
       }
       folders = await listOutlookFolders(accessToken);
       matches = folders.filter(
-        (folder) => normalizeManagedCategoryName(folder.displayName) === item.coreName,
+        (folder) =>
+          normalizeManagedCategoryName(folder.displayName) === item.coreName,
       );
     }
 
     if (matches.length === 0) continue;
 
-    let canonical = matches.find((folder) => folder.displayName === item.folderName) ?? matches[0];
+    let canonical =
+      matches.find((folder) => folder.displayName === item.folderName) ??
+      matches[0];
 
     if (canonical.displayName !== item.folderName) {
-      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${canonical.id}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: item.folderName }),
-      });
+      const renameRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/${canonical.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ displayName: item.folderName }),
+        },
+      );
 
       if (renameRes.ok) {
         canonical = { ...canonical, displayName: item.folderName };
-        folders = folders.map((folder) => folder.id === canonical.id ? canonical : folder);
-        console.log(`Stabilized Outlook folder "${matches[0].displayName}" → "${item.folderName}"`);
+        folders = folders.map((folder) =>
+          folder.id === canonical.id ? canonical : folder,
+        );
+        console.log(
+          `Stabilized Outlook folder "${matches[0].displayName}" → "${item.folderName}"`,
+        );
       } else {
-        console.warn(`Failed stabilizing Outlook folder to ${item.folderName}:`, await renameRes.text());
+        console.warn(
+          `Failed stabilizing Outlook folder to ${item.folderName}:`,
+          await renameRes.text(),
+        );
       }
     }
 
-    for (const duplicate of matches.filter((folder) => folder.id !== canonical.id)) {
+    for (const duplicate of matches.filter(
+      (folder) => folder.id !== canonical.id,
+    )) {
       try {
-        await moveOutlookFolderMessages(accessToken, duplicate.id, duplicate.displayName, canonical.id, canonical.displayName);
+        await moveOutlookFolderMessages(
+          accessToken,
+          duplicate.id,
+          duplicate.displayName,
+          canonical.id,
+          canonical.displayName,
+        );
       } catch (error) {
-        console.error(`Failed moving messages from duplicate folder ${duplicate.displayName}:`, error);
+        console.error(
+          `Failed moving messages from duplicate folder ${duplicate.displayName}:`,
+          error,
+        );
       }
 
-      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${duplicate.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }).catch((error) => console.error(`Failed deleting duplicate Outlook folder ${duplicate.displayName}:`, error));
+      await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/${duplicate.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      ).catch((error) =>
+        console.error(
+          `Failed deleting duplicate Outlook folder ${duplicate.displayName}:`,
+          error,
+        ),
+      );
 
       folders = folders.filter((folder) => folder.id !== duplicate.id);
     }
 
-    await setOutlookFolderFavorite(accessToken, canonical.id, Boolean(item.show_in_favorites));
+    await setOutlookFolderFavorite(
+      accessToken,
+      canonical.id,
+      Boolean(item.show_in_favorites),
+    );
   }
 
   await cleanupOrphanedReorderFolders(accessToken, desired);
@@ -1274,15 +1615,21 @@ async function renameRenamedOutlookFolders(
   if (renames.length === 0) return;
 
   const listRes = await fetch(
-    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+    "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
   if (!listRes.ok) {
-    console.warn('Rename pre-pass: failed listing Outlook folders:', await listRes.text());
+    console.warn(
+      "Rename pre-pass: failed listing Outlook folders:",
+      await listRes.text(),
+    );
     return;
   }
   const { value: folders } = await listRes.json();
-  const allFolders = (folders ?? []) as Array<{ id: string; displayName: string }>;
+  const allFolders = (folders ?? []) as Array<{
+    id: string;
+    displayName: string;
+  }>;
 
   for (const { oldName, newName, color } of renames) {
     const oldCore = normalizeManagedCategoryName(oldName);
@@ -1310,13 +1657,18 @@ async function renameRenamedOutlookFolders(
     const patchRes = await fetch(
       `https://graph.microsoft.com/v1.0/me/mailFolders/${oldMatch.id}`,
       {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ displayName: renamedDisplay }),
       },
     );
     if (patchRes.ok) {
-      console.log(`Renamed Outlook folder "${oldMatch.displayName}" → "${renamedDisplay}" (DB rename)`);
+      console.log(
+        `Renamed Outlook folder "${oldMatch.displayName}" → "${renamedDisplay}" (DB rename)`,
+      );
     } else {
       console.warn(
         `Rename pre-pass: failed renaming "${oldMatch.displayName}" → "${renamedDisplay}":`,
@@ -1331,11 +1683,17 @@ async function renameRenamedGmailLabels(
   renames: Array<{ oldName: string; newName: string; color: string }>,
 ): Promise<void> {
   if (renames.length === 0) return;
-  const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const listRes = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!listRes.ok) {
-    console.warn('Rename pre-pass: failed listing Gmail labels:', await listRes.text());
+    console.warn(
+      "Rename pre-pass: failed listing Gmail labels:",
+      await listRes.text(),
+    );
     return;
   }
   const { labels } = await listRes.json();
@@ -1361,13 +1719,21 @@ async function renameRenamedGmailLabels(
     const patchRes = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/labels/${oldMatch.id}`,
       {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: renamedName, color: hexToGmailColor(color) }),
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: renamedName,
+          color: hexToGmailColor(color),
+        }),
       },
     );
     if (patchRes.ok) {
-      console.log(`Renamed Gmail label "${oldMatch.name}" → "${renamedName}" (DB rename)`);
+      console.log(
+        `Renamed Gmail label "${oldMatch.name}" → "${renamedName}" (DB rename)`,
+      );
     } else {
       console.warn(
         `Rename pre-pass: failed renaming Gmail label "${oldMatch.name}" → "${renamedName}":`,
@@ -1378,32 +1744,37 @@ async function renameRenamedGmailLabels(
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-
   try {
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing authorization header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     const supabaseUserClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseUserClient.auth.getUser();
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     let connectionId: string | null = null;
@@ -1415,54 +1786,63 @@ serve(async (req) => {
     }
 
     // Get user's organization using RPC function
-    const { data: profileData } = await supabaseUserClient.rpc('get_my_profile');
+    const { data: profileData } =
+      await supabaseUserClient.rpc("get_my_profile");
     const profile = profileData?.[0];
-    
+
     if (!profile?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'User profile not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: "User profile not found" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Create service role client for privileged operations
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     let scopedConnectionIds: string[] = [];
 
     if (connectionId) {
-      const { data: requestedConnection, error: connectionError } = await supabaseAdmin
-        .from('provider_connections')
-        .select('id')
-        .eq('id', connectionId)
-        .eq('user_id', user.id)
-        .eq('organization_id', profile.organization_id)
-        .eq('is_connected', true)
-        .maybeSingle();
+      const { data: requestedConnection, error: connectionError } =
+        await supabaseAdmin
+          .from("provider_connections")
+          .select("id")
+          .eq("id", connectionId)
+          .eq("user_id", user.id)
+          .eq("organization_id", profile.organization_id)
+          .eq("is_connected", true)
+          .maybeSingle();
 
       if (connectionError || !requestedConnection) {
         return new Response(
-          JSON.stringify({ error: 'Connected email account not found' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: "Connected email account not found" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
 
       scopedConnectionIds = [requestedConnection.id];
     } else {
-      const { data: userConnections, error: connectionsError } = await supabaseAdmin
-        .from('provider_connections')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('organization_id', profile.organization_id)
-        .eq('is_connected', true);
+      const { data: userConnections, error: connectionsError } =
+        await supabaseAdmin
+          .from("provider_connections")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("organization_id", profile.organization_id)
+          .eq("is_connected", true);
 
       if (connectionsError || !userConnections?.length) {
         return new Response(
-          JSON.stringify({ error: 'No connected email providers found' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: "No connected email providers found" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
 
@@ -1471,38 +1851,54 @@ serve(async (req) => {
 
     // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
-      .from('categories')
-      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites, last_synced_name')
-      .eq('organization_id', profile.organization_id)
-      .in('connection_id', scopedConnectionIds)
-      .order('sort_order');
+      .from("categories")
+      .select(
+        "id, name, color, is_enabled, sort_order, connection_id, show_in_favorites, last_synced_name",
+      )
+      .eq("organization_id", profile.organization_id)
+      .in("connection_id", scopedConnectionIds)
+      .order("sort_order");
 
     if (catError || !allCategories) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch categories' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Failed to fetch categories" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    const enabledCategories = allCategories.filter(c => c.is_enabled);
-    const disabledCategories = allCategories.filter(c => !c.is_enabled);
+    const enabledCategories = allCategories.filter((c) => c.is_enabled);
+    const disabledCategories = allCategories.filter((c) => !c.is_enabled);
 
-    const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
+    const encryptionKey = Deno.env.get("TOKEN_ENCRYPTION_KEY")!;
 
     // Get tokens from vault (including refresh token and expiry for refresh logic)
     const { data: tokenDataList, error: tokenError } = await supabaseAdmin
-      .from('oauth_token_vault')
-      .select('provider, encrypted_access_token, encrypted_refresh_token, expires_at')
-      .eq('user_id', user.id);
+      .from("oauth_token_vault")
+      .select(
+        "provider, encrypted_access_token, encrypted_refresh_token, expires_at",
+      )
+      .eq("user_id", user.id);
 
     if (tokenError || !tokenDataList?.length) {
       return new Response(
-        JSON.stringify({ error: 'No connected email providers found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "No connected email providers found" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    const results: { provider: string; created: number; deleted: number; failed: number; error?: string }[] = [];
+    const results: {
+      provider: string;
+      created: number;
+      deleted: number;
+      failed: number;
+      error?: string;
+    }[] = [];
     const syncedCategoryIds: string[] = [];
 
     // Process each connected provider
@@ -1510,20 +1906,23 @@ serve(async (req) => {
       try {
         // Get valid access token (will refresh if expired)
         const accessToken = await getValidAccessToken(
-          tokenRecord as TokenData, 
-          encryptionKey, 
-          supabaseAdmin, 
-          user.id
+          tokenRecord as TokenData,
+          encryptionKey,
+          supabaseAdmin,
+          user.id,
         );
-        
+
         if (!accessToken) {
-          console.error(`Could not get valid access token for ${tokenRecord.provider}`);
+          console.error(
+            `Could not get valid access token for ${tokenRecord.provider}`,
+          );
           results.push({
             provider: tokenRecord.provider,
             created: 0,
             deleted: 0,
             failed: enabledCategories.length + disabledCategories.length,
-            error: 'Reconnect your Microsoft mailbox, then run Re-sync All again.'
+            error:
+              "Reconnect your Microsoft mailbox, then run Re-sync All again.",
           });
           continue;
         }
@@ -1544,16 +1943,21 @@ serve(async (req) => {
         // Without this, the create loop below would not match the old folder
         // and would create a brand-new one, leaving a duplicate behind.
         const renames = sortedEnabled
-          .filter((c: any) => c.last_synced_name && c.last_synced_name !== c.name)
+          .filter(
+            (c: any) => c.last_synced_name && c.last_synced_name !== c.name,
+          )
           .map((c: any) => ({
             oldName: c.last_synced_name as string,
             newName: c.name as string,
             color: c.color as string,
           }));
         if (renames.length > 0) {
-          if (tokenRecord.provider === 'google') {
+          if (tokenRecord.provider === "google") {
             await renameRenamedGmailLabels(accessToken, renames);
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (
+            tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook"
+          ) {
             await renameRenamedOutlookFolders(accessToken, renames);
           }
         }
@@ -1570,9 +1974,16 @@ serve(async (req) => {
           const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
           let success = false;
 
-          if (tokenRecord.provider === 'google') {
-            success = await createGmailLabel(accessToken, visibleName, category.color);
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          if (tokenRecord.provider === "google") {
+            success = await createGmailLabel(
+              accessToken,
+              visibleName,
+              category.color,
+            );
+          } else if (
+            tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook"
+          ) {
             success = await createOutlookFolder(accessToken, outlookFolderName);
             // Also create / refresh the colored Outlook Master Category and
             // retroactively tag every message inside the folder so the
@@ -1583,12 +1994,25 @@ serve(async (req) => {
             // managed category — see tagOutlookFolderMessages for dedupe.
             if (success) {
               const categoryTag = `${IQ_TAG_PREFIX}${category.name}`;
-              await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
-              const folderId = await findOutlookFolderId(accessToken, outlookFolderName);
+              await ensureOutlookMasterCategory(
+                accessToken,
+                categoryTag,
+                category.color,
+              );
+              const folderId = await findOutlookFolderId(
+                accessToken,
+                outlookFolderName,
+              );
               if (folderId) {
-                const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
+                const tagged = await tagOutlookFolderMessages(
+                  accessToken,
+                  folderId,
+                  categoryTag,
+                );
                 if (tagged > 0) {
-                  console.log(`Tagged ${tagged} msg(s) in "${visibleName}" with "${categoryTag}"`);
+                  console.log(
+                    `Tagged ${tagged} msg(s) in "${visibleName}" with "${categoryTag}"`,
+                  );
                 }
                 // Best-effort: pin/unpin in Outlook Favorites pane based on
                 // the category's `show_in_favorites` toggle. Graph beta
@@ -1602,7 +2026,7 @@ serve(async (req) => {
                 );
                 if (favPinned) {
                   console.log(
-                    `Outlook Favorites updated for "${visibleName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
+                    `Outlook Favorites updated for "${visibleName}" → ${category.show_in_favorites ? "pinned" : "unpinned"}`,
                   );
                 }
               }
@@ -1619,13 +2043,17 @@ serve(async (req) => {
               ];
               for (const stale of staleVariants) {
                 if (stale === categoryTag) continue;
-                await deleteOutlookMasterCategory(accessToken, stale).catch((e: unknown) =>
-                  console.warn(`Failed deleting stale category "${stale}":`, e),
+                await deleteOutlookMasterCategory(accessToken, stale).catch(
+                  (e: unknown) =>
+                    console.warn(
+                      `Failed deleting stale category "${stale}":`,
+                      e,
+                    ),
                 );
               }
             }
           }
-          
+
           if (success) {
             created++;
             // Track successfully synced categories
@@ -1637,7 +2065,11 @@ serve(async (req) => {
           }
         }
 
-        if ((tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') && sortedEnabled.length > 0) {
+        if (
+          (tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook") &&
+          sortedEnabled.length > 0
+        ) {
           await enforceOutlookManagedFolderOrder(
             accessToken,
             sortedEnabled.map((category) => ({
@@ -1658,9 +2090,12 @@ serve(async (req) => {
           const labelName = `${dot} ${category.name}`;
           let success = false;
 
-          if (tokenRecord.provider === 'google') {
+          if (tokenRecord.provider === "google") {
             success = await deleteGmailLabel(accessToken, labelName);
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (
+            tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook"
+          ) {
             // Remove Outlook server-side rules first so they don't recreate the folder.
             await deleteOutlookRulesForLabel(accessToken, labelName);
             success = await deleteOutlookFolder(accessToken, labelName);
@@ -1670,14 +2105,17 @@ serve(async (req) => {
             deleted++;
           }
         }
-        
+
         // Clean up legacy labels/folders with old naming format
         // Delete old "04: Meetings" (renamed to Events) and any unnumbered "Meetings" labels
-        const legacyLabelsToClean = ['04: Meetings', 'Meetings', '4: Meetings'];
+        const legacyLabelsToClean = ["04: Meetings", "Meetings", "4: Meetings"];
         for (const legacyLabel of legacyLabelsToClean) {
-          if (tokenRecord.provider === 'google') {
+          if (tokenRecord.provider === "google") {
             await deleteGmailLabel(accessToken, legacyLabel);
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (
+            tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook"
+          ) {
             await deleteOutlookFolder(accessToken, legacyLabel);
           }
         }
@@ -1686,23 +2124,35 @@ serve(async (req) => {
         // (handles old "1: Urgent" duplicates left over after we moved to "01:" padding
         // and after disabling all default categories in favor of the dedicated Follow-up folder)
         const defaultCategoryNames = [
-          'Urgent', 'Follow Up', 'Approvals', 'Events', 'Customers',
-          'Vendors', 'Internal', 'Projects', 'Finance', 'FYI', 'Meetings'
+          "Urgent",
+          "Follow Up",
+          "Approvals",
+          "Events",
+          "Customers",
+          "Vendors",
+          "Internal",
+          "Projects",
+          "Finance",
+          "FYI",
+          "Meetings",
         ];
         // Skip names that match an enabled category for THIS connection so we don't
         // delete a folder we just created.
         const enabledNamesLower = new Set(
           enabledCategories
             .filter((c) => c.connection_id === undefined || true)
-            .map((c) => c.name.trim().toLowerCase())
+            .map((c) => c.name.trim().toLowerCase()),
         );
         for (const baseName of defaultCategoryNames) {
           if (enabledNamesLower.has(baseName.toLowerCase())) continue;
           // deleteOutlookFolder / deleteGmailLabel already strip numeric prefixes
           // and remove every matching variant in one call.
-          if (tokenRecord.provider === 'google') {
+          if (tokenRecord.provider === "google") {
             await deleteGmailLabel(accessToken, baseName);
-          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+          } else if (
+            tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook"
+          ) {
             await deleteOutlookFolder(accessToken, baseName);
           }
         }
@@ -1712,42 +2162,67 @@ serve(async (req) => {
         // managed folder whose name starts with digits is stale and should be removed.
         // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
         // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
-        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+        if (
+          tokenRecord.provider === "microsoft" ||
+          tokenRecord.provider === "outlook"
+        ) {
           try {
             const listRes = await fetch(
-              'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
-              { headers: { Authorization: `Bearer ${accessToken}` } }
+              "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
+              { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             if (listRes.ok) {
               const { value: folders } = await listRes.json();
-              const legacy = (folders ?? []).filter((f: { displayName: string }) =>
-                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(f.displayName)
+              const legacy = (folders ?? []).filter(
+                (f: { displayName: string }) =>
+                  /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                    f.displayName,
+                  ),
               );
-              for (const f of legacy as Array<{ id: string; displayName: string }>) {
-                console.log(`Cleaning legacy numbered folder: ${f.displayName}`);
+              for (const f of legacy as Array<{
+                id: string;
+                displayName: string;
+              }>) {
+                console.log(
+                  `Cleaning legacy numbered folder: ${f.displayName}`,
+                );
                 try {
-                  await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
+                  await emptyOutlookFolderToInbox(
+                    accessToken,
+                    f.id,
+                    f.displayName,
+                  );
                 } catch (e) {
                   console.error(`Empty failed for ${f.displayName}:`, e);
                 }
-                await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${accessToken}` }
-                }).catch((e) => console.error(`Delete failed for ${f.displayName}:`, e));
+                await fetch(
+                  `https://graph.microsoft.com/v1.0/me/mailFolders/${f.id}`,
+                  {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                  },
+                ).catch((e) =>
+                  console.error(`Delete failed for ${f.displayName}:`, e),
+                );
               }
             }
           } catch (e) {
-            console.error('Single-digit sweep failed:', e);
+            console.error("Single-digit sweep failed:", e);
           }
-        } else if (tokenRecord.provider === 'google') {
+        } else if (tokenRecord.provider === "google") {
           try {
-            const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
-              headers: { Authorization: `Bearer ${accessToken}` }
-            });
+            const listRes = await fetch(
+              "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+              {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              },
+            );
             if (listRes.ok) {
               const { labels } = await listRes.json();
               const legacy = (labels ?? []).filter((l: { name: string }) =>
-                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(l.name)
+                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                  l.name,
+                ),
               );
               for (const l of legacy as Array<{ name: string }>) {
                 console.log(`Cleaning legacy single-digit label: ${l.name}`);
@@ -1755,7 +2230,7 @@ serve(async (req) => {
               }
             }
           } catch (e) {
-            console.error('Single-digit Gmail sweep failed:', e);
+            console.error("Single-digit Gmail sweep failed:", e);
           }
         }
 
@@ -1765,11 +2240,14 @@ serve(async (req) => {
         // Without this, emails keep displaying duplicate chips like
         // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" alongside the new
         // short "IQ: Approvals" chip.
-        if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+        if (
+          tokenRecord.provider === "microsoft" ||
+          tokenRecord.provider === "outlook"
+        ) {
           try {
             // 1) List every master category and pick out the legacy ones.
             const mcRes = await fetch(
-              'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+              "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const legacyTagNames = new Set<string>();
@@ -1778,17 +2256,22 @@ serve(async (req) => {
             const currentValid = new Set<string>();
             try {
               const { data: cats } = await supabaseAdmin
-                .from('categories')
-                .select('name')
-                .eq('connection_id', connectionId);
+                .from("categories")
+                .select("name")
+                .eq("connection_id", connectionId);
               for (const c of (cats ?? []) as Array<{ name: string }>) {
                 currentValid.add(`${IQ_TAG_PREFIX}${c.name}`);
               }
-            } catch (_) { /* best-effort */ }
+            } catch (_) {
+              /* best-effort */
+            }
             if (mcRes.ok) {
               const { value: mcList } = await mcRes.json();
-              for (const c of (mcList ?? []) as Array<{ id: string; displayName: string }>) {
-                const dn = c.displayName || '';
+              for (const c of (mcList ?? []) as Array<{
+                id: string;
+                displayName: string;
+              }>) {
+                const dn = c.displayName || "";
                 // Skip the live, currently-used IQ chips.
                 if (currentValid.has(dn)) continue;
                 // Anything else our system has ever produced gets purged:
@@ -1799,7 +2282,10 @@ serve(async (req) => {
                   // Outlook Categorize menu.
                   await fetch(
                     `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${c.id}`,
-                    { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } },
+                    {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${accessToken}` },
+                    },
                   ).catch(() => {});
                 }
               }
@@ -1817,57 +2303,78 @@ serve(async (req) => {
             const folderToIqTag = new Map<string, string>();
             try {
               const { data: cats2 } = await supabaseAdmin
-                .from('categories')
-                .select('name')
-                .eq('connection_id', connectionId);
+                .from("categories")
+                .select("name")
+                .eq("connection_id", connectionId);
               const catNames = new Map<string, string>(); // lower(name) -> "IQ: <Name>"
               for (const c of (cats2 ?? []) as Array<{ name: string }>) {
-                catNames.set(c.name.trim().toLowerCase(), `${IQ_TAG_PREFIX}${c.name}`);
+                catNames.set(
+                  c.name.trim().toLowerCase(),
+                  `${IQ_TAG_PREFIX}${c.name}`,
+                );
               }
               if (catNames.size > 0) {
                 const fRes = await fetch(
-                  'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+                  "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
                   { headers: { Authorization: `Bearer ${accessToken}` } },
                 );
                 if (fRes.ok) {
                   const { value: folders } = await fRes.json();
-                  for (const f of (folders ?? []) as Array<{ id: string; displayName: string }>) {
+                  for (const f of (folders ?? []) as Array<{
+                    id: string;
+                    displayName: string;
+                  }>) {
                     // Strip a leading numeric prefix like "02: " so "02: Follow Up" still matches "Follow Up".
-                    const core = normalizeManagedCategoryName(f.displayName || '');
+                    const core = normalizeManagedCategoryName(
+                      f.displayName || "",
+                    );
                     const iqTag = catNames.get(core);
                     if (iqTag) folderToIqTag.set(f.id, iqTag);
                   }
                 }
               }
-            } catch (_) { /* best-effort */ }
+            } catch (_) {
+              /* best-effort */
+            }
 
             const scanRes = await fetch(
-              'https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories,parentFolderId&$orderby=receivedDateTime desc',
+              "https://graph.microsoft.com/v1.0/me/messages?$top=1000&$select=id,categories,parentFolderId&$orderby=receivedDateTime desc",
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             if (scanRes.ok) {
               const { value: msgs } = await scanRes.json();
               let stripped = 0;
-              for (const m of (msgs ?? []) as Array<{ id: string; categories?: string[]; parentFolderId?: string }>) {
-                const existing = Array.isArray(m.categories) ? m.categories : [];
+              for (const m of (msgs ?? []) as Array<{
+                id: string;
+                categories?: string[];
+                parentFolderId?: string;
+              }>) {
+                const existing = Array.isArray(m.categories)
+                  ? m.categories
+                  : [];
                 if (existing.length === 0) continue;
                 // Keep all non-managed (user) categories untouched.
-                const userTags = existing.filter((c) => !isManagedCategoryName(c));
+                const userTags = existing.filter(
+                  (c) => !isManagedCategoryName(c),
+                );
                 // Decide which (if any) single managed tag this message
                 // should keep, based on the folder it's currently in.
-                const folderTag = m.parentFolderId ? folderToIqTag.get(m.parentFolderId) : undefined;
+                const folderTag = m.parentFolderId
+                  ? folderToIqTag.get(m.parentFolderId)
+                  : undefined;
                 const next = folderTag ? [...userTags, folderTag] : userTags;
                 if (
                   existing.length === next.length &&
                   existing.every((c, i) => c === next[i])
-                ) continue;
+                )
+                  continue;
                 const patchRes = await fetch(
                   `https://graph.microsoft.com/v1.0/me/messages/${m.id}`,
                   {
-                    method: 'PATCH',
+                    method: "PATCH",
                     headers: {
                       Authorization: `Bearer ${accessToken}`,
-                      'Content-Type': 'application/json',
+                      "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ categories: next }),
                   },
@@ -1879,11 +2386,16 @@ serve(async (req) => {
               }
             }
           } catch (e) {
-            console.warn('Legacy IQ tag sweep failed:', e);
+            console.warn("Legacy IQ tag sweep failed:", e);
           }
         }
 
-        results.push({ provider: tokenRecord.provider, created, deleted, failed });
+        results.push({
+          provider: tokenRecord.provider,
+          created,
+          deleted,
+          failed,
+        });
       } catch (error) {
         console.error(`Failed to process ${tokenRecord.provider}:`, error);
         results.push({
@@ -1891,7 +2403,7 @@ serve(async (req) => {
           created: 0,
           deleted: 0,
           failed: enabledCategories.length + disabledCategories.length,
-          error: error instanceof Error ? error.message : 'Unknown sync error'
+          error: error instanceof Error ? error.message : "Unknown sync error",
         });
       }
     }
@@ -1907,38 +2419,39 @@ serve(async (req) => {
       // Bulk-stamp last_synced_at, then per-row update last_synced_name so
       // each row stores its own current name.
       await supabaseAdmin
-        .from('categories')
+        .from("categories")
         .update({ last_synced_at: now })
-        .in('id', syncedCategoryIds);
+        .in("id", syncedCategoryIds);
       await Promise.all(
         syncedCategoryIds.map((id) =>
           supabaseAdmin
-            .from('categories')
+            .from("categories")
             .update({ last_synced_name: byId.get(id) ?? null })
-            .eq('id', id),
+            .eq("id", id),
         ),
       );
-      console.log(`Updated last_synced_at + last_synced_name for ${syncedCategoryIds.length} categories`);
+      console.log(
+        `Updated last_synced_at + last_synced_name for ${syncedCategoryIds.length} categories`,
+      );
     }
 
     const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         results,
         syncedCategoryIds,
-        message: `Synced ${totalCreated} labels/folders across ${results.length} provider(s)`
+        message: `Synced ${totalCreated} labels/folders across ${results.length} provider(s)`,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error: unknown) {
-    console.error('Sync categories error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("Sync categories error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
