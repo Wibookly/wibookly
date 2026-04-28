@@ -171,26 +171,30 @@ export default function Settings() {
   const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
   const [aboutMe, setAboutMe] = useState({
     company: '',
-    role_description: '',
     department: '',
+    business_phone: '',
+    mobile_phone: '',
+    profile_title: '',
     responsibilities: '',
     communication_style: '',
   });
 
-  // Load About Me from user_profiles
+  // Load profile fields synced from Microsoft 365 + AI personalization
   useEffect(() => {
     if (!profile?.user_id) return;
     (async () => {
       const { data } = await supabase
         .from('user_profiles')
-        .select('company, role_description, department, responsibilities, communication_style')
+        .select('company, department, phone, mobile, title, responsibilities, communication_style')
         .eq('user_id', profile.user_id)
         .maybeSingle() as { data: Record<string, string | null> | null };
       if (data) {
         setAboutMe({
           company: data.company || '',
-          role_description: data.role_description || '',
           department: data.department || '',
+          business_phone: data.phone || '',
+          mobile_phone: data.mobile || '',
+          profile_title: data.title || '',
           responsibilities: data.responsibilities || '',
           communication_style: data.communication_style || '',
         });
