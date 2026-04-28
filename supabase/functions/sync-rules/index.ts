@@ -928,28 +928,34 @@ async function getGmailLabelId(accessToken: string, labelName: string): Promise<
 }
 
 // Get Outlook folder ID by name
+// Strip leading invisible (zero-width) chars, emoji/dot, and any numeric
+// prefix so we can match an Outlook folder by its clean display name even
+// when sync-categories has prepended an invisible sort-order prefix.
+function normalizeFolderDisplayName(s: string): string {
+  return String(s || '')
+    .replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+}
+
 async function getOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
   try {
-    // Try direct $filter lookup first (handles any page position).
-    const escaped = folderName.replace(/'/g, "''");
-    const filterUrl = `https://graph.microsoft.com/v1.0/me/mailFolders?$filter=${encodeURIComponent(`displayName eq '${escaped}'`)}&$top=10`;
-    const filterRes = await fetch(filterUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (filterRes.ok) {
-      const { value } = await filterRes.json();
-      const match = value?.find((f: { displayName: string; id: string }) => f.displayName === folderName);
-      if (match?.id) return match.id;
-    }
+    const target = normalizeFolderDisplayName(folderName);
 
-    // Fallback: page through all top-level folders (default page size is 10).
-    let url: string | null = 'https://graph.microsoft.com/v1.0/me/mailFolders?$top=100';
+    // Page through all top-level folders and match on normalized name so
+    // invisible sort-order prefixes don't cause lookup failures.
+    let url: string | null = 'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName';
     while (url) {
       const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return null;
       const data: { value?: { displayName: string; id: string }[]; '@odata.nextLink'?: string } = await res.json();
-      const folder = data.value?.find((f) => f.displayName === folderName);
-      if (folder?.id) return folder.id;
+      // Prefer exact match, fall back to normalized match.
+      const exact = data.value?.find((f) => f.displayName === folderName);
+      if (exact?.id) return exact.id;
+      const fuzzy = data.value?.find((f) => normalizeFolderDisplayName(f.displayName) === target);
+      if (fuzzy?.id) return fuzzy.id;
       url = data['@odata.nextLink'] ?? null;
     }
     return null;
