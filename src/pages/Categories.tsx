@@ -743,8 +743,30 @@ export default function Categories() {
     }
   };
 
+  const [emailingScript, setEmailingScript] = useState(false);
+  const emailOutlookScript = async () => {
+    if (!activeConnection?.id) return;
+    setEmailingScript(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-outlook-script', {
+        body: { connectionId: activeConnection.id },
+      });
+      if (error) throw error;
+      toast({
+        title: '📧 Script emailed!',
+        description: 'Check your inbox for InboxIQ-Setup.ps1 with installation instructions.',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Could not send script',
+        description: e?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEmailingScript(false);
+    }
+  };
 
-  // Mark rule as needing sync when modified
   const markRuleNeedsSync = (ruleId: string) => {
     if (!ruleId.startsWith('temp-')) {
       setRulesNeedingSync(prev => new Set(prev).add(ruleId));
