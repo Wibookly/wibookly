@@ -1285,7 +1285,127 @@ async function enforceOutlookManagedFolderOrder(
   await cleanupOrphanedReorderFolders(accessToken, desired);
 }
 
-serve(async (req) => {
+/**
+ * Rename pre-pass.
+ *
+ * Looks at every category whose DB name has changed since the last successful
+ * sync (`last_synced_name !== name`) and renames the matching Outlook folder
+ * / Gmail label IN PLACE — preserving the folder ID, the messages inside, and
+ * any server-side rules pointing at it. Without this step, the regular create
+ * loop would only see the NEW name, fail to find a matching folder under the
+ * new core name, and create a brand-new folder — leaving the old one (e.g.
+ * "Project") sitting next to the new one (e.g. "Project One") in Outlook.
+ */
+async function renameRenamedOutlookFolders(
+  accessToken: string,
+  renames: Array<{ oldName: string; newName: string; color: string }>,
+): Promise<void> {
+  if (renames.length === 0) return;
+
+  const listRes = await fetch(
+    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!listRes.ok) {
+    console.warn('Rename pre-pass: failed listing Outlook folders:', await listRes.text());
+    return;
+  }
+  const { value: folders } = await listRes.json();
+  const allFolders = (folders ?? []) as Array<{ id: string; displayName: string }>;
+
+  for (const { oldName, newName, color } of renames) {
+    const oldCore = normalizeManagedCategoryName(oldName);
+    const newCore = normalizeManagedCategoryName(newName);
+    if (oldCore === newCore) continue; // not actually renamed
+
+    // If a folder with the new core name already exists, skip — the regular
+    // create loop will handle prefix updates / dedup. The old-named folder
+    // (if any) will be cleaned up by the legacy sweep.
+    const newAlreadyExists = allFolders.some(
+      (f) => normalizeManagedCategoryName(f.displayName) === newCore,
+    );
+    if (newAlreadyExists) continue;
+
+    const oldMatch = allFolders.find(
+      (f) => normalizeManagedCategoryName(f.displayName) === oldCore,
+    );
+    if (!oldMatch) continue;
+
+    // Rename to the visible portion ("🟣 Project One"); the ordering pre-pass
+    // will add the invisible sort prefix on the next call. We use the visible
+    // name here so any ordering changes also get applied a moment later.
+    const dot = nearestColorDot(color);
+    const renamedDisplay = `${dot} ${newName}`;
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/mailFolders/${oldMatch.id}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: renamedDisplay }),
+      },
+    );
+    if (patchRes.ok) {
+      console.log(`Renamed Outlook folder "${oldMatch.displayName}" → "${renamedDisplay}" (DB rename)`);
+    } else {
+      console.warn(
+        `Rename pre-pass: failed renaming "${oldMatch.displayName}" → "${renamedDisplay}":`,
+        await patchRes.text(),
+      );
+    }
+  }
+}
+
+async function renameRenamedGmailLabels(
+  accessToken: string,
+  renames: Array<{ oldName: string; newName: string; color: string }>,
+): Promise<void> {
+  if (renames.length === 0) return;
+  const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!listRes.ok) {
+    console.warn('Rename pre-pass: failed listing Gmail labels:', await listRes.text());
+    return;
+  }
+  const { labels } = await listRes.json();
+  const all = (labels ?? []) as Array<{ id: string; name: string }>;
+
+  for (const { oldName, newName, color } of renames) {
+    const oldCore = normalizeManagedCategoryName(oldName);
+    const newCore = normalizeManagedCategoryName(newName);
+    if (oldCore === newCore) continue;
+
+    const newAlreadyExists = all.some(
+      (l) => normalizeManagedCategoryName(l.name) === newCore,
+    );
+    if (newAlreadyExists) continue;
+
+    const oldMatch = all.find(
+      (l) => normalizeManagedCategoryName(l.name) === oldCore,
+    );
+    if (!oldMatch) continue;
+
+    const dot = nearestColorDot(color);
+    const renamedName = `${dot} ${newName}`;
+    const patchRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/labels/${oldMatch.id}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renamedName, color: hexToGmailColor(color) }),
+      },
+    );
+    if (patchRes.ok) {
+      console.log(`Renamed Gmail label "${oldMatch.name}" → "${renamedName}" (DB rename)`);
+    } else {
+      console.warn(
+        `Rename pre-pass: failed renaming Gmail label "${oldMatch.name}" → "${renamedName}":`,
+        await patchRes.text(),
+      );
+    }
+  }
+}
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
