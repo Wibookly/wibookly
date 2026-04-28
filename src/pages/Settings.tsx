@@ -615,162 +615,135 @@ export default function Settings() {
       </div>
       
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-5">
-          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight">My Profile</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your profile and signature
+            Manage my profile / signature
           </p>
         </div>
 
 
       <div className="space-y-6">
 
-        {/* Profile — identity + AI personalization context, merged into one card */}
-        {(
-
+        {/* Unified Profile + Signature card */}
         <section className="space-y-3">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h2 className="text-base font-semibold">My Profile</h2>
-              <p className="text-xs text-muted-foreground">
-                Synced from Microsoft 365. Click Sync to refresh.
-              </p>
+          {/* Legend explaining the two field types */}
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" />
+              <span className="text-muted-foreground">
+                Synced automatically from Microsoft 365 — read-only
+              </span>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={saving}
-              onClick={async () => {
-                try {
-                  setSaving(true);
-                  const { data, error } = await supabase.functions.invoke('sync-microsoft-profile');
-                  if (error || (data as { error?: string })?.error) {
-                    throw new Error((data as { error?: string })?.error || error?.message || 'Sync failed');
-                  }
-                  const p = (data as { profile?: Record<string, string | null> }).profile || {};
-                  setFullName(p.full_name || '');
-                  setTitle(p.title || '');
-                  setAboutMe(prev => ({
-                    ...prev,
-                    company: p.company || prev.company,
-                    department: p.department || prev.department,
-                    business_phone: p.phone || prev.business_phone,
-                    mobile_phone: p.mobile || prev.mobile_phone,
-                    profile_title: p.title || prev.profile_title,
-                  }));
-                  setSignatureFields(prev => ({
-                    ...prev,
-                    phone: p.phone || prev.phone,
-                    mobile: p.mobile || prev.mobile,
-                  }));
-                  toast({ title: 'Profile synced', description: 'Pulled latest from Microsoft 365.' });
-                } catch (e) {
-                  toast({
-                    title: 'Sync failed',
-                    description: e instanceof Error ? e.message : 'Could not sync from Microsoft 365.',
-                    variant: 'destructive',
-                  });
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            >
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              Sync
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 h-3 rounded-sm bg-primary/10 border border-primary/40" />
+              <span className="text-muted-foreground">
+                Editable — used to personalize your signature & AI replies
+              </span>
+            </div>
           </div>
-          <div className="space-y-3 p-4 bg-card rounded-lg border border-border">
-            {/* Name + Title */}
+
+          {/* SYNCED FROM M365 — read-only block */}
+          <div className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
+            <div className="flex items-center gap-2 mb-1">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Directory Information</h3>
+              <span className="text-[11px] text-muted-foreground">
+                Auto-synced from Microsoft 365
+              </span>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="fullName" className="text-xs">Full Name</Label>
-                <Input id="fullName" value={fullName} disabled className="bg-muted h-9" placeholder="—" />
+                <Input id="fullName" value={fullName} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="title" className="text-xs">Title</Label>
-                <Input id="title" value={aboutMe.profile_title || title} disabled className="bg-muted h-9" placeholder="—" />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Email</Label>
-                <Input value={profile?.email || ''} disabled className="bg-muted h-9" />
+                <Input value={profile?.email || ''} disabled className="bg-background/60 h-9" />
               </div>
             </div>
 
-            {/* Company + Department */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="aboutCompany" className="text-xs">Company</Label>
-                <Input id="aboutCompany" value={aboutMe.company} disabled className="bg-muted h-9" placeholder="—" />
+                <Input id="aboutCompany" value={aboutMe.company} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="aboutDept" className="text-xs">Department</Label>
-                <Input id="aboutDept" value={aboutMe.department} disabled className="bg-muted h-9" placeholder="—" />
+                <Input id="aboutDept" value={aboutMe.department} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
             </div>
 
-            {/* Phones */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Business Phone</Label>
-                <Input value={aboutMe.business_phone || signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
+                <Input value={aboutMe.business_phone || signatureFields.phone || ''} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Mobile Phone</Label>
-                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
-              </div>
-            </div>
-
-            <p className="text-[11px] text-muted-foreground pt-1 border-t border-border">
-              Fields above are managed in Microsoft 365 / Entra ID.
-            </p>
-
-            {/* Editable AI personalization */}
-            <div className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
-                <Textarea
-                  id="aboutResp"
-                  value={aboutMe.responsibilities}
-                  onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
-                  placeholder="Approvals, follow-ups, contracts, scheduling…"
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="aboutStyle" className="text-xs">Communication style</Label>
-                <Textarea
-                  id="aboutStyle"
-                  value={aboutMe.communication_style}
-                  onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
-                  placeholder="Tone, length, signoffs, things to avoid"
-                  rows={2}
-                />
+                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
             </div>
           </div>
+
+          {/* EDITABLE — your inputs */}
+          <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/30">
+            <div className="flex items-center gap-2 mb-1">
+              <User2 className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Your Inputs</h3>
+              <span className="text-[11px] text-muted-foreground">
+                These feed your signature and AI personalization
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="title" className="text-xs">Title <span className="text-primary">(used in signature)</span></Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="h-9"
+                placeholder="e.g. Director of Operations"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
+              <Textarea
+                id="aboutResp"
+                value={aboutMe.responsibilities}
+                onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
+                placeholder="Approvals, follow-ups, contracts, scheduling…"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="aboutStyle" className="text-xs">Communication style</Label>
+              <Textarea
+                id="aboutStyle"
+                value={aboutMe.communication_style}
+                onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
+                placeholder="Tone, length, signoffs, things to avoid"
+                rows={2}
+              />
+            </div>
+          </div>
         </section>
-        )}
 
 
         {/* Email Signature Builder */}
-        {(
-
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-border">
             <div>
               <h2 className="text-lg font-semibold">Email Signature</h2>
               <p className="text-sm text-muted-foreground">
-                Build your email signature with the fields below, or paste your own custom signature. This will be used in all AI-generated emails.
+                Turn the signature on or off. Editable fields above + the options below build your final signature.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Label htmlFor="signatureEnabled" className="text-sm font-normal">
-                {signatureEnabled ? 'Enabled' : 'Disabled'}
+            <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-card">
+              <Label htmlFor="signatureEnabled" className="text-sm font-medium">
+                Signature {signatureEnabled ? 'On' : 'Off'}
               </Label>
               <Switch
                 id="signatureEnabled"
