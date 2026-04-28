@@ -11,8 +11,10 @@ export interface TemplateEntry {
 
 import { template as welcomeSso } from './welcome-sso.tsx'
 import { template as welcomeTempPassword } from './welcome-temp-password.tsx'
+import { template as followUpReminder } from './follow-up-reminder.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'welcome-sso': welcomeSso,
   'welcome-temp-password': welcomeTempPassword,
+  'follow-up-reminder': followUpReminder,
 }
