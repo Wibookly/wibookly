@@ -1393,7 +1393,7 @@ serve(async (req) => {
                   const { value: folders } = await fRes.json();
                   for (const f of (folders ?? []) as Array<{ id: string; displayName: string }>) {
                     // Strip a leading numeric prefix like "02: " so "02: Follow Up" still matches "Follow Up".
-                    const core = String(f.displayName || '').replace(/^\s*\d{1,2}\s*[:.\-]\s*/, '').trim().toLowerCase();
+                    const core = normalizeManagedCategoryName(f.displayName || '');
                     const iqTag = catNames.get(core);
                     if (iqTag) folderToIqTag.set(f.id, iqTag);
                   }
