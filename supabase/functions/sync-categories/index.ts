@@ -1077,12 +1077,13 @@ serve(async (req) => {
 
         // Create labels/folders for enabled categories
         for (const category of enabledCategories) {
-          // Create label/folder name with a leading ⭐ glyph + zero-padded
-          // number prefix. The ⭐ sorts above letters and digits in Outlook
-          // and Gmail, mimicking the "Favorites" pinned look at the top of
-          // the folder list. Format: "⭐ 01: Name" so alphanumeric sorting
-          // still matches numeric order (01..09, 10, 11) within the group.
-          const labelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          // Create label/folder name with a leading colored-dot glyph + zero-
+          // padded number prefix. The emoji sorts above letters/digits in
+          // Outlook and Gmail (mimicking the "Favorites" pinned look) AND
+          // gives each folder a visible color cue on Mac/Web where the
+          // PowerShell setup script can't run. Format: "🔴 01: Name".
+          const dot = nearestColorDot(category.color);
+          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
           let success = false;
           
           if (tokenRecord.provider === 'google') {
