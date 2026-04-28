@@ -212,7 +212,7 @@ export function AppSidebar() {
                       )}
                     </>
                   )}
-                  <NavItem href="/email-draft?tab=labels" icon={Palette}>AI Label Colors</NavItem>
+                  {/* AI Label Colors moved to the bottom of the AI Draft / Auto Reply Settings page */}
                 </>
               )}
             </NavSection>
