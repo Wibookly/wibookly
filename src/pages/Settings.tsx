@@ -133,6 +133,7 @@ const SETTINGS_SECTIONS = [
 export default function Settings() {
   const { organization, profile } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
