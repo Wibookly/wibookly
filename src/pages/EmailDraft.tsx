@@ -93,8 +93,9 @@ export default function EmailDraft() {
   const { user, organization, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const [searchParams] = useSearchParams();
-  const tab = searchParams.get("tab"); // 'labels' | 'auto-reply' | null
-  const showLabelsTab = tab === "labels";
+  // Legacy '?tab=labels' deep links land on the same merged page; the AI
+  // Label Colors card is rendered at the bottom of the page now.
+  void searchParams;
 
   const [categories, setCategories] = useState<Category[]>([]);
   // Apply-To: GLOBAL_TARGET = global default; otherwise category id
