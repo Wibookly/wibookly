@@ -582,65 +582,20 @@ export default function Settings() {
   return (
     <div className="min-h-full p-4 lg:p-6">
       {/* User Avatar Row */}
-      <div className="max-w-2xl mb-4 flex justify-end">
+      <div className="max-w-xl mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
       
-      <div className="max-w-2xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="mt-1 text-muted-foreground">
-            Manage your account and workspace preferences
+      <div className="max-w-xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-5">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your profile and signature
           </p>
         </div>
 
 
-      <div className="space-y-8">
-        {/* Workspace Settings - Always visible */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Workspace</h2>
-          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
-            <div className="space-y-2">
-              <Label htmlFor="workspaceType">Workspace Type</Label>
-              <Select
-                value={workspaceType}
-                onValueChange={(value: 'personal' | 'business') => setWorkspaceType(value)}
-              >
-                <SelectTrigger id="workspaceType">
-                  <SelectValue placeholder="Select workspace type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">
-                    <div className="flex items-center gap-2">
-                      <User2 className="w-4 h-4" />
-                      <span>Personal</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="business">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4" />
-                      <span>Business</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {workspaceType === 'personal' 
-                  ? 'Personal workspaces are for individual use.' 
-                  : 'Business workspaces include your title in email signatures for professional context.'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Workspace Name</Label>
-              <Input
-                id="orgName"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                placeholder={workspaceType === 'personal' ? 'My Personal Inbox' : 'Enter your company name'}
-              />
-            </div>
-          </div>
-        </section>
+      <div className="space-y-6">
 
         {/* Profile — identity + AI personalization context, merged into one card */}
         {activeSection === 'profile' && (
