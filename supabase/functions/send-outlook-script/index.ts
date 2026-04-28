@@ -269,11 +269,17 @@ serve(async (req) => {
       });
     }
 
-    const { data: categories } = await supabase
+    const { data: categories, error: catError } = await supabase
       .from("categories")
-      .select("name, color, sort_order, is_enabled, is_favorite")
+      .select("name, color, sort_order, is_enabled")
       .eq("connection_id", connectionId);
-    const cats: CategoryRow[] = (categories as CategoryRow[]) || [];
+    if (catError) {
+      console.error("Failed to load categories:", catError);
+      return new Response(JSON.stringify({ error: "Failed to load categories", details: catError.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const cats: CategoryRow[] = ((categories as CategoryRow[]) || []).map(c => ({ ...c, is_favorite: true }));
     if (!cats.length) {
       return new Response(JSON.stringify({ error: "No categories to script" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
