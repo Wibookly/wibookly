@@ -1329,15 +1329,22 @@ serve(async (req) => {
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
-        for (const category of sortedEnabled) {
+        for (let idx = 0; idx < sortedEnabled.length; idx++) {
+          const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${category.name}`;
+          // Gmail: clean visible name only — Gmail does not auto-sort labels.
+          // Outlook: prepend an INVISIBLE zero-width prefix so the folder
+          // pane sorts in the same order as the app. The prefix is
+          // imperceptible in Outlook Desktop, Web (OWA), and Mobile.
+          const visibleName = `${dot} ${category.name}`;
+          const outlookSortPrefix = invisibleSortPrefix(idx + 1);
+          const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
           let success = false;
-          
+
           if (tokenRecord.provider === 'google') {
-            success = await createGmailLabel(accessToken, labelName, category.color);
+            success = await createGmailLabel(accessToken, visibleName, category.color);
           } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
-            success = await createOutlookFolder(accessToken, labelName);
+            success = await createOutlookFolder(accessToken, outlookFolderName);
             // Also create / refresh the colored Outlook Master Category and
             // retroactively tag every message inside the folder so the
             // color stripe is visible in the Outlook UI today (folders
@@ -1348,7 +1355,7 @@ serve(async (req) => {
             if (success) {
               const categoryTag = `${IQ_TAG_PREFIX}${category.name}`;
               await ensureOutlookMasterCategory(accessToken, categoryTag, category.color);
-              const folderId = await findOutlookFolderId(accessToken, labelName);
+              const folderId = await findOutlookFolderId(accessToken, outlookFolderName);
               if (folderId) {
                 const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
                 if (tagged > 0) {
