@@ -338,6 +338,8 @@ export default function Categories() {
   };
 
   const updateCategory = (id: string, field: keyof Category, value: any) => {
+    const category = categories.find(cat => cat.id === id);
+
     setCategories(prev =>
       prev.map(cat => {
         if (cat.id !== id) return cat;
@@ -359,31 +361,31 @@ export default function Categories() {
         return { ...cat, [field]: value };
       })
     );
-    // When a category is turned OFF: remove ALL rules attached to it
-    // (per user request: disabling a category should not leave stale rules
-    // behind that quietly file mail when the category is re-enabled later).
+
+    // When a category is turned OFF: immediately remove ALL attached rules
+    // from local state so they do not get saved back by autosave.
     if (field === 'is_enabled' && value === false) {
-      const rulesToRemove = rules.filter(r => r.category_id === id && !r.id.startsWith('temp-'));
-      // Optimistically clear from local state immediately.
       setRules(prev => prev.filter(r => r.category_id !== id));
-      // Best-effort: clean up provider-side label/rule, then delete from DB.
-      (async () => {
-        for (const rule of rulesToRemove) {
-          try {
-            await supabase.functions.invoke('cleanup-rule', {
-              body: { ruleId: rule.id },
-            });
-          } catch (e) {
-            console.error('cleanup-rule failed for', rule.id, e);
+      const persistedRuleIds = rules
+        .filter(rule => rule.category_id === id && !rule.id.startsWith('temp-'))
+        .map(rule => rule.id);
+
+      // Best-effort immediate DB cleanup; saveChanges also enforces this so
+      // stale rules cannot survive and come back when the category is re-enabled.
+      if (persistedRuleIds.length > 0) {
+        (async () => {
+          const { error } = await supabase
+            .from('rules')
+            .delete()
+            .in('id', persistedRuleIds);
+
+          if (error) {
+            console.error('Failed to delete rules for disabled category', category?.name ?? id, error);
           }
-          try {
-            await supabase.from('rules').delete().eq('id', rule.id);
-          } catch (e) {
-            console.error('rule delete failed for', rule.id, e);
-          }
-        }
-      })();
+        })();
+      }
     }
+
     setHasChanges(true);
   };
 
@@ -536,6 +538,17 @@ export default function Categories() {
             show_in_favorites: category.show_in_favorites,
           } as any)
           .eq('id', category.id);
+      }
+
+      const disabledCategoryIds = categories
+        .filter(category => !category.is_enabled)
+        .map(category => category.id);
+
+      if (disabledCategoryIds.length > 0) {
+        await supabase
+          .from('rules')
+          .delete()
+          .in('category_id', disabledCategoryIds);
       }
 
       // Save rules
@@ -1262,7 +1275,7 @@ export default function Categories() {
           <AlertDialogHeader>
             <AlertDialogTitle>Disable "{pendingDisableCategory?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the <strong>"{pendingDisableCategory?.name}"</strong> folder from your Outlook mailbox and move every email currently inside it back to the <strong>Inbox</strong>. Any rules attached to this category will also be turned off. This action runs the next time changes sync (within a few seconds).
+              This will remove the <strong>"{pendingDisableCategory?.name}"</strong> folder from your Outlook mailbox, move every email currently inside it back to the <strong>Inbox</strong>, and permanently remove any rules attached to this category. This action runs the next time changes sync (within a few seconds).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
