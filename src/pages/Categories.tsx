@@ -224,6 +224,12 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
   );
 }
 
+function sanitizeCategoryName(name: string): string {
+  return name
+    .replace(/^\s*(?:[⭐★]|[^\p{L}\p{N}\s]\s*)?\d{1,2}\s*[:.-]\s*/u, '')
+    .trim();
+}
+
 export default function Categories() {
   const { organization } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
@@ -487,10 +493,11 @@ export default function Categories() {
     try {
       // Save categories with updated sort_order
       for (const category of categories) {
+        const sanitizedName = sanitizeCategoryName(category.name);
         await supabase
           .from('categories')
           .update({
-            name: category.name.trim(),
+            name: sanitizedName,
             color: category.color,
             is_enabled: category.is_enabled,
             ai_draft_enabled: category.ai_draft_enabled,
@@ -847,11 +854,6 @@ export default function Categories() {
     return rules.filter(r => r.category_id === categoryId);
   };
 
-
-  // Get display name with number prefix
-  const getDisplayName = (category: Category, index: number) => {
-    return `${index + 1}: ${category.name}`;
-  };
 
   if (loading || emailLoading) {
     return (
