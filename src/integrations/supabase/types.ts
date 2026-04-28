@@ -914,8 +914,11 @@ export type Database = {
           bcc_domain: string
           connection_id: string
           created_at: string
+          daily_audit_enabled: boolean
           id: string
           is_enabled: boolean
+          last_audit_at: string | null
+          last_audit_summary: Json | null
           organization_id: string
           reminder_intervals_days: number[]
           reminder_max_count: number
@@ -929,8 +932,11 @@ export type Database = {
           bcc_domain?: string
           connection_id: string
           created_at?: string
+          daily_audit_enabled?: boolean
           id?: string
           is_enabled?: boolean
+          last_audit_at?: string | null
+          last_audit_summary?: Json | null
           organization_id: string
           reminder_intervals_days?: number[]
           reminder_max_count?: number
@@ -944,8 +950,11 @@ export type Database = {
           bcc_domain?: string
           connection_id?: string
           created_at?: string
+          daily_audit_enabled?: boolean
           id?: string
           is_enabled?: boolean
+          last_audit_at?: string | null
+          last_audit_summary?: Json | null
           organization_id?: string
           reminder_intervals_days?: number[]
           reminder_max_count?: number
@@ -1957,8 +1966,11 @@ export type Database = {
           bcc_domain: string
           connection_id: string
           created_at: string
+          daily_audit_enabled: boolean
           id: string
           is_enabled: boolean
+          last_audit_at: string | null
+          last_audit_summary: Json | null
           organization_id: string
           reminder_intervals_days: number[]
           reminder_max_count: number

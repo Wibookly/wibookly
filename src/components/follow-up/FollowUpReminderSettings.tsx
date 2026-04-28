@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, RefreshCw } from 'lucide-react';
+import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, RefreshCw, Search, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Settings {
@@ -21,9 +21,28 @@ interface Settings {
   reminder_max_count: number;
   reminder_intervals_days: number[];
   bcc_domain: string;
+  daily_audit_enabled: boolean;
+  last_audit_at: string | null;
+  last_audit_summary: {
+    scanned?: number;
+    flagged?: number;
+    already_replied?: number;
+    errors?: number;
+    mode?: string;
+    from?: string;
+    to?: string;
+  } | null;
 }
 
 const PRESETS = [2, 3, 5, 7, 10, 14, 21, 30];
+
+function isoDaysAgo(n: number): string {
+  const d = new Date(Date.now() - n * 86400_000);
+  return d.toISOString().slice(0, 10);
+}
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function FollowUpReminderSettings({ compact = false }: { compact?: boolean }) {
   const { toast } = useToast();
@@ -36,6 +55,9 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [intervalsDraft, setIntervalsDraft] = useState('');
+  const [auditing, setAuditing] = useState(false);
+  const [auditFrom, setAuditFrom] = useState(isoDaysAgo(30));
+  const [auditTo, setAuditTo] = useState(todayIso());
 
   async function load() {
     if (!activeConnection?.id) return;
@@ -96,6 +118,36 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function runAudit() {
+    if (!activeConnection?.id) return;
+    if (auditFrom > auditTo) {
+      toast({ title: 'Invalid range', description: '"From" date must be before "To" date.', variant: 'destructive' });
+      return;
+    }
+    setAuditing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('audit-inbox-followups', {
+        body: {
+          connection_id: activeConnection.id,
+          from_date: auditFrom,
+          to_date: new Date(auditTo + 'T23:59:59').toISOString(),
+        },
+      });
+      if (error) throw error;
+      const r = data as { scanned?: number; flagged?: number; already_replied?: number; errors?: number };
+      toast({
+        title: 'Audit complete',
+        description: `Scanned ${r.scanned ?? 0} sent emails — flagged ${r.flagged ?? 0} for follow-up, ${r.already_replied ?? 0} already had replies.`,
+      });
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Audit failed', description: msg, variant: 'destructive' });
+    } finally {
+      setAuditing(false);
     }
   }
 
@@ -258,9 +310,83 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
+      {/* Manual inbox audit */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="w-4 h-4 text-primary" /> Inbox audit
+          </CardTitle>
+          <CardDescription>
+            Scan your <strong>Sent Items</strong> over a date range and flag every email
+            that hasn't received a reply. Flagged emails are copied into your Outlook
+            <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">Follow-up</code>
+            folder and surfaced in the InboxIQ <strong>Follow Up</strong> category. No
+            drafts are written and nothing is sent — pure audit for your review.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-3 gap-3 items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-from">From</Label>
+              <Input id="audit-from" type="date" value={auditFrom} max={auditTo}
+                onChange={(e) => setAuditFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-to">To</Label>
+              <Input id="audit-to" type="date" value={auditTo} min={auditFrom} max={todayIso()}
+                onChange={(e) => setAuditTo(e.target.value)} />
+            </div>
+            <Button onClick={runAudit} disabled={auditing}>
+              {auditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+              {auditing ? 'Auditing…' : 'Audit now'}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[7, 30, 90].map((d) => (
+              <Button key={d} variant="ghost" size="sm" onClick={() => { setAuditFrom(isoDaysAgo(d)); setAuditTo(todayIso()); }}>
+                Last {d} days
+              </Button>
+            ))}
+          </div>
+
+          <div className="rounded-lg border p-3 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2 rounded-md bg-secondary/60 text-foreground/80 mt-0.5">
+                <CalendarClock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium text-sm">Auto-audit every 24 hours</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Each day, InboxIQ scans the previous 24 hours of Sent Items and
+                  flags anything that hasn't been replied to.
+                </div>
+              </div>
+            </div>
+            <Switch
+              checked={settings.daily_audit_enabled}
+              disabled={saving}
+              onCheckedChange={(v) => patch({ daily_audit_enabled: v })}
+            />
+          </div>
+
+          {settings.last_audit_at ? (
+            <div className="text-xs text-muted-foreground">
+              Last audit: {new Date(settings.last_audit_at).toLocaleString()}
+              {settings.last_audit_summary ? (
+                <> — scanned <strong>{settings.last_audit_summary.scanned ?? 0}</strong>,
+                  flagged <strong>{settings.last_audit_summary.flagged ?? 0}</strong>,
+                  already replied <strong>{settings.last_audit_summary.already_replied ?? 0}</strong>
+                  {settings.last_audit_summary.mode === 'daily_cron' ? ' (auto)' : ''}</>
+              ) : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-muted-foreground">
-          Auto-runs every 15 minutes. Replies are auto-detected and trackers cancel themselves.
+          Auto-runs every 15 minutes. <strong>Auto Draft</strong> and <strong>Auto Reply</strong>
+          fire within 15 minutes of a follow-up's due date.
         </p>
         <Button variant="outline" onClick={runScan} disabled={running}>
           {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
