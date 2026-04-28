@@ -33,8 +33,9 @@ function isManagedCategoryName(name: string): boolean {
   // AI Draft / AI Sent helper tags — never expose these in Outlook.
   if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
   if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
-  // Numbered category mirrors like "02: Follow Up" or "10: FYI".
-  if (/^\d{1,2}:\s/.test(n)) return true;
+  // Numbered category mirrors like "02: Follow Up", "10: FYI", or the
+  // current "⭐ 02: Follow Up" favorite-prefixed variant.
+  if (/^\s*[⭐★]?\s*\d{1,2}:\s/.test(n)) return true;
   return false;
 }
 
