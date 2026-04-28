@@ -244,12 +244,17 @@ interface FollowUpSettings {
   skip_if_replied: boolean;
   reminder_max_count: number;
   reminder_intervals_days: number[];
+  business_hours_only: boolean;
+  business_hours_start: number;
+  business_hours_end: number;
+  business_days: number[];
+  timezone: string | null;
 }
 
 async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
   const { data } = await supabase
     .from('follow_up_settings')
-    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days')
+    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days,business_hours_only,business_hours_start,business_hours_end,business_days,timezone')
     .eq('connection_id', connectionId)
     .maybeSingle();
   return (data as FollowUpSettings | null) ?? {
@@ -259,7 +264,51 @@ async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
     skip_if_replied: true,
     reminder_max_count: 3,
     reminder_intervals_days: [1, 3, 7],
+    business_hours_only: true,
+    business_hours_start: 8,
+    business_hours_end: 17,
+    business_days: [1, 2, 3, 4, 5],
+    timezone: null,
   };
+}
+
+// Try to read the user's Outlook mailbox timezone (one-shot best effort).
+async function fetchMailboxTimezone(token: string): Promise<string | null> {
+  try {
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/mailboxSettings/timeZone', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const tz = (j.value ?? '').toString().trim();
+    return tz || null;
+  } catch {
+    return null;
+  }
+}
+
+// Returns { dow: 0=Sun..6=Sat, hour: 0..23 } for `now` in the given IANA tz.
+function nowInTz(tz: string): { dow: number; hour: number } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, weekday: 'short', hour: 'numeric', hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date());
+  const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+  const hr = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { dow: map[wd] ?? 0, hour: isNaN(hr) ? 0 : hr };
+}
+
+function isWithinBusinessHours(s: FollowUpSettings, tz: string): boolean {
+  if (!s.business_hours_only) return true;
+  try {
+    const { dow, hour } = nowInTz(tz);
+    if (!s.business_days.includes(dow)) return false;
+    return hour >= s.business_hours_start && hour < s.business_hours_end;
+  } catch {
+    // If timezone is invalid, fail open (don't block sends).
+    return true;
+  }
 }
 
 function pickActionMode(s: FollowUpSettings): 'auto_reply' | 'auto_draft' | 'label_only' {
