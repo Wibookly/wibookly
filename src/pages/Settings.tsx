@@ -319,21 +319,25 @@ export default function Settings() {
     // Validate inputs
     const orgNameValidation = validateField(organizationNameSchema, orgName);
     if (!orgNameValidation.success) {
-      toast({
-        title: 'Validation Error',
-        description: orgNameValidation.error,
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Error',
+          description: orgNameValidation.error,
+          variant: 'destructive'
+        });
+      }
       return;
     }
 
     const fullNameValidation = validateField(fullNameSchema, fullName);
     if (!fullNameValidation.success) {
-      toast({
-        title: 'Validation Error',
-        description: fullNameValidation.error,
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Validation Error',
+          description: fullNameValidation.error,
+          variant: 'destructive'
+        });
+      }
       return;
     }
 
