@@ -507,6 +507,7 @@ export type Database = {
           is_enabled: boolean
           is_follow_up: boolean
           last_synced_at: string | null
+          last_synced_name: string | null
           name: string
           organization_id: string
           show_in_favorites: boolean
@@ -527,6 +528,7 @@ export type Database = {
           is_enabled?: boolean
           is_follow_up?: boolean
           last_synced_at?: string | null
+          last_synced_name?: string | null
           name: string
           organization_id: string
           show_in_favorites?: boolean
@@ -547,6 +549,7 @@ export type Database = {
           is_enabled?: boolean
           is_follow_up?: boolean
           last_synced_at?: string | null
+          last_synced_name?: string | null
           name?: string
           organization_id?: string
           show_in_favorites?: boolean

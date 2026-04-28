@@ -1285,10 +1285,132 @@ async function enforceOutlookManagedFolderOrder(
   await cleanupOrphanedReorderFolders(accessToken, desired);
 }
 
+/**
+ * Rename pre-pass.
+ *
+ * Looks at every category whose DB name has changed since the last successful
+ * sync (`last_synced_name !== name`) and renames the matching Outlook folder
+ * / Gmail label IN PLACE — preserving the folder ID, the messages inside, and
+ * any server-side rules pointing at it. Without this step, the regular create
+ * loop would only see the NEW name, fail to find a matching folder under the
+ * new core name, and create a brand-new folder — leaving the old one (e.g.
+ * "Project") sitting next to the new one (e.g. "Project One") in Outlook.
+ */
+async function renameRenamedOutlookFolders(
+  accessToken: string,
+  renames: Array<{ oldName: string; newName: string; color: string }>,
+): Promise<void> {
+  if (renames.length === 0) return;
+
+  const listRes = await fetch(
+    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!listRes.ok) {
+    console.warn('Rename pre-pass: failed listing Outlook folders:', await listRes.text());
+    return;
+  }
+  const { value: folders } = await listRes.json();
+  const allFolders = (folders ?? []) as Array<{ id: string; displayName: string }>;
+
+  for (const { oldName, newName, color } of renames) {
+    const oldCore = normalizeManagedCategoryName(oldName);
+    const newCore = normalizeManagedCategoryName(newName);
+    if (oldCore === newCore) continue; // not actually renamed
+
+    // If a folder with the new core name already exists, skip — the regular
+    // create loop will handle prefix updates / dedup. The old-named folder
+    // (if any) will be cleaned up by the legacy sweep.
+    const newAlreadyExists = allFolders.some(
+      (f) => normalizeManagedCategoryName(f.displayName) === newCore,
+    );
+    if (newAlreadyExists) continue;
+
+    const oldMatch = allFolders.find(
+      (f) => normalizeManagedCategoryName(f.displayName) === oldCore,
+    );
+    if (!oldMatch) continue;
+
+    // Rename to the visible portion ("🟣 Project One"); the ordering pre-pass
+    // will add the invisible sort prefix on the next call. We use the visible
+    // name here so any ordering changes also get applied a moment later.
+    const dot = nearestColorDot(color);
+    const renamedDisplay = `${dot} ${newName}`;
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/mailFolders/${oldMatch.id}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: renamedDisplay }),
+      },
+    );
+    if (patchRes.ok) {
+      console.log(`Renamed Outlook folder "${oldMatch.displayName}" → "${renamedDisplay}" (DB rename)`);
+    } else {
+      console.warn(
+        `Rename pre-pass: failed renaming "${oldMatch.displayName}" → "${renamedDisplay}":`,
+        await patchRes.text(),
+      );
+    }
+  }
+}
+
+async function renameRenamedGmailLabels(
+  accessToken: string,
+  renames: Array<{ oldName: string; newName: string; color: string }>,
+): Promise<void> {
+  if (renames.length === 0) return;
+  const listRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!listRes.ok) {
+    console.warn('Rename pre-pass: failed listing Gmail labels:', await listRes.text());
+    return;
+  }
+  const { labels } = await listRes.json();
+  const all = (labels ?? []) as Array<{ id: string; name: string }>;
+
+  for (const { oldName, newName, color } of renames) {
+    const oldCore = normalizeManagedCategoryName(oldName);
+    const newCore = normalizeManagedCategoryName(newName);
+    if (oldCore === newCore) continue;
+
+    const newAlreadyExists = all.some(
+      (l) => normalizeManagedCategoryName(l.name) === newCore,
+    );
+    if (newAlreadyExists) continue;
+
+    const oldMatch = all.find(
+      (l) => normalizeManagedCategoryName(l.name) === oldCore,
+    );
+    if (!oldMatch) continue;
+
+    const dot = nearestColorDot(color);
+    const renamedName = `${dot} ${newName}`;
+    const patchRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/labels/${oldMatch.id}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renamedName, color: hexToGmailColor(color) }),
+      },
+    );
+    if (patchRes.ok) {
+      console.log(`Renamed Gmail label "${oldMatch.name}" → "${renamedName}" (DB rename)`);
+    } else {
+      console.warn(
+        `Rename pre-pass: failed renaming Gmail label "${oldMatch.name}" → "${renamedName}":`,
+        await patchRes.text(),
+      );
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
 
   try {
     const authHeader = req.headers.get('Authorization');
@@ -1379,7 +1501,7 @@ serve(async (req) => {
     // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites')
+      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites, last_synced_name')
       .eq('organization_id', profile.organization_id)
       .in('connection_id', scopedConnectionIds)
       .order('sort_order');
@@ -1445,6 +1567,26 @@ serve(async (req) => {
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
+
+        // RENAME PRE-PASS — handle categories whose name changed in the DB
+        // since the last successful sync (e.g. "Project" → "Project One").
+        // Without this, the create loop below would not match the old folder
+        // and would create a brand-new one, leaving a duplicate behind.
+        const renames = sortedEnabled
+          .filter((c: any) => c.last_synced_name && c.last_synced_name !== c.name)
+          .map((c: any) => ({
+            oldName: c.last_synced_name as string,
+            newName: c.name as string,
+            color: c.color as string,
+          }));
+        if (renames.length > 0) {
+          if (tokenRecord.provider === 'google') {
+            await renameRenamedGmailLabels(accessToken, renames);
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+            await renameRenamedOutlookFolders(accessToken, renames);
+          }
+        }
+
         for (let idx = 0; idx < sortedEnabled.length; idx++) {
           const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
@@ -1783,14 +1925,29 @@ serve(async (req) => {
       }
     }
 
-    // Update last_synced_at for successfully synced categories
+    // Update last_synced_at AND last_synced_name for successfully synced
+    // categories. Snapshotting the name here is what lets the next sync
+    // detect a rename (DB name !== last_synced_name) and rename the
+    // existing Outlook folder / Gmail label in place instead of creating
+    // a duplicate.
     if (syncedCategoryIds.length > 0) {
       const now = new Date().toISOString();
+      const byId = new Map(allCategories.map((c) => [c.id, c.name] as const));
+      // Bulk-stamp last_synced_at, then per-row update last_synced_name so
+      // each row stores its own current name.
       await supabaseAdmin
         .from('categories')
         .update({ last_synced_at: now })
         .in('id', syncedCategoryIds);
-      console.log(`Updated last_synced_at for ${syncedCategoryIds.length} categories`);
+      await Promise.all(
+        syncedCategoryIds.map((id) =>
+          supabaseAdmin
+            .from('categories')
+            .update({ last_synced_name: byId.get(id) ?? null })
+            .eq('id', id),
+        ),
+      );
+      console.log(`Updated last_synced_at + last_synced_name for ${syncedCategoryIds.length} categories`);
     }
 
     const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
