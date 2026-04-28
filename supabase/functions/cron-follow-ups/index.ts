@@ -560,6 +560,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fire-and-forget: trigger the daily audit pass. The audit function
+    // itself filters to connections that have daily_audit_enabled = true
+    // and whose last_audit_at is older than 23h, so calling this every
+    // 15 minutes is safe and idempotent.
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/audit-inbox-followups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ mode: 'daily_cron' }),
+      });
+    } catch (e) {
+      console.warn('daily audit kickoff failed', e);
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       processed,
