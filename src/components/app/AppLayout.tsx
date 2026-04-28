@@ -5,15 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
-import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
+
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
 
 export function AppLayout() {
-  const { user, loading, organization, profile } = useAuth();
-  const orgLogoUrl = useOrganizationLogo(organization?.id);
+  const { user, loading, profile } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
