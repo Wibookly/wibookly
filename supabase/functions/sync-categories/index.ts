@@ -1567,6 +1567,26 @@ serve(async (req) => {
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
+
+        // RENAME PRE-PASS — handle categories whose name changed in the DB
+        // since the last successful sync (e.g. "Project" → "Project One").
+        // Without this, the create loop below would not match the old folder
+        // and would create a brand-new one, leaving a duplicate behind.
+        const renames = sortedEnabled
+          .filter((c: any) => c.last_synced_name && c.last_synced_name !== c.name)
+          .map((c: any) => ({
+            oldName: c.last_synced_name as string,
+            newName: c.name as string,
+            color: c.color as string,
+          }));
+        if (renames.length > 0) {
+          if (tokenRecord.provider === 'google') {
+            await renameRenamedGmailLabels(accessToken, renames);
+          } else if (tokenRecord.provider === 'microsoft' || tokenRecord.provider === 'outlook') {
+            await renameRenamedOutlookFolders(accessToken, renames);
+          }
+        }
+
         for (let idx = 0; idx < sortedEnabled.length; idx++) {
           const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
