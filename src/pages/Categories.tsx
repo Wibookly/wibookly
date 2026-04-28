@@ -1235,6 +1235,34 @@ export default function Categories() {
         })}
       </div>
       </div>
+
+      <AlertDialog open={!!pendingDisableCategory} onOpenChange={(open) => !open && setPendingDisableCategory(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable "{pendingDisableCategory?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the <strong>"{pendingDisableCategory?.name}"</strong> folder from your Outlook mailbox and move every email currently inside it back to the <strong>Inbox</strong>. Any rules attached to this category will also be turned off. This action runs the next time changes sync (within a few seconds).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep enabled</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDisableCategory) {
+                  updateCategory(pendingDisableCategory.id, 'is_enabled', false);
+                  toast({
+                    title: 'Category disabled',
+                    description: `Removing "${pendingDisableCategory.name}" folder and moving emails back to Inbox…`,
+                  });
+                }
+                setPendingDisableCategory(null);
+              }}
+            >
+              Disable & move emails to Inbox
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
