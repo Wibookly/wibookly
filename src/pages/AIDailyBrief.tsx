@@ -27,10 +27,11 @@ import { cn } from '@/lib/utils';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 import { HelpDot } from '@/components/help/HelpDot';
-import FollowUpReminderSettings from '@/components/follow-up/FollowUpReminderSettings';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { BellRing } from 'lucide-react';
+import { BellRing, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 
 interface DailyBrief {
   greeting: string;
@@ -374,7 +375,7 @@ export default function AIDailyBrief() {
         </div>
       </div>
 
-      <FollowUpReminderInline />
+      <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -719,10 +720,54 @@ export default function AIDailyBrief() {
   );
 }
 
-function FollowUpReminderInline() {
-  const { hasFeature, loading } = useFeatureAccess();
-  const [open, setOpen] = useState(false);
-  if (loading || !hasFeature('feature.follow_up_reminder')) return null;
+interface PendingFollowUp {
+  id: string;
+  subject: string | null;
+  to_recipients: any;
+  sent_at: string | null;
+  due_at: string | null;
+  reminder_count: number | null;
+  status: string;
+}
+
+function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
+  const { hasFeature, loading: featLoading } = useFeatureAccess();
+  const [open, setOpen] = useState(true);
+
+  const { data: items, isLoading } = useQuery({
+    queryKey: ['daily-brief-pending-followups', connectionId],
+    enabled: !!connectionId && !featLoading && hasFeature('feature.follow_up_reminder'),
+    staleTime: 2 * 60 * 1000,
+    queryFn: async (): Promise<PendingFollowUp[]> => {
+      const { data, error } = await supabase
+        .from('follow_up_trackers')
+        .select('id, subject, to_recipients, sent_at, due_at, reminder_count, status')
+        .eq('connection_id', connectionId!)
+        .is('replied_at', null)
+        .in('status', ['pending', 'drafted', 'reminded'])
+        .order('due_at', { ascending: true, nullsFirst: false })
+        .limit(25);
+      if (error) throw error;
+      return (data || []) as PendingFollowUp[];
+    },
+  });
+
+  if (featLoading || !hasFeature('feature.follow_up_reminder')) return null;
+
+  const formatRecipients = (r: any): string => {
+    if (!r) return '';
+    const arr = Array.isArray(r) ? r : [];
+    const emails = arr
+      .map((x: any) => x?.emailAddress?.address || x?.address || x?.email || '')
+      .filter(Boolean);
+    if (!emails.length) return '';
+    return emails.length > 2 ? `${emails.slice(0, 2).join(', ')} +${emails.length - 2}` : emails.join(', ');
+  };
+
+  const overdueCount = (items || []).filter(
+    (i) => i.due_at && new Date(i.due_at).getTime() < Date.now()
+  ).length;
+
   return (
     <Card className="mb-6 border-primary/30">
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -734,23 +779,98 @@ function FollowUpReminderInline() {
                   <BellRing className="w-4 h-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Follow-Up Reminder</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Follow-Ups Awaiting Reply
+                    {items && items.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {items.length}
+                      </Badge>
+                    )}
+                    {overdueCount > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {overdueCount} overdue
+                      </Badge>
+                    )}
+                  </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    BCC <code className="font-mono">N@your-domain</code> on outgoing emails to schedule auto follow-ups.
+                    Emails you sent (BCC'd to a follow-up alias) that haven't received a reply yet.
                   </p>
                 </div>
               </div>
-              {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/follow-up-reminder"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Settings <ExternalLink className="w-3 h-3" />
+                </Link>
+                {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </div>
             </CardHeader>
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="pt-0">
-            <FollowUpReminderSettings compact />
+            {isLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : !items || items.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No follow-ups waiting for a reply. 🎉
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {items.map((item) => {
+                  const overdue = item.due_at && new Date(item.due_at).getTime() < Date.now();
+                  const recipients = formatRecipients(item.to_recipients);
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        'flex items-start gap-3 p-3 rounded-lg border transition-colors hover:bg-secondary/30',
+                        overdue ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-amber-500'
+                      )}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm truncate">
+                            {item.subject || '(no subject)'}
+                          </p>
+                          {(item.reminder_count ?? 0) > 0 && (
+                            <Badge variant="outline" className="text-[10px] h-4">
+                              {item.reminder_count} reminder{item.reminder_count === 1 ? '' : 's'} sent
+                            </Badge>
+                          )}
+                        </div>
+                        {recipients && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            To: {recipients}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          {item.sent_at && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Sent {formatDistanceToNow(new Date(item.sent_at), { addSuffix: true })}
+                            </span>
+                          )}
+                          {item.due_at && (
+                            <span className={cn('font-medium', overdue && 'text-destructive')}>
+                              {overdue ? 'Overdue' : 'Due'} {formatDistanceToNow(new Date(item.due_at), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
   );
 }
+
 
