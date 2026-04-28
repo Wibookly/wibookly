@@ -110,6 +110,7 @@ interface SortableRowProps {
   category: Category;
   index: number;
   updateCategory: (id: string, field: keyof Category, value: any) => void;
+  requestDisable: (category: Category) => void;
 }
 
 function formatSyncTime(syncTime: string | null): string {
