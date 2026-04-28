@@ -963,6 +963,7 @@ export default function Categories() {
                     category={category}
                     index={index}
                     updateCategory={updateCategory}
+                    requestDisable={setPendingDisableCategory}
                   />
                 ))}
               </SortableContext>
