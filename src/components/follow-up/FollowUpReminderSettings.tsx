@@ -86,6 +86,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       const row = data as unknown as Settings;
       setSettings(row);
       setIntervalsDraft((row.reminder_intervals_days ?? []).join(', '));
+      // First-load convenience: if no timezone is stored yet, populate it
+      // from the browser so the user sees their local hours straight away.
+      if (!row.timezone) {
+        const tz = browserTimezone();
+        await supabase.from('follow_up_settings').update({ timezone: tz }).eq('id', row.id);
+        setSettings({ ...row, timezone: tz });
+      }
     }
     setLoading(false);
   }
