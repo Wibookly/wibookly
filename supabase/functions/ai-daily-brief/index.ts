@@ -522,7 +522,12 @@ serve(async (req) => {
    - LOW: FYI emails, non-urgent follow-ups
 4. "schedule": Array of TODAY's actual calendar events (each with "time", "title", "type"). If no events, include "Available for focus work" blocks based on availability.
 5. "emailHighlights": Array of important unread emails to address (each with "from", "subject", "action" - suggest specific action like "Reply", "Review attachment", "Schedule call")
-6. "suggestions": Array of 2-3 productivity suggestions to start the day strong`;
+6. "suggestions": Array of 2-3 productivity suggestions to start the day strong
+7. "aiAnalysis": Object with executive analysis. MUST include:
+   - "headline": One-sentence strategic read on the day (e.g. "Heavy meeting day with 3 client emails needing replies before lunch.")
+   - "whatToDoFirst": Array of 3-5 ordered next-actions the user should tackle RIGHT NOW, in order. Each item: { "step": 1, "action": "Reply to John about Q4 proposal", "why": "Client awaiting response since yesterday", "estimatedMinutes": 10 }
+   - "risks": Array of 1-3 short strings flagging anything at risk of slipping today
+   - "wins": Array of 1-2 quick-win opportunities the user can knock out in <15 min`;
 
     const eveningInstructions = `Based on the context provided, generate a structured END-OF-DAY RECAP in JSON format with these sections:
 1. "greeting": A warm "Good evening" greeting recapping today
@@ -531,6 +536,11 @@ serve(async (req) => {
 4. "schedule": Array of TOMORROW's calendar events if any can be inferred from the data — otherwise list today's completed meetings as "✓ Completed: <title>".
 5. "emailHighlights": Array of unanswered emails from today that need attention (each with "from", "subject", "action" - what to do tomorrow)
 6. "suggestions": Array of 2-3 reflections on today + recommendations for tomorrow
+7. "aiAnalysis": Object with executive recap analysis. MUST include:
+   - "headline": One-sentence read on how the day went and what carries over
+   - "whatToDoFirst": Array of 3-5 ordered next-actions to start tomorrow with. Each item: { "step": 1, "action": "...", "why": "...", "estimatedMinutes": 10 }
+   - "risks": Array of 1-3 short strings flagging items at risk of slipping
+   - "wins": Array of 1-2 things accomplished today worth acknowledging
 
 Frame everything as "today is wrapping up — here's what got done and what's queued for tomorrow."`;
 
@@ -607,7 +617,18 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
           subject: e.subject,
           action: 'Review and respond'
         })),
-        suggestions: ['Check your most urgent emails first', 'Block time for deep work if calendar is clear']
+        suggestions: ['Check your most urgent emails first', 'Block time for deep work if calendar is clear'],
+        aiAnalysis: {
+          headline: `${unreadEmails.length} unread emails and ${calendarEvents.length} meetings on deck.`,
+          whatToDoFirst: unreadEmails.slice(0, 4).map((e, i) => ({
+            step: i + 1,
+            action: `Reply to "${e.subject.slice(0, 60)}" from ${e.from}`,
+            why: 'Sitting unanswered in your inbox',
+            estimatedMinutes: 10,
+          })),
+          risks: unreadEmails.length > 5 ? ['Inbox volume is high — block time to triage'] : [],
+          wins: calendarEvents.length === 0 ? ['Calendar is clear — protect a focus block'] : [],
+        }
       };
     }
 

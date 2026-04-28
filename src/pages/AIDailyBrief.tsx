@@ -56,6 +56,12 @@ interface DailyBrief {
     urgency?: 'high' | 'medium' | 'low';
   }>;
   suggestions: string[];
+  aiAnalysis?: {
+    headline?: string;
+    whatToDoFirst?: Array<{ step?: number; action: string; why?: string; estimatedMinutes?: number }>;
+    risks?: string[];
+    wins?: string[];
+  };
 }
 
 const defaultColors = {
@@ -171,6 +177,29 @@ export default function AIDailyBrief() {
         </div>
       </div>
     `;
+
+    if (type === 'all' && brief.aiAnalysis) {
+      const ai = brief.aiAnalysis;
+      content += `
+        <div style="margin-bottom: 30px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe; page-break-inside: avoid;">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #4338ca; text-transform: uppercase; margin-bottom: 6px;">🤖 AI Analysis — What to do first</div>
+          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${ai.headline}</p>` : ''}
+          ${(ai.whatToDoFirst || []).length ? `<ol style="margin:0;padding-left:0;list-style:none">
+            ${ai.whatToDoFirst.map((it: any, i: number) => `
+              <li style="display:flex;gap:12px;padding:10px 12px;margin:6px 0;background:#fff;border-radius:8px;border:1px solid #e0e7ff">
+                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${it.step ?? i + 1}</div>
+                <div style="flex:1">
+                  <div style="font-weight:600;color:#0f172a;font-size:14px">${it.action || ''}</div>
+                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${it.why}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${it.estimatedMinutes} min</div>` : ''}
+                </div>
+              </li>`).join('')}
+          </ol>` : ''}
+          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${r}</li>`).join('')}</ul></div>` : ''}
+          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${w}</li>`).join('')}</ul></div>` : ''}
+        </div>
+      `;
+    }
 
     if (type === 'all' || type === 'priorities') {
       content += `
@@ -407,6 +436,60 @@ export default function AIDailyBrief() {
               <p className="text-muted-foreground mt-1">{brief.summary}</p>
             </CardContent>
           </Card>
+
+          {/* AI Analysis - What to do first */}
+          {brief.aiAnalysis && (
+            <Card className="border-indigo-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-indigo-600" />
+                  AI Analysis — What to do first
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => handlePrint('all')}>
+                  <Printer className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {brief.aiAnalysis.headline && (
+                  <p className="text-sm font-semibold text-foreground">{brief.aiAnalysis.headline}</p>
+                )}
+                {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
+                  <ol className="space-y-2">
+                    {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
+                      <li key={i} className="flex gap-3 p-3 bg-background/70 rounded-lg border border-indigo-100">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                          {item.step ?? i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold">{item.action}</p>
+                          {item.why && <p className="text-xs text-muted-foreground mt-0.5">{item.why}</p>}
+                          {item.estimatedMinutes && (
+                            <p className="text-xs text-indigo-600 font-medium mt-1">⏱ ~{item.estimatedMinutes} min</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
+                  <div className="p-3 bg-destructive/10 border-l-4 border-destructive rounded">
+                    <p className="text-xs font-bold text-destructive uppercase mb-1">⚠️ At Risk</p>
+                    <ul className="text-sm text-destructive list-disc pl-5 space-y-0.5">
+                      {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
+                  <div className="p-3 bg-emerald-500/10 border-l-4 border-emerald-500 rounded">
+                    <p className="text-xs font-bold text-emerald-700 uppercase mb-1">✨ Quick Wins</p>
+                    <ul className="text-sm text-emerald-700 list-disc pl-5 space-y-0.5">
+                      {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Layout - Full Width */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
