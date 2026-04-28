@@ -930,15 +930,29 @@ async function getGmailLabelId(accessToken: string, labelName: string): Promise<
 // Get Outlook folder ID by name
 async function getOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
   try {
-    const res = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
-      headers: { Authorization: `Bearer ${accessToken}` }
+    // Try direct $filter lookup first (handles any page position).
+    const escaped = folderName.replace(/'/g, "''");
+    const filterUrl = `https://graph.microsoft.com/v1.0/me/mailFolders?$filter=${encodeURIComponent(`displayName eq '${escaped}'`)}&$top=10`;
+    const filterRes = await fetch(filterUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
-    
-    if (!res.ok) return null;
-    
-    const { value: folders } = await res.json();
-    const folder = folders?.find((f: { displayName: string, id: string }) => f.displayName === folderName);
-    return folder?.id || null;
+    if (filterRes.ok) {
+      const { value } = await filterRes.json();
+      const match = value?.find((f: { displayName: string; id: string }) => f.displayName === folderName);
+      if (match?.id) return match.id;
+    }
+
+    // Fallback: page through all top-level folders (default page size is 10).
+    let url: string | null = 'https://graph.microsoft.com/v1.0/me/mailFolders?$top=100';
+    while (url) {
+      const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return null;
+      const data: { value?: { displayName: string; id: string }[]; '@odata.nextLink'?: string } = await res.json();
+      const folder = data.value?.find((f) => f.displayName === folderName);
+      if (folder?.id) return folder.id;
+      url = data['@odata.nextLink'] ?? null;
+    }
+    return null;
   } catch {
     return null;
   }
