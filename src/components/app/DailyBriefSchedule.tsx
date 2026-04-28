@@ -543,54 +543,82 @@ export function DailyBriefSchedule() {
                           </div>
                         </div>
 
-                        {/* Delivery times */}
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-md border bg-background p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Sun className="w-3.5 h-3.5 text-amber-500" /> First delivery time
-                              </Label>
-                              <Switch
-                                checked={s.morningEnabled}
-                                onCheckedChange={(v) => updateSchedule(s.id, { morningEnabled: v })}
-                              />
-                            </div>
-                            <div className={s.morningEnabled ? '' : 'opacity-50 pointer-events-none'}>
+                        {/* Delivery time — single adaptive block.
+                            The chosen time decides the tone automatically:
+                            AM → "Good morning brief" (sun, amber theme),
+                            PM → "Good evening recap" (moon, indigo theme). */}
+                        {(() => {
+                          // Pick the active time. Prefer the morning slot if
+                          // it's enabled, otherwise the evening slot. We
+                          // collapse the previous two-slot model into a
+                          // single time and let the tone be derived from
+                          // the hour the user picks.
+                          const activeTime = s.morningEnabled ? s.morningTime : s.eveningTime;
+                          const isMorning = getBriefTone(activeTime) === 'morning';
+                          const setActiveTime = (t: string) => {
+                            // Snap into morning or evening slot based on the
+                            // chosen hour, and clear the other slot so we
+                            // never persist two values for the same schedule.
+                            if (getBriefTone(t) === 'morning') {
+                              updateSchedule(s.id, {
+                                morningEnabled: true,
+                                morningTime: t,
+                                eveningEnabled: false,
+                              });
+                            } else {
+                              updateSchedule(s.id, {
+                                eveningEnabled: true,
+                                eveningTime: t,
+                                morningEnabled: false,
+                              });
+                            }
+                          };
+
+                          return (
+                            <div
+                              className={`rounded-md border p-4 space-y-3 transition-colors ${
+                                isMorning
+                                  ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
+                                  : 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs flex items-center gap-1.5 font-semibold">
+                                  {isMorning ? (
+                                    <>
+                                      <Sun className="w-4 h-4 text-amber-500" />
+                                      <span className="text-amber-900 dark:text-amber-200">Morning delivery</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Moon className="w-4 h-4 text-indigo-500" />
+                                      <span className="text-indigo-900 dark:text-indigo-200">Evening delivery</span>
+                                    </>
+                                  )}
+                                </Label>
+                                <span
+                                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                                    isMorning
+                                      ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
+                                      : 'bg-indigo-500/20 text-indigo-900 dark:text-indigo-200'
+                                  }`}
+                                >
+                                  {getBriefToneLabel(activeTime)}
+                                </span>
+                              </div>
                               <TimePicker
-                                value={s.morningTime}
-                                onChange={(t) => updateSchedule(s.id, { morningTime: t })}
-                                disabled={!s.morningEnabled}
+                                value={activeTime}
+                                onChange={setActiveTime}
                               />
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                {getBriefToneHint(s.morningTime)}
+                              <p className="text-xs text-muted-foreground">
+                                {getBriefToneHint(activeTime)}
                               </p>
                             </div>
-                          </div>
-                          <div className="rounded-md border bg-background p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Second delivery time
-                              </Label>
-                              <Switch
-                                checked={s.eveningEnabled}
-                                onCheckedChange={(v) => updateSchedule(s.id, { eveningEnabled: v })}
-                              />
-                            </div>
-                            <div className={s.eveningEnabled ? '' : 'opacity-50 pointer-events-none'}>
-                              <TimePicker
-                                value={s.eveningTime}
-                                onChange={(t) => updateSchedule(s.id, { eveningTime: t })}
-                                disabled={!s.eveningEnabled}
-                              />
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                {getBriefToneHint(s.eveningTime)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                          );
+                        })()}
 
                         <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                          The selected time decides the tone automatically: times before <span className="font-medium text-foreground">12:00 PM</span> send a <span className="font-medium text-foreground">Good morning</span> brief, and times from <span className="font-medium text-foreground">12:00 PM onward</span> send a <span className="font-medium text-foreground">Good evening</span> recap.
+                          The chosen time decides the tone automatically: times before <span className="font-medium text-foreground">12:00 PM</span> send a <span className="font-medium text-foreground">Good morning</span> brief, and times from <span className="font-medium text-foreground">12:00 PM onward</span> send a <span className="font-medium text-foreground">Good evening</span> recap.
                         </div>
 
                         <div className="flex justify-end gap-2">
