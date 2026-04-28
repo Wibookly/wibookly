@@ -261,8 +261,9 @@ export function DailyBriefSchedule() {
       toast.loading('Sending test brief…', { id: `test-${s.id}` });
       // Persist the latest schedule first so the cron sees the right config.
       await handleSave({ silent: true });
+      const testTime = s.morningEnabled ? s.morningTime : s.eveningTime;
       const { data, error } = await supabase.functions.invoke('send-daily-brief', {
-        body: { force: true, userId: profile.user_id },
+        body: { force: true, userId: profile.user_id, briefType: getBriefTone(testTime) },
       });
       if (error) throw error;
       const sent = (data as { sent?: number })?.sent ?? 0;
