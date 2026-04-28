@@ -230,9 +230,7 @@ async function refreshGoogleToken(
 }
 
 // Refresh Microsoft access token using refresh token
-async function refreshMicrosoftToken(
-  refreshToken: string,
-): Promise<{
+async function refreshMicrosoftToken(refreshToken: string): Promise<{
   access_token: string;
   refresh_token?: string;
   expires_in: number;
