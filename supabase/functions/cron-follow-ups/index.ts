@@ -28,8 +28,9 @@ const TOKEN_ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-// Aliases we recognise. Anything matching `^N@` where N is one of these.
-const ALLOWED_DAY_BUCKETS = new Set([2, 3, 5, 7, 10, 14]);
+// Any positive integer is now accepted (1..90 days). The legacy bucket list is
+// kept as a fallback hint for the UI, but the cron parses any number.
+const MAX_DAYS = 90;
 
 // === AES-GCM token decryption (same scheme as other functions) ===
 async function importKey(): Promise<CryptoKey> {
@@ -128,7 +129,7 @@ function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | 
     if (!m) continue;
     if (m[2] !== domain) continue;
     const days = parseInt(m[1], 10);
-    if (ALLOWED_DAY_BUCKETS.has(days)) return { alias: a, days };
+    if (Number.isInteger(days) && days >= 1 && days <= MAX_DAYS) return { alias: a, days };
   }
   return null;
 }
