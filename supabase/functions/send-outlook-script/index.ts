@@ -117,7 +117,7 @@ function buildPowerShell(userName: string, categories: CategoryRow[]): string {
   const enabled = categories.filter(c => c.is_enabled).sort((a, b) => a.sort_order - b.sort_order);
   const items = enabled.map(c => {
     const dot = nearestColorDot(c.color);
-    const folderName = `${dot} ${String(c.sort_order + 1).padStart(2, "0")}: ${c.name}`;
+    const folderName = `${dot} ${c.name}`;
     const colorName = nearestOutlookColor(c.color);
     const fav = c.is_favorite !== false ? "$true" : "$false";
     return `    [pscustomobject]@{ FolderName='${folderName.replace(/'/g, "''")}'; ColorName='${colorName}'; Favorite=${fav} }`;
