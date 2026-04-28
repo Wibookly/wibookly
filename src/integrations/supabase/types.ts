@@ -1840,6 +1840,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_followup_impact: {
+        Args: { _group_id: string }
+        Returns: {
+          affected_users: number
+          pending_reminders: number
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1919,6 +1926,7 @@ export type Database = {
         }
         Returns: number
       }
+      pause_followups_without_permission: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1927,6 +1935,7 @@ export type Database = {
           read_ct: number
         }[]
       }
+      resume_followups_with_permission: { Args: never; Returns: number }
       signup_initialize_user: {
         Args: {
           _full_name: string
