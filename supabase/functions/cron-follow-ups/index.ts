@@ -481,27 +481,32 @@ async function processMissedReminders(conn: Connection, settings: FollowUpSettin
   return sent;
 }
 
-async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number }> {
-  if (conn.provider !== 'outlook') return { added: 0, drafted: 0, replied: 0 };
+async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; skipped: boolean }> {
+  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, skipped: false };
+  if (conn.provider !== 'outlook') return { ...empty, skipped: true };
+
+  const settings = await loadSettings(conn.id);
+  if (!settings.is_enabled) return { ...empty, skipped: true };
+
   const token = await getValidToken(conn.user_id, conn.provider);
   if (!token) {
     console.log(`Skip ${conn.id}: no valid token`);
-    return { added: 0, drafted: 0, replied: 0 };
+    return { ...empty, skipped: true };
   }
 
-  // Resolve user's email + domain
   const meRes = await fetch(`https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!meRes.ok) return { added: 0, drafted: 0, replied: 0 };
+  if (!meRes.ok) return empty;
   const me = await meRes.json();
   const myEmail: string = (me.mail ?? me.userPrincipalName ?? conn.connected_email ?? '').toLowerCase();
   const ourDomain = myEmail.split('@')[1];
-  if (!ourDomain) return { added: 0, drafted: 0, replied: 0 };
+  if (!ourDomain) return empty;
 
   const added = await scanSentForTriggers(conn, token, ourDomain);
-  const { drafted, replied } = await processDueTrackers(conn, token, myEmail);
-  return { added, drafted, replied };
+  const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings);
+  const reminded = await processMissedReminders(conn, settings, myEmail);
+  return { added, drafted, replied, autoSent, labeled, reminded, skipped: false };
 }
 
 // Permission check: returns true if the user is allowed to use the
