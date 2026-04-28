@@ -195,7 +195,9 @@ export default function EmailDraft() {
     setIsSaving(true);
     try {
       if (target === GLOBAL_TARGET) {
-        const inheritingCategories = categories.filter((category) => !isCategoryCustomized(category, aiSettings));
+        const inheritingCategories = categories.filter(
+          (category) => !category.writing_style || category.writing_style === aiSettings.writing_style
+        );
         const payload = {
           organization_id: organization.id,
           connection_id: activeConnection.id,
