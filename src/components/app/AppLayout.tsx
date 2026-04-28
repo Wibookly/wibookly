@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { AppSidebar } from './AppSidebar';
+import { AppHeader } from './AppHeader';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
 import { Loader2 } from 'lucide-react';
