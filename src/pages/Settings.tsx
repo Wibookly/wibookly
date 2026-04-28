@@ -217,6 +217,38 @@ export default function Settings() {
     fetchAvailability();
   }, [organization?.id, activeConnection?.id]);
 
+  // Auto-sync from Microsoft 365 in the background on mount so directory
+  // fields stay fresh without requiring a manual Sync button.
+  useEffect(() => {
+    if (!organization?.id || !activeConnection?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-microsoft-profile');
+        if (cancelled || error) return;
+        const p = (data as { profile?: Record<string, string | null> } | null)?.profile || {};
+        if (p.full_name) setFullName(prev => prev || p.full_name || '');
+        setAboutMe(prev => ({
+          ...prev,
+          company: p.company || prev.company,
+          department: p.department || prev.department,
+          business_phone: p.phone || prev.business_phone,
+          mobile_phone: p.mobile || prev.mobile_phone,
+          profile_title: p.title || prev.profile_title,
+        }));
+        setSignatureFields(prev => ({
+          ...prev,
+          phone: p.phone || prev.phone,
+          mobile: p.mobile || prev.mobile,
+        }));
+      } catch {
+        // silent
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organization?.id, activeConnection?.id]);
+
   const fetchAvailability = async () => {
     if (!activeConnection?.id || !profile?.user_id) return;
     
