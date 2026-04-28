@@ -15,7 +15,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { CalendarClock, Save, Loader2 } from 'lucide-react';
+import {
+  CalendarClock,
+  Save,
+  Loader2,
+  Plus,
+  Trash2,
+  Sun,
+  Moon,
+  Pencil,
+  Check,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { TimePicker } from './TimePicker';
 
@@ -42,17 +52,17 @@ const TIMEZONES = [
 
 type BriefType = 'morning' | 'evening';
 
-interface DayConfig {
+// A "Schedule" is a simple preset: a set of days + 1 or 2 send times.
+interface Schedule {
+  id: string; // local UUID
+  name: string;
   enabled: boolean;
-  morning: { enabled: boolean; time: string };
-  evening: { enabled: boolean; time: string };
+  days: number[]; // 0..6
+  morningEnabled: boolean;
+  morningTime: string; // HH:MM
+  eveningEnabled: boolean;
+  eveningTime: string; // HH:MM
 }
-
-const defaultDay = (dayValue: number): DayConfig => ({
-  enabled: dayValue >= 1 && dayValue <= 5,
-  morning: { enabled: dayValue >= 1 && dayValue <= 5, time: '08:00' },
-  evening: { enabled: dayValue >= 1 && dayValue <= 5, time: '17:00' },
-});
 
 interface ScheduleRow {
   id: string;
@@ -64,27 +74,62 @@ interface ScheduleRow {
   recipient_email: string | null;
 }
 
+const PRESET_DAY_GROUPS: { label: string; days: number[] }[] = [
+  { label: 'Weekdays (Mon–Fri)', days: [1, 2, 3, 4, 5] },
+  { label: 'Every day', days: [0, 1, 2, 3, 4, 5, 6] },
+  { label: 'Weekends', days: [6, 0] },
+];
+
+function genId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function describeDays(days: number[]): string {
+  const set = new Set(days);
+  if (set.size === 7) return 'Every day';
+  if (set.size === 5 && [1, 2, 3, 4, 5].every(d => set.has(d))) return 'Weekdays';
+  if (set.size === 2 && set.has(6) && set.has(0)) return 'Weekends';
+  if (set.size === 0) return 'No days selected';
+  return DAYS.filter(d => set.has(d.value)).map(d => d.short).join(', ');
+}
+
+function formatTime(t: string): string {
+  const [hStr, mStr] = t.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${h}:${m} ${period}`;
+}
+
+function describeTimes(s: Schedule): string {
+  const parts: string[] = [];
+  if (s.morningEnabled) parts.push(`${formatTime(s.morningTime)} morning`);
+  if (s.eveningEnabled) parts.push(`${formatTime(s.eveningTime)} evening`);
+  return parts.length ? parts.join(' & ') : 'No times set';
+}
+
 export function DailyBriefSchedule() {
   const { profile, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
 
-  const [days, setDays] = useState<Record<number, DayConfig>>(() => {
-    const initial: Record<number, DayConfig> = {};
-    DAYS.forEach(d => { initial[d.value] = defaultDay(d.value); });
-    return initial;
-  });
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const detectedTz = (() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
     catch { return 'America/New_York'; }
   })();
   const [timezone, setTimezone] = useState(detectedTz);
   const [recipient, setRecipient] = useState('');
-  const [bulkApply, setBulkApply] = useState(false);
-  const [bulkMorning, setBulkMorning] = useState('08:00');
-  const [bulkEvening, setBulkEvening] = useState('17:00');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Load existing rows from DB and reconstruct into schedule presets.
+  // Strategy: group rows by "(morningTime, eveningTime)" tuple — every
+  // distinct combination becomes one Schedule preset. This keeps the
+  // legacy per-day storage but presents it as simple groups in the UI.
   useEffect(() => {
     if (!profile?.user_id) return;
     (async () => {
@@ -94,86 +139,147 @@ export function DailyBriefSchedule() {
         .select('*')
         .eq('user_id', profile.user_id) as { data: ScheduleRow[] | null };
 
-      const next: Record<number, DayConfig> = {};
-      DAYS.forEach(d => { next[d.value] = defaultDay(d.value); });
-
       if (data && data.length) {
-        // Reset enabled flags so we can rehydrate from DB
-        DAYS.forEach(d => {
-          next[d.value] = {
-            enabled: false,
-            morning: { enabled: false, time: '08:00' },
-            evening: { enabled: false, time: '17:00' },
-          };
-        });
-        for (const r of data) {
-          const dc = next[r.day_of_week] ?? defaultDay(r.day_of_week);
-          dc[r.brief_type] = { enabled: r.is_enabled, time: (r.send_time || '08:00').slice(0, 5) };
-          if (r.is_enabled) dc.enabled = true;
-          next[r.day_of_week] = dc;
-        }
         const first = data[0];
         if (first.timezone) setTimezone(first.timezone);
         if (first.recipient_email) setRecipient(first.recipient_email);
+
+        // Build per-day morning/evening map
+        const perDay: Record<number, {
+          morning: { enabled: boolean; time: string };
+          evening: { enabled: boolean; time: string };
+        }> = {};
+        for (const r of data) {
+          if (!perDay[r.day_of_week]) {
+            perDay[r.day_of_week] = {
+              morning: { enabled: false, time: '08:00' },
+              evening: { enabled: false, time: '17:00' },
+            };
+          }
+          perDay[r.day_of_week][r.brief_type] = {
+            enabled: r.is_enabled,
+            time: (r.send_time || '08:00').slice(0, 5),
+          };
+        }
+
+        // Group days that share the same (morning?, mTime, evening?, eTime) signature
+        const groups = new Map<string, Schedule>();
+        for (const day of DAYS) {
+          const cfg = perDay[day.value];
+          if (!cfg) continue;
+          if (!cfg.morning.enabled && !cfg.evening.enabled) continue;
+          const key = `${cfg.morning.enabled ? cfg.morning.time : '-'}|${cfg.evening.enabled ? cfg.evening.time : '-'}`;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              id: genId(),
+              name: 'Schedule',
+              enabled: true,
+              days: [],
+              morningEnabled: cfg.morning.enabled,
+              morningTime: cfg.morning.time,
+              eveningEnabled: cfg.evening.enabled,
+              eveningTime: cfg.evening.time,
+            });
+          }
+          groups.get(key)!.days.push(day.value);
+        }
+        const list = Array.from(groups.values()).map((s, idx) => ({
+          ...s,
+          name: `Schedule ${idx + 1}`,
+        }));
+        setSchedules(list);
       } else {
         setRecipient(activeConnection?.email || profile?.email || '');
+        // Start with one sensible default
+        setSchedules([{
+          id: genId(),
+          name: 'Weekday brief',
+          enabled: true,
+          days: [1, 2, 3, 4, 5],
+          morningEnabled: true,
+          morningTime: '08:00',
+          eveningEnabled: true,
+          eveningTime: '17:00',
+        }]);
       }
 
-      setDays(next);
       setLoading(false);
     })();
   }, [profile?.user_id, activeConnection?.email, profile?.email]);
 
-  const updateDay = (day: number, patch: Partial<DayConfig>) => {
-    setDays(prev => ({ ...prev, [day]: { ...prev[day], ...patch } }));
+  const updateSchedule = (id: string, patch: Partial<Schedule>) => {
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
   };
-  const updateBrief = (day: number, type: BriefType, patch: Partial<DayConfig['morning']>) => {
-    setDays(prev => ({
-      ...prev,
-      [day]: { ...prev[day], [type]: { ...prev[day][type], ...patch } },
+
+  const toggleDay = (id: string, day: number) => {
+    setSchedules(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const has = s.days.includes(day);
+      return { ...s, days: has ? s.days.filter(d => d !== day) : [...s.days, day].sort() };
     }));
   };
 
-  const applyBulk = (scope: 'weekdays' | 'all') => {
-    setDays(prev => {
-      const next = { ...prev };
-      const targets = scope === 'weekdays' ? [1, 2, 3, 4, 5] : DAYS.map(d => d.value);
-      for (const t of targets) {
-        next[t] = {
-          enabled: true,
-          morning: { enabled: true, time: bulkMorning },
-          evening: { enabled: true, time: bulkEvening },
-        };
-      }
-      return next;
-    });
-    toast.success(`Applied ${bulkMorning} morning / ${bulkEvening} evening to ${scope === 'weekdays' ? 'Mon–Fri' : 'every day'}.`);
+  const addSchedule = (preset?: { days: number[]; name: string }) => {
+    const id = genId();
+    setSchedules(prev => [
+      ...prev,
+      {
+        id,
+        name: preset?.name || `Schedule ${prev.length + 1}`,
+        enabled: true,
+        days: preset?.days ?? [1, 2, 3, 4, 5],
+        morningEnabled: true,
+        morningTime: '08:00',
+        eveningEnabled: false,
+        eveningTime: '17:00',
+      },
+    ]);
+    setEditingId(id);
+  };
+
+  const removeSchedule = (id: string) => {
+    setSchedules(prev => prev.filter(s => s.id !== id));
+    if (editingId === id) setEditingId(null);
   };
 
   const handleSave = async () => {
     if (!profile?.user_id || !organization?.id) return;
     setSaving(true);
     try {
-      // Wipe existing and re-insert (simple + idempotent)
+      // Wipe existing and re-insert (simple + idempotent).
+      // We flatten every Schedule into the legacy per-day rows the
+      // backend cron job already understands.
       await supabase
         .from('daily_brief_schedules')
         .delete()
         .eq('user_id', profile.user_id);
 
+      // Per-day aggregation: for each day, take the LAST schedule that
+      // covers it (in the user-visible order) — this gives predictable
+      // behavior when overlapping schedules disagree.
+      const perDay: Record<number, { morning?: { enabled: boolean; time: string }; evening?: { enabled: boolean; time: string } }> = {};
+      for (const s of schedules) {
+        if (!s.enabled) continue;
+        for (const d of s.days) {
+          if (!perDay[d]) perDay[d] = {};
+          if (s.morningEnabled) perDay[d].morning = { enabled: true, time: s.morningTime };
+          if (s.eveningEnabled) perDay[d].evening = { enabled: true, time: s.eveningTime };
+        }
+      }
+
       const rows: Array<Record<string, unknown>> = [];
       for (const d of DAYS) {
-        const cfg = days[d.value];
-        if (!cfg) continue;
+        const cfg = perDay[d.value];
         for (const type of ['morning', 'evening'] as BriefType[]) {
-          const sub = cfg[type];
+          const sub = cfg?.[type];
           rows.push({
             user_id: profile.user_id,
             organization_id: organization.id,
             connection_id: activeConnection?.id || null,
             day_of_week: d.value,
             brief_type: type,
-            send_time: `${sub.time}:00`,
-            is_enabled: cfg.enabled && sub.enabled,
+            send_time: `${(sub?.time) || (type === 'morning' ? '08:00' : '17:00')}:00`,
+            is_enabled: !!sub?.enabled,
             timezone,
             recipient_email: recipient || null,
             sender_email: 'agent@energyforward.com',
@@ -197,14 +303,10 @@ export function DailyBriefSchedule() {
   };
 
   const summary = useMemo(() => {
-    const enabledDays = DAYS.filter(d => {
-      const c = days[d.value];
-      return c && c.enabled && (c.morning.enabled || c.evening.enabled);
-    });
-    return enabledDays.length === 0
-      ? 'No briefs scheduled'
-      : `${enabledDays.length} day${enabledDays.length === 1 ? '' : 's'} scheduled`;
-  }, [days]);
+    const active = schedules.filter(s => s.enabled && s.days.length > 0 && (s.morningEnabled || s.eveningEnabled));
+    if (active.length === 0) return 'No schedules set';
+    return `${active.length} schedule${active.length === 1 ? '' : 's'} set up`;
+  }, [schedules]);
 
   if (loading) {
     return (
@@ -256,78 +358,183 @@ export function DailyBriefSchedule() {
 
         <Separator />
 
-        {/* Bulk apply */}
-        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+        {/* Schedule list */}
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-sm font-semibold">Quick set</h4>
-              <p className="text-xs text-muted-foreground">Apply the same morning + evening time across multiple days.</p>
+            <h4 className="text-sm font-semibold">Your schedules</h4>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_DAY_GROUPS.map(p => (
+                <Button
+                  key={p.label}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addSchedule({ days: p.days, name: p.label })}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> {p.label}
+                </Button>
+              ))}
+              <Button variant="default" size="sm" onClick={() => addSchedule()}>
+                <Plus className="w-3 h-3 mr-1" /> Custom
+              </Button>
             </div>
-            <Switch checked={bulkApply} onCheckedChange={setBulkApply} />
           </div>
-          {bulkApply && (
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Morning time</Label>
-                <TimePicker value={bulkMorning} onChange={setBulkMorning} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Evening time</Label>
-                <TimePicker value={bulkEvening} onChange={setBulkEvening} />
-              </div>
-              <Button variant="outline" size="sm" onClick={() => applyBulk('weekdays')}>
-                Apply Mon–Fri
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => applyBulk('all')}>
-                Apply Every Day
-              </Button>
+
+          {schedules.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              No schedules yet. Pick a preset above or click <span className="font-medium">Custom</span> to build one.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {schedules.map((s, idx) => {
+                const isEditing = editingId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    className={`rounded-lg border bg-card transition-colors ${isEditing ? 'border-primary shadow-sm' : 'hover:border-primary/50'}`}
+                  >
+                    {/* Summary row — always visible */}
+                    <div className="flex items-center gap-3 p-3">
+                      <Switch
+                        checked={s.enabled}
+                        onCheckedChange={(v) => updateSchedule(s.id, { enabled: v })}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${s.enabled ? '' : 'text-muted-foreground'}`}>
+                            {s.name || `Schedule ${idx + 1}`}
+                          </span>
+                          {s.enabled && (
+                            <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {describeDays(s.days)} · {describeTimes(s)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingId(isEditing ? null : s.id)}
+                      >
+                        {isEditing ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeSchedule(s.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {/* Editor */}
+                    {isEditing && (
+                      <div className="border-t border-border p-4 space-y-4 bg-muted/20">
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Name</Label>
+                          <Input
+                            value={s.name}
+                            onChange={(e) => updateSchedule(s.id, { name: e.target.value })}
+                            placeholder="e.g. Weekday brief"
+                            className="h-9 max-w-xs"
+                          />
+                        </div>
+
+                        {/* Days */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Days</Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {DAYS.map(d => {
+                              const on = s.days.includes(d.value);
+                              return (
+                                <button
+                                  key={d.value}
+                                  type="button"
+                                  onClick={() => toggleDay(s.id, d.value)}
+                                  className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+                                    on
+                                      ? 'bg-primary text-primary-foreground border-primary'
+                                      : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                                  }`}
+                                >
+                                  {d.short}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            {PRESET_DAY_GROUPS.map(p => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => updateSchedule(s.id, { days: p.days })}
+                                className="text-[11px] text-primary hover:underline"
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Times */}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-md border bg-background p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs flex items-center gap-1.5 font-medium">
+                                <Sun className="w-3.5 h-3.5 text-amber-500" /> Morning
+                              </Label>
+                              <Switch
+                                checked={s.morningEnabled}
+                                onCheckedChange={(v) => updateSchedule(s.id, { morningEnabled: v })}
+                              />
+                            </div>
+                            <div className={s.morningEnabled ? '' : 'opacity-50 pointer-events-none'}>
+                              <TimePicker
+                                value={s.morningTime}
+                                onChange={(t) => updateSchedule(s.id, { morningTime: t })}
+                                disabled={!s.morningEnabled}
+                              />
+                            </div>
+                          </div>
+                          <div className="rounded-md border bg-background p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs flex items-center gap-1.5 font-medium">
+                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Evening
+                              </Label>
+                              <Switch
+                                checked={s.eveningEnabled}
+                                onCheckedChange={(v) => updateSchedule(s.id, { eveningEnabled: v })}
+                              />
+                            </div>
+                            <div className={s.eveningEnabled ? '' : 'opacity-50 pointer-events-none'}>
+                              <TimePicker
+                                value={s.eveningTime}
+                                onChange={(t) => updateSchedule(s.id, { eveningTime: t })}
+                                disabled={!s.eveningEnabled}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                            <Check className="w-4 h-4 mr-1.5" /> Done
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Per-day grid */}
-        <div className="space-y-2">
-          {DAYS.map(d => {
-            const cfg = days[d.value];
-            return (
-              <div key={d.value} className="grid grid-cols-[1fr_auto] sm:grid-cols-[140px_1fr_1fr] gap-3 items-center rounded-lg border bg-card p-3">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={cfg.enabled}
-                    onCheckedChange={(v) => updateDay(d.value, { enabled: v })}
-                  />
-                  <span className={`text-sm font-medium ${cfg.enabled ? '' : 'text-muted-foreground'}`}>{d.label}</span>
-                </div>
-                <div className={`flex items-center gap-2 ${cfg.enabled ? '' : 'opacity-50 pointer-events-none'}`}>
-                  <Switch
-                    checked={cfg.morning.enabled}
-                    onCheckedChange={(v) => updateBrief(d.value, 'morning', { enabled: v })}
-                  />
-                  <Label className="text-xs w-16">Morning</Label>
-                  <TimePicker
-                    value={cfg.morning.time}
-                    onChange={(t) => updateBrief(d.value, 'morning', { time: t })}
-                    disabled={!cfg.morning.enabled}
-                  />
-                </div>
-                <div className={`flex items-center gap-2 ${cfg.enabled ? '' : 'opacity-50 pointer-events-none'}`}>
-                  <Switch
-                    checked={cfg.evening.enabled}
-                    onCheckedChange={(v) => updateBrief(d.value, 'evening', { enabled: v })}
-                  />
-                  <Label className="text-xs w-16">Evening</Label>
-                  <TimePicker
-                    value={cfg.evening.time}
-                    onChange={(t) => updateBrief(d.value, 'evening', { time: t })}
-                    disabled={!cfg.evening.enabled}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-2">
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Schedule
