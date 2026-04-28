@@ -560,10 +560,10 @@ export default function Settings() {
   if (!activeConnection) {
     return (
       <div className="min-h-full p-4 lg:p-6">
-        <div className="max-w-6xl mb-4 flex justify-end">
+        <div className="mb-4 flex justify-end">
           <UserAvatarDropdown />
         </div>
-        <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
@@ -582,11 +582,11 @@ export default function Settings() {
   return (
     <div className="min-h-full p-4 lg:p-6">
       {/* User Avatar Row */}
-      <div className="max-w-6xl mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
       
-      <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-5">
           <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
