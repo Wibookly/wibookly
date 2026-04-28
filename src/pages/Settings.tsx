@@ -659,6 +659,25 @@ export default function Settings() {
 
       <div className="space-y-6">
 
+        {/* Help & Onboarding quick actions */}
+        <section className="rounded-lg border border-border bg-background/60 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Help & Onboarding</h2>
+            <p className="text-xs text-muted-foreground">
+              Re-run the guided setup wizard at any time, or toggle the in-app help icons.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('inboxiq:restart-setup-wizard'))}
+            >
+              Restart Setup Wizard
+            </Button>
+          </div>
+        </section>
+
         {/* Unified Profile + Signature card */}
         <section className="space-y-3">
           {/* Legend explaining the two field types */}
