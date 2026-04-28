@@ -128,7 +128,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable }: SortableRowProps) {
   const {
     attributes,
     listeners,
