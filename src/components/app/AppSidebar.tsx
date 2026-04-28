@@ -8,6 +8,7 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
+import { InboxIQLogo } from './InboxIQLogo';
 
 
 import { useState, useEffect } from 'react';
@@ -134,7 +135,7 @@ export function AppSidebar() {
             className="max-h-10 w-auto object-contain"
           />
         ) : null}
-        <span className="text-3xl font-semibold text-foreground">InboxIQ</span>
+        <InboxIQLogo className="text-3xl" />
       </div>
 
       {/* Active Email Selector */}
