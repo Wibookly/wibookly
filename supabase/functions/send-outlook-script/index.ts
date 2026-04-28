@@ -72,6 +72,39 @@ function nearestOutlookColor(hex: string): string {
   return best.name;
 }
 
+// Map a hex color to the nearest colored Unicode "dot" emoji.
+// These render as small colored circles in Outlook folder names — a friendlier
+// alternative to a generic ⭐ that lets each folder show its category color.
+const COLOR_DOTS = [
+  { dot: "🔴", hex: "#E81123" }, // red
+  { dot: "🟠", hex: "#F7630C" }, // orange
+  { dot: "🟡", hex: "#FFB900" }, // yellow / peach
+  { dot: "🟢", hex: "#107C10" }, // green
+  { dot: "🔵", hex: "#0078D4" }, // blue
+  { dot: "🟣", hex: "#5C2D91" }, // purple
+  { dot: "🟤", hex: "#A4262C" }, // maroon / brown
+  { dot: "⚫", hex: "#000000" }, // black
+  { dot: "⚪", hex: "#737373" }, // gray
+];
+
+function nearestColorDot(hex: string): string {
+  const h = (hex || "#737373").replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = COLOR_DOTS[0];
+  let bestDist = Infinity;
+  for (const c of COLOR_DOTS) {
+    const ch = c.hex.replace("#", "");
+    const cr = parseInt(ch.slice(0, 2), 16);
+    const cg = parseInt(ch.slice(2, 4), 16);
+    const cb = parseInt(ch.slice(4, 6), 16);
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best.dot;
+}
+
 interface CategoryRow {
   name: string;
   color: string;
