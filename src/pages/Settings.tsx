@@ -171,26 +171,30 @@ export default function Settings() {
   const [availability, setAvailability] = useState<AvailabilityDay[]>(DEFAULT_AVAILABILITY);
   const [aboutMe, setAboutMe] = useState({
     company: '',
-    role_description: '',
     department: '',
+    business_phone: '',
+    mobile_phone: '',
+    profile_title: '',
     responsibilities: '',
     communication_style: '',
   });
 
-  // Load About Me from user_profiles
+  // Load profile fields synced from Microsoft 365 + AI personalization
   useEffect(() => {
     if (!profile?.user_id) return;
     (async () => {
       const { data } = await supabase
         .from('user_profiles')
-        .select('company, role_description, department, responsibilities, communication_style')
+        .select('company, department, phone, mobile, title, responsibilities, communication_style')
         .eq('user_id', profile.user_id)
         .maybeSingle() as { data: Record<string, string | null> | null };
       if (data) {
         setAboutMe({
           company: data.company || '',
-          role_description: data.role_description || '',
           department: data.department || '',
+          business_phone: data.phone || '',
+          mobile_phone: data.mobile || '',
+          profile_title: data.title || '',
           responsibilities: data.responsibilities || '',
           communication_style: data.communication_style || '',
         });
@@ -373,9 +377,6 @@ export default function Settings() {
       await supabase
         .from('user_profiles')
         .update({
-          company: aboutMe.company || null,
-          role_description: aboutMe.role_description || null,
-          department: aboutMe.department || null,
           responsibilities: aboutMe.responsibilities || null,
           communication_style: aboutMe.communication_style || null,
         } as Record<string, unknown>)
@@ -654,6 +655,9 @@ export default function Settings() {
                     ...prev,
                     company: p.company || prev.company,
                     department: p.department || prev.department,
+                    business_phone: p.phone || prev.business_phone,
+                    mobile_phone: p.mobile || prev.mobile_phone,
+                    profile_title: p.title || prev.profile_title,
                   }));
                   setSignatureFields(prev => ({
                     ...prev,
@@ -685,19 +689,15 @@ export default function Settings() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" className="text-xs">Title</Label>
-                <Input id="title" value={title} disabled className="bg-muted h-9" placeholder="—" />
+                <Input id="title" value={aboutMe.profile_title || title} disabled className="bg-muted h-9" placeholder="—" />
               </div>
             </div>
 
-            {/* Email + Role */}
+            {/* Email */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Email</Label>
                 <Input value={profile?.email || ''} disabled className="bg-muted h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Role</Label>
-                <Input value="Admin" disabled className="bg-muted h-9" />
               </div>
             </div>
 
@@ -717,11 +717,11 @@ export default function Settings() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Business Phone</Label>
-                <Input value={signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
+                <Input value={aboutMe.business_phone || signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Mobile Phone</Label>
-                <Input value={signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
+                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
               </div>
             </div>
 
@@ -731,16 +731,6 @@ export default function Settings() {
 
             {/* Editable AI personalization */}
             <div className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="aboutRole" className="text-xs">Role / What you do</Label>
-                <Input
-                  id="aboutRole"
-                  value={aboutMe.role_description}
-                  onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
-                  placeholder="e.g. CEO, Account Manager"
-                  className="h-9"
-                />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
                 <Textarea

@@ -110,6 +110,17 @@ function describeTimes(s: Schedule): string {
   return parts.length ? parts.join(' & ') : 'No times set';
 }
 
+// Auto-generate a friendly schedule name from days + times,
+// e.g. "Weekdays · 8:00 AM" or "Mon · 9:19 PM evening".
+function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: string; eveningEnabled: boolean; eveningTime: string }): string {
+  const days = describeDays(s.days);
+  const times: string[] = [];
+  if (s.morningEnabled) times.push(`${formatTime(s.morningTime)} morning`);
+  if (s.eveningEnabled) times.push(`${formatTime(s.eveningTime)} evening`);
+  if (!times.length) return days;
+  return `${days} · ${times.join(' & ')}`;
+}
+
 export function DailyBriefSchedule() {
   const { profile, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
@@ -183,9 +194,9 @@ export function DailyBriefSchedule() {
           }
           groups.get(key)!.days.push(day.value);
         }
-        const list = Array.from(groups.values()).map((s, idx) => ({
+        const list = Array.from(groups.values()).map((s) => ({
           ...s,
-          name: `Schedule ${idx + 1}`,
+          name: autoName(s),
         }));
         setSchedules(list);
       } else {
@@ -221,17 +232,20 @@ export function DailyBriefSchedule() {
 
   const addSchedule = (preset?: { days: number[]; name: string }) => {
     const id = genId();
+    const base = {
+      days: preset?.days ?? [1, 2, 3, 4, 5],
+      morningEnabled: true,
+      morningTime: '08:00',
+      eveningEnabled: false,
+      eveningTime: '17:00',
+    };
     setSchedules(prev => [
       ...prev,
       {
         id,
-        name: preset?.name || `Schedule ${prev.length + 1}`,
+        name: autoName(base),
         enabled: true,
-        days: preset?.days ?? [1, 2, 3, 4, 5],
-        morningEnabled: true,
-        morningTime: '08:00',
-        eveningEnabled: false,
-        eveningTime: '17:00',
+        ...base,
       },
     ]);
     setEditingId(id);
