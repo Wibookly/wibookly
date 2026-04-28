@@ -428,8 +428,15 @@ async function getGmailLabelId(accessToken: string, labelName: string): Promise<
   
   if (!res.ok) return null;
   
+  const normalize = (value: string) => String(value || '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+
   const { labels } = await res.json();
-  const label = labels?.find((l: { name: string, id: string }) => l.name === labelName);
+  const target = normalize(labelName);
+  const label = labels?.find((l: { name: string, id: string }) => normalize(l.name) === target);
   return label?.id || null;
 }
 
@@ -441,8 +448,15 @@ async function getOutlookFolderId(accessToken: string, folderName: string): Prom
   
   if (!res.ok) return null;
   
+  const normalize = (value: string) => String(value || '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+
   const { value: folders } = await res.json();
-  const folder = folders?.find((f: { displayName: string, id: string }) => f.displayName === folderName);
+  const target = normalize(folderName);
+  const folder = folders?.find((f: { displayName: string, id: string }) => normalize(f.displayName) === target);
   return folder?.id || null;
 }
 
@@ -485,7 +499,7 @@ serve(async (req) => {
 
     console.log(`Cleaning up rule: ${rule_type}=${rule_value} for category "${category_name}" (sort_order: ${category_sort_order})`);
 
-    const labelName = `⭐ ${String(category_sort_order + 1).padStart(2, '0')}: ${category_name}`;
+    const labelName = category_name;
     console.log(`Looking for label/folder: ${labelName}`);
 
     const encryptionKey = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
@@ -538,8 +552,15 @@ serve(async (req) => {
         
         if (folderId) {
           const { moved } = await moveOutlookEmailsToInbox(accessToken, rule_type, rule_value, folderId);
-          const ruleName = `InboxIQ: ${labelName} - ${rule_type}:${rule_value}`;
-          const ruleDeleted = await deleteOutlookRule(accessToken, ruleName);
+          const legacyRuleNames = [
+            `InboxIQ: ${labelName} - ${rule_type}:${rule_value}`,
+            `InboxIQ: ⭐ ${String(category_sort_order + 1).padStart(2, '0')}: ${category_name} - ${rule_type}:${rule_value}`,
+          ];
+          let ruleDeleted = false;
+          for (const ruleName of legacyRuleNames) {
+            const deleted = await deleteOutlookRule(accessToken, ruleName);
+            ruleDeleted = ruleDeleted || deleted;
+          }
           
           results.push({
             provider: 'microsoft',
