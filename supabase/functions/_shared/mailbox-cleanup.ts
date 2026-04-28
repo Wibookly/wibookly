@@ -55,11 +55,14 @@ function normalizeProvider(provider: string): 'google' | 'outlook' | string {
 }
 
 function stripPrefix(name: string): string {
-  return name.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+  // Also strip leading favorite glyph (⭐ or ★) used by current naming.
+  return name.replace(/^\s*[⭐★]?\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
 }
 
 function padCategoryName(sortOrder: number, name: string): string {
-  return `${String(sortOrder + 1).padStart(2, '0')}: ${name}`;
+  // ⭐ glyph forces folder/label to sort at top of the list (mimics Outlook
+  // Favorites). Keep in sync with sync-categories/index.ts.
+  return `⭐ ${String(sortOrder + 1).padStart(2, '0')}: ${name}`;
 }
 
 function shouldCleanupName(
@@ -70,7 +73,7 @@ function shouldCleanupName(
   const trimmed = name.trim();
   const normalized = trimmed.toLowerCase();
   if (canonicalNames.has(normalized)) return true;
-  if (/^\s*\d+\s*[:.\-]/.test(trimmed) && knownBaseNames.has(stripPrefix(trimmed))) return true;
+  if (/^\s*[⭐★]?\s*\d+\s*[:.\-]/.test(trimmed) && knownBaseNames.has(stripPrefix(trimmed))) return true;
   return normalized === 'meetings' || normalized === '04: meetings' || normalized === '4: meetings';
 }
 
