@@ -56,6 +56,12 @@ interface DailyBrief {
     urgency?: 'high' | 'medium' | 'low';
   }>;
   suggestions: string[];
+  aiAnalysis?: {
+    headline?: string;
+    whatToDoFirst?: Array<{ step?: number; action: string; why?: string; estimatedMinutes?: number }>;
+    risks?: string[];
+    wins?: string[];
+  };
 }
 
 const defaultColors = {
