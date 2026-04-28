@@ -130,6 +130,7 @@ function nearestColorDot(hex: string): string {
 
 function normalizeManagedCategoryName(value: string): string {
   return String(value || '')
+    .replace(ZW_PREFIX_RE, '') // strip invisible sort-order prefix
     .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
     .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
     .trim()
