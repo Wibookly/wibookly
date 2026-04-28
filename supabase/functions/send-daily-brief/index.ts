@@ -155,13 +155,19 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const reqBody: any = await (async () => { try { return await req.json(); } catch { return {}; } })();
 
   try {
-    // Pull all enabled schedules (small table; OK to scan).
-    const { data: schedules, error } = await supabase
+    // Pull enabled schedules. On a forced/test run, scope to the requesting user
+    // so we don't accidentally email everyone.
+    let query = supabase
       .from("daily_brief_schedules")
       .select("*")
-      .eq("is_enabled", true) as { data: ScheduleRow[] | null; error: unknown };
+      .eq("is_enabled", true);
+    if (reqBody?.force === true && reqBody?.userId) {
+      query = query.eq("user_id", reqBody.userId);
+    }
+    const { data: schedules, error } = await query as { data: ScheduleRow[] | null; error: unknown };
 
     if (error) throw error;
     if (!schedules || !schedules.length) {
@@ -177,19 +183,33 @@ serve(async (req) => {
     let sent = 0;
 
     for (const s of schedules) {
+      // On forced/test runs, only send the first eligible schedule (one test email).
+      if (reqBody?.force === true && sent > 0) break;
+
       const tz = s.timezone || "America/New_York";
       let nw = tzCache.get(tz);
       if (!nw) {
         nw = nowParts(tz);
         tzCache.set(tz, nw);
       }
-      if (nw.dow !== s.day_of_week) continue;
-      const target = (s.send_time || "00:00").slice(0, 5);
-      // Match the minute exactly (cron runs every minute).
-      if (nw.hhmm !== target) continue;
+      // `force: true` (with optional scheduleId) bypasses time matching for "Send Test Now".
+      const forceSend = reqBody?.force === true && (!reqBody?.scheduleId || reqBody.scheduleId === s.id);
 
-      // De-dupe within today (safety net in case cron fires twice).
-      if (s.last_sent_at) {
+      if (!forceSend) {
+        if (nw.dow !== s.day_of_week) continue;
+        const target = (s.send_time || "00:00").slice(0, 5);
+        // 5-minute tolerance window: send if NOW is within [target, target+5min].
+        // Handles cron jitter / brief saves that just missed the exact minute.
+        const [th, tm] = target.split(":").map((n) => parseInt(n, 10));
+        const [nh, nm] = nw.hhmm.split(":").map((n) => parseInt(n, 10));
+        const targetMins = th * 60 + tm;
+        const nowMins = nh * 60 + nm;
+        const diff = nowMins - targetMins;
+        if (diff < 0 || diff > 5) continue;
+      }
+
+      // De-dupe within today (safety net in case cron fires twice). Skipped on forced sends.
+      if (!forceSend && s.last_sent_at) {
         const lastDate = new Date(s.last_sent_at);
         const lastLocal = nowParts(tz);
         const lastFmt = new Intl.DateTimeFormat("en-US", {
