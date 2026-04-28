@@ -182,6 +182,7 @@ serve(async (req) => {
         mobile: update.mobile,
         office_location: me.officeLocation || null,
         email: (me.mail || me.userPrincipalName) ?? null,
+        profile_photo_url: photoUrl,
       },
     });
   } catch (e) {
