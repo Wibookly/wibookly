@@ -617,7 +617,18 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
           subject: e.subject,
           action: 'Review and respond'
         })),
-        suggestions: ['Check your most urgent emails first', 'Block time for deep work if calendar is clear']
+        suggestions: ['Check your most urgent emails first', 'Block time for deep work if calendar is clear'],
+        aiAnalysis: {
+          headline: `${unreadEmails.length} unread emails and ${calendarEvents.length} meetings on deck.`,
+          whatToDoFirst: unreadEmails.slice(0, 4).map((e, i) => ({
+            step: i + 1,
+            action: `Reply to "${e.subject.slice(0, 60)}" from ${e.from}`,
+            why: 'Sitting unanswered in your inbox',
+            estimatedMinutes: 10,
+          })),
+          risks: unreadEmails.length > 5 ? ['Inbox volume is high — block time to triage'] : [],
+          wins: calendarEvents.length === 0 ? ['Calendar is clear — protect a focus block'] : [],
+        }
       };
     }
 
