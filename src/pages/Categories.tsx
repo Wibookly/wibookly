@@ -126,16 +126,16 @@ const WRITING_STYLES = [
 ];
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Urgent', color: '#EF4444' },
-  { name: 'Follow Up', color: '#F97316' },
-  { name: 'Approvals', color: '#EAB308' },
-  { name: 'Events', color: '#22C55E' },
-  { name: 'Customers', color: '#06B6D4' },
-  { name: 'Vendors', color: '#3B82F6' },
-  { name: 'Internal', color: '#8B5CF6' },
-  { name: 'Projects', color: '#EC4899' },
-  { name: 'Finance', color: '#14B8A6' },
-  { name: 'FYI', color: '#6B7280' },
+  { name: 'Urgent',    color: '#E74C3C' }, // Red
+  { name: 'Follow Up', color: '#E67E22' }, // Orange
+  { name: 'Approvals', color: '#F1C40F' }, // Yellow
+  { name: 'Events',    color: '#2ECC71' }, // Green
+  { name: 'Customers', color: '#16A085' }, // Teal
+  { name: 'Vendors',   color: '#3498DB' }, // Blue
+  { name: 'Internal',  color: '#9B59B6' }, // Purple
+  { name: 'Projects',  color: '#E84F9C' }, // Cranberry
+  { name: 'Finance',   color: '#27AE60' }, // Dark Green
+  { name: 'FYI',       color: '#7F8C8D' }, // Steel
 ];
 
 interface SortableRowProps {
