@@ -169,16 +169,77 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
                     <h3 className="text-lg font-semibold text-foreground">{activeArticle.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1">{activeArticle.summary}</p>
                   </div>
-                  <div className="pt-2 border-t">
-                    <MiniMarkdown source={activeArticle.body} />
-                  </div>
+
+                  {/* Primary CTA — jump straight to the dashboard page this article describes */}
                   {activeArticle.routes && activeArticle.routes.length > 0 && (
+                    <Button
+                      onClick={() => goTo(activeArticle.routes![0])}
+                      className="w-full justify-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open this section in the dashboard
+                    </Button>
+                  )}
+
+                  {/* Optional dashboard screenshot to orient the user */}
+                  {activeArticle.image && (
+                    <figure className="rounded-md border overflow-hidden bg-muted">
+                      <img
+                        src={activeArticle.image.src}
+                        alt={activeArticle.image.alt}
+                        loading="lazy"
+                        className="w-full h-auto block"
+                      />
+                      <figcaption className="text-[11px] text-muted-foreground px-2 py-1.5 border-t bg-background">
+                        {activeArticle.image.alt}
+                      </figcaption>
+                    </figure>
+                  )}
+
+                  {activeArticle.intro && (
+                    <div className="pt-2 border-t">
+                      <MiniMarkdown source={activeArticle.intro} />
+                    </div>
+                  )}
+
+                  {activeArticle.steps && activeArticle.steps.length > 0 && (
+                    <div className="pt-2 border-t space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Step-by-step
+                      </p>
+                      <ol className="space-y-2.5">
+                        {activeArticle.steps.map((s, i) => (
+                          <li
+                            key={i}
+                            className="rounded-md border bg-card p-3 hover:border-primary/40 transition-colors"
+                          >
+                            <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {activeArticle.body && (
+                    <div className="pt-2 border-t">
+                      <MiniMarkdown source={activeArticle.body} />
+                    </div>
+                  )}
+
+                  {activeArticle.outro && (
+                    <div className="pt-2 border-t">
+                      <MiniMarkdown source={activeArticle.outro} />
+                    </div>
+                  )}
+
+                  {activeArticle.routes && activeArticle.routes.length > 1 && (
                     <div className="pt-3 border-t space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Jump to
+                        Related pages
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {activeArticle.routes.map((r) => (
+                        {activeArticle.routes.slice(1).map((r) => (
                           <Button
                             key={r}
                             variant="outline"
