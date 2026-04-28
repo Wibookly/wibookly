@@ -853,7 +853,53 @@ async function findOutlookFolderId(accessToken: string, folderName: string): Pro
   }
 }
 
-// Create Outlook folder (also dedupes legacy duplicates like "1: X" vs "01: X")
+/**
+ * Best-effort: ask Microsoft Graph to pin (or unpin) the given mail folder
+ * in the Outlook **Favorites** pane.
+ *
+ * Microsoft Graph does NOT have an officially documented endpoint for the
+ * Favorites pane on consumer/business mailboxes — it is stored in a
+ * client-side roaming configuration item ("OWA.UserOptions") that is not
+ * mutable via the public REST API. This function tries the beta endpoint
+ * exposed on some tenants (`/me/mailFolders/{id}` with `isHidden`/
+ * `isFavorite` properties) and silently no-ops on failure. The UI tooltip
+ * already explains the manual fallback to the user.
+ *
+ * Returns `true` on a successful API write, `false` otherwise.
+ */
+async function setOutlookFolderFavorite(
+  accessToken: string,
+  folderId: string,
+  favorite: boolean,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/beta/me/mailFolders/${folderId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        // `isFavorite` is recognised by Graph beta on some tenants; older
+        // tenants ignore it without error. We always send `isHidden:false`
+        // so a previously-hidden folder is also resurfaced.
+        body: JSON.stringify({ isFavorite: favorite, isHidden: false }),
+      },
+    );
+    if (!res.ok) {
+      console.warn(
+        `setOutlookFolderFavorite(${favorite}) PATCH failed [${res.status}]:`,
+        await res.text(),
+      );
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('setOutlookFolderFavorite error:', e);
+    return false;
+  }
+}
 async function createOutlookFolder(accessToken: string, folderName: string): Promise<boolean> {
   try {
     // Check if folder already exists; pull a wide page so we see all of them
