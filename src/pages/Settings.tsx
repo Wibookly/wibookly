@@ -686,19 +686,15 @@ export default function Settings() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" className="text-xs">Title</Label>
-                <Input id="title" value={title} disabled className="bg-muted h-9" placeholder="—" />
+                <Input id="title" value={aboutMe.profile_title || title} disabled className="bg-muted h-9" placeholder="—" />
               </div>
             </div>
 
-            {/* Email + Role */}
+            {/* Email */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Email</Label>
                 <Input value={profile?.email || ''} disabled className="bg-muted h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Role</Label>
-                <Input value="Admin" disabled className="bg-muted h-9" />
               </div>
             </div>
 
@@ -718,11 +714,11 @@ export default function Settings() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Business Phone</Label>
-                <Input value={signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
+                <Input value={aboutMe.business_phone || signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Mobile Phone</Label>
-                <Input value={signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
+                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
               </div>
             </div>
 
@@ -732,16 +728,6 @@ export default function Settings() {
 
             {/* Editable AI personalization */}
             <div className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="aboutRole" className="text-xs">Role / What you do</Label>
-                <Input
-                  id="aboutRole"
-                  value={aboutMe.role_description}
-                  onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
-                  placeholder="e.g. CEO, Account Manager"
-                  className="h-9"
-                />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
                 <Textarea
