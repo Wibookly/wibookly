@@ -391,7 +391,9 @@ serve(async (req) => {
       });
     }
 
-    const { connectionId } = await req.json();
+    const { connectionId, briefType: briefTypeRaw } = await req.json();
+    const briefType: "morning" | "evening" =
+      briefTypeRaw === "evening" ? "evening" : "morning";
     
     // Get connection details
     const { data: connection } = await supabase
@@ -511,18 +513,30 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are an executive assistant creating a daily brief. You have access to real calendar events and emails.
-
-Based on the context provided, generate a structured daily brief in JSON format with these sections:
-1. "greeting": A personalized greeting based on time of day
-2. "summary": Brief 1-2 sentence overview of the day (mention number of meetings, unread emails)
-3. "priorities": Array of 3-5 priority items based on REAL emails and meetings (each with "title", "description", "urgency": "high"|"medium"|"low", "type": "email"|"meeting"|"task"). Base urgency on:
+    const morningInstructions = `Based on the context provided, generate a structured MORNING brief in JSON format with these sections:
+1. "greeting": A personalized "Good morning" greeting
+2. "summary": Brief 1-2 sentence overview of TODAY ahead (mention number of meetings, unread emails)
+3. "priorities": Array of 3-5 priority items for TODAY based on REAL emails and meetings (each with "title", "description", "urgency": "high"|"medium"|"low", "type": "email"|"meeting"|"task"). Base urgency on:
    - HIGH: Meetings within 2 hours, emails from executives/clients, time-sensitive subjects
    - MEDIUM: Emails needing response today, meetings later today
    - LOW: FYI emails, non-urgent follow-ups
 4. "schedule": Array of TODAY's actual calendar events (each with "time", "title", "type"). If no events, include "Available for focus work" blocks based on availability.
 5. "emailHighlights": Array of important unread emails to address (each with "from", "subject", "action" - suggest specific action like "Reply", "Review attachment", "Schedule call")
-6. "suggestions": Array of 2-3 productivity suggestions based on actual workload
+6. "suggestions": Array of 2-3 productivity suggestions to start the day strong`;
+
+    const eveningInstructions = `Based on the context provided, generate a structured END-OF-DAY RECAP in JSON format with these sections:
+1. "greeting": A warm "Good evening" greeting recapping today
+2. "summary": Brief 1-2 sentence recap of WHAT WAS COMPLETED today + what carries to tomorrow
+3. "priorities": Array of 3-5 TOMORROW'S TODOS — items still open from today's emails/meetings that need follow-up tomorrow (each with "title", "description", "urgency", "type"). Frame these as tomorrow's action list.
+4. "schedule": Array of TOMORROW's calendar events if any can be inferred from the data — otherwise list today's completed meetings as "✓ Completed: <title>".
+5. "emailHighlights": Array of unanswered emails from today that need attention (each with "from", "subject", "action" - what to do tomorrow)
+6. "suggestions": Array of 2-3 reflections on today + recommendations for tomorrow
+
+Frame everything as "today is wrapping up — here's what got done and what's queued for tomorrow."`;
+
+    const systemPrompt = `You are an executive assistant creating a ${briefType} brief. You have access to real calendar events and emails.
+
+${briefType === "evening" ? eveningInstructions : morningInstructions}
 
 IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If there are no calendar events, say so clearly and suggest using the time productively.`;
 

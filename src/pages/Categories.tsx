@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star, Download } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -743,8 +743,30 @@ export default function Categories() {
     }
   };
 
+  const [emailingScript, setEmailingScript] = useState(false);
+  const emailOutlookScript = async () => {
+    if (!activeConnection?.id) return;
+    setEmailingScript(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-outlook-script', {
+        body: { connectionId: activeConnection.id },
+      });
+      if (error) throw error;
+      toast({
+        title: '📧 Script emailed!',
+        description: 'Check your inbox for InboxIQ-Setup.ps1 with installation instructions.',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Could not send script',
+        description: e?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEmailingScript(false);
+    }
+  };
 
-  // Mark rule as needing sync when modified
   const markRuleNeedsSync = (ruleId: string) => {
     if (!ruleId.startsWith('temp-')) {
       setRulesNeedingSync(prev => new Set(prev).add(ruleId));
@@ -932,6 +954,19 @@ export default function Categories() {
                 <RefreshCw className="w-4 h-4 mr-2" />
               )}
               Re-sync All
+            </Button>
+            <Button
+              variant="outline"
+              onClick={emailOutlookScript}
+              disabled={emailingScript || !activeConnection?.id}
+              title="Email yourself a PowerShell script that adds your InboxIQ folders to Outlook Favorites and applies matching colors (Windows + Outlook Desktop only)."
+            >
+              {emailingScript ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Email me Outlook setup script
             </Button>
           </div>
         </div>
