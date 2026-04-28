@@ -10,7 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Palette, Globe, Tag } from "lucide-react";
+import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Palette, Globe, Tag, Pencil, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSearchParams } from "react-router-dom";
 
 interface Category {
@@ -111,6 +121,7 @@ export default function EmailDraft() {
   });
   const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
   const [savingColors, setSavingColors] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!organization?.id || !activeConnection?.id) return;
@@ -427,19 +438,19 @@ export default function EmailDraft() {
 
   return (
     <div className="min-h-full p-4 lg:p-6">
-      <div className="max-w-5xl mb-4 flex justify-end">
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
 
-      <div className="max-w-5xl space-y-6">
+      <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-lg p-6">
+        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-sm p-5">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
           <div className="relative">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               {headerTitle}
             </h1>
-            <p className="text-muted-foreground mt-1">{headerSubtitle}</p>
+            <p className="text-sm text-muted-foreground mt-1">{headerSubtitle}</p>
           </div>
         </div>
 
@@ -728,101 +739,116 @@ export default function EmailDraft() {
               </Card>
             </div>
 
-            {/* Plain-language summary of effective AI settings */}
-            <Card className="border-border shadow-sm max-w-4xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  How AI will reply for each category
-                </CardTitle>
-                <CardDescription>
-                  {hasCategoryOverrides
-                    ? "Plain-English summary of the writing style and format that will be used for every enabled category."
-                    : "Plain-English summary of the writing style and format currently applied to all enabled categories."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {categories.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No enabled categories yet.</p>
-                ) : !hasCategoryOverrides ? (
-                  <button
-                    type="button"
-                    onClick={() => setTarget(GLOBAL_TARGET)}
-                    className={`w-full text-left rounded-lg border px-4 py-3 transition-colors hover:bg-secondary/40 ${
-                      target === GLOBAL_TARGET ? "border-primary bg-primary/5" : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-sm">All enabled categories</span>
-                        <Badge variant="outline" className="text-xs">Global setting</Badge>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {categories.length} {categories.length === 1 ? "category" : "categories"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                      Writing style <strong className="text-foreground">{globalStyleLabel}</strong> and response format <strong className="text-foreground">{globalFormatLabel}</strong> are set for every enabled category.
-                    </p>
-                  </button>
-                ) : (
-                  categories.map((c) => {
+            {/* Per-category overrides — only shown when at least one custom override exists */}
+            {hasCategoryOverrides && (
+              <Card className="border-purple-500/20 shadow-sm bg-purple-500/[0.03]">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="h-4 w-4 text-purple-500" />
+                    Per-Category Overrides
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Categories with custom settings that differ from the global default. Click ✎ to edit, ✕ to remove the override.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {configuredCategories.map((c) => {
                     const effectiveStyle = c.writing_style || aiSettings.writing_style;
                     const effectiveFormat = c.format_style || aiSettings.format_style;
-                    const isOverride = isCategoryCustomized(c, aiSettings);
                     const styleLabel =
                       WRITING_STYLES.find((s) => s.value === effectiveStyle)?.label || effectiveStyle;
                     const formatLabel =
                       FORMAT_OPTIONS.find((f) => f.value === effectiveFormat)?.label || effectiveFormat;
                     return (
-                      <button
-                        key={`summary-${c.id}`}
-                        type="button"
-                        onClick={() => setTarget(c.id)}
-                        className={`w-full text-left rounded-lg border p-3 hover:bg-secondary/40 transition-colors ${
+                      <div
+                        key={`override-${c.id}`}
+                        className={`rounded-lg border p-3 transition-colors ${
                           target === c.id ? "border-primary bg-primary/5" : "border-border bg-card"
                         }`}
                         style={{
-                          borderColor: target === c.id ? undefined : hexToRgba(c.color, 0.28),
+                          borderColor: target === c.id ? undefined : hexToRgba(c.color, 0.32),
                           backgroundColor: target === c.id ? undefined : hexToRgba(c.color, 0.08),
                         }}
                       >
                         <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <span
-                              className="h-3 w-3 rounded-full border border-background/80 shadow-sm"
+                              className="h-3 w-3 rounded-full border border-background/80 shadow-sm flex-shrink-0"
                               style={{ backgroundColor: c.color }}
                               aria-hidden="true"
                             />
-                            <span className="font-medium text-sm">{c.name}</span>
-                            {isOverride ? (
-                              <Badge variant="secondary" className="text-xs">Custom</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">Uses Global Default</Badge>
-                            )}
+                            <span className="font-medium text-sm truncate">{c.name}</span>
+                            <Badge variant="secondary" className="text-xs">Custom</Badge>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {c.ai_draft_enabled && (
-                              <Badge variant="secondary" className="text-xs">AI Draft</Badge>
-                            )}
-                            {c.auto_reply_enabled && (
-                              <Badge variant="secondary" className="text-xs">Auto-Reply</Badge>
-                            )}
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setTarget(c.id);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              aria-label="Edit override"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                              onClick={() => setPendingDeleteId(c.id)}
+                              aria-label="Remove override"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                          Replies in <strong className="text-foreground">{styleLabel}</strong> tone,
-                          formatted as <strong className="text-foreground">{formatLabel}</strong>.
-                          {c.example_reply_template ? " Using your custom example template." : ""}
-                          {c.additional_context ? " With extra context applied." : ""}
+                          <strong className="text-foreground">{styleLabel}</strong> tone, formatted as{" "}
+                          <strong className="text-foreground">{formatLabel}</strong>.
+                          {c.example_reply_template ? " Custom example included." : ""}
+                          {c.additional_context ? " Extra context applied." : ""}
                         </p>
-                      </button>
+                      </div>
                     );
-                  })
-                )}
-              </CardContent>
-            </Card>
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            <AlertDialog
+              open={!!pendingDeleteId}
+              onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove this category override?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This category will go back to using the global default settings. You can recreate the override anytime.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      const id = pendingDeleteId;
+                      if (!id) return;
+                      setPendingDeleteId(null);
+                      const prevTarget = target;
+                      setTarget(id);
+                      // small delay so handleResetToGlobal sees the right target
+                      setTimeout(async () => {
+                        await handleResetToGlobal();
+                        setTarget(prevTarget === id ? GLOBAL_TARGET : prevTarget);
+                      }, 0);
+                    }}
+                  >
+                    Remove override
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>

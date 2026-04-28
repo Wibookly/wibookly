@@ -480,15 +480,13 @@ export default function AIDailyBrief() {
                       brief.schedule.map((item, index) => (
                         <div
                           key={index}
-                          className="flex gap-3 p-3 rounded-lg hover:bg-secondary/30 border-l-2 border-primary/50"
+                          className="flex flex-col gap-1 p-3 rounded-lg hover:bg-secondary/30 border-l-2 border-primary/50"
                         >
-                          <div className="flex-shrink-0 w-14">
-                            <span className="text-sm font-mono text-primary font-medium">
-                              {item.time}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{item.title}</p>
+                          <span className="text-xs font-mono text-primary font-medium uppercase tracking-wide">
+                            {item.time}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm break-words">{item.title}</p>
                             {item.description && (
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                                 {item.description}
