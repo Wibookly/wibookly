@@ -21,9 +21,28 @@ interface Settings {
   reminder_max_count: number;
   reminder_intervals_days: number[];
   bcc_domain: string;
+  daily_audit_enabled: boolean;
+  last_audit_at: string | null;
+  last_audit_summary: {
+    scanned?: number;
+    flagged?: number;
+    already_replied?: number;
+    errors?: number;
+    mode?: string;
+    from?: string;
+    to?: string;
+  } | null;
 }
 
 const PRESETS = [2, 3, 5, 7, 10, 14, 21, 30];
+
+function isoDaysAgo(n: number): string {
+  const d = new Date(Date.now() - n * 86400_000);
+  return d.toISOString().slice(0, 10);
+}
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function FollowUpReminderSettings({ compact = false }: { compact?: boolean }) {
   const { toast } = useToast();
