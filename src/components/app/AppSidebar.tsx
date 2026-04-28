@@ -228,8 +228,7 @@ export function AppSidebar() {
 
           {/* Settings */}
           <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
-            <NavItem href="/settings?section=profile" icon={User}>My Profile</NavItem>
-            <NavItem href="/settings?section=signature" icon={PenTool}>My Signature</NavItem>
+            <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
           </NavSection>
 
           {/* Reports - show if user has reports or is super admin */}
