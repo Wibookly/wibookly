@@ -456,16 +456,33 @@ export function DailyBriefSchedule() {
                     className={`rounded-lg border bg-card transition-colors ${isEditing ? 'border-primary shadow-sm' : 'hover:border-primary/50'}`}
                   >
                     {/* Summary row — always visible */}
+                    {(() => {
+                      const savedTime = s.morningEnabled ? s.morningTime : (s.eveningEnabled ? s.eveningTime : '');
+                      const isMorning = savedTime ? getBriefTone(savedTime) === 'morning' : false;
+                      return (
                     <div className="flex items-center gap-3 p-3">
                       <Switch
                         checked={s.enabled}
                         onCheckedChange={(v) => updateSchedule(s.id, { enabled: v })}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className={`text-sm font-semibold ${s.enabled ? '' : 'text-muted-foreground'}`}>
-                            {s.name || `Schedule ${idx + 1}`}
+                            {describeDays(s.days)}
                           </span>
+                          {savedTime && (
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md border ${
+                                isMorning
+                                  ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 text-amber-900 dark:text-amber-200'
+                                  : 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/40 text-indigo-900 dark:text-indigo-200'
+                              }`}
+                              title={`Send time (${timezone})`}
+                            >
+                              {isMorning ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                              {formatTime(savedTime)}
+                            </span>
+                          )}
                           {s.enabled && (
                             <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                               Active
@@ -473,7 +490,9 @@ export function DailyBriefSchedule() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {describeDays(s.days)} · {describeTimes(s)}
+                          {savedTime
+                            ? `${getBriefToneLabel(savedTime)} · ${timezone}`
+                            : 'No time set'}
                         </p>
                       </div>
                       <Button
