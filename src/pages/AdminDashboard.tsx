@@ -93,6 +93,8 @@ interface ManagedUser {
 
 export default function AdminDashboard() {
   const { profile, session } = useAuth();
+  const { hasFeature } = useFeatureAccess();
+  const hasFollowUpReminder = hasFeature('feature.follow_up_reminder');
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('setup');
   const [domains, setDomains] = useState<AllowedDomain[]>([]);
