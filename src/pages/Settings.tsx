@@ -313,6 +313,25 @@ export default function Settings() {
     setLoading(false);
   };
 
+  // Debounced auto-save: persists profile/signature/AI/availability changes
+  // automatically whenever the user edits any field. No manual Save button.
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveSettings(true);
+    }, 800);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    orgName, fullName, title, emailSignature, useCustomSignature,
+    signatureFields, signatureEnabled, aboutMe, aiSettings, availability,
+  ]);
+
   const saveSettings = async (silent = false) => {
     if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
 
