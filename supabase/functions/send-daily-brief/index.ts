@@ -183,6 +183,9 @@ serve(async (req) => {
     let sent = 0;
 
     for (const s of schedules) {
+      // On forced/test runs, only send the first eligible schedule (one test email).
+      if (reqBody?.force === true && sent > 0) break;
+
       const tz = s.timezone || "America/New_York";
       let nw = tzCache.get(tz);
       if (!nw) {
