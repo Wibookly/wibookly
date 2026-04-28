@@ -59,79 +59,82 @@ export function TimePicker({
   };
 
   return (
-    <div className={`inline-flex items-center gap-1.5 rounded-lg border border-input bg-background p-1 ${className}`}>
-      <Clock className="w-3.5 h-3.5 text-muted-foreground ml-1.5 flex-shrink-0" aria-hidden="true" />
-
+    <div className={`inline-flex items-end gap-2 ${className}`}>
       {/* Hour */}
-      <Select
-        value={String(hour12)}
-        onValueChange={(v) => emit(parseInt(v, 10), minute, period)}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          className="h-8 w-[58px] px-2 border-0 bg-transparent hover:bg-muted/50 font-mono font-semibold text-sm focus:ring-1 focus:ring-ring [&>svg]:hidden justify-center"
-          aria-label="Hour"
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Hour</span>
+        <Select
+          value={String(hour12)}
+          onValueChange={(v) => emit(parseInt(v, 10), minute, period)}
+          disabled={disabled}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className="max-h-72">
-          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 bg-popover">
-            Hour
-          </div>
-          {hours.map((h) => (
-            <SelectItem key={h} value={String(h)} className="font-mono justify-center">
-              {pad(h)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            className="h-9 w-[68px] px-2 font-mono font-semibold text-sm bg-background border-input hover:border-primary/50 hover:bg-muted/40 transition-colors"
+            aria-label="Hour"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72 min-w-[68px]">
+            {hours.map((h) => (
+              <SelectItem key={h} value={String(h)} className="font-mono justify-center">
+                {pad(h)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <span className="text-muted-foreground font-semibold select-none">:</span>
+      <span className="text-muted-foreground font-semibold select-none pb-2">:</span>
 
       {/* Minute */}
-      <Select
-        value={String(minute - (minute % minuteStep))}
-        onValueChange={(v) => emit(hour12, parseInt(v, 10), period)}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          className="h-8 w-[58px] px-2 border-0 bg-transparent hover:bg-muted/50 font-mono font-semibold text-sm focus:ring-1 focus:ring-ring [&>svg]:hidden justify-center"
-          aria-label="Minute"
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Min</span>
+        <Select
+          value={String(minute - (minute % minuteStep))}
+          onValueChange={(v) => emit(hour12, parseInt(v, 10), period)}
+          disabled={disabled}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className="max-h-72">
-          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 bg-popover">
-            Min
-          </div>
-          {minutes.map((m) => (
-            <SelectItem key={m} value={String(m)} className="font-mono justify-center">
-              {pad(m)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            className="h-9 w-[68px] px-2 font-mono font-semibold text-sm bg-background border-input hover:border-primary/50 hover:bg-muted/40 transition-colors"
+            aria-label="Minute"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72 min-w-[68px]">
+            {minutes.map((m) => (
+              <SelectItem key={m} value={String(m)} className="font-mono justify-center">
+                {pad(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* AM/PM toggle */}
-      <div className="flex items-center rounded-md bg-muted/60 p-0.5 ml-1">
-        {(['AM', 'PM'] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            disabled={disabled}
-            onClick={() => emit(hour12, minute, p)}
-            className={`px-2 py-0.5 text-[11px] font-bold rounded transition-colors ${
-              period === p
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            } disabled:opacity-50 disabled:pointer-events-none`}
-            aria-pressed={period === p}
-            aria-label={p === 'AM' ? 'Morning (AM)' : 'Afternoon/Evening (PM)'}
-          >
-            {p}
-          </button>
-        ))}
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">AM/PM</span>
+        <div className="flex items-center rounded-md border border-input bg-background h-9 p-0.5">
+          {(['AM', 'PM'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              disabled={disabled}
+              onClick={() => emit(hour12, minute, p)}
+              className={`px-2.5 h-full text-[11px] font-bold rounded transition-colors ${
+                period === p
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              } disabled:opacity-50 disabled:pointer-events-none`}
+              aria-pressed={period === p}
+              aria-label={p === 'AM' ? 'Morning (AM)' : 'Afternoon/Evening (PM)'}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0 pb-2.5" aria-hidden="true" />
     </div>
   );
 }
