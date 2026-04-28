@@ -568,7 +568,10 @@ export function DailyBriefSchedule() {
                           </div>
                         </div>
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" onClick={() => sendTestNow(s)}>
+                            <Send className="w-4 h-4 mr-1.5" /> Send Test Now
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                             <Check className="w-4 h-4 mr-1.5" /> Done
                           </Button>
