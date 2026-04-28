@@ -425,6 +425,232 @@ async function getRecentEmailsSummary(accessToken: string, provider: string, cou
   }
 }
 
+type AIProvider = 'openai' | 'claude';
+
+interface AdminAIConfig {
+  openai: string | null;
+  claude: string | null;
+  preference: 'auto' | 'openai' | 'claude';
+  openaiModel: string;
+  claudeModel: string;
+}
+
+interface AIUsageResult {
+  content: string;
+  provider: AIProvider;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+}
+
+const OPENAI_PRICING: Record<string, { input: number; output: number }> = {
+  'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+  'gpt-4o': { input: 0.0025, output: 0.01 },
+  'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
+  'gpt-4.1': { input: 0.002, output: 0.008 },
+};
+
+const CLAUDE_PRICING: Record<string, { input: number; output: number }> = {
+  'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
+  'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
+  'claude-3-opus-latest': { input: 0.015, output: 0.075 },
+};
+
+function calculateCost(provider: AIProvider, model: string, promptTokens: number, completionTokens: number) {
+  const table = provider === 'openai' ? OPENAI_PRICING : CLAUDE_PRICING;
+  const pricing = table[model] ?? { input: 0, output: 0 };
+  return (promptTokens / 1000) * pricing.input + (completionTokens / 1000) * pricing.output;
+}
+
+async function loadAdminAIConfig(supabase: ReturnType<typeof createClient>): Promise<AdminAIConfig> {
+  const { data, error } = await supabase
+    .from('api_key_config')
+    .select('key_name, encrypted_value')
+    .in('key_name', [
+      'openai_api_key',
+      'claude_api_key',
+      'ai_provider_preference',
+      'ai_openai_model',
+      'ai_claude_model',
+    ]);
+
+  if (error) {
+    console.warn('Failed to load admin AI config:', error.message);
+  }
+
+  const map: Record<string, string> = {};
+  (data ?? []).forEach((row: { key_name: string; encrypted_value: string }) => {
+    map[row.key_name] = (row.encrypted_value || '').trim();
+  });
+
+  const preference = (map['ai_provider_preference'] || 'auto').toLowerCase();
+
+  return {
+    openai: map['openai_api_key'] || Deno.env.get('OPENAI_API_KEY')?.trim() || null,
+    claude: map['claude_api_key'] || Deno.env.get('ANTHROPIC_API_KEY')?.trim() || null,
+    preference: preference === 'openai' || preference === 'claude' ? preference : 'auto',
+    openaiModel: map['ai_openai_model'] || 'gpt-4o-mini',
+    claudeModel: map['ai_claude_model'] || 'claude-3-5-sonnet-latest',
+  };
+}
+
+function choosePrimaryProvider(messages: Array<{ role: string; content: string }>, preference: AdminAIConfig['preference']): AIProvider {
+  if (preference === 'openai' || preference === 'claude') return preference;
+
+  const text = messages
+    .map((message) => message.content || '')
+    .join('\n')
+    .toLowerCase();
+
+  const complexKeywords = [
+    'analyze',
+    'analysis',
+    'strategy',
+    'architect',
+    'architecture',
+    'compare',
+    'comparison',
+    'tradeoff',
+    'trade-off',
+    'proposal',
+    'recommendation',
+    'deep dive',
+    'complex',
+    'reason through',
+  ];
+
+  const questionCount = (text.match(/\?/g) ?? []).length;
+  const isComplex = text.length > 2200 || questionCount >= 3 || complexKeywords.some((keyword) => text.includes(keyword));
+
+  return isComplex ? 'claude' : 'openai';
+}
+
+async function callOpenAI(messages: Array<{ role: string; content: string }>, systemPrompt: string, apiKey: string, model: string): Promise<AIUsageResult> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.4,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI returned empty content');
+
+  const promptTokens = data.usage?.prompt_tokens ?? 0;
+  const completionTokens = data.usage?.completion_tokens ?? 0;
+  const totalTokens = data.usage?.total_tokens ?? promptTokens + completionTokens;
+
+  return {
+    content,
+    provider: 'openai',
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costUsd: calculateCost('openai', model, promptTokens, completionTokens),
+  };
+}
+
+async function callClaude(messages: Array<{ role: string; content: string }>, systemPrompt: string, apiKey: string, model: string): Promise<AIUsageResult> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1800,
+      system: systemPrompt,
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Claude ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const content = data.content?.map((block: { type: string; text?: string }) => block.type === 'text' ? block.text || '' : '').join('') || '';
+  if (!content) throw new Error('Claude returned empty content');
+
+  const promptTokens = data.usage?.input_tokens ?? 0;
+  const completionTokens = data.usage?.output_tokens ?? 0;
+
+  return {
+    content,
+    provider: 'claude',
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    costUsd: calculateCost('claude', model, promptTokens, completionTokens),
+  };
+}
+
+async function generateChatReply(messages: Array<{ role: string; content: string }>, systemPrompt: string, config: AdminAIConfig): Promise<AIUsageResult> {
+  const primary = choosePrimaryProvider(messages, config.preference);
+  const order: AIProvider[] = primary === 'openai' ? ['openai', 'claude'] : ['claude', 'openai'];
+  const errors: string[] = [];
+
+  for (const provider of order) {
+    try {
+      if (provider === 'openai' && config.openai) {
+        return await callOpenAI(messages, systemPrompt, config.openai, config.openaiModel);
+      }
+
+      if (provider === 'claude' && config.claude) {
+        return await callClaude(messages, systemPrompt, config.claude, config.claudeModel);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`${provider} chat call failed:`, message);
+      errors.push(`${provider}: ${message}`);
+    }
+  }
+
+  if (!config.openai && !config.claude) {
+    throw new Error('No AI provider is configured. Add an OpenAI or Claude key in Admin → Settings.');
+  }
+
+  throw new Error(errors[0] || 'All configured AI providers failed.');
+}
+
+function createSSEStream(content: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const parts = content.match(/[\s\S]{1,32}/g) ?? [content];
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const part of parts) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: part } }] })}\n\n`)
+        );
+      }
+
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -546,7 +772,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `You are an intelligent AI assistant with FULL ACCESS to the user's email inbox and calendar. You can search, read, and analyze their emails and calendar events.
+    const systemPrompt = `You are the InboxIQ AI chat assistant. You help the user work faster using their inbox and calendar context when available.
 
 Your capabilities:
 1. Search and retrieve specific emails by sender, subject, or content
@@ -564,53 +790,37 @@ When answering:
 - If you found relevant emails/events, reference them specifically
 - If data is limited, explain what you can see and suggest searching for more specific terms
 - Be helpful and proactive in suggesting follow-up actions
-- Format information clearly with bullet points or sections when appropriate`;
+ - Format information clearly with bullet points or sections when appropriate
+ - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const adminAIConfig = await loadAdminAIConfig(supabase);
+    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profile?.organization_id) {
+      await supabase.from('ai_usage_logs').insert({
+        organization_id: profile.organization_id,
+        user_id: user.id,
+        provider: result.provider,
+        model: result.model,
+        action: 'ai_chat',
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        total_tokens: result.totalTokens,
+        cost_usd: result.costUsd,
+        metadata: {
+          connection_id: connectionId ?? null,
+          provider_preference: adminAIConfig.preference,
+        },
       });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("AI gateway error:", response.status, await response.text());
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(response.body, {
+    return new Response(createSSEStream(result.content), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
