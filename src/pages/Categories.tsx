@@ -342,7 +342,7 @@ export default function Categories() {
       prev.map(cat => {
         if (cat.id !== id) return cat;
         // Cascade: turning a category OFF also disables AI Draft, AI Auto-Reply,
-        // and Favorite. Rules for this category are disabled below.
+        // and Favorite. Rules for this category are deleted below.
         if (field === 'is_enabled' && value === false) {
           return {
             ...cat,
@@ -359,9 +359,30 @@ export default function Categories() {
         return { ...cat, [field]: value };
       })
     );
-    // Also disable any rules attached to this category when the category is turned off.
+    // When a category is turned OFF: remove ALL rules attached to it
+    // (per user request: disabling a category should not leave stale rules
+    // behind that quietly file mail when the category is re-enabled later).
     if (field === 'is_enabled' && value === false) {
-      setRules(prev => prev.map(r => (r.category_id === id ? { ...r, is_enabled: false } : r)));
+      const rulesToRemove = rules.filter(r => r.category_id === id && !r.id.startsWith('temp-'));
+      // Optimistically clear from local state immediately.
+      setRules(prev => prev.filter(r => r.category_id !== id));
+      // Best-effort: clean up provider-side label/rule, then delete from DB.
+      (async () => {
+        for (const rule of rulesToRemove) {
+          try {
+            await supabase.functions.invoke('cleanup-rule', {
+              body: { ruleId: rule.id },
+            });
+          } catch (e) {
+            console.error('cleanup-rule failed for', rule.id, e);
+          }
+          try {
+            await supabase.from('rules').delete().eq('id', rule.id);
+          } catch (e) {
+            console.error('rule delete failed for', rule.id, e);
+          }
+        }
+      })();
     }
     setHasChanges(true);
   };
