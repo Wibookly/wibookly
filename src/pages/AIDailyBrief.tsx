@@ -27,10 +27,11 @@ import { cn } from '@/lib/utils';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 import { HelpDot } from '@/components/help/HelpDot';
-import FollowUpReminderSettings from '@/components/follow-up/FollowUpReminderSettings';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { BellRing } from 'lucide-react';
+import { BellRing, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 
 interface DailyBrief {
   greeting: string;
