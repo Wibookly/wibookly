@@ -35,6 +35,9 @@ export function AppLayout() {
       <AppSidebar />
       
       <div className="flex-1 flex flex-col min-h-0">
+        <div className="hidden lg:block">
+          <AppHeader />
+        </div>
         <main className="flex-1 overflow-auto" style={{ background: 'var(--gradient-hero)' }}>
           <Outlet />
         </main>
