@@ -1925,14 +1925,29 @@ serve(async (req) => {
       }
     }
 
-    // Update last_synced_at for successfully synced categories
+    // Update last_synced_at AND last_synced_name for successfully synced
+    // categories. Snapshotting the name here is what lets the next sync
+    // detect a rename (DB name !== last_synced_name) and rename the
+    // existing Outlook folder / Gmail label in place instead of creating
+    // a duplicate.
     if (syncedCategoryIds.length > 0) {
       const now = new Date().toISOString();
+      const byId = new Map(allCategories.map((c) => [c.id, c.name] as const));
+      // Bulk-stamp last_synced_at, then per-row update last_synced_name so
+      // each row stores its own current name.
       await supabaseAdmin
         .from('categories')
         .update({ last_synced_at: now })
         .in('id', syncedCategoryIds);
-      console.log(`Updated last_synced_at for ${syncedCategoryIds.length} categories`);
+      await Promise.all(
+        syncedCategoryIds.map((id) =>
+          supabaseAdmin
+            .from('categories')
+            .update({ last_synced_name: byId.get(id) ?? null })
+            .eq('id', id),
+        ),
+      );
+      console.log(`Updated last_synced_at + last_synced_name for ${syncedCategoryIds.length} categories`);
     }
 
     const totalCreated = results.reduce((sum, r) => sum + r.created, 0);
