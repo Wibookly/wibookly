@@ -188,18 +188,44 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
         </div>
       </TableCell>
       <TableCell>
-        <div className="relative">
-          <div
-            className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer"
-            style={{ backgroundColor: category.color }}
-          />
-          <input
-            type="color"
-            value={category.color}
-            onChange={(e) => updateCategory(category.id, 'color', e.target.value)}
-            className="absolute inset-0 w-6 h-6 opacity-0 cursor-pointer"
-          />
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform"
+              style={{ backgroundColor: category.color }}
+              aria-label="Pick category color"
+            />
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-3" align="start">
+            <div className="text-xs font-medium text-muted-foreground mb-2">
+              Outlook category colors
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {OUTLOOK_PRESET_PALETTE.map((p) => {
+                const selected = category.color?.toUpperCase() === p.hex.toUpperCase();
+                return (
+                  <button
+                    key={p.hex}
+                    type="button"
+                    title={p.name}
+                    onClick={() => updateCategory(category.id, 'color', p.hex)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      selected ? 'border-foreground scale-110' : 'border-white hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: p.hex }}
+                  >
+                    {selected && <Check className="w-4 h-4 mx-auto text-white drop-shadow" />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
+              Only these colors exist in Outlook. Picking one guarantees the
+              folder color matches.
+            </p>
+          </PopoverContent>
+        </Popover>
       </TableCell>
       <TableCell>
         <Input
