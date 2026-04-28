@@ -1094,7 +1094,7 @@ serve(async (req) => {
       );
     }
 
-    // Get ENABLED categories for numbering - use sort_order for label names
+    // Get enabled categories and build the live provider folder/label names.
     let enabledCategoriesQuery = supabaseAdmin
       .from('categories')
       .select('id, name, sort_order, color')
@@ -1108,7 +1108,7 @@ serve(async (req) => {
 
     const { data: enabledCategories } = await enabledCategoriesQuery;
 
-    // Map category ID to its sort_order (used for label naming) + color (for Outlook tagging)
+    // Map category ID to its display data for provider folder/label naming.
     const categoryMap = new Map(
       enabledCategories?.map((c) => [
         c.id,
