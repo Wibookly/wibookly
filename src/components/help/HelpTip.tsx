@@ -44,7 +44,7 @@ export function HelpTip({
   className,
   ariaLabel,
 }: HelpTipProps) {
-  const entry = id ? HELP_TOOLTIPS[id] : undefined;
+  const entry = id ? (HELP_TOOLTIPS[id] as { title: string; body: string; learnMoreArticleId?: string }) : undefined;
   const resolvedTitle = title ?? entry?.title;
   const resolvedBody = body ?? entry?.body;
   const resolvedArticle = learnMoreArticleId ?? entry?.learnMoreArticleId;
