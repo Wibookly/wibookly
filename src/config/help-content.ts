@@ -189,7 +189,7 @@ If you don't see this page, you're not an admin — ask your workspace admin to 
     id: 'troubleshoot-no-drafts',
     title: "I'm not seeing any AI drafts",
     category: 'troubleshooting',
-    summary: 'Checklist when AI Drafts aren't appearing in your mailbox.',
+    summary: "Checklist when AI Drafts aren't appearing in your mailbox.",
     body: `Run through this list:
 
 1. **Mailbox connected?** Open **Integrations** — your provider should show a green "Connected" badge with your email address.
