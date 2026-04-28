@@ -1095,7 +1095,6 @@ CEO, Company Name
             </div>
           </div>
         </section>
-        )}
 
 
         {saving && (
