@@ -1382,6 +1382,39 @@ async function getOrCreateOutlookCategory(
   }
 }
 
+function nearestColorDot(hex: string): string {
+  const palette: { dot: string; r: number; g: number; b: number }[] = [
+    { dot: '🔴', r: 239, g: 68, b: 68 },
+    { dot: '🟠', r: 249, g: 115, b: 22 },
+    { dot: '🟡', r: 234, g: 179, b: 8 },
+    { dot: '🟢', r: 34, g: 197, b: 94 },
+    { dot: '🔵', r: 59, g: 130, b: 246 },
+    { dot: '🟣', r: 139, g: 92, b: 246 },
+    { dot: '🟤', r: 120, g: 80, b: 60 },
+    { dot: '⚫', r: 30, g: 30, b: 30 },
+    { dot: '⚪', r: 230, g: 230, b: 230 },
+  ];
+  const h = (hex || '').replace('#', '');
+  if (h.length !== 6) return '⚪';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = palette[0];
+  let bestD = Infinity;
+  for (const p of palette) {
+    const d = (p.r - r) ** 2 + (p.g - g) ** 2 + (p.b - b) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best.dot;
+}
+
+function buildCategoryLabelName(name: string, color?: string | null): string {
+  return `${nearestColorDot(color || '#737373')} ${name.trim()}`;
+}
+
 // Map hex to Outlook preset color
 function hexToOutlookColor(hex: string): string {
   const lowerHex = hex.toLowerCase();
@@ -2210,7 +2243,7 @@ async function getEventsCategoryLabel(supabaseAdmin: any, connectionId: string):
     .maybeSingle();
   
   if (eventsCategory) {
-    return `⭐ ${String(eventsCategory.sort_order + 1).padStart(2, '0')}: ${eventsCategory.name}`;
+    return buildCategoryLabelName(eventsCategory.name, eventsCategory.color);
   }
   return null;
 }
@@ -2365,8 +2398,7 @@ async function processConnectionEmails(
 
       let matchingMessages: { id: string }[] = [];
       
-      // Get the category label name (format: "N: CategoryName")
-      const categoryLabelName = `${(category.sort_order || 0) + 1}: ${category.name}`;
+      const categoryLabelName = buildCategoryLabelName(category.name, (category as { color?: string | null }).color);
 
       if (tokenRecord.provider === 'google') {
         // First, search for unread emails with the category label
@@ -2699,8 +2731,7 @@ async function processConnectionEmails(
             results.draftsCreated++;
             console.log(`Created draft for email ${msg.id}`);
             
-            // Build category label name (e.g., "⭐ 10: FYI") - padded to 2 digits, ⭐ for top-sort
-            const categoryLabelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            const categoryLabelName = buildCategoryLabelName(category.name, (category as { color?: string | null }).color);
             
             // Apply AI Draft label to original email (0. prefix - before categories)
             const aiDraftLabelName = '0. AI Draft';
@@ -2861,8 +2892,7 @@ async function processConnectionEmails(
             results.autoRepliesSent++;
             console.log(`Sent auto-reply for email ${msg.id}`);
             
-            // Build category label name (e.g., "⭐ 10: FYI") - padded to 2 digits, ⭐ for top-sort
-            const categoryLabelName = `⭐ ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+            const categoryLabelName = buildCategoryLabelName(category.name, (category as { color?: string | null }).color);
             
             // Apply AI Sent label to original email (11. prefix - after 10 categories)
             const aiSentLabelName = '11. AI Sent';
