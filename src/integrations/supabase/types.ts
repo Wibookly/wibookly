@@ -1473,6 +1473,54 @@ export type Database = {
           },
         ]
       }
+      support_issues: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          description: string
+          id: string
+          organization_id: string
+          page_url: string | null
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+          user_agent: string | null
+          user_email: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          organization_id: string
+          page_url?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+          user_agent?: string | null
+          user_email: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          organization_id?: string
+          page_url?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_email?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
