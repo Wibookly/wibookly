@@ -1165,11 +1165,31 @@ async function getOrCreateGmailLabel(
     }
     
     const labels = await listRes.json();
-    const existingLabel = labels.labels?.find(
-      (l: { name: string }) => l.name === labelName
-    );
+    const targetCore = labelName
+      .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+      .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+      .trim()
+      .toLowerCase();
+    const existingLabel = labels.labels?.find((l: { name: string }) => {
+      const core = String(l.name || '')
+        .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+        .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+        .trim()
+        .toLowerCase();
+      return core === targetCore;
+    });
     
     if (existingLabel) {
+      if (existingLabel.name !== labelName) {
+        await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${existingLabel.id}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: labelName, color: hexToGmailColor(color) })
+        }).catch(() => null);
+      }
       return existingLabel.id;
     }
     
