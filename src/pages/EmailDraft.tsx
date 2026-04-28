@@ -726,109 +726,49 @@ export default function EmailDraft() {
               </Card>
             </div>
 
-            {/* Configured Categories Summary */}
-            <Card className="border-border shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Tag className="h-5 w-5 text-primary" />
-                  Categories with Custom Overrides
-                </CardTitle>
-                <CardDescription>
-                  All other enabled categories use the global default. Click a category to edit it.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {configuredCategories.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No category overrides yet — every category currently uses your global default.
-                  </p>
-                ) : (
-                  configuredCategories.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setTarget(c.id)}
-                      className={`w-full text-left flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-secondary/40 ${
-                        target === c.id ? "border-primary bg-primary/5" : "border-border"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Tag className="w-4 h-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium text-sm">{c.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Style:{" "}
-                            {WRITING_STYLES.find((s) => s.value === c.writing_style)?.label ||
-                              c.writing_style}
-                            {c.format_style
-                              ? ` · Format: ${
-                                  FORMAT_OPTIONS.find((f) => f.value === c.format_style)?.label ||
-                                  c.format_style
-                                }`
-                              : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {c.ai_draft_enabled && (
-                          <Badge variant="secondary" className="text-xs">
-                            AI Draft
-                          </Badge>
-                        )}
-                        {c.auto_reply_enabled && (
-                          <Badge variant="secondary" className="text-xs">
-                            Auto-Reply
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                  ))
-                )}
-
-                {/* Show all enabled categories summary */}
-                <div className="pt-3 mt-3 border-t border-border">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    All enabled categories ({categories.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((c) => (
-                      <button
-                        key={`pill-${c.id}`}
-                        type="button"
-                        onClick={() => setTarget(c.id)}
-                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                          target === c.id
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:bg-secondary/40"
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Plain-language summary of every category's effective AI settings */}
-            <Card className="border-border shadow-sm">
+            {/* Plain-language summary of effective AI settings */}
+            <Card className="border-border shadow-sm max-w-4xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
                   How AI will reply for each category
                 </CardTitle>
                 <CardDescription>
-                  Plain-English summary of the writing style and format that will be used for every enabled category.
+                  {hasCategoryOverrides
+                    ? "Plain-English summary of the writing style and format that will be used for every enabled category."
+                    : "Plain-English summary of the writing style and format currently applied to all enabled categories."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {categories.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No enabled categories yet.</p>
+                ) : !hasCategoryOverrides ? (
+                  <button
+                    type="button"
+                    onClick={() => setTarget(GLOBAL_TARGET)}
+                    className={`w-full text-left rounded-lg border px-4 py-3 transition-colors hover:bg-secondary/40 ${
+                      target === GLOBAL_TARGET ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary" />
+                        <span className="font-medium text-sm">All enabled categories</span>
+                        <Badge variant="outline" className="text-xs">Global setting</Badge>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {categories.length} {categories.length === 1 ? "category" : "categories"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      Writing style <strong className="text-foreground">{globalStyleLabel}</strong> and response format <strong className="text-foreground">{globalFormatLabel}</strong> are set for every enabled category.
+                    </p>
+                  </button>
                 ) : (
                   categories.map((c) => {
                     const effectiveStyle = c.writing_style || aiSettings.writing_style;
                     const effectiveFormat = c.format_style || aiSettings.format_style;
-                    const isOverride = !!(c.example_reply_template || c.additional_context || c.format_style);
+                    const isOverride = isCategoryCustomized(c, aiSettings);
                     const styleLabel =
                       WRITING_STYLES.find((s) => s.value === effectiveStyle)?.label || effectiveStyle;
                     const formatLabel =
@@ -838,11 +778,21 @@ export default function EmailDraft() {
                         key={`summary-${c.id}`}
                         type="button"
                         onClick={() => setTarget(c.id)}
-                        className="w-full text-left rounded-lg border border-border bg-card p-3 hover:bg-secondary/40 transition-colors"
+                        className={`w-full text-left rounded-lg border p-3 hover:bg-secondary/40 transition-colors ${
+                          target === c.id ? "border-primary bg-primary/5" : "border-border bg-card"
+                        }`}
+                        style={{
+                          borderColor: target === c.id ? undefined : hexToRgba(c.color, 0.28),
+                          backgroundColor: target === c.id ? undefined : hexToRgba(c.color, 0.08),
+                        }}
                       >
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
-                            <Tag className="w-4 h-4 text-muted-foreground" />
+                            <span
+                              className="h-3 w-3 rounded-full border border-background/80 shadow-sm"
+                              style={{ backgroundColor: c.color }}
+                              aria-hidden="true"
+                            />
                             <span className="font-medium text-sm">{c.name}</span>
                             {isOverride ? (
                               <Badge variant="secondary" className="text-xs">Custom</Badge>
