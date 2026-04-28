@@ -257,19 +257,42 @@ Deno.serve(async (req) => {
       const cutoff = new Date(Date.now() - 23 * 3600_000).toISOString();
       const { data: settings } = await admin
         .from('follow_up_settings')
-        .select('connection_id,user_id,organization_id,last_audit_at')
+        .select('connection_id,user_id,organization_id,last_audit_at,business_hours_only,business_hours_start,business_hours_end,business_days,timezone')
         .eq('daily_audit_enabled', true)
         .or(`last_audit_at.is.null,last_audit_at.lt.${cutoff}`);
 
       let processed = 0;
+      let skippedOffHours = 0;
       const results: any[] = [];
-      for (const s of (settings ?? [])) {
+      for (const s of (settings ?? []) as any[]) {
         const { data: conn } = await admin
           .from('provider_connections')
           .select('id,user_id,organization_id,provider,inbox_followup_folder_id,connected_email,is_connected')
           .eq('id', s.connection_id)
           .maybeSingle();
         if (!conn || !conn.is_connected) continue;
+
+        // Business-hours gate. The cron-follow-ups loop calls us every 15
+        // minutes, so we just wait until the user is inside their local
+        // business window before running the once-per-day audit.
+        const tz = s.timezone || 'America/New_York';
+        if (s.business_hours_only) {
+          try {
+            const fmt = new Intl.DateTimeFormat('en-US', {
+              timeZone: tz, weekday: 'short', hour: 'numeric', hour12: false,
+            });
+            const parts = fmt.formatToParts(new Date());
+            const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+            const hr = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+            const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+            const dow = map[wd] ?? 0;
+            const days: number[] = s.business_days ?? [1, 2, 3, 4, 5];
+            if (!days.includes(dow) || hr < s.business_hours_start || hr >= s.business_hours_end) {
+              skippedOffHours++;
+              continue;
+            }
+          } catch { /* fail open */ }
+        }
 
         const toIso = new Date().toISOString();
         const fromIso = new Date(Date.now() - 24 * 3600_000).toISOString();
