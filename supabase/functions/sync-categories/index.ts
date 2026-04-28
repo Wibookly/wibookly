@@ -1379,7 +1379,7 @@ serve(async (req) => {
     // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites')
+      .select('id, name, color, is_enabled, sort_order, connection_id, show_in_favorites, last_synced_name')
       .eq('organization_id', profile.organization_id)
       .in('connection_id', scopedConnectionIds)
       .order('sort_order');
