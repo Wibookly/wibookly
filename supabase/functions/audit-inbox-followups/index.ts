@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         processed++;
       }
 
-      return new Response(JSON.stringify({ ok: true, mode, processed, results }), {
+      return new Response(JSON.stringify({ ok: true, mode, processed, skipped_off_hours: skippedOffHours, results }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
