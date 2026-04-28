@@ -79,44 +79,151 @@ function nowParts(tz: string): { dow: number; hhmm: string; date: string } {
   };
 }
 
-function renderBriefHtml(brief: any, brief_type: string, recipient: string): string {
-  const heading = brief_type === "morning" ? "Your Morning Brief" : "Your End-of-Day Recap";
-  const priorities = (brief?.priorities || [])
-    .map(
-      (p: any) =>
-        `<li><strong>${p.title}</strong> <span style="color:#64748b">— ${p.description}</span></li>`
-    )
-    .join("");
-  const schedule = (brief?.schedule || [])
-    .map(
-      (s: any) =>
-        `<li><code>${s.time}</code> &nbsp; <strong>${s.title}</strong>${
-          s.description ? ` — <span style="color:#64748b">${s.description}</span>` : ""
-        }</li>`
-    )
-    .join("");
-  const emails = (brief?.emailHighlights || [])
-    .slice(0, 8)
-    .map(
-      (e: any) =>
-        `<li><strong>${e.subject}</strong> <span style="color:#64748b">— ${e.from} · ${e.action}</span></li>`
-    )
-    .join("");
-  const suggestions = (brief?.suggestions || [])
-    .map((s: string) => `<li>${s}</li>`)
-    .join("");
+function esc(v: any): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function urgencyColor(u?: string): { bg: string; fg: string; border: string } {
+  if (u === "high") return { bg: "#fef2f2", fg: "#b91c1c", border: "#ef4444" };
+  if (u === "medium") return { bg: "#fffbeb", fg: "#b45309", border: "#f59e0b" };
+  return { bg: "#f0fdf4", fg: "#047857", border: "#10b981" };
+}
+
+function renderBriefHtml(
+  brief: any,
+  brief_type: string,
+  recipient: string,
+  pendingFollowUps: any[] = [],
+  dateLabel: string = ""
+): string {
+  const heading = brief_type === "morning" ? "☀️ Your Morning Brief" : "🌙 Your End-of-Day Recap";
+  const greeting = esc(brief?.greeting || "");
+  const summary = esc(brief?.summary || "Here is your daily brief.");
+
+  // AI Analysis – What to do first
+  const ai = brief?.aiAnalysis || {};
+  const whatToDoItems = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
+  const aiBlock = `
+    <div style="margin:24px 0;padding:18px 20px;border-radius:10px;background:linear-gradient(135deg,#eff6ff 0%,#f5f3ff 100%);border:1px solid #c7d2fe">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#4338ca;text-transform:uppercase;margin-bottom:6px">🤖 AI Analysis — What to do first</div>
+      ${ai.headline ? `<p style="margin:0 0 14px;font-size:15px;color:#0f172a;font-weight:600">${esc(ai.headline)}</p>` : ""}
+      ${
+        whatToDoItems.length
+          ? `<ol style="margin:0;padding-left:0;list-style:none;counter-reset:step">
+              ${whatToDoItems.map((it: any, i: number) => `
+                <li style="display:flex;gap:12px;padding:10px 12px;margin:6px 0;background:#ffffff;border-radius:8px;border:1px solid #e0e7ff">
+                  <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:26px">${esc(it.step ?? i + 1)}</div>
+                  <div style="flex:1">
+                    <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(it.action || "")}</div>
+                    ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${esc(it.why)}</div>` : ""}
+                    ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ""}
+                  </div>
+                </li>`).join("")}
+            </ol>`
+          : `<p style="color:#64748b;margin:0;font-size:13px">No specific actions queued — review priorities below.</p>`
+      }
+      ${Array.isArray(ai.risks) && ai.risks.length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+      ${Array.isArray(ai.wins) && ai.wins.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+    </div>`;
+
+  // Priorities — Today Highlighted
+  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
+  const prioritiesBlock = priorities.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">🎯 Today's Priorities</h2>
+       ${priorities.map((p: any) => {
+          const c = urgencyColor(p.urgency);
+          return `<div style="padding:12px 14px;margin:8px 0;background:${c.bg};border-left:4px solid ${c.border};border-radius:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <strong style="color:#0f172a;font-size:14px">${esc(p.title)}</strong>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${c.fg};background:#fff;padding:3px 8px;border-radius:10px;border:1px solid ${c.border}">${esc(p.urgency || "medium")}</span>
+            </div>
+            ${p.description ? `<p style="margin:6px 0 0;color:#475569;font-size:13px">${esc(p.description)}</p>` : ""}
+          </div>`;
+        }).join("")}`
+    : "";
+
+  // Schedule
+  const schedule = Array.isArray(brief?.schedule) ? brief.schedule : [];
+  const scheduleBlock = schedule.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">📅 Today's Schedule</h2>
+       <div>${schedule.map((s: any) => `
+          <div style="display:flex;padding:10px 0;border-bottom:1px solid #f1f5f9">
+            <span style="width:110px;font-family:monospace;color:#0ea5e9;font-weight:600;font-size:13px">${esc(s.time)}</span>
+            <div style="flex:1">
+              <strong style="color:#0f172a;font-size:14px">${esc(s.title)}</strong>
+              ${s.description ? `<p style="margin:3px 0 0;color:#64748b;font-size:13px">${esc(s.description)}</p>` : ""}
+            </div>
+          </div>`).join("")}</div>`
+    : "";
+
+  // Email Highlights
+  const emails = Array.isArray(brief?.emailHighlights) ? brief.emailHighlights.slice(0, 10) : [];
+  const emailsBlock = emails.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">📧 Email Highlights</h2>
+       ${emails.map((e: any) => `
+          <div style="padding:10px 12px;margin:6px 0;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:4px">
+            <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(e.subject)}</div>
+            <div style="color:#64748b;font-size:12px;margin-top:3px">From <strong>${esc(e.from)}</strong> · Action: <span style="color:#0ea5e9;font-weight:600">${esc(e.action)}</span></div>
+          </div>`).join("")}`
+    : "";
+
+  // Pending Follow-Ups (no reply received)
+  const followUpsBlock = pendingFollowUps.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">⏰ Follow-Ups Awaiting Reply</h2>
+       ${pendingFollowUps.slice(0, 10).map((f: any) => {
+          const overdue = f.due_at && new Date(f.due_at) < new Date();
+          const recipients = Array.isArray(f.to_recipients)
+            ? f.to_recipients.join(", ")
+            : (f.to_recipients || "");
+          return `<div style="padding:10px 12px;margin:6px 0;background:${overdue ? "#fef2f2" : "#fffbeb"};border-left:3px solid ${overdue ? "#ef4444" : "#f59e0b"};border-radius:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <strong style="color:#0f172a;font-size:14px">${esc(f.subject || "(no subject)")}</strong>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${overdue ? "#b91c1c" : "#b45309"};background:#fff;padding:3px 8px;border-radius:10px">${overdue ? "Overdue" : "Due"}</span>
+            </div>
+            <div style="color:#64748b;font-size:12px;margin-top:3px">To: ${esc(recipients)} · Sent ${esc(f.sent_at ? new Date(f.sent_at).toLocaleDateString() : "")} · ${esc(f.reminder_count || 0)} reminder(s)</div>
+          </div>`;
+        }).join("")}`
+    : "";
+
+  // To-Do List (combined priorities + email actions)
+  const todoItems: string[] = [];
+  priorities.forEach((p: any) => todoItems.push(`${esc(p.title)}${p.description ? ` — <span style="color:#64748b">${esc(p.description)}</span>` : ""}`));
+  emails.slice(0, 5).forEach((e: any) => todoItems.push(`<strong>${esc(e.action)}:</strong> ${esc(e.subject)} <span style="color:#64748b">(${esc(e.from)})</span>`));
+  const todoBlock = todoItems.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">✅ To-Do List</h2>
+       <ul style="list-style:none;padding:0;margin:0">
+         ${todoItems.map(t => `<li style="padding:8px 12px;margin:4px 0;background:#f8fafc;border-radius:4px;font-size:13px;color:#0f172a">☐ ${t}</li>`).join("")}
+       </ul>`
+    : "";
+
+  // Suggestions
+  const suggestions = Array.isArray(brief?.suggestions) ? brief.suggestions : [];
+  const suggestionsBlock = suggestions.length
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">💡 Suggestions</h2>
+       <ul style="color:#475569;font-size:13px;padding-left:20px">${suggestions.map((s: string) => `<li style="margin:4px 0">${esc(s)}</li>`).join("")}</ul>`
+    : "";
 
   return `<!DOCTYPE html>
-<html><body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;max-width:680px;margin:0 auto;padding:24px">
-  <h1 style="font-size:22px;border-bottom:3px solid #0ea5e9;padding-bottom:10px">${heading}</h1>
-  <p style="color:#475569">${brief?.greeting || ""}</p>
-  <p>${brief?.summary || ""}</p>
-  ${priorities ? `<h2 style="font-size:16px">Priorities</h2><ol>${priorities}</ol>` : ""}
-  ${schedule ? `<h2 style="font-size:16px">Schedule</h2><ul style="list-style:none;padding:0">${schedule}</ul>` : ""}
-  ${emails ? `<h2 style="font-size:16px">Email Highlights</h2><ul>${emails}</ul>` : ""}
-  ${suggestions ? `<h2 style="font-size:16px">Suggestions</h2><ul>${suggestions}</ul>` : ""}
-  <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0"/>
-  <p style="color:#94a3b8;font-size:12px">Sent by InboxIQ Agent · delivered to ${recipient}</p>
+<html><body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;background:#f8fafc;margin:0;padding:24px">
+  <div style="max-width:720px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px 36px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <h1 style="font-size:24px;margin:0 0 4px;color:#0f172a">${heading}</h1>
+    <p style="color:#94a3b8;font-size:13px;margin:0 0 20px">${esc(dateLabel)}</p>
+    ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 8px">${greeting}</p>` : ""}
+    <p style="color:#0f172a;font-size:15px;margin:0 0 8px">${summary}</p>
+    ${aiBlock}
+    ${prioritiesBlock}
+    ${scheduleBlock}
+    ${emailsBlock}
+    ${followUpsBlock}
+    ${todoBlock}
+    ${suggestionsBlock}
+    <hr style="margin-top:28px;border:none;border-top:1px solid #e2e8f0"/>
+    <p style="color:#94a3b8;font-size:12px;margin-top:14px">Sent by InboxIQ Agent · delivered to ${esc(recipient)} · You can print or forward this brief.</p>
+  </div>
 </body></html>`;
 }
 
