@@ -772,7 +772,7 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `You are an intelligent AI assistant with FULL ACCESS to the user's email inbox and calendar. You can search, read, and analyze their emails and calendar events.
+    const systemPrompt = `You are the InboxIQ AI chat assistant. You help the user work faster using their inbox and calendar context when available.
 
 Your capabilities:
 1. Search and retrieve specific emails by sender, subject, or content
@@ -790,53 +790,37 @@ When answering:
 - If you found relevant emails/events, reference them specifically
 - If data is limited, explain what you can see and suggest searching for more specific terms
 - Be helpful and proactive in suggesting follow-up actions
-- Format information clearly with bullet points or sections when appropriate`;
+ - Format information clearly with bullet points or sections when appropriate
+ - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const adminAIConfig = await loadAdminAIConfig(supabase);
+    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profile?.organization_id) {
+      await supabase.from('ai_usage_logs').insert({
+        organization_id: profile.organization_id,
+        user_id: user.id,
+        provider: result.provider,
+        model: result.model,
+        action: 'ai_chat',
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        total_tokens: result.totalTokens,
+        cost_usd: result.costUsd,
+        metadata: {
+          connection_id: connectionId ?? null,
+          provider_preference: adminAIConfig.preference,
+        },
       });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("AI gateway error:", response.status, await response.text());
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(response.body, {
+    return new Response(createSSEStream(result.content), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
