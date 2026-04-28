@@ -912,6 +912,10 @@ export type Database = {
           auto_draft_enabled: boolean
           auto_reply_enabled: boolean
           bcc_domain: string
+          business_days: number[]
+          business_hours_end: number
+          business_hours_only: boolean
+          business_hours_start: number
           connection_id: string
           created_at: string
           daily_audit_enabled: boolean
@@ -923,6 +927,7 @@ export type Database = {
           reminder_intervals_days: number[]
           reminder_max_count: number
           skip_if_replied: boolean
+          timezone: string | null
           updated_at: string
           user_id: string
         }
@@ -930,6 +935,10 @@ export type Database = {
           auto_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           bcc_domain?: string
+          business_days?: number[]
+          business_hours_end?: number
+          business_hours_only?: boolean
+          business_hours_start?: number
           connection_id: string
           created_at?: string
           daily_audit_enabled?: boolean
@@ -941,6 +950,7 @@ export type Database = {
           reminder_intervals_days?: number[]
           reminder_max_count?: number
           skip_if_replied?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id: string
         }
@@ -948,6 +958,10 @@ export type Database = {
           auto_draft_enabled?: boolean
           auto_reply_enabled?: boolean
           bcc_domain?: string
+          business_days?: number[]
+          business_hours_end?: number
+          business_hours_only?: boolean
+          business_hours_start?: number
           connection_id?: string
           created_at?: string
           daily_audit_enabled?: boolean
@@ -959,6 +973,7 @@ export type Database = {
           reminder_intervals_days?: number[]
           reminder_max_count?: number
           skip_if_replied?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1964,6 +1979,10 @@ export type Database = {
           auto_draft_enabled: boolean
           auto_reply_enabled: boolean
           bcc_domain: string
+          business_days: number[]
+          business_hours_end: number
+          business_hours_only: boolean
+          business_hours_start: number
           connection_id: string
           created_at: string
           daily_audit_enabled: boolean
@@ -1975,6 +1994,7 @@ export type Database = {
           reminder_intervals_days: number[]
           reminder_max_count: number
           skip_if_replied: boolean
+          timezone: string | null
           updated_at: string
           user_id: string
         }
