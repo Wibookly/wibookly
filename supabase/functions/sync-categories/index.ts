@@ -1250,22 +1250,39 @@ async function enforceOutlookManagedFolderOrder(
       }).catch((error) => console.error(`Failed deleting old Outlook folder ${folder.displayName}:`, error));
     }
 
-    const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ displayName: item.folderName }),
-    });
+    // Retry the rename up to 3 times — failure here is what leaves orphan
+    // "InboxIQ reorder ..." folders visible in Outlook.
+    let renamed = false;
+    let lastErr = '';
+    for (let attempt = 0; attempt < 3 && !renamed; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 400 * attempt));
+      const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: item.folderName }),
+      });
+      if (renameRes.ok) {
+        renamed = true;
+      } else {
+        lastErr = await renameRes.text();
+      }
+    }
 
-    if (!renameRes.ok) {
-      console.warn(`Failed renaming reordered Outlook folder to ${item.folderName}:`, await renameRes.text());
+    if (!renamed) {
+      console.warn(`Failed renaming reordered Outlook folder to ${item.folderName} after retries:`, lastErr);
+      // Best-effort: delete the temp folder so it doesn't show up in Outlook.
+      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).catch(() => {});
       continue;
     }
 
     await setOutlookFolderFavorite(accessToken, createdFolder.id, Boolean(item.show_in_favorites));
   }
+
+  // Final safety net: if anything went wrong mid-loop, clean up again.
+  await cleanupOrphanedReorderFolders(accessToken, desired);
 }
 
 serve(async (req) => {
