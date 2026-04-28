@@ -17,12 +17,15 @@ export function AppHeader() {
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
     : profile?.email?.[0]?.toUpperCase() || 'U';
 
+  const photoUrl = (profile as { profile_photo_url?: string | null } | null)?.profile_photo_url ?? undefined;
+
   return (
     <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <Avatar className="h-8 w-8">
+              {photoUrl ? <AvatarImage src={photoUrl} alt={profile?.full_name || 'User'} /> : null}
               <AvatarFallback className="text-xs bg-secondary">{initials}</AvatarFallback>
             </Avatar>
           </button>
