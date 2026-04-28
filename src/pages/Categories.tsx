@@ -110,6 +110,7 @@ interface SortableRowProps {
   category: Category;
   index: number;
   updateCategory: (id: string, field: keyof Category, value: any) => void;
+  requestDisable: (category: Category) => void;
 }
 
 function formatSyncTime(syncTime: string | null): string {
@@ -127,7 +128,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -183,7 +184,13 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
       <TableCell className="text-center">
         <Switch
           checked={category.is_enabled}
-          onCheckedChange={(checked) => updateCategory(category.id, 'is_enabled', checked)}
+          onCheckedChange={(checked) => {
+            if (!checked && category.is_enabled) {
+              requestDisable(category);
+            } else {
+              updateCategory(category.id, 'is_enabled', checked);
+            }
+          }}
           className={category.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
         />
       </TableCell>
@@ -240,6 +247,7 @@ export default function Categories() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
@@ -961,6 +969,7 @@ export default function Categories() {
                     category={category}
                     index={index}
                     updateCategory={updateCategory}
+                    requestDisable={setPendingDisableCategory}
                   />
                 ))}
               </SortableContext>
@@ -1226,6 +1235,34 @@ export default function Categories() {
         })}
       </div>
       </div>
+
+      <AlertDialog open={!!pendingDisableCategory} onOpenChange={(open) => !open && setPendingDisableCategory(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable "{pendingDisableCategory?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the <strong>"{pendingDisableCategory?.name}"</strong> folder from your Outlook mailbox and move every email currently inside it back to the <strong>Inbox</strong>. Any rules attached to this category will also be turned off. This action runs the next time changes sync (within a few seconds).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep enabled</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDisableCategory) {
+                  updateCategory(pendingDisableCategory.id, 'is_enabled', false);
+                  toast({
+                    title: 'Category disabled',
+                    description: `Removing "${pendingDisableCategory.name}" folder and moving emails back to Inbox…`,
+                  });
+                }
+                setPendingDisableCategory(null);
+              }}
+            >
+              Disable & move emails to Inbox
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

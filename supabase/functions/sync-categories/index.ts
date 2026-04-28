@@ -625,13 +625,17 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
     const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+    // Detect a leading emoji/colored-dot prefix (current label format "🟠 Name").
+    const hasEmojiPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
     const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
-    // "Follow-up" tracker folder used by cron-follow-ups. A user-created
-    // category called "Follow Up" lives at "02: Follow Up" (numeric prefix)
-    // and MUST be deletable when the user disables the category.
+    // "Follow-up" tracker folder used by cron-follow-ups. Managed category
+    // folders carry either a numeric prefix ("02: Follow Up") or an emoji
+    // dot prefix ("🟠 Follow Up") — both ARE deletable when the user
+    // disables the category. Only a folder with NO prefix at all is the
+    // tracker folder.
     const PROTECTED_UNPREFIXED = new Set(['follow-up', 'follow up', 'followup']);
 
     // Match every folder whose normalized name equals our target.
@@ -639,7 +643,8 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     const matches = (folders ?? []).filter(
       (f: { id: string; displayName: string }) => stripPrefix(f.displayName) === targetCore
     ).filter((f: { displayName: string }) => {
-      if (!hasNumericPrefix(f.displayName) && PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))) {
+      const isPrefixed = hasNumericPrefix(f.displayName) || hasEmojiPrefix(f.displayName);
+      if (!isPrefixed && PROTECTED_UNPREFIXED.has(stripPrefix(f.displayName))) {
         console.log(`Skipping protected unprefixed folder "${f.displayName}"`);
         return false;
       }
