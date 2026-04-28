@@ -243,7 +243,7 @@ function buildEmailHtml(userName: string, categoryCount: number): string {
     <li>Restart Outlook when finished</li>
   </ol>
   <p style="background:#fef3c7;padding:12px;border-radius:6px;font-size:13px">
-    <strong>Requirements:</strong> Windows + Outlook Desktop (this won't work on Outlook Web or Mac).
+    <strong>Requirements:</strong> Windows + Outlook Desktop. <em>On Mac or Outlook Web, the script can't run — but the colored-dot folder names (e.g. 🔴 01: Urgent) still appear correctly because they're set server-side by InboxIQ.</em>
   </p>
   <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0"/>
   <p style="color:#94a3b8;font-size:12px">Sent by InboxIQ Agent</p>
