@@ -522,7 +522,12 @@ serve(async (req) => {
    - LOW: FYI emails, non-urgent follow-ups
 4. "schedule": Array of TODAY's actual calendar events (each with "time", "title", "type"). If no events, include "Available for focus work" blocks based on availability.
 5. "emailHighlights": Array of important unread emails to address (each with "from", "subject", "action" - suggest specific action like "Reply", "Review attachment", "Schedule call")
-6. "suggestions": Array of 2-3 productivity suggestions to start the day strong`;
+6. "suggestions": Array of 2-3 productivity suggestions to start the day strong
+7. "aiAnalysis": Object with executive analysis. MUST include:
+   - "headline": One-sentence strategic read on the day (e.g. "Heavy meeting day with 3 client emails needing replies before lunch.")
+   - "whatToDoFirst": Array of 3-5 ordered next-actions the user should tackle RIGHT NOW, in order. Each item: { "step": 1, "action": "Reply to John about Q4 proposal", "why": "Client awaiting response since yesterday", "estimatedMinutes": 10 }
+   - "risks": Array of 1-3 short strings flagging anything at risk of slipping today
+   - "wins": Array of 1-2 quick-win opportunities the user can knock out in <15 min`;
 
     const eveningInstructions = `Based on the context provided, generate a structured END-OF-DAY RECAP in JSON format with these sections:
 1. "greeting": A warm "Good evening" greeting recapping today
