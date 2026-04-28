@@ -597,7 +597,8 @@ export default function Settings() {
       <div className="space-y-6">
 
         {/* Profile — identity + AI personalization context, merged into one card */}
-        {activeSection === 'profile' && (
+        {(
+
         <section className="space-y-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
@@ -739,7 +740,8 @@ export default function Settings() {
 
 
         {/* Email Signature Builder */}
-        {activeSection === 'signature' && (
+        {(
+
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
