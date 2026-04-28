@@ -460,16 +460,21 @@ export default function Settings() {
         }
       }
 
-      toast({
-        title: 'Settings saved',
-        description: 'Your changes have been saved successfully.'
-      });
+      if (!silent) {
+        toast({
+          title: 'Settings saved',
+          description: 'Your changes have been saved successfully.'
+        });
+      }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to save settings',
+          variant: 'destructive'
+        });
+      }
+
     } finally {
       setSaving(false);
     }
