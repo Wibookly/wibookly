@@ -245,7 +245,7 @@ export function DailyBriefSchedule() {
             <Select value={timezone} onValueChange={setTimezone}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {TIMEZONES.map(tz => (
+                {Array.from(new Set([detectedTz, timezone, ...TIMEZONES])).filter(Boolean).map(tz => (
                   <SelectItem key={tz} value={tz}>{tz}</SelectItem>
                 ))}
               </SelectContent>
