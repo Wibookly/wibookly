@@ -9,6 +9,7 @@ import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { InboxIQLogo } from './InboxIQLogo';
+import energyForwardLogo from '@/assets/energyforward-logo.png';
 
 
 import { useState, useEffect } from 'react';
@@ -127,15 +128,13 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
-      <div className="p-4 border-b border-border flex flex-col items-center gap-2">
-        {orgLogoUrl ? (
-          <img
-            src={orgLogoUrl}
-            alt={organization?.name || 'Organization logo'}
-            className="max-h-10 w-auto object-contain"
-          />
-        ) : null}
-        <InboxIQLogo className="text-3xl" />
+      <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+        <img
+          src={energyForwardLogo}
+          alt="EnergyForward"
+          className="h-10 w-auto object-contain flex-shrink-0"
+        />
+        <InboxIQLogo className="text-2xl" />
       </div>
 
       {/* Active Email Selector */}
