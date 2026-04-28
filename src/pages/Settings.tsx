@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { supabase } from '@/integrations/supabase/client';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
