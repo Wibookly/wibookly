@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { AppSidebar } from './AppSidebar';
+import { AppHeader } from './AppHeader';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
 import { Loader2 } from 'lucide-react';
@@ -34,6 +35,9 @@ export function AppLayout() {
       <AppSidebar />
       
       <div className="flex-1 flex flex-col min-h-0">
+        <div className="hidden lg:block">
+          <AppHeader />
+        </div>
         <main className="flex-1 overflow-auto" style={{ background: 'var(--gradient-hero)' }}>
           <Outlet />
         </main>
