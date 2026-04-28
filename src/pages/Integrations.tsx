@@ -898,7 +898,7 @@ export default function Integrations() {
                                 <line x1="8" y1="2" x2="8" y2="6"/>
                                 <line x1="3" y1="10" x2="21" y2="10"/>
                               </svg>
-                              <span>{integration.id === 'google' ? 'Google Calendar' : 'Outlook Calendar'}</span>
+                              <span>Outlook Calendar</span>
                             </div>
                             {conn.calendar_connected ? (
                               <div className="flex items-center gap-1.5 text-xs text-success">
