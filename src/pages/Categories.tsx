@@ -14,6 +14,38 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+// Outlook-compatible category palette. These hex values match what Outlook
+// actually renders for its built-in preset colors (preset0..preset24), so the
+// dot in InboxIQ matches the folder/category color in Outlook Web/Desktop.
+const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
+  { name: 'Red',          hex: '#E74C3C' },
+  { name: 'Orange',       hex: '#E67E22' },
+  { name: 'Brown',        hex: '#C19A6B' },
+  { name: 'Yellow',       hex: '#F1C40F' },
+  { name: 'Green',        hex: '#2ECC71' },
+  { name: 'Teal',         hex: '#16A085' },
+  { name: 'Olive',        hex: '#95A5A6' },
+  { name: 'Blue',         hex: '#3498DB' },
+  { name: 'Purple',       hex: '#9B59B6' },
+  { name: 'Cranberry',    hex: '#E84F9C' },
+  { name: 'Steel',        hex: '#7F8C8D' },
+  { name: 'Dark Steel',   hex: '#2C3E50' },
+  { name: 'Gray',         hex: '#BDC3C7' },
+  { name: 'Dark Gray',    hex: '#34495E' },
+  { name: 'Black',        hex: '#000000' },
+  { name: 'Dark Red',     hex: '#C0392B' },
+  { name: 'Dark Orange',  hex: '#D35400' },
+  { name: 'Dark Brown',   hex: '#8B4F2F' },
+  { name: 'Dark Yellow',  hex: '#B7950B' },
+  { name: 'Dark Green',   hex: '#27AE60' },
+  { name: 'Dark Teal',    hex: '#0E8068' },
+  { name: 'Dark Olive',   hex: '#6B6F39' },
+  { name: 'Dark Blue',    hex: '#216FA8' },
+  { name: 'Dark Purple',  hex: '#71368A' },
+  { name: 'Dark Cranberry', hex: '#AD1457' },
+];
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import {
   Table,
