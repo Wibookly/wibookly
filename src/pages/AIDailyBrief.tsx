@@ -374,6 +374,8 @@ export default function AIDailyBrief() {
         </div>
       </div>
 
+      <FollowUpReminderInline />
+
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-24 w-full" />
