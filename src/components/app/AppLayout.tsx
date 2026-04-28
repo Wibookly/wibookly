@@ -5,15 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
-import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
+
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
 
 export function AppLayout() {
-  const { user, loading, organization, profile } = useAuth();
-  const orgLogoUrl = useOrganizationLogo(organization?.id);
+  const { user, loading, profile } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
@@ -81,13 +80,6 @@ export function AppLayout() {
 
       <div className="flex-1 flex flex-col min-h-0">
         <main className="flex-1 overflow-auto relative" style={{ background: 'var(--gradient-hero)' }}>
-          {orgLogoUrl ? (
-            <img
-              src={orgLogoUrl}
-              alt={organization?.name || 'Company logo'}
-              className="hidden lg:block absolute top-3 left-6 max-h-10 w-auto object-contain mix-blend-multiply opacity-90 pointer-events-none z-10"
-            />
-          ) : null}
           <Outlet />
         </main>
       </div>

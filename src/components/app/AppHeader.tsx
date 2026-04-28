@@ -1,7 +1,7 @@
 import { useAuth } from '@/lib/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { InboxIQLogo } from './InboxIQLogo';
+import energyForwardLogo from '@/assets/energyforward-logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +13,7 @@ import {
 import { LogOut, User } from 'lucide-react';
 
 export function AppHeader() {
-  const { profile, organization, signOut } = useAuth();
-  const orgLogoUrl = useOrganizationLogo(organization?.id);
+  const { profile, signOut } = useAuth();
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -25,13 +24,11 @@ export function AppHeader() {
   return (
     <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        {orgLogoUrl ? (
-          <img
-            src={orgLogoUrl}
-            alt={organization?.name || 'Organization logo'}
-            className="max-h-9 w-auto object-contain"
-          />
-        ) : null}
+        <img
+          src={energyForwardLogo}
+          alt="EnergyForward"
+          className="h-9 w-auto object-contain"
+        />
         <InboxIQLogo className="text-2xl" />
       </div>
       <DropdownMenu>
