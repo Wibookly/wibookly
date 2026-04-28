@@ -1015,6 +1015,102 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
   }
 }
 
+async function enforceOutlookManagedFolderOrder(
+  accessToken: string,
+  categories: Array<{ name: string; color: string; show_in_favorites?: boolean }>,
+): Promise<void> {
+  if (categories.length === 0) return;
+
+  const desired = categories.map((category) => ({
+    ...category,
+    folderName: `${nearestColorDot(category.color)} ${category.name}`,
+    coreName: normalizeManagedCategoryName(category.name),
+  }));
+
+  const listRes = await fetch(
+    'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName',
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!listRes.ok) {
+    console.warn('Unable to inspect Outlook folders for ordering:', await listRes.text());
+    return;
+  }
+
+  const { value: folders } = await listRes.json();
+  const desiredNames = new Set(desired.map((item) => item.coreName));
+  const currentManagedFolders = (folders ?? []).filter((folder: { id: string; displayName: string }) =>
+    desiredNames.has(normalizeManagedCategoryName(folder.displayName)),
+  );
+
+  const currentOrder = currentManagedFolders.map((folder: { displayName: string }) =>
+    normalizeManagedCategoryName(folder.displayName),
+  );
+  const desiredOrder = desired.map((item) => item.coreName);
+
+  if (
+    currentOrder.length === desiredOrder.length &&
+    currentOrder.every((name, index) => name === desiredOrder[index])
+  ) {
+    return;
+  }
+
+  console.log(`Rebuilding Outlook folder order to match app: ${desired.map((item) => item.folderName).join(' -> ')}`);
+
+  for (const item of [...desired].reverse()) {
+    const existingMatches = currentManagedFolders.filter(
+      (folder: { id: string; displayName: string }) =>
+        normalizeManagedCategoryName(folder.displayName) === item.coreName,
+    );
+
+    const tempFolderName = `InboxIQ reorder ${crypto.randomUUID().slice(0, 8)} ${item.name}`;
+    const createRes = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ displayName: tempFolderName }),
+    });
+
+    if (!createRes.ok) {
+      console.warn(`Failed creating temporary Outlook folder for ${item.folderName}:`, await createRes.text());
+      continue;
+    }
+
+    const createdFolder = await createRes.json();
+
+    for (const folder of existingMatches) {
+      try {
+        await moveOutlookFolderMessages(accessToken, folder.id, folder.displayName, createdFolder.id, tempFolderName);
+      } catch (error) {
+        console.error(`Failed moving messages from ${folder.displayName} during reorder:`, error);
+      }
+
+      await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).catch((error) => console.error(`Failed deleting old Outlook folder ${folder.displayName}:`, error));
+    }
+
+    const renameRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${createdFolder.id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ displayName: item.folderName }),
+    });
+
+    if (!renameRes.ok) {
+      console.warn(`Failed renaming reordered Outlook folder to ${item.folderName}:`, await renameRes.text());
+      continue;
+    }
+
+    await setOutlookFolderFavorite(accessToken, createdFolder.id, Boolean(item.show_in_favorites));
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
