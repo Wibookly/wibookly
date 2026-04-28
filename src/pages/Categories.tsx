@@ -955,6 +955,19 @@ export default function Categories() {
               )}
               Re-sync All
             </Button>
+            <Button
+              variant="outline"
+              onClick={emailOutlookScript}
+              disabled={emailingScript || !activeConnection?.id}
+              title="Email yourself a PowerShell script that adds your InboxIQ folders to Outlook Favorites and applies matching colors (Windows + Outlook Desktop only)."
+            >
+              {emailingScript ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Email me Outlook setup script
+            </Button>
           </div>
         </div>
 
