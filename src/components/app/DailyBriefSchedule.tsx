@@ -17,6 +17,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { CalendarClock, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { TimePicker } from './TimePicker';
 
 const DAYS = [
   { value: 1, label: 'Monday', short: 'Mon' },
@@ -265,19 +266,19 @@ export function DailyBriefSchedule() {
             <Switch checked={bulkApply} onCheckedChange={setBulkApply} />
           </div>
           {bulkApply && (
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
+            <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Morning time</Label>
-                <Input type="time" value={bulkMorning} onChange={(e) => setBulkMorning(e.target.value)} />
+                <TimePicker value={bulkMorning} onChange={setBulkMorning} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Evening time</Label>
-                <Input type="time" value={bulkEvening} onChange={(e) => setBulkEvening(e.target.value)} />
+                <TimePicker value={bulkEvening} onChange={setBulkEvening} />
               </div>
-              <Button variant="outline" size="sm" onClick={() => applyBulk('weekdays')} className="self-end">
+              <Button variant="outline" size="sm" onClick={() => applyBulk('weekdays')}>
                 Apply Mon–Fri
               </Button>
-              <Button variant="outline" size="sm" onClick={() => applyBulk('all')} className="self-end">
+              <Button variant="outline" size="sm" onClick={() => applyBulk('all')}>
                 Apply Every Day
               </Button>
             </div>
@@ -303,11 +304,10 @@ export function DailyBriefSchedule() {
                     onCheckedChange={(v) => updateBrief(d.value, 'morning', { enabled: v })}
                   />
                   <Label className="text-xs w-16">Morning</Label>
-                  <Input
-                    type="time"
-                    className="h-9 w-32"
+                  <TimePicker
                     value={cfg.morning.time}
-                    onChange={(e) => updateBrief(d.value, 'morning', { time: e.target.value })}
+                    onChange={(t) => updateBrief(d.value, 'morning', { time: t })}
+                    disabled={!cfg.morning.enabled}
                   />
                 </div>
                 <div className={`flex items-center gap-2 ${cfg.enabled ? '' : 'opacity-50 pointer-events-none'}`}>
@@ -316,11 +316,10 @@ export function DailyBriefSchedule() {
                     onCheckedChange={(v) => updateBrief(d.value, 'evening', { enabled: v })}
                   />
                   <Label className="text-xs w-16">Evening</Label>
-                  <Input
-                    type="time"
-                    className="h-9 w-32"
+                  <TimePicker
                     value={cfg.evening.time}
-                    onChange={(e) => updateBrief(d.value, 'evening', { time: e.target.value })}
+                    onChange={(t) => updateBrief(d.value, 'evening', { time: t })}
+                    disabled={!cfg.evening.enabled}
                   />
                 </div>
               </div>
