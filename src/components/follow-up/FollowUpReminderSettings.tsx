@@ -32,9 +32,15 @@ interface Settings {
     from?: string;
     to?: string;
   } | null;
+  business_hours_only: boolean;
+  business_hours_start: number;
+  business_hours_end: number;
+  business_days: number[];
+  timezone: string | null;
 }
 
 const PRESETS = [2, 3, 5, 7, 10, 14, 21, 30];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function isoDaysAgo(n: number): string {
   const d = new Date(Date.now() - n * 86400_000);
@@ -42,6 +48,15 @@ function isoDaysAgo(n: number): string {
 }
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+function browserTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
+  catch { return 'America/New_York'; }
+}
+function fmtHour(h: number): string {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hh = ((h + 11) % 12) + 1;
+  return `${hh}:00 ${ampm}`;
 }
 
 export default function FollowUpReminderSettings({ compact = false }: { compact?: boolean }) {
