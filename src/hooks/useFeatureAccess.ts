@@ -6,6 +6,7 @@ export type FeatureKey =
   | 'ai_draft'
   | 'ai_auto_reply'
   | 'ai_assistant'
+  | 'daily_brief'
   | 'reports'
   | 'ai_model_chatgpt'
   | 'ai_model_claude'
@@ -16,6 +17,7 @@ const ALL_FEATURES: FeatureKey[] = [
   'ai_draft',
   'ai_auto_reply',
   'ai_assistant',
+  'daily_brief',
   'reports',
   'ai_model_chatgpt',
   'ai_model_claude',
