@@ -399,10 +399,10 @@ export default function EmailDraft() {
   if (!activeConnection) {
     return (
       <div className="min-h-full p-4 lg:p-6">
-        <div className="max-w-5xl mb-4 flex justify-end">
+        <div className="max-w-6xl mb-4 flex justify-end">
           <UserAvatarDropdown />
         </div>
-        <div className="max-w-5xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
