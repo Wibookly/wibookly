@@ -27,7 +27,8 @@ import AgentPanel from '@/components/admin/AgentPanel';
 import AIUsagePanel from '@/components/admin/AIUsagePanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
-import { Bot, BarChart3, Clock } from 'lucide-react';
+import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
+import { Bot, BarChart3, Clock, MessageSquareWarning } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -640,6 +641,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
           <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
           <TabsTrigger value="usage" className="gap-2"><BarChart3 className="w-4 h-4" /> AI Usage</TabsTrigger>
+          <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
 
@@ -653,6 +655,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="usage" className="space-y-6">
           <AIUsagePanel organizationId={profile?.organization_id ?? null} />
+        </TabsContent>
+
+        <TabsContent value="issues" className="space-y-6">
+          <SupportIssuesPanel />
         </TabsContent>
 
         <TabsContent value="setup" className="space-y-6">
