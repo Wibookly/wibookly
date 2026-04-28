@@ -71,6 +71,14 @@ function nearestColorDot(hex: string): string {
   return best.dot;
 }
 
+function normalizeManagedCategoryName(value: string): string {
+  return String(value || '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+}
+
 // AES-GCM decryption for tokens (server-side only)
 async function decryptToken(encryptedData: string, keyString: string): Promise<string> {
   const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
@@ -334,12 +342,15 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
     }
     
     const { labels } = await listRes.json();
-    const existingLabel = labels?.find((l: { name: string }) => l.name === labelName);
+    const targetCore = normalizeManagedCategoryName(labelName);
+    const matchingLabels = (labels || []).filter(
+      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+    );
+    const existingLabel = matchingLabels.find((l: { name: string }) => l.name === labelName) || matchingLabels[0];
     const gmailColor = hexToGmailColor(hexColor);
     
     if (existingLabel) {
-      console.log(`Gmail label "${labelName}" already exists, updating color...`);
-      // Update existing label's color
+      console.log(`Gmail label "${existingLabel.name}" already exists, updating to "${labelName}"...`);
       const updateRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${existingLabel.id}`, {
         method: 'PATCH',
         headers: {
@@ -347,6 +358,7 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          name: labelName,
           color: gmailColor
         })
       });
@@ -356,6 +368,7 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
       } else {
         console.log(`Updated color for Gmail label: ${labelName}`);
       }
+
       return true;
     }
     
@@ -399,63 +412,66 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     if (!listRes.ok) return false;
     
     const { labels } = await listRes.json();
-    const label = labels?.find((l: { name: string }) => l.name === labelName);
-    
-    if (!label) {
+    const targetCore = normalizeManagedCategoryName(labelName);
+    const matchingLabels = (labels || []).filter(
+      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+    );
+
+    if (matchingLabels.length === 0) {
       console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
       return true;
     }
 
-    // Step 1: pull every message that still carries this label and re-add INBOX,
-    // remove the custom label so the user sees them back in their main inbox.
-    try {
-      let pageToken: string | undefined = undefined;
-      let movedTotal = 0;
-      do {
-        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
-        url.searchParams.set('labelIds', label.id);
-        url.searchParams.set('maxResults', '500');
-        if (pageToken) url.searchParams.set('pageToken', pageToken);
-        const msgRes = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (!msgRes.ok) break;
-        const { messages, nextPageToken } = await msgRes.json();
-        if (messages?.length) {
-          // batchModify supports up to 1000 ids per call
-          const ids = messages.map((m: { id: string }) => m.id);
-          const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ids,
-              addLabelIds: ['INBOX'],
-              removeLabelIds: [label.id]
-            })
+    let allOk = true;
+    for (const label of matchingLabels) {
+      try {
+        let pageToken: string | undefined = undefined;
+        let movedTotal = 0;
+        do {
+          const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+          url.searchParams.set('labelIds', label.id);
+          url.searchParams.set('maxResults', '500');
+          if (pageToken) url.searchParams.set('pageToken', pageToken);
+          const msgRes = await fetch(url.toString(), {
+            headers: { Authorization: `Bearer ${accessToken}` }
           });
-          if (modRes.ok) movedTotal += ids.length;
-          else console.error(`batchModify failed for "${labelName}":`, await modRes.text());
-        }
-        pageToken = nextPageToken;
-      } while (pageToken);
-      if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${labelName}" back to Inbox`);
-    } catch (moveErr) {
-      console.error(`Error moving messages out of "${labelName}":`, moveErr);
-      // continue with deletion regardless
+          if (!msgRes.ok) break;
+          const { messages, nextPageToken } = await msgRes.json();
+          if (messages?.length) {
+            const ids = messages.map((m: { id: string }) => m.id);
+            const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ids,
+                addLabelIds: ['INBOX'],
+                removeLabelIds: [label.id]
+              })
+            });
+            if (modRes.ok) movedTotal += ids.length;
+            else console.error(`batchModify failed for "${label.name}":`, await modRes.text());
+          }
+          pageToken = nextPageToken;
+        } while (pageToken);
+        if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${label.name}" back to Inbox`);
+      } catch (moveErr) {
+        console.error(`Error moving messages out of "${label.name}":`, moveErr);
+      }
+
+      const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (!deleteRes.ok && deleteRes.status !== 404) {
+        console.error(`Failed to delete Gmail label "${label.name}":`, await deleteRes.text());
+        allOk = false;
+      } else {
+        console.log(`Deleted Gmail label: ${label.name}`);
+      }
     }
-    
-    const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    if (!deleteRes.ok && deleteRes.status !== 404) {
-      console.error(`Failed to delete Gmail label "${labelName}":`, await deleteRes.text());
-      return false;
-    }
-    
-    console.log(`Deleted Gmail label: ${labelName}`);
-    return true;
+
+    return allOk;
   } catch (error) {
     console.error(`Error deleting Gmail label "${labelName}":`, error);
     return false;
@@ -567,7 +583,7 @@ async function deleteOutlookRulesForLabel(accessToken: string, labelName: string
     const { value } = await listRes.json();
     let deleted = 0;
     const labelLower = labelName.toLowerCase();
-    const baseLower = labelName.replace(/^\s*\d+\s*[:.\-]\s*/, '').trim().toLowerCase();
+    const baseLower = normalizeManagedCategoryName(labelName);
     for (const r of value || []) {
       const name = String(r.displayName || '');
       const nameLower = name.toLowerCase();
@@ -609,7 +625,7 @@ async function deleteOutlookFolder(accessToken: string, folderName: string): Pro
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
     const hasNumericPrefix = (s: string) => /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
-    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
     // Protected folders we must NEVER delete: only the dedicated unprefixed
@@ -915,7 +931,7 @@ async function createOutlookFolder(accessToken: string, folderName: string): Pro
     const { value: folders } = await listRes.json();
 
     // Strip the numeric prefix ("01: ", "1: ", "11. ") so duplicates match
-    const stripPrefix = (s: string) => s.replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]\s*/u, '').trim().toLowerCase();
+    const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
     const targetCore = stripPrefix(folderName);
 
     const matches: Array<{ id: string; displayName: string }> =
@@ -1384,7 +1400,7 @@ serve(async (req) => {
                   const { value: folders } = await fRes.json();
                   for (const f of (folders ?? []) as Array<{ id: string; displayName: string }>) {
                     // Strip a leading numeric prefix like "02: " so "02: Follow Up" still matches "Follow Up".
-                    const core = String(f.displayName || '').replace(/^\s*\d{1,2}\s*[:.\-]\s*/, '').trim().toLowerCase();
+                    const core = normalizeManagedCategoryName(f.displayName || '');
                     const iqTag = catNames.get(core);
                     if (iqTag) folderToIqTag.set(f.id, iqTag);
                   }
