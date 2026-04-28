@@ -288,6 +288,115 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
+      {/* Business hours */}
+      <Card className={!settings.is_enabled ? 'opacity-60 pointer-events-none' : ''}>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4" /> Business hours
+              </CardTitle>
+              <CardDescription className="mt-1.5">
+                When on, <strong>Auto Draft</strong>, <strong>Auto Reply</strong> and the
+                daily auto-audit only run during your local working hours. Outside hours,
+                emails are still <em>moved</em> to your Follow Up category — drafts and sends
+                wait until business hours resume.
+              </CardDescription>
+            </div>
+            <Switch
+              checked={settings.business_hours_only}
+              disabled={saving}
+              onCheckedChange={(v) => patch({ business_hours_only: v })}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className={`space-y-4 ${!settings.business_hours_only ? 'opacity-60 pointer-events-none' : ''}`}>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bh-start">Start (local)</Label>
+              <select
+                id="bh-start"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={settings.business_hours_start}
+                onChange={(e) => patch({ business_hours_start: parseInt(e.target.value, 10) })}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h} disabled={h >= settings.business_hours_end}>{fmtHour(h)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bh-end">End (local)</Label>
+              <select
+                id="bh-end"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={settings.business_hours_end}
+                onChange={(e) => patch({ business_hours_end: parseInt(e.target.value, 10) })}
+              >
+                {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => (
+                  <option key={h} value={h} disabled={h <= settings.business_hours_start}>
+                    {h === 24 ? '12:00 AM (next day)' : fmtHour(h)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bh-tz">Timezone</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="bh-tz"
+                  value={settings.timezone ?? ''}
+                  placeholder="America/New_York"
+                  onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                  onBlur={() => patch({ timezone: settings.timezone || browserTimezone() })}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => patch({ timezone: browserTimezone() })}
+                  title="Use this computer's timezone"
+                >
+                  Use mine
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Auto-detected from Outlook on first run; falls back to your computer.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Business days</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {DAY_LABELS.map((label, idx) => {
+                const active = settings.business_days.includes(idx);
+                return (
+                  <Button
+                    key={idx}
+                    type="button"
+                    variant={active ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      const next = active
+                        ? settings.business_days.filter((d) => d !== idx)
+                        : [...settings.business_days, idx].sort();
+                      patch({ business_days: next });
+                    }}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            Current window: <strong>{fmtHour(settings.business_hours_start)}</strong> – <strong>{settings.business_hours_end === 24 ? '12:00 AM' : fmtHour(settings.business_hours_end)}</strong>
+            {settings.timezone ? <> ({settings.timezone})</> : null}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Reminder loop */}
       <Card className={!settings.is_enabled ? 'opacity-60 pointer-events-none' : ''}>
         <CardHeader>
