@@ -632,7 +632,13 @@ async function processNotification(n: GraphNotification) {
     response_to_id: inbound?.id ?? null,
     conversation_id: msg.conversationId ?? null,
     status: 'sent',
-    metadata: { provider: aiResult.provider, model: aiResult.model, reply_to: senderEmail },
+    metadata: {
+      provider: aiResult.provider,
+      model: aiResult.model,
+      tier: aiResult.tier,
+      web_search: aiResult.usedWebSearch,
+      reply_to: senderEmail,
+    },
   });
 
   // Log usage with approximate USD cost so the Admin → AI Usage dashboard
@@ -640,11 +646,13 @@ async function processNotification(n: GraphNotification) {
   try {
     const OPENAI_PRICE: Record<string, { input: number; output: number }> = {
       'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+      'gpt-4o-mini-search-preview': { input: 0.00015, output: 0.0006 },
       'gpt-4o': { input: 0.0025, output: 0.01 },
       'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
       'gpt-4.1': { input: 0.002, output: 0.008 },
     };
     const CLAUDE_PRICE: Record<string, { input: number; output: number }> = {
+      'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
       'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
       'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
       'claude-3-opus-latest': { input: 0.015, output: 0.075 },
