@@ -406,12 +406,14 @@ export default function EmailDraft() {
   }
 
   // Build "configured categories" summary list
-  const configuredCategories = categories.filter(
-    (c) =>
-      (c.example_reply_template && c.example_reply_template.trim() !== "") ||
-      (c.additional_context && c.additional_context.trim() !== "") ||
-      (c.format_style && c.format_style.trim() !== "")
-  );
+  const configuredCategories = categories.filter((category) => isCategoryCustomized(category, aiSettings));
+  const hasCategoryOverrides = configuredCategories.length > 0;
+  const globalStyleLabel =
+    WRITING_STYLES.find((style) => style.value === aiSettings.writing_style)?.label ||
+    aiSettings.writing_style;
+  const globalFormatLabel =
+    FORMAT_OPTIONS.find((format) => format.value === aiSettings.format_style)?.label ||
+    aiSettings.format_style;
 
   const targetCategory = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
   const headerTitle = showLabelsTab
