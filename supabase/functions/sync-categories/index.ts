@@ -1488,7 +1488,8 @@ async function enforceOutlookManagedFolderOrder(
   await cleanupOrphanedReorderFolders(accessToken, desired);
 
   let folders = await listOutlookFolders(accessToken);
-  if (folders.length === 0) {
+  const inboxId = await getOutlookInboxId(accessToken);
+  if (folders.length === 0 && !inboxId) {
     console.warn("Unable to inspect Outlook folders for stabilization.");
     return;
   }
@@ -1556,6 +1557,23 @@ async function enforceOutlookManagedFolderOrder(
     for (const duplicate of matches.filter(
       (folder) => folder.id !== canonical.id,
     )) {
+      if (inboxId && duplicate.displayName.startsWith(REORDER_TEMP_PREFIX)) {
+        try {
+          await moveOutlookFolderMessages(
+            accessToken,
+            duplicate.id,
+            duplicate.displayName,
+            inboxId,
+            "Inbox",
+          );
+        } catch (error) {
+          console.error(
+            `Failed moving messages from temp folder ${duplicate.displayName} back to Inbox:`,
+            error,
+          );
+        }
+      }
+
       try {
         await moveOutlookFolderMessages(
           accessToken,
