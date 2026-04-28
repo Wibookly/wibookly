@@ -154,9 +154,6 @@ function SortableRow({ category, index, updateCategory }: SortableRowProps) {
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
       </TableCell>
-      <TableCell className="w-12 font-medium text-muted-foreground">
-        {String(category.sort_order + 1).padStart(2, '0')}:
-      </TableCell>
       <TableCell>
         <div className="relative">
           <div
