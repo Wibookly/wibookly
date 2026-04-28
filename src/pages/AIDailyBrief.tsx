@@ -27,6 +27,10 @@ import { cn } from '@/lib/utils';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 import { HelpDot } from '@/components/help/HelpDot';
+import FollowUpReminderSettings from '@/components/follow-up/FollowUpReminderSettings';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { BellRing } from 'lucide-react';
 
 interface DailyBrief {
   greeting: string;
@@ -370,6 +374,8 @@ export default function AIDailyBrief() {
         </div>
       </div>
 
+      <FollowUpReminderInline />
+
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-24 w-full" />
@@ -712,3 +718,39 @@ export default function AIDailyBrief() {
     </div>
   );
 }
+
+function FollowUpReminderInline() {
+  const { hasFeature, loading } = useFeatureAccess();
+  const [open, setOpen] = useState(false);
+  if (loading || !hasFeature('feature.follow_up_reminder')) return null;
+  return (
+    <Card className="mb-6 border-primary/30">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full text-left">
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-md bg-primary/10 text-primary mt-0.5">
+                  <BellRing className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Follow-Up Reminder</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    BCC <code className="font-mono">N@your-domain</code> on outgoing emails to schedule auto follow-ups.
+                  </p>
+                </div>
+              </div>
+              {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </CardHeader>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            <FollowUpReminderSettings compact />
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+

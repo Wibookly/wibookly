@@ -907,8 +907,58 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_up_settings: {
+        Row: {
+          auto_draft_enabled: boolean
+          auto_reply_enabled: boolean
+          bcc_domain: string
+          connection_id: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          reminder_intervals_days: number[]
+          reminder_max_count: number
+          skip_if_replied: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_draft_enabled?: boolean
+          auto_reply_enabled?: boolean
+          bcc_domain?: string
+          connection_id: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          organization_id: string
+          reminder_intervals_days?: number[]
+          reminder_max_count?: number
+          skip_if_replied?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_draft_enabled?: boolean
+          auto_reply_enabled?: boolean
+          bcc_domain?: string
+          connection_id?: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          organization_id?: string
+          reminder_intervals_days?: number[]
+          reminder_max_count?: number
+          skip_if_replied?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       follow_up_trackers: {
         Row: {
+          action_mode: string
+          auto_sent_at: string | null
           bcc_alias: string
           cc_recipients: Json
           connection_id: string
@@ -919,11 +969,15 @@ export type Database = {
           drafted_at: string | null
           due_at: string
           id: string
+          last_reminder_at: string | null
           message_id: string
           metadata: Json
+          next_reminder_at: string | null
           organization_id: string
+          reminder_count: number
           replied_at: string | null
           sent_at: string
+          skip_reason: string | null
           status: string
           subject: string | null
           to_recipients: Json
@@ -931,6 +985,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          action_mode?: string
+          auto_sent_at?: string | null
           bcc_alias: string
           cc_recipients?: Json
           connection_id: string
@@ -941,11 +997,15 @@ export type Database = {
           drafted_at?: string | null
           due_at: string
           id?: string
+          last_reminder_at?: string | null
           message_id: string
           metadata?: Json
+          next_reminder_at?: string | null
           organization_id: string
+          reminder_count?: number
           replied_at?: string | null
           sent_at: string
+          skip_reason?: string | null
           status?: string
           subject?: string | null
           to_recipients?: Json
@@ -953,6 +1013,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          action_mode?: string
+          auto_sent_at?: string | null
           bcc_alias?: string
           cc_recipients?: Json
           connection_id?: string
@@ -963,11 +1025,15 @@ export type Database = {
           drafted_at?: string | null
           due_at?: string
           id?: string
+          last_reminder_at?: string | null
           message_id?: string
           metadata?: Json
+          next_reminder_at?: string | null
           organization_id?: string
+          reminder_count?: number
           replied_at?: string | null
           sent_at?: string
+          skip_reason?: string | null
           status?: string
           subject?: string | null
           to_recipients?: Json
@@ -1882,6 +1948,30 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      get_or_create_follow_up_settings: {
+        Args: { _connection_id: string }
+        Returns: {
+          auto_draft_enabled: boolean
+          auto_reply_enabled: boolean
+          bcc_domain: string
+          connection_id: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          organization_id: string
+          reminder_intervals_days: number[]
+          reminder_max_count: number
+          skip_if_replied: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "follow_up_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organizations: {

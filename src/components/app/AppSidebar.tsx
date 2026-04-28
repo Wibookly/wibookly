@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -219,10 +219,11 @@ export function AppSidebar() {
           )}
 
           {/* AI Assistant - show section if user has Daily Brief or AI Chat, or is super admin */}
-          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant') || hasFeature('feature.follow_up_reminder')) && (
             <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
               {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
               {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
+              {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>Follow-Up Reminder</NavItem>}
             </NavSection>
           )}
 

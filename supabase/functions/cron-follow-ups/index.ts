@@ -28,8 +28,9 @@ const TOKEN_ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-// Aliases we recognise. Anything matching `^N@` where N is one of these.
-const ALLOWED_DAY_BUCKETS = new Set([2, 3, 5, 7, 10, 14]);
+// Any positive integer is now accepted (1..90 days). The legacy bucket list is
+// kept as a fallback hint for the UI, but the cron parses any number.
+const MAX_DAYS = 90;
 
 // === AES-GCM token decryption (same scheme as other functions) ===
 async function importKey(): Promise<CryptoKey> {
@@ -128,7 +129,7 @@ function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | 
     if (!m) continue;
     if (m[2] !== domain) continue;
     const days = parseInt(m[1], 10);
-    if (ALLOWED_DAY_BUCKETS.has(days)) return { alias: a, days };
+    if (Number.isInteger(days) && days >= 1 && days <= MAX_DAYS) return { alias: a, days };
   }
   return null;
 }
@@ -236,7 +237,38 @@ async function conversationHasReply(token: string, conversationId: string, origi
   return false;
 }
 
-async function processDueTrackers(conn: Connection, token: string, myEmail: string | null) {
+interface FollowUpSettings {
+  is_enabled: boolean;
+  auto_draft_enabled: boolean;
+  auto_reply_enabled: boolean;
+  skip_if_replied: boolean;
+  reminder_max_count: number;
+  reminder_intervals_days: number[];
+}
+
+async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
+  const { data } = await supabase
+    .from('follow_up_settings')
+    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days')
+    .eq('connection_id', connectionId)
+    .maybeSingle();
+  return (data as FollowUpSettings | null) ?? {
+    is_enabled: false,
+    auto_draft_enabled: true,
+    auto_reply_enabled: false,
+    skip_if_replied: true,
+    reminder_max_count: 3,
+    reminder_intervals_days: [1, 3, 7],
+  };
+}
+
+function pickActionMode(s: FollowUpSettings): 'auto_reply' | 'auto_draft' | 'label_only' {
+  if (s.auto_reply_enabled) return 'auto_reply';
+  if (s.auto_draft_enabled) return 'auto_draft';
+  return 'label_only';
+}
+
+async function processDueTrackers(conn: Connection, token: string, myEmail: string | null, settings: FollowUpSettings) {
   // Fetch all tracker rows that are pending (we'll cancel early replies and act on overdue)
   const { data: trackers } = await supabase
     .from('follow_up_trackers')
@@ -246,10 +278,11 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     .order('due_at', { ascending: true })
     .limit(100);
 
-  if (!trackers || trackers.length === 0) return { drafted: 0, replied: 0 };
+  if (!trackers || trackers.length === 0) return { drafted: 0, replied: 0, autoSent: 0, labeled: 0 };
 
-  let drafted = 0, replied = 0;
+  let drafted = 0, replied = 0, autoSent = 0, labeled = 0;
   let folderId: string | null = conn.inbox_followup_folder_id;
+  const mode = pickActionMode(settings);
 
   for (const t of trackers as any[]) {
     const recips = [
@@ -257,7 +290,7 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
       ...((t.cc_recipients ?? []) as any[]).map((r: any) => r.emailAddress?.address).filter(Boolean),
     ];
 
-    const hasReply = t.conversation_id
+    const hasReply = settings.skip_if_replied && t.conversation_id
       ? await conversationHasReply(token, t.conversation_id, t.sent_at, recips, myEmail)
       : false;
 
@@ -272,14 +305,11 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     // Not yet due → leave pending
     if (new Date(t.due_at) > new Date()) continue;
 
-    // === Due, no reply: move to Follow-up folder + create AI draft ===
-    // Auto-enable the user's Follow-up category (and its AI Draft flag) so
-    // the surfaced draft is visible in their workflow even if they had
-    // toggled the category off. Best-effort — never block the draft.
+    // === Due, no reply: surface in Follow Up category (always) ===
     try {
       await supabase
         .from('categories')
-        .update({ is_enabled: true, ai_draft_enabled: true })
+        .update({ is_enabled: true, ai_draft_enabled: mode !== 'label_only' })
         .eq('connection_id', conn.id)
         .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%');
     } catch (e) {
@@ -291,12 +321,23 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     }
 
     if (folderId) {
-      // Move (best effort — failure shouldn't block drafting)
       await fetch(`https://graph.microsoft.com/v1.0/me/messages/${t.message_id}/move`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ destinationId: folderId }),
       }).catch(() => null);
+    }
+
+    // Label-only mode: stop here.
+    if (mode === 'label_only') {
+      const firstNudge = settings.reminder_intervals_days[0] ?? 1;
+      await supabase.from('follow_up_trackers').update({
+        status: 'missed',
+        action_mode: 'label_only',
+        next_reminder_at: new Date(Date.now() + firstNudge * 86400000).toISOString(),
+      }).eq('id', t.id);
+      labeled++;
+      continue;
     }
 
     // Get original body for context
@@ -320,7 +361,6 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     }
     await logAiUsage(conn.organization_id, conn.user_id, 'gpt-4o-mini', 'follow_up_draft', promptTokens, completionTokens);
 
-    // Create reply draft on the original thread (preserves conversation + BCC trail in original).
     const draftRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${t.message_id}/createReply`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     });
@@ -329,7 +369,6 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
       continue;
     }
     const draft = await draftRes.json();
-    // Patch body
     await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -338,9 +377,40 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
       }),
     });
 
-    await supabase.from('follow_up_trackers').update({
-      status: 'drafted', drafted_at: new Date().toISOString(), draft_id: draft.id,
-    }).eq('id', t.id);
+    if (mode === 'auto_reply') {
+      // Send the draft immediately.
+      const sendRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}/send`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      if (sendRes.ok) {
+        await supabase.from('follow_up_trackers').update({
+          status: 'auto_sent',
+          action_mode: 'auto_reply',
+          auto_sent_at: new Date().toISOString(),
+          draft_id: draft.id,
+        }).eq('id', t.id);
+        autoSent++;
+      } else {
+        console.error('auto-send failed', await sendRes.text());
+        // Fall back to drafted state so user can send manually.
+        await supabase.from('follow_up_trackers').update({
+          status: 'drafted', action_mode: 'auto_draft',
+          drafted_at: new Date().toISOString(), draft_id: draft.id,
+        }).eq('id', t.id);
+        drafted++;
+      }
+    } else {
+      // auto_draft mode
+      const firstNudge = settings.reminder_intervals_days[0] ?? 1;
+      await supabase.from('follow_up_trackers').update({
+        status: 'drafted',
+        action_mode: 'auto_draft',
+        drafted_at: new Date().toISOString(),
+        draft_id: draft.id,
+        next_reminder_at: new Date(Date.now() + firstNudge * 86400000).toISOString(),
+      }).eq('id', t.id);
+      drafted++;
+    }
 
     await supabase.from('ai_activity_logs').insert({
       organization_id: conn.organization_id,
@@ -348,36 +418,95 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
       connection_id: conn.id,
       category_id: null,
       category_name: `Follow-up (${t.days_after_send}d)`,
-      activity_type: 'follow_up_draft',
+      activity_type: mode === 'auto_reply' ? 'follow_up_auto_sent' : 'follow_up_draft',
       email_subject: t.subject,
       email_from: recips[0] ?? null,
     });
-    drafted++;
   }
-  return { drafted, replied };
+  return { drafted, replied, autoSent, labeled };
 }
 
-async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number }> {
-  if (conn.provider !== 'outlook') return { added: 0, drafted: 0, replied: 0 };
+// Send transactional reminder emails for drafted/missed follow-ups the user
+// hasn't acted on. Up to settings.reminder_max_count nudges per tracker.
+async function processMissedReminders(conn: Connection, settings: FollowUpSettings, recipientEmail: string | null) {
+  if (settings.reminder_max_count <= 0) return 0;
+  const { data: due } = await supabase
+    .from('follow_up_trackers')
+    .select('id,subject,bcc_alias,reminder_count,next_reminder_at,status,draft_id')
+    .eq('connection_id', conn.id)
+    .in('status', ['drafted', 'missed'])
+    .lte('next_reminder_at', new Date().toISOString())
+    .lt('reminder_count', settings.reminder_max_count)
+    .limit(20);
+  if (!due || due.length === 0) return 0;
+
+  let sent = 0;
+  for (const t of due) {
+    const nextCount = (t.reminder_count ?? 0) + 1;
+    const intervals = settings.reminder_intervals_days;
+    const nextIdx = Math.min(nextCount, intervals.length - 1);
+    const nextDays = intervals[nextIdx] ?? intervals[intervals.length - 1] ?? 7;
+
+    if (recipientEmail) {
+      try {
+        await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            to: recipientEmail,
+            template: 'follow_up_reminder',
+            purpose: 'transactional',
+            idempotency_key: `follow-up-reminder-${t.id}-${nextCount}`,
+            data: {
+              subject: `Reminder: follow up on "${t.subject ?? 'your email'}"`,
+              tracker_subject: t.subject ?? '(no subject)',
+              bcc_alias: t.bcc_alias,
+              reminder_number: nextCount,
+              max_reminders: settings.reminder_max_count,
+            },
+          },
+        });
+      } catch (e) {
+        console.warn('reminder email failed (non-fatal)', e);
+      }
+    }
+
+    await supabase.from('follow_up_trackers').update({
+      reminder_count: nextCount,
+      last_reminder_at: new Date().toISOString(),
+      next_reminder_at: nextCount >= settings.reminder_max_count
+        ? null
+        : new Date(Date.now() + nextDays * 86400000).toISOString(),
+    }).eq('id', t.id);
+    sent++;
+  }
+  return sent;
+}
+
+async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; skipped: boolean }> {
+  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, skipped: false };
+  if (conn.provider !== 'outlook') return { ...empty, skipped: true };
+
+  const settings = await loadSettings(conn.id);
+  if (!settings.is_enabled) return { ...empty, skipped: true };
+
   const token = await getValidToken(conn.user_id, conn.provider);
   if (!token) {
     console.log(`Skip ${conn.id}: no valid token`);
-    return { added: 0, drafted: 0, replied: 0 };
+    return { ...empty, skipped: true };
   }
 
-  // Resolve user's email + domain
   const meRes = await fetch(`https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!meRes.ok) return { added: 0, drafted: 0, replied: 0 };
+  if (!meRes.ok) return empty;
   const me = await meRes.json();
   const myEmail: string = (me.mail ?? me.userPrincipalName ?? conn.connected_email ?? '').toLowerCase();
   const ourDomain = myEmail.split('@')[1];
-  if (!ourDomain) return { added: 0, drafted: 0, replied: 0 };
+  if (!ourDomain) return empty;
 
   const added = await scanSentForTriggers(conn, token, ourDomain);
-  const { drafted, replied } = await processDueTrackers(conn, token, myEmail);
-  return { added, drafted, replied };
+  const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings);
+  const reminded = await processMissedReminders(conn, settings, myEmail);
+  return { added, drafted, replied, autoSent, labeled, reminded, skipped: false };
 }
 
 // Permission check: returns true if the user is allowed to use the
