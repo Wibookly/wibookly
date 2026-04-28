@@ -599,12 +599,12 @@ export default function Settings() {
 
         {/* Profile — identity + AI personalization context, merged into one card */}
         {activeSection === 'profile' && (
-        <section className="space-y-4">
+        <section className="space-y-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h2 className="text-lg font-semibold">My Profile</h2>
-              <p className="text-sm text-muted-foreground">
-                Synced from your Microsoft 365 account. Update it in Microsoft 365 (or your IT admin) and click Sync.
+              <h2 className="text-base font-semibold">My Profile</h2>
+              <p className="text-xs text-muted-foreground">
+                Synced from Microsoft 365. Click Sync to refresh.
               </p>
             </div>
             <Button
@@ -645,109 +645,94 @@ export default function Settings() {
               }}
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              Sync from Microsoft 365
+              Sync
             </Button>
           </div>
-          <div className="space-y-4 p-6 bg-card rounded-lg border border-border">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                disabled
-                className="bg-muted"
-                placeholder="Pulled from your Microsoft 365 displayName"
-              />
-              <p className="text-xs text-muted-foreground">Used in your email signature and for AI personalization.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">Title <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
-              <Input
-                id="title"
-                value={title}
-                disabled
-                className="bg-muted"
-                placeholder="Pulled from your Microsoft 365 jobTitle"
-              />
-              <p className="text-xs text-muted-foreground">
-                Managed by your IT admin in Microsoft 365 / Entra ID.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value={profile?.email || ''} disabled className="bg-muted" />
-                <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+          <div className="space-y-3 p-4 bg-card rounded-lg border border-border">
+            {/* Name + Title */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName" className="text-xs">Full Name</Label>
+                <Input id="fullName" value={fullName} disabled className="bg-muted h-9" placeholder="—" />
               </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Input value="Admin" disabled className="bg-muted" />
+              <div className="space-y-1.5">
+                <Label htmlFor="title" className="text-xs">Title</Label>
+                <Input id="title" value={title} disabled className="bg-muted h-9" placeholder="—" />
               </div>
             </div>
 
-            <div className="border-t border-border pt-4 grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="aboutCompany">Company <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
+            {/* Email + Role */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email</Label>
+                <Input value={profile?.email || ''} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Role</Label>
+                <Input value="Admin" disabled className="bg-muted h-9" />
+              </div>
+            </div>
+
+            {/* Company + Department */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="aboutCompany" className="text-xs">Company</Label>
+                <Input id="aboutCompany" value={aboutMe.company} disabled className="bg-muted h-9" placeholder="—" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="aboutDept" className="text-xs">Department</Label>
+                <Input id="aboutDept" value={aboutMe.department} disabled className="bg-muted h-9" placeholder="—" />
+              </div>
+            </div>
+
+            {/* Phones */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Business Phone</Label>
+                <Input value={signatureFields.phone || ''} disabled className="bg-muted h-9" placeholder="—" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Mobile Phone</Label>
+                <Input value={signatureFields.mobile || ''} disabled className="bg-muted h-9" placeholder="—" />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground pt-1 border-t border-border">
+              Fields above are managed in Microsoft 365 / Entra ID.
+            </p>
+
+            {/* Editable AI personalization */}
+            <div className="space-y-3 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="aboutRole" className="text-xs">Role / What you do</Label>
                 <Input
-                  id="aboutCompany"
-                  value={aboutMe.company}
-                  disabled
-                  className="bg-muted"
-                  placeholder="Pulled from companyName"
+                  id="aboutRole"
+                  value={aboutMe.role_description}
+                  onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
+                  placeholder="e.g. CEO, Account Manager"
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="aboutDept">Department <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
-                <Input
-                  id="aboutDept"
-                  value={aboutMe.department}
-                  disabled
-                  className="bg-muted"
-                  placeholder="Pulled from department"
+              <div className="space-y-1.5">
+                <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
+                <Textarea
+                  id="aboutResp"
+                  value={aboutMe.responsibilities}
+                  onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
+                  placeholder="Approvals, follow-ups, contracts, scheduling…"
+                  rows={2}
                 />
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Business Phone <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
-                <Input value={signatureFields.phone || ''} disabled className="bg-muted" placeholder="Pulled from businessPhones" />
+              <div className="space-y-1.5">
+                <Label htmlFor="aboutStyle" className="text-xs">Communication style</Label>
+                <Textarea
+                  id="aboutStyle"
+                  value={aboutMe.communication_style}
+                  onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
+                  placeholder="Tone, length, signoffs, things to avoid"
+                  rows={2}
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Mobile Phone <span className="text-xs font-normal text-muted-foreground">(from Microsoft 365)</span></Label>
-                <Input value={signatureFields.mobile || ''} disabled className="bg-muted" placeholder="Pulled from mobilePhone" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="aboutRole">Role / What you do <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
-              <Input
-                id="aboutRole"
-                value={aboutMe.role_description}
-                onChange={(e) => setAboutMe(p => ({ ...p, role_description: e.target.value }))}
-                placeholder="e.g. CEO, Account Manager handling enterprise clients"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="aboutResp">Responsibilities <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
-              <Textarea
-                id="aboutResp"
-                value={aboutMe.responsibilities}
-                onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
-                placeholder="What you typically handle: approvals, follow-ups, contracts, scheduling, etc."
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="aboutStyle">Communication style <span className="text-xs font-normal text-muted-foreground">(editable)</span></Label>
-              <Textarea
-                id="aboutStyle"
-                value={aboutMe.communication_style}
-                onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
-                placeholder="e.g. Friendly but concise. Use first names. Avoid jargon. Always end with 'Thanks!'"
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Tell the AI how you prefer to write — tone, length, signoffs, things to avoid.
-              </p>
             </div>
           </div>
         </section>
