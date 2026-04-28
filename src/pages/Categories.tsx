@@ -48,6 +48,7 @@ const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
 ];
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
+import { HelpDot } from '@/components/help/HelpDot';
 import {
   Table,
   TableBody,
@@ -999,7 +1000,7 @@ export default function Categories() {
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">Categories <HelpDot articleId="categories-overview" label="How categories work — open the step-by-step guide." /></h1>
             <p className="mt-1 text-muted-foreground">
               Customize how your emails are organized. Drag to reorder.
             </p>

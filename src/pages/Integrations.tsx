@@ -30,6 +30,7 @@ import { OAuthDiagnostics } from '@/components/integrations/OAuthDiagnostics';
 import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErrorScreen';
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
 import { HelpTip } from '@/components/help/HelpTip';
+import { HelpDot } from '@/components/help/HelpDot';
 
 interface Connection {
   id: string;
@@ -571,8 +572,9 @@ export default function Integrations() {
         <header className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
                 Welcome back{firstName ? `, ${firstName}` : ''}
+                <HelpDot articleId="connect-mailbox" label="How to connect your mailbox — open the guide." />
               </h1>
               <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
             </div>

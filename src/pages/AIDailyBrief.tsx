@@ -337,6 +337,7 @@ export default function AIDailyBrief() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Sun className="w-6 h-6 text-amber-500" />
             Good {timeOfDay}!
+            <HelpDot articleId="daily-brief" label="What is the Daily Brief? Open the guide." />
           </h1>
           <p className="text-muted-foreground">
             {new Date().toLocaleDateString('en-US', { 
