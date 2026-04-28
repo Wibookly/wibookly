@@ -135,11 +135,10 @@ export default function Settings() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
-  const [searchParams] = useSearchParams();
-  const rawSection = (searchParams.get('section') as string) || 'profile';
-  // Legacy '/settings?section=about' links land on the merged Profile section.
-  const activeSection: SettingsSection =
-    rawSection === 'about' ? 'profile' : (rawSection as SettingsSection);
+  // Profile + Signature are rendered together on a single Settings page.
+  // The `?section=` query param is no longer used to gate visibility — both
+  // sections always render. Kept here only so legacy deep links don't 404.
+  useSearchParams();
   const [orgName, setOrgName] = useState('');
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'business'>('personal');
   const [fullName, setFullName] = useState('');
