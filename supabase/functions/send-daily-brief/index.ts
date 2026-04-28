@@ -183,10 +183,22 @@ serve(async (req) => {
         nw = nowParts(tz);
         tzCache.set(tz, nw);
       }
-      if (nw.dow !== s.day_of_week) continue;
-      const target = (s.send_time || "00:00").slice(0, 5);
-      // Match the minute exactly (cron runs every minute).
-      if (nw.hhmm !== target) continue;
+      // Allow a body-flag override for testing — `force: true` bypasses time matching.
+      const body = await (async () => { try { return await req.clone().json(); } catch { return {}; } })();
+      const forceSend = body?.force === true && body?.scheduleId === s.id;
+
+      if (!forceSend) {
+        if (nw.dow !== s.day_of_week) continue;
+        const target = (s.send_time || "00:00").slice(0, 5);
+        // 5-minute tolerance window: send if NOW is within [target, target+5min].
+        // Handles cron jitter / brief saves that just missed the exact minute.
+        const [th, tm] = target.split(":").map((n) => parseInt(n, 10));
+        const [nh, nm] = nw.hhmm.split(":").map((n) => parseInt(n, 10));
+        const targetMins = th * 60 + tm;
+        const nowMins = nh * 60 + nm;
+        const diff = nowMins - targetMins;
+        if (diff < 0 || diff > 5) continue;
+      }
 
       // De-dupe within today (safety net in case cron fires twice).
       if (s.last_sent_at) {
