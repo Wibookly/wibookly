@@ -121,11 +121,11 @@ export default function Sync() {
   return (
     <div className="min-h-full p-4 lg:p-6">
       {/* User Avatar Row */}
-      <div className="max-w-4xl mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
       
-      <div className="max-w-4xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Sync</h1>

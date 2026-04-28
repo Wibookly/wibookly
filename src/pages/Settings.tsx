@@ -135,11 +135,10 @@ export default function Settings() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
-  const [searchParams] = useSearchParams();
-  const rawSection = (searchParams.get('section') as string) || 'profile';
-  // Legacy '/settings?section=about' links land on the merged Profile section.
-  const activeSection: SettingsSection =
-    rawSection === 'about' ? 'profile' : (rawSection as SettingsSection);
+  // Profile + Signature are rendered together on a single Settings page.
+  // The `?section=` query param is no longer used to gate visibility — both
+  // sections always render. Kept here only so legacy deep links don't 404.
+  useSearchParams();
   const [orgName, setOrgName] = useState('');
   const [workspaceType, setWorkspaceType] = useState<'personal' | 'business'>('personal');
   const [fullName, setFullName] = useState('');
@@ -560,10 +559,10 @@ export default function Settings() {
   if (!activeConnection) {
     return (
       <div className="min-h-full p-4 lg:p-6">
-        <div className="max-w-6xl mb-4 flex justify-end">
+        <div className="mb-4 flex justify-end">
           <UserAvatarDropdown />
         </div>
-        <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+        <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
@@ -582,11 +581,11 @@ export default function Settings() {
   return (
     <div className="min-h-full p-4 lg:p-6">
       {/* User Avatar Row */}
-      <div className="max-w-6xl mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
       
-      <div className="max-w-6xl animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-5">
           <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -598,7 +597,8 @@ export default function Settings() {
       <div className="space-y-6">
 
         {/* Profile — identity + AI personalization context, merged into one card */}
-        {activeSection === 'profile' && (
+        {(
+
         <section className="space-y-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
@@ -740,7 +740,8 @@ export default function Settings() {
 
 
         {/* Email Signature Builder */}
-        {activeSection === 'signature' && (
+        {(
+
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
