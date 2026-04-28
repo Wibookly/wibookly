@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft,
   ChevronRight,
+  ExternalLink,
   LifeBuoy,
   PlayCircle,
   RotateCcw,
