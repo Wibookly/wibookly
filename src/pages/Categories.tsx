@@ -947,14 +947,12 @@ export default function Categories() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
-              <TableHead className="w-12">#</TableHead>
               <TableHead className="w-16">Color</TableHead>
               <TableHead className="w-48">Category Name</TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
               <TableHead className="w-24 text-center">Active</TableHead>
               <TableHead className="w-24 text-center">AI Draft</TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
-              <TableHead className="w-28 text-center">Favorite</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
             </TableRow>
           </TableHeader>
