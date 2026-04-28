@@ -1,9 +1,11 @@
 /**
  * Single editable source of truth for all in-app help content.
  *
- * Edit copy here without touching components — the Help panel, tooltips,
- * and (eventually) the AI chatbot's knowledge base all read from this file.
+ * Edit copy here without touching components — the Help panel, contextual
+ * "?" dots, and the AI chatbot's knowledge base all read from this file.
  */
+
+import adminGroupsImg from '@/assets/help/admin-groups.png';
 
 export type HelpCategoryId =
   | 'getting-started'
@@ -11,7 +13,15 @@ export type HelpCategoryId =
   | 'categories-rules'
   | 'ai-features'
   | 'account-billing'
+  | 'admin'
   | 'troubleshooting';
+
+export interface HelpStep {
+  /** Short verb-led step label, e.g. "Open Integrations". */
+  title: string;
+  /** Plain-language description of what to do at this step. */
+  description: string;
+}
 
 export interface HelpArticle {
   id: string;
@@ -19,12 +29,26 @@ export interface HelpArticle {
   category: HelpCategoryId;
   /** Plain-language summary shown in lists. Keep it short. */
   summary: string;
-  /** Full article body — supports basic markdown (headings, lists, bold). */
-  body: string;
-  /** Optional related route(s); used for "contextual help" on each page. */
+  /** Optional intro paragraph before the steps. */
+  intro?: string;
+  /** Numbered, named steps the user should follow. Preferred over `body`. */
+  steps?: HelpStep[];
+  /** Optional closing notes or tips (markdown). */
+  outro?: string;
+  /**
+   * Optional screenshot illustrating where in the dashboard this happens.
+   * Should be an imported asset from src/assets/help/*.
+   */
+  image?: { src: string; alt: string };
+  /** Optional related route(s); first one is used as the "Open this page" CTA. */
   routes?: string[];
   /** Optional keywords to improve search relevance. */
   keywords?: string[];
+  /**
+   * Legacy free-form markdown body. New articles should prefer `intro` +
+   * `steps` + `outro`. Kept for backwards compatibility.
+   */
+  body?: string;
 }
 
 export interface HelpCategory {
@@ -39,6 +63,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   { id: 'categories-rules', label: 'Categories & Rules', description: 'Organize your inbox automatically.' },
   { id: 'ai-features', label: 'AI Features', description: 'Drafts, daily brief, and the AI assistant.' },
   { id: 'account-billing', label: 'Account & Workspace', description: 'Profile, signature, and team settings.' },
+  { id: 'admin', label: 'Admin Dashboard', description: 'Domains, users, groups, and feature gating.' },
   { id: 'troubleshooting', label: 'Troubleshooting', description: 'Fix common issues quickly.' },
 ];
 
@@ -48,15 +73,15 @@ export const HELP_ARTICLES: HelpArticle[] = [
     title: 'Welcome to InboxIQ',
     category: 'getting-started',
     summary: 'A 60-second tour of what InboxIQ does and how to get value fast.',
-    body: `InboxIQ is your AI-powered email co-pilot. It connects to your Gmail or Outlook mailbox, sorts incoming mail into categories you control, and prepares draft replies for the messages that need a response — so you can review and send in seconds instead of minutes.
-
-**The fastest path to value (about 5 minutes):**
-1. Connect your mailbox in **Integrations**.
-2. Confirm the default categories on the **Categories** page (or rename them to match how you work).
-3. Turn on **AI Drafts** for one or two categories where you want help replying.
-4. Open the **AI Daily Brief** the next morning to see what changed overnight.
-
-You can re-launch the Setup Wizard any time from **Settings → Restart Setup Wizard**.`,
+    intro:
+      'InboxIQ is your AI-powered email co-pilot. It connects to your Gmail or Outlook mailbox, sorts incoming mail into categories you control, and prepares draft replies for the messages that need a response — so you can review and send in seconds instead of minutes.',
+    steps: [
+      { title: '1. Connect your mailbox', description: 'Open the Integrations page and click Connect next to Google Workspace or Microsoft 365.' },
+      { title: '2. Confirm your categories', description: 'Open the Categories page. Rename or recolor the defaults so they match how you actually work.' },
+      { title: '3. Turn on AI Drafts', description: 'On any category, flip the AI Drafts toggle on. InboxIQ will start writing replies for new mail in that category.' },
+      { title: '4. Read your Daily Brief', description: 'Open AI Daily Brief the next morning to see exactly what landed overnight and what needs you.' },
+    ],
+    outro: 'You can re-launch the Setup Wizard any time from **Settings → Restart Setup Wizard**.',
     routes: ['/integrations'],
     keywords: ['intro', 'overview', 'tour', 'first time'],
   },
@@ -65,15 +90,16 @@ You can re-launch the Setup Wizard any time from **Settings → Restart Setup Wi
     title: 'Connect your mailbox (Google or Microsoft)',
     category: 'integrations',
     summary: 'Link Gmail or Outlook so InboxIQ can read, label, and draft on your behalf.',
-    body: `Open **Integrations** and click **Connect** next to Google Workspace or Microsoft 365.
-
-You'll be redirected to your provider's consent screen. InboxIQ requests only the scopes it needs — read mail, modify labels/categories, and (if you choose) calendar access for scheduling.
-
-**What if the popup is blocked?** Allow popups for inboxiq.energyforward.com and click Connect again.
-
-**What if you see "unauthorized_client"?** Your administrator needs to approve InboxIQ in Google Workspace or Microsoft 365. Send them the diagnostics link from the Integrations page.
-
-You can connect multiple mailboxes (e.g., a personal and a business account). Switch between them from the **Connected Emails** dropdown in the sidebar.`,
+    intro:
+      "InboxIQ needs read + label access to your mailbox so it can sort mail and save drafts. It only ever requests the scopes it needs — never the ability to delete mail.",
+    steps: [
+      { title: '1. Open Integrations', description: 'Use the sidebar → Integrations.' },
+      { title: '2. Pick your provider', description: 'Click Connect next to Google Workspace or Microsoft 365.' },
+      { title: '3. Approve the consent screen', description: "You'll be redirected to Google or Microsoft. Review the requested scopes and click Allow." },
+      { title: '4. Confirm Connected status', description: "Back in InboxIQ the tile should show a green Connected badge with your email address." },
+    ],
+    outro:
+      "**Popup blocked?** Allow popups for inboxiq.energyforward.com and click Connect again.\n\n**Seeing `unauthorized_client`?** Your IT admin needs to approve InboxIQ in Google Workspace or Microsoft 365 — send them the diagnostics link from this page.",
     routes: ['/integrations', '/integration-setup'],
     keywords: ['gmail', 'outlook', 'oauth', 'sign in', 'connect', 'microsoft', 'google'],
   },
@@ -82,9 +108,12 @@ You can connect multiple mailboxes (e.g., a personal and a business account). Sw
     title: 'Connect your calendar',
     category: 'integrations',
     summary: 'Let InboxIQ propose meeting times and log calendar events.',
-    body: `On the **Integrations** page, expand your connected provider and toggle **Calendar** on. You'll be sent through a second consent flow because calendar access is a separate scope.
-
-Once connected, the AI assistant and AI drafts can suggest specific times that match your real availability. You can set your default working hours and meeting length lower on the same page.`,
+    steps: [
+      { title: '1. Open Integrations', description: 'Use the sidebar → Integrations.' },
+      { title: '2. Expand your provider tile', description: 'Click on the connected Google or Microsoft tile to expand its options.' },
+      { title: '3. Toggle Calendar on', description: "You'll be sent through a second consent flow — calendar access is a separate scope." },
+      { title: '4. Set your default meeting length', description: 'Lower on the same page, choose your default working hours and meeting duration.' },
+    ],
     routes: ['/integrations'],
     keywords: ['calendar', 'meeting', 'availability', 'schedule'],
   },
@@ -93,15 +122,17 @@ Once connected, the AI assistant and AI drafts can suggest specific times that m
     title: 'How categories work',
     category: 'categories-rules',
     summary: 'Categories are folders or labels InboxIQ uses to triage every incoming email.',
-    body: `Each category becomes a label (Gmail) or folder (Outlook) inside your real mailbox, prefixed with a number like \`01. Urgent\` so they sort cleanly at the top.
-
-For each category you can:
-- Choose a color
-- Define **rules** (sender domain, subject contains, body contains)
-- Enable **AI Drafts** so InboxIQ pre-writes a reply when mail lands here
-- Mark it as a **Follow Up** category
-
-Disabling a category leaves the label in your mailbox but stops new mail from being sorted into it. Deleting a category from InboxIQ does **not** delete the label from your mailbox.`,
+    intro:
+      'Each category becomes a label (Gmail) or folder (Outlook) inside your real mailbox, prefixed with a number like `01. Urgent` so they sort cleanly at the top.',
+    steps: [
+      { title: '1. Open Categories', description: 'Use the sidebar → Categories.' },
+      { title: '2. Pick a color and name', description: 'Click any category to rename it and choose a color that matches its priority.' },
+      { title: '3. Add rules', description: 'Inside a category, click Add Rule to match by sender domain, subject contains, or body contains.' },
+      { title: '4. Enable AI Drafts (optional)', description: 'Flip AI Drafts on for categories where you want a pre-written reply waiting for you.' },
+      { title: '5. Mark as Follow Up (optional)', description: 'Categories marked as Follow Up appear in the dedicated Follow-Ups view.' },
+    ],
+    outro:
+      'Disabling a category leaves the label in your mailbox but stops new mail from being sorted into it. Deleting a category from InboxIQ does **not** delete the label from your mailbox.',
     routes: ['/categories'],
     keywords: ['labels', 'folders', 'sort', 'triage'],
   },
@@ -110,14 +141,13 @@ Disabling a category leaves the label in your mailbox but stops new mail from be
     title: 'Writing effective rules',
     category: 'categories-rules',
     summary: 'Combine sender, subject, and body conditions to route mail precisely.',
-    body: `Open any category on the **Categories** page and click **Add Rule**.
-
-You can match on:
-- **Sender domain or email** — e.g. \`@stripe.com\` or \`alerts@github.com\`
-- **Subject contains** — case-insensitive substring match
-- **Body contains** — case-insensitive substring match
-
-Combine multiple conditions with **AND** (all must match) or **OR** (any may match). Rules apply to new email immediately and can be applied retroactively from the **Sync** page.`,
+    steps: [
+      { title: '1. Open the category', description: 'On Categories, click the category you want to add rules to.' },
+      { title: '2. Click Add Rule', description: 'You can add as many rules as you need per category.' },
+      { title: '3. Pick a match type', description: 'Sender domain or email (e.g. `@stripe.com`), subject contains, or body contains. Matches are case-insensitive.' },
+      { title: '4. Choose AND or OR logic', description: 'AND requires every condition to match. OR matches if any condition matches.' },
+      { title: '5. Apply retroactively (optional)', description: 'New mail starts being categorized immediately. To re-categorize existing mail, open Sync and run a retroactive sync.' },
+    ],
     routes: ['/categories', '/sync'],
     keywords: ['filter', 'rule', 'conditions', 'sender', 'subject'],
   },
@@ -126,13 +156,17 @@ Combine multiple conditions with **AND** (all must match) or **OR** (any may mat
     title: 'AI Drafts: how they work',
     category: 'ai-features',
     summary: 'InboxIQ writes a reply for you, but never sends it without your review.',
-    body: `Turn on **AI Drafts** on any category. When new mail lands there, InboxIQ generates a reply in your writing style and saves it as a real draft inside Gmail or Outlook — labeled \`0. AI Draft\`.
-
-You review, tweak, and send from your normal mail client (or the **Email Drafts** page in InboxIQ). After you send, the message is moved to \`11. AI Sent\` so you can audit what AI helped you with.
-
-**Important:** AI Drafts are never sent automatically. This is by design and cannot be overridden.
-
-Tune the writing style, format, and example replies in **Settings → AI Settings**, or per-category for more specific behavior.`,
+    intro:
+      'When new mail lands in a category that has AI Drafts on, InboxIQ generates a reply in your writing style and saves it as a real draft inside Gmail or Outlook — labeled `0. AI Draft`.',
+    steps: [
+      { title: '1. Enable AI Drafts on a category', description: 'Open Categories and toggle AI Drafts on for the categories you want help with.' },
+      { title: '2. Set your writing style', description: 'Open Settings → AI Settings to choose Professional / Friendly / Concise tone, or per-category for finer control.' },
+      { title: '3. Wait for new mail', description: 'When a matching email arrives, a draft appears under the `0. AI Draft` label/folder within 1–2 minutes.' },
+      { title: '4. Review and send', description: 'Open the draft in your normal mail client (or the Email Drafts page in InboxIQ), tweak it, and send.' },
+      { title: '5. Audit what AI helped with', description: 'After sending, the message is moved to `11. AI Sent` so you always have a clean audit trail.' },
+    ],
+    outro:
+      '**Important:** AI Drafts are never sent automatically. This is by design and cannot be overridden.',
     routes: ['/email-draft', '/categories', '/settings'],
     keywords: ['draft', 'reply', 'compose', 'auto-reply'],
   },
@@ -141,9 +175,12 @@ Tune the writing style, format, and example replies in **Settings → AI Setting
     title: 'AI Daily Brief',
     category: 'ai-features',
     summary: 'A morning summary of what landed in your inbox while you were away.',
-    body: `The Daily Brief is an AI-generated executive summary of your overnight email — what's urgent, what's waiting on you, and what can wait.
-
-You can read it on the **AI Daily Brief** page or have it emailed to you on a schedule. Configure delivery in **Settings → Daily Brief Schedule**: pick the days, time, and timezone.`,
+    steps: [
+      { title: '1. Open AI Daily Brief', description: 'Use the sidebar → AI Daily Brief to read today’s summary on demand.' },
+      { title: '2. Schedule email delivery', description: 'Open Settings → Daily Brief Schedule and pick the days, time, and timezone.' },
+      { title: '3. Choose recipients', description: 'By default the brief goes to your connected email — you can add a different recipient in the same panel.' },
+      { title: '4. Print or share', description: 'On the Daily Brief page, use the print button to get a clean executive-report PDF.' },
+    ],
     routes: ['/ai-daily-brief', '/settings'],
     keywords: ['summary', 'morning', 'digest', 'brief'],
   },
@@ -152,9 +189,14 @@ You can read it on the **AI Daily Brief** page or have it emailed to you on a sc
     title: 'AI Assistant chat',
     category: 'ai-features',
     summary: 'Ask questions about your inbox in plain English.',
-    body: `The **AI Chat** page lets you ask things like *"What did Maria send last week about the Q3 budget?"* or *"Summarize this morning's customer emails."*
-
-The assistant has read-only access to your connected mailboxes and respects all your permissions. It will never send mail or modify your inbox without an explicit confirmation step.`,
+    steps: [
+      { title: '1. Open AI Chat', description: 'Use the sidebar → AI Chat.' },
+      { title: '2. Pick the right account', description: 'If you have multiple connected mailboxes, switch via the workspace dropdown in the sidebar first.' },
+      { title: '3. Ask in plain English', description: 'Try “What did Maria send last week about the Q3 budget?” or “Summarize this morning’s customer emails.”' },
+      { title: '4. Use voice input', description: 'Click the microphone to dictate your question instead of typing.' },
+    ],
+    outro:
+      'The assistant has read-only access to your connected mailboxes and respects all your permissions. It will never send mail or modify your inbox without an explicit confirmation step.',
     routes: ['/ai-chat'],
     keywords: ['chat', 'assistant', 'ask', 'question'],
   },
@@ -163,42 +205,100 @@ The assistant has read-only access to your connected mailboxes and respects all 
     title: 'Profile & email signature',
     category: 'account-billing',
     summary: 'Your name, title, and signature show up on every AI draft.',
-    body: `Go to **Settings** to update your full name, title, phone, website, and signature.
-
-Upload a profile photo or company logo and toggle which to display in the signature. The preview at the bottom shows exactly what recipients will see. Changes save automatically.`,
+    steps: [
+      { title: '1. Open Settings', description: 'Use the sidebar → Settings.' },
+      { title: '2. Fill in your profile', description: 'Add your full name, title (required for Business accounts), phone, and website.' },
+      { title: '3. Upload a photo or logo', description: 'Toggle which one to display in your signature. Profile photo takes priority over company logo.' },
+      { title: '4. Check the live preview', description: 'The preview at the bottom shows exactly what recipients will see. Changes save automatically.' },
+    ],
     routes: ['/settings'],
     keywords: ['signature', 'name', 'title', 'photo', 'logo'],
   },
+
+  /* ============== ADMIN ============== */
   {
     id: 'admin-overview',
-    title: 'Admin Dashboard (admins only)',
-    category: 'account-billing',
-    summary: 'Manage allowed domains, users, permissions, and feature access.',
-    body: `Workspace admins can open **/admin** to:
-- Add allowed sign-in domains for your organization
-- Invite or bulk-create users
-- Group users and grant feature access (AI Drafts, Daily Brief, etc.)
-- Review AI usage and costs
-- Configure the agent mailbox and Teams integration
-
-If you don't see this page, you're not an admin — ask your workspace admin to grant you the role.`,
+    title: 'Admin Dashboard overview',
+    category: 'admin',
+    summary: 'Where admins manage domains, users, groups, and feature access.',
+    intro:
+      'The Admin Dashboard (`/admin`) is your control center. It is only visible to workspace admins. Use the tabs along the top to jump between sections.',
+    steps: [
+      { title: '1. Setup Wizard', description: 'Brand-new orgs should start here — it walks you through domains, the first users, and default permission groups.' },
+      { title: '2. M365 Users / Users', description: 'See who has signed in, invite people from your tenant directory, or bulk-add users.' },
+      { title: '3. Groups', description: 'Bundle features into named groups (Standard, Power User, Executive) and assign users to them.' },
+      { title: '4. Domains', description: 'Add the email domains that are allowed to sign up. Anyone outside these domains is blocked.' },
+      { title: '5. AI Agent / Follow-ups / AI Usage', description: 'Configure the shared agent mailbox, monitor pending follow-up reminders, and track AI cost.' },
+      { title: '6. Support Issues', description: 'See every issue your users submit through the Help panel, and update status / add internal notes.' },
+    ],
+    image: { src: adminGroupsImg, alt: 'Screenshot of the Admin Dashboard showing the Groups tab with permission toggles per group.' },
     routes: ['/admin'],
-    keywords: ['admin', 'permissions', 'users', 'invite', 'team'],
+    keywords: ['admin', 'dashboard', 'permissions', 'users', 'team'],
   },
+  {
+    id: 'admin-groups',
+    title: 'Permission Groups',
+    category: 'admin',
+    summary: 'Bundle features (AI Drafts, Daily Brief, Follow-Up Reminder, etc.) and assign them to users.',
+    intro:
+      'Groups are the simplest way to control who gets which feature. Create a group, flip the toggles, and add users — they immediately get (or lose) access.',
+    steps: [
+      { title: '1. Open /admin → Groups', description: 'Click the Groups tab in the Admin Dashboard.' },
+      { title: '2. Create a group', description: 'Name it (e.g. "Power User"), add a short description, and pick a domain (or leave it Global to apply to all domains).' },
+      { title: '3. Toggle features on/off', description: 'Each group has switches for AI Draft, AI Auto Reply, AI Chat, Daily Brief, Follow-Up Reminder, ChatGPT/Claude model, and more.' },
+      { title: '4. Override per domain (global groups only)', description: 'Use the "Configure for" dropdown inside a global group to flip features just for one domain — the underlying defaults stay untouched.' },
+      { title: '5. Assign users', description: 'On the Users tab, click a user and add them to one or more groups. Their effective access is the union of all their groups.' },
+    ],
+    outro:
+      '**Disabling Follow-Up Reminder** asks for confirmation and shows how many users + pending reminders will be affected. Reminders are paused (not deleted) and resume automatically if you re-enable.',
+    image: { src: adminGroupsImg, alt: 'Permission Groups tab showing Executive and Power User groups with feature toggles.' },
+    routes: ['/admin'],
+    keywords: ['group', 'permission', 'feature', 'role', 'access', 'follow-up'],
+  },
+  {
+    id: 'admin-domains',
+    title: 'Allowed Domains',
+    category: 'admin',
+    summary: 'Restrict sign-up to your company email domains.',
+    steps: [
+      { title: '1. Open /admin → Domains', description: 'Click the Domains tab.' },
+      { title: '2. Add a domain', description: 'Enter the bare domain (e.g. `acme.com`, no `@`). New users with that email domain are auto-assigned to your organization.' },
+      { title: '3. (Microsoft) Grant tenant consent', description: 'For Microsoft tenants, click "Grant admin consent" so SSO and directory sync work.' },
+      { title: '4. Set max users (optional)', description: 'Cap how many people from that domain can sign up.' },
+      { title: '5. Disable when needed', description: 'Toggle a domain off to immediately block new sign-ups from that domain (existing users keep their access).' },
+    ],
+    routes: ['/admin'],
+    keywords: ['domain', 'sso', 'sign-up', 'allowed', 'tenant'],
+  },
+  {
+    id: 'admin-support-issues',
+    title: 'Reviewing Support Issues',
+    category: 'admin',
+    summary: 'See and resolve issues your users submit through the Help panel.',
+    steps: [
+      { title: '1. Open /admin → Support Issues', description: 'Every issue submitted from the Help & Support button shows up here.' },
+      { title: '2. Read the context', description: 'Each ticket includes the user, the page they were on, and their browser metadata.' },
+      { title: '3. Update status', description: 'Move tickets through Open → In Progress → Resolved as you work them.' },
+      { title: '4. Add internal notes', description: 'Notes are admin-only and help the next admin pick up where you left off.' },
+    ],
+    routes: ['/admin'],
+    keywords: ['support', 'issue', 'ticket', 'bug', 'admin notes'],
+  },
+
+  /* ============== TROUBLESHOOTING ============== */
   {
     id: 'troubleshoot-no-drafts',
     title: "I'm not seeing any AI drafts",
     category: 'troubleshooting',
     summary: "Checklist when AI Drafts aren't appearing in your mailbox.",
-    body: `Run through this list:
-
-1. **Mailbox connected?** Open **Integrations** — your provider should show a green "Connected" badge with your email address.
-2. **A category has AI Drafts enabled?** Open **Categories** and confirm at least one category has the **AI Drafts** toggle on.
-3. **Mail is actually being categorized?** Open the category — you should see recent emails listed. If not, your rules may not be matching. Try a broader rule like the sender's domain.
-4. **Look in the right place.** Drafts appear under the \`0. AI Draft\` label/folder in Gmail or Outlook, not the main Drafts folder.
-5. **Give it a minute.** New mail is processed in batches; drafts typically appear within 1–2 minutes of arrival.
-
-Still stuck? Use the **Submit an issue** option in the Help panel.`,
+    steps: [
+      { title: '1. Check the mailbox is connected', description: 'Open Integrations — your provider should show a green Connected badge with your email address.' },
+      { title: '2. Check at least one category has AI Drafts on', description: 'Open Categories and confirm the AI Drafts toggle is on for at least one category.' },
+      { title: '3. Check mail is being categorized', description: 'Open the category — you should see recent emails listed. If not, your rules may not be matching. Try a broader rule like the sender domain.' },
+      { title: '4. Look in the right folder', description: 'Drafts appear under the `0. AI Draft` label/folder in Gmail or Outlook, not the main Drafts folder.' },
+      { title: '5. Give it a minute', description: 'New mail is processed in batches — drafts typically appear within 1–2 minutes of arrival.' },
+    ],
+    outro: 'Still stuck? Use the **Submit an issue** tab in this Help panel.',
     routes: ['/email-draft', '/categories'],
     keywords: ['no drafts', 'not working', 'missing', 'help'],
   },
@@ -207,9 +307,13 @@ Still stuck? Use the **Submit an issue** option in the Help panel.`,
     title: 'My mailbox shows "disconnected"',
     category: 'troubleshooting',
     summary: 'How to safely reconnect when your OAuth token has expired or been revoked.',
-    body: `If your mailbox tile says **Disconnected** or **Reconnect required**, your OAuth token expired or was revoked (for example because your IT team rotated something).
-
-Click **Reconnect**. You'll go through the consent flow again. Your categories, rules, and history are preserved — only the access token is refreshed.`,
+    steps: [
+      { title: '1. Open Integrations', description: 'Use the sidebar → Integrations.' },
+      { title: '2. Click Reconnect', description: 'On the disconnected tile, click Reconnect to re-run the consent flow.' },
+      { title: '3. Approve consent again', description: 'You may be asked to re-approve scopes — this is normal after token rotation.' },
+      { title: '4. Confirm green badge', description: 'The tile should return to a green Connected badge.' },
+    ],
+    outro: 'Your categories, rules, and history are preserved — only the access token is refreshed.',
     routes: ['/integrations'],
     keywords: ['reconnect', 'expired', 'token', 'disconnected'],
   },
@@ -230,11 +334,10 @@ export const ROUTE_HELP_MAP: Record<string, string[]> = {
   '/ai-daily-brief': ['daily-brief'],
   '/ai-activity': ['ai-drafts'],
   '/settings': ['profile-signature', 'daily-brief'],
-  '/admin': ['admin-overview'],
+  '/admin': ['admin-overview', 'admin-groups', 'admin-domains', 'admin-support-issues'],
 };
 
 export function getContextualArticles(pathname: string): HelpArticle[] {
-  // Find the longest matching route key
   const match = Object.keys(ROUTE_HELP_MAP)
     .filter((route) => pathname === route || pathname.startsWith(`${route}/`))
     .sort((a, b) => b.length - a.length)[0];
@@ -252,7 +355,10 @@ export function searchArticles(query: string): HelpArticle[] {
     const haystack = [
       a.title,
       a.summary,
-      a.body,
+      a.intro || '',
+      a.body || '',
+      a.outro || '',
+      ...(a.steps || []).flatMap((s) => [s.title, s.description]),
       ...(a.keywords || []),
       a.category,
     ]

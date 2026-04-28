@@ -30,6 +30,7 @@ import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import { Bot, BarChart3, Clock, MessageSquareWarning } from 'lucide-react';
+import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -588,7 +589,10 @@ export default function AdminDashboard() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+          <HelpDot articleId="admin-overview" label="What is the Admin Dashboard? See the step-by-step guide." />
+        </div>
         <p className="text-muted-foreground mt-1">Manage users, domains, and feature access</p>
       </div>
 

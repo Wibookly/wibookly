@@ -24,7 +24,18 @@ export function buildHelpKnowledge(): string {
     if (items.length === 0) continue;
     sections.push(`## ${cat.label}\n${cat.description}`);
     for (const a of items) {
-      sections.push(`### ${a.title}\n${a.summary}\n\n${a.body}`);
+      const stepsText = (a.steps || [])
+        .map((s) => `- ${s.title}: ${s.description}`)
+        .join('\n');
+      const parts = [
+        `### ${a.title}`,
+        a.summary,
+        a.intro || '',
+        stepsText,
+        a.body || '',
+        a.outro || '',
+      ].filter(Boolean);
+      sections.push(parts.join('\n\n'));
     }
   }
   return sections.join('\n\n');
