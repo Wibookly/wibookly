@@ -427,19 +427,19 @@ export default function EmailDraft() {
 
   return (
     <div className="min-h-full p-4 lg:p-6">
-      <div className="max-w-5xl mb-4 flex justify-end">
+      <div className="max-w-4xl mx-auto mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
 
-      <div className="max-w-5xl space-y-6">
+      <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-lg p-6">
+        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-sm p-5">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
           <div className="relative">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               {headerTitle}
             </h1>
-            <p className="text-muted-foreground mt-1">{headerSubtitle}</p>
+            <p className="text-sm text-muted-foreground mt-1">{headerSubtitle}</p>
           </div>
         </div>
 
