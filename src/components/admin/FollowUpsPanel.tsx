@@ -14,7 +14,7 @@ interface Tracker {
   days_after_send: number;
   sent_at: string;
   due_at: string;
-  status: 'pending' | 'replied' | 'drafted' | 'sent' | 'cancelled';
+  status: 'pending' | 'replied' | 'drafted' | 'sent' | 'cancelled' | 'paused_no_permission';
   to_recipients: Array<{ emailAddress?: { name?: string; address?: string } }>;
   drafted_at: string | null;
   replied_at: string | null;
@@ -23,11 +23,12 @@ interface Tracker {
 const ALIASES = [2, 3, 5, 7, 10, 14];
 
 const STATUS_META: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: any }> = {
-  pending:   { label: 'Waiting',  variant: 'outline',     icon: Clock },
-  drafted:   { label: 'Drafted',  variant: 'default',     icon: FileEdit },
-  sent:      { label: 'Sent',     variant: 'default',     icon: CheckCircle2 },
-  replied:   { label: 'Replied',  variant: 'secondary',   icon: CheckCircle2 },
-  cancelled: { label: 'Cancelled',variant: 'outline',     icon: AlertTriangle },
+  pending:                { label: 'Waiting',  variant: 'outline',     icon: Clock },
+  drafted:                { label: 'Drafted',  variant: 'default',     icon: FileEdit },
+  sent:                   { label: 'Sent',     variant: 'default',     icon: CheckCircle2 },
+  replied:                { label: 'Replied',  variant: 'secondary',   icon: CheckCircle2 },
+  cancelled:              { label: 'Cancelled',variant: 'outline',     icon: AlertTriangle },
+  paused_no_permission:   { label: 'Paused (no permission)', variant: 'destructive', icon: AlertTriangle },
 };
 
 export default function FollowUpsPanel({ organizationId }: { organizationId: string | null }) {
