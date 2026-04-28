@@ -72,7 +72,11 @@ export function DailyBriefSchedule() {
     DAYS.forEach(d => { initial[d.value] = defaultDay(d.value); });
     return initial;
   });
-  const [timezone, setTimezone] = useState('America/New_York');
+  const detectedTz = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
+    catch { return 'America/New_York'; }
+  })();
+  const [timezone, setTimezone] = useState(detectedTz);
   const [recipient, setRecipient] = useState('');
   const [bulkApply, setBulkApply] = useState(false);
   const [bulkMorning, setBulkMorning] = useState('08:00');
