@@ -104,10 +104,23 @@ function formatTime(t: string): string {
   return `${h}:${m} ${period}`;
 }
 
+function getBriefTone(time: string): BriefType {
+  const hour = parseInt((time || '08:00').split(':')[0] || '8', 10);
+  return hour < 12 ? 'morning' : 'evening';
+}
+
+function getBriefToneLabel(time: string): string {
+  return getBriefTone(time) === 'morning' ? 'Good morning brief' : 'Good evening recap';
+}
+
+function getBriefToneHint(time: string): string {
+  return `${formatTime(time)} → ${getBriefToneLabel(time)}`;
+}
+
 function describeTimes(s: Schedule): string {
   const parts: string[] = [];
-  if (s.morningEnabled) parts.push(`${formatTime(s.morningTime)} morning`);
-  if (s.eveningEnabled) parts.push(`${formatTime(s.eveningTime)} evening`);
+  if (s.morningEnabled) parts.push(getBriefToneHint(s.morningTime));
+  if (s.eveningEnabled) parts.push(getBriefToneHint(s.eveningTime));
   return parts.length ? parts.join(' & ') : 'No times set';
 }
 
@@ -116,8 +129,8 @@ function describeTimes(s: Schedule): string {
 function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: string; eveningEnabled: boolean; eveningTime: string }): string {
   const days = describeDays(s.days);
   const times: string[] = [];
-  if (s.morningEnabled) times.push(`${formatTime(s.morningTime)} morning`);
-  if (s.eveningEnabled) times.push(`${formatTime(s.eveningTime)} evening`);
+  if (s.morningEnabled) times.push(getBriefToneHint(s.morningTime));
+  if (s.eveningEnabled) times.push(getBriefToneHint(s.eveningTime));
   if (!times.length) return days;
   return `${days} · ${times.join(' & ')}`;
 }
@@ -210,7 +223,7 @@ export function DailyBriefSchedule() {
           days: [1, 2, 3, 4, 5],
           morningEnabled: true,
           morningTime: '08:00',
-          eveningEnabled: true,
+          eveningEnabled: false,
           eveningTime: '17:00',
         }]);
       }
@@ -248,8 +261,9 @@ export function DailyBriefSchedule() {
       toast.loading('Sending test brief…', { id: `test-${s.id}` });
       // Persist the latest schedule first so the cron sees the right config.
       await handleSave({ silent: true });
+      const testTime = s.morningEnabled ? s.morningTime : s.eveningTime;
       const { data, error } = await supabase.functions.invoke('send-daily-brief', {
-        body: { force: true, userId: profile.user_id },
+        body: { force: true, userId: profile.user_id, briefType: getBriefTone(testTime) },
       });
       if (error) throw error;
       const sent = (data as { sent?: number })?.sent ?? 0;
@@ -318,15 +332,16 @@ export function DailyBriefSchedule() {
       const rows: Array<Record<string, unknown>> = [];
       for (const d of DAYS) {
         const cfg = perDay[d.value];
-        for (const type of ['morning', 'evening'] as BriefType[]) {
-          const sub = cfg?.[type];
+        for (const slot of ['morning', 'evening'] as BriefType[]) {
+          const sub = cfg?.[slot];
+          const time = (sub?.time) || (slot === 'morning' ? '08:00' : '17:00');
           rows.push({
             user_id: profile.user_id,
             organization_id: organization.id,
             connection_id: activeConnection?.id || null,
             day_of_week: d.value,
-            brief_type: type,
-            send_time: `${(sub?.time) || (type === 'morning' ? '08:00' : '17:00')}:00`,
+            brief_type: getBriefTone(time),
+            send_time: `${time}:00`,
             is_enabled: !!sub?.enabled,
             timezone,
             recipient_email: recipient || null,
@@ -528,12 +543,12 @@ export function DailyBriefSchedule() {
                           </div>
                         </div>
 
-                        {/* Times */}
+                        {/* Delivery times */}
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="rounded-md border bg-background p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Sun className="w-3.5 h-3.5 text-amber-500" /> Morning
+                                <Sun className="w-3.5 h-3.5 text-amber-500" /> First delivery time
                               </Label>
                               <Switch
                                 checked={s.morningEnabled}
@@ -546,12 +561,15 @@ export function DailyBriefSchedule() {
                                 onChange={(t) => updateSchedule(s.id, { morningTime: t })}
                                 disabled={!s.morningEnabled}
                               />
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {getBriefToneHint(s.morningTime)}
+                              </p>
                             </div>
                           </div>
                           <div className="rounded-md border bg-background p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs flex items-center gap-1.5 font-medium">
-                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Evening
+                                <Moon className="w-3.5 h-3.5 text-indigo-500" /> Second delivery time
                               </Label>
                               <Switch
                                 checked={s.eveningEnabled}
@@ -564,8 +582,15 @@ export function DailyBriefSchedule() {
                                 onChange={(t) => updateSchedule(s.id, { eveningTime: t })}
                                 disabled={!s.eveningEnabled}
                               />
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {getBriefToneHint(s.eveningTime)}
+                              </p>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                          The selected time decides the tone automatically: times before <span className="font-medium text-foreground">12:00 PM</span> send a <span className="font-medium text-foreground">Good morning</span> brief, and times from <span className="font-medium text-foreground">12:00 PM onward</span> send a <span className="font-medium text-foreground">Good evening</span> recap.
                         </div>
 
                         <div className="flex justify-end gap-2">
