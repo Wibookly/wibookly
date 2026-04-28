@@ -1359,7 +1359,7 @@ serve(async (req) => {
               if (folderId) {
                 const tagged = await tagOutlookFolderMessages(accessToken, folderId, categoryTag);
                 if (tagged > 0) {
-                  console.log(`Tagged ${tagged} msg(s) in "${labelName}" with "${categoryTag}"`);
+                  console.log(`Tagged ${tagged} msg(s) in "${visibleName}" with "${categoryTag}"`);
                 }
                 // Best-effort: pin/unpin in Outlook Favorites pane based on
                 // the category's `show_in_favorites` toggle. Graph beta
@@ -1373,7 +1373,7 @@ serve(async (req) => {
                 );
                 if (favPinned) {
                   console.log(
-                    `Outlook Favorites updated for "${labelName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
+                    `Outlook Favorites updated for "${visibleName}" → ${category.show_in_favorites ? 'pinned' : 'unpinned'}`,
                   );
                 }
               }
