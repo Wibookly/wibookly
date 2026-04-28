@@ -155,6 +155,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const reqBody: any = await (async () => { try { return await req.json(); } catch { return {}; } })();
 
   try {
     // Pull all enabled schedules (small table; OK to scan).
