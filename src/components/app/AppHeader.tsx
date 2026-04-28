@@ -28,6 +28,9 @@ export function AppHeader() {
               {photoUrl ? <AvatarImage src={photoUrl} alt={profile?.full_name || 'User'} /> : null}
               <AvatarFallback className="text-xs bg-secondary">{initials}</AvatarFallback>
             </Avatar>
+            <span className="text-sm font-medium text-foreground hidden sm:inline">
+              {profile?.full_name?.trim().split(' ')[0] || profile?.email?.split('@')[0] || 'User'}
+            </span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
