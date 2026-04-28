@@ -2,6 +2,16 @@
 // Returns live spend totals from OpenAI and Anthropic billing APIs for a date range.
 // Super-admin only. Falls back gracefully if a provider key is missing or the
 // upstream call fails so the panel can still render the per-user log totals.
+//
+// Key resolution order (per provider):
+//   1. Dedicated admin env secret  (OPENAI_ADMIN_KEY / ANTHROPIC_ADMIN_KEY)
+//   2. Generic env secret          (OPENAI_API_KEY  / ANTHROPIC_API_KEY)
+//   3. Admin-UI managed value      (api_key_config: openai_api_key / claude_api_key)
+//
+// IMPORTANT: OpenAI's /v1/organization/costs and Anthropic's
+// /v1/organizations/cost_report endpoints both require **Admin** API keys
+// (sk-admin-... for OpenAI, sk-ant-admin... for Anthropic). A regular project
+// key will be rejected with 401. We surface a clear message in that case.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,27 +24,49 @@ const corsHeaders = {
 
 const SUPER_ADMIN_EMAIL = "arahimi@energyforward.com";
 
+interface UserBreakdown {
+  user_id: string | null;     // OpenAI org-user id (not our app user_id)
+  api_key_id?: string | null; // OpenAI api key id
+  total_usd: number;
+}
+
 interface ProviderResult {
   provider: "openai" | "anthropic";
   available: boolean;
   total_usd: number | null;
   currency: string;
   range: { start: string; end: string };
+  by_user?: UserBreakdown[];
   error?: string;
-  // Optional human readable note (e.g. "OpenAI billing API requires an admin API key").
   note?: string;
 }
 
-/**
- * OpenAI exposes per-day cost via /v1/organization/costs (Admin key required).
- * Falls back to /dashboard/billing/usage with a session key for orgs that haven't
- * migrated. We try the modern endpoint first; on 401/404 we surface a helpful note.
- */
+async function resolveKey(
+  adminClient: ReturnType<typeof createClient>,
+  envNames: string[],
+  dbKeyName: string,
+): Promise<string | null> {
+  for (const n of envNames) {
+    const v = Deno.env.get(n);
+    if (v && v.trim()) return v.trim();
+  }
+  try {
+    const { data } = await adminClient
+      .from("api_key_config")
+      .select("encrypted_value")
+      .eq("key_name", dbKeyName)
+      .maybeSingle();
+    const v = (data as { encrypted_value?: string } | null)?.encrypted_value;
+    if (v && v.trim()) return v.trim();
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
 async function fetchOpenAISpend(
+  key: string | null,
   startISO: string,
   endISO: string,
 ): Promise<ProviderResult> {
-  const key = Deno.env.get("OPENAI_ADMIN_KEY") || Deno.env.get("OPENAI_API_KEY");
   const result: ProviderResult = {
     provider: "openai",
     available: false,
@@ -43,58 +75,69 @@ async function fetchOpenAISpend(
     range: { start: startISO, end: endISO },
   };
   if (!key) {
-    result.error = "OPENAI_API_KEY not configured";
+    result.error =
+      "OpenAI key not configured. Add an Admin API key (starts with sk-admin-...) in Admin → Settings, or set OPENAI_ADMIN_KEY.";
     return result;
   }
 
-  // Costs endpoint takes Unix seconds and returns usd cost buckets per day.
   const startUnix = Math.floor(new Date(startISO).getTime() / 1000);
   const endUnix = Math.floor(new Date(endISO).getTime() / 1000);
 
   try {
-    const resp = await fetch(
-      `https://api.openai.com/v1/organization/costs?start_time=${startUnix}&end_time=${endUnix}&bucket_width=1d&limit=180`,
-      { headers: { Authorization: `Bearer ${key}` } },
-    );
+    // Group by user so we can attribute spend per OpenAI org user.
+    const url =
+      `https://api.openai.com/v1/organization/costs?start_time=${startUnix}&end_time=${endUnix}` +
+      `&bucket_width=1d&limit=180&group_by=line_item`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
     if (resp.ok) {
       const json: any = await resp.json();
       let total = 0;
+      const perUser = new Map<string, number>();
       for (const bucket of json.data ?? []) {
         for (const r of bucket.results ?? []) {
           const amt = r?.amount?.value;
-          if (typeof amt === "number") total += amt;
+          if (typeof amt === "number") {
+            total += amt;
+            const u = r?.user_id ?? r?.line_item ?? null;
+            if (u) perUser.set(u, (perUser.get(u) ?? 0) + amt);
+          }
         }
       }
       result.available = true;
       result.total_usd = total;
+      result.by_user = Array.from(perUser.entries()).map(([user_id, total_usd]) => ({
+        user_id,
+        total_usd,
+      }));
       return result;
     }
     const txt = await resp.text();
     if (resp.status === 401 || resp.status === 403) {
       result.error =
-        "OpenAI rejected the API key for billing access. Add an Admin API key as OPENAI_ADMIN_KEY to enable live spend.";
+        "OpenAI rejected the key. The billing endpoint requires an **Admin API key** (sk-admin-...). " +
+        "Create one at platform.openai.com → Settings → Admin keys, then paste it in Admin → Settings → API Keys.";
     } else if (resp.status === 404) {
       result.error =
         "OpenAI billing endpoint not available for this account.";
     } else {
-      result.error = `OpenAI billing call failed (${resp.status}): ${txt.slice(0, 160)}`;
+      result.error =
+        `OpenAI billing call failed (${resp.status}): ${txt.slice(0, 200)}`;
     }
+    console.warn("OpenAI billing failed", resp.status, txt.slice(0, 200));
   } catch (e) {
-    result.error = `OpenAI billing call error: ${e instanceof Error ? e.message : String(e)}`;
+    result.error =
+      `OpenAI billing call error: ${e instanceof Error ? e.message : String(e)}`;
   }
   return result;
 }
 
-/**
- * Anthropic exposes per-day cost via /v1/organizations/usage_report/messages
- * (Admin key required, x-api-key header). For accounts without admin access we
- * surface a friendly note so the UI keeps rendering the per-user logs.
- */
 async function fetchAnthropicSpend(
+  key: string | null,
   startISO: string,
   endISO: string,
 ): Promise<ProviderResult> {
-  const key = Deno.env.get("ANTHROPIC_ADMIN_KEY") || Deno.env.get("ANTHROPIC_API_KEY");
   const result: ProviderResult = {
     provider: "anthropic",
     available: false,
@@ -104,7 +147,7 @@ async function fetchAnthropicSpend(
   };
   if (!key) {
     result.error =
-      "Anthropic key not configured. Set ANTHROPIC_ADMIN_KEY to enable live spend.";
+      "Anthropic key not configured. Add an Admin API key (sk-ant-admin...) in Admin → Settings, or set ANTHROPIC_ADMIN_KEY.";
     return result;
   }
 
@@ -126,27 +169,40 @@ async function fetchAnthropicSpend(
     if (resp.ok) {
       const json: any = await resp.json();
       let total = 0;
+      const perUser = new Map<string, number>();
       for (const bucket of json.data ?? []) {
         for (const r of bucket.results ?? []) {
           const amt = r?.amount?.value ?? r?.cost ?? null;
-          if (typeof amt === "number") total += amt;
+          if (typeof amt === "number") {
+            total += amt;
+            const u = r?.workspace_id ?? r?.api_key_id ?? null;
+            if (u) perUser.set(u, (perUser.get(u) ?? 0) + amt);
+          }
         }
       }
       result.available = true;
       result.total_usd = total;
+      result.by_user = Array.from(perUser.entries()).map(([user_id, total_usd]) => ({
+        user_id,
+        total_usd,
+      }));
       return result;
     }
     const txt = await resp.text();
     if (resp.status === 401 || resp.status === 403) {
       result.error =
-        "Anthropic rejected the API key for billing access. Use an Admin key as ANTHROPIC_ADMIN_KEY.";
+        "Anthropic rejected the key. The cost endpoint requires an **Admin API key** (sk-ant-admin...). " +
+        "Create one at console.anthropic.com → Settings → Admin Keys, then paste it in Admin → Settings.";
     } else if (resp.status === 404) {
       result.error = "Anthropic billing endpoint not available for this account.";
     } else {
-      result.error = `Anthropic billing call failed (${resp.status}): ${txt.slice(0, 160)}`;
+      result.error =
+        `Anthropic billing call failed (${resp.status}): ${txt.slice(0, 200)}`;
     }
+    console.warn("Anthropic billing failed", resp.status, txt.slice(0, 200));
   } catch (e) {
-    result.error = `Anthropic billing call error: ${e instanceof Error ? e.message : String(e)}`;
+    result.error =
+      `Anthropic billing call error: ${e instanceof Error ? e.message : String(e)}`;
   }
   return result;
 }
@@ -177,17 +233,33 @@ serve(async (req) => {
       });
     }
 
+    // Accept `days` from query string OR JSON body.
     const url = new URL(req.url);
-    const days = Math.min(
-      Math.max(parseInt(url.searchParams.get("days") ?? "30", 10) || 30, 1),
-      180,
-    );
+    let daysRaw = url.searchParams.get("days");
+    if (!daysRaw && (req.method === "POST" || req.method === "PUT")) {
+      try {
+        const body = await req.json();
+        if (body?.days) daysRaw = String(body.days);
+      } catch (_) { /* no body */ }
+    }
+    const days = Math.min(Math.max(parseInt(daysRaw ?? "30", 10) || 30, 1), 180);
     const end = new Date();
     const start = new Date(end.getTime() - days * 86400000);
 
+    const [openaiKey, anthropicKey] = await Promise.all([
+      resolveKey(adminClient, ["OPENAI_ADMIN_KEY", "OPENAI_API_KEY"], "openai_api_key"),
+      resolveKey(adminClient, ["ANTHROPIC_ADMIN_KEY", "ANTHROPIC_API_KEY"], "claude_api_key"),
+    ]);
+
+    console.log("live-ai-cost: keys resolved", {
+      openai: openaiKey ? `${openaiKey.slice(0, 10)}…` : null,
+      anthropic: anthropicKey ? `${anthropicKey.slice(0, 10)}…` : null,
+      days,
+    });
+
     const [openai, anthropic] = await Promise.all([
-      fetchOpenAISpend(start.toISOString(), end.toISOString()),
-      fetchAnthropicSpend(start.toISOString(), end.toISOString()),
+      fetchOpenAISpend(openaiKey, start.toISOString(), end.toISOString()),
+      fetchAnthropicSpend(anthropicKey, start.toISOString(), end.toISOString()),
     ]);
 
     return new Response(
