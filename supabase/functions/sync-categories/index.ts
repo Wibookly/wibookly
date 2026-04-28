@@ -342,12 +342,15 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
     }
     
     const { labels } = await listRes.json();
-    const existingLabel = labels?.find((l: { name: string }) => l.name === labelName);
+    const targetCore = normalizeManagedCategoryName(labelName);
+    const matchingLabels = (labels || []).filter(
+      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+    );
+    const existingLabel = matchingLabels.find((l: { name: string }) => l.name === labelName) || matchingLabels[0];
     const gmailColor = hexToGmailColor(hexColor);
     
     if (existingLabel) {
-      console.log(`Gmail label "${labelName}" already exists, updating color...`);
-      // Update existing label's color
+      console.log(`Gmail label "${existingLabel.name}" already exists, updating to "${labelName}"...`);
       const updateRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${existingLabel.id}`, {
         method: 'PATCH',
         headers: {
@@ -355,6 +358,7 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          name: labelName,
           color: gmailColor
         })
       });
@@ -363,6 +367,10 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
         console.error(`Failed to update Gmail label color:`, await updateRes.text());
       } else {
         console.log(`Updated color for Gmail label: ${labelName}`);
+      }
+
+      for (const duplicate of matchingLabels.filter((l: { id: string }) => l.id !== existingLabel.id)) {
+        await deleteGmailLabel(accessToken, duplicate.name);
       }
       return true;
     }
@@ -408,63 +416,65 @@ async function deleteGmailLabel(accessToken: string, labelName: string): Promise
     
     const { labels } = await listRes.json();
     const targetCore = normalizeManagedCategoryName(labelName);
-    const label = labels?.find((l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore);
-    
-    if (!label) {
+    const matchingLabels = (labels || []).filter(
+      (l: { name: string }) => normalizeManagedCategoryName(l.name) === targetCore,
+    );
+
+    if (matchingLabels.length === 0) {
       console.log(`Gmail label "${labelName}" doesn't exist, nothing to delete`);
       return true;
     }
 
-    // Step 1: pull every message that still carries this label and re-add INBOX,
-    // remove the custom label so the user sees them back in their main inbox.
-    try {
-      let pageToken: string | undefined = undefined;
-      let movedTotal = 0;
-      do {
-        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
-        url.searchParams.set('labelIds', label.id);
-        url.searchParams.set('maxResults', '500');
-        if (pageToken) url.searchParams.set('pageToken', pageToken);
-        const msgRes = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (!msgRes.ok) break;
-        const { messages, nextPageToken } = await msgRes.json();
-        if (messages?.length) {
-          // batchModify supports up to 1000 ids per call
-          const ids = messages.map((m: { id: string }) => m.id);
-          const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ids,
-              addLabelIds: ['INBOX'],
-              removeLabelIds: [label.id]
-            })
+    let allOk = true;
+    for (const label of matchingLabels) {
+      try {
+        let pageToken: string | undefined = undefined;
+        let movedTotal = 0;
+        do {
+          const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+          url.searchParams.set('labelIds', label.id);
+          url.searchParams.set('maxResults', '500');
+          if (pageToken) url.searchParams.set('pageToken', pageToken);
+          const msgRes = await fetch(url.toString(), {
+            headers: { Authorization: `Bearer ${accessToken}` }
           });
-          if (modRes.ok) movedTotal += ids.length;
-          else console.error(`batchModify failed for "${labelName}":`, await modRes.text());
-        }
-        pageToken = nextPageToken;
-      } while (pageToken);
-      if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${labelName}" back to Inbox`);
-    } catch (moveErr) {
-      console.error(`Error moving messages out of "${labelName}":`, moveErr);
-      // continue with deletion regardless
+          if (!msgRes.ok) break;
+          const { messages, nextPageToken } = await msgRes.json();
+          if (messages?.length) {
+            const ids = messages.map((m: { id: string }) => m.id);
+            const modRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ids,
+                addLabelIds: ['INBOX'],
+                removeLabelIds: [label.id]
+              })
+            });
+            if (modRes.ok) movedTotal += ids.length;
+            else console.error(`batchModify failed for "${label.name}":`, await modRes.text());
+          }
+          pageToken = nextPageToken;
+        } while (pageToken);
+        if (movedTotal > 0) console.log(`Moved ${movedTotal} message(s) from "${label.name}" back to Inbox`);
+      } catch (moveErr) {
+        console.error(`Error moving messages out of "${label.name}":`, moveErr);
+      }
+
+      const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (!deleteRes.ok && deleteRes.status !== 404) {
+        console.error(`Failed to delete Gmail label "${label.name}":`, await deleteRes.text());
+        allOk = false;
+      } else {
+        console.log(`Deleted Gmail label: ${label.name}`);
+      }
     }
-    
-    const deleteRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/labels/${label.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    if (!deleteRes.ok && deleteRes.status !== 404) {
-      console.error(`Failed to delete Gmail label "${labelName}":`, await deleteRes.text());
-      return false;
-    }
-    
-    console.log(`Deleted Gmail label: ${labelName}`);
-    return true;
+
+    return allOk;
   } catch (error) {
     console.error(`Error deleting Gmail label "${labelName}":`, error);
     return false;
