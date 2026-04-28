@@ -536,6 +536,11 @@ serve(async (req) => {
 4. "schedule": Array of TOMORROW's calendar events if any can be inferred from the data — otherwise list today's completed meetings as "✓ Completed: <title>".
 5. "emailHighlights": Array of unanswered emails from today that need attention (each with "from", "subject", "action" - what to do tomorrow)
 6. "suggestions": Array of 2-3 reflections on today + recommendations for tomorrow
+7. "aiAnalysis": Object with executive recap analysis. MUST include:
+   - "headline": One-sentence read on how the day went and what carries over
+   - "whatToDoFirst": Array of 3-5 ordered next-actions to start tomorrow with. Each item: { "step": 1, "action": "...", "why": "...", "estimatedMinutes": 10 }
+   - "risks": Array of 1-3 short strings flagging items at risk of slipping
+   - "wins": Array of 1-2 things accomplished today worth acknowledging
 
 Frame everything as "today is wrapping up — here's what got done and what's queued for tomorrow."`;
 
