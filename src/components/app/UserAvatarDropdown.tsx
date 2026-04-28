@@ -13,33 +13,37 @@ import { LogOut, User } from 'lucide-react';
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
 
-  // Extract first name from full_name (first word only) - no email fallback
-  const getFirstName = () => {
+  // Extract first name + last initial (e.g. "John D.") - no email fallback
+  const getNameParts = () => {
     if (profile?.full_name) {
-      const nameParts = profile.full_name.trim().split(' ');
-      return nameParts[0] || 'User';
+      const parts = profile.full_name.trim().split(/\s+/);
+      const first = parts[0] || 'User';
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1].charAt(0).toUpperCase() : '';
+      return { first, lastInitial };
     }
-    return 'User';
+    return { first: 'User', lastInitial: '' };
   };
 
-  const firstName = getFirstName();
-  const initials = firstName.slice(0, 2).toUpperCase();
+  const { first: firstName, lastInitial } = getNameParts();
+  const displayName = lastInitial ? `${firstName} ${lastInitial}.` : firstName;
+  const initials = (firstName.charAt(0) + (lastInitial || firstName.charAt(1) || '')).toUpperCase();
   const photoUrl = profile?.profile_photo_url ?? undefined;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <span className="hidden sm:inline text-sm font-medium text-foreground">{displayName}</span>
           {photoUrl ? (
             <Avatar className="h-9 w-9 border-2 border-white shadow-md">
-              <AvatarImage src={photoUrl} alt={firstName} />
+              <AvatarImage src={photoUrl} alt={displayName} />
               <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
                 {initials}
               </AvatarFallback>
             </Avatar>
           ) : (
-            <div className="h-9 px-4 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
-              {firstName}
+            <div className="h-9 w-9 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
+              {initials}
             </div>
           )}
         </button>
