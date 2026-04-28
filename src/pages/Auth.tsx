@@ -85,21 +85,21 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
-        {/* Energy Forward logo + welcome text, side by side */}
-        <div className="flex items-center justify-center gap-3 mb-6">
+        {/* Energy Forward logo */}
+        <div className="flex justify-center mb-4">
           <img
             src={ENERGY_FORWARD_LOGO}
             alt="Energy Forward"
-            className="h-16 w-auto object-contain shrink-0 -my-2"
+            className="h-48 w-auto object-contain"
           />
-          <div className="text-left">
-            <h1 className="text-2xl font-bold tracking-tight text-primary leading-tight">
-              Welcome to InboxIQ
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with your Microsoft 365 account to continue
-            </p>
-          </div>
+        </div>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-primary leading-tight">
+            Welcome to InboxIQ
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sign in with your Microsoft 365 account to continue
+          </p>
         </div>
 
         {/* Value props */}
