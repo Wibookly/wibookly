@@ -1205,7 +1205,7 @@ serve(async (req) => {
         // to Inbox by emptyOutlookFolderToInbox inside deleteOutlookFolder.
         for (const category of disabledCategories) {
           const dot = nearestColorDot(category.color);
-          const labelName = `${dot} ${String(category.sort_order + 1).padStart(2, '0')}: ${category.name}`;
+          const labelName = `${dot} ${category.name}`;
           let success = false;
 
           if (tokenRecord.provider === 'google') {
