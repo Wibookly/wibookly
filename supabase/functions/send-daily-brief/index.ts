@@ -200,8 +200,8 @@ serve(async (req) => {
         if (diff < 0 || diff > 5) continue;
       }
 
-      // De-dupe within today (safety net in case cron fires twice).
-      if (s.last_sent_at) {
+      // De-dupe within today (safety net in case cron fires twice). Skipped on forced sends.
+      if (!forceSend && s.last_sent_at) {
         const lastDate = new Date(s.last_sent_at);
         const lastLocal = nowParts(tz);
         const lastFmt = new Intl.DateTimeFormat("en-US", {
