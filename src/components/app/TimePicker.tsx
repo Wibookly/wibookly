@@ -110,27 +110,31 @@ export function TimePicker({
         </Select>
       </div>
 
-      {/* AM/PM toggle */}
+      {/* AM/PM toggle — AM = amber/sun, PM = indigo/moon for instant visual cue */}
       <div className="flex flex-col items-center gap-0.5">
         <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">AM/PM</span>
         <div className="flex items-center rounded-md border border-input bg-background h-9 p-0.5">
-          {(['AM', 'PM'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              disabled={disabled}
-              onClick={() => emit(hour12, minute, p)}
-              className={`px-2.5 h-full text-[11px] font-bold rounded transition-colors ${
-                period === p
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              } disabled:opacity-50 disabled:pointer-events-none`}
-              aria-pressed={period === p}
-              aria-label={p === 'AM' ? 'Morning (AM)' : 'Afternoon/Evening (PM)'}
-            >
-              {p}
-            </button>
-          ))}
+          {(['AM', 'PM'] as const).map((p) => {
+            const active = period === p;
+            const activeStyles = p === 'AM'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-indigo-600 text-white shadow-sm';
+            return (
+              <button
+                key={p}
+                type="button"
+                disabled={disabled}
+                onClick={() => emit(hour12, minute, p)}
+                className={`px-2.5 h-full text-[11px] font-bold rounded transition-colors ${
+                  active ? activeStyles : 'text-muted-foreground hover:text-foreground'
+                } disabled:opacity-50 disabled:pointer-events-none`}
+                aria-pressed={active}
+                aria-label={p === 'AM' ? 'Morning (AM)' : 'Afternoon/Evening (PM)'}
+              >
+                {p}
+              </button>
+            );
+          })}
         </div>
       </div>
 
