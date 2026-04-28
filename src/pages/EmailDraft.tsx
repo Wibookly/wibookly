@@ -121,6 +121,7 @@ export default function EmailDraft() {
   });
   const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
   const [savingColors, setSavingColors] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!organization?.id || !activeConnection?.id) return;
