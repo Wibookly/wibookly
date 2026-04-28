@@ -1,5 +1,7 @@
 import { useAuth } from '@/lib/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
+import { InboxIQLogo } from './InboxIQLogo';
 import {
   DropdownMenu,
   DropdownMenuContent,
