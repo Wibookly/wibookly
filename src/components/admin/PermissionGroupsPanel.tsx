@@ -25,6 +25,7 @@ const FEATURE_KEYS = [
   { key: 'ai_model_claude', label: 'Claude Model' },
   { key: 'email_agent', label: 'Email Agent' },
   { key: 'teams_agent', label: 'Teams Agent' },
+  { key: 'feature.follow_up_reminder', label: 'Follow-Up Reminder' },
 ] as const;
 
 const GLOBAL_GROUP_VALUE = '__global__';

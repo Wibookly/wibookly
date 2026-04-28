@@ -38,6 +38,7 @@ const FEATURE_KEYS = [
   { key: 'reports', label: 'AI Activity Reports', description: 'AI activity reports & analytics' },
   { key: 'email_agent', label: 'Email Agent', description: 'AI replies to emails sent to the shared agent mailbox' },
   { key: 'teams_agent', label: 'Teams Agent', description: 'AI responds to @mentions and DMs in Microsoft Teams' },
+  { key: 'feature.follow_up_reminder', label: 'Follow-Up Reminder', description: 'BCC-triggered Auto-Reminder feature: timer addresses, settings tab, and Pending Auto-Reminders view' },
 ] as const;
 
 const AI_MODEL_KEYS = [
