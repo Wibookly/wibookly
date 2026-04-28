@@ -104,10 +104,23 @@ function formatTime(t: string): string {
   return `${h}:${m} ${period}`;
 }
 
+function getBriefTone(time: string): BriefType {
+  const hour = parseInt((time || '08:00').split(':')[0] || '8', 10);
+  return hour < 12 ? 'morning' : 'evening';
+}
+
+function getBriefToneLabel(time: string): string {
+  return getBriefTone(time) === 'morning' ? 'Good morning brief' : 'Good evening recap';
+}
+
+function getBriefToneHint(time: string): string {
+  return `${formatTime(time)} → ${getBriefToneLabel(time)}`;
+}
+
 function describeTimes(s: Schedule): string {
   const parts: string[] = [];
-  if (s.morningEnabled) parts.push(`${formatTime(s.morningTime)} morning`);
-  if (s.eveningEnabled) parts.push(`${formatTime(s.eveningTime)} evening`);
+  if (s.morningEnabled) parts.push(getBriefToneHint(s.morningTime));
+  if (s.eveningEnabled) parts.push(getBriefToneHint(s.eveningTime));
   return parts.length ? parts.join(' & ') : 'No times set';
 }
 
@@ -116,8 +129,8 @@ function describeTimes(s: Schedule): string {
 function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: string; eveningEnabled: boolean; eveningTime: string }): string {
   const days = describeDays(s.days);
   const times: string[] = [];
-  if (s.morningEnabled) times.push(`${formatTime(s.morningTime)} morning`);
-  if (s.eveningEnabled) times.push(`${formatTime(s.eveningTime)} evening`);
+  if (s.morningEnabled) times.push(getBriefToneHint(s.morningTime));
+  if (s.eveningEnabled) times.push(getBriefToneHint(s.eveningTime));
   if (!times.length) return days;
   return `${days} · ${times.join(' & ')}`;
 }
@@ -210,7 +223,7 @@ export function DailyBriefSchedule() {
           days: [1, 2, 3, 4, 5],
           morningEnabled: true,
           morningTime: '08:00',
-          eveningEnabled: true,
+          eveningEnabled: false,
           eveningTime: '17:00',
         }]);
       }
