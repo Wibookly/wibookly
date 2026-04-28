@@ -331,15 +331,16 @@ export function DailyBriefSchedule() {
       const rows: Array<Record<string, unknown>> = [];
       for (const d of DAYS) {
         const cfg = perDay[d.value];
-        for (const type of ['morning', 'evening'] as BriefType[]) {
-          const sub = cfg?.[type];
+        for (const slot of ['morning', 'evening'] as BriefType[]) {
+          const sub = cfg?.[slot];
+          const time = (sub?.time) || (slot === 'morning' ? '08:00' : '17:00');
           rows.push({
             user_id: profile.user_id,
             organization_id: organization.id,
             connection_id: activeConnection?.id || null,
             day_of_week: d.value,
-            brief_type: type,
-            send_time: `${(sub?.time) || (type === 'morning' ? '08:00' : '17:00')}:00`,
+            brief_type: getBriefTone(time),
+            send_time: `${time}:00`,
             is_enabled: !!sub?.enabled,
             timezone,
             recipient_email: recipient || null,
