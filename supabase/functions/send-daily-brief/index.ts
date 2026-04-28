@@ -194,6 +194,9 @@ serve(async (req) => {
       }
       // `force: true` (with optional scheduleId) bypasses time matching for "Send Test Now".
       const forceSend = reqBody?.force === true && (!reqBody?.scheduleId || reqBody.scheduleId === s.id);
+      const requestedBriefType = reqBody?.briefType === 'morning' || reqBody?.briefType === 'evening'
+        ? reqBody.briefType
+        : null;
 
       if (!forceSend) {
         if (nw.dow !== s.day_of_week) continue;
@@ -280,7 +283,7 @@ serve(async (req) => {
             connectionId: s.connection_id,
             internal: true,
             userId: s.user_id,
-            briefType: s.brief_type,
+            briefType: requestedBriefType || s.brief_type,
           }),
         });
         if (briefRes.ok) {
@@ -305,10 +308,10 @@ serve(async (req) => {
       }
 
       const subject =
-        s.brief_type === "morning"
+        (requestedBriefType || s.brief_type) === "morning"
           ? `☀️ Your Morning Brief — ${nw.date}`
           : `🌙 Your End-of-Day Recap — ${nw.date}`;
-      const html = renderBriefHtml(brief, s.brief_type, recipient);
+      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient);
 
       try {
         await sendGraphEmail(token, fromUserId, recipient, subject, html);
