@@ -29,7 +29,16 @@ export function AppHeader() {
               <AvatarFallback className="text-xs bg-secondary">{initials}</AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium text-foreground hidden sm:inline">
-              {profile?.full_name?.trim().split(' ')[0] || profile?.email?.split('@')[0] || 'User'}
+              {(() => {
+                const name = profile?.full_name?.trim();
+                if (name) {
+                  const parts = name.split(/\s+/);
+                  const first = parts[0];
+                  const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1][0].toUpperCase()}.` : '';
+                  return `${first}${lastInitial}`;
+                }
+                return profile?.email?.split('@')[0] || 'User';
+              })()}
             </span>
           </button>
         </DropdownMenuTrigger>
