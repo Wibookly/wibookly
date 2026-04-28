@@ -55,6 +55,9 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [intervalsDraft, setIntervalsDraft] = useState('');
+  const [auditing, setAuditing] = useState(false);
+  const [auditFrom, setAuditFrom] = useState(isoDaysAgo(30));
+  const [auditTo, setAuditTo] = useState(todayIso());
 
   async function load() {
     if (!activeConnection?.id) return;
