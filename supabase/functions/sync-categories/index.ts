@@ -1079,9 +1079,9 @@ async function enforceOutlookManagedFolderOrder(
 ): Promise<void> {
   if (categories.length === 0) return;
 
-  const desired = categories.map((category) => ({
+  const desired = categories.map((category, idx) => ({
     ...category,
-    folderName: `${nearestColorDot(category.color)} ${category.name}`,
+    folderName: `${invisibleSortPrefix(idx + 1)}${nearestColorDot(category.color)} ${category.name}`,
     coreName: normalizeManagedCategoryName(category.name),
   }));
 
