@@ -123,7 +123,35 @@ serve(async (req) => {
     }
 
     const me = await meResp.json();
-    const update = {
+
+    // Fetch profile photo from Microsoft Graph and upload to public storage
+    let photoUrl: string | null = null;
+    try {
+      const photoResp = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (photoResp.ok) {
+        const contentType = photoResp.headers.get('content-type') || 'image/jpeg';
+        const ext = contentType.includes('png') ? 'png' : 'jpg';
+        const bytes = new Uint8Array(await photoResp.arrayBuffer());
+        const path = `${user.id}/microsoft.${ext}`;
+        const { error: upErr } = await admin.storage
+          .from('profile-photos')
+          .upload(path, bytes, { contentType, upsert: true });
+        if (!upErr) {
+          const { data: pub } = admin.storage.from('profile-photos').getPublicUrl(path);
+          photoUrl = pub?.publicUrl ? `${pub.publicUrl}?v=${Date.now()}` : null;
+        } else {
+          console.warn('photo upload failed:', upErr);
+        }
+      } else {
+        console.log('No Microsoft profile photo available:', photoResp.status);
+      }
+    } catch (e) {
+      console.warn('photo fetch error:', e);
+    }
+
+    const update: Record<string, unknown> = {
       full_name: me.displayName || null,
       title: me.jobTitle || null,
       department: me.department || null,
@@ -131,6 +159,7 @@ serve(async (req) => {
       phone: (Array.isArray(me.businessPhones) && me.businessPhones[0]) || null,
       mobile: me.mobilePhone || null,
     };
+    if (photoUrl) update.profile_photo_url = photoUrl;
 
     const { error: upErr } = await admin
       .from('user_profiles')
