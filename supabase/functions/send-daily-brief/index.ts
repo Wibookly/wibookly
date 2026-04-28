@@ -158,11 +158,16 @@ serve(async (req) => {
   const reqBody: any = await (async () => { try { return await req.json(); } catch { return {}; } })();
 
   try {
-    // Pull all enabled schedules (small table; OK to scan).
-    const { data: schedules, error } = await supabase
+    // Pull enabled schedules. On a forced/test run, scope to the requesting user
+    // so we don't accidentally email everyone.
+    let query = supabase
       .from("daily_brief_schedules")
       .select("*")
-      .eq("is_enabled", true) as { data: ScheduleRow[] | null; error: unknown };
+      .eq("is_enabled", true);
+    if (reqBody?.force === true && reqBody?.userId) {
+      query = query.eq("user_id", reqBody.userId);
+    }
+    const { data: schedules, error } = await query as { data: ScheduleRow[] | null; error: unknown };
 
     if (error) throw error;
     if (!schedules || !schedules.length) {
