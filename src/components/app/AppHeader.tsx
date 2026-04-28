@@ -1,5 +1,7 @@
 import { useAuth } from '@/lib/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
+import { InboxIQLogo } from './InboxIQLogo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +14,7 @@ import { LogOut, User } from 'lucide-react';
 
 export function AppHeader() {
   const { profile, organization, signOut } = useAuth();
+  const orgLogoUrl = useOrganizationLogo(organization?.id);
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -20,7 +23,17 @@ export function AppHeader() {
   const photoUrl = (profile as { profile_photo_url?: string | null } | null)?.profile_photo_url ?? undefined;
 
   return (
-    <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-end">
+    <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {orgLogoUrl ? (
+          <img
+            src={orgLogoUrl}
+            alt={organization?.name || 'Organization logo'}
+            className="max-h-9 w-auto object-contain"
+          />
+        ) : null}
+        <InboxIQLogo className="text-2xl" />
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
