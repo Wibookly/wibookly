@@ -369,9 +369,6 @@ async function createGmailLabel(accessToken: string, labelName: string, hexColor
         console.log(`Updated color for Gmail label: ${labelName}`);
       }
 
-      for (const duplicate of matchingLabels.filter((l: { id: string }) => l.id !== existingLabel.id)) {
-        await deleteGmailLabel(accessToken, duplicate.name);
-      }
       return true;
     }
     
