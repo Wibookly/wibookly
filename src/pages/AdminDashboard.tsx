@@ -32,7 +32,8 @@ import { Bot, BarChart3, Clock } from 'lucide-react';
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
   { key: 'ai_auto_reply', label: 'AI Auto Reply', description: 'Automatic AI email replies' },
-  { key: 'ai_assistant', label: 'AI Chat', description: 'Daily Brief & AI Chat' },
+  { key: 'ai_assistant', label: 'AI Chat', description: 'AI chat assistant access' },
+  { key: 'daily_brief', label: 'My Daily Brief', description: 'Daily Brief access and scheduling' },
   { key: 'reports', label: 'AI Activity Reports', description: 'AI activity reports & analytics' },
   { key: 'email_agent', label: 'Email Agent', description: 'AI replies to emails sent to the shared agent mailbox' },
   { key: 'teams_agent', label: 'Teams Agent', description: 'AI responds to @mentions and DMs in Microsoft Teams' },

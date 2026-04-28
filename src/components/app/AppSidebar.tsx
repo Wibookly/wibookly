@@ -218,11 +218,11 @@ export function AppSidebar() {
             </NavSection>
           )}
 
-          {/* AI Assistant - show if user has ai_assistant or is super admin */}
-          {!featureLoading && (isSuperAdmin || hasFeature('ai_assistant')) && (
+          {/* AI Assistant - show section if user has Daily Brief or AI Chat, or is super admin */}
+          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant')) && (
             <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
-              <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>
-              <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>
+              {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
+              {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
             </NavSection>
           )}
 
