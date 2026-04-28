@@ -313,7 +313,7 @@ export default function Settings() {
     setLoading(false);
   };
 
-  const saveSettings = async () => {
+  const saveSettings = async (silent = false) => {
     if (!organization?.id || !profile?.user_id || !activeConnection?.id) return;
 
     // Validate inputs
