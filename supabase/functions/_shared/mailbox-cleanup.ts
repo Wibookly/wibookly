@@ -36,6 +36,7 @@ export interface MailboxCleanupResult {
 
 const DEFAULT_CATEGORY_NAMES = [
   'Urgent',
+  'No Reply Tracker',
   'Follow Up',
   'Approvals',
   'Events',

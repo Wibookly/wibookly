@@ -326,7 +326,7 @@ serve(async (req) => {
         // Create default categories
         const defaultCategories = [
           { name: 'Urgent', color: '#EF4444', sort_order: 0 },
-          { name: 'Follow Up', color: '#F97316', sort_order: 1 },
+          { name: 'No Reply Tracker', color: '#F97316', sort_order: 1 },
           { name: 'Approvals', color: '#EAB308', sort_order: 2 },
           { name: 'Events', color: '#22C55E', sort_order: 3 },
           { name: 'Customers', color: '#3B82F6', sort_order: 4 },

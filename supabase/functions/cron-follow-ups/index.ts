@@ -359,15 +359,15 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     // Not yet due → leave pending
     if (new Date(t.due_at) > new Date()) continue;
 
-    // === Due, no reply: surface in Follow Up category (always) ===
+    // === Due, no reply: surface in No Reply Tracker category (always) ===
     try {
       await supabase
         .from('categories')
         .update({ is_enabled: true, ai_draft_enabled: mode !== 'label_only' })
         .eq('connection_id', conn.id)
-        .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%');
+        .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%,name.ilike.%no reply%,name.ilike.%no-reply%');
     } catch (e) {
-      console.warn('Auto-enable follow-up category failed', e);
+      console.warn('Auto-enable No Reply Tracker category failed', e);
     }
 
     if (!folderId) {
