@@ -149,7 +149,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
     }
 
     const body = {
-      model: OPENAI_MODEL,
+      model,
       instructions: SYSTEM_PROMPT,
       input: inputItems,
       tools,
