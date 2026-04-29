@@ -14,9 +14,11 @@ import { cn } from '@/lib/utils';
 type AgentMode = 'qa' | 'email_draft';
 
 interface ChatTurn {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   draft?: { subject: string; body: string; to?: string[]; cc?: string[] } | null;
+  draftSavedId?: string | null;
 }
 
 export default function KnowledgeChat() {
