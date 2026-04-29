@@ -232,7 +232,15 @@ export default function AIDailyBrief() {
       content += `
         <div style="margin-bottom: 30px;">
           <h2 style="font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Today's Schedule</h2>
-          ${brief.schedule?.length ? brief.schedule.map(s => `
+          ${(() => {
+            const booked = (brief.schedule || []).filter(s => {
+              const t = (s.type || '').toLowerCase();
+              const title = (s.title || '').toLowerCase();
+              if (t === 'focus' || t === 'available' || t === 'free') return false;
+              if (title.includes('available for focus') || title.includes('available')) return false;
+              return true;
+            });
+            return booked.length ? booked.map(s => `
             <div style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
               <span style="width: 80px; font-family: monospace; color: #666;">${s.time}</span>
               <div style="flex: 1;">
@@ -240,7 +248,8 @@ export default function AIDailyBrief() {
                 ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${s.description}</p>` : ''}
               </div>
             </div>
-          `).join('') : '<p style="color: #999;">No scheduled events for today</p>'}
+          `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
+          })()}
         </div>
       `;
     }
@@ -570,39 +579,45 @@ export default function AIDailyBrief() {
             <CardContent>
               <ScrollArea className="h-[350px]">
                 <div className="space-y-1">
-                  {brief.schedule && brief.schedule.length > 0 ? (
-                    brief.schedule.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex flex-col gap-1 p-3 rounded-lg hover:bg-secondary/30 border-l-2 border-primary/50"
-                      >
-                        <span className="text-xs font-mono text-primary font-medium uppercase tracking-wide">
-                          {item.time}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm break-words">{item.title}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                              {item.description}
-                            </p>
-                          )}
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {item.type}
-                          </Badge>
+                  {(() => {
+                    const bookedItems = (brief.schedule || []).filter(item => {
+                      const type = (item.type || '').toLowerCase();
+                      const title = (item.title || '').toLowerCase();
+                      if (type === 'focus' || type === 'available' || type === 'free') return false;
+                      if (title.includes('available for focus') || title.includes('available')) return false;
+                      return true;
+                    });
+                    return bookedItems.length > 0 ? (
+                      bookedItems.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex flex-col gap-1 p-3 rounded-lg hover:bg-secondary/30 border-l-2 border-primary/50"
+                        >
+                          <span className="text-xs font-mono text-primary font-medium uppercase tracking-wide">
+                            {item.time}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm break-words">{item.title}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                {item.description}
+                              </p>
+                            )}
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {item.type}
+                            </Badge>
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-muted-foreground text-sm">
+                          No meetings scheduled
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground text-sm">
-                        No scheduled events
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Available for focus work
-                      </p>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </ScrollArea>
             </CardContent>
