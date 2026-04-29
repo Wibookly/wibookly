@@ -1042,9 +1042,10 @@ async function ensureOutlookMasterCategory(
   accessToken: string,
   displayName: string,
   hexColor: string,
+  presetOverride?: string,
 ): Promise<boolean> {
   try {
-    const preset = nearestOutlookPreset(hexColor);
+    const preset = presetOverride ?? nearestOutlookPreset(hexColor);
     const listRes = await fetch(
       "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
       { headers: { Authorization: `Bearer ${accessToken}` } },
