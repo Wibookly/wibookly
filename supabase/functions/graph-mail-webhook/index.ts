@@ -494,7 +494,8 @@ async function processNotification(n: GraphNotification) {
   // Log usage with approximate USD cost.
   try {
     const PRICE: Record<string, { input: number; output: number }> = {
-      'gpt-5-mini': { input: 0.00025, output: 0.002 },
+      'gpt-4.1': { input: 0.002, output: 0.008 },
+      'gpt-4o': { input: 0.0025, output: 0.01 },
       'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
     };
     const p = PRICE[agent.model] ?? { input: 0, output: 0 };
