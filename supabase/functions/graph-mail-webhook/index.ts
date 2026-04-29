@@ -226,10 +226,10 @@ function formatThreadForPrompt(thread: ThreadMsg[], currentMessageId: string, cu
 
 // ──────────────────────────────────────────────────────────────────
 // Phase 1: delegate to the shared agent-loop edge function.
-// agent-loop runs OpenAI Responses API (gpt-5-mini, native web_search)
-// as primary, Anthropic Claude Sonnet 4.5 (web_search_20250305 +
-// web_fetch_20250910) as fallback, with document-generation tools
-// (PDF / DOCX / XLSX / PPTX). It returns { reply_html, attachments }.
+// agent-loop runs OpenAI Responses API (gpt-4.1 primary, gpt-4o secondary,
+// both with native web_search) and Anthropic Claude Sonnet 4.5
+// (web_search_20250305 + web_fetch_20250910) as final fallback, with
+// document-generation tools (PDF / DOCX / XLSX / PPTX). It returns { reply_html, attachments }.
 // ──────────────────────────────────────────────────────────────────
 
 interface AgentLoopResult {
