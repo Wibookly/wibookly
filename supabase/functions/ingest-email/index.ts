@@ -277,16 +277,15 @@ Deno.serve(async (req) => {
               connection_id: conn.id,
               user_id: conn.user_id,
               organization_id: conn.organization_id,
+              provider,
               provider_message_id: m.external_id,
               from_email: m.from_email,
-              from_name: m.from_name,
               to_emails: m.to_emails,
               cc_emails: m.cc_emails,
               subject: m.subject,
-              body_html: m.body_html,
-              body_text: m.body_text,
+              body_raw: m.body_html || m.body_text,
               sent_at: m.sent_at,
-              is_from_me: m.is_from_me,
+              metadata: { from_name: m.from_name, is_from_me: m.is_from_me },
             })
             .select('id')
             .single();
