@@ -224,274 +224,55 @@ function formatThreadForPrompt(thread: ThreadMsg[], currentMessageId: string, cu
   return lines.join('\n');
 }
 
-// (Legacy admin-UI key loader removed — Phase 1 router uses env vars
-//  ANTHROPIC_API_KEY / OPENAI_API_KEY / LOVABLE_API_KEY directly.)
-
-
 // ──────────────────────────────────────────────────────────────────
-// Tiered model router
+// Phase 1: delegate to the shared agent-loop edge function.
+// agent-loop runs OpenAI Responses API (gpt-5-mini, native web_search)
+// as primary, Anthropic Claude Sonnet 4.5 (web_search_20250305 +
+// web_fetch_20250910) as fallback, with document-generation tools
+// (PDF / DOCX / XLSX / PPTX). It returns { reply_html, attachments }.
 // ──────────────────────────────────────────────────────────────────
-// We use the Lovable AI Gateway for cheap/mid tiers (Gemini Flash Lite
-// → Gemini Flash) and Anthropic Claude direct for the "complex" tier.
-// A lightweight classifier picks the tier based on email length, number
-// of questions, and complexity keywords. The agent can also escalate
-// itself if the cheap pass returns low-confidence content.
-// Web search is performed via OpenAI's web-search-enabled model when the
-// classifier flags the request as needing fresh / external information.
 
-type ComplexityTier = 'cheap' | 'mid' | 'complex';
-
-interface ClassifierResult {
-  tier: ComplexityTier;
-  needsWebSearch: boolean;
-  reason: string;
-}
-
-const COMPLEX_KEYWORDS = [
-  'analyze', 'analysis', 'compare', 'comparison', 'strategy', 'strategic',
-  'recommend', 'recommendation', 'evaluate', 'evaluation', 'proposal',
-  'draft a contract', 'legal', 'forecast', 'roadmap', 'architecture',
-  'pros and cons', 'trade-off', 'tradeoff', 'deep dive', 'rfp', 'rfq',
-  'business case', 'financial model', 'plan', 'market', 'competitor',
-];
-
-const WEB_KEYWORDS = [
-  'latest', 'current', 'today', 'this week', 'this month', 'recent',
-  'news', 'price of', 'stock', 'who is', 'what is the latest',
-  'announcement', 'released', 'update on', 'status of',
-];
-
-function classifyEmail(threadText: string, subject: string): ClassifierResult {
-  const t = `${subject}\n${threadText}`.toLowerCase();
-  const wordCount = t.split(/\s+/).length;
-  const questionMarks = (t.match(/\?/g) ?? []).length;
-  const hasComplex = COMPLEX_KEYWORDS.some((k) => t.includes(k));
-  const needsWebSearch = WEB_KEYWORDS.some((k) => t.includes(k));
-
-  let tier: ComplexityTier = 'cheap';
-  let reason = 'short / simple email';
-
-  if (hasComplex || wordCount > 600 || questionMarks >= 3) {
-    tier = 'complex';
-    reason = hasComplex ? 'complex keyword detected' : `long thread (${wordCount}w / ${questionMarks}?)`;
-  } else if (wordCount > 200 || questionMarks >= 2) {
-    tier = 'mid';
-    reason = `medium thread (${wordCount}w / ${questionMarks}?)`;
-  }
-
-  return { tier, needsWebSearch, reason };
-}
-
-interface AIProviderResult {
-  content: string;
+interface AgentLoopResult {
+  reply_html: string;
+  attachments: AgentAttachment[];
   provider: string;
   model: string;
-  promptTokens: number;
-  completionTokens: number;
+  iterations: number;
+  duration_ms: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  used_web_search: boolean;
 }
 
-async function callLovableAI(model: string, system: string, user: string): Promise<AIProviderResult | null> {
-  if (!LOVABLE_API_KEY) return null;
-  try {
-    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`Lovable AI ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      return null;
-    }
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content ?? '';
-    if (!content) return null;
-    return {
-      content,
-      provider: 'lovable',
-      model,
-      promptTokens: data.usage?.prompt_tokens ?? 0,
-      completionTokens: data.usage?.completion_tokens ?? 0,
-    };
-  } catch (e) {
-    console.warn(`Lovable AI ${model} error:`, e);
-    return null;
-  }
-}
-
-async function callClaude(apiKey: string, model: string, system: string, user: string): Promise<AIProviderResult | null> {
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        max_tokens: 2000,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`Claude ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      return null;
-    }
-    const data = await res.json();
-    const content = data.content?.[0]?.text ?? '';
-    if (!content) return null;
-    return {
-      content,
-      provider: 'claude',
-      model,
-      promptTokens: data.usage?.input_tokens ?? 0,
-      completionTokens: data.usage?.output_tokens ?? 0,
-    };
-  } catch (e) {
-    console.warn(`Claude ${model} error:`, e);
-    return null;
-  }
-}
-
-async function callOpenAIWebSearch(apiKey: string, system: string, user: string): Promise<AIProviderResult | null> {
-  // Uses OpenAI's web-search-enabled chat model. No tools array needed —
-  // the model has built-in web grounding.
-  const model = 'gpt-4o-mini-search-preview';
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        web_search_options: {},
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`OpenAI web-search ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      return null;
-    }
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content ?? '';
-    if (!content) return null;
-    return {
-      content,
-      provider: 'openai',
-      model,
-      promptTokens: data.usage?.prompt_tokens ?? 0,
-      completionTokens: data.usage?.completion_tokens ?? 0,
-    };
-  } catch (e) {
-    console.warn('OpenAI web-search error:', e);
-    return null;
-  }
-}
-
-async function generateAIReply(args: {
+async function invokeAgentLoop(args: {
+  task: string;
   threadText: string;
   senderEmail: string;
   senderName: string;
   subject: string;
   organizationId: string;
-}): Promise<AIProviderResult & { tier: ComplexityTier; usedWebSearch: boolean }> {
-  const { threadText, senderEmail, senderName, subject, organizationId } = args;
-  let companyContext = '';
-  try { companyContext = await buildCompanyContext(organizationId); } catch (e) { console.error('context build failed', e); }
-
-  const classification = classifyEmail(threadText, subject);
-  console.log(`[router] tier=${classification.tier} web=${classification.needsWebSearch} reason="${classification.reason}"`);
-
-  const systemPrompt = `You are InboxIQ Agent — an executive AI assistant that answers emails forwarded to you by an internal team member.
-
-WHO YOU'RE WRITING TO
-You are replying ONLY to ${senderName || senderEmail} (${senderEmail}). They forwarded or CC'd you on an email thread. Your reply goes to them privately — never address other recipients of the original thread.
-
-YOUR JOB
-1. Read the FULL email thread carefully.
-2. Identify what ${senderName || 'the sender'} actually needs from you. It may be:
-   - "Help me draft a reply" → produce a suggested reply they can send.
-   - "What should I do about this?" → give clear, prioritized recommendations.
-   - "Answer this technical/strategic question" → give a substantive, opinionated answer with concrete recommendations.
-   - "Summarize this thread" → concise summary + action items.
-3. Anchor your answer in the actual content of the thread (people, dates, asks, technical details).
-4. Use your full knowledge to give concrete, opinionated recommendations — name specific technologies, vendors, frameworks, numbers, and trade-offs. Avoid hedging unless genuinely uncertain.
-5. Be substantive but not bloated. No filler, no apologies, no restating the obvious.
-
-OUTPUT FORMAT
-- Clean HTML for email body (no <html>/<body> wrapper).
-- Use <p>, <ul>, <ol>, <strong>, <em>. Short paragraphs.
-- If you're drafting a reply for them to send, wrap it in:
-    <p><strong>Suggested reply:</strong></p>
-    <blockquote>...the draft...</blockquote>
-  followed by a short note explaining your reasoning.
-
-TONE
-Sharp, professional, executive-level. Direct.
-
-=== ORG SNAPSHOT (small, for reference only) ===
-${companyContext}
-=== END SNAPSHOT ===`;
-
-  const userMessage = `Subject: ${subject}
-
-Email thread (oldest → newest):
-
-${threadText}
-
-Now, based on the above, give me your best response. Remember: you're answering ME (${senderEmail}) privately, not the whole thread.`;
-
-  let result: AIProviderResult | null = null;
-
-  // 1. If web search is needed AND we have an OpenAI key → use web-search model first
-  if (classification.needsWebSearch && OPENAI_API_KEY_ENV) {
-    result = await callOpenAIWebSearch(OPENAI_API_KEY_ENV, systemPrompt, userMessage);
-    if (result) {
-      return { ...result, tier: classification.tier, usedWebSearch: true };
-    }
+}): Promise<AgentLoopResult> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-loop`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      task: args.task,
+      thread_context: args.threadText,
+      sender_name: args.senderName,
+      sender_email: args.senderEmail,
+      subject: args.subject,
+      organization_id: args.organizationId,
+      channel: 'email',
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`agent-loop failed: ${res.status} ${text.slice(0, 500)}`);
   }
-
-  // 2. Tiered routing through Lovable AI Gateway / Anthropic
-  if (classification.tier === 'cheap') {
-    result = await callLovableAI('google/gemini-2.5-flash-lite', systemPrompt, userMessage);
-  } else if (classification.tier === 'mid') {
-    result = await callLovableAI('google/gemini-2.5-flash', systemPrompt, userMessage);
-  } else {
-    // complex → Claude Sonnet first (best reasoning), fall back to GPT-5 / Gemini Pro
-    if (ANTHROPIC_API_KEY_ENV) {
-      result = await callClaude(ANTHROPIC_API_KEY_ENV, 'claude-sonnet-4-5-20250929', systemPrompt, userMessage);
-    }
-    if (!result) {
-      result = await callLovableAI('openai/gpt-5', systemPrompt, userMessage);
-    }
-    if (!result) {
-      result = await callLovableAI('google/gemini-2.5-pro', systemPrompt, userMessage);
-    }
-  }
-
-  // 3. If lower-tier returned something but it's suspiciously short → escalate
-  if (result && classification.tier !== 'complex' && stripHtml(result.content).length < 200) {
-    console.log('[router] cheap reply too short — escalating to Claude Sonnet');
-    const escalated = ANTHROPIC_API_KEY_ENV
-      ? await callClaude(ANTHROPIC_API_KEY_ENV, 'claude-sonnet-4-5-20250929', systemPrompt, userMessage)
-      : await callLovableAI('openai/gpt-5', systemPrompt, userMessage);
-    if (escalated) result = escalated;
-  }
-
-  // 4. Last-ditch fallback chain
-  if (!result) {
-    result = await callLovableAI('google/gemini-2.5-flash', systemPrompt, userMessage)
-      ?? await callLovableAI('google/gemini-2.5-flash-lite', systemPrompt, userMessage);
-  }
-
-  if (!result) throw new Error('All AI providers failed.');
-
-  return { ...result, tier: classification.tier, usedWebSearch: false };
+  return res.json();
 }
 
 function stripHtml(html: string): string {
