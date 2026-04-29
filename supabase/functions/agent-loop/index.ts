@@ -55,7 +55,7 @@ interface AgentRequest {
 interface AgentResult {
   reply_html: string;
   attachments: GeneratedFile[];
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'system';
   model: string;
   iterations: number;
   duration_ms: number;
@@ -507,6 +507,7 @@ Deno.serve(async (req) => {
   const attachments: GeneratedFile[] = [];
   const trace: AgentResult['trace'] = [];
   const startedAt = Date.now();
+  const ctx = buildRunContext(body);
 
   // Chain: gpt-4.1 → gpt-4o → claude-sonnet-4-5
   let result: Awaited<ReturnType<typeof runOpenAI>> | null = null;
@@ -518,17 +519,17 @@ Deno.serve(async (req) => {
   const attempts: Attempt[] = [];
 
   if (wantedProvider === 'anthropic') {
-    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace, ctx) });
     if (OPENAI_API_KEY) {
-      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
-      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_FALLBACK_MODEL) });
     }
   } else {
     if (OPENAI_API_KEY) {
-      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
-      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_FALLBACK_MODEL) });
     }
-    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace, ctx) });
   }
 
   if (attempts.length === 0) {
@@ -540,6 +541,9 @@ Deno.serve(async (req) => {
 
   for (const attempt of attempts) {
     try {
+      if (getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
+        throw createDeadlineError('request');
+      }
       // Reset attachments between attempts so a partial run doesn't pollute the next
       attachments.length = 0;
       trace.push({ step: -1, type: 'attempt', detail: attempt.name });
@@ -550,15 +554,28 @@ Deno.serve(async (req) => {
       console.error(`[agent-loop] ${attempt.name} failed:`, msg);
       errors.push({ stage: attempt.name, error: msg });
       trace.push({ step: -1, type: 'attempt_failed', detail: `${attempt.name}: ${msg.slice(0, 200)}` });
+      if (attempt.name.startsWith('openai:') && isQuotaError(msg)) {
+        trace.push({ step: -1, type: 'skip_openai_fallback_after_quota' });
+        continue;
+      }
     }
   }
 
   if (!result) {
-    return new Response(JSON.stringify({
-      error: 'agent_failed',
-      attempts: errors,
-    }), {
-      status: 502,
+    const out: AgentResult = {
+      reply_html: buildFailureReplyHtml(errors),
+      attachments: [],
+      provider: 'system',
+      model: errors[0]?.stage ?? 'system-fallback',
+      iterations: 0,
+      duration_ms: Date.now() - startedAt,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      used_web_search: false,
+      trace,
+    };
+
+    return new Response(JSON.stringify(out), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
