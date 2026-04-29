@@ -128,13 +128,13 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
-      <div className="px-4 py-4 border-b border-border flex flex-col items-center justify-center">
+      <div className="px-4 pt-0 pb-2 border-b border-border flex flex-col items-center justify-start">
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-40 w-auto object-contain shrink-0"
+          className="h-40 w-auto object-contain shrink-0 -mt-4"
         />
-        <InboxIQLogo className="text-2xl -mt-8 leading-none" />
+        <InboxIQLogo className="text-2xl -mt-12 leading-none" />
       </div>
 
       {/* Active Email Selector */}
