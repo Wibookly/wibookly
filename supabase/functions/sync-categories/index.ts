@@ -926,36 +926,60 @@ async function deleteOutlookFolder(
 // color, then tag every message that lives inside the folder with it so
 // the colored stripe shows next to the email subject in Outlook.
 // ────────────────────────────────────────────────────────────────────────
+// Hex values below are the colors Outlook actually RENDERS for each preset
+// across Web, Desktop, and Mobile (iOS/Android) — sourced from the official
+// Outlook category color swatches. Using these values (instead of arbitrary
+// approximations) makes the nearest-color match align with what users see on
+// every Outlook client, including iPhone where the palette is most limited.
 const OUTLOOK_PRESET_COLORS: Array<{
   preset: string;
   hex: [number, number, number];
 }> = [
-  { preset: "preset0", hex: [0xe7, 0x4c, 0x3c] },
-  { preset: "preset1", hex: [0xe6, 0x7e, 0x22] },
-  { preset: "preset2", hex: [0xc1, 0x9a, 0x6b] },
-  { preset: "preset3", hex: [0xf1, 0xc4, 0x0f] },
-  { preset: "preset4", hex: [0x2e, 0xcc, 0x71] },
-  { preset: "preset5", hex: [0x16, 0xa0, 0x85] },
-  { preset: "preset6", hex: [0x95, 0xa5, 0xa6] },
-  { preset: "preset7", hex: [0x34, 0x98, 0xdb] },
-  { preset: "preset8", hex: [0x9b, 0x59, 0xb6] },
-  { preset: "preset9", hex: [0xe8, 0x4f, 0x9c] },
-  { preset: "preset10", hex: [0x7f, 0x8c, 0x8d] },
-  { preset: "preset11", hex: [0x2c, 0x3e, 0x50] },
-  { preset: "preset12", hex: [0xbd, 0xc3, 0xc7] },
-  { preset: "preset13", hex: [0x34, 0x49, 0x5e] },
-  { preset: "preset14", hex: [0x00, 0x00, 0x00] },
-  { preset: "preset15", hex: [0xc0, 0x39, 0x2b] },
-  { preset: "preset16", hex: [0xd3, 0x54, 0x00] },
-  { preset: "preset17", hex: [0x8b, 0x4f, 0x2f] },
-  { preset: "preset18", hex: [0xb7, 0x95, 0x0b] },
-  { preset: "preset19", hex: [0x27, 0xae, 0x60] },
-  { preset: "preset20", hex: [0x0e, 0x80, 0x68] },
-  { preset: "preset21", hex: [0x6b, 0x6f, 0x39] },
-  { preset: "preset22", hex: [0x21, 0x6f, 0xa8] },
-  { preset: "preset23", hex: [0x71, 0x36, 0x8a] },
-  { preset: "preset24", hex: [0xad, 0x14, 0x57] },
+  { preset: "preset0", hex: [0xe8, 0x11, 0x23] }, // Red
+  { preset: "preset1", hex: [0xf7, 0x63, 0x0c] }, // Orange
+  { preset: "preset2", hex: [0x85, 0x57, 0x23] }, // Brown
+  { preset: "preset3", hex: [0xff, 0xb9, 0x00] }, // Yellow
+  { preset: "preset4", hex: [0x49, 0x82, 0x05] }, // Green
+  { preset: "preset5", hex: [0x00, 0xb2, 0x94] }, // Teal
+  { preset: "preset6", hex: [0x7a, 0x75, 0x74] }, // Olive
+  { preset: "preset7", hex: [0x00, 0x78, 0xd4] }, // Blue
+  { preset: "preset8", hex: [0x5c, 0x2d, 0x91] }, // Purple
+  { preset: "preset9", hex: [0xe3, 0x00, 0x8c] }, // Cranberry / Pink
+  { preset: "preset10", hex: [0x51, 0x5c, 0x6b] }, // Steel
+  { preset: "preset11", hex: [0x4a, 0x54, 0x59] }, // DarkSteel
+  { preset: "preset12", hex: [0x69, 0x79, 0x7e] }, // Gray
+  { preset: "preset13", hex: [0x39, 0x39, 0x39] }, // DarkGray
+  { preset: "preset14", hex: [0x00, 0x00, 0x00] }, // Black
+  { preset: "preset15", hex: [0xa4, 0x26, 0x2c] }, // DarkRed
+  { preset: "preset16", hex: [0xca, 0x50, 0x10] }, // DarkOrange
+  { preset: "preset17", hex: [0x4c, 0x2a, 0x0a] }, // DarkBrown
+  { preset: "preset18", hex: [0xc1, 0x9c, 0x00] }, // DarkYellow
+  { preset: "preset19", hex: [0x0b, 0x6a, 0x0b] }, // DarkGreen
+  { preset: "preset20", hex: [0x03, 0x83, 0x87] }, // DarkTeal
+  { preset: "preset21", hex: [0x52, 0x5c, 0x36] }, // DarkOlive
+  { preset: "preset22", hex: [0x00, 0x3f, 0x87] }, // DarkBlue
+  { preset: "preset23", hex: [0x32, 0x14, 0x5a] }, // DarkPurple
+  { preset: "preset24", hex: [0x5c, 0x00, 0x5c] }, // DarkCranberry
 ];
+
+// Perceptual color distance using weighted RGB (approximates CIE76 well enough
+// for palette matching while staying dependency-free). Gives much better
+// hue-matching than plain Euclidean — important for distinguishing the
+// multiple blues/purples Outlook ships in its preset palette.
+function colorDistance(
+  a: [number, number, number],
+  b: [number, number, number],
+): number {
+  const rmean = (a[0] + b[0]) / 2;
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  return (
+    (((512 + rmean) * dr * dr) >> 8) +
+    4 * dg * dg +
+    (((767 - rmean) * db * db) >> 8)
+  );
+}
 
 function hexToRgb(hex: string): [number, number, number] | null {
   const m = hex.replace("#", "").match(/^([0-9a-f]{6})$/i);
@@ -964,16 +988,17 @@ function hexToRgb(hex: string): [number, number, number] | null {
   return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
 }
 
-function nearestOutlookPreset(hex: string): string {
+function nearestOutlookPreset(
+  hex: string,
+  excluded: Set<string> = new Set(),
+): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return "preset7";
   let best = OUTLOOK_PRESET_COLORS[0];
   let bestDist = Infinity;
   for (const p of OUTLOOK_PRESET_COLORS) {
-    const d =
-      (rgb[0] - p.hex[0]) ** 2 +
-      (rgb[1] - p.hex[1]) ** 2 +
-      (rgb[2] - p.hex[2]) ** 2;
+    if (excluded.has(p.preset)) continue;
+    const d = colorDistance(rgb, p.hex);
     if (d < bestDist) {
       bestDist = d;
       best = p;
@@ -982,13 +1007,45 @@ function nearestOutlookPreset(hex: string): string {
   return best.preset;
 }
 
+// Build a per-sync map of category-name → preset that guarantees no two
+// categories collapse to the same Outlook preset color (when the user has ≤25
+// categories). Without this, similar app-side colors (two purples, two blues)
+// would render identically on Outlook mobile.
+function buildOutlookPresetMap(
+  categories: Array<{ name: string; color: string }>,
+): Record<string, string> {
+  const used = new Set<string>();
+  const result: Record<string, string> = {};
+  // Sort by descending saturation so the most "distinctive" colors get first
+  // pick of their ideal preset; neutrals fall back to whatever remains.
+  const ranked = [...categories]
+    .map((c) => {
+      const rgb = hexToRgb(c.color) || [128, 128, 128];
+      const max = Math.max(...rgb);
+      const min = Math.min(...rgb);
+      const sat = max === 0 ? 0 : (max - min) / max;
+      return { c, sat };
+    })
+    .sort((a, b) => b.sat - a.sat);
+  for (const { c } of ranked) {
+    const excluded = used.size < OUTLOOK_PRESET_COLORS.length
+      ? used
+      : new Set<string>();
+    const preset = nearestOutlookPreset(c.color, excluded);
+    result[c.name] = preset;
+    used.add(preset);
+  }
+  return result;
+}
+
 async function ensureOutlookMasterCategory(
   accessToken: string,
   displayName: string,
   hexColor: string,
+  presetOverride?: string,
 ): Promise<boolean> {
   try {
-    const preset = nearestOutlookPreset(hexColor);
+    const preset = presetOverride ?? nearestOutlookPreset(hexColor);
     const listRes = await fetch(
       "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
       { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -1954,6 +2011,20 @@ serve(async (req) => {
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
 
+        // Pre-compute a deduplicated preset color per category so two
+        // categories with similar app-side colors don't collapse to the same
+        // Outlook preset on iPhone/Web/Desktop. The map is keyed by the
+        // managed-category display name ("IQ: <name>").
+        const outlookPresetMap = (tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook")
+          ? buildOutlookPresetMap(
+            sortedEnabled.map((c: { name: string; color: string }) => ({
+              name: `${IQ_TAG_PREFIX}${c.name}`,
+              color: c.color,
+            })),
+          )
+          : {};
+
         // RENAME PRE-PASS — handle categories whose name changed in the DB
         // since the last successful sync (e.g. "Project" → "Project One").
         // Without this, the create loop below would not match the old folder
@@ -2014,6 +2085,7 @@ serve(async (req) => {
                 accessToken,
                 categoryTag,
                 category.color,
+                outlookPresetMap[categoryTag],
               );
               const folderId = await findOutlookFolderId(
                 accessToken,
