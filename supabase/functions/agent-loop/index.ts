@@ -179,9 +179,9 @@ interface ToolResult {
 // ────────────────────────────────────────────────────────────────────
 // OpenAI Responses API path with native web_search + doc tools
 // ────────────────────────────────────────────────────────────────────
-async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], model: string = OPENAI_PRIMARY_MODEL) {
+async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], ctx: RunContext, model: string = OPENAI_PRIMARY_MODEL) {
   const tools: any[] = [
-    { type: 'web_search' }, // OpenAI built-in
+    ...(ctx.webSearchEnabled ? [{ type: 'web_search' }] : []), // OpenAI built-in
     ...DOC_TOOLS_OPENAI.map((t) => ({
       type: 'function',
       name: t.function.name,
@@ -212,7 +212,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     iterations = i + 1;
-    if (Date.now() - startedAt > MAX_WALL_MS) {
+    if (Date.now() - startedAt > MAX_WALL_MS || getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
       trace.push({ step: i, type: 'wall_clock_exceeded' });
       break;
     }
@@ -226,14 +226,18 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
       parallel_tool_calls: true,
     };
 
-    const res = await fetch('https://api.openai.com/v1/responses', {
+      const abort = new AbortController();
+      const timeoutId = setTimeout(() => abort.abort('deadline'), Math.max(5_000, getRemainingMs(ctx) - REQUEST_SAFETY_MS));
+      const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
+        signal: abort.signal,
       body: JSON.stringify(body),
     });
+      clearTimeout(timeoutId);
 
     if (!res.ok) {
       const txt = await res.text();
@@ -286,7 +290,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
       const result = await runDocTool(fc.name, parsed);
       let outputForModel: any;
       if (result.ok) {
-        if (attachments.length < MAX_ATTACHMENTS) {
+        if (attachments.length < ctx.maxAttachments) {
           attachments.push(result.file);
         }
         outputForModel = {
@@ -329,10 +333,12 @@ function docToolsForAnthropic() {
   }));
 }
 
-async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace']) {
+async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], ctx: RunContext) {
   const tools: any[] = [
-    { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
-    { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 3 },
+    ...(ctx.webSearchEnabled ? [
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
+      { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 2 },
+    ] : []),
     ...docToolsForAnthropic(),
   ];
 
@@ -349,7 +355,7 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     iterations = i + 1;
-    if (Date.now() - startedAt > MAX_WALL_MS) {
+    if (Date.now() - startedAt > MAX_WALL_MS || getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
       trace.push({ step: i, type: 'wall_clock_exceeded' });
       break;
     }
@@ -362,6 +368,8 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
       tools,
     };
 
+    const abort = new AbortController();
+    const timeoutId = setTimeout(() => abort.abort('deadline'), Math.max(5_000, getRemainingMs(ctx) - REQUEST_SAFETY_MS));
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -370,8 +378,10 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
         'anthropic-beta': 'web-fetch-2025-09-10',
         'Content-Type': 'application/json',
       },
+      signal: abort.signal,
       body: JSON.stringify(body),
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const txt = await res.text();
@@ -409,7 +419,7 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
       const result = await runDocTool(tu.name, tu.input || {});
       let payload: any;
       if (result.ok) {
-        if (attachments.length < MAX_ATTACHMENTS) attachments.push(result.file);
+        if (attachments.length < ctx.maxAttachments) attachments.push(result.file);
         payload = {
           ok: true,
           filename: result.file.filename,
@@ -456,7 +466,9 @@ function buildUserMessage(req: AgentRequest): string {
   parts.push('Latest message / task:');
   parts.push(req.task);
   parts.push('');
-  parts.push('Produce the deliverables now (call generate_pdf + generate_docx for documents) and reply with a short HTML cover note announcing what you produced.');
+  parts.push('Default to the smallest complete deliverable set that satisfies the request. Unless the sender explicitly asks for multiple file formats, create only the primary format needed for the job.');
+  parts.push('If dummy/example numbers are requested, do not use web search; generate a polished internal example with clearly synthetic figures.');
+  parts.push('Reply with a short HTML cover note announcing what you produced.');
   return parts.join('\n');
 }
 
