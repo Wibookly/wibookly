@@ -253,7 +253,14 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <CardDescription className="mt-1.5 max-w-2xl">
                 BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
                 (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
-                original to your <strong>No Reply Tracker</strong> category and applies the action you choose below.
+                original to your <strong>No Reply Tracker</strong> category (red) and applies the action you choose below.
+                <br />
+                <span className="text-foreground">
+                  When this is ON, InboxIQ automatically scans your sent emails <strong>every 24 hours</strong>,
+                  keeps Business Hours active, drafts follow-ups for unanswered threads, and adds them back to
+                  the <strong>No Reply Tracker</strong> category until the recipient replies. Once they reply,
+                  the email leaves the tracker automatically.
+                </span>
               </CardDescription>
             </div>
             <Switch
