@@ -36,8 +36,9 @@ const OPENAI_PRIMARY_MODEL = 'gpt-4.1';
 const OPENAI_FALLBACK_MODEL = 'gpt-4o';
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
-const MAX_ITERATIONS = 15;
-const MAX_WALL_MS = 5 * 60 * 1000;
+const MAX_ITERATIONS = 8;
+const MAX_WALL_MS = 100 * 1000;
+const REQUEST_SAFETY_MS = 4_000;
 const MAX_ATTACHMENTS = 24;
 
 interface AgentRequest {
@@ -54,7 +55,7 @@ interface AgentRequest {
 interface AgentResult {
   reply_html: string;
   attachments: GeneratedFile[];
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'system';
   model: string;
   iterations: number;
   duration_ms: number;
@@ -62,6 +63,74 @@ interface AgentResult {
   completion_tokens: number;
   used_web_search: boolean;
   trace: { step: number; type: string; detail?: string }[];
+}
+
+interface RunContext {
+  deadlineAt: number;
+  webSearchEnabled: boolean;
+  maxAttachments: number;
+}
+
+function normalizeTaskText(req: AgentRequest): string {
+  return [req.subject ?? '', req.task ?? '', req.thread_context ?? '']
+    .join('\n')
+    .toLowerCase();
+}
+
+function explicitlyRequestsMultipleFormats(text: string): boolean {
+  const formatHits = [
+    /\bpdf\b/,
+    /\bdocx\b/,
+    /\bword\b/,
+    /\bxlsx\b/,
+    /\bexcel\b/,
+    /\bpptx\b/,
+    /\bpowerpoint\b/,
+    /\bslides\b/,
+    /\bdeck\b/,
+  ].filter((pattern) => pattern.test(text)).length;
+
+  return formatHits >= 2 || /\bboth\b|\ball\s+formats\b|\bmultiple\s+formats\b/.test(text);
+}
+
+function buildRunContext(req: AgentRequest): RunContext {
+  const text = normalizeTaskText(req);
+  const wantsMultipleFormats = explicitlyRequestsMultipleFormats(text);
+  const usesDummyData = /\bdummy\b|\bexample\b|\bsample\b|\billustrative\b|\bhypothetical\b/.test(text);
+
+  return {
+    deadlineAt: Date.now() + MAX_WALL_MS,
+    webSearchEnabled: !usesDummyData,
+    maxAttachments: req.channel === 'email' && !wantsMultipleFormats ? 2 : 4,
+  };
+}
+
+function getRemainingMs(ctx: RunContext): number {
+  return ctx.deadlineAt - Date.now();
+}
+
+function createDeadlineError(label: string): Error {
+  return new Error(`${label}_deadline_exceeded`);
+}
+
+function isQuotaError(message: string): boolean {
+  return /insufficient_quota|quota|429/.test(message.toLowerCase());
+}
+
+function buildFailureReplyHtml(errors: { stage: string; error: string }[]): string {
+  const combined = errors.map((e) => `${e.stage}: ${e.error}`).join(' | ').toLowerCase();
+  const isTimeout = /idle_timeout|deadline_exceeded|timed out|wall_clock_exceeded/.test(combined);
+  const isQuota = isQuotaError(combined);
+
+  if (isQuota) {
+    return '<p>Hi,</p><p>I could not finish this request because the primary AI provider account hit its usage limit during processing.</p><p>Please try again shortly, or reply asking for a smaller first pass in one format only.</p>';
+  }
+
+  if (isTimeout) {
+    return '<p>Hi,</p><p>I started your request, but it exceeded the email agent time budget before I could finish the deliverable.</p><p>Please reply with the first format you want me to produce only (PDF, DOCX, XLSX, or PPTX), and I will generate that first.</p>';
+  }
+
+  return '<p>Hi,</p><p>I ran into an issue while preparing your deliverable and could not complete it in this pass.</p><p>Please reply with a narrower first step and I will continue from there.</p>';
 }
 
 const SYSTEM_PROMPT = `You are InboxIQ Agent — an executive AI middleware.
@@ -110,9 +179,9 @@ interface ToolResult {
 // ────────────────────────────────────────────────────────────────────
 // OpenAI Responses API path with native web_search + doc tools
 // ────────────────────────────────────────────────────────────────────
-async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], model: string = OPENAI_PRIMARY_MODEL) {
+async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], ctx: RunContext, model: string = OPENAI_PRIMARY_MODEL) {
   const tools: any[] = [
-    { type: 'web_search' }, // OpenAI built-in
+    ...(ctx.webSearchEnabled ? [{ type: 'web_search' }] : []), // OpenAI built-in
     ...DOC_TOOLS_OPENAI.map((t) => ({
       type: 'function',
       name: t.function.name,
@@ -143,7 +212,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     iterations = i + 1;
-    if (Date.now() - startedAt > MAX_WALL_MS) {
+    if (Date.now() - startedAt > MAX_WALL_MS || getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
       trace.push({ step: i, type: 'wall_clock_exceeded' });
       break;
     }
@@ -157,14 +226,18 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
       parallel_tool_calls: true,
     };
 
-    const res = await fetch('https://api.openai.com/v1/responses', {
+      const abort = new AbortController();
+      const timeoutId = setTimeout(() => abort.abort('deadline'), Math.max(5_000, getRemainingMs(ctx) - REQUEST_SAFETY_MS));
+      const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
+        signal: abort.signal,
       body: JSON.stringify(body),
     });
+      clearTimeout(timeoutId);
 
     if (!res.ok) {
       const txt = await res.text();
@@ -217,7 +290,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
       const result = await runDocTool(fc.name, parsed);
       let outputForModel: any;
       if (result.ok) {
-        if (attachments.length < MAX_ATTACHMENTS) {
+        if (attachments.length < ctx.maxAttachments) {
           attachments.push(result.file);
         }
         outputForModel = {
@@ -260,10 +333,12 @@ function docToolsForAnthropic() {
   }));
 }
 
-async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace']) {
+async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], ctx: RunContext) {
   const tools: any[] = [
-    { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
-    { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 3 },
+    ...(ctx.webSearchEnabled ? [
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
+      { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 2 },
+    ] : []),
     ...docToolsForAnthropic(),
   ];
 
@@ -280,7 +355,7 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     iterations = i + 1;
-    if (Date.now() - startedAt > MAX_WALL_MS) {
+    if (Date.now() - startedAt > MAX_WALL_MS || getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
       trace.push({ step: i, type: 'wall_clock_exceeded' });
       break;
     }
@@ -293,6 +368,8 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
       tools,
     };
 
+    const abort = new AbortController();
+    const timeoutId = setTimeout(() => abort.abort('deadline'), Math.max(5_000, getRemainingMs(ctx) - REQUEST_SAFETY_MS));
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -301,8 +378,10 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
         'anthropic-beta': 'web-fetch-2025-09-10',
         'Content-Type': 'application/json',
       },
+      signal: abort.signal,
       body: JSON.stringify(body),
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const txt = await res.text();
@@ -340,7 +419,7 @@ async function runAnthropic(req: AgentRequest, attachments: GeneratedFile[], tra
       const result = await runDocTool(tu.name, tu.input || {});
       let payload: any;
       if (result.ok) {
-        if (attachments.length < MAX_ATTACHMENTS) attachments.push(result.file);
+        if (attachments.length < ctx.maxAttachments) attachments.push(result.file);
         payload = {
           ok: true,
           filename: result.file.filename,
@@ -387,7 +466,9 @@ function buildUserMessage(req: AgentRequest): string {
   parts.push('Latest message / task:');
   parts.push(req.task);
   parts.push('');
-  parts.push('Produce the deliverables now (call generate_pdf + generate_docx for documents) and reply with a short HTML cover note announcing what you produced.');
+  parts.push('Default to the smallest complete deliverable set that satisfies the request. Unless the sender explicitly asks for multiple file formats, create only the primary format needed for the job.');
+  parts.push('If dummy/example numbers are requested, do not use web search; generate a polished internal example with clearly synthetic figures.');
+  parts.push('Reply with a short HTML cover note announcing what you produced.');
   return parts.join('\n');
 }
 
@@ -426,6 +507,7 @@ Deno.serve(async (req) => {
   const attachments: GeneratedFile[] = [];
   const trace: AgentResult['trace'] = [];
   const startedAt = Date.now();
+  const ctx = buildRunContext(body);
 
   // Chain: gpt-4.1 → gpt-4o → claude-sonnet-4-5
   let result: Awaited<ReturnType<typeof runOpenAI>> | null = null;
@@ -437,17 +519,17 @@ Deno.serve(async (req) => {
   const attempts: Attempt[] = [];
 
   if (wantedProvider === 'anthropic') {
-    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace, ctx) });
     if (OPENAI_API_KEY) {
-      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
-      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_FALLBACK_MODEL) });
     }
   } else {
     if (OPENAI_API_KEY) {
-      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
-      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, ctx, OPENAI_FALLBACK_MODEL) });
     }
-    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace, ctx) });
   }
 
   if (attempts.length === 0) {
@@ -459,6 +541,9 @@ Deno.serve(async (req) => {
 
   for (const attempt of attempts) {
     try {
+      if (getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
+        throw createDeadlineError('request');
+      }
       // Reset attachments between attempts so a partial run doesn't pollute the next
       attachments.length = 0;
       trace.push({ step: -1, type: 'attempt', detail: attempt.name });
@@ -469,15 +554,28 @@ Deno.serve(async (req) => {
       console.error(`[agent-loop] ${attempt.name} failed:`, msg);
       errors.push({ stage: attempt.name, error: msg });
       trace.push({ step: -1, type: 'attempt_failed', detail: `${attempt.name}: ${msg.slice(0, 200)}` });
+      if (attempt.name.startsWith('openai:') && isQuotaError(msg)) {
+        trace.push({ step: -1, type: 'skip_openai_fallback_after_quota' });
+        continue;
+      }
     }
   }
 
   if (!result) {
-    return new Response(JSON.stringify({
-      error: 'agent_failed',
-      attempts: errors,
-    }), {
-      status: 502,
+    const out: AgentResult = {
+      reply_html: buildFailureReplyHtml(errors),
+      attachments: [],
+      provider: 'system',
+      model: errors[0]?.stage ?? 'system-fallback',
+      iterations: 0,
+      duration_ms: Date.now() - startedAt,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      used_web_search: false,
+      trace,
+    };
+
+    return new Response(JSON.stringify(out), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
