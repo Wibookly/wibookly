@@ -810,8 +810,8 @@ serve(async (req) => {
 
       const subject =
         (requestedBriefType || s.brief_type) === "morning"
-          ? `☀️ Your Morning Brief — ${nw.date}`
-          : `🌙 Your End-of-Day Recap — ${nw.date}`;
+          ? `Your Morning Brief — ${nw.date}`
+          : `Your End-of-Day Recap — ${nw.date}`;
       const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
 
       // Build PDF attachment so executives can print/read offline.
