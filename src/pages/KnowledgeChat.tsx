@@ -51,6 +51,52 @@ export default function KnowledgeChat() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConvId, setLoadingConvId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
+  const [citationDetail, setCitationDetail] = useState<{
+    loading: boolean;
+    body?: string | null;
+    thread?: Array<{ from_email: string | null; subject: string | null; body_clean: string | null; sent_at: string | null }>;
+  }>({ loading: false });
+
+  const openCitation = async (c: Citation) => {
+    setActiveCitation(c);
+    setCitationDetail({ loading: true });
+    try {
+      if (c.type === 'email' && c.id) {
+        // Fetch the full message + sibling thread messages
+        const { data: msg } = await supabase
+          .from('email_messages')
+          .select('body_clean, thread_id, subject, from_email, sent_at')
+          .eq('id', c.id)
+          .maybeSingle();
+        if (msg?.thread_id) {
+          const { data: thread } = await supabase
+            .from('email_messages')
+            .select('from_email, subject, body_clean, sent_at')
+            .eq('thread_id', msg.thread_id)
+            .order('sent_at', { ascending: true })
+            .limit(50);
+          setCitationDetail({ loading: false, body: msg.body_clean, thread: thread ?? [] });
+        } else {
+          setCitationDetail({ loading: false, body: msg?.body_clean ?? c.snippet ?? null });
+        }
+      } else if (c.id) {
+        // Document chunk
+        const { data: chunk } = await supabase
+          .from('knowledge_chunks')
+          .select('content')
+          .eq('id', c.id)
+          .maybeSingle();
+        setCitationDetail({ loading: false, body: chunk?.content ?? c.snippet ?? null });
+      } else {
+        setCitationDetail({ loading: false, body: c.snippet ?? null });
+      }
+    } catch (e) {
+      console.error('citation load', e);
+      setCitationDetail({ loading: false, body: c.snippet ?? null });
+    }
+  };
+
 
   // (state declared above)
 
