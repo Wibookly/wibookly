@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, Loader2, Sparkles, Mail, FileText } from 'lucide-react';
+import { Send, Loader2, Sparkles, Mail, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -26,11 +26,30 @@ export default function KnowledgeChat() {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, busy]);
+
+  const syncEmails = async () => {
+    if (!activeConnection?.id || syncing) return;
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ingest-email', {
+        body: { connection_id: activeConnection.id, max_messages: 100 },
+      });
+      if (error) throw error;
+      const ingested = data?.ingested ?? data?.messages_ingested ?? 0;
+      const embedded = data?.embedded ?? 0;
+      toast.success(`Synced ${ingested} message${ingested === 1 ? '' : 's'} (${embedded} embedded).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Email sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Reset conversation when switching mode or workspace
   useEffect(() => {
@@ -111,15 +130,31 @@ export default function KnowledgeChat() {
       </div>
 
       <Card className="flex-1 flex flex-col overflow-hidden">
-        <CardHeader className="py-3 border-b">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {activeConnection?.email
-              ? `Workspace: ${activeConnection.email}`
-              : 'No active workspace'}
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Drafts always require your review before sending.
-          </CardDescription>
+        <CardHeader className="py-3 border-b flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {activeConnection?.email
+                ? `Workspace: ${activeConnection.email}`
+                : 'No active workspace'}
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Drafts always require your review before sending.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={syncEmails}
+            disabled={syncing || !activeConnection?.id}
+            className="gap-1.5"
+          >
+            {syncing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Sync Emails
+          </Button>
         </CardHeader>
         <CardContent className="flex-1 p-0 overflow-hidden">
           <ScrollArea className="h-full">
