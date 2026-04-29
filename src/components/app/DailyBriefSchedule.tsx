@@ -722,10 +722,19 @@ export function DailyBriefSchedule() {
           )}
         </div>
 
-        <div className="flex justify-end pt-2">
-          <Button onClick={() => handleSave()} disabled={saving}>
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {hasUnsavedChanges && !saving && (
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              You have unsaved changes
+            </span>
+          )}
+          <Button
+            onClick={() => handleSave()}
+            disabled={saving || !hasUnsavedChanges}
+            className={hasUnsavedChanges && !saving ? 'animate-pulse shadow-lg shadow-primary/30' : ''}
+          >
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Schedule
+            {hasUnsavedChanges ? 'Save Schedule' : 'Saved'}
           </Button>
         </div>
       </CardContent>
