@@ -53,6 +53,35 @@ export default function KnowledgeChat() {
     }
   };
 
+  const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
+
+  const saveDraft = async (turn: ChatTurn) => {
+    if (!turn.draft || !activeConnection?.id || savingDraftId) return;
+    setSavingDraftId(turn.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-draft-to-provider', {
+        body: {
+          connection_id: activeConnection.id,
+          subject: turn.draft.subject,
+          body: turn.draft.body,
+          to: turn.draft.to ?? [],
+          cc: turn.draft.cc ?? [],
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const draftId = data?.id || data?.messageId || 'saved';
+      setTurns((prev) =>
+        prev.map((t) => (t.id === turn.id ? { ...t, draftSavedId: draftId } : t)),
+      );
+      toast.success('Draft saved to your mailbox. Open your email app to review and send.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save draft');
+    } finally {
+      setSavingDraftId(null);
+    }
+  };
+
   // Reset conversation when switching mode or workspace
   useEffect(() => {
     setConversationId(null);
