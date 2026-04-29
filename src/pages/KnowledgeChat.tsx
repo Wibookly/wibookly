@@ -130,6 +130,7 @@ export default function KnowledgeChat() {
           role: 'assistant',
           content: data?.reply || 'No response.',
           draft: data?.draft || null,
+          citations: Array.isArray(data?.citations) ? data.citations : [],
         },
       ]);
     } catch (e) {
