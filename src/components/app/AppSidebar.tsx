@@ -189,53 +189,42 @@ export function AppSidebar() {
             <NavItem href="/integrations" icon={Link2}>Email & Calendar Connections</NavItem>
           </NavSection>
 
-          {/* Email & Calendar Settings */}
-          <NavSection title="Email & Calendar Settings" icon={Cog} defaultOpen colorClass="text-indigo-500">
-            <NavItem href="/integrations?tab=settings" icon={Clock}>Availability & Calendar</NavItem>
-            <NavItem href="/categories" icon={Tag}>Email Categories</NavItem>
-          </NavSection>
-
-          {/* AI Settings - show if user has ai_draft or ai_auto_reply, or is super admin */}
-          {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
-            <NavSection title="AI Settings" icon={Sparkles} defaultOpen colorClass="text-purple-500">
-              {(isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
-                <>
-                  {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
-                    <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
-                  ) : (
-                    <>
-                      {(isSuperAdmin || hasFeature('ai_draft')) && (
-                        <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
-                      )}
-                      {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
-                        <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
-                      )}
-                    </>
-                  )}
-                  {/* AI Label Colors moved to the bottom of the AI Draft / Auto Reply Settings page */}
-                </>
-              )}
-            </NavSection>
-          )}
-
-          {/* AI Assistant - show section if user has Daily Brief or AI Chat, or is super admin */}
+          {/* AI Intelligence - was "AI Assistant"; now also includes Email Intelligence (categories) */}
           {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant') || hasFeature('feature.follow_up_reminder')) && (
-            <NavSection title="AI Assistant" icon={Bot} defaultOpen colorClass="text-cyan-500">
-              {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
+            <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
+              <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
               {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
-              {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>Follow-Up Reminder</NavItem>}
+              {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
             </NavSection>
           )}
 
-          {/* Settings */}
-          <NavSection title="Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
+          {/* My Settings - profile, signature, AI draft/auto-reply, availability */}
+          <NavSection title="My Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
             <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
+            {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
+              <>
+                {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
+                  <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
+                ) : (
+                  <>
+                    {(isSuperAdmin || hasFeature('ai_draft')) && (
+                      <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+                    )}
+                    {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
+                      <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            <NavItem href="/integrations?tab=settings" icon={Clock}>My Availability and Calendar</NavItem>
           </NavSection>
 
-          {/* Reports - show if user has reports or is super admin */}
-          {!featureLoading && (isSuperAdmin || hasFeature('reports')) && (
+          {/* Reports - AI Activity + My Daily Brief */}
+          {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
             <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-              <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>
+              {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>}
+              {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
             </NavSection>
           )}
 
