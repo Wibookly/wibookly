@@ -525,21 +525,26 @@ export default function KnowledgeChat() {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {t.citations.map((c, idx) => (
-                            <Badge
+                            <button
                               key={`${c.id ?? idx}-${idx}`}
-                              variant="outline"
+                              onClick={() => openCitation(c)}
+                              className="inline-flex"
                               title={c.snippet || c.title}
-                              className="gap-1 max-w-[260px] font-normal cursor-default"
                             >
-                              {c.type === 'email' ? (
-                                <Mail className="h-3 w-3 shrink-0" />
-                              ) : (
-                                <FileText className="h-3 w-3 shrink-0" />
-                              )}
-                              <span className="truncate text-xs">
-                                [{idx + 1}] {c.title}
-                              </span>
-                            </Badge>
+                              <Badge
+                                variant="outline"
+                                className="gap-1 max-w-[260px] font-normal cursor-pointer hover:bg-muted transition-colors"
+                              >
+                                {c.type === 'email' ? (
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                ) : (
+                                  <FileText className="h-3 w-3 shrink-0" />
+                                )}
+                                <span className="truncate text-xs">
+                                  [{idx + 1}] {c.title}
+                                </span>
+                              </Badge>
+                            </button>
                           ))}
                         </div>
                       </div>
