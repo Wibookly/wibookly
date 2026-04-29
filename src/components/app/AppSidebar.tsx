@@ -132,9 +132,9 @@ export function AppSidebar() {
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-40 w-auto object-contain shrink-0 -mt-4"
+          className="h-40 w-auto object-contain shrink-0 -mt-10"
         />
-        <InboxIQLogo className="text-2xl -mt-12 leading-none" />
+        <InboxIQLogo className="text-5xl -mt-14 leading-none" />
       </div>
 
       {/* Active Email Selector */}
