@@ -190,12 +190,9 @@ export function AppSidebar() {
           </NavSection>
 
           {/* AI Intelligence - was "AI Assistant"; now also includes Email Intelligence (categories) */}
-          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant') || hasFeature('feature.follow_up_reminder')) && (
+          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder')) && (
             <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
               <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
-              {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
-              <NavItem href="/knowledge" icon={BookOpen}>Knowledge Base</NavItem>
-              <NavItem href="/knowledge-chat" icon={Sparkles}>Knowledge Assistant</NavItem>
               {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
             </NavSection>
           )}

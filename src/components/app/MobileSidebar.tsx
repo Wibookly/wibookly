@@ -81,20 +81,11 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
             </NavLink>
           )}
 
-          {/* AI Assistant */}
-          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_assistant')) && (
-            <>
-              {(isSuperAdmin || hasFeature('daily_brief')) && (
-                <NavLink to="/ai-daily-brief" onClick={handleNavClick} className={navItemClass('/ai-daily-brief')}>
-                  <Sun className="w-4 h-4" /> Daily Brief
-                </NavLink>
-              )}
-              {(isSuperAdmin || hasFeature('ai_assistant')) && (
-                <NavLink to="/ai-chat" onClick={handleNavClick} className={navItemClass('/ai-chat')}>
-                  <MessageSquare className="w-4 h-4" /> AI Chat
-                </NavLink>
-              )}
-            </>
+          {/* Daily Brief */}
+          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief')) && (
+            <NavLink to="/ai-daily-brief" onClick={handleNavClick} className={navItemClass('/ai-daily-brief')}>
+              <Sun className="w-4 h-4" /> Daily Brief
+            </NavLink>
           )}
 
           {/* Reports */}
