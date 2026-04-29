@@ -25,6 +25,7 @@ import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 import Knowledge from "./pages/Knowledge";
+import KnowledgeChat from "./pages/KnowledgeChat";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/knowledge" element={<Knowledge />} />
+                  <Route path="/knowledge-chat" element={<KnowledgeChat />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
