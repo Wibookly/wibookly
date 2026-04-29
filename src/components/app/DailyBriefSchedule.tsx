@@ -513,6 +513,7 @@ export function DailyBriefSchedule() {
                     {(() => {
                       const savedTime = s.morningEnabled ? s.morningTime : (s.eveningEnabled ? s.eveningTime : '');
                       const isMorning = savedTime ? getBriefTone(savedTime) === 'morning' : false;
+                      const persisted = isSchedulePersisted(s);
                       return (
                     <div className="flex items-center gap-3 p-3">
                       <Switch
