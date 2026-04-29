@@ -257,6 +257,8 @@ Deno.serve(async (req) => {
     let final: any = null;
     let lastUsage: any = null;
     let draft: any = null;
+    const citations: any[] = [];
+    const seenCitationKeys = new Set<string>();
 
     for (let step = 0; step < maxSteps; step++) {
       const llmResp = await callGateway(authHeader, {
