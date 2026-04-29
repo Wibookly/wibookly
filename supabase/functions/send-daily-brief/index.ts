@@ -812,8 +812,18 @@ serve(async (req) => {
           : `🌙 Your End-of-Day Recap — ${nw.date}`;
       const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
 
+      // Build PDF attachment so executives can print/read offline.
+      let pdfAttachments: Array<{ name: string; contentType: string; bytes: Uint8Array }> = [];
       try {
-        await sendGraphEmail(token, fromUserId, recipient, subject, html);
+        const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
+        const pdfName = `InboxIQ-Daily-Brief-${nw.date}.pdf`;
+        pdfAttachments = [{ name: pdfName, contentType: "application/pdf", bytes: pdfBytes }];
+      } catch (e) {
+        console.error("PDF generation failed (sending email without attachment)", e);
+      }
+
+      try {
+        await sendGraphEmail(token, fromUserId, recipient, subject, html, pdfAttachments);
         sent++;
         await supabase
           .from("daily_brief_schedules")
