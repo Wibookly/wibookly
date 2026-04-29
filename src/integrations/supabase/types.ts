@@ -2344,6 +2344,38 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _email: string }; Returns: boolean }
+      match_email_messages: {
+        Args: {
+          match_count?: number
+          p_connection_id: string
+          p_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          body_clean: string
+          from_email: string
+          id: string
+          sent_at: string
+          similarity: number
+          subject: string
+          thread_id: string
+        }[]
+      }
+      match_knowledge_chunks: {
+        Args: {
+          match_count?: number
+          p_connection_id: string
+          p_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          document_id: string
+          id: string
+          similarity: number
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
