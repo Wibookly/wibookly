@@ -193,21 +193,6 @@ async function replyToMessage(
   }
 }
 
-async function buildCompanyContext(organizationId: string): Promise<string> {
-  // Lightweight org snapshot — only included as a small footer so the agent
-  // can still answer "what's connected" / "what categories exist" if asked.
-  const [{ data: cats }, { data: connections }] = await Promise.all([
-    supabase.from('categories').select('name,is_enabled').eq('organization_id', organizationId).limit(50),
-    supabase.from('provider_connections').select('connected_email,provider,is_connected').eq('organization_id', organizationId).limit(50),
-  ]);
-
-  const lines: string[] = [];
-  lines.push(`Connected mailboxes (${connections?.length ?? 0}):`);
-  (connections ?? []).forEach((c) => lines.push(`  - ${c.connected_email} (${c.provider})`));
-  lines.push(`Email categories (${cats?.length ?? 0}): ${(cats ?? []).map((c) => c.name).join(', ')}`);
-  return lines.join('\n');
-}
-
 interface ThreadMsg {
   from?: { emailAddress?: { address?: string; name?: string } };
   toRecipients?: { emailAddress?: { address?: string } }[];
