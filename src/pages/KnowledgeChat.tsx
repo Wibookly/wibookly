@@ -7,16 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, Loader2, Sparkles, Mail, FileText, RefreshCw } from 'lucide-react';
+import { Send, Loader2, Sparkles, Mail, FileText, RefreshCw, Inbox, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type AgentMode = 'qa' | 'email_draft';
 
 interface ChatTurn {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   draft?: { subject: string; body: string; to?: string[]; cc?: string[] } | null;
+  draftSavedId?: string | null;
 }
 
 export default function KnowledgeChat() {
@@ -51,6 +53,35 @@ export default function KnowledgeChat() {
     }
   };
 
+  const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
+
+  const saveDraft = async (turn: ChatTurn) => {
+    if (!turn.draft || !activeConnection?.id || savingDraftId) return;
+    setSavingDraftId(turn.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-draft-to-provider', {
+        body: {
+          connection_id: activeConnection.id,
+          subject: turn.draft.subject,
+          body: turn.draft.body,
+          to: turn.draft.to ?? [],
+          cc: turn.draft.cc ?? [],
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const draftId = data?.id || data?.messageId || 'saved';
+      setTurns((prev) =>
+        prev.map((t) => (t.id === turn.id ? { ...t, draftSavedId: draftId } : t)),
+      );
+      toast.success('Draft saved to your mailbox. Open your email app to review and send.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save draft');
+    } finally {
+      setSavingDraftId(null);
+    }
+  };
+
   // Reset conversation when switching mode or workspace
   useEffect(() => {
     setConversationId(null);
@@ -66,7 +97,7 @@ export default function KnowledgeChat() {
     }
 
     setInput('');
-    setTurns((prev) => [...prev, { role: 'user', content: message }]);
+    setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content: message }]);
     setBusy(true);
 
     try {
@@ -84,6 +115,7 @@ export default function KnowledgeChat() {
       setTurns((prev) => [
         ...prev,
         {
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: data?.reply || 'No response.',
           draft: data?.draft || null,
@@ -92,7 +124,7 @@ export default function KnowledgeChat() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Request failed';
       toast.error(msg);
-      setTurns((prev) => [...prev, { role: 'assistant', content: `Error: ${msg}` }]);
+      setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: `Error: ${msg}` }]);
     } finally {
       setBusy(false);
     }
@@ -202,6 +234,24 @@ export default function KnowledgeChat() {
                         )}
                         <div className="text-sm font-medium">{t.draft.subject}</div>
                         <div className="text-sm whitespace-pre-wrap">{t.draft.body}</div>
+                        <div className="pt-1">
+                          <Button
+                            size="sm"
+                            variant={t.draftSavedId ? 'secondary' : 'default'}
+                            onClick={() => saveDraft(t)}
+                            disabled={!!t.draftSavedId || savingDraftId === t.id || !activeConnection?.id}
+                            className="gap-1.5"
+                          >
+                            {savingDraftId === t.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : t.draftSavedId ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Inbox className="h-3.5 w-3.5" />
+                            )}
+                            {t.draftSavedId ? 'Saved to Drafts' : 'Save to Drafts'}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
