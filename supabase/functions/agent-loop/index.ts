@@ -110,7 +110,7 @@ interface ToolResult {
 // ────────────────────────────────────────────────────────────────────
 // OpenAI Responses API path with native web_search + doc tools
 // ────────────────────────────────────────────────────────────────────
-async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace']) {
+async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], model: string = OPENAI_PRIMARY_MODEL) {
   const tools: any[] = [
     { type: 'web_search' }, // OpenAI built-in
     ...DOC_TOOLS_OPENAI.map((t) => ({
