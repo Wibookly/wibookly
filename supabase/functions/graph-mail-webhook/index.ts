@@ -63,7 +63,7 @@ async function fetchMessage(token: string, mailboxUserId: string, messageId: str
 async function fetchConversation(token: string, mailboxUserId: string, conversationId: string, take = 10) {
   try {
     const res = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages?$filter=${encodeURIComponent(`conversationId eq '${conversationId}'`)}&$orderby=receivedDateTime asc&$top=${take}&$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,receivedDateTime`,
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages?$filter=${encodeURIComponent(`conversationId eq '${conversationId}'`)}&$top=${take}&$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,receivedDateTime`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) {
@@ -71,7 +71,14 @@ async function fetchConversation(token: string, mailboxUserId: string, conversat
       return [];
     }
     const data = await res.json();
-    return Array.isArray(data?.value) ? data.value : [];
+    const rows = Array.isArray(data?.value) ? data.value : [];
+    return rows
+      .sort((a, b) => {
+        const aTs = Date.parse(a?.receivedDateTime ?? '') || 0;
+        const bTs = Date.parse(b?.receivedDateTime ?? '') || 0;
+        return aTs - bTs;
+      })
+      .slice(0, take);
   } catch (e) {
     console.warn('fetchConversation error', e);
     return [];
@@ -515,6 +522,15 @@ async function processNotification(n: GraphNotification) {
   } catch (e) { console.error('usage log failed', e); }
 }
 
+function runInBackground(work: Promise<unknown>) {
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(work);
+    return;
+  }
+  work.catch((e) => console.error('background task error', e));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -531,14 +547,16 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const notifications: GraphNotification[] = body.value ?? [];
-    // Process sequentially; Graph allows up to 30s response time
-    for (const n of notifications) {
-      try {
-        await processNotification(n);
-      } catch (e) {
-        console.error('processNotification error', e);
+    runInBackground((async () => {
+      for (const n of notifications) {
+        try {
+          await processNotification(n);
+        } catch (e) {
+          console.error('processNotification error', e);
+        }
       }
-    }
+    })());
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 202,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
