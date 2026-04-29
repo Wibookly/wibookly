@@ -36,8 +36,9 @@ const OPENAI_PRIMARY_MODEL = 'gpt-4.1';
 const OPENAI_FALLBACK_MODEL = 'gpt-4o';
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
-const MAX_ITERATIONS = 15;
-const MAX_WALL_MS = 5 * 60 * 1000;
+const MAX_ITERATIONS = 8;
+const MAX_WALL_MS = 100 * 1000;
+const REQUEST_SAFETY_MS = 4_000;
 const MAX_ATTACHMENTS = 24;
 
 interface AgentRequest {
@@ -62,6 +63,74 @@ interface AgentResult {
   completion_tokens: number;
   used_web_search: boolean;
   trace: { step: number; type: string; detail?: string }[];
+}
+
+interface RunContext {
+  deadlineAt: number;
+  webSearchEnabled: boolean;
+  maxAttachments: number;
+}
+
+function normalizeTaskText(req: AgentRequest): string {
+  return [req.subject ?? '', req.task ?? '', req.thread_context ?? '']
+    .join('\n')
+    .toLowerCase();
+}
+
+function explicitlyRequestsMultipleFormats(text: string): boolean {
+  const formatHits = [
+    /\bpdf\b/,
+    /\bdocx\b/,
+    /\bword\b/,
+    /\bxlsx\b/,
+    /\bexcel\b/,
+    /\bpptx\b/,
+    /\bpowerpoint\b/,
+    /\bslides\b/,
+    /\bdeck\b/,
+  ].filter((pattern) => pattern.test(text)).length;
+
+  return formatHits >= 2 || /\bboth\b|\ball\s+formats\b|\bmultiple\s+formats\b/.test(text);
+}
+
+function buildRunContext(req: AgentRequest): RunContext {
+  const text = normalizeTaskText(req);
+  const wantsMultipleFormats = explicitlyRequestsMultipleFormats(text);
+  const usesDummyData = /\bdummy\b|\bexample\b|\bsample\b|\billustrative\b|\bhypothetical\b/.test(text);
+
+  return {
+    deadlineAt: Date.now() + MAX_WALL_MS,
+    webSearchEnabled: !usesDummyData,
+    maxAttachments: req.channel === 'email' && !wantsMultipleFormats ? 2 : 4,
+  };
+}
+
+function getRemainingMs(ctx: RunContext): number {
+  return ctx.deadlineAt - Date.now();
+}
+
+function createDeadlineError(label: string): Error {
+  return new Error(`${label}_deadline_exceeded`);
+}
+
+function isQuotaError(message: string): boolean {
+  return /insufficient_quota|quota|429/.test(message.toLowerCase());
+}
+
+function buildFailureReplyHtml(errors: { stage: string; error: string }[]): string {
+  const combined = errors.map((e) => `${e.stage}: ${e.error}`).join(' | ').toLowerCase();
+  const isTimeout = /idle_timeout|deadline_exceeded|timed out|wall_clock_exceeded/.test(combined);
+  const isQuota = isQuotaError(combined);
+
+  if (isQuota) {
+    return '<p>Hi,</p><p>I could not finish this request because the primary AI provider account hit its usage limit during processing.</p><p>Please try again shortly, or reply asking for a smaller first pass in one format only.</p>';
+  }
+
+  if (isTimeout) {
+    return '<p>Hi,</p><p>I started your request, but it exceeded the email agent time budget before I could finish the deliverable.</p><p>Please reply with the first format you want me to produce only (PDF, DOCX, XLSX, or PPTX), and I will generate that first.</p>';
+  }
+
+  return '<p>Hi,</p><p>I ran into an issue while preparing your deliverable and could not complete it in this pass.</p><p>Please reply with a narrower first step and I will continue from there.</p>';
 }
 
 const SYSTEM_PROMPT = `You are InboxIQ Agent — an executive AI middleware.
