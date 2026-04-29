@@ -187,7 +187,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         <Lock className="w-4 h-4" />
         <AlertTitle>Feature locked</AlertTitle>
         <AlertDescription>
-          Follow-Up Reminder is not enabled for your group. Ask your admin to enable
+          No Reply Tracker is not enabled for your group. Ask your admin to enable
           <strong> feature.follow_up_reminder</strong> in Admin → Groups.
         </AlertDescription>
       </Alert>
@@ -200,7 +200,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         <AlertTriangle className="w-4 h-4" />
         <AlertTitle>Connect a mailbox first</AlertTitle>
         <AlertDescription>
-          Go to <strong>Integrations</strong> and connect your Outlook account to enable Follow-Up Reminder.
+          Go to <strong>Integrations</strong> and connect your Outlook account to enable No Reply Tracker.
         </AlertDescription>
       </Alert>
     );
