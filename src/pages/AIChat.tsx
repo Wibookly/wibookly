@@ -233,67 +233,26 @@ export default function AIChat() {
         { role: 'user' as const, content: userMessage }
       ];
 
-      // Call edge function
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
+      // Call edge function (non-streaming JSON for reliability through preview proxy)
+      const { data, error: invokeError } = await supabase.functions.invoke('ai-assistant-chat', {
+        body: {
           messages: apiMessages,
           connectionId: activeConnection?.id,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response');
-      }
+      if (invokeError) throw new Error(invokeError.message || 'Failed to get response');
+      if (data?.error) throw new Error(data.error);
 
-      // Stream response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = '';
-      let textBuffer = '';
+      const fullContent: string = data?.content || '';
 
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Show full content as the streaming buffer (so existing UI works)
+      setStreamingContent(fullContent);
 
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              fullContent += content;
-              setStreamingContent(fullContent);
-              
-              // Parse email results as they come in
-              const emails = parseEmailResults(fullContent);
-              if (emails.length > 0) {
-                setEmailResults(emails);
-              }
-            }
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
-        }
+      // Parse email results
+      const emails = parseEmailResults(fullContent);
+      if (emails.length > 0) {
+        setEmailResults(emails);
       }
 
       // Save assistant message (clean version without email tags)
