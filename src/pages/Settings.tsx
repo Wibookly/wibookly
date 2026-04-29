@@ -304,7 +304,7 @@ export default function Settings() {
         phone: data.phone || '',
         mobile: data.mobile || '',
         website: data.website || '',
-        signatureLogoUrl: data.signature_logo_url || orgLogoUrl || '',
+        signatureLogoUrl: data.signature_logo_url || orgLogoUrl || DEFAULT_COMPANY_LOGO_URL,
         // Prefer the per-account override; fall back to the M365 photo we
         // pulled into the user profile so signatures default to the same
         // image the rest of the app shows.
