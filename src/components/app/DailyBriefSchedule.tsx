@@ -218,9 +218,12 @@ export function DailyBriefSchedule() {
           name: autoName(s),
         }));
         setSchedules(list);
+        setSavedSnapshot(snapshotKey(list, first.timezone || timezone, first.recipient_email || ''));
       } else {
-        setRecipient(activeConnection?.email || profile?.email || '');
-        // Start with one sensible default
+        const initialRecipient = activeConnection?.email || profile?.email || '';
+        setRecipient(initialRecipient);
+        // Start with one sensible default — but mark snapshot as empty
+        // so the user sees an "unsaved" indicator until they Save.
         setSchedules([{
           id: genId(),
           name: 'Weekday brief',
@@ -231,6 +234,7 @@ export function DailyBriefSchedule() {
           eveningEnabled: false,
           eveningTime: '17:00',
         }]);
+        setSavedSnapshot('[]');
       }
 
       setLoading(false);
