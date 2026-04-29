@@ -875,7 +875,7 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
           </div>
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              Follow-Ups Awaiting Reply
+              No Reply Tracker
               {items && items.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
                   {items.length}
@@ -888,7 +888,7 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
               )}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Emails you sent (BCC'd to a follow-up alias) that haven't received a reply yet.
+              Sent emails (BCC'd to a tracker alias) that haven't received a reply yet.
             </p>
           </div>
         </div>
@@ -904,7 +904,7 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
           <Skeleton className="h-24 w-full" />
         ) : !items || items.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            No follow-ups waiting for a reply. 🎉
+            No emails awaiting a reply. 🎉
           </p>
         ) : (
           <div className="space-y-2">
