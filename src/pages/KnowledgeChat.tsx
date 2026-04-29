@@ -585,6 +585,70 @@ export default function KnowledgeChat() {
         </Button>
       </div>
       </div>
+
+      <Sheet open={!!activeCitation} onOpenChange={(o) => !o && setActiveCitation(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          {activeCitation && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2 text-base">
+                  {activeCitation.type === 'email' ? (
+                    <Mail className="h-4 w-4 text-primary" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-primary" />
+                  )}
+                  <span className="truncate">{activeCitation.title}</span>
+                </SheetTitle>
+                <SheetDescription className="text-xs">
+                  {activeCitation.from && <span>From {activeCitation.from} · </span>}
+                  {activeCitation.sent_at && (
+                    <span>{new Date(activeCitation.sent_at).toLocaleString()}</span>
+                  )}
+                  {typeof activeCitation.similarity === 'number' && (
+                    <span className="ml-1">
+                      · {Math.round(activeCitation.similarity * 100)}% match
+                    </span>
+                  )}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-4">
+                {citationDetail.loading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                  </div>
+                ) : citationDetail.thread && citationDetail.thread.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Thread ({citationDetail.thread.length} message{citationDetail.thread.length === 1 ? '' : 's'})
+                    </div>
+                    {citationDetail.thread.map((m, i) => (
+                      <div key={i} className="border rounded-md p-3 bg-card">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className="text-xs font-medium truncate">{m.from_email || 'Unknown'}</div>
+                          <div className="text-[10px] text-muted-foreground shrink-0">
+                            {m.sent_at ? new Date(m.sent_at).toLocaleString() : ''}
+                          </div>
+                        </div>
+                        {m.subject && (
+                          <div className="text-xs text-muted-foreground mb-1.5 truncate">{m.subject}</div>
+                        )}
+                        <div className="text-xs whitespace-pre-wrap leading-relaxed">
+                          {m.body_clean ?? '(no content)'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed border rounded-md p-3 bg-card">
+                    {citationDetail.body || activeCitation.snippet || 'No content available.'}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
