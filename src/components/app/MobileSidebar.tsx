@@ -64,7 +64,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
             <Link2 className="w-4 h-4" /> Email & Calendar
           </NavLink>
           <NavLink to="/categories" onClick={handleNavClick} className={navItemClass('/categories')}>
-            <Tag className="w-4 h-4" /> Categories
+            <Tag className="w-4 h-4" /> Email Intelligence
           </NavLink>
 
           {/* AI Draft */}
