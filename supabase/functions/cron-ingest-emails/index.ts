@@ -16,13 +16,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // Lightweight authorization: must present the service role key OR cron secret.
-    const apikey = req.headers.get("apikey") || req.headers.get("x-cron-key") || "";
-    const auth = req.headers.get("authorization") || "";
+    // This function is intended to be triggered only by pg_cron via net.http_post.
+    // pg_net runs inside the Supabase project, so we accept the project anon key
+    // in the apikey header (the standard Lovable cron pattern). Optionally a
+    // CRON_SECRET in the body provides an extra check.
+    const apikey = req.headers.get("apikey") || "";
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const isAuthorized =
       apikey === SERVICE_ROLE_KEY ||
-      auth === `Bearer ${SERVICE_ROLE_KEY}` ||
-      apikey === Deno.env.get("CRON_SECRET");
+      apikey === ANON_KEY;
     if (!isAuthorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
