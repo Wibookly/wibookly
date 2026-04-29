@@ -405,6 +405,60 @@ export default function AIDailyBrief() {
         </div>
       </div>
 
+      {/* AI Analysis moved above follow-ups */}
+      {brief?.aiAnalysis && (
+        <Card className="mb-6 border-indigo-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-indigo-600" />
+              AI Analysis — What to do first
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => handlePrint('all')}>
+              <Printer className="w-4 h-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {brief.aiAnalysis.headline && (
+              <p className="text-sm font-semibold text-foreground">{brief.aiAnalysis.headline}</p>
+            )}
+            {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
+              <ol className="space-y-2">
+                {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
+                  <li key={i} className="flex gap-3 p-3 bg-background/70 rounded-lg border border-indigo-100">
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                      {item.step ?? i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{item.action}</p>
+                      {item.why && <p className="text-xs text-muted-foreground mt-0.5">{item.why}</p>}
+                      {item.estimatedMinutes && (
+                        <p className="text-xs text-indigo-600 font-medium mt-1">⏱ ~{item.estimatedMinutes} min</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
+              <div className="p-3 bg-destructive/10 border-l-4 border-destructive rounded">
+                <p className="text-xs font-bold text-destructive uppercase mb-1">⚠️ At Risk</p>
+                <ul className="text-sm text-destructive list-disc pl-5 space-y-0.5">
+                  {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+            {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
+              <div className="p-3 bg-emerald-500/10 border-l-4 border-emerald-500 rounded">
+                <p className="text-xs font-bold text-emerald-700 uppercase mb-1">✨ Quick Wins</p>
+                <ul className="text-sm text-emerald-700 list-disc pl-5 space-y-0.5">
+                  {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
       {isLoading ? (
