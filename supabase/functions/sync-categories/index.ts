@@ -926,36 +926,60 @@ async function deleteOutlookFolder(
 // color, then tag every message that lives inside the folder with it so
 // the colored stripe shows next to the email subject in Outlook.
 // ────────────────────────────────────────────────────────────────────────
+// Hex values below are the colors Outlook actually RENDERS for each preset
+// across Web, Desktop, and Mobile (iOS/Android) — sourced from the official
+// Outlook category color swatches. Using these values (instead of arbitrary
+// approximations) makes the nearest-color match align with what users see on
+// every Outlook client, including iPhone where the palette is most limited.
 const OUTLOOK_PRESET_COLORS: Array<{
   preset: string;
   hex: [number, number, number];
 }> = [
-  { preset: "preset0", hex: [0xe7, 0x4c, 0x3c] },
-  { preset: "preset1", hex: [0xe6, 0x7e, 0x22] },
-  { preset: "preset2", hex: [0xc1, 0x9a, 0x6b] },
-  { preset: "preset3", hex: [0xf1, 0xc4, 0x0f] },
-  { preset: "preset4", hex: [0x2e, 0xcc, 0x71] },
-  { preset: "preset5", hex: [0x16, 0xa0, 0x85] },
-  { preset: "preset6", hex: [0x95, 0xa5, 0xa6] },
-  { preset: "preset7", hex: [0x34, 0x98, 0xdb] },
-  { preset: "preset8", hex: [0x9b, 0x59, 0xb6] },
-  { preset: "preset9", hex: [0xe8, 0x4f, 0x9c] },
-  { preset: "preset10", hex: [0x7f, 0x8c, 0x8d] },
-  { preset: "preset11", hex: [0x2c, 0x3e, 0x50] },
-  { preset: "preset12", hex: [0xbd, 0xc3, 0xc7] },
-  { preset: "preset13", hex: [0x34, 0x49, 0x5e] },
-  { preset: "preset14", hex: [0x00, 0x00, 0x00] },
-  { preset: "preset15", hex: [0xc0, 0x39, 0x2b] },
-  { preset: "preset16", hex: [0xd3, 0x54, 0x00] },
-  { preset: "preset17", hex: [0x8b, 0x4f, 0x2f] },
-  { preset: "preset18", hex: [0xb7, 0x95, 0x0b] },
-  { preset: "preset19", hex: [0x27, 0xae, 0x60] },
-  { preset: "preset20", hex: [0x0e, 0x80, 0x68] },
-  { preset: "preset21", hex: [0x6b, 0x6f, 0x39] },
-  { preset: "preset22", hex: [0x21, 0x6f, 0xa8] },
-  { preset: "preset23", hex: [0x71, 0x36, 0x8a] },
-  { preset: "preset24", hex: [0xad, 0x14, 0x57] },
+  { preset: "preset0", hex: [0xe8, 0x11, 0x23] }, // Red
+  { preset: "preset1", hex: [0xf7, 0x63, 0x0c] }, // Orange
+  { preset: "preset2", hex: [0x85, 0x57, 0x23] }, // Brown
+  { preset: "preset3", hex: [0xff, 0xb9, 0x00] }, // Yellow
+  { preset: "preset4", hex: [0x49, 0x82, 0x05] }, // Green
+  { preset: "preset5", hex: [0x00, 0xb2, 0x94] }, // Teal
+  { preset: "preset6", hex: [0x7a, 0x75, 0x74] }, // Olive
+  { preset: "preset7", hex: [0x00, 0x78, 0xd4] }, // Blue
+  { preset: "preset8", hex: [0x5c, 0x2d, 0x91] }, // Purple
+  { preset: "preset9", hex: [0xe3, 0x00, 0x8c] }, // Cranberry / Pink
+  { preset: "preset10", hex: [0x51, 0x5c, 0x6b] }, // Steel
+  { preset: "preset11", hex: [0x4a, 0x54, 0x59] }, // DarkSteel
+  { preset: "preset12", hex: [0x69, 0x79, 0x7e] }, // Gray
+  { preset: "preset13", hex: [0x39, 0x39, 0x39] }, // DarkGray
+  { preset: "preset14", hex: [0x00, 0x00, 0x00] }, // Black
+  { preset: "preset15", hex: [0xa4, 0x26, 0x2c] }, // DarkRed
+  { preset: "preset16", hex: [0xca, 0x50, 0x10] }, // DarkOrange
+  { preset: "preset17", hex: [0x4c, 0x2a, 0x0a] }, // DarkBrown
+  { preset: "preset18", hex: [0xc1, 0x9c, 0x00] }, // DarkYellow
+  { preset: "preset19", hex: [0x0b, 0x6a, 0x0b] }, // DarkGreen
+  { preset: "preset20", hex: [0x03, 0x83, 0x87] }, // DarkTeal
+  { preset: "preset21", hex: [0x52, 0x5c, 0x36] }, // DarkOlive
+  { preset: "preset22", hex: [0x00, 0x3f, 0x87] }, // DarkBlue
+  { preset: "preset23", hex: [0x32, 0x14, 0x5a] }, // DarkPurple
+  { preset: "preset24", hex: [0x5c, 0x00, 0x5c] }, // DarkCranberry
 ];
+
+// Perceptual color distance using weighted RGB (approximates CIE76 well enough
+// for palette matching while staying dependency-free). Gives much better
+// hue-matching than plain Euclidean — important for distinguishing the
+// multiple blues/purples Outlook ships in its preset palette.
+function colorDistance(
+  a: [number, number, number],
+  b: [number, number, number],
+): number {
+  const rmean = (a[0] + b[0]) / 2;
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  return (
+    (((512 + rmean) * dr * dr) >> 8) +
+    4 * dg * dg +
+    (((767 - rmean) * db * db) >> 8)
+  );
+}
 
 function hexToRgb(hex: string): [number, number, number] | null {
   const m = hex.replace("#", "").match(/^([0-9a-f]{6})$/i);
