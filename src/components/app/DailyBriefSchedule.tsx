@@ -141,6 +141,11 @@ export function DailyBriefSchedule() {
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Snapshot of what's actually persisted in the DB. We compare the
+  // current `schedules` against this to detect unsaved changes so the
+  // user gets a clear visual cue (and we never show "ACTIVE" for a
+  // schedule that only exists in local state).
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('[]');
 
   const detectedTz = (() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
