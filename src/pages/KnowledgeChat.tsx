@@ -218,6 +218,7 @@ export default function KnowledgeChat() {
           citations: Array.isArray(data?.citations) ? data.citations : [],
         },
       ]);
+      loadConversations();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Request failed';
       toast.error(msg);
