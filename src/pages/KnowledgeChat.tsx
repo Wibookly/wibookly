@@ -234,6 +234,24 @@ export default function KnowledgeChat() {
                         )}
                         <div className="text-sm font-medium">{t.draft.subject}</div>
                         <div className="text-sm whitespace-pre-wrap">{t.draft.body}</div>
+                        <div className="pt-1">
+                          <Button
+                            size="sm"
+                            variant={t.draftSavedId ? 'secondary' : 'default'}
+                            onClick={() => saveDraft(t)}
+                            disabled={!!t.draftSavedId || savingDraftId === t.id || !activeConnection?.id}
+                            className="gap-1.5"
+                          >
+                            {savingDraftId === t.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : t.draftSavedId ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Inbox className="h-3.5 w-3.5" />
+                            )}
+                            {t.draftSavedId ? 'Saved to Drafts' : 'Save to Drafts'}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
