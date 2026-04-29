@@ -381,6 +381,9 @@ export function DailyBriefSchedule() {
           .insert(rows as never);
         if (error) throw error;
       }
+      // Update the snapshot to reflect what's now persisted so the
+      // "unsaved changes" indicator clears immediately.
+      setSavedSnapshot(snapshotKey(schedules, timezone, recipient));
       if (!opts?.silent) toast.success('Daily Brief schedule saved');
     } catch (e) {
       console.error(e);
@@ -390,11 +393,37 @@ export function DailyBriefSchedule() {
     }
   };
 
+  const currentSnapshot = useMemo(
+    () => snapshotKey(schedules, timezone, recipient),
+    [schedules, timezone, recipient],
+  );
+  const hasUnsavedChanges = currentSnapshot !== savedSnapshot;
+  // Set of (days+times) signatures that ARE persisted in the DB. We use
+  // this to decide whether each row should show "ACTIVE" or "UNSAVED".
+  const savedSignatures = useMemo(() => {
+    try {
+      const parsed = JSON.parse(savedSnapshot) as { norm?: Array<{ d: number[]; m: string | null; e: string | null }> };
+      return new Set((parsed.norm || []).map(n => JSON.stringify(n)));
+    } catch {
+      return new Set<string>();
+    }
+  }, [savedSnapshot]);
+  const isSchedulePersisted = (s: Schedule): boolean => {
+    if (!s.enabled || s.days.length === 0 || (!s.morningEnabled && !s.eveningEnabled)) return false;
+    const sig = JSON.stringify({
+      d: [...s.days].sort(),
+      m: s.morningEnabled ? s.morningTime : null,
+      e: s.eveningEnabled ? s.eveningTime : null,
+    });
+    return savedSignatures.has(sig);
+  };
+
   const summary = useMemo(() => {
     const active = schedules.filter(s => s.enabled && s.days.length > 0 && (s.morningEnabled || s.eveningEnabled));
     if (active.length === 0) return 'No schedules set';
-    return `${active.length} schedule${active.length === 1 ? '' : 's'} set up`;
-  }, [schedules]);
+    const base = `${active.length} schedule${active.length === 1 ? '' : 's'} set up`;
+    return hasUnsavedChanges ? `${base} · unsaved changes` : base;
+  }, [schedules, hasUnsavedChanges]);
 
   if (loading) {
     return (
