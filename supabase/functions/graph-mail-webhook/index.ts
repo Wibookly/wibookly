@@ -63,7 +63,7 @@ async function fetchMessage(token: string, mailboxUserId: string, messageId: str
 async function fetchConversation(token: string, mailboxUserId: string, conversationId: string, take = 10) {
   try {
     const res = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages?$filter=${encodeURIComponent(`conversationId eq '${conversationId}'`)}&$orderby=receivedDateTime asc&$top=${take}&$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,receivedDateTime`,
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages?$filter=${encodeURIComponent(`conversationId eq '${conversationId}'`)}&$top=${take}&$select=id,subject,from,toRecipients,ccRecipients,body,bodyPreview,receivedDateTime`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) {
@@ -71,7 +71,14 @@ async function fetchConversation(token: string, mailboxUserId: string, conversat
       return [];
     }
     const data = await res.json();
-    return Array.isArray(data?.value) ? data.value : [];
+    const rows = Array.isArray(data?.value) ? data.value : [];
+    return rows
+      .sort((a, b) => {
+        const aTs = Date.parse(a?.receivedDateTime ?? '') || 0;
+        const bTs = Date.parse(b?.receivedDateTime ?? '') || 0;
+        return aTs - bTs;
+      })
+      .slice(0, take);
   } catch (e) {
     console.warn('fetchConversation error', e);
     return [];
@@ -319,10 +326,9 @@ async function processNotification(n: GraphNotification) {
       external_message_id: claimKey,
       status: 'processing',
       content: 'claim',
+      metadata: { phase: 'claimed', graph_message_id: messageId },
     });
   if (claimError) {
-    // Duplicate delivery (unique violation) or transient db error — either
-    // way, do NOT process this notification a second time.
     console.log(`Skipping duplicate Graph notification for ${messageId}: ${claimError.message}`);
     return;
   }
@@ -333,15 +339,8 @@ async function processNotification(n: GraphNotification) {
   const senderEmail: string = msg.from?.emailAddress?.address?.toLowerCase() ?? '';
   const senderDomain = senderEmail.split('@')[1] ?? '';
 
-  // Determine allowed domains: prefer agent_settings.allowed_sender_domains, else fall back to allowed_domains for this org
   let allowedDomains: string[] = (settings.allowed_sender_domains ?? []).map((d: string) => d.toLowerCase());
   if (allowedDomains.length === 0) {
-    const { data: domains } = await supabase
-      .from('allowed_domains')
-      .select('domain')
-      .eq('is_active', true);
-    // We have no organization linkage on allowed_domains in this query; restrict by org via organization_name match through user_profiles
-    // Simpler: collect domains tied to this org via user_profiles emails.
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('email')
@@ -356,8 +355,7 @@ async function processNotification(n: GraphNotification) {
 
   const isAllowed = allowedDomains.includes(senderDomain);
 
-  // Log inbound
-  const { data: inbound } = await supabase
+  const { data: inbound, error: inboundError } = await supabase
     .from('agent_messages')
     .insert({
       organization_id: settings.organization_id,
@@ -369,36 +367,33 @@ async function processNotification(n: GraphNotification) {
       content: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 4000),
       external_message_id: `inbound:${msg.internetMessageId ?? messageId}`,
       conversation_id: msg.conversationId ?? null,
-      status: isAllowed ? 'received' : 'rejected',
+      status: isAllowed ? 'queued' : 'rejected',
       rejected_reason: isAllowed ? null : 'sender_domain_not_allowed',
-      metadata: { allowed_domains: allowedDomains },
+      metadata: { allowed_domains: allowedDomains, graph_message_id: messageId },
     })
     .select('id')
     .single();
 
+  if (inboundError) throw inboundError;
+
+  const markClaim = async (status: string, extra: Record<string, unknown> = {}) => {
+    await supabase
+      .from('agent_messages')
+      .update({
+        status,
+        rejected_reason: Object.prototype.hasOwnProperty.call(extra, 'rejected_reason') ? (extra.rejected_reason as string | null) : null,
+        metadata: { graph_message_id: messageId, ...extra },
+      })
+      .eq('organization_id', settings.organization_id)
+      .eq('external_message_id', claimKey);
+  };
+
   if (!isAllowed) {
     console.log(`Rejected email from ${senderEmail} — domain not in allowed list`);
+    await markClaim('rejected', { sender_email: senderEmail, rejected_reason: 'sender_domain_not_allowed' });
     return;
   }
 
-  // ──────────────────────────────────────────────────────────────────
-  // Follow-up / silent-tracking guard.
-  // The user CCs / BCCs aliases like "2@<their-domain>", "3@", "5@",
-  // "7@", "10@", "14@" so that cron-follow-ups can schedule a reminder
-  // N days later. These aliases forward to the shared agent mailbox.
-  // The user does NOT want the agent to auto-reply to those tracking
-  // emails — the only reply they expect is the AI-drafted follow-up
-  // produced by cron-follow-ups when the timer fires.
-  //
-  // Detection (BCC-aware — Microsoft Graph hides BCC fields on the
-  // delivered copy, so we can't read bccRecipients reliably):
-  //   1. If ANY visible to/cc recipient matches the follow-up alias
-  //      pattern (N@<allowed-domain>, N ∈ {2,3,5,7,10,14}) → skip.
-  //   2. Otherwise, if the agent mailbox address is NOT in the visible
-  //      to/cc list, the agent was BCC'd (silent recipient) → skip.
-  //   3. The agent only auto-replies when it's an explicit to/cc
-  //      recipient AND no follow-up alias is involved.
-  // ──────────────────────────────────────────────────────────────────
   const FOLLOWUP_BUCKETS = new Set(['2', '3', '5', '7', '10', '14']);
   const visibleRecipientAddrs: string[] = [
     ...((msg.toRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
@@ -415,8 +410,7 @@ async function processNotification(n: GraphNotification) {
   });
 
   const agentAddr = (settings.shared_mailbox_address ?? '').toLowerCase().trim();
-  const agentIsVisibleRecipient =
-    !!agentAddr && visibleRecipientAddrs.includes(agentAddr);
+  const agentIsVisibleRecipient = !!agentAddr && visibleRecipientAddrs.includes(agentAddr);
 
   if (hasFollowupAlias || !agentIsVisibleRecipient) {
     const reason = hasFollowupAlias
@@ -424,95 +418,127 @@ async function processNotification(n: GraphNotification) {
       : 'bcc_silent_tracking_only';
     console.log(
       `Skipping AI reply for ${messageId} — ${reason} ` +
-        `(visibleRecipients=${JSON.stringify(visibleRecipientAddrs)}, ` +
-        `agent=${agentAddr})`,
+        `(visibleRecipients=${JSON.stringify(visibleRecipientAddrs)}, agent=${agentAddr})`,
     );
-    if (inbound?.id) {
-      await supabase
-        .from('agent_messages')
-        .update({ status: 'received', rejected_reason: reason })
-        .eq('id', inbound.id);
-    }
+    await supabase
+      .from('agent_messages')
+      .update({ status: 'received', rejected_reason: reason })
+      .eq('id', inbound.id);
+    await markClaim('skipped', { sender_email: senderEmail, rejected_reason: reason });
     return;
   }
 
-  // Fetch the full conversation thread for context (so the agent sees what you forwarded)
-  const thread = msg.conversationId
-    ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
-    : [];
-  const threadText = formatThreadForPrompt(thread, messageId, msg);
-  const senderName = msg.from?.emailAddress?.name ?? '';
-
-  // Delegate to the shared agent-loop (OpenAI gpt-4.1 Responses API primary,
-  // gpt-4o secondary — both with native web_search; Anthropic Claude Sonnet 4.5
-  // final fallback with web_search_20250305 + web_fetch_20250910). agent-loop
-  // also produces real document attachments (PDF/DOCX/XLSX/PPTX) when warranted.
-  const agent = await invokeAgentLoop({
-    task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
-    threadText,
-    senderEmail,
-    senderName,
-    subject: msg.subject ?? '',
-    organizationId: settings.organization_id,
-  });
-  const replyHtml = agent.reply_html;
-  const attachments = agent.attachments ?? [];
-
-  // Reply ONLY to the person who emailed the agent — never CC/BCC the original recipients.
-  // Pass any generated documents as Graph file attachments.
-  await replyToMessage(
-    token,
-    settings.shared_mailbox_user_id,
-    messageId,
-    replyHtml,
-    senderEmail,
-    attachments,
-  );
-
-  await supabase.from('agent_messages').insert({
-    organization_id: settings.organization_id,
-    channel: 'email',
-    direction: 'outbound',
-    sender_email: settings.shared_mailbox_address,
-    sender_domain: (settings.shared_mailbox_address ?? '').split('@')[1] ?? null,
-    subject: msg.subject ? `Re: ${msg.subject}` : null,
-    content: stripHtml(replyHtml).slice(0, 8000),
-    response_to_id: inbound?.id ?? null,
+  await markClaim('running', {
+    sender_email: senderEmail,
+    inbound_id: inbound.id,
+    subject: msg.subject ?? null,
     conversation_id: msg.conversationId ?? null,
-    status: 'sent',
-    metadata: {
-      provider: agent.provider,
-      model: agent.model,
-      iterations: agent.iterations,
-      duration_ms: agent.duration_ms,
-      web_search: agent.used_web_search,
-      attachments: attachments.map((a) => ({ filename: a.filename, mime_type: a.mime_type, byte_size: a.byte_size })),
-      reply_to: senderEmail,
-    },
   });
 
-  // Log usage with approximate USD cost.
   try {
-    const PRICE: Record<string, { input: number; output: number }> = {
-      'gpt-4.1': { input: 0.002, output: 0.008 },
-      'gpt-4o': { input: 0.0025, output: 0.01 },
-      'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
-    };
-    const p = PRICE[agent.model] ?? { input: 0, output: 0 };
-    const cost = (agent.prompt_tokens / 1000) * p.input + (agent.completion_tokens / 1000) * p.output;
-    await supabase.from('ai_usage_logs').insert({
+    const thread = msg.conversationId
+      ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
+      : [];
+    const threadText = formatThreadForPrompt(thread, messageId, msg);
+    const senderName = msg.from?.emailAddress?.name ?? '';
+
+    const agent = await invokeAgentLoop({
+      task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
+      threadText,
+      senderEmail,
+      senderName,
+      subject: msg.subject ?? '',
+      organizationId: settings.organization_id,
+    });
+    const replyHtml = agent.reply_html;
+    const attachments = agent.attachments ?? [];
+
+    await replyToMessage(
+      token,
+      settings.shared_mailbox_user_id,
+      messageId,
+      replyHtml,
+      senderEmail,
+      attachments,
+    );
+
+    await supabase.from('agent_messages').insert({
       organization_id: settings.organization_id,
-      user_id: null,
+      channel: 'email',
+      direction: 'outbound',
+      sender_email: settings.shared_mailbox_address,
+      sender_domain: (settings.shared_mailbox_address ?? '').split('@')[1] ?? null,
+      subject: msg.subject ? `Re: ${msg.subject}` : null,
+      content: stripHtml(replyHtml).slice(0, 8000),
+      response_to_id: inbound?.id ?? null,
+      conversation_id: msg.conversationId ?? null,
+      status: 'sent',
+      metadata: {
+        provider: agent.provider,
+        model: agent.model,
+        iterations: agent.iterations,
+        duration_ms: agent.duration_ms,
+        web_search: agent.used_web_search,
+        attachments: attachments.map((a) => ({ filename: a.filename, mime_type: a.mime_type, byte_size: a.byte_size })),
+        reply_to: senderEmail,
+      },
+    });
+
+    await supabase
+      .from('agent_messages')
+      .update({ status: 'sent' })
+      .eq('id', inbound.id);
+
+    await markClaim('sent', {
+      sender_email: senderEmail,
+      inbound_id: inbound.id,
       provider: agent.provider,
       model: agent.model,
-      action: 'agent_email_reply',
-      prompt_tokens: agent.prompt_tokens,
-      completion_tokens: agent.completion_tokens,
-      total_tokens: agent.prompt_tokens + agent.completion_tokens,
-      cost_usd: cost.toFixed(6),
-      metadata: { sender: senderEmail, attachments: attachments.length },
+      duration_ms: agent.duration_ms,
+      attachment_count: attachments.length,
     });
-  } catch (e) { console.error('usage log failed', e); }
+
+    try {
+      const PRICE: Record<string, { input: number; output: number }> = {
+        'gpt-4.1': { input: 0.002, output: 0.008 },
+        'gpt-4o': { input: 0.0025, output: 0.01 },
+        'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
+      };
+      const p = PRICE[agent.model] ?? { input: 0, output: 0 };
+      const cost = (agent.prompt_tokens / 1000) * p.input + (agent.completion_tokens / 1000) * p.output;
+      await supabase.from('ai_usage_logs').insert({
+        organization_id: settings.organization_id,
+        user_id: null,
+        provider: agent.provider,
+        model: agent.model,
+        action: 'agent_email_reply',
+        prompt_tokens: agent.prompt_tokens,
+        completion_tokens: agent.completion_tokens,
+        total_tokens: agent.prompt_tokens + agent.completion_tokens,
+        cost_usd: cost.toFixed(6),
+        metadata: { sender: senderEmail, attachments: attachments.length },
+      });
+    } catch (e) {
+      console.error('usage log failed', e);
+    }
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    console.error('processNotification agent execution error', reason);
+    await supabase
+      .from('agent_messages')
+      .update({ status: 'failed', rejected_reason: reason.slice(0, 500) })
+      .eq('id', inbound.id);
+    await markClaim('failed', { sender_email: senderEmail, rejected_reason: reason.slice(0, 500) });
+  }
+}
+
+function runInBackground(work: Promise<unknown>) {
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(work);
+    return;
+  }
+  work.catch((e) => console.error('background task error', e));
 }
 
 Deno.serve(async (req) => {
@@ -531,14 +557,16 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const notifications: GraphNotification[] = body.value ?? [];
-    // Process sequentially; Graph allows up to 30s response time
-    for (const n of notifications) {
-      try {
-        await processNotification(n);
-      } catch (e) {
-        console.error('processNotification error', e);
+    runInBackground((async () => {
+      for (const n of notifications) {
+        try {
+          await processNotification(n);
+        } catch (e) {
+          console.error('processNotification error', e);
+        }
       }
-    }
+    })());
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 202,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
