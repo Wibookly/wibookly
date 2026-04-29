@@ -32,6 +32,25 @@ interface ChatTurn {
   citations?: Citation[];
 }
 
+interface ConversationSummary {
+  id: string;
+  title: string;
+  updated_at: string;
+  agent_mode: boolean;
+}
+
+export default function KnowledgeChat() {
+  const { activeConnection } = useActiveEmail();
+  const [mode, setMode] = useState<AgentMode>('qa');
+  const [input, setInput] = useState('');
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [loadingConvId, setLoadingConvId] = useState<string | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+
 export default function KnowledgeChat() {
   const { activeConnection } = useActiveEmail();
   const [mode, setMode] = useState<AgentMode>('qa');
