@@ -242,6 +242,7 @@ Deno.serve(async (req) => {
           connection_id: conn.id,
           user_id: conn.user_id,
           organization_id: conn.organization_id,
+          provider,
           provider_thread_id: threadExtId,
           subject,
           participants,
