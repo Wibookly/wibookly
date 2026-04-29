@@ -232,7 +232,15 @@ export default function AIDailyBrief() {
       content += `
         <div style="margin-bottom: 30px;">
           <h2 style="font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Today's Schedule</h2>
-          ${brief.schedule?.length ? brief.schedule.map(s => `
+          ${(() => {
+            const booked = (brief.schedule || []).filter(s => {
+              const t = (s.type || '').toLowerCase();
+              const title = (s.title || '').toLowerCase();
+              if (t === 'focus' || t === 'available' || t === 'free') return false;
+              if (title.includes('available for focus') || title.includes('available')) return false;
+              return true;
+            });
+            return booked.length ? booked.map(s => `
             <div style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
               <span style="width: 80px; font-family: monospace; color: #666;">${s.time}</span>
               <div style="flex: 1;">
@@ -240,7 +248,8 @@ export default function AIDailyBrief() {
                 ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${s.description}</p>` : ''}
               </div>
             </div>
-          `).join('') : '<p style="color: #999;">No scheduled events for today</p>'}
+          `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
+          })()}
         </div>
       `;
     }
