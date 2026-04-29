@@ -538,9 +538,17 @@ export function DailyBriefSchedule() {
                               {formatTime(savedTime)}
                             </span>
                           )}
-                          {s.enabled && (
-                            <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                          {s.enabled && persisted && (
+                            <span className="text-[10px] uppercase tracking-wide bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">
                               Active
+                            </span>
+                          )}
+                          {s.enabled && !persisted && (
+                            <span
+                              className="text-[10px] uppercase tracking-wide bg-amber-500/15 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded animate-pulse"
+                              title="This schedule has not been saved yet — click Save Schedule to activate it"
+                            >
+                              Unsaved
                             </span>
                           )}
                         </div>
