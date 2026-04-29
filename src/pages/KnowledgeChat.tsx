@@ -68,7 +68,7 @@ export default function KnowledgeChat() {
     }
 
     setInput('');
-    setTurns((prev) => [...prev, { role: 'user', content: message }]);
+    setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content: message }]);
     setBusy(true);
 
     try {
@@ -86,6 +86,7 @@ export default function KnowledgeChat() {
       setTurns((prev) => [
         ...prev,
         {
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: data?.reply || 'No response.',
           draft: data?.draft || null,
@@ -94,7 +95,7 @@ export default function KnowledgeChat() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Request failed';
       toast.error(msg);
-      setTurns((prev) => [...prev, { role: 'assistant', content: `Error: ${msg}` }]);
+      setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: `Error: ${msg}` }]);
     } finally {
       setBusy(false);
     }
