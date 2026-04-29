@@ -443,18 +443,31 @@ async function processNotification(n: GraphNotification) {
   const threadText = formatThreadForPrompt(thread, messageId, msg);
   const senderName = msg.from?.emailAddress?.name ?? '';
 
-  // Generate AI reply (focused on email content + thread)
-  const aiResult = await generateAIReply({
+  // Delegate to the shared agent-loop (OpenAI gpt-5-mini Responses API
+  // with native web_search; Anthropic Claude Sonnet 4.5 fallback with
+  // web_search_20250305 + web_fetch_20250910). agent-loop also produces
+  // real document attachments (PDF/DOCX/XLSX/PPTX) when the task warrants.
+  const agent = await invokeAgentLoop({
+    task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
     threadText,
     senderEmail,
     senderName,
     subject: msg.subject ?? '',
     organizationId: settings.organization_id,
   });
-  const replyHtml = aiResult.content;
+  const replyHtml = agent.reply_html;
+  const attachments = agent.attachments ?? [];
 
-  // Reply ONLY to the person who emailed the agent — never CC/BCC the original recipients
-  await replyToMessage(token, settings.shared_mailbox_user_id, messageId, replyHtml, senderEmail);
+  // Reply ONLY to the person who emailed the agent — never CC/BCC the original recipients.
+  // Pass any generated documents as Graph file attachments.
+  await replyToMessage(
+    token,
+    settings.shared_mailbox_user_id,
+    messageId,
+    replyHtml,
+    senderEmail,
+    attachments,
+  );
 
   await supabase.from('agent_messages').insert({
     organization_id: settings.organization_id,
@@ -468,44 +481,35 @@ async function processNotification(n: GraphNotification) {
     conversation_id: msg.conversationId ?? null,
     status: 'sent',
     metadata: {
-      provider: aiResult.provider,
-      model: aiResult.model,
-      tier: aiResult.tier,
-      web_search: aiResult.usedWebSearch,
+      provider: agent.provider,
+      model: agent.model,
+      iterations: agent.iterations,
+      duration_ms: agent.duration_ms,
+      web_search: agent.used_web_search,
+      attachments: attachments.map((a) => ({ filename: a.filename, mime_type: a.mime_type, byte_size: a.byte_size })),
       reply_to: senderEmail,
     },
   });
 
-  // Log usage with approximate USD cost so the Admin → AI Usage dashboard
-  // reflects live spend for the email-agent (agent@energyforward.com).
+  // Log usage with approximate USD cost.
   try {
-    const OPENAI_PRICE: Record<string, { input: number; output: number }> = {
-      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
-      'gpt-4o-mini-search-preview': { input: 0.00015, output: 0.0006 },
-      'gpt-4o': { input: 0.0025, output: 0.01 },
-      'gpt-4.1-mini': { input: 0.0004, output: 0.0016 },
-      'gpt-4.1': { input: 0.002, output: 0.008 },
-    };
-    const CLAUDE_PRICE: Record<string, { input: number; output: number }> = {
+    const PRICE: Record<string, { input: number; output: number }> = {
+      'gpt-5-mini': { input: 0.00025, output: 0.002 },
       'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
-      'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
-      'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
-      'claude-3-opus-latest': { input: 0.015, output: 0.075 },
     };
-    const table = aiResult.provider === 'openai' ? OPENAI_PRICE : aiResult.provider === 'claude' ? CLAUDE_PRICE : null;
-    const p = table?.[aiResult.model] ?? { input: 0, output: 0 };
-    const cost = (aiResult.promptTokens / 1000) * p.input + (aiResult.completionTokens / 1000) * p.output;
+    const p = PRICE[agent.model] ?? { input: 0, output: 0 };
+    const cost = (agent.prompt_tokens / 1000) * p.input + (agent.completion_tokens / 1000) * p.output;
     await supabase.from('ai_usage_logs').insert({
       organization_id: settings.organization_id,
       user_id: null,
-      provider: aiResult.provider,
-      model: aiResult.model,
+      provider: agent.provider,
+      model: agent.model,
       action: 'agent_email_reply',
-      prompt_tokens: aiResult.promptTokens,
-      completion_tokens: aiResult.completionTokens,
-      total_tokens: aiResult.promptTokens + aiResult.completionTokens,
+      prompt_tokens: agent.prompt_tokens,
+      completion_tokens: agent.completion_tokens,
+      total_tokens: agent.prompt_tokens + agent.completion_tokens,
       cost_usd: cost.toFixed(6),
-      metadata: { sender: senderEmail },
+      metadata: { sender: senderEmail, attachments: attachments.length },
     });
   } catch (e) { console.error('usage log failed', e); }
 }
