@@ -77,25 +77,119 @@ async function fetchConversation(token: string, mailboxUserId: string, conversat
   }
 }
 
-// Reply ONLY to the original sender (no CC/BCC of the rest of the thread).
-async function replyToMessage(token: string, mailboxUserId: string, messageId: string, html: string, replyToEmail: string) {
-  const res = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/reply`,
+interface AgentAttachment {
+  filename: string;
+  mime_type: string;
+  base64: string;
+  byte_size: number;
+}
+
+// Reply ONLY to the original sender (no CC/BCC of the rest of the thread),
+// with optional file attachments produced by the agent (PDF, DOCX, XLSX, PPTX).
+//
+// Microsoft Graph two-step flow when attachments are present:
+//   1. createReply           → returns a draft message id
+//   2. POST /attachments     → attach each file (one POST per file)
+//   3. /send                 → send the draft
+// When there are no attachments we use the simple /reply endpoint.
+async function replyToMessage(
+  token: string,
+  mailboxUserId: string,
+  messageId: string,
+  html: string,
+  replyToEmail: string,
+  attachments: AgentAttachment[] = [],
+) {
+  const replyTo = [{ emailAddress: { address: replyToEmail } }];
+
+  if (!attachments.length) {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/reply`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: {
+            toRecipients: replyTo,
+            ccRecipients: [],
+            bccRecipients: [],
+            body: { contentType: 'HTML', content: html },
+          },
+        }),
+      },
+    );
+    if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
+    return;
+  }
+
+  // Step 1: create a reply draft
+  const draftRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/createReply`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: {
-          // Force the reply to go to the original sender only — no CC/BCC of other thread participants.
-          toRecipients: [{ emailAddress: { address: replyToEmail } }],
+          toRecipients: replyTo,
           ccRecipients: [],
           bccRecipients: [],
           body: { contentType: 'HTML', content: html },
         },
       }),
-    }
+    },
   );
-  if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
+  if (!draftRes.ok) throw new Error(`createReply failed: ${draftRes.status} ${await draftRes.text()}`);
+  const draft = await draftRes.json();
+  const draftId: string = draft.id;
+
+  // Patch body + recipients (createReply may inherit; ensure they're set).
+  await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toRecipients: replyTo,
+        ccRecipients: [],
+        bccRecipients: [],
+        body: { contentType: 'HTML', content: html },
+      }),
+    },
+  );
+
+  // Step 2: attach each file. Graph supports inline ≤3 MB; larger uses upload session.
+  // Our generated docs are typically <1 MB, so inline is fine.
+  for (const att of attachments) {
+    const attachRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}/attachments`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: att.filename,
+          contentType: att.mime_type,
+          contentBytes: att.base64,
+        }),
+      },
+    );
+    if (!attachRes.ok) {
+      console.error(`Attach failed for ${att.filename}: ${attachRes.status} ${await attachRes.text()}`);
+      // Continue with remaining attachments rather than failing the whole reply.
+    }
+  }
+
+  // Step 3: send
+  const sendRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}/send`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (!sendRes.ok && sendRes.status !== 202) {
+    throw new Error(`Send failed: ${sendRes.status} ${await sendRes.text()}`);
+  }
 }
 
 async function buildCompanyContext(organizationId: string): Promise<string> {
