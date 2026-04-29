@@ -4,8 +4,12 @@
 // 1. Graph POSTs change notifications when new mail lands in the shared mailbox.
 // 2. We fetch each new message via Graph using app-only credentials (client credentials grant).
 // 3. We validate the sender domain is in the org's allowed list — external senders are rejected silently.
-// 4. We generate an AI reply via Lovable AI Gateway and reply via Graph.
-// 5. Every step is logged to public.agent_messages for audit.
+// 4. We delegate the task to the shared `agent-loop` function which uses
+//    OpenAI Responses API (gpt-5-mini) with native web_search and
+//    document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
+//    Claude Sonnet 4.5 + native web_search/web_fetch as fallback.
+// 5. We reply via Graph, attaching any documents the agent produced.
+// 6. Every step is logged to public.agent_messages for audit.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -16,9 +20,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
-const ANTHROPIC_API_KEY_ENV = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
-const OPENAI_API_KEY_ENV = Deno.env.get('OPENAI_API_KEY') ?? '';
 const MS_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID')!;
 const MS_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
 
