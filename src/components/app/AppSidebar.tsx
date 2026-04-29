@@ -127,7 +127,7 @@ export function AppSidebar() {
   }, [organization?.id]);
 
   return (
-    <aside className="hidden lg:flex w-80 h-screen bg-card border-r border-border flex-col">
+    <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
       <div className="px-4 pt-0 pb-2 border-b border-border flex flex-col items-center justify-start">
         <img
           src={energyForwardLogo}
