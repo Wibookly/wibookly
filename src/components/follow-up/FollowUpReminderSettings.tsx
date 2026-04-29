@@ -218,7 +218,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-primary" /> Follow-Up Reminder
+                <Mail className="w-5 h-5 text-primary" /> No Reply Tracker
                 {settings.is_enabled ? (
                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">Active</Badge>
                 ) : (
@@ -228,7 +228,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <CardDescription className="mt-1.5 max-w-2xl">
                 BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
                 (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
-                original to your <strong>Follow Up</strong> category and applies the action you choose below.
+                original to your <strong>No Reply Tracker</strong> category and applies the action you choose below.
               </CardDescription>
             </div>
             <Switch
@@ -264,7 +264,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         <CardContent className="space-y-4">
           <ActionRow
             icon={Tag}
-            title="Always: move to Follow Up category"
+            title="Always: move to No Reply Tracker category"
             description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
             checked={true}
             disabled
@@ -299,7 +299,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <CardDescription className="mt-1.5">
                 When on, <strong>Auto Draft</strong>, <strong>Auto Reply</strong> and the
                 daily auto-audit only run during your local working hours. Outside hours,
-                emails are still <em>moved</em> to your Follow Up category — drafts and sends
+                emails are still <em>moved</em> to your No Reply Tracker category — drafts and sends
                 wait until business hours resume.
               </CardDescription>
             </div>
@@ -450,8 +450,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           <CardDescription>
             Scan your <strong>Sent Items</strong> over a date range and flag every email
             that hasn't received a reply. Flagged emails are copied into your Outlook
-            <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">Follow-up</code>
-            folder and surfaced in the InboxIQ <strong>Follow Up</strong> category. No
+            <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">No-Reply-Tracker</code>
+            folder and surfaced in the InboxIQ <strong>No Reply Tracker</strong> category. No
             drafts are written and nothing is sent — pure audit for your review.
           </CardDescription>
         </CardHeader>
