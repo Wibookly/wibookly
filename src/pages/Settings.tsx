@@ -23,6 +23,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import energyForwardLogo from '@/assets/energyforward-logo.png';
+
+// Default company logo URL (absolute) used when no per-user/org logo is set.
+const DEFAULT_COMPANY_LOGO_URL =
+  typeof window !== 'undefined' ? `${window.location.origin}${energyForwardLogo}` : energyForwardLogo;
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {
