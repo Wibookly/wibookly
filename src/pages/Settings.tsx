@@ -1107,6 +1107,16 @@ export default function Settings() {
                         )}
                         Upload Logo
                       </Button>
+                      {signatureFields.signatureLogoUrl !== DEFAULT_COMPANY_LOGO_URL && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSignatureFields(prev => ({ ...prev, signatureLogoUrl: DEFAULT_COMPANY_LOGO_URL }))}
+                        >
+                          Use default logo
+                        </Button>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         PNG, JPG up to 2MB. Recommended: 200x50px
                       </p>
