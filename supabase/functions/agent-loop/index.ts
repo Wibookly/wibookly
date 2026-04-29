@@ -32,7 +32,8 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') ?? '';
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-const OPENAI_MODEL = 'gpt-5-mini';
+const OPENAI_PRIMARY_MODEL = 'gpt-4.1';
+const OPENAI_FALLBACK_MODEL = 'gpt-4o';
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
 const MAX_ITERATIONS = 15;
