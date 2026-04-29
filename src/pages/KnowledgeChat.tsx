@@ -51,15 +51,7 @@ export default function KnowledgeChat() {
   const [loadingConvId, setLoadingConvId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-export default function KnowledgeChat() {
-  const { activeConnection } = useActiveEmail();
-  const [mode, setMode] = useState<AgentMode>('qa');
-  const [input, setInput] = useState('');
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  // (state declared above)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
