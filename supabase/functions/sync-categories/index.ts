@@ -988,22 +988,54 @@ function hexToRgb(hex: string): [number, number, number] | null {
   return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
 }
 
-function nearestOutlookPreset(hex: string): string {
+function nearestOutlookPreset(
+  hex: string,
+  excluded: Set<string> = new Set(),
+): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return "preset7";
   let best = OUTLOOK_PRESET_COLORS[0];
   let bestDist = Infinity;
   for (const p of OUTLOOK_PRESET_COLORS) {
-    const d =
-      (rgb[0] - p.hex[0]) ** 2 +
-      (rgb[1] - p.hex[1]) ** 2 +
-      (rgb[2] - p.hex[2]) ** 2;
+    if (excluded.has(p.preset)) continue;
+    const d = colorDistance(rgb, p.hex);
     if (d < bestDist) {
       bestDist = d;
       best = p;
     }
   }
   return best.preset;
+}
+
+// Build a per-sync map of category-name → preset that guarantees no two
+// categories collapse to the same Outlook preset color (when the user has ≤25
+// categories). Without this, similar app-side colors (two purples, two blues)
+// would render identically on Outlook mobile.
+function buildOutlookPresetMap(
+  categories: Array<{ name: string; color: string }>,
+): Record<string, string> {
+  const used = new Set<string>();
+  const result: Record<string, string> = {};
+  // Sort by descending saturation so the most "distinctive" colors get first
+  // pick of their ideal preset; neutrals fall back to whatever remains.
+  const ranked = [...categories]
+    .map((c) => {
+      const rgb = hexToRgb(c.color) || [128, 128, 128];
+      const max = Math.max(...rgb);
+      const min = Math.min(...rgb);
+      const sat = max === 0 ? 0 : (max - min) / max;
+      return { c, sat };
+    })
+    .sort((a, b) => b.sat - a.sat);
+  for (const { c } of ranked) {
+    const excluded = used.size < OUTLOOK_PRESET_COLORS.length
+      ? used
+      : new Set<string>();
+    const preset = nearestOutlookPreset(c.color, excluded);
+    result[c.name] = preset;
+    used.add(preset);
+  }
+  return result;
 }
 
 async function ensureOutlookMasterCategory(
