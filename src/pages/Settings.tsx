@@ -23,6 +23,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import energyForwardLogo from '@/assets/energyforward-logo.png';
+
+// Default company logo URL (absolute) used when no per-user/org logo is set.
+const DEFAULT_COMPANY_LOGO_URL =
+  typeof window !== 'undefined' ? `${window.location.origin}${energyForwardLogo}` : energyForwardLogo;
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {
@@ -299,7 +304,7 @@ export default function Settings() {
         phone: data.phone || '',
         mobile: data.mobile || '',
         website: data.website || '',
-        signatureLogoUrl: data.signature_logo_url || orgLogoUrl || '',
+        signatureLogoUrl: data.signature_logo_url || orgLogoUrl || DEFAULT_COMPANY_LOGO_URL,
         // Prefer the per-account override; fall back to the M365 photo we
         // pulled into the user profile so signatures default to the same
         // image the rest of the app shows.
@@ -322,7 +327,7 @@ export default function Settings() {
         phone: (profileData?.phone as string) || '',
         mobile: (profileData?.mobile as string) || '',
         website: (profileData?.website as string) || '',
-        signatureLogoUrl: (profileData?.signature_logo_url as string) || orgLogoUrl || '',
+        signatureLogoUrl: (profileData?.signature_logo_url as string) || orgLogoUrl || DEFAULT_COMPANY_LOGO_URL,
         profilePhotoUrl: ((profile as unknown as { profile_photo_url?: string | null })?.profile_photo_url ?? '') || '',
         showProfilePhoto: false,
         showCompanyLogo: true,
@@ -1102,6 +1107,16 @@ export default function Settings() {
                         )}
                         Upload Logo
                       </Button>
+                      {signatureFields.signatureLogoUrl !== DEFAULT_COMPANY_LOGO_URL && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSignatureFields(prev => ({ ...prev, signatureLogoUrl: DEFAULT_COMPANY_LOGO_URL }))}
+                        >
+                          Use default logo
+                        </Button>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         PNG, JPG up to 2MB. Recommended: 200x50px
                       </p>
