@@ -5,9 +5,9 @@
 // 2. We fetch each new message via Graph using app-only credentials (client credentials grant).
 // 3. We validate the sender domain is in the org's allowed list — external senders are rejected silently.
 // 4. We delegate the task to the shared `agent-loop` function which uses
-//    OpenAI Responses API (gpt-5-mini) with native web_search and
-//    document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
-//    Claude Sonnet 4.5 + native web_search/web_fetch as fallback.
+//    OpenAI Responses API (gpt-4.1, fallback gpt-4o) with native web_search
+//    and document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
+//    Claude Sonnet 4.5 + native web_search/web_fetch as final fallback.
 // 5. We reply via Graph, attaching any documents the agent produced.
 // 6. Every step is logged to public.agent_messages for audit.
 
