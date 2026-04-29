@@ -266,6 +266,32 @@ export default function KnowledgeChat() {
                         </div>
                       </div>
                     )}
+                    {t.role === 'assistant' && !!t.citations?.length && (
+                      <div className="mt-3 pt-2 border-t border-border/60">
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" /> Sources
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {t.citations.map((c, idx) => (
+                            <Badge
+                              key={`${c.id ?? idx}-${idx}`}
+                              variant="outline"
+                              title={c.snippet || c.title}
+                              className="gap-1 max-w-[260px] font-normal cursor-default"
+                            >
+                              {c.type === 'email' ? (
+                                <Mail className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <FileText className="h-3 w-3 shrink-0" />
+                              )}
+                              <span className="truncate text-xs">
+                                [{idx + 1}] {c.title}
+                              </span>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
