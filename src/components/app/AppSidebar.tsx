@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing } from 'lucide-react';
+import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing, BookOpen } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -194,6 +194,7 @@ export function AppSidebar() {
             <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
               <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
               {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
+              <NavItem href="/knowledge" icon={BookOpen}>Knowledge Base</NavItem>
               {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
             </NavSection>
           )}

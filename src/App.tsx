@@ -24,6 +24,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
+import Knowledge from "./pages/Knowledge";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
                       <FollowUpReminder />
                     </FeatureRoute>
                   } />
+                  <Route path="/knowledge" element={<Knowledge />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
