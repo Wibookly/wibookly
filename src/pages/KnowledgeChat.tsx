@@ -110,6 +110,80 @@ export default function KnowledgeChat() {
     setTurns([]);
   }, [mode, activeConnection?.id]);
 
+  // Load conversation list for the current connection
+  const loadConversations = async () => {
+    if (!activeConnection?.id) {
+      setConversations([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('ai_chat_conversations')
+      .select('id, title, updated_at, agent_mode')
+      .eq('connection_id', activeConnection.id)
+      .order('updated_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      console.error('loadConversations', error);
+      return;
+    }
+    setConversations((data ?? []) as ConversationSummary[]);
+  };
+
+  useEffect(() => {
+    loadConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConnection?.id]);
+
+  const openConversation = async (convId: string) => {
+    if (loadingConvId) return;
+    setLoadingConvId(convId);
+    try {
+      const { data, error } = await supabase
+        .from('ai_chat_messages')
+        .select('id, role, content, tool_results, citations, created_at')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      const restored: ChatTurn[] = (data ?? [])
+        .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+        .map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content ?? '',
+          draft: m.tool_results?.draft ?? null,
+          draftSavedId: null,
+          citations: Array.isArray(m.citations) ? m.citations : [],
+        }));
+      setConversationId(convId);
+      setTurns(restored);
+      const conv = conversations.find((c) => c.id === convId);
+      if (conv) setMode(conv.agent_mode ? 'email_draft' : 'qa');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not load conversation');
+    } finally {
+      setLoadingConvId(null);
+    }
+  };
+
+  const newChat = () => {
+    setConversationId(null);
+    setTurns([]);
+  };
+
+  const deleteConversation = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Delete this conversation?')) return;
+    const { error } = await supabase.from('ai_chat_conversations').delete().eq('id', convId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    if (conversationId === convId) newChat();
+    toast.success('Conversation deleted');
+  };
+
+
   const send = async () => {
     const message = input.trim();
     if (!message || busy) return;
