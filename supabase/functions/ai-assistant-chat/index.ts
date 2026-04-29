@@ -820,9 +820,10 @@ When answering:
       });
     }
 
-    return new Response(createSSEStream(result.content), {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(
+      JSON.stringify({ content: result.content, provider: result.provider, model: result.model }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (error) {
     console.error("Error in ai-assistant-chat:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
