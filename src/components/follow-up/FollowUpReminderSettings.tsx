@@ -99,18 +99,43 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
   useEffect(() => { load(); }, [activeConnection?.id]);
 
+  async function ensureTrackerCategory() {
+    if (!activeConnection?.id) return;
+    try {
+      await supabase.rpc('ensure_no_reply_tracker_category', { _connection_id: activeConnection.id });
+    } catch (e) {
+      console.warn('ensure_no_reply_tracker_category failed', e);
+    }
+  }
+
   async function patch(updates: Partial<Settings>) {
     if (!settings) return;
     setSaving(true);
-    const next = { ...settings, ...updates };
+    // When master toggle is turned ON, force the supporting defaults ON too.
+    let finalUpdates: Partial<Settings> = { ...updates };
+    if (updates.is_enabled === true && !settings.is_enabled) {
+      finalUpdates = {
+        ...finalUpdates,
+        business_hours_only: true,
+        daily_audit_enabled: true,
+        auto_draft_enabled: true,
+      };
+      await ensureTrackerCategory();
+    }
+    const next = { ...settings, ...finalUpdates };
     setSettings(next);
     const { error } = await supabase
       .from('follow_up_settings')
-      .update(updates)
+      .update(finalUpdates)
       .eq('id', settings.id);
     if (error) {
       toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       setSettings(settings);
+    } else if (updates.is_enabled === true) {
+      toast({
+        title: 'No Reply Tracker enabled',
+        description: 'Business hours, daily 24-hour auto-sync, and auto-draft are now active. The "No Reply Tracker" category was added in red.',
+      });
     }
     setSaving(false);
   }
