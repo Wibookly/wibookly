@@ -25,11 +25,12 @@ import OnboardingWizard from '@/components/admin/OnboardingWizard';
 import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
+import AgentAuditPanel from '@/components/admin/AgentAuditPanel';
 import AIUsagePanel from '@/components/admin/AIUsagePanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
-import { Bot, BarChart3, Clock, MessageSquareWarning } from 'lucide-react';
+import { Bot, BarChart3, Clock, MessageSquareWarning, ScrollText } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
@@ -647,6 +648,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
           <TabsTrigger value="agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
+          <TabsTrigger value="agent-audit" className="gap-2"><ScrollText className="w-4 h-4" /> Agent Audit</TabsTrigger>
           {hasFollowUpReminder && (
             <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
           )}
@@ -657,6 +659,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="agent" className="space-y-6">
           <AgentPanel organizationId={profile?.organization_id ?? null} />
+        </TabsContent>
+
+        <TabsContent value="agent-audit" className="space-y-6">
+          <AgentAuditPanel organizationId={profile?.organization_id ?? null} />
         </TabsContent>
 
         {hasFollowUpReminder && (
