@@ -7,11 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Send, Loader2, Sparkles, Mail, FileText, RefreshCw, Inbox, Check } from 'lucide-react';
+import { Send, Loader2, Sparkles, Mail, FileText, RefreshCw, Inbox, Check, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type AgentMode = 'qa' | 'email_draft';
+
+interface Citation {
+  type: string;
+  id: string | null;
+  title: string;
+  from?: string | null;
+  sent_at?: string | null;
+  snippet?: string | null;
+  similarity?: number | null;
+}
 
 interface ChatTurn {
   id: string;
@@ -19,6 +29,7 @@ interface ChatTurn {
   content: string;
   draft?: { subject: string; body: string; to?: string[]; cc?: string[] } | null;
   draftSavedId?: string | null;
+  citations?: Citation[];
 }
 
 export default function KnowledgeChat() {
@@ -119,6 +130,7 @@ export default function KnowledgeChat() {
           role: 'assistant',
           content: data?.reply || 'No response.',
           draft: data?.draft || null,
+          citations: Array.isArray(data?.citations) ? data.citations : [],
         },
       ]);
     } catch (e) {
@@ -251,6 +263,32 @@ export default function KnowledgeChat() {
                             )}
                             {t.draftSavedId ? 'Saved to Drafts' : 'Save to Drafts'}
                           </Button>
+                        </div>
+                      </div>
+                    )}
+                    {t.role === 'assistant' && !!t.citations?.length && (
+                      <div className="mt-3 pt-2 border-t border-border/60">
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" /> Sources
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {t.citations.map((c, idx) => (
+                            <Badge
+                              key={`${c.id ?? idx}-${idx}`}
+                              variant="outline"
+                              title={c.snippet || c.title}
+                              className="gap-1 max-w-[260px] font-normal cursor-default"
+                            >
+                              {c.type === 'email' ? (
+                                <Mail className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <FileText className="h-3 w-3 shrink-0" />
+                              )}
+                              <span className="truncate text-xs">
+                                [{idx + 1}] {c.title}
+                              </span>
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     )}
