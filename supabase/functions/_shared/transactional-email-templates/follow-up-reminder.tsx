@@ -52,8 +52,8 @@ const FollowUpReminderEmail = ({
           </Section>
 
           <Text style={text}>
-            Open your <strong>Follow-up</strong> folder in Outlook (or the
-            Follow Up category in {SITE_NAME}) to review the AI-prepared draft
+            Open your <strong>No-Reply-Tracker</strong> folder in Outlook (or the
+            No Reply Tracker category in {SITE_NAME}) to review the AI-prepared draft
             and send it.
           </Text>
 
