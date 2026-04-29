@@ -135,12 +135,33 @@ function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: str
   return `${days} · ${times.join(' & ')}`;
 }
 
+// Stable serialization of the parts that get persisted to the DB.
+// Used to detect unsaved changes between the in-memory schedules and
+// what's actually stored. Anything not in this string (like the local
+// `name` and the local `id`) is intentionally ignored.
+function snapshotKey(list: Schedule[], tz: string, recipient: string): string {
+  const norm = list
+    .filter(s => s.enabled && s.days.length > 0 && (s.morningEnabled || s.eveningEnabled))
+    .map(s => ({
+      d: [...s.days].sort(),
+      m: s.morningEnabled ? s.morningTime : null,
+      e: s.eveningEnabled ? s.eveningTime : null,
+    }))
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return JSON.stringify({ tz, recipient, norm });
+}
+
 export function DailyBriefSchedule() {
   const { profile, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Snapshot of what's actually persisted in the DB. We compare the
+  // current `schedules` against this to detect unsaved changes so the
+  // user gets a clear visual cue (and we never show "ACTIVE" for a
+  // schedule that only exists in local state).
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('[]');
 
   const detectedTz = (() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
@@ -213,9 +234,12 @@ export function DailyBriefSchedule() {
           name: autoName(s),
         }));
         setSchedules(list);
+        setSavedSnapshot(snapshotKey(list, first.timezone || timezone, first.recipient_email || ''));
       } else {
-        setRecipient(activeConnection?.email || profile?.email || '');
-        // Start with one sensible default
+        const initialRecipient = activeConnection?.email || profile?.email || '';
+        setRecipient(initialRecipient);
+        // Start with one sensible default — but mark snapshot as empty
+        // so the user sees an "unsaved" indicator until they Save.
         setSchedules([{
           id: genId(),
           name: 'Weekday brief',
@@ -226,6 +250,7 @@ export function DailyBriefSchedule() {
           eveningEnabled: false,
           eveningTime: '17:00',
         }]);
+        setSavedSnapshot('[]');
       }
 
       setLoading(false);
@@ -356,6 +381,9 @@ export function DailyBriefSchedule() {
           .insert(rows as never);
         if (error) throw error;
       }
+      // Update the snapshot to reflect what's now persisted so the
+      // "unsaved changes" indicator clears immediately.
+      setSavedSnapshot(snapshotKey(schedules, timezone, recipient));
       if (!opts?.silent) toast.success('Daily Brief schedule saved');
     } catch (e) {
       console.error(e);
@@ -365,11 +393,37 @@ export function DailyBriefSchedule() {
     }
   };
 
+  const currentSnapshot = useMemo(
+    () => snapshotKey(schedules, timezone, recipient),
+    [schedules, timezone, recipient],
+  );
+  const hasUnsavedChanges = currentSnapshot !== savedSnapshot;
+  // Set of (days+times) signatures that ARE persisted in the DB. We use
+  // this to decide whether each row should show "ACTIVE" or "UNSAVED".
+  const savedSignatures = useMemo(() => {
+    try {
+      const parsed = JSON.parse(savedSnapshot) as { norm?: Array<{ d: number[]; m: string | null; e: string | null }> };
+      return new Set((parsed.norm || []).map(n => JSON.stringify(n)));
+    } catch {
+      return new Set<string>();
+    }
+  }, [savedSnapshot]);
+  const isSchedulePersisted = (s: Schedule): boolean => {
+    if (!s.enabled || s.days.length === 0 || (!s.morningEnabled && !s.eveningEnabled)) return false;
+    const sig = JSON.stringify({
+      d: [...s.days].sort(),
+      m: s.morningEnabled ? s.morningTime : null,
+      e: s.eveningEnabled ? s.eveningTime : null,
+    });
+    return savedSignatures.has(sig);
+  };
+
   const summary = useMemo(() => {
     const active = schedules.filter(s => s.enabled && s.days.length > 0 && (s.morningEnabled || s.eveningEnabled));
     if (active.length === 0) return 'No schedules set';
-    return `${active.length} schedule${active.length === 1 ? '' : 's'} set up`;
-  }, [schedules]);
+    const base = `${active.length} schedule${active.length === 1 ? '' : 's'} set up`;
+    return hasUnsavedChanges ? `${base} · unsaved changes` : base;
+  }, [schedules, hasUnsavedChanges]);
 
   if (loading) {
     return (
@@ -459,6 +513,7 @@ export function DailyBriefSchedule() {
                     {(() => {
                       const savedTime = s.morningEnabled ? s.morningTime : (s.eveningEnabled ? s.eveningTime : '');
                       const isMorning = savedTime ? getBriefTone(savedTime) === 'morning' : false;
+                      const persisted = isSchedulePersisted(s);
                       return (
                     <div className="flex items-center gap-3 p-3">
                       <Switch
@@ -483,9 +538,17 @@ export function DailyBriefSchedule() {
                               {formatTime(savedTime)}
                             </span>
                           )}
-                          {s.enabled && (
-                            <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                          {s.enabled && persisted && (
+                            <span className="text-[10px] uppercase tracking-wide bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">
                               Active
+                            </span>
+                          )}
+                          {s.enabled && !persisted && (
+                            <span
+                              className="text-[10px] uppercase tracking-wide bg-amber-500/15 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded animate-pulse"
+                              title="This schedule has not been saved yet — click Save Schedule to activate it"
+                            >
+                              Unsaved
                             </span>
                           )}
                         </div>
@@ -659,10 +722,19 @@ export function DailyBriefSchedule() {
           )}
         </div>
 
-        <div className="flex justify-end pt-2">
-          <Button onClick={() => handleSave()} disabled={saving}>
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {hasUnsavedChanges && !saving && (
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              You have unsaved changes
+            </span>
+          )}
+          <Button
+            onClick={() => handleSave()}
+            disabled={saving || !hasUnsavedChanges}
+            className={hasUnsavedChanges && !saving ? 'animate-pulse shadow-lg shadow-primary/30' : ''}
+          >
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Schedule
+            {hasUnsavedChanges ? 'Save Schedule' : 'Saved'}
           </Button>
         </div>
       </CardContent>
