@@ -4,8 +4,12 @@
 // 1. Graph POSTs change notifications when new mail lands in the shared mailbox.
 // 2. We fetch each new message via Graph using app-only credentials (client credentials grant).
 // 3. We validate the sender domain is in the org's allowed list — external senders are rejected silently.
-// 4. We generate an AI reply via Lovable AI Gateway and reply via Graph.
-// 5. Every step is logged to public.agent_messages for audit.
+// 4. We delegate the task to the shared `agent-loop` function which uses
+//    OpenAI Responses API (gpt-5-mini) with native web_search and
+//    document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
+//    Claude Sonnet 4.5 + native web_search/web_fetch as fallback.
+// 5. We reply via Graph, attaching any documents the agent produced.
+// 6. Every step is logged to public.agent_messages for audit.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -16,9 +20,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
-const ANTHROPIC_API_KEY_ENV = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
-const OPENAI_API_KEY_ENV = Deno.env.get('OPENAI_API_KEY') ?? '';
 const MS_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID')!;
 const MS_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET')!;
 
@@ -77,40 +78,119 @@ async function fetchConversation(token: string, mailboxUserId: string, conversat
   }
 }
 
-// Reply ONLY to the original sender (no CC/BCC of the rest of the thread).
-async function replyToMessage(token: string, mailboxUserId: string, messageId: string, html: string, replyToEmail: string) {
-  const res = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/reply`,
+interface AgentAttachment {
+  filename: string;
+  mime_type: string;
+  base64: string;
+  byte_size: number;
+}
+
+// Reply ONLY to the original sender (no CC/BCC of the rest of the thread),
+// with optional file attachments produced by the agent (PDF, DOCX, XLSX, PPTX).
+//
+// Microsoft Graph two-step flow when attachments are present:
+//   1. createReply           → returns a draft message id
+//   2. POST /attachments     → attach each file (one POST per file)
+//   3. /send                 → send the draft
+// When there are no attachments we use the simple /reply endpoint.
+async function replyToMessage(
+  token: string,
+  mailboxUserId: string,
+  messageId: string,
+  html: string,
+  replyToEmail: string,
+  attachments: AgentAttachment[] = [],
+) {
+  const replyTo = [{ emailAddress: { address: replyToEmail } }];
+
+  if (!attachments.length) {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/reply`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: {
+            toRecipients: replyTo,
+            ccRecipients: [],
+            bccRecipients: [],
+            body: { contentType: 'HTML', content: html },
+          },
+        }),
+      },
+    );
+    if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
+    return;
+  }
+
+  // Step 1: create a reply draft
+  const draftRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${messageId}/createReply`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: {
-          // Force the reply to go to the original sender only — no CC/BCC of other thread participants.
-          toRecipients: [{ emailAddress: { address: replyToEmail } }],
+          toRecipients: replyTo,
           ccRecipients: [],
           bccRecipients: [],
           body: { contentType: 'HTML', content: html },
         },
       }),
-    }
+    },
   );
-  if (!res.ok) throw new Error(`Reply failed: ${res.status} ${await res.text()}`);
-}
+  if (!draftRes.ok) throw new Error(`createReply failed: ${draftRes.status} ${await draftRes.text()}`);
+  const draft = await draftRes.json();
+  const draftId: string = draft.id;
 
-async function buildCompanyContext(organizationId: string): Promise<string> {
-  // Lightweight org snapshot — only included as a small footer so the agent
-  // can still answer "what's connected" / "what categories exist" if asked.
-  const [{ data: cats }, { data: connections }] = await Promise.all([
-    supabase.from('categories').select('name,is_enabled').eq('organization_id', organizationId).limit(50),
-    supabase.from('provider_connections').select('connected_email,provider,is_connected').eq('organization_id', organizationId).limit(50),
-  ]);
+  // Patch body + recipients (createReply may inherit; ensure they're set).
+  await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toRecipients: replyTo,
+        ccRecipients: [],
+        bccRecipients: [],
+        body: { contentType: 'HTML', content: html },
+      }),
+    },
+  );
 
-  const lines: string[] = [];
-  lines.push(`Connected mailboxes (${connections?.length ?? 0}):`);
-  (connections ?? []).forEach((c) => lines.push(`  - ${c.connected_email} (${c.provider})`));
-  lines.push(`Email categories (${cats?.length ?? 0}): ${(cats ?? []).map((c) => c.name).join(', ')}`);
-  return lines.join('\n');
+  // Step 2: attach each file. Graph supports inline ≤3 MB; larger uses upload session.
+  // Our generated docs are typically <1 MB, so inline is fine.
+  for (const att of attachments) {
+    const attachRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}/attachments`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: att.filename,
+          contentType: att.mime_type,
+          contentBytes: att.base64,
+        }),
+      },
+    );
+    if (!attachRes.ok) {
+      console.error(`Attach failed for ${att.filename}: ${attachRes.status} ${await attachRes.text()}`);
+      // Continue with remaining attachments rather than failing the whole reply.
+    }
+  }
+
+  // Step 3: send
+  const sendRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${mailboxUserId}/messages/${draftId}/send`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (!sendRes.ok && sendRes.status !== 202) {
+    throw new Error(`Send failed: ${sendRes.status} ${await sendRes.text()}`);
+  }
 }
 
 interface ThreadMsg {
