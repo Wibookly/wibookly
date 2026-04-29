@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
       content: body.user_message,
     });
 
-    const model = body.model || "openai/gpt-5-mini";
+    const model = body.model || "openai/gpt-4.1";
     const maxSteps = Math.min(body.max_steps ?? 6, 10);
     const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id };
 

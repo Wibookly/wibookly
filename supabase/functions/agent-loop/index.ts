@@ -2,13 +2,15 @@
 // Inputs: a task description (typically an inbound email body + thread context)
 // Outputs: { reply_html, attachments[] }
 //
-// Architecture:
-//   1. PRIMARY  — OpenAI Responses API (gpt-5-mini) with built-in web_search tool
-//                 + custom doc-generation tools (generate_pdf/docx/xlsx/pptx)
-//                 in a multi-iteration tool loop.
-//   2. FALLBACK — Anthropic Messages API (claude-sonnet-4-5) with built-in
-//                 web_search_20250305 + web_fetch_20250910 server tools, plus
-//                 the same custom doc tools.
+// Architecture (3-tier fallback chain):
+//   1. PRIMARY   — OpenAI Responses API (gpt-4.1) with built-in web_search tool
+//                  + custom doc-generation tools (generate_pdf/docx/xlsx/pptx)
+//                  in a multi-iteration tool loop.
+//   2. SECONDARY — OpenAI Responses API (gpt-4o) — same shape as primary,
+//                  used if primary fails (e.g. model-access error).
+//   3. FALLBACK  — Anthropic Messages API (claude-sonnet-4-5) with built-in
+//                  web_search_20250305 + web_fetch_20250910 server tools, plus
+//                  the same custom doc tools.
 //
 // Hard limits:
 //   - max 15 tool iterations
@@ -30,7 +32,8 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') ?? '';
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-const OPENAI_MODEL = 'gpt-5-mini';
+const OPENAI_PRIMARY_MODEL = 'gpt-4.1';
+const OPENAI_FALLBACK_MODEL = 'gpt-4o';
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
 
 const MAX_ITERATIONS = 15;
@@ -107,7 +110,7 @@ interface ToolResult {
 // ────────────────────────────────────────────────────────────────────
 // OpenAI Responses API path with native web_search + doc tools
 // ────────────────────────────────────────────────────────────────────
-async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace']) {
+async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace: AgentResult['trace'], model: string = OPENAI_PRIMARY_MODEL) {
   const tools: any[] = [
     { type: 'web_search' }, // OpenAI built-in
     ...DOC_TOOLS_OPENAI.map((t) => ({
@@ -146,7 +149,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
     }
 
     const body = {
-      model: OPENAI_MODEL,
+      model,
       instructions: SYSTEM_PROMPT,
       input: inputItems,
       tools,
@@ -238,7 +241,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
   return {
     reply_html: finalText || 'I generated your deliverable but had trouble composing the cover note. The attachment is included.',
     provider: 'openai' as const,
-    model: OPENAI_MODEL,
+    model,
     iterations,
     used_web_search: usedWebSearch,
     prompt_tokens: totalIn,
@@ -424,45 +427,59 @@ Deno.serve(async (req) => {
   const trace: AgentResult['trace'] = [];
   const startedAt = Date.now();
 
-  // Try OpenAI primary; fall back to Anthropic on hard failure
+  // Chain: gpt-4.1 → gpt-4o → claude-sonnet-4-5
   let result: Awaited<ReturnType<typeof runOpenAI>> | null = null;
-  let lastErr: string | null = null;
+  const errors: { stage: string; error: string }[] = [];
 
   const wantedProvider = body.preferred_provider;
 
-  try {
-    if (wantedProvider === 'anthropic') {
-      if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set');
-      result = await runAnthropic(body, attachments, trace) as any;
-    } else {
-      if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
-      result = await runOpenAI(body, attachments, trace);
+  type Attempt = { name: string; run: () => Promise<any> };
+  const attempts: Attempt[] = [];
+
+  if (wantedProvider === 'anthropic') {
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+    if (OPENAI_API_KEY) {
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
     }
-  } catch (e) {
-    lastErr = e instanceof Error ? e.message : String(e);
-    console.error('[agent-loop] primary failed:', lastErr);
-    trace.push({ step: -1, type: 'primary_failed', detail: lastErr });
-    // Fallback
+  } else {
+    if (OPENAI_API_KEY) {
+      attempts.push({ name: `openai:${OPENAI_PRIMARY_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_PRIMARY_MODEL) });
+      attempts.push({ name: `openai:${OPENAI_FALLBACK_MODEL}`, run: () => runOpenAI(body, attachments, trace, OPENAI_FALLBACK_MODEL) });
+    }
+    if (ANTHROPIC_API_KEY) attempts.push({ name: 'anthropic:claude-sonnet-4-5', run: () => runAnthropic(body, attachments, trace) });
+  }
+
+  if (attempts.length === 0) {
+    return new Response(JSON.stringify({ error: 'no_providers_configured' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  for (const attempt of attempts) {
     try {
-      if (wantedProvider === 'anthropic') {
-        if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set for fallback');
-        result = await runOpenAI(body, attachments, trace);
-      } else {
-        if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set for fallback');
-        result = await runAnthropic(body, attachments, trace) as any;
-      }
-    } catch (e2) {
-      const msg = e2 instanceof Error ? e2.message : String(e2);
-      console.error('[agent-loop] fallback failed:', msg);
-      return new Response(JSON.stringify({
-        error: 'agent_failed',
-        primary_error: lastErr,
-        fallback_error: msg,
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Reset attachments between attempts so a partial run doesn't pollute the next
+      attachments.length = 0;
+      trace.push({ step: -1, type: 'attempt', detail: attempt.name });
+      result = await attempt.run();
+      break;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[agent-loop] ${attempt.name} failed:`, msg);
+      errors.push({ stage: attempt.name, error: msg });
+      trace.push({ step: -1, type: 'attempt_failed', detail: `${attempt.name}: ${msg.slice(0, 200)}` });
     }
+  }
+
+  if (!result) {
+    return new Response(JSON.stringify({
+      error: 'agent_failed',
+      attempts: errors,
+    }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   const out: AgentResult = {

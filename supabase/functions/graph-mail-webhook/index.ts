@@ -5,9 +5,9 @@
 // 2. We fetch each new message via Graph using app-only credentials (client credentials grant).
 // 3. We validate the sender domain is in the org's allowed list — external senders are rejected silently.
 // 4. We delegate the task to the shared `agent-loop` function which uses
-//    OpenAI Responses API (gpt-5-mini) with native web_search and
-//    document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
-//    Claude Sonnet 4.5 + native web_search/web_fetch as fallback.
+//    OpenAI Responses API (gpt-4.1, fallback gpt-4o) with native web_search
+//    and document-generation tools (PDF / DOCX / XLSX / PPTX), with Anthropic
+//    Claude Sonnet 4.5 + native web_search/web_fetch as final fallback.
 // 5. We reply via Graph, attaching any documents the agent produced.
 // 6. Every step is logged to public.agent_messages for audit.
 
@@ -226,10 +226,10 @@ function formatThreadForPrompt(thread: ThreadMsg[], currentMessageId: string, cu
 
 // ──────────────────────────────────────────────────────────────────
 // Phase 1: delegate to the shared agent-loop edge function.
-// agent-loop runs OpenAI Responses API (gpt-5-mini, native web_search)
-// as primary, Anthropic Claude Sonnet 4.5 (web_search_20250305 +
-// web_fetch_20250910) as fallback, with document-generation tools
-// (PDF / DOCX / XLSX / PPTX). It returns { reply_html, attachments }.
+// agent-loop runs OpenAI Responses API (gpt-4.1 primary, gpt-4o secondary,
+// both with native web_search) and Anthropic Claude Sonnet 4.5
+// (web_search_20250305 + web_fetch_20250910) as final fallback, with
+// document-generation tools (PDF / DOCX / XLSX / PPTX). It returns { reply_html, attachments }.
 // ──────────────────────────────────────────────────────────────────
 
 interface AgentLoopResult {
@@ -443,10 +443,10 @@ async function processNotification(n: GraphNotification) {
   const threadText = formatThreadForPrompt(thread, messageId, msg);
   const senderName = msg.from?.emailAddress?.name ?? '';
 
-  // Delegate to the shared agent-loop (OpenAI gpt-5-mini Responses API
-  // with native web_search; Anthropic Claude Sonnet 4.5 fallback with
-  // web_search_20250305 + web_fetch_20250910). agent-loop also produces
-  // real document attachments (PDF/DOCX/XLSX/PPTX) when the task warrants.
+  // Delegate to the shared agent-loop (OpenAI gpt-4.1 Responses API primary,
+  // gpt-4o secondary — both with native web_search; Anthropic Claude Sonnet 4.5
+  // final fallback with web_search_20250305 + web_fetch_20250910). agent-loop
+  // also produces real document attachments (PDF/DOCX/XLSX/PPTX) when warranted.
   const agent = await invokeAgentLoop({
     task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
     threadText,
@@ -494,7 +494,8 @@ async function processNotification(n: GraphNotification) {
   // Log usage with approximate USD cost.
   try {
     const PRICE: Record<string, { input: number; output: number }> = {
-      'gpt-5-mini': { input: 0.00025, output: 0.002 },
+      'gpt-4.1': { input: 0.002, output: 0.008 },
+      'gpt-4o': { input: 0.0025, output: 0.01 },
       'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
     };
     const p = PRICE[agent.model] ?? { input: 0, output: 0 };

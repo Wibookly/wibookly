@@ -718,26 +718,35 @@ export async function generateArtifact(
   }
 }
 
-/* ---------------- Web search via OpenAI ----------------
- * Uses gpt-4o-search-preview which has built-in browsing.
- * No extra API key required.
+/* ---------------- Web search via OpenAI Responses API ----------------
+ * Uses gpt-4.1 with the native `web_search` tool from the Responses API.
+ * The model invokes web_search only when needed (not forced every call).
  */
 export async function webSearch(query: string): Promise<string> {
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-search-preview',
-        messages: [
-          { role: 'system', content: 'Answer the user query using fresh web information. Include 2-4 source URLs at the end.' },
-          { role: 'user', content: query },
-        ],
+        model: 'gpt-4.1',
+        instructions: 'Answer the user query using fresh web information when needed. Include 2-4 source URLs at the end.',
+        input: [{ role: 'user', content: [{ type: 'input_text', text: query }] }],
+        tools: [{ type: 'web_search' }],
+        tool_choice: 'auto',
       }),
     });
     if (!res.ok) return `Web search failed: ${res.status} ${await res.text()}`;
     const data = await res.json();
-    return data.choices?.[0]?.message?.content ?? '(no web results)';
+    // Extract text from the Responses API output
+    let text = '';
+    for (const item of (data.output ?? [])) {
+      if (item.type === 'message') {
+        for (const p of (item.content ?? [])) {
+          if (p.type === 'output_text' && typeof p.text === 'string') text += p.text;
+        }
+      }
+    }
+    return text.trim() || '(no web results)';
   } catch (e) {
     return `Web search failed: ${e instanceof Error ? e.message : e}`;
   }
