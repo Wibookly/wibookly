@@ -93,7 +93,7 @@ function sanitizeInput(input: string, maxLength: number): string {
 
 // Validate category name against allowed values
 const ALLOWED_CATEGORIES = [
-  'Urgent', 'Follow Up', 'Approvals', 'Meetings', 'Customers',
+  'Urgent', 'No Reply Tracker', 'Follow Up', 'Approvals', 'Meetings', 'Customers',
   'Vendors', 'Internal', 'Projects', 'Finance', 'FYI', 'General'
 ];
 
@@ -158,6 +158,7 @@ const ALLOWED_FORMAT_STYLES = ['concise', 'detailed', 'bullet-points', 'highligh
 // Category context prompts
 const CATEGORY_CONTEXT: Record<string, string> = {
   'Urgent': 'This is an urgent matter requiring immediate attention.',
+  'No Reply Tracker': 'This is a follow-up to a previous email that has not received a reply.',
   'Follow Up': 'This is a follow-up to a previous conversation or request.',
   'Approvals': 'This relates to approving or reviewing something.',
   'Meetings': 'This relates to scheduling, confirming, or discussing meetings.',

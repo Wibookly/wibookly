@@ -129,7 +129,7 @@ const WRITING_STYLES = [
 
 const DEFAULT_CATEGORIES = [
   { name: 'Urgent',    color: '#E74C3C' }, // Red
-  { name: 'Follow Up', color: '#E67E22' }, // Orange
+  { name: 'No Reply Tracker', color: '#E67E22' }, // Orange
   { name: 'Approvals', color: '#F1C40F' }, // Yellow
   { name: 'Events',    color: '#2ECC71' }, // Green
   { name: 'Customers', color: '#16A085' }, // Teal

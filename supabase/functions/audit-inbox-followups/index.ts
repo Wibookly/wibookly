@@ -110,7 +110,7 @@ async function enableFollowUpCategory(connectionId: string) {
     .from('categories')
     .update({ is_enabled: true })
     .eq('connection_id', connectionId)
-    .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%');
+    .or('is_follow_up.eq.true,name.ilike.%follow up%,name.ilike.%follow-up%,name.ilike.%followup%,name.ilike.%no reply%,name.ilike.%no-reply%');
 }
 
 interface AuditResult {

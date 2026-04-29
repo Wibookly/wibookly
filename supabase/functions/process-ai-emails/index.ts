@@ -501,6 +501,7 @@ STRICT FORMAT RULES:
 // Category context
 const CATEGORY_CONTEXT: Record<string, string> = {
   'Urgent': 'This is an urgent matter requiring immediate attention. Respond promptly.',
+  'No Reply Tracker': 'This is a follow-up to a previous email that has not received a reply. Reference prior context and politely nudge.',
   'Follow Up': 'This is a follow-up to a previous conversation. Reference prior context.',
   'Approvals': 'This relates to approving or reviewing something. Be clear and decisive.',
   'Events': 'This relates to scheduling, confirming, or discussing meetings, appointments, or events. Be specific with times. If you schedule an event, include the exact date, time, and duration.',

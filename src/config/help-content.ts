@@ -129,7 +129,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: '2. Pick a color and name', description: 'Click any category to rename it and choose a color that matches its priority.' },
       { title: '3. Add rules', description: 'Inside a category, click Add Rule to match by sender domain, subject contains, or body contains.' },
       { title: '4. Enable AI Drafts (optional)', description: 'Flip AI Drafts on for categories where you want a pre-written reply waiting for you.' },
-      { title: '5. Mark as Follow Up (optional)', description: 'Categories marked as Follow Up appear in the dedicated Follow-Ups view.' },
+      { title: '5. Mark as No Reply Tracker (optional)', description: 'Categories marked as No Reply Tracker appear in the dedicated No Reply Tracker view.' },
     ],
     outro:
       'Disabling a category leaves the label in your mailbox but stops new mail from being sorted into it. Deleting a category from InboxIQ does **not** delete the label from your mailbox.',
