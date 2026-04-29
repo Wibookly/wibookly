@@ -57,6 +57,48 @@ export default function KnowledgeChat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, busy]);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const onUploadFile = async (file: File) => {
+    if (!file || uploading) return;
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('File too large (max 25 MB)');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error('Not signed in');
+      const ext = file.name.split('.').pop() || 'bin';
+      const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('knowledge-files')
+        .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+      if (upErr) throw upErr;
+
+      const { data, error } = await supabase.functions.invoke('ingest-document', {
+        body: {
+          storage_path: path,
+          title: file.name,
+          mime_type: file.type,
+          filename: file.name,
+          connection_id: activeConnection?.id ?? null,
+          source_type: 'upload',
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Indexed "${file.name}" (${data?.chunk_count ?? 0} chunks).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const syncEmails = async () => {
     if (!activeConnection?.id || syncing) return;
     setSyncing(true);
