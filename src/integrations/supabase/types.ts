@@ -190,7 +190,9 @@ export type Database = {
       }
       ai_chat_conversations: {
         Row: {
+          agent_mode: boolean
           connection_id: string | null
+          context_email_thread_id: string | null
           created_at: string
           id: string
           organization_id: string
@@ -199,7 +201,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_mode?: boolean
           connection_id?: string | null
+          context_email_thread_id?: string | null
           created_at?: string
           id?: string
           organization_id: string
@@ -208,7 +212,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_mode?: boolean
           connection_id?: string | null
+          context_email_thread_id?: string | null
           created_at?: string
           id?: string
           organization_id?: string
@@ -225,6 +231,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_chat_conversations_context_email_thread_id_fkey"
+            columns: ["context_email_thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ai_chat_conversations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -235,25 +248,43 @@ export type Database = {
       }
       ai_chat_messages: {
         Row: {
+          citations: Json | null
           content: string
           conversation_id: string
           created_at: string
           id: string
+          model_used: string | null
           role: string
+          tokens_in: number | null
+          tokens_out: number | null
+          tool_calls: Json | null
+          tool_results: Json | null
         }
         Insert: {
+          citations?: Json | null
           content: string
           conversation_id: string
           created_at?: string
           id?: string
+          model_used?: string | null
           role: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_calls?: Json | null
+          tool_results?: Json | null
         }
         Update: {
+          citations?: Json | null
           content?: string
           conversation_id?: string
           created_at?: string
           id?: string
+          model_used?: string | null
           role?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_calls?: Json | null
+          tool_results?: Json | null
         }
         Relationships: [
           {
@@ -736,6 +767,74 @@ export type Database = {
           },
         ]
       }
+      email_messages: {
+        Row: {
+          body_clean: string | null
+          body_raw: string | null
+          cc_emails: string[]
+          connection_id: string
+          created_at: string
+          embedding: string | null
+          from_email: string | null
+          id: string
+          metadata: Json
+          organization_id: string
+          provider: string
+          provider_message_id: string
+          sent_at: string | null
+          subject: string | null
+          thread_id: string | null
+          to_emails: string[]
+          user_id: string
+        }
+        Insert: {
+          body_clean?: string | null
+          body_raw?: string | null
+          cc_emails?: string[]
+          connection_id: string
+          created_at?: string
+          embedding?: string | null
+          from_email?: string | null
+          id?: string
+          metadata?: Json
+          organization_id: string
+          provider: string
+          provider_message_id: string
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          to_emails?: string[]
+          user_id: string
+        }
+        Update: {
+          body_clean?: string | null
+          body_raw?: string | null
+          cc_emails?: string[]
+          connection_id?: string
+          created_at?: string
+          embedding?: string | null
+          from_email?: string | null
+          id?: string
+          metadata?: Json
+          organization_id?: string
+          provider?: string
+          provider_message_id?: string
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          to_emails?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_profiles: {
         Row: {
           connection_id: string
@@ -880,6 +979,57 @@ export type Database = {
           send_delay_ms?: number
           transactional_email_ttl_minutes?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      email_threads: {
+        Row: {
+          connection_id: string
+          created_at: string
+          id: string
+          last_message_at: string | null
+          message_count: number
+          metadata: Json
+          organization_id: string
+          participants: string[]
+          provider: string
+          provider_thread_id: string
+          subject: string | null
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          metadata?: Json
+          organization_id: string
+          participants?: string[]
+          provider: string
+          provider_thread_id: string
+          subject?: string | null
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          metadata?: Json
+          organization_id?: string
+          participants?: string[]
+          provider?: string
+          provider_thread_id?: string
+          subject?: string | null
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1192,6 +1342,161 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          connection_id: string | null
+          content: string
+          created_at: string
+          document_id: string
+          embedding: string | null
+          id: string
+          organization_id: string
+          token_count: number | null
+          user_id: string
+        }
+        Insert: {
+          chunk_index: number
+          connection_id?: string | null
+          content: string
+          created_at?: string
+          document_id: string
+          embedding?: string | null
+          id?: string
+          organization_id: string
+          token_count?: number | null
+          user_id: string
+        }
+        Update: {
+          chunk_index?: number
+          connection_id?: string | null
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          organization_id?: string
+          token_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          chunk_count: number
+          connection_id: string | null
+          content: string
+          created_at: string
+          error_message: string | null
+          id: string
+          indexed_at: string | null
+          metadata: Json
+          organization_id: string
+          source_ref: string | null
+          source_type: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chunk_count?: number
+          connection_id?: string | null
+          content: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          indexed_at?: string | null
+          metadata?: Json
+          organization_id: string
+          source_ref?: string | null
+          source_type: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number
+          connection_id?: string | null
+          content?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          indexed_at?: string | null
+          metadata?: Json
+          organization_id?: string
+          source_ref?: string | null
+          source_type?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      llm_call_logs: {
+        Row: {
+          connection_id: string | null
+          conversation_id: string | null
+          cost_usd: number
+          created_at: string
+          error: string | null
+          id: string
+          latency_ms: number | null
+          metadata: Json
+          model: string
+          organization_id: string | null
+          provider: string
+          purpose: string | null
+          tokens_in: number
+          tokens_out: number
+          user_id: string | null
+        }
+        Insert: {
+          connection_id?: string | null
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json
+          model: string
+          organization_id?: string | null
+          provider: string
+          purpose?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          user_id?: string | null
+        }
+        Update: {
+          connection_id?: string | null
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json
+          model?: string
+          organization_id?: string | null
+          provider?: string
+          purpose?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          user_id?: string | null
+        }
+        Relationships: []
       }
       oauth_token_vault: {
         Row: {
