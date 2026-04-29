@@ -327,7 +327,7 @@ export default function Settings() {
         phone: (profileData?.phone as string) || '',
         mobile: (profileData?.mobile as string) || '',
         website: (profileData?.website as string) || '',
-        signatureLogoUrl: (profileData?.signature_logo_url as string) || orgLogoUrl || '',
+        signatureLogoUrl: (profileData?.signature_logo_url as string) || orgLogoUrl || DEFAULT_COMPANY_LOGO_URL,
         profilePhotoUrl: ((profile as unknown as { profile_photo_url?: string | null })?.profile_photo_url ?? '') || '',
         showProfilePhoto: false,
         showCompanyLogo: true,
