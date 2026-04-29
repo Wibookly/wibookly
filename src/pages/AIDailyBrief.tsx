@@ -173,7 +173,7 @@ export default function AIDailyBrief() {
           <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">${today}</p>
         </div>
         <div style="text-align: right;">
-          <img src="${window.location.origin}/wibookly-logo-color.png" alt="InboxIQ" style="height: 50px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+          <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" style="height: 70px; width: auto; display: block; margin-left: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
           <div style="display: none; font-size: 24px; font-weight: 700; color: #0ea5e9; font-family: 'Segoe UI', system-ui, sans-serif;">InboxIQ</div>
         </div>
       </div>
