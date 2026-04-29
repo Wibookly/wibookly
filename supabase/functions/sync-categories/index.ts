@@ -2011,6 +2011,20 @@ serve(async (req) => {
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
 
+        // Pre-compute a deduplicated preset color per category so two
+        // categories with similar app-side colors don't collapse to the same
+        // Outlook preset on iPhone/Web/Desktop. The map is keyed by the
+        // managed-category display name ("IQ: <name>").
+        const outlookPresetMap = (tokenRecord.provider === "microsoft" ||
+            tokenRecord.provider === "outlook")
+          ? buildOutlookPresetMap(
+            sortedEnabled.map((c: { name: string; color: string }) => ({
+              name: `${IQ_TAG_PREFIX}${c.name}`,
+              color: c.color,
+            })),
+          )
+          : {};
+
         // RENAME PRE-PASS — handle categories whose name changed in the DB
         // since the last successful sync (e.g. "Project" → "Project One").
         // Without this, the create loop below would not match the old folder
