@@ -517,24 +517,27 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             ))}
           </div>
 
-          <div className="rounded-lg border p-3 flex items-start justify-between gap-4">
+          <div className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="p-2 rounded-md bg-secondary/60 text-foreground/80 mt-0.5">
+              <div className="p-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CalendarClock className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="font-medium text-sm">Auto-audit every 24 hours</div>
+                <div className="font-medium text-sm flex items-center gap-2">
+                  Auto-sync every 24 hours
+                  {settings.is_enabled && settings.daily_audit_enabled ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">Active</Badge>
+                  ) : (
+                    <Badge variant="outline">Paused</Badge>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Each day, InboxIQ scans the previous 24 hours of Sent Items and
-                  flags anything that hasn't been replied to.
+                  While No Reply Tracker is ON, InboxIQ scans the previous 24 hours of Sent Items
+                  every day and flags anything that hasn't been replied to. Use <strong>Audit now</strong>
+                  above to run an extra manual sweep over a custom date range.
                 </div>
               </div>
             </div>
-            <Switch
-              checked={settings.daily_audit_enabled}
-              disabled={saving}
-              onCheckedChange={(v) => patch({ daily_audit_enabled: v })}
-            />
           </div>
 
           {settings.last_audit_at ? (
