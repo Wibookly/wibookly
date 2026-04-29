@@ -135,6 +135,22 @@ function autoName(s: { days: number[]; morningEnabled: boolean; morningTime: str
   return `${days} · ${times.join(' & ')}`;
 }
 
+// Stable serialization of the parts that get persisted to the DB.
+// Used to detect unsaved changes between the in-memory schedules and
+// what's actually stored. Anything not in this string (like the local
+// `name` and the local `id`) is intentionally ignored.
+function snapshotKey(list: Schedule[], tz: string, recipient: string): string {
+  const norm = list
+    .filter(s => s.enabled && s.days.length > 0 && (s.morningEnabled || s.eveningEnabled))
+    .map(s => ({
+      d: [...s.days].sort(),
+      m: s.morningEnabled ? s.morningTime : null,
+      e: s.eveningEnabled ? s.eveningTime : null,
+    }))
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return JSON.stringify({ tz, recipient, norm });
+}
+
 export function DailyBriefSchedule() {
   const { profile, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
