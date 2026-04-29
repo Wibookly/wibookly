@@ -100,7 +100,9 @@ function renderBriefHtml(
   pendingFollowUps: any[] = [],
   dateLabel: string = ""
 ): string {
-  const heading = brief_type === "morning" ? "☀️ Your Morning Brief" : "🌙 Your End-of-Day Recap";
+  const moonSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#1e3a8a" style="vertical-align:-4px;margin-right:6px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+  const sunSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+  const heading = brief_type === "morning" ? `${sunSvg}Your Morning Brief` : `${moonSvg}Your End-of-Day Recap`;
   const greeting = esc(brief?.greeting || "");
   const summary = esc(brief?.summary || "Here is your daily brief.");
 
@@ -173,7 +175,7 @@ function renderBriefHtml(
 
   // Pending Follow-Ups (no reply received)
   const followUpsBlock = pendingFollowUps.length
-    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">⏰ Follow-Ups Awaiting Reply</h2>
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">⏰ No Reply Tracker</h2>
        ${pendingFollowUps.slice(0, 10).map((f: any) => {
           const overdue = f.due_at && new Date(f.due_at) < new Date();
           const recipients = Array.isArray(f.to_recipients)
@@ -534,9 +536,9 @@ function buildBriefPdf(
     y += 6;
   }
 
-  // Follow-Ups Awaiting Reply
+  // No Reply Tracker
   if (pendingFollowUps && pendingFollowUps.length) {
-    sectionHeading("Follow-Ups Awaiting Reply");
+    sectionHeading("No Reply Tracker");
     pendingFollowUps.forEach((f: any) => {
       const overdue = f.due_at && new Date(f.due_at) < new Date();
       ensureSpace(30);
