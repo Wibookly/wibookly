@@ -853,105 +853,93 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
 
   return (
     <Card className="mb-6 border-primary/30">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full text-left">
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-md bg-primary/10 text-primary mt-0.5">
-                  <BellRing className="w-4 h-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    Follow-Ups Awaiting Reply
-                    {items && items.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {items.length}
-                      </Badge>
-                    )}
-                    {overdueCount > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        {overdueCount} overdue
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Emails you sent (BCC'd to a follow-up alias) that haven't received a reply yet.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/follow-up-reminder"
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-md bg-primary/10 text-primary mt-0.5">
+            <BellRing className="w-4 h-4" />
+          </div>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              Follow-Ups Awaiting Reply
+              {items && items.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {items.length}
+                </Badge>
+              )}
+              {overdueCount > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {overdueCount} overdue
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Emails you sent (BCC'd to a follow-up alias) that haven't received a reply yet.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/follow-up-reminder"
+          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+        >
+          Settings <ExternalLink className="w-3 h-3" />
+        </Link>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : !items || items.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            No follow-ups waiting for a reply. 🎉
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => {
+              const overdue = item.due_at && new Date(item.due_at).getTime() < Date.now();
+              const recipients = formatRecipients(item.to_recipients);
+              return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-lg border transition-colors hover:bg-secondary/30',
+                    overdue ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-amber-500'
+                  )}
                 >
-                  Settings <ExternalLink className="w-3 h-3" />
-                </Link>
-                {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-              </div>
-            </CardHeader>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <CardContent className="pt-0">
-            {isLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : !items || items.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No follow-ups waiting for a reply. 🎉
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item) => {
-                  const overdue = item.due_at && new Date(item.due_at).getTime() < Date.now();
-                  const recipients = formatRecipients(item.to_recipients);
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        'flex items-start gap-3 p-3 rounded-lg border transition-colors hover:bg-secondary/30',
-                        overdue ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-amber-500'
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm truncate">
+                        {item.subject || '(no subject)'}
+                      </p>
+                      {(item.reminder_count ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] h-4">
+                          {item.reminder_count} reminder{item.reminder_count === 1 ? '' : 's'} sent
+                        </Badge>
                       )}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-sm truncate">
-                            {item.subject || '(no subject)'}
-                          </p>
-                          {(item.reminder_count ?? 0) > 0 && (
-                            <Badge variant="outline" className="text-[10px] h-4">
-                              {item.reminder_count} reminder{item.reminder_count === 1 ? '' : 's'} sent
-                            </Badge>
-                          )}
-                        </div>
-                        {recipients && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            To: {recipients}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          {item.sent_at && (
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Sent {formatDistanceToNow(new Date(item.sent_at), { addSuffix: true })}
-                            </span>
-                          )}
-                          {item.due_at && (
-                            <span className={cn('font-medium', overdue && 'text-destructive')}>
-                              {overdue ? 'Overdue' : 'Due'} {formatDistanceToNow(new Date(item.due_at), { addSuffix: true })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
+                    {recipients && (
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        To: {recipients}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      {item.sent_at && (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Sent {formatDistanceToNow(new Date(item.sent_at), { addSuffix: true })}
+                        </span>
+                      )}
+                      {item.due_at && (
+                        <span className={cn('font-medium', overdue && 'text-destructive')}>
+                          {overdue ? 'Overdue' : 'Due'} {formatDistanceToNow(new Date(item.due_at), { addSuffix: true })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }
