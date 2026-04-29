@@ -2,13 +2,15 @@
 // Inputs: a task description (typically an inbound email body + thread context)
 // Outputs: { reply_html, attachments[] }
 //
-// Architecture:
-//   1. PRIMARY  — OpenAI Responses API (gpt-5-mini) with built-in web_search tool
-//                 + custom doc-generation tools (generate_pdf/docx/xlsx/pptx)
-//                 in a multi-iteration tool loop.
-//   2. FALLBACK — Anthropic Messages API (claude-sonnet-4-5) with built-in
-//                 web_search_20250305 + web_fetch_20250910 server tools, plus
-//                 the same custom doc tools.
+// Architecture (3-tier fallback chain):
+//   1. PRIMARY   — OpenAI Responses API (gpt-4.1) with built-in web_search tool
+//                  + custom doc-generation tools (generate_pdf/docx/xlsx/pptx)
+//                  in a multi-iteration tool loop.
+//   2. SECONDARY — OpenAI Responses API (gpt-4o) — same shape as primary,
+//                  used if primary fails (e.g. model-access error).
+//   3. FALLBACK  — Anthropic Messages API (claude-sonnet-4-5) with built-in
+//                  web_search_20250305 + web_fetch_20250910 server tools, plus
+//                  the same custom doc tools.
 //
 // Hard limits:
 //   - max 15 tool iterations
