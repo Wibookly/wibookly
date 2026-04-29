@@ -99,18 +99,43 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
   useEffect(() => { load(); }, [activeConnection?.id]);
 
+  async function ensureTrackerCategory() {
+    if (!activeConnection?.id) return;
+    try {
+      await supabase.rpc('ensure_no_reply_tracker_category', { _connection_id: activeConnection.id });
+    } catch (e) {
+      console.warn('ensure_no_reply_tracker_category failed', e);
+    }
+  }
+
   async function patch(updates: Partial<Settings>) {
     if (!settings) return;
     setSaving(true);
-    const next = { ...settings, ...updates };
+    // When master toggle is turned ON, force the supporting defaults ON too.
+    let finalUpdates: Partial<Settings> = { ...updates };
+    if (updates.is_enabled === true && !settings.is_enabled) {
+      finalUpdates = {
+        ...finalUpdates,
+        business_hours_only: true,
+        daily_audit_enabled: true,
+        auto_draft_enabled: true,
+      };
+      await ensureTrackerCategory();
+    }
+    const next = { ...settings, ...finalUpdates };
     setSettings(next);
     const { error } = await supabase
       .from('follow_up_settings')
-      .update(updates)
+      .update(finalUpdates)
       .eq('id', settings.id);
     if (error) {
       toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       setSettings(settings);
+    } else if (updates.is_enabled === true) {
+      toast({
+        title: 'No Reply Tracker enabled',
+        description: 'Business hours, daily 24-hour auto-sync, and auto-draft are now active. The "No Reply Tracker" category was added in red.',
+      });
     }
     setSaving(false);
   }
@@ -228,7 +253,14 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <CardDescription className="mt-1.5 max-w-2xl">
                 BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
                 (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
-                original to your <strong>No Reply Tracker</strong> category and applies the action you choose below.
+                original to your <strong>No Reply Tracker</strong> category (red) and applies the action you choose below.
+                <br />
+                <span className="text-foreground">
+                  When this is ON, InboxIQ automatically scans your sent emails <strong>every 24 hours</strong>,
+                  keeps Business Hours active, drafts follow-ups for unanswered threads, and adds them back to
+                  the <strong>No Reply Tracker</strong> category until the recipient replies. Once they reply,
+                  the email leaves the tracker automatically.
+                </span>
               </CardDescription>
             </div>
             <Switch
@@ -301,11 +333,16 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 daily auto-audit only run during your local working hours. Outside hours,
                 emails are still <em>moved</em> to your No Reply Tracker category — drafts and sends
                 wait until business hours resume.
+                {settings.is_enabled ? (
+                  <span className="block mt-1 text-xs text-muted-foreground">
+                    Locked ON while No Reply Tracker is active.
+                  </span>
+                ) : null}
               </CardDescription>
             </div>
             <Switch
               checked={settings.business_hours_only}
-              disabled={saving}
+              disabled={saving || settings.is_enabled}
               onCheckedChange={(v) => patch({ business_hours_only: v })}
             />
           </div>
@@ -480,24 +517,27 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             ))}
           </div>
 
-          <div className="rounded-lg border p-3 flex items-start justify-between gap-4">
+          <div className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="p-2 rounded-md bg-secondary/60 text-foreground/80 mt-0.5">
+              <div className="p-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CalendarClock className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="font-medium text-sm">Auto-audit every 24 hours</div>
+                <div className="font-medium text-sm flex items-center gap-2">
+                  Auto-sync every 24 hours
+                  {settings.is_enabled && settings.daily_audit_enabled ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">Active</Badge>
+                  ) : (
+                    <Badge variant="outline">Paused</Badge>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Each day, InboxIQ scans the previous 24 hours of Sent Items and
-                  flags anything that hasn't been replied to.
+                  While No Reply Tracker is ON, InboxIQ scans the previous 24 hours of Sent Items
+                  every day and flags anything that hasn't been replied to. Use <strong>Audit now</strong>
+                  above to run an extra manual sweep over a custom date range.
                 </div>
               </div>
             </div>
-            <Switch
-              checked={settings.daily_audit_enabled}
-              disabled={saving}
-              onCheckedChange={(v) => patch({ daily_audit_enabled: v })}
-            />
           </div>
 
           {settings.last_audit_at ? (
