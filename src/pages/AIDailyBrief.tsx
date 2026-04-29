@@ -816,7 +816,6 @@ interface PendingFollowUp {
 
 function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
   const { hasFeature, loading: featLoading } = useFeatureAccess();
-  const [open, setOpen] = useState(true);
 
   const { data: items, isLoading } = useQuery({
     queryKey: ['daily-brief-pending-followups', connectionId],
