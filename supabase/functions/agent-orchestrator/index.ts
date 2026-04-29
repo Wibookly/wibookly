@@ -299,6 +299,24 @@ Deno.serve(async (req) => {
         if (toolName === "compose_email_draft" && result?.draft) {
           draft = result.draft;
         }
+        if (toolName === "search_context" && Array.isArray(result?.results)) {
+          for (const r of result.results) {
+            const key = `${r.type || 'doc'}:${r.id || r.document_id || r.thread_id || r.subject || ''}`;
+            if (seenCitationKeys.has(key)) continue;
+            seenCitationKeys.add(key);
+            citations.push({
+              type: r.type || (r.from_email ? 'email' : 'document'),
+              id: r.id ?? null,
+              title: r.subject || r.title || r.from_email || 'Source',
+              from: r.from_email ?? null,
+              sent_at: r.sent_at ?? null,
+              snippet: typeof r.content === 'string'
+                ? r.content.slice(0, 240)
+                : (typeof r.body_clean === 'string' ? r.body_clean.slice(0, 240) : null),
+              similarity: typeof r.similarity === 'number' ? r.similarity : null,
+            });
+          }
+        }
         messages.push({
           role: "tool",
           tool_call_id: call.id,
