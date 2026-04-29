@@ -443,10 +443,10 @@ async function processNotification(n: GraphNotification) {
   const threadText = formatThreadForPrompt(thread, messageId, msg);
   const senderName = msg.from?.emailAddress?.name ?? '';
 
-  // Delegate to the shared agent-loop (OpenAI gpt-5-mini Responses API
-  // with native web_search; Anthropic Claude Sonnet 4.5 fallback with
-  // web_search_20250305 + web_fetch_20250910). agent-loop also produces
-  // real document attachments (PDF/DOCX/XLSX/PPTX) when the task warrants.
+  // Delegate to the shared agent-loop (OpenAI gpt-4.1 Responses API primary,
+  // gpt-4o secondary — both with native web_search; Anthropic Claude Sonnet 4.5
+  // final fallback with web_search_20250305 + web_fetch_20250910). agent-loop
+  // also produces real document attachments (PDF/DOCX/XLSX/PPTX) when warranted.
   const agent = await invokeAgentLoop({
     task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
     threadText,
