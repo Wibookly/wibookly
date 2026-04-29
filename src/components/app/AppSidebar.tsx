@@ -195,6 +195,7 @@ export function AppSidebar() {
               <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
               {(isSuperAdmin || hasFeature('ai_assistant')) && <NavItem href="/ai-chat" icon={MessageSquare}>AI Chat</NavItem>}
               <NavItem href="/knowledge" icon={BookOpen}>Knowledge Base</NavItem>
+              <NavItem href="/knowledge-chat" icon={Sparkles}>Knowledge Assistant</NavItem>
               {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
             </NavSection>
           )}
