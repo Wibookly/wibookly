@@ -141,7 +141,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const token = await getValidAccessToken(admin, user.id, connection.provider);
+    const providerKey = connection.provider === "google"
+      ? "google"
+      : (connection.provider === "microsoft" || connection.provider === "outlook")
+        ? "outlook"
+        : null;
+    if (!providerKey) {
+      return new Response(
+        JSON.stringify({ error: `Unsupported provider: ${connection.provider}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const token = await getValidAccessToken(user.id, providerKey);
     if (!token) {
       return new Response(
         JSON.stringify({ error: "reauth_required", provider: connection.provider }),
@@ -158,17 +170,9 @@ Deno.serve(async (req) => {
       html,
     };
 
-    let result: Record<string, unknown>;
-    if (connection.provider === "google") {
-      result = await createGmailDraft(token, args);
-    } else if (connection.provider === "microsoft") {
-      result = await createOutlookDraft(token, args);
-    } else {
-      return new Response(
-        JSON.stringify({ error: `Unsupported provider: ${connection.provider}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const result = providerKey === "google"
+      ? await createGmailDraft(token, args)
+      : await createOutlookDraft(token, args);
 
     return new Response(
       JSON.stringify({ success: true, provider: connection.provider, ...result }),
