@@ -2251,6 +2251,36 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      ensure_no_reply_tracker_category: {
+        Args: { _connection_id: string }
+        Returns: {
+          additional_context: string | null
+          ai_draft_enabled: boolean
+          auto_reply_enabled: boolean
+          color: string
+          connection_id: string | null
+          created_at: string
+          example_reply_template: string | null
+          format_style: string | null
+          id: string
+          is_enabled: boolean
+          is_follow_up: boolean
+          last_synced_at: string | null
+          last_synced_name: string | null
+          name: string
+          organization_id: string
+          show_in_favorites: boolean
+          sort_order: number
+          updated_at: string
+          writing_style: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "categories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_my_connections: {
         Args: never
         Returns: {
