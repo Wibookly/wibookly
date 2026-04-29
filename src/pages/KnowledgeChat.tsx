@@ -236,7 +236,58 @@ export default function KnowledgeChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto p-6 gap-4">
+    <div className="flex h-[calc(100vh-4rem)] max-w-7xl mx-auto w-full">
+      {/* Conversation history rail */}
+      <aside className="hidden md:flex flex-col w-64 border-r bg-card/40 shrink-0">
+        <div className="p-3 border-b">
+          <Button
+            onClick={newChat}
+            size="sm"
+            variant="outline"
+            className="w-full justify-start gap-2"
+          >
+            <Plus className="h-4 w-4" /> New chat
+          </Button>
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-0.5">
+            {conversations.length === 0 && (
+              <div className="px-2 py-6 text-xs text-muted-foreground text-center">
+                No past conversations yet.
+              </div>
+            )}
+            {conversations.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => openConversation(c.id)}
+                className={cn(
+                  'group w-full text-left rounded-md px-2 py-2 text-xs flex items-start gap-2 hover:bg-muted transition-colors',
+                  conversationId === c.id && 'bg-muted',
+                )}
+              >
+                {c.agent_mode ? (
+                  <Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                )}
+                <span className="flex-1 truncate" title={c.title}>
+                  {c.title || 'Untitled'}
+                </span>
+                {loadingConvId === c.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                ) : (
+                  <Trash2
+                    className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-destructive"
+                    onClick={(e) => deleteConversation(c.id, e)}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </aside>
+
+      <div className="flex flex-col flex-1 min-w-0 p-6 gap-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
