@@ -113,8 +113,8 @@ export default function KnowledgeChat() {
       <Card className="flex-1 flex flex-col overflow-hidden">
         <CardHeader className="py-3 border-b">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            {activeConnection?.connected_email
-              ? `Workspace: ${activeConnection.connected_email}`
+            {activeConnection?.email
+              ? `Workspace: ${activeConnection.email}`
               : 'No active workspace'}
           </CardTitle>
           <CardDescription className="text-xs">
