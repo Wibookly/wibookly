@@ -2085,6 +2085,7 @@ serve(async (req) => {
                 accessToken,
                 categoryTag,
                 category.color,
+                outlookPresetMap[categoryTag],
               );
               const folderId = await findOutlookFolderId(
                 accessToken,
