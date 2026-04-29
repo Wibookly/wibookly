@@ -241,7 +241,7 @@ async function runOpenAI(req: AgentRequest, attachments: GeneratedFile[], trace:
   return {
     reply_html: finalText || 'I generated your deliverable but had trouble composing the cover note. The attachment is included.',
     provider: 'openai' as const,
-    model: OPENAI_MODEL,
+    model,
     iterations,
     used_web_search: usedWebSearch,
     prompt_tokens: totalIn,
