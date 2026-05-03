@@ -603,6 +603,11 @@ async function processNotification(n: GraphNotification) {
         cost_usd: cost.toFixed(6),
         metadata: { sender: senderEmail, attachments: attachments.length },
       });
+      // Record actual spend against org daily budget
+      await supabase.rpc('record_agent_spend', {
+        _org_id: settings.organization_id,
+        _cost_usd: Number(cost.toFixed(6)),
+      });
     } catch (e) {
       console.error('usage log failed', e);
     }
