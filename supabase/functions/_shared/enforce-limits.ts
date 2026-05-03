@@ -121,7 +121,7 @@ export async function enforceLimitsBeforeLLM(
     console.error('[enforce-limits] rpc error', error);
     // Fail closed
     return {
-      allowed: false, reason: 'enforcement_rpc_error', model: args.fallbackModel,
+      allowed: false, reason: 'enforcement_rpc_error', model: fallbackModel,
       group_id: null, feature_enabled: false,
       daily_count_remaining: 0, user_daily_remaining: 0, user_monthly_remaining: 0, org_daily_remaining: 0,
     };
@@ -130,7 +130,7 @@ export async function enforceLimitsBeforeLLM(
   return {
     allowed: !!row?.allowed,
     reason: row?.reason ?? null,
-    model: row?.model ?? args.fallbackModel,
+    model: resolveModel(args.feature, row?.model),
     group_id: row?.group_id ?? null,
     feature_enabled: !!row?.feature_enabled,
     daily_count_remaining: Number(row?.daily_count_remaining ?? 0),
