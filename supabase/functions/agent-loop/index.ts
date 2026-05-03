@@ -50,6 +50,7 @@ interface AgentRequest {
   sender_email?: string;
   subject?: string;
   organization_id?: string;
+  user_id?: string;
   channel?: 'email' | 'teams' | 'api';
   preferred_provider?: 'openai' | 'anthropic';  // optional override
 }
