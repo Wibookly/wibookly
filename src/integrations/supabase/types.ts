@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json
+          group_id: string | null
+          id: string
+          organization_id: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          group_id?: string | null
+          id?: string
+          organization_id?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          group_id?: string | null
+          id?: string
+          organization_id?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       agent_messages: {
         Row: {
           channel: string
@@ -556,6 +589,132 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      backup_group_feature_overrides_v1: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain_id: string | null
+          feature_key: string | null
+          group_id: string | null
+          id: string | null
+          is_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      backup_group_features_v1: {
+        Row: {
+          created_at: string | null
+          feature_key: string | null
+          group_id: string | null
+          id: string | null
+          is_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      backup_org_agent_budget_v1: {
+        Row: {
+          current_day: string | null
+          daily_usd_cap: number | null
+          max_concurrent_runs: number | null
+          organization_id: string | null
+          paused: boolean | null
+          paused_reason: string | null
+          spent_today_usd: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          current_day?: string | null
+          daily_usd_cap?: number | null
+          max_concurrent_runs?: number | null
+          organization_id?: string | null
+          paused?: boolean | null
+          paused_reason?: string | null
+          spent_today_usd?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          current_day?: string | null
+          daily_usd_cap?: number | null
+          max_concurrent_runs?: number | null
+          organization_id?: string | null
+          paused?: boolean | null
+          paused_reason?: string | null
+          spent_today_usd?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      backup_permission_groups_v1: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          domain_id: string | null
+          id: string | null
+          name: string | null
+          organization_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          domain_id?: string | null
+          id?: string | null
+          name?: string | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          domain_id?: string | null
+          id?: string | null
+          name?: string | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       categories: {
         Row: {
@@ -1249,6 +1408,44 @@ export type Database = {
         }
         Relationships: []
       }
+      group_cost_caps: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          per_request_usd: number | null
+          per_user_daily_usd: number | null
+          per_user_monthly_usd: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          per_request_usd?: number | null
+          per_user_daily_usd?: number | null
+          per_user_monthly_usd?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          per_request_usd?: number | null
+          per_user_daily_usd?: number | null
+          per_user_monthly_usd?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_cost_caps_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_feature_overrides: {
         Row: {
           created_at: string
@@ -1300,26 +1497,32 @@ export type Database = {
       group_features: {
         Row: {
           created_at: string
+          daily_limit: number
           feature_key: string
           group_id: string
           id: string
           is_enabled: boolean
+          model_assignment: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          daily_limit?: number
           feature_key: string
           group_id: string
           id?: string
           is_enabled?: boolean
+          model_assignment?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          daily_limit?: number
           feature_key?: string
           group_id?: string
           id?: string
           is_enabled?: boolean
+          model_assignment?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1567,31 +1770,40 @@ export type Database = {
       org_agent_budget: {
         Row: {
           current_day: string
+          current_month: string
           daily_usd_cap: number
           max_concurrent_runs: number
+          monthly_usd_cap: number
           organization_id: string
           paused: boolean
           paused_reason: string | null
+          spent_month_usd: number
           spent_today_usd: number
           updated_at: string
         }
         Insert: {
           current_day?: string
+          current_month?: string
           daily_usd_cap?: number
           max_concurrent_runs?: number
+          monthly_usd_cap?: number
           organization_id: string
           paused?: boolean
           paused_reason?: string | null
+          spent_month_usd?: number
           spent_today_usd?: number
           updated_at?: string
         }
         Update: {
           current_day?: string
+          current_month?: string
           daily_usd_cap?: number
           max_concurrent_runs?: number
+          monthly_usd_cap?: number
           organization_id?: string
           paused?: boolean
           paused_reason?: string | null
+          spent_month_usd?: number
           spent_today_usd?: number
           updated_at?: string
         }
@@ -1666,8 +1878,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          display_order: number
           domain_id: string | null
           id: string
+          is_default_for_new_users: boolean
+          monthly_price: number | null
           name: string
           organization_id: string
           updated_at: string
@@ -1676,8 +1891,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          display_order?: number
           domain_id?: string | null
           id?: string
+          is_default_for_new_users?: boolean
+          monthly_price?: number | null
           name: string
           organization_id: string
           updated_at?: string
@@ -1686,8 +1904,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          display_order?: number
           domain_id?: string | null
           id?: string
+          is_default_for_new_users?: boolean
+          monthly_price?: number | null
           name?: string
           organization_id?: string
           updated_at?: string
@@ -2014,6 +2235,53 @@ export type Database = {
         }
         Relationships: []
       }
+      user_daily_spend: {
+        Row: {
+          day: string
+          group_id: string | null
+          id: string
+          month: string
+          organization_id: string
+          request_count_today: number
+          spent_month_usd: number
+          spent_today_usd: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          day?: string
+          group_id?: string | null
+          id?: string
+          month?: string
+          organization_id: string
+          request_count_today?: number
+          spent_month_usd?: number
+          spent_today_usd?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          day?: string
+          group_id?: string | null
+          id?: string
+          month?: string
+          organization_id?: string
+          request_count_today?: number
+          spent_month_usd?: number
+          spent_today_usd?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_spend_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_feature_access: {
         Row: {
           created_at: string
@@ -2338,6 +2606,20 @@ export type Database = {
           spent: number
         }[]
       }
+      check_user_budget: {
+        Args: {
+          _est_cost_usd?: number
+          _organization_id: string
+          _user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          daily_remaining: number
+          group_id: string
+          monthly_remaining: number
+          reason: string
+        }[]
+      }
       count_followup_impact: {
         Args: { _group_id: string }
         Returns: {
@@ -2529,6 +2811,15 @@ export type Database = {
       }
       record_agent_spend: {
         Args: { _cost_usd: number; _org_id: string }
+        Returns: undefined
+      }
+      record_user_spend: {
+        Args: {
+          _cost_usd: number
+          _group_id: string
+          _organization_id: string
+          _user_id: string
+        }
         Returns: undefined
       }
       resume_followups_with_permission: { Args: never; Returns: number }
