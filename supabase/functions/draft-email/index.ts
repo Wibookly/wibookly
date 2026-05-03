@@ -226,9 +226,10 @@ serve(async (req) => {
     
     const { data: profileData } = await serviceClient
       .from('user_profiles')
-      .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
+      .select('organization_id, full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
       .eq('user_id', user.id)
       .single();
+    const organizationId: string = profileData?.organization_id || '';
     
     const senderName = profileData?.full_name || null;
     const senderTitle = profileData?.title || null;
