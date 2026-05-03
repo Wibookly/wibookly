@@ -1408,6 +1408,41 @@ export type Database = {
         }
         Relationships: []
       }
+      group_cost_caps: {
+        Row: {
+          group_id: string
+          id: string
+          per_request_usd: number | null
+          per_user_daily_usd: number | null
+          per_user_monthly_usd: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          per_request_usd?: number | null
+          per_user_daily_usd?: number | null
+          per_user_monthly_usd?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          per_request_usd?: number | null
+          per_user_daily_usd?: number | null
+          per_user_monthly_usd?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_cost_caps_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_feature_overrides: {
         Row: {
           created_at: string
