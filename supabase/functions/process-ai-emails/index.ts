@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateArtifact } from "../_shared/teams-tools.ts";
+import { enforceLimitsBeforeLLM, recordSpend, detectProvider } from "../_shared/enforce-limits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2498,6 +2499,22 @@ async function processConnectionEmails(
           continue;
         }
 
+        // Pre-flight enforcement (feature gating + budget caps + model routing)
+        const featureKey = needsAutoReply ? 'ai_auto_reply' : 'ai_draft';
+        const adminKeys = await loadAdminAIKeys();
+        const fbModel = adminKeys.preference === 'claude' ? adminKeys.claudeModel : adminKeys.openaiModel;
+        const gate = await enforceLimitsBeforeLLM(supabaseAdmin, {
+          userId,
+          organizationId: organizationId || '',
+          feature: featureKey,
+          fallbackModel: fbModel,
+        });
+        if (!gate.allowed) {
+          console.warn(`[process-ai-emails] blocked ${featureKey} for user ${userId}: ${gate.reason}`);
+          results.errors++;
+          continue;
+        }
+
         console.log(`Processing email ${msg.id} for ${category.name}`);
 
         let emailDetails;
@@ -2669,6 +2686,22 @@ async function processConnectionEmails(
               email_from: emailDetails.from?.slice(0, 200) ?? null,
             },
           });
+          // Per-user/per-org budget accounting
+          try {
+            await recordSpend(supabaseAdmin, {
+              userId,
+              organizationId: organizationId || '',
+              groupId: gate.group_id,
+              feature: featureKey,
+              provider: detectProvider(aiDraftResult.usage.model),
+              model: aiDraftResult.usage.model,
+              tokensIn: aiDraftResult.usage.promptTokens,
+              tokensOut: aiDraftResult.usage.completionTokens,
+              metadata: { category: categoryNameForAI, email_id: msg.id },
+            });
+          } catch (e) {
+            console.warn('[process-ai-emails] recordSpend failed', e);
+          }
         }
 
         // Parse any meeting from AI response
