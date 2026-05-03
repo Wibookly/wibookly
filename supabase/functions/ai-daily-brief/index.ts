@@ -610,6 +610,24 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
+
+    // Post-call accounting
+    try {
+      const usage = aiResponse.usage || {};
+      await recordSpend(supabase, {
+        userId: user.id,
+        organizationId,
+        groupId: gate.group_id,
+        feature: 'daily_brief',
+        provider: routedModel.startsWith('google/') ? 'google' : detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: Number(usage.prompt_tokens ?? 0),
+        tokensOut: Number(usage.completion_tokens ?? 0),
+        metadata: { brief_type: briefType, connection_id: connectionId },
+      });
+    } catch (e) {
+      console.warn('[ai-daily-brief] recordSpend failed', e);
+    }
     
     let briefData;
     try {
