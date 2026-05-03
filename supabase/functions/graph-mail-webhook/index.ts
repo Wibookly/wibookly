@@ -258,6 +258,7 @@ async function invokeAgentLoop(args: {
   senderName: string;
   subject: string;
   organizationId: string;
+  userId?: string | null;
 }): Promise<AgentLoopResult> {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-loop`, {
     method: 'POST',
@@ -272,6 +273,7 @@ async function invokeAgentLoop(args: {
       sender_email: args.senderEmail,
       subject: args.subject,
       organization_id: args.organizationId,
+      user_id: args.userId ?? undefined,
       channel: 'email',
     }),
   });
@@ -280,6 +282,25 @@ async function invokeAgentLoop(args: {
     throw new Error(`agent-loop failed: ${res.status} ${text.slice(0, 500)}`);
   }
   return res.json();
+}
+
+// Pick a representative user for org-level enforcement (admin first, else any member)
+async function resolveOrgRepresentativeUser(orgId: string): Promise<string | null> {
+  const { data: adminRow } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('organization_id', orgId)
+    .eq('role', 'admin')
+    .limit(1)
+    .maybeSingle();
+  if (adminRow?.user_id) return adminRow.user_id;
+  const { data: anyMember } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .eq('organization_id', orgId)
+    .limit(1)
+    .maybeSingle();
+  return anyMember?.user_id ?? null;
 }
 
 function stripHtml(html: string): string {
@@ -515,6 +536,7 @@ async function processNotification(n: GraphNotification) {
         used_web_search: false,
       };
     } else {
+      const orgUserId = await resolveOrgRepresentativeUser(settings.organization_id);
       agent = await invokeAgentLoop({
         task: taskText,
         threadText,
@@ -522,6 +544,7 @@ async function processNotification(n: GraphNotification) {
         senderName,
         subject: msg.subject ?? '',
         organizationId: settings.organization_id,
+        userId: orgUserId,
       });
       // Cache successful responses for 5 minutes
       try {

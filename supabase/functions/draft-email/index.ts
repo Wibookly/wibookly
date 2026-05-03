@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -225,9 +226,10 @@ serve(async (req) => {
     
     const { data: profileData } = await serviceClient
       .from('user_profiles')
-      .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
+      .select('organization_id, full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
       .eq('user_id', user.id)
       .single();
+    const organizationId: string = profileData?.organization_id || '';
     
     const senderName = profileData?.full_name || null;
     const senderTitle = profileData?.title || null;
@@ -379,6 +381,16 @@ ${END_DELIMITER}`;
 
     console.log(`Drafting email - Style: ${writingStyle}, Format: ${formatStyle}, Category: ${cleanCategoryName}`);
 
+    // Pre-flight enforcement (feature gating, budgets, model routing)
+    const gate = await enforceLimitsBeforeLLM(serviceClient, {
+      userId: user.id,
+      organizationId,
+      feature: 'ai_draft',
+      fallbackModel: 'gpt-4o',
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+    const routedModel = gate.model || 'gpt-4o';
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -386,7 +398,7 @@ ${END_DELIMITER}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: routedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -419,6 +431,24 @@ ${END_DELIMITER}`;
 
     const data = await response.json();
     let draft = data.choices?.[0]?.message?.content || '';
+
+    // Post-call accounting
+    try {
+      const usage = data.usage || {};
+      await recordSpend(serviceClient, {
+        userId: user.id,
+        organizationId,
+        groupId: gate.group_id,
+        feature: 'ai_draft',
+        provider: detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: Number(usage.prompt_tokens ?? 0),
+        tokensOut: Number(usage.completion_tokens ?? 0),
+        metadata: { category: cleanCategoryName },
+      });
+    } catch (e) {
+      console.warn('[draft-email] recordSpend failed', e);
+    }
 
     // Validate output format
     if (!validateOutputFormat(draft)) {

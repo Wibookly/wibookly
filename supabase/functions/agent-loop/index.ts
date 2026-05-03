@@ -22,6 +22,8 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { runDocTool, DOC_TOOLS_OPENAI, GeneratedFile } from '../_shared/document-generators.ts';
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from '../_shared/enforce-limits.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,6 +50,7 @@ interface AgentRequest {
   sender_email?: string;
   subject?: string;
   organization_id?: string;
+  user_id?: string;
   channel?: 'email' | 'teams' | 'api';
   preferred_provider?: 'openai' | 'anthropic';  // optional override
 }
@@ -539,6 +542,22 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Pre-flight enforcement (best-effort: only when caller passed user + org context)
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+  const admin = SUPABASE_URL && SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+    : null;
+  const enforceFeature = body.channel === 'teams' ? 'teams_agent' : 'email_agent';
+  let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
+  if (admin && body.user_id && body.organization_id) {
+    gate = await enforceLimitsBeforeLLM(admin, {
+      userId: body.user_id,
+      organizationId: body.organization_id,
+      feature: enforceFeature,
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+  }
+
   for (const attempt of attempts) {
     try {
       if (getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
@@ -592,6 +611,25 @@ Deno.serve(async (req) => {
     used_web_search: result!.used_web_search,
     trace,
   };
+
+  // Post-call accounting
+  if (admin && gate && body.user_id && body.organization_id) {
+    try {
+      await recordSpend(admin, {
+        userId: body.user_id,
+        organizationId: body.organization_id,
+        groupId: gate.group_id,
+        feature: enforceFeature,
+        provider: result!.provider === 'anthropic' ? 'anthropic' : 'openai',
+        model: result!.model,
+        tokensIn: result!.prompt_tokens || 0,
+        tokensOut: result!.completion_tokens || 0,
+        metadata: { channel: body.channel ?? 'api', iterations: result!.iterations },
+      });
+    } catch (e) {
+      console.warn('[agent-loop] recordSpend failed', e);
+    }
+  }
 
   return new Response(JSON.stringify(out), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

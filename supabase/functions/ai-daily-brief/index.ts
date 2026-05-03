@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -550,6 +551,26 @@ ${briefType === "evening" ? eveningInstructions : morningInstructions}
 
 IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If there are no calendar events, say so clearly and suggest using the time productively.`;
 
+    // Pre-flight enforcement
+    const { data: upRow } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const organizationId: string = upRow?.organization_id || '';
+    const gate = await enforceLimitsBeforeLLM(supabase, {
+      userId: user.id,
+      organizationId,
+      feature: 'daily_brief',
+      fallbackModel: 'google/gemini-2.5-flash',
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+    const routedModel = gate.model || 'google/gemini-2.5-flash';
+    // Lovable gateway needs provider-prefixed model id
+    const gatewayModel = routedModel.includes('/')
+      ? routedModel
+      : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -557,7 +578,7 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: gatewayModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Here is my real data for today:\n${JSON.stringify(contextData, null, 2)}\n\nPlease generate my daily brief based on this actual data.` },
@@ -589,6 +610,24 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
+
+    // Post-call accounting
+    try {
+      const usage = aiResponse.usage || {};
+      await recordSpend(supabase, {
+        userId: user.id,
+        organizationId,
+        groupId: gate.group_id,
+        feature: 'daily_brief',
+        provider: routedModel.startsWith('google/') ? 'google' : detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: Number(usage.prompt_tokens ?? 0),
+        tokensOut: Number(usage.completion_tokens ?? 0),
+        metadata: { brief_type: briefType, connection_id: connectionId },
+      });
+    } catch (e) {
+      console.warn('[ai-daily-brief] recordSpend failed', e);
+    }
     
     let briefData;
     try {

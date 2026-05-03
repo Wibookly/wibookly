@@ -11,6 +11,7 @@ import {
   TOOL_DEFINITIONS,
   executeTool,
 } from '../_shared/teams-tools.ts';
+import { enforceLimitsBeforeLLM, recordSpend, detectProvider } from '../_shared/enforce-limits.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -155,7 +156,9 @@ async function runAgent(opts: {
   userName: string;
   history: { role: string; content: string }[];
   graphToken: string | null;
-}): Promise<string> {
+  model?: string;
+}): Promise<{ reply: string; tokensIn: number; tokensOut: number; model: string }> {
+  const model = opts.model || 'gpt-4o';
   const systemPrompt = `You are InboxIQ, a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
 
 You have access to tools that let you:
@@ -186,13 +189,16 @@ CORE RULES:
     { role: 'user', content: opts.userText },
   ];
 
+  let totalIn = 0;
+  let totalOut = 0;
+
   // Up to 5 tool-call turns
   for (let turn = 0; turn < 5; turn++) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model,
         messages,
         tools: TOOL_DEFINITIONS,
         tool_choice: 'auto',
@@ -203,16 +209,18 @@ CORE RULES:
     if (!res.ok) {
       const txt = await res.text();
       console.error('OpenAI error', res.status, txt);
-      return 'Sorry, I had trouble thinking through that. Please try again.';
+      return { reply: 'Sorry, I had trouble thinking through that. Please try again.', tokensIn: totalIn, tokensOut: totalOut, model };
     }
 
     const data = await res.json();
+    totalIn += Number(data.usage?.prompt_tokens ?? 0);
+    totalOut += Number(data.usage?.completion_tokens ?? 0);
     const msg = data.choices?.[0]?.message;
-    if (!msg) return '(no response)';
+    if (!msg) return { reply: '(no response)', tokensIn: totalIn, tokensOut: totalOut, model };
 
     // No tool calls → final answer
     if (!msg.tool_calls?.length) {
-      return msg.content ?? '(no response)';
+      return { reply: msg.content ?? '(no response)', tokensIn: totalIn, tokensOut: totalOut, model };
     }
 
     // Execute tool calls in parallel
@@ -234,7 +242,7 @@ CORE RULES:
     messages.push(...results);
   }
 
-  return 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.';
+  return { reply: 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.', tokensIn: totalIn, tokensOut: totalOut, model };
 }
 
 /* ---------------- HTTP entry point ---------------- */
@@ -311,18 +319,57 @@ Deno.serve(async (req) => {
     try {
       await sendTyping(activity);
       const history = await loadHistory(settings.organization_id, activity.conversation?.id ?? '');
-      const reply = await runAgent({
+
+      // Pre-flight enforcement only when we resolved an InboxIQ user
+      let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
+      let routedModel = 'gpt-4o';
+      if (resolved?.userId) {
+        gate = await enforceLimitsBeforeLLM(supabase, {
+          userId: resolved.userId,
+          organizationId: settings.organization_id,
+          feature: 'teams_agent',
+          fallbackModel: 'gpt-4o',
+        });
+        if (!gate.allowed) {
+          await sendReply(activity, "Your AI usage budget for this feature is exhausted. Please contact your administrator.");
+          return;
+        }
+        routedModel = gate.model || 'gpt-4o';
+      }
+
+      const result = await runAgent({
         userText: userText || 'Hello',
         userName: resolved?.fullName ?? userName,
         history,
         graphToken: resolved?.microsoftAccessToken ?? null,
+        model: routedModel,
       });
+      const reply = result.reply;
 
       const finalReply = resolved
         ? reply
         : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
       await sendReply(activity, finalReply);
+
+      // Post-call accounting
+      if (resolved?.userId && gate) {
+        try {
+          await recordSpend(supabase, {
+            userId: resolved.userId,
+            organizationId: settings.organization_id,
+            groupId: gate.group_id,
+            feature: 'teams_agent',
+            provider: detectProvider(result.model),
+            model: result.model,
+            tokensIn: result.tokensIn,
+            tokensOut: result.tokensOut,
+            metadata: { conversation_id: activity.conversation?.id ?? null },
+          });
+        } catch (e) {
+          console.warn('[teams-bot] recordSpend failed', e);
+        }
+      }
 
       await supabase.from('agent_messages').insert({
         organization_id: settings.organization_id,
