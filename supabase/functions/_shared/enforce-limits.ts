@@ -105,16 +105,17 @@ export async function enforceLimitsBeforeLLM(
     userId: string;
     organizationId: string;
     feature: string;            // e.g. 'ai_chat'
-    fallbackModel: string;      // model to use if group_features.model_assignment is NULL
+    fallbackModel?: string;     // override default; otherwise FEATURE_DEFAULT_MODEL[feature]
   }
 ): Promise<EnforceResult> {
-  const est = estimateCost(args.feature, args.fallbackModel);
+  const fallbackModel = args.fallbackModel || FEATURE_DEFAULT_MODEL[args.feature] || 'gpt-4.1-mini';
+  const est = estimateCost(args.feature, fallbackModel);
   const { data, error } = await admin.rpc('enforce_llm_limits', {
     _user_id: args.userId,
     _organization_id: args.organizationId,
     _feature_key: args.feature,
     _est_cost_usd: est,
-    _fallback_model: args.fallbackModel,
+    _fallback_model: fallbackModel,
   });
   if (error) {
     console.error('[enforce-limits] rpc error', error);
