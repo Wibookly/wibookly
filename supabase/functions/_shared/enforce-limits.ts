@@ -53,9 +53,17 @@ export const FEATURE_DEFAULT_MODEL: Record<string, string> = {
   file_reading:       'gpt-4.1-mini',
 };
 
-export function resolveModel(feature: string, modelAssignment: string | null | undefined): string {
+export function resolveModel(
+  feature: string,
+  modelAssignment: string | null | undefined,
+  groupId?: string | null,
+): string {
   if (modelAssignment) return modelAssignment;
-  return FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+  const defaultModel = FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+  console.warn(
+    `[enforceLimits] No model_assignment for feature=${feature} group=${groupId ?? 'unknown'}, falling back to ${defaultModel}`
+  );
+  return defaultModel;
 }
 
 function priceFor(model: string): { input: number; output: number } {
