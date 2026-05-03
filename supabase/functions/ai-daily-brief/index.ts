@@ -551,6 +551,26 @@ ${briefType === "evening" ? eveningInstructions : morningInstructions}
 
 IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If there are no calendar events, say so clearly and suggest using the time productively.`;
 
+    // Pre-flight enforcement
+    const { data: upRow } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const organizationId: string = upRow?.organization_id || '';
+    const gate = await enforceLimitsBeforeLLM(supabase, {
+      userId: user.id,
+      organizationId,
+      feature: 'daily_brief',
+      fallbackModel: 'google/gemini-2.5-flash',
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+    const routedModel = gate.model || 'google/gemini-2.5-flash';
+    // Lovable gateway needs provider-prefixed model id
+    const gatewayModel = routedModel.includes('/')
+      ? routedModel
+      : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -558,7 +578,7 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: gatewayModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Here is my real data for today:\n${JSON.stringify(contextData, null, 2)}\n\nPlease generate my daily brief based on this actual data.` },
