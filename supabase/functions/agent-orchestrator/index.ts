@@ -365,6 +365,23 @@ Deno.serve(async (req) => {
       tokens_out: lastUsage?.tokens_out ?? null,
     });
 
+    // Post-call accounting (user_daily_spend + org_agent_budget + ai_usage_logs)
+    try {
+      await recordSpend(admin, {
+        userId: user.id,
+        organizationId: organization_id || '',
+        groupId: gate.group_id,
+        feature: featureKey,
+        provider: detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: totalTokensIn,
+        tokensOut: totalTokensOut,
+        metadata: { conversation_id, agent: body.agent },
+      });
+    } catch (e) {
+      console.error('agent-orchestrator recordSpend error', e);
+    }
+
     return new Response(
       JSON.stringify({
         conversation_id,
