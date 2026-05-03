@@ -220,7 +220,7 @@ CORE RULES:
 
     // No tool calls → final answer
     if (!msg.tool_calls?.length) {
-      return msg.content ?? '(no response)';
+      return { reply: msg.content ?? '(no response)', tokensIn: totalIn, tokensOut: totalOut, model };
     }
 
     // Execute tool calls in parallel
@@ -242,7 +242,7 @@ CORE RULES:
     messages.push(...results);
   }
 
-  return 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.';
+  return { reply: 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.', tokensIn: totalIn, tokensOut: totalOut, model };
 }
 
 /* ---------------- HTTP entry point ---------------- */
