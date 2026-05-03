@@ -428,6 +428,58 @@ async function processNotification(n: GraphNotification) {
     return;
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // ENTERPRISE SAFEGUARDS (run BEFORE invoking the LLM)
+  // 1) Per-org daily $ budget — auto-pauses runaway cost
+  // 2) Per-org concurrency cap — limits parallel agent runs per org
+  // 3) Per-conversation lock — prevents duplicate parallel runs on same thread
+  // 4) Short-term prompt cache — reuses identical reply within 5 min
+  // ──────────────────────────────────────────────────────────────────
+
+  // (1) Budget check
+  const { data: budgetRows } = await supabase.rpc('check_and_reserve_budget', {
+    _org_id: settings.organization_id,
+    _est_cost_usd: 0.10,
+  });
+  const budget = Array.isArray(budgetRows) ? budgetRows[0] : budgetRows;
+  if (budget && !budget.allowed) {
+    const reason = `budget_blocked:${budget.reason}`;
+    console.warn(`Org ${settings.organization_id} blocked: ${reason} (spent=${budget.spent}/${budget.cap})`);
+    const friendly = budget.reason === 'daily_budget_exceeded'
+      ? `<p>Hello,</p><p>The agent has reached today's usage budget for your organization (spent $${budget.spent} of $${budget.cap}). Please contact your administrator to raise the cap or try again tomorrow.</p>`
+      : `<p>Hello,</p><p>The agent has been paused by your administrator. Please contact them to re-enable it.</p>`;
+    try {
+      await replyToMessage(token, settings.shared_mailbox_user_id, messageId, friendly, senderEmail, []);
+    } catch (e) { console.error('budget reply failed', e); }
+    await supabase.from('agent_messages').update({ status: 'rejected', rejected_reason: reason }).eq('id', inbound.id);
+    await markClaim('rejected', { sender_email: senderEmail, rejected_reason: reason });
+    return;
+  }
+
+  // (2) Per-org concurrency cap
+  const { data: budgetCfg } = await supabase
+    .from('org_agent_budget')
+    .select('max_concurrent_runs')
+    .eq('organization_id', settings.organization_id)
+    .maybeSingle();
+  const maxConcurrent = budgetCfg?.max_concurrent_runs ?? 5;
+  const { count: runningCount } = await supabase
+    .from('agent_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', settings.organization_id)
+    .eq('status', 'running');
+  if ((runningCount ?? 0) >= maxConcurrent) {
+    const reason = `concurrency_cap_reached:${runningCount}/${maxConcurrent}`;
+    console.warn(`Org ${settings.organization_id} ${reason} — deferring`);
+    const html = `<p>Hello,</p><p>The agent is currently handling many requests for your organization (${runningCount} in flight, cap ${maxConcurrent}). Please resend in a minute.</p>`;
+    try {
+      await replyToMessage(token, settings.shared_mailbox_user_id, messageId, html, senderEmail, []);
+    } catch (e) { console.error('concurrency reply failed', e); }
+    await supabase.from('agent_messages').update({ status: 'rejected', rejected_reason: reason }).eq('id', inbound.id);
+    await markClaim('rejected', { sender_email: senderEmail, rejected_reason: reason });
+    return;
+  }
+
   await markClaim('running', {
     sender_email: senderEmail,
     inbound_id: inbound.id,
@@ -441,15 +493,48 @@ async function processNotification(n: GraphNotification) {
       : [];
     const threadText = formatThreadForPrompt(thread, messageId, msg);
     const senderName = msg.from?.emailAddress?.name ?? '';
+    const taskText = msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000);
 
-    const agent = await invokeAgentLoop({
-      task: msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000),
-      threadText,
-      senderEmail,
-      senderName,
-      subject: msg.subject ?? '',
-      organizationId: settings.organization_id,
-    });
+    // (4) Prompt cache: hash (org + sender + subject + task)
+    const cacheInput = `${settings.organization_id}|${senderEmail}|${msg.subject ?? ''}|${taskText}`;
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cacheInput));
+    const promptHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+    let agent: AgentLoopResult;
+    const { data: cachedRows } = await supabase.rpc('cache_get_response', { _hash: promptHash });
+    const cached = Array.isArray(cachedRows) ? cachedRows[0] : cachedRows;
+    if (cached?.reply_html) {
+      console.log(`Cache HIT for ${promptHash.slice(0,12)} — skipping LLM`);
+      agent = {
+        reply_html: cached.reply_html,
+        attachments: (cached.attachments as AgentAttachment[]) ?? [],
+        provider: cached.provider ?? 'cache',
+        model: cached.model ?? 'cache',
+        iterations: 0, duration_ms: 0,
+        prompt_tokens: 0, completion_tokens: 0,
+        used_web_search: false,
+      };
+    } else {
+      agent = await invokeAgentLoop({
+        task: taskText,
+        threadText,
+        senderEmail,
+        senderName,
+        subject: msg.subject ?? '',
+        organizationId: settings.organization_id,
+      });
+      // Cache successful responses for 5 minutes
+      try {
+        await supabase.rpc('cache_put_response', {
+          _hash: promptHash,
+          _org_id: settings.organization_id,
+          _reply_html: agent.reply_html,
+          _attachments: agent.attachments ?? [],
+          _provider: agent.provider,
+          _model: agent.model,
+        });
+      } catch (e) { console.warn('cache put failed', e); }
+    }
     const replyHtml = agent.reply_html;
     const attachments = agent.attachments ?? [];
 
