@@ -138,7 +138,7 @@ export async function enforceLimitsBeforeLLM(
   return {
     allowed: !!row?.allowed,
     reason: row?.reason ?? null,
-    model: resolveModel(args.feature, row?.model),
+    model: resolveModel(args.feature, row?.model, row?.group_id),
     group_id: row?.group_id ?? null,
     feature_enabled: !!row?.feature_enabled,
     daily_count_remaining: Number(row?.daily_count_remaining ?? 0),
