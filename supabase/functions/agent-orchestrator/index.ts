@@ -292,6 +292,8 @@ Deno.serve(async (req) => {
         connection_id: body.connection_id,
       });
       lastUsage = llmResp.usage;
+      totalTokensIn += Number(llmResp.usage?.tokens_in ?? llmResp.usage?.prompt_tokens ?? 0);
+      totalTokensOut += Number(llmResp.usage?.tokens_out ?? llmResp.usage?.completion_tokens ?? 0);
 
       const toolCalls = llmResp.tool_calls || [];
       const assistantMsg: Msg = {
