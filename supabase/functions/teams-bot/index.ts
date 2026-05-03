@@ -319,18 +319,57 @@ Deno.serve(async (req) => {
     try {
       await sendTyping(activity);
       const history = await loadHistory(settings.organization_id, activity.conversation?.id ?? '');
-      const reply = await runAgent({
+
+      // Pre-flight enforcement only when we resolved an InboxIQ user
+      let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
+      let routedModel = 'gpt-4o';
+      if (resolved?.userId) {
+        gate = await enforceLimitsBeforeLLM(supabase, {
+          userId: resolved.userId,
+          organizationId: settings.organization_id,
+          feature: 'teams_agent',
+          fallbackModel: 'gpt-4o',
+        });
+        if (!gate.allowed) {
+          await sendReply(activity, "Your AI usage budget for this feature is exhausted. Please contact your administrator.");
+          return;
+        }
+        routedModel = gate.model || 'gpt-4o';
+      }
+
+      const result = await runAgent({
         userText: userText || 'Hello',
         userName: resolved?.fullName ?? userName,
         history,
         graphToken: resolved?.microsoftAccessToken ?? null,
+        model: routedModel,
       });
+      const reply = result.reply;
 
       const finalReply = resolved
         ? reply
         : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
       await sendReply(activity, finalReply);
+
+      // Post-call accounting
+      if (resolved?.userId && gate) {
+        try {
+          await recordSpend(supabase, {
+            userId: resolved.userId,
+            organizationId: settings.organization_id,
+            groupId: gate.group_id,
+            feature: 'teams_agent',
+            provider: detectProvider(result.model),
+            model: result.model,
+            tokensIn: result.tokensIn,
+            tokensOut: result.tokensOut,
+            metadata: { conversation_id: activity.conversation?.id ?? null },
+          });
+        } catch (e) {
+          console.warn('[teams-bot] recordSpend failed', e);
+        }
+      }
 
       await supabase.from('agent_messages').insert({
         organization_id: settings.organization_id,
