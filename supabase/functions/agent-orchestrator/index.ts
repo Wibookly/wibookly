@@ -1,6 +1,7 @@
 // Agent Orchestrator - wires retrieve-context + llm-gateway with a tool loop
 // Supports Q&A and email-drafting agents with multi-turn tool execution
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -250,12 +251,33 @@ Deno.serve(async (req) => {
       content: body.user_message,
     });
 
-    const model = body.model || "openai/gpt-4.1";
+    const requestedModel = body.model || "openai/gpt-4.1";
+
+    // Pre-flight enforcement (feature gating, daily count, per-user/org budgets, model routing)
+    const featureKey = body.agent === 'email_draft' ? 'ai_draft' : 'ai_chat';
+    const fallbackModel = requestedModel.replace(/^openai\//, '').replace(/^anthropic\//, '');
+    const gate = await enforceLimitsBeforeLLM(admin, {
+      userId: user.id,
+      organizationId: organization_id || '',
+      feature: featureKey,
+      fallbackModel,
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+
+    // Use model returned by gate (group_features.model_assignment override, or fallback)
+    const routedModel = gate.model || fallbackModel;
+    // Preserve provider prefix expected by llm-gateway
+    const model = routedModel.includes('/')
+      ? routedModel
+      : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
+
     const maxSteps = Math.min(body.max_steps ?? 6, 10);
     const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id };
 
     let final: any = null;
     let lastUsage: any = null;
+    let totalTokensIn = 0;
+    let totalTokensOut = 0;
     let draft: any = null;
     const citations: any[] = [];
     const seenCitationKeys = new Set<string>();
@@ -270,6 +292,8 @@ Deno.serve(async (req) => {
         connection_id: body.connection_id,
       });
       lastUsage = llmResp.usage;
+      totalTokensIn += Number(llmResp.usage?.tokens_in ?? llmResp.usage?.prompt_tokens ?? 0);
+      totalTokensOut += Number(llmResp.usage?.tokens_out ?? llmResp.usage?.completion_tokens ?? 0);
 
       const toolCalls = llmResp.tool_calls || [];
       const assistantMsg: Msg = {
@@ -340,6 +364,23 @@ Deno.serve(async (req) => {
       tokens_in: lastUsage?.tokens_in ?? null,
       tokens_out: lastUsage?.tokens_out ?? null,
     });
+
+    // Post-call accounting (user_daily_spend + org_agent_budget + ai_usage_logs)
+    try {
+      await recordSpend(admin, {
+        userId: user.id,
+        organizationId: organization_id || '',
+        groupId: gate.group_id,
+        feature: featureKey,
+        provider: detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: totalTokensIn,
+        tokensOut: totalTokensOut,
+        metadata: { conversation_id, agent: body.agent },
+      });
+    } catch (e) {
+      console.error('agent-orchestrator recordSpend error', e);
+    }
 
     return new Response(
       JSON.stringify({
