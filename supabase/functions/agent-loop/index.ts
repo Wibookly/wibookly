@@ -542,6 +542,22 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Pre-flight enforcement (best-effort: only when caller passed user + org context)
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+  const admin = SUPABASE_URL && SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+    : null;
+  const enforceFeature = body.channel === 'teams' ? 'teams_agent' : 'email_agent';
+  let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
+  if (admin && body.user_id && body.organization_id) {
+    gate = await enforceLimitsBeforeLLM(admin, {
+      userId: body.user_id,
+      organizationId: body.organization_id,
+      feature: enforceFeature,
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+  }
+
   for (const attempt of attempts) {
     try {
       if (getRemainingMs(ctx) <= REQUEST_SAFETY_MS) {
