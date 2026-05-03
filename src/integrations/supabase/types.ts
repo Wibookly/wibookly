@@ -2629,6 +2629,26 @@ export type Database = {
         Returns: boolean
       }
       disconnect_provider: { Args: { _provider: string }; Returns: boolean }
+      enforce_llm_limits: {
+        Args: {
+          _est_cost_usd?: number
+          _fallback_model?: string
+          _feature_key: string
+          _organization_id: string
+          _user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          daily_count_remaining: number
+          feature_enabled: boolean
+          group_id: string
+          model: string
+          org_daily_remaining: number
+          reason: string
+          user_daily_remaining: number
+          user_monthly_remaining: number
+        }[]
+      }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -2808,6 +2828,21 @@ export type Database = {
       }
       record_agent_spend: {
         Args: { _cost_usd: number; _org_id: string }
+        Returns: undefined
+      }
+      record_llm_spend: {
+        Args: {
+          _cost_usd: number
+          _feature_key: string
+          _group_id: string
+          _metadata?: Json
+          _model: string
+          _organization_id: string
+          _provider: string
+          _tokens_in: number
+          _tokens_out: number
+          _user_id: string
+        }
         Returns: undefined
       }
       record_user_spend: {
