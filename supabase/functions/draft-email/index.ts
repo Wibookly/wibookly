@@ -381,6 +381,16 @@ ${END_DELIMITER}`;
 
     console.log(`Drafting email - Style: ${writingStyle}, Format: ${formatStyle}, Category: ${cleanCategoryName}`);
 
+    // Pre-flight enforcement (feature gating, budgets, model routing)
+    const gate = await enforceLimitsBeforeLLM(serviceClient, {
+      userId: user.id,
+      organizationId,
+      feature: 'ai_draft',
+      fallbackModel: 'gpt-4o',
+    });
+    if (!gate.allowed) return blockedResponse(gate.reason || 'blocked', corsHeaders);
+    const routedModel = gate.model || 'gpt-4o';
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -388,7 +398,7 @@ ${END_DELIMITER}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: routedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
