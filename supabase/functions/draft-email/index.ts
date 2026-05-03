@@ -432,6 +432,24 @@ ${END_DELIMITER}`;
     const data = await response.json();
     let draft = data.choices?.[0]?.message?.content || '';
 
+    // Post-call accounting
+    try {
+      const usage = data.usage || {};
+      await recordSpend(serviceClient, {
+        userId: user.id,
+        organizationId,
+        groupId: gate.group_id,
+        feature: 'ai_draft',
+        provider: detectProvider(routedModel),
+        model: routedModel,
+        tokensIn: Number(usage.prompt_tokens ?? 0),
+        tokensOut: Number(usage.completion_tokens ?? 0),
+        metadata: { category: cleanCategoryName },
+      });
+    } catch (e) {
+      console.warn('[draft-email] recordSpend failed', e);
+    }
+
     // Validate output format
     if (!validateOutputFormat(draft)) {
       console.warn('AI output failed format validation, may contain unexpected content');
