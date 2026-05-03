@@ -22,6 +22,8 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { runDocTool, DOC_TOOLS_OPENAI, GeneratedFile } from '../_shared/document-generators.ts';
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from '../_shared/enforce-limits.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
