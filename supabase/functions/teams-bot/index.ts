@@ -156,7 +156,9 @@ async function runAgent(opts: {
   userName: string;
   history: { role: string; content: string }[];
   graphToken: string | null;
-}): Promise<string> {
+  model?: string;
+}): Promise<{ reply: string; tokensIn: number; tokensOut: number; model: string }> {
+  const model = opts.model || 'gpt-4o';
   const systemPrompt = `You are InboxIQ, a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
 
 You have access to tools that let you:
@@ -187,13 +189,16 @@ CORE RULES:
     { role: 'user', content: opts.userText },
   ];
 
+  let totalIn = 0;
+  let totalOut = 0;
+
   // Up to 5 tool-call turns
   for (let turn = 0; turn < 5; turn++) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model,
         messages,
         tools: TOOL_DEFINITIONS,
         tool_choice: 'auto',
@@ -204,12 +209,14 @@ CORE RULES:
     if (!res.ok) {
       const txt = await res.text();
       console.error('OpenAI error', res.status, txt);
-      return 'Sorry, I had trouble thinking through that. Please try again.';
+      return { reply: 'Sorry, I had trouble thinking through that. Please try again.', tokensIn: totalIn, tokensOut: totalOut, model };
     }
 
     const data = await res.json();
+    totalIn += Number(data.usage?.prompt_tokens ?? 0);
+    totalOut += Number(data.usage?.completion_tokens ?? 0);
     const msg = data.choices?.[0]?.message;
-    if (!msg) return '(no response)';
+    if (!msg) return { reply: '(no response)', tokensIn: totalIn, tokensOut: totalOut, model };
 
     // No tool calls → final answer
     if (!msg.tool_calls?.length) {
