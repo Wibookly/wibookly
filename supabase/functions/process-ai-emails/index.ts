@@ -2686,6 +2686,22 @@ async function processConnectionEmails(
               email_from: emailDetails.from?.slice(0, 200) ?? null,
             },
           });
+          // Per-user/per-org budget accounting
+          try {
+            await recordSpend(supabaseAdmin, {
+              userId,
+              organizationId: organizationId || '',
+              groupId: gate.group_id,
+              feature: featureKey,
+              provider: detectProvider(aiDraftResult.usage.model),
+              model: aiDraftResult.usage.model,
+              tokensIn: aiDraftResult.usage.promptTokens,
+              tokensOut: aiDraftResult.usage.completionTokens,
+              metadata: { category: categoryNameForAI, email_id: msg.id },
+            });
+          } catch (e) {
+            console.warn('[process-ai-emails] recordSpend failed', e);
+          }
         }
 
         // Parse any meeting from AI response
