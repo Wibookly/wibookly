@@ -1,6 +1,7 @@
 // Agent Orchestrator - wires retrieve-context + llm-gateway with a tool loop
 // Supports Q&A and email-drafting agents with multi-turn tool execution
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
