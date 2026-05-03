@@ -794,7 +794,6 @@ When answering:
  - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
 
     const adminAIConfig = await loadAdminAIConfig(supabase);
-    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
 
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -802,21 +801,32 @@ When answering:
       .eq('user_id', user.id)
       .maybeSingle();
 
+    // Enforce limits before LLM
+    const { enforceLimitsBeforeLLM, recordSpend, blockedResponse } = await import('../_shared/enforce-limits.ts');
     if (profile?.organization_id) {
-      await supabase.from('ai_usage_logs').insert({
-        organization_id: profile.organization_id,
-        user_id: user.id,
-        provider: result.provider,
+      const fallbackModel = adminAIConfig.preference === 'claude' ? adminAIConfig.claudeModel : adminAIConfig.openaiModel;
+      const gate = await enforceLimitsBeforeLLM(supabase, {
+        userId: user.id,
+        organizationId: profile.organization_id,
+        feature: 'ai_chat',
+        fallbackModel,
+      });
+      if (!gate.allowed) return blockedResponse(gate.reason || 'feature_disabled', corsHeaders);
+    }
+
+    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+
+    if (profile?.organization_id) {
+      await recordSpend(supabase, {
+        userId: user.id,
+        organizationId: profile.organization_id,
+        groupId: null,
+        feature: 'ai_chat',
+        provider: (result.provider === 'claude' ? 'anthropic' : 'openai'),
         model: result.model,
-        action: 'ai_chat',
-        prompt_tokens: result.promptTokens,
-        completion_tokens: result.completionTokens,
-        total_tokens: result.totalTokens,
-        cost_usd: result.costUsd,
-        metadata: {
-          connection_id: connectionId ?? null,
-          provider_preference: adminAIConfig.preference,
-        },
+        tokensIn: result.promptTokens,
+        tokensOut: result.completionTokens,
+        metadata: { connection_id: connectionId ?? null, provider_preference: adminAIConfig.preference },
       });
     }
 
