@@ -536,6 +536,7 @@ async function processNotification(n: GraphNotification) {
         used_web_search: false,
       };
     } else {
+      const orgUserId = await resolveOrgRepresentativeUser(settings.organization_id);
       agent = await invokeAgentLoop({
         task: taskText,
         threadText,
@@ -543,6 +544,7 @@ async function processNotification(n: GraphNotification) {
         senderName,
         subject: msg.subject ?? '',
         organizationId: settings.organization_id,
+        userId: orgUserId,
       });
       // Cache successful responses for 5 minutes
       try {
