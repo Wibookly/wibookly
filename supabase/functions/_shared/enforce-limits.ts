@@ -36,6 +36,28 @@ export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'claude-opus-4':     { input: 15.00, output: 75.00 },
 };
 
+// Default model per feature when group_features.model_assignment is NULL.
+// Tuned for cost vs quality per feature class.
+export const FEATURE_DEFAULT_MODEL: Record<string, string> = {
+  ai_chat:            'gpt-4.1-mini',
+  ai_draft:           'phi-4',
+  ai_auto_reply:      'gpt-4.1-mini',
+  daily_brief:        'phi-4',
+  activity_reports:   'gpt-4.1-mini',
+  email_agent:        'gpt-4.1',
+  teams_agent:        'gpt-4.1',
+  follow_up_reminder: 'phi-4',
+  documents:          'llama-3.3-70b',
+  powerpoints:        'llama-3.3-70b',
+  excel:              'gpt-4.1-mini',
+  file_reading:       'gpt-4.1-mini',
+};
+
+export function resolveModel(feature: string, modelAssignment: string | null | undefined): string {
+  if (modelAssignment) return modelAssignment;
+  return FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+}
+
 function priceFor(model: string): { input: number; output: number } {
   if (MODEL_COSTS[model]) return MODEL_COSTS[model];
   for (const k of Object.keys(MODEL_COSTS)) {
@@ -83,22 +105,23 @@ export async function enforceLimitsBeforeLLM(
     userId: string;
     organizationId: string;
     feature: string;            // e.g. 'ai_chat'
-    fallbackModel: string;      // model to use if group_features.model_assignment is NULL
+    fallbackModel?: string;     // override default; otherwise FEATURE_DEFAULT_MODEL[feature]
   }
 ): Promise<EnforceResult> {
-  const est = estimateCost(args.feature, args.fallbackModel);
+  const fallbackModel = args.fallbackModel || FEATURE_DEFAULT_MODEL[args.feature] || 'gpt-4.1-mini';
+  const est = estimateCost(args.feature, fallbackModel);
   const { data, error } = await admin.rpc('enforce_llm_limits', {
     _user_id: args.userId,
     _organization_id: args.organizationId,
     _feature_key: args.feature,
     _est_cost_usd: est,
-    _fallback_model: args.fallbackModel,
+    _fallback_model: fallbackModel,
   });
   if (error) {
     console.error('[enforce-limits] rpc error', error);
     // Fail closed
     return {
-      allowed: false, reason: 'enforcement_rpc_error', model: args.fallbackModel,
+      allowed: false, reason: 'enforcement_rpc_error', model: fallbackModel,
       group_id: null, feature_enabled: false,
       daily_count_remaining: 0, user_daily_remaining: 0, user_monthly_remaining: 0, org_daily_remaining: 0,
     };
@@ -107,7 +130,7 @@ export async function enforceLimitsBeforeLLM(
   return {
     allowed: !!row?.allowed,
     reason: row?.reason ?? null,
-    model: row?.model ?? args.fallbackModel,
+    model: resolveModel(args.feature, row?.model),
     group_id: row?.group_id ?? null,
     feature_enabled: !!row?.feature_enabled,
     daily_count_remaining: Number(row?.daily_count_remaining ?? 0),
