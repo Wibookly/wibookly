@@ -2499,6 +2499,22 @@ async function processConnectionEmails(
           continue;
         }
 
+        // Pre-flight enforcement (feature gating + budget caps + model routing)
+        const featureKey = needsAutoReply ? 'ai_auto_reply' : 'ai_draft';
+        const adminKeys = await loadAdminAIKeys();
+        const fbModel = adminKeys.preference === 'claude' ? adminKeys.claudeModel : adminKeys.openaiModel;
+        const gate = await enforceLimitsBeforeLLM(supabaseAdmin, {
+          userId,
+          organizationId: organizationId || '',
+          feature: featureKey,
+          fallbackModel: fbModel,
+        });
+        if (!gate.allowed) {
+          console.warn(`[process-ai-emails] blocked ${featureKey} for user ${userId}: ${gate.reason}`);
+          results.errors++;
+          continue;
+        }
+
         console.log(`Processing email ${msg.id} for ${category.name}`);
 
         let emailDetails;
