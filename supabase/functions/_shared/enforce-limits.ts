@@ -36,6 +36,28 @@ export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'claude-opus-4':     { input: 15.00, output: 75.00 },
 };
 
+// Default model per feature when group_features.model_assignment is NULL.
+// Tuned for cost vs quality per feature class.
+export const FEATURE_DEFAULT_MODEL: Record<string, string> = {
+  ai_chat:            'gpt-4.1-mini',
+  ai_draft:           'phi-4',
+  ai_auto_reply:      'gpt-4.1-mini',
+  daily_brief:        'phi-4',
+  activity_reports:   'gpt-4.1-mini',
+  email_agent:        'gpt-4.1',
+  teams_agent:        'gpt-4.1',
+  follow_up_reminder: 'phi-4',
+  documents:          'llama-3.3-70b',
+  powerpoints:        'llama-3.3-70b',
+  excel:              'gpt-4.1-mini',
+  file_reading:       'gpt-4.1-mini',
+};
+
+export function resolveModel(feature: string, modelAssignment: string | null | undefined): string {
+  if (modelAssignment) return modelAssignment;
+  return FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+}
+
 function priceFor(model: string): { input: number; output: number } {
   if (MODEL_COSTS[model]) return MODEL_COSTS[model];
   for (const k of Object.keys(MODEL_COSTS)) {
