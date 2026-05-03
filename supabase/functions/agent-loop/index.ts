@@ -612,6 +612,25 @@ Deno.serve(async (req) => {
     trace,
   };
 
+  // Post-call accounting
+  if (admin && gate && body.user_id && body.organization_id) {
+    try {
+      await recordSpend(admin, {
+        userId: body.user_id,
+        organizationId: body.organization_id,
+        groupId: gate.group_id,
+        feature: enforceFeature,
+        provider: result!.provider === 'anthropic' ? 'anthropic' : 'openai',
+        model: result!.model,
+        tokensIn: result!.prompt_tokens || 0,
+        tokensOut: result!.completion_tokens || 0,
+        metadata: { channel: body.channel ?? 'api', iterations: result!.iterations },
+      });
+    } catch (e) {
+      console.warn('[agent-loop] recordSpend failed', e);
+    }
+  }
+
   return new Response(JSON.stringify(out), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
