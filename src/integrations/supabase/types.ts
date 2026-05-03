@@ -79,6 +79,39 @@ export type Database = {
           },
         ]
       }
+      agent_response_cache: {
+        Row: {
+          attachments: Json
+          created_at: string
+          expires_at: string
+          model: string | null
+          organization_id: string
+          prompt_hash: string
+          provider: string | null
+          reply_html: string
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          expires_at?: string
+          model?: string | null
+          organization_id: string
+          prompt_hash: string
+          provider?: string | null
+          reply_html: string
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          expires_at?: string
+          model?: string | null
+          organization_id?: string
+          prompt_hash?: string
+          provider?: string | null
+          reply_html?: string
+        }
+        Relationships: []
+      }
       agent_settings: {
         Row: {
           allowed_sender_domains: string[]
@@ -1531,6 +1564,47 @@ export type Database = {
         }
         Relationships: []
       }
+      org_agent_budget: {
+        Row: {
+          current_day: string
+          daily_usd_cap: number
+          max_concurrent_runs: number
+          organization_id: string
+          paused: boolean
+          paused_reason: string | null
+          spent_today_usd: number
+          updated_at: string
+        }
+        Insert: {
+          current_day?: string
+          daily_usd_cap?: number
+          max_concurrent_runs?: number
+          organization_id: string
+          paused?: boolean
+          paused_reason?: string | null
+          spent_today_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          current_day?: string
+          daily_usd_cap?: number
+          max_concurrent_runs?: number
+          organization_id?: string
+          paused?: boolean
+          paused_reason?: string | null
+          spent_today_usd?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_agent_budget_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string | null
@@ -2235,6 +2309,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cache_get_response: {
+        Args: { _hash: string }
+        Returns: {
+          attachments: Json
+          model: string
+          provider: string
+          reply_html: string
+        }[]
+      }
+      cache_put_response: {
+        Args: {
+          _attachments: Json
+          _hash: string
+          _model: string
+          _org_id: string
+          _provider: string
+          _reply_html: string
+        }
+        Returns: undefined
+      }
+      check_and_reserve_budget: {
+        Args: { _est_cost_usd?: number; _org_id: string }
+        Returns: {
+          allowed: boolean
+          cap: number
+          reason: string
+          spent: number
+        }[]
+      }
       count_followup_impact: {
         Args: { _group_id: string }
         Returns: {
@@ -2424,6 +2527,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_agent_spend: {
+        Args: { _cost_usd: number; _org_id: string }
+        Returns: undefined
+      }
       resume_followups_with_permission: { Args: never; Returns: number }
       signup_initialize_user: {
         Args: {
@@ -2432,6 +2539,10 @@ export type Database = {
           _title?: string
         }
         Returns: string
+      }
+      try_acquire_conversation_lock: {
+        Args: { _conversation_id: string }
+        Returns: boolean
       }
     }
     Enums: {
