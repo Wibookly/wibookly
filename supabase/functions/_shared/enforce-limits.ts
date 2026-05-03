@@ -53,9 +53,17 @@ export const FEATURE_DEFAULT_MODEL: Record<string, string> = {
   file_reading:       'gpt-4.1-mini',
 };
 
-export function resolveModel(feature: string, modelAssignment: string | null | undefined): string {
+export function resolveModel(
+  feature: string,
+  modelAssignment: string | null | undefined,
+  groupId?: string | null,
+): string {
   if (modelAssignment) return modelAssignment;
-  return FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+  const defaultModel = FEATURE_DEFAULT_MODEL[feature] || 'gpt-4.1-mini';
+  console.warn(
+    `[enforceLimits] No model_assignment for feature=${feature} group=${groupId ?? 'unknown'}, falling back to ${defaultModel}`
+  );
+  return defaultModel;
 }
 
 function priceFor(model: string): { input: number; output: number } {
@@ -130,7 +138,7 @@ export async function enforceLimitsBeforeLLM(
   return {
     allowed: !!row?.allowed,
     reason: row?.reason ?? null,
-    model: resolveModel(args.feature, row?.model),
+    model: resolveModel(args.feature, row?.model, row?.group_id),
     group_id: row?.group_id ?? null,
     feature_enabled: !!row?.feature_enabled,
     daily_count_remaining: Number(row?.daily_count_remaining ?? 0),
