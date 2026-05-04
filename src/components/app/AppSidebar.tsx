@@ -129,8 +129,6 @@ export function AppSidebar() {
     !hasFeature('daily_brief') &&
     !hasFeature('reports') &&
     !hasFeature('feature.follow_up_reminder') &&
-    !hasFeature('follow_up_reminder') &&
-    !hasFeature('email_agent');
 
   // Check if onboarding has been dismissed
   useEffect(() => {
