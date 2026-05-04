@@ -122,7 +122,14 @@ export default function AdminControlPanel() {
       ]);
       const groupRows = (g.data || []) as PermissionGroup[];
       setGroups(groupRows);
-      if (!selectedGroupId && groupRows.length) setSelectedGroupId(groupRows[0].id);
+
+      const nextSelectedGroupId = groupRows.some((group) => group.id === selectedGroupId)
+        ? selectedGroupId
+        : groupRows[0]?.id ?? null;
+
+      if (nextSelectedGroupId !== selectedGroupId) {
+        setSelectedGroupId(nextSelectedGroupId);
+      }
 
       if (b.data) {
         setOrgBudget({
