@@ -576,7 +576,7 @@ async function runSmokeTest(req: Request): Promise<Response> {
   const userId = profile.user_id;
 
   const gate = await enforceLimitsBeforeLLM(supabase, {
-    userId: profile.id,
+    userId: userId,
     organizationId: profile.organization_id,
     feature: 'teams_agent',
     fallbackModel: 'gpt-4o',
@@ -589,7 +589,7 @@ async function runSmokeTest(req: Request): Promise<Response> {
     );
   }
 
-  const tierName = await fetchGroupName(profile.id, profile.organization_id);
+  const tierName = await fetchGroupName(userId, profile.organization_id);
 
   const result = await runAgent({
     userText,
@@ -602,7 +602,7 @@ async function runSmokeTest(req: Request): Promise<Response> {
 
   try {
     await recordSpend(supabase, {
-      userId: profile.id,
+      userId: userId,
       organizationId: profile.organization_id,
       groupId: gate.group_id,
       feature: 'teams_agent',
@@ -629,7 +629,7 @@ async function runSmokeTest(req: Request): Promise<Response> {
     JSON.stringify({
       ok: true,
       flow: 'enforcement_check → llm_call → response → spend_recorded → logged',
-      user: { id: profile.id, email: senderEmail, full_name: profile.full_name, tier: tierName },
+      user: { id: userId, email: senderEmail, full_name: profile.full_name, tier: tierName },
       model: result.model,
       tokens: { in: result.tokensIn, out: result.tokensOut },
       reply_preview: result.reply.slice(0, 400),
