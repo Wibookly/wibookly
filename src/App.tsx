@@ -23,6 +23,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
+import Chat from "./pages/Chat";
+import ChatUpgrade from "./pages/ChatUpgrade";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,10 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/microsoft-consent-complete" element={<MicrosoftConsentComplete />} />
+                {/* AI Chat (outside AppLayout — has its own shell) */}
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/chat/upgrade" element={<ChatUpgrade />} />
+                <Route path="/chat/:id" element={<Chat />} />
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />
