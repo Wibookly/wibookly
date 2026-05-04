@@ -1037,32 +1037,10 @@ function LiveActivityTab({
               <TableHeader><TableRow><TableHead>Group</TableHead><TableHead>Members</TableHead><TableHead>Today</TableHead><TableHead>Week</TableHead><TableHead>Month</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {groupBreakdown.map(b => (
-                  <>
-                    <TableRow key={b.group.id} className="cursor-pointer" onClick={() => setExpandedGroup(expandedGroup === b.group.id ? null : b.group.id)}>
-                      <TableCell><Button variant="link" size="sm" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); jumpToGroup(b.group.id); }}>{b.group.name}</Button></TableCell>
-                      <TableCell>{b.memberCount}</TableCell>
-                      <TableCell>{fmtUSD(b.today)}</TableCell>
-                      <TableCell>{fmtUSD(b.week)}</TableCell>
-                      <TableCell>{fmtUSD(b.month)}</TableCell>
-                      <TableCell><ChevronRight className={`w-4 h-4 transition-transform ${expandedGroup === b.group.id ? 'rotate-90' : ''}`} /></TableCell>
-                    </TableRow>
-                    {expandedGroup === b.group.id && (
-                      <TableRow><TableCell colSpan={6} className="bg-muted/30">
-                        <div className="space-y-1 text-sm py-2">
-                          {[...new Set(memberships.filter(m => m.group_id === b.group.id).map(m => m.user_id))].map(uid => {
-                            const uLogs = logs.filter(l => l.user_id === uid);
-                            const uToday = uLogs.filter(l => new Date(l.created_at) >= today).reduce((s, l) => s + Number(l.cost_usd || 0), 0);
-                            return (
-                              <div key={uid} className="flex justify-between items-center">
-                                <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => jumpToUser(uid)}>{users[uid]?.email || uid}</Button>
-                                <span>{fmtUSD(uToday)} today · {fmtUSD(uLogs.reduce((s, l) => s + Number(l.cost_usd || 0), 0))} month</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </TableCell></TableRow>
-                    )}
-                  </>
+                  <GroupBreakdownRow key={b.group.id} b={b} expanded={expandedGroup === b.group.id}
+                    onToggle={() => setExpandedGroup(expandedGroup === b.group.id ? null : b.group.id)}
+                    jumpToGroup={jumpToGroup} jumpToUser={jumpToUser}
+                    memberships={memberships} logs={logs} users={users} today={today} />
                 ))}
               </TableBody>
             </Table>
