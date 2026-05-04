@@ -797,6 +797,86 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_archived: boolean | null
+          organization_id: string
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          organization_id: string
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          organization_id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          attachments: Json | null
+          completion_tokens: number | null
+          content: string
+          conversation_id: string
+          cost_usd: number | null
+          created_at: string | null
+          id: string
+          model_used: string | null
+          prompt_tokens: number | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          completion_tokens?: number | null
+          content: string
+          conversation_id: string
+          cost_usd?: number | null
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          prompt_tokens?: number | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          completion_tokens?: number | null
+          content?: string
+          conversation_id?: string
+          cost_usd?: number | null
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          prompt_tokens?: number | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connect_attempts: {
         Row: {
           app_origin: string | null
