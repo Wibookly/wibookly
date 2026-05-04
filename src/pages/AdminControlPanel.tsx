@@ -621,46 +621,65 @@ function GroupEditor({
     } finally { setSaving(false); }
   };
 
+  const suggestedDailyCap = projection.daily * 1.5;
+  const suggestedMonthlyCap = projection.monthly * 1.5;
+  const customerPrice = projection.monthly * markup;
+  const profit = customerPrice - projection.monthly;
+  const marginPct = customerPrice > 0 ? (profit / customerPrice) * 100 : 0;
+
+  const totalOrgUsers = Object.values(memberCounts).reduce((s, n) => s + n, 0);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+    <div className="space-y-6">
+      {/* Editor header */}
       <Card>
-        <CardHeader><CardTitle>{group.name} — Features</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>Editing: {group.name}</CardTitle>
+            <div className="flex items-center gap-3">
+              <Label className="text-xs">Pricing markup</Label>
+              <Input type="number" step="0.1" className="w-20"
+                value={markup} onChange={e => setMarkup(parseFloat(e.target.value) || 1)} />
+              <span className="text-xs text-muted-foreground">×</span>
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-6">
+          {/* Feature matrix */}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Feature</TableHead>
-                  <TableHead>On</TableHead>
-                  <TableHead>Daily</TableHead>
-                  <TableHead>Weekly</TableHead>
-                  <TableHead>Monthly</TableHead>
+                  <TableHead>Enabled</TableHead>
+                  <TableHead>Per day</TableHead>
+                  <TableHead>Per week</TableHead>
+                  <TableHead>Per month</TableHead>
                   <TableHead>Model</TableHead>
-                  <TableHead>$/task</TableHead>
-                  <TableHead>$/day per user</TableHead>
+                  <TableHead className="text-right">$/task</TableHead>
+                  <TableHead className="text-right">$/day</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map(r => {
                   const opts = MODEL_OPTIONS_BY_FEATURE[r.feature_key] || Object.keys(MODEL_COSTS);
                   const model = r.model_assignment || opts[0];
-                  const perTask = costPerTask(r.feature_key, model);
-                  const wAuto = r.weekly_limit == null;
-                  const mAuto = r.monthly_limit == null;
+                  const perTask = effectiveTaskCost(group.id, r.feature_key, model);
                   return (
-                    <TableRow key={r.feature_key}>
-                      <TableCell className="font-medium">{ALL_FEATURES.find(a => a.key === r.feature_key)?.label || r.feature_key}</TableCell>
+                    <TableRow key={r.feature_key} className={!r.is_enabled ? 'opacity-60' : ''}>
+                      <TableCell>
+                        <div className="font-medium">{ALL_FEATURES.find(a => a.key === r.feature_key)?.label || r.feature_key}</div>
+                        <div className="text-[10px] text-muted-foreground">{model}</div>
+                      </TableCell>
                       <TableCell><Switch checked={r.is_enabled} onCheckedChange={v => updateRow(r.feature_key, { is_enabled: v })} /></TableCell>
                       <TableCell><Input className="w-20" type="number" value={r.daily_limit} onChange={e => updateRow(r.feature_key, { daily_limit: parseInt(e.target.value) || 0 })} /></TableCell>
                       <TableCell>
                         <Input className="w-24" type="number" placeholder={`auto:${(r.daily_limit || 0) * 5}`}
                           value={r.weekly_limit ?? ''} onChange={e => updateRow(r.feature_key, { weekly_limit: e.target.value === '' ? null : parseInt(e.target.value) })} />
-                        {wAuto && <div className="text-[10px] text-muted-foreground">auto</div>}
                       </TableCell>
                       <TableCell>
                         <Input className="w-24" type="number" placeholder={`auto:${(r.daily_limit || 0) * 22}`}
                           value={r.monthly_limit ?? ''} onChange={e => updateRow(r.feature_key, { monthly_limit: e.target.value === '' ? null : parseInt(e.target.value) })} />
-                        {mAuto && <div className="text-[10px] text-muted-foreground">auto</div>}
                       </TableCell>
                       <TableCell>
                         <Select value={model} onValueChange={v => updateRow(r.feature_key, { model_assignment: v })}>
@@ -668,21 +687,135 @@ function GroupEditor({
                           <SelectContent>{opts.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-xs">{fmtUSD(perTask, 4)}</TableCell>
-                      <TableCell className="text-xs">{fmtUSD(perTask * (r.daily_limit || 0))}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums">{fmtUSD(perTask, 4)}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums font-semibold">{fmtUSD(perTask * (r.daily_limit || 0))}</TableCell>
                     </TableRow>
                   );
                 })}
+                <TableRow className="border-t-2">
+                  <TableCell colSpan={7} className="text-right font-semibold">Daily total:</TableCell>
+                  <TableCell className="text-right font-bold tabular-nums">{fmtUSD(projection.daily)}</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div><Label>Per request ($)</Label><Input type="number" step="0.01" value={editCap.per_request_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_request_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
-            <div><Label>Per user/day ($)</Label><Input type="number" step="0.01" value={editCap.per_user_daily_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_daily_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
-            <div><Label>Per user/week ($)</Label><Input type="number" step="0.01" value={editCap.per_user_weekly_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_weekly_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
-            <div><Label>Per user/month ($)</Label><Input type="number" step="0.01" value={editCap.per_user_monthly_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_monthly_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
+          {/* Per-user cost summary */}
+          <div>
+            <h3 className="font-semibold mb-2">Per-user cost summary (current plan)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              <SummaryTile label="Daily / user" value={fmtUSD(projection.daily)} />
+              <SummaryTile label="Weekly (5 biz days)" value={fmtUSD(projection.weekly)} />
+              <SummaryTile label="Monthly (22 biz days)" value={fmtUSD(projection.monthly)} />
+              <SummaryTile label="Yearly" value={fmtUSD(projection.yearly)} />
+              <SummaryTile label="Suggested daily cap" value={fmtUSD(suggestedDailyCap)} />
+              <SummaryTile label="Suggested monthly cap" value={fmtUSD(suggestedMonthlyCap)} />
+            </div>
           </div>
+
+          {/* Suggested customer pricing */}
+          <div>
+            <h3 className="font-semibold mb-2">Suggested customer pricing</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <SummaryTile label="Your cost / user / mo" value={fmtUSD(projection.monthly)} />
+              <SummaryTile label={`Charge customer (${markup}× markup)`} value={fmtUSD(customerPrice)} />
+              <SummaryTile label="Profit / margin" value={`${fmtUSD(profit)} · ${marginPct.toFixed(0)}%`} />
+            </div>
+          </div>
+
+          {/* Organization cost — headcount per plan */}
+          <div>
+            <h3 className="font-semibold mb-2">Organization cost — set headcount per plan</h3>
+            <div className="rounded-md border divide-y">
+              {allGroups.map(g => {
+                const n = headcounts[g.id] ?? 0;
+                const dailyForG = g.id === group.id
+                  ? projection.daily
+                  : (() => {
+                      // approximate from saved features (use original per-group daily)
+                      const fs = features.filter(f => f.group_id === g.id);
+                      let d = 0;
+                      fs.forEach(r => {
+                        if (!r.is_enabled) return;
+                        const m = r.model_assignment || MODEL_OPTIONS_BY_FEATURE[r.feature_key]?.[0] || 'gpt-4.1-mini';
+                        d += effectiveTaskCost(g.id, r.feature_key, m) * (r.daily_limit || 0);
+                      });
+                      return d;
+                    })();
+                const monthly = dailyForG * 22 * n;
+                return (
+                  <div key={g.id} className="flex items-center justify-between p-3">
+                    <span className="font-medium">{g.name}</span>
+                    <div className="flex items-center gap-4">
+                      <Input type="number" className="w-20"
+                        value={n} onChange={e => setHeadcount(g.id, parseInt(e.target.value) || 0)} />
+                      <span className="font-semibold tabular-nums w-28 text-right">{fmtUSD(monthly)}/mo</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between p-3 bg-muted/30">
+                <span className="font-bold">Total org cost ({totalOrgUsers} users)</span>
+                <span className="font-bold tabular-nums">{fmtUSD(orgProjection)}/mo</span>
+              </div>
+              <div className="flex items-center justify-between p-3 text-sm text-muted-foreground">
+                <span>Revenue at current markup</span>
+                <span className="text-right">
+                  {fmtUSD(orgProjection * markup)}/mo · profit {fmtUSD(orgProjection * (markup - 1))}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Cost caps */}
+          <div>
+            <h3 className="font-semibold mb-2">Hard cost caps (enforced)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div><Label>Per request ($)</Label><Input type="number" step="0.01" value={editCap.per_request_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_request_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
+              <div><Label>Per user/day ($)</Label><Input type="number" step="0.01" value={editCap.per_user_daily_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_daily_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
+              <div><Label>Per user/week ($)</Label><Input type="number" step="0.01" value={editCap.per_user_weekly_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_weekly_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
+              <div><Label>Per user/month ($)</Label><Input type="number" step="0.01" value={editCap.per_user_monthly_usd ?? ''} onChange={e => setEditCap({ ...editCap, per_user_monthly_usd: e.target.value === '' ? null : parseFloat(e.target.value) })} /></div>
+            </div>
+          </div>
+
+          {/* Adjust task costs (advanced) */}
+          <details className="border rounded-md">
+            <summary className="cursor-pointer p-3 font-semibold">Adjust task costs (advanced)</summary>
+            <div className="p-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feature</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead className="text-right">$/task</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map(r => {
+                    const opts = MODEL_OPTIONS_BY_FEATURE[r.feature_key] || Object.keys(MODEL_COSTS);
+                    const model = r.model_assignment || opts[0];
+                    const k = `${group.id}:${r.feature_key}`;
+                    const baseCost = costPerTask(r.feature_key, model);
+                    const val = taskCostOverrides[k] ?? baseCost;
+                    return (
+                      <TableRow key={r.feature_key}>
+                        <TableCell className="font-medium">{ALL_FEATURES.find(a => a.key === r.feature_key)?.label}</TableCell>
+                        <TableCell className="text-xs">{model}</TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" step="0.0001" className="w-28 ml-auto"
+                            value={val}
+                            onChange={e => setTaskCost(group.id, r.feature_key, e.target.value === '' ? null : parseFloat(e.target.value))} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-muted-foreground mt-2">
+                Overrides only affect projections in this calculator. Actual billed cost still comes from real model usage.
+              </p>
+            </div>
+          </details>
 
           <Button disabled={diff.length === 0} onClick={() => setConfirmOpen(true)}>
             <Save className="w-4 h-4 mr-2" />Save & Apply ({diff.length} change{diff.length !== 1 ? 's' : ''})
@@ -711,29 +844,15 @@ function GroupEditor({
           </Dialog>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      <Card className="h-fit lg:sticky lg:top-44">
-        <CardHeader><CardTitle className="text-base">💰 Live Projection</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <div className="font-semibold mb-1">Per user</div>
-            <div className="flex justify-between"><span>Daily</span><strong>{fmtUSD(projection.daily)}</strong></div>
-            <div className="flex justify-between"><span>Weekly</span><strong>{fmtUSD(projection.weekly)}</strong></div>
-            <div className="flex justify-between"><span>Monthly</span><strong>{fmtUSD(projection.monthly)}</strong></div>
-            <div className="flex justify-between"><span>Yearly</span><strong>{fmtUSD(projection.yearly)}</strong></div>
-          </div>
-          <div className="border-t pt-2">
-            <div className="font-semibold mb-1">Org total ({memberCount} member{memberCount !== 1 ? 's' : ''})</div>
-            <div className="flex justify-between"><span>Daily</span><strong>{fmtUSD(projection.daily * memberCount)}</strong></div>
-            <div className="flex justify-between"><span>Monthly</span><strong>{fmtUSD(projection.monthly * memberCount)}</strong></div>
-          </div>
-          <div className="border-t pt-2 text-xs text-muted-foreground">
-            <div>Customer charged: ${group.monthly_price}/user × {memberCount} = ${(Number(group.monthly_price) || 0) * memberCount}/mo</div>
-            <div className="mt-1">Suggested caps (50% buffer):</div>
-            <div>Daily: {fmtUSD(projection.daily * 1.5)} · Monthly: {fmtUSD(projection.monthly * 1.5)}</div>
-          </div>
-        </CardContent>
-      </Card>
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-lg font-bold mt-1 tabular-nums">{value}</div>
     </div>
   );
 }
