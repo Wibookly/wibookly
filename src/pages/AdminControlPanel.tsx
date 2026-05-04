@@ -112,8 +112,12 @@ export default function AdminControlPanel() {
     if (!orgId) return;
     setLoading(true);
     try {
+      // Super admin sees all permission groups across orgs
+      const groupsQuery = isSuperAdmin
+        ? supabase.from('permission_groups').select('*').order('display_order')
+        : supabase.from('permission_groups').select('*').eq('organization_id', orgId).order('display_order');
       const [g, b] = await Promise.all([
-        supabase.from('permission_groups').select('*').eq('organization_id', orgId).order('display_order'),
+        groupsQuery,
         supabase.from('org_agent_budget').select('*').eq('organization_id', orgId).maybeSingle(),
       ]);
       const groupRows = (g.data || []) as PermissionGroup[];
@@ -155,7 +159,7 @@ export default function AdminControlPanel() {
     } finally {
       setLoading(false);
     }
-  }, [orgId, profile?.email, selectedGroupId]);
+  }, [orgId, profile?.email, selectedGroupId, isSuperAdmin]);
 
   useEffect(() => { fetchAll(); }, [orgId]); // eslint-disable-line
 
