@@ -159,7 +159,7 @@ export default function AdminControlPanel() {
     } finally {
       setLoading(false);
     }
-  }, [orgId, profile?.email, selectedGroupId]);
+  }, [orgId, profile?.email, selectedGroupId, isSuperAdmin]);
 
   useEffect(() => { fetchAll(); }, [orgId]); // eslint-disable-line
 
