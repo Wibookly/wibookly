@@ -1104,3 +1104,34 @@ function LiveActivityTab({
     </div>
   );
 }
+
+function GroupBreakdownRow({ b, expanded, onToggle, jumpToGroup, jumpToUser, memberships, logs, users, today }: any) {
+  return (
+    <>
+      <TableRow className="cursor-pointer" onClick={onToggle}>
+        <TableCell><Button variant="link" size="sm" className="p-0 h-auto" onClick={(e) => { e.stopPropagation(); jumpToGroup(b.group.id); }}>{b.group.name}</Button></TableCell>
+        <TableCell>{b.memberCount}</TableCell>
+        <TableCell>{fmtUSD(b.today)}</TableCell>
+        <TableCell>{fmtUSD(b.week)}</TableCell>
+        <TableCell>{fmtUSD(b.month)}</TableCell>
+        <TableCell><ChevronRight className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`} /></TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow><TableCell colSpan={6} className="bg-muted/30">
+          <div className="space-y-1 text-sm py-2">
+            {[...new Set(memberships.filter((m: any) => m.group_id === b.group.id).map((m: any) => m.user_id))].map((uid: any) => {
+              const uLogs = logs.filter((l: any) => l.user_id === uid);
+              const uToday = uLogs.filter((l: any) => new Date(l.created_at) >= today).reduce((s: number, l: any) => s + Number(l.cost_usd || 0), 0);
+              return (
+                <div key={uid} className="flex justify-between items-center">
+                  <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => jumpToUser(uid)}>{users[uid]?.email || uid}</Button>
+                  <span>{fmtUSD(uToday)} today · {fmtUSD(uLogs.reduce((s: number, l: any) => s + Number(l.cost_usd || 0), 0))} month</span>
+                </div>
+              );
+            })}
+          </div>
+        </TableCell></TableRow>
+      )}
+    </>
+  );
+}
