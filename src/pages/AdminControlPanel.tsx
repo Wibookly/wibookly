@@ -515,10 +515,19 @@ function GroupsTab({
 }
 
 function GroupEditor({
-  group, features, cap, memberCount, onSaved,
+  group, allGroups, features, cap, memberCount, memberCounts, headcounts, setHeadcount,
+  orgProjection, taskCostOverrides, setTaskCost, effectiveTaskCost, onSaved,
 }: {
-  group: PermissionGroup; features: GroupFeatureRow[]; cap: GroupCostCap;
-  memberCount: number; onSaved: () => void;
+  group: PermissionGroup; allGroups: PermissionGroup[]; features: GroupFeatureRow[]; cap: GroupCostCap;
+  memberCount: number;
+  memberCounts: Record<string, number>;
+  headcounts: Record<string, number>;
+  setHeadcount: (gid: string, n: number) => void;
+  orgProjection: number;
+  taskCostOverrides: Record<string, number>;
+  setTaskCost: (groupId: string, featureKey: string, val: number | null) => void;
+  effectiveTaskCost: (groupId: string, featureKey: string, model: string) => number;
+  onSaved: () => void;
 }) {
   // Editable rows: ensure every ALL_FEATURES key present
   const initRows: GroupFeatureRow[] = useMemo(() => ALL_FEATURES.map(f => {
@@ -534,7 +543,9 @@ function GroupEditor({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [markup, setMarkup] = useState<number>(() => lsGet(`admin_markup_${group.id}`, 3.1));
 
+  useEffect(() => { lsSet(`admin_markup_${group.id}`, markup); }, [markup, group.id]);
   useEffect(() => { setRows(initRows); setEditCap(cap); setConfirmText(''); }, [initRows, cap]);
 
   const updateRow = (key: string, patch: Partial<GroupFeatureRow>) => {
@@ -546,10 +557,10 @@ function GroupEditor({
     rows.forEach(r => {
       if (!r.is_enabled) return;
       const m = r.model_assignment || MODEL_OPTIONS_BY_FEATURE[r.feature_key]?.[0] || 'gpt-4.1-mini';
-      daily += costPerTask(r.feature_key, m) * (r.daily_limit || 0);
+      daily += effectiveTaskCost(group.id, r.feature_key, m) * (r.daily_limit || 0);
     });
     return { daily, weekly: daily * 5, monthly: daily * 22, yearly: daily * 22 * 12 };
-  }, [rows]);
+  }, [rows, group.id, taskCostOverrides, effectiveTaskCost]);
 
   const diff = useMemo(() => {
     const d: string[] = [];
