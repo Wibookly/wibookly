@@ -314,14 +314,85 @@ ${tierLine}`;
   return { reply: 'I gathered a lot of context but ran out of reasoning steps — please rephrase or narrow your question.', tokensIn: totalIn, tokensOut: totalOut, model };
 }
 
-/* ---------------- HTTP entry point ---------------- */
+/* ---------------- Group / tier lookup ---------------- */
+async function fetchGroupName(userId: string, organizationId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('user_group_memberships')
+      .select('permission_groups(name)')
+      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    return (data?.permission_groups as any)?.name ?? null;
+  } catch {
+    return null;
+  }
+}
 
+/* ---------------- Attachment summarization ---------------- */
+function describeAttachments(attachments?: TeamsAttachment[]): string | null {
+  if (!attachments?.length) return null;
+  const supported = attachments
+    .filter((a) => /pdf|image|png|jpeg|jpg|octet-stream|file/i.test(a.contentType ?? '') || a.contentUrl)
+    .slice(0, 3); // cap 3 files
+  if (!supported.length) return null;
+  const lines = supported.map((a, i) => {
+    const name = a.name ?? a.content?.name ?? `attachment-${i + 1}`;
+    const url = a.contentUrl ?? a.content?.downloadUrl ?? '';
+    return `- ${name}${url ? ` (${url})` : ''}`;
+  });
+  return `The user attached ${supported.length} file(s) (max 3, ≤10MB each). Reference them by name when relevant:\n${lines.join('\n')}`;
+}
+
+/* ---------------- HTTP entry point ----------------
+ *
+ * DEPLOYMENT STEPS:
+ * 1. Configure Supabase secrets:
+ *      TEAMS_BOT_APP_ID, TEAMS_BOT_APP_PASSWORD, MICROSOFT_TENANT_ID
+ *    (TEAMS_BOT_APP_PASSWORD: Azure Portal → Azure Bot → Configuration →
+ *     "Manage Microsoft App ID and password" → New client secret.)
+ * 2. Deploy: supabase functions deploy teams-bot
+ * 3. In Azure Bot → Configuration → Messaging endpoint:
+ *      https://<project-ref>.supabase.co/functions/v1/teams-bot
+ * 4. Zip /teams-app-manifest/ (manifest.json + color.png + outline.png)
+ *    and upload via Teams Admin Center → Manage apps → Upload new app.
+ * 5. Smoke test:
+ *      POST /functions/v1/teams-bot/test-simulation
+ *    Returns the resolved user, group, model, and a generated reply.
+ */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // ---- Smoke-test endpoint (no Bot Framework required) ----
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/test-simulation')) {
+    return await runSmokeTest(req);
+  }
+
   if (req.method !== 'POST') return new Response('ok', { status: 200 });
 
   let activity: TeamsActivity;
   try { activity = await req.json(); } catch { return new Response('bad request', { status: 400 }); }
+
+  // ---- Welcome message when added to chat / channel ----
+  if (activity.type === 'conversationUpdate' && activity.membersAdded?.length) {
+    (async () => {
+      try {
+        for (const m of activity.membersAdded ?? []) {
+          if (m.id !== activity.recipient?.id) {
+            await sendReply(
+              activity,
+              "👋 Hi! I'm **Energy Forward AI**. Ask me anything about your inbox, calendar, files, or work tasks. " +
+              "I can draft emails, summarize documents, prep you for meetings, or generate dashboards. " +
+              "Just send me a message — or @mention me in a channel."
+            );
+            break;
+          }
+        }
+      } catch (e) { console.warn('welcome failed', e); }
+    })();
+    return new Response('', { status: 200, headers: corsHeaders });
+  }
 
   if (activity.type !== 'message') return new Response('', { status: 200 });
 
@@ -340,6 +411,7 @@ Deno.serve(async (req) => {
   const aadId = activity.from?.aadObjectId ?? null;
   const userName = activity.from?.name ?? 'there';
   const userText = stripMentions(activity.text ?? '');
+  const attachmentsNote = describeAttachments(activity.attachments);
 
   // Resolve sender email via app-only Graph
   let senderEmail: string | null = null;
@@ -353,7 +425,7 @@ Deno.serve(async (req) => {
   // Domain allow-list
   const allowedDomains: string[] = (settings.allowed_sender_domains ?? []).map((d: string) => d.toLowerCase());
   const senderDomain = senderEmail?.split('@')[1] ?? null;
-  let isAllowed = senderDomain ? (allowedDomains.length === 0 || allowedDomains.includes(senderDomain)) : false;
+  const isAllowed = senderDomain ? (allowedDomains.length === 0 || allowedDomains.includes(senderDomain)) : false;
 
   // Log inbound
   const { data: inbound } = await supabase
@@ -392,6 +464,7 @@ Deno.serve(async (req) => {
       // Pre-flight enforcement only when we resolved an InboxIQ user
       let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
       let routedModel = 'gpt-4o';
+      let tierName: string | null = null;
       if (resolved?.userId) {
         gate = await enforceLimitsBeforeLLM(supabase, {
           userId: resolved.userId,
@@ -400,10 +473,15 @@ Deno.serve(async (req) => {
           fallbackModel: 'gpt-4o',
         });
         if (!gate.allowed) {
-          await sendReply(activity, "Your AI usage budget for this feature is exhausted. Please contact your administrator.");
+          const reason = (gate as any).reason || 'Your AI usage budget for this feature is exhausted.';
+          await sendReply(
+            activity,
+            `⚠️ ${reason}\n\nYour limit resets at midnight UTC. Contact your admin to upgrade.`,
+          );
           return;
         }
         routedModel = gate.model || 'gpt-4o';
+        tierName = await fetchGroupName(resolved.userId, settings.organization_id);
       }
 
       const result = await runAgent({
@@ -412,6 +490,8 @@ Deno.serve(async (req) => {
         history,
         graphToken: resolved?.microsoftAccessToken ?? null,
         model: routedModel,
+        tierName,
+        attachmentsNote,
       });
       const reply = result.reply;
 
@@ -419,7 +499,11 @@ Deno.serve(async (req) => {
         ? reply
         : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
-      await sendReply(activity, finalReply);
+      const cards = shouldUseAdaptiveCard(finalReply)
+        ? [buildAdaptiveCard('Energy Forward AI', finalReply)]
+        : undefined;
+
+      await sendReply(activity, finalReply, cards);
 
       // Post-call accounting
       if (resolved?.userId && gate) {
@@ -467,3 +551,87 @@ Deno.serve(async (req) => {
 
   return new Response('', { status: 200, headers: corsHeaders });
 });
+
+/* ---------------- Smoke-test runner ---------------- */
+async function runSmokeTest(req: Request): Promise<Response> {
+  let body: any = {};
+  try { body = req.method === 'POST' ? await req.json() : {}; } catch { /* ignore */ }
+  const senderEmail: string = (body.email ?? 'arahimi@energyforward.com').toLowerCase();
+  const userText: string = body.text ?? 'Hello, can you help me draft a quick thank-you email?';
+
+  // Resolve user by email directly (we don't have a real AAD id in test)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, organization_id, full_name')
+    .ilike('email', senderEmail)
+    .maybeSingle();
+
+  if (!profile) {
+    return new Response(
+      JSON.stringify({ ok: false, error: 'no_profile_for_email', email: senderEmail }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const gate = await enforceLimitsBeforeLLM(supabase, {
+    userId: profile.id,
+    organizationId: profile.organization_id,
+    feature: 'teams_agent',
+    fallbackModel: 'gpt-4o',
+  });
+
+  if (!gate.allowed) {
+    return new Response(
+      JSON.stringify({ ok: false, blocked: true, reason: (gate as any).reason ?? 'blocked', model: gate.model }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const tierName = await fetchGroupName(profile.id, profile.organization_id);
+
+  const result = await runAgent({
+    userText,
+    userName: profile.full_name ?? 'there',
+    history: [],
+    graphToken: null,
+    model: gate.model || 'gpt-4o',
+    tierName,
+  });
+
+  try {
+    await recordSpend(supabase, {
+      userId: profile.id,
+      organizationId: profile.organization_id,
+      groupId: gate.group_id,
+      feature: 'teams_agent',
+      provider: detectProvider(result.model),
+      model: result.model,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      metadata: { test_simulation: true },
+    });
+  } catch (e) {
+    console.warn('[teams-bot test] recordSpend failed', e);
+  }
+
+  await supabase.from('agent_messages').insert({
+    organization_id: profile.organization_id,
+    channel: 'teams',
+    direction: 'outbound',
+    content: result.reply.slice(0, 8000),
+    conversation_id: 'test-simulation',
+    status: 'sent',
+  });
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      flow: 'enforcement_check → llm_call → response → spend_recorded → logged',
+      user: { id: profile.id, email: senderEmail, full_name: profile.full_name, tier: tierName },
+      model: result.model,
+      tokens: { in: result.tokensIn, out: result.tokensOut },
+      reply_preview: result.reply.slice(0, 400),
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
