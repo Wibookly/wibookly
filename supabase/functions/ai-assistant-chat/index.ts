@@ -910,40 +910,106 @@ When answering:
  - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
 
     const adminAIConfig = await loadAdminAIConfig(supabase);
-
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const orgId = orgIdEarly;
 
     // Enforce limits before LLM
     const { enforceLimitsBeforeLLM, recordSpend, blockedResponse } = await import('../_shared/enforce-limits.ts');
-    if (profile?.organization_id) {
+    if (orgId) {
       const fallbackModel = adminAIConfig.preference === 'claude' ? adminAIConfig.claudeModel : adminAIConfig.openaiModel;
       const gate = await enforceLimitsBeforeLLM(supabase, {
         userId: user.id,
-        organizationId: profile.organization_id,
+        organizationId: orgId,
         feature: 'ai_chat',
         fallbackModel,
       });
-      if (!gate.allowed) return blockedResponse(gate.reason || 'feature_disabled', corsHeaders);
+      if (!gate.allowed) {
+        if (isChatPageMode && streamMode) {
+          const enc = new TextEncoder();
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'conversation', conversation_id: conversationId })}\n\n`));
+              controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'blocked', reason: gate.reason })}\n\n`));
+              controller.close();
+            }
+          });
+          return new Response(stream, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+          });
+        }
+        if (isChatPageMode) {
+          return new Response(JSON.stringify({ blocked: true, reason: gate.reason, conversation_id: conversationId }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        return blockedResponse(gate.reason || 'feature_disabled', corsHeaders);
+      }
     }
 
     const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
 
-    if (profile?.organization_id) {
+    if (orgId) {
       await recordSpend(supabase, {
         userId: user.id,
-        organizationId: profile.organization_id,
+        organizationId: orgId,
         groupId: null,
         feature: 'ai_chat',
         provider: (result.provider === 'claude' ? 'anthropic' : 'openai'),
         model: result.model,
         tokensIn: result.promptTokens,
         tokensOut: result.completionTokens,
-        metadata: { connection_id: connectionId ?? null, provider_preference: adminAIConfig.preference },
+        metadata: { connection_id: connectionId ?? null, conversation_id: conversationId, provider_preference: adminAIConfig.preference },
       });
+    }
+
+    if (isChatPageMode && conversationId) {
+      // Save assistant message
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'assistant',
+        content: result.content,
+        model_used: result.model,
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        cost_usd: result.costUsd,
+      });
+      // Update conversation
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (isFirstMessage) {
+        updates.title = await generateConversationTitle(chatMessage!, adminAIConfig);
+      }
+      await supabase.from('chat_conversations').update(updates).eq('id', conversationId);
+
+      if (streamMode) {
+        return new Response(
+          buildChatSSEStream({
+            fullContent: result.content,
+            conversationId,
+            usage: {
+              promptTokens: result.promptTokens,
+              completionTokens: result.completionTokens,
+              costUsd: result.costUsd,
+              model: result.model,
+              provider: result.provider,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          content: result.content,
+          conversation_id: conversationId,
+          model: result.model,
+          provider: result.provider,
+          usage: {
+            prompt_tokens: result.promptTokens,
+            completion_tokens: result.completionTokens,
+            cost_usd: result.costUsd,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
