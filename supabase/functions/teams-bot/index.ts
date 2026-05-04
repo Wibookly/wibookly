@@ -26,6 +26,13 @@ const BOT_APP_PASSWORD = Deno.env.get('TEAMS_BOT_APP_PASSWORD');
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+interface TeamsAttachment {
+  contentType?: string;
+  contentUrl?: string;
+  name?: string;
+  content?: any;
+}
+
 interface TeamsActivity {
   type: string;
   id: string;
@@ -36,6 +43,8 @@ interface TeamsActivity {
   recipient?: { id: string; name?: string };
   text?: string;
   channelData?: { tenant?: { id?: string } };
+  attachments?: TeamsAttachment[];
+  membersAdded?: { id: string; name?: string }[];
 }
 
 /* ---------------- Bot Framework auth + reply ---------------- */
