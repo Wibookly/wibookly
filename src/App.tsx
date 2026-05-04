@@ -20,6 +20,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminControlPanel from "./pages/AdminControlPanel";
 import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
@@ -78,6 +79,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/control-panel" element={<AdminControlPanel />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
