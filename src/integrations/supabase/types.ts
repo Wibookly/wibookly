@@ -1495,6 +1495,7 @@ export type Database = {
           per_request_usd: number | null
           per_user_daily_usd: number | null
           per_user_monthly_usd: number | null
+          per_user_weekly_usd: number | null
           updated_at: string | null
         }
         Insert: {
@@ -1503,6 +1504,7 @@ export type Database = {
           per_request_usd?: number | null
           per_user_daily_usd?: number | null
           per_user_monthly_usd?: number | null
+          per_user_weekly_usd?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -1511,6 +1513,7 @@ export type Database = {
           per_request_usd?: number | null
           per_user_daily_usd?: number | null
           per_user_monthly_usd?: number | null
+          per_user_weekly_usd?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1580,7 +1583,9 @@ export type Database = {
           id: string
           is_enabled: boolean
           model_assignment: string | null
+          monthly_limit: number | null
           updated_at: string
+          weekly_limit: number | null
         }
         Insert: {
           created_at?: string
@@ -1590,7 +1595,9 @@ export type Database = {
           id?: string
           is_enabled?: boolean
           model_assignment?: string | null
+          monthly_limit?: number | null
           updated_at?: string
+          weekly_limit?: number | null
         }
         Update: {
           created_at?: string
@@ -1600,7 +1607,9 @@ export type Database = {
           id?: string
           is_enabled?: boolean
           model_assignment?: string | null
+          monthly_limit?: number | null
           updated_at?: string
+          weekly_limit?: number | null
         }
         Relationships: [
           {
@@ -1846,6 +1855,9 @@ export type Database = {
       }
       org_agent_budget: {
         Row: {
+          alert_email: string | null
+          alert_thresholds: number[]
+          auto_pause_enabled: boolean
           current_day: string
           current_month: string
           daily_usd_cap: number
@@ -1859,6 +1871,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_email?: string | null
+          alert_thresholds?: number[]
+          auto_pause_enabled?: boolean
           current_day?: string
           current_month?: string
           daily_usd_cap?: number
@@ -1872,6 +1887,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_email?: string | null
+          alert_thresholds?: number[]
+          auto_pause_enabled?: boolean
           current_day?: string
           current_month?: string
           daily_usd_cap?: number
@@ -2515,6 +2533,48 @@ export type Database = {
           },
         ]
       }
+      user_overrides: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          feature_key: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          override_type: string
+          override_value: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          feature_key?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          override_type: string
+          override_value: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          feature_key?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          override_type?: string
+          override_value?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           communication_style: string | null
@@ -2830,6 +2890,10 @@ export type Database = {
           name: string
           role: string
         }[]
+      }
+      get_user_override: {
+        Args: { _feature_key: string; _override_type: string; _user_id: string }
+        Returns: string
       }
       has_feature: {
         Args: { _feature_key: string; _user_id: string }
