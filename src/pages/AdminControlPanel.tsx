@@ -393,8 +393,15 @@ function OrgSettingsTab({
 }
 
 /* ============================================================
- * TAB 2: GROUPS
+ * TAB 2: GROUPS — Full calculator dashboard
  * ============================================================ */
+
+// localStorage helpers for calculator-only state (markup, $/task overrides, headcount projections)
+const lsGet = (key: string, def: any) => {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
+};
+const lsSet = (key: string, v: any) => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
+
 function GroupsTab({
   groups, features, caps, memberships, selectedGroupId, setSelectedGroupId, onSaved,
 }: {
@@ -405,40 +412,101 @@ function GroupsTab({
 }) {
   const memberCount = (gid: string) => memberships.filter(m => m.group_id === gid).length;
 
+  // Per-group $/task overrides (calculator local state)
+  const [taskCostOverrides, setTaskCostOverrides] = useState<Record<string, number>>(
+    () => lsGet('admin_task_cost_overrides', {})
+  );
+  const setTaskCost = (groupId: string, featureKey: string, val: number | null) => {
+    const k = `${groupId}:${featureKey}`;
+    setTaskCostOverrides(prev => {
+      const next = { ...prev };
+      if (val === null || isNaN(val)) delete next[k]; else next[k] = val;
+      lsSet('admin_task_cost_overrides', next);
+      return next;
+    });
+  };
+  const effectiveTaskCost = (groupId: string, featureKey: string, model: string) => {
+    const k = `${groupId}:${featureKey}`;
+    return taskCostOverrides[k] ?? costPerTask(featureKey, model);
+  };
+
   const dailyCostForGroup = (gid: string) => {
     return features.filter(f => f.group_id === gid && f.is_enabled).reduce((sum, f) => {
       const m = f.model_assignment || MODEL_OPTIONS_BY_FEATURE[f.feature_key]?.[0] || 'gpt-4.1-mini';
-      return sum + costPerTask(f.feature_key, m) * (f.daily_limit || 0);
+      return sum + effectiveTaskCost(gid, f.feature_key, m) * (f.daily_limit || 0);
     }, 0);
   };
 
+  // Headcount projection (per plan), local-only
+  const [headcounts, setHeadcounts] = useState<Record<string, number>>(
+    () => lsGet('admin_headcount_projection', {})
+  );
+  const setHeadcount = (gid: string, n: number) => {
+    setHeadcounts(prev => {
+      const next = { ...prev, [gid]: n };
+      lsSet('admin_headcount_projection', next);
+      return next;
+    });
+  };
+  // Default headcount = actual member count
+  useEffect(() => {
+    const next = { ...headcounts };
+    let changed = false;
+    groups.forEach(g => { if (next[g.id] == null) { next[g.id] = memberCount(g.id); changed = true; } });
+    if (changed) { setHeadcounts(next); lsSet('admin_headcount_projection', next); }
+  }, [groups.length]); // eslint-disable-line
+
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
+
+  // Org-wide cost from headcount projection
+  const orgProjection = useMemo(() => {
+    let monthly = 0;
+    groups.forEach(g => {
+      const n = headcounts[g.id] ?? 0;
+      monthly += dailyCostForGroup(g.id) * 22 * n;
+    });
+    return monthly;
+  }, [groups, headcounts, features, taskCostOverrides]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {groups.map(g => {
-          const daily = dailyCostForGroup(g.id);
-          const isSel = g.id === selectedGroupId;
-          return (
-            <button key={g.id} onClick={() => setSelectedGroupId(g.id)}
-              className={`text-left rounded-lg border-2 p-4 transition-all ${GROUP_COLORS[g.name] || 'border-muted'} ${isSel ? 'ring-2 ring-primary' : 'opacity-80 hover:opacity-100'}`}>
-              <div className="font-bold">{g.name}</div>
-              <div className="text-2xl font-bold mt-1">${g.monthly_price ?? 0}/user</div>
-              <div className="text-xs text-muted-foreground mt-2">{memberCount(g.id)} member(s)</div>
-              <div className="text-xs mt-1">{fmtUSD(daily)}/day · {fmtUSD(daily * 22)}/mo (per user)</div>
-            </button>
-          );
-        })}
-      </div>
+      {/* Plan tabs */}
+      <Card>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Plans</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {groups.map(g => {
+              const daily = dailyCostForGroup(g.id);
+              const n = memberCount(g.id);
+              const isSel = g.id === selectedGroupId;
+              return (
+                <button key={g.id} onClick={() => setSelectedGroupId(g.id)}
+                  className={`text-left rounded-lg border-2 p-4 transition-all ${GROUP_COLORS[g.name] || 'border-muted'} ${isSel ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'}`}>
+                  <div className="font-bold">{g.name} · {n} user{n !== 1 ? 's' : ''}</div>
+                  <div className="text-xl font-bold mt-1">{fmtUSD(daily * 22 * n)}/mo</div>
+                  <div className="text-xs text-muted-foreground mt-1">{fmtUSD(daily)}/day per user</div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedGroup && (
         <GroupEditor
           key={selectedGroup.id}
           group={selectedGroup}
+          allGroups={groups}
           features={features.filter(f => f.group_id === selectedGroup.id)}
           cap={caps.find(c => c.group_id === selectedGroup.id) || { group_id: selectedGroup.id, per_request_usd: null, per_user_daily_usd: null, per_user_weekly_usd: null, per_user_monthly_usd: null }}
           memberCount={memberCount(selectedGroup.id)}
+          memberCounts={Object.fromEntries(groups.map(g => [g.id, memberCount(g.id)]))}
+          headcounts={headcounts}
+          setHeadcount={setHeadcount}
+          orgProjection={orgProjection}
+          taskCostOverrides={taskCostOverrides}
+          setTaskCost={setTaskCost}
+          effectiveTaskCost={effectiveTaskCost}
           onSaved={onSaved}
         />
       )}
