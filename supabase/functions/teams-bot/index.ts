@@ -65,25 +65,75 @@ async function getBotToken(): Promise<string> {
   return (await res.json()).access_token as string;
 }
 
-async function sendReply(activity: TeamsActivity, text: string) {
+async function sendReply(
+  activity: TeamsActivity,
+  text: string,
+  attachments?: any[],
+) {
   const token = await getBotToken();
   const url = `${activity.serviceUrl.replace(/\/$/, '')}/v3/conversations/${encodeURIComponent(
     activity.conversation!.id
   )}/activities/${encodeURIComponent(activity.id)}`;
+  const body: any = {
+    type: 'message',
+    from: activity.recipient,
+    conversation: activity.conversation,
+    recipient: activity.from,
+    replyToId: activity.id,
+    text,
+    textFormat: 'markdown',
+  };
+  if (attachments?.length) {
+    body.attachments = attachments;
+    body.attachmentLayout = 'list';
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'message',
-      from: activity.recipient,
-      conversation: activity.conversation,
-      recipient: activity.from,
-      replyToId: activity.id,
-      text,
-      textFormat: 'markdown',
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) console.error('Teams reply failed', res.status, await res.text());
+}
+
+/* ---------------- Tier-aware system prompt ---------------- */
+function getTierContext(groupName?: string | null): string {
+  switch ((groupName || '').toLowerCase()) {
+    case 'chat':
+      return 'User has basic chat access only. Do not offer advanced features like file generation.';
+    case 'standard':
+      return 'User can request email drafts, document analysis, and basic file reading.';
+    case 'power user':
+      return 'User has full automation access including auto-replies and daily briefs.';
+    case 'executive':
+      return 'Premium tier user. Provide highest quality responses, deep analysis, and proactive suggestions.';
+    default:
+      return '';
+  }
+}
+
+/* ---------------- Adaptive Card helper ---------------- */
+function buildAdaptiveCard(title: string, content: string, actions: any[] = []) {
+  return {
+    contentType: 'application/vnd.microsoft.card.adaptive',
+    content: {
+      type: 'AdaptiveCard',
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      version: '1.4',
+      body: [
+        { type: 'TextBlock', text: title, size: 'Large', weight: 'Bolder', wrap: true },
+        { type: 'TextBlock', text: content, wrap: true },
+      ],
+      actions,
+    },
+  };
+}
+
+/** Heuristic: if reply contains a markdown table or lots of bullet rows, surface as Adaptive Card too. */
+function shouldUseAdaptiveCard(text: string): boolean {
+  if (!text) return false;
+  if (/\n\s*\|.+\|/.test(text)) return true; // markdown table
+  const bulletLines = text.split('\n').filter((l) => /^\s*[-*]\s+/.test(l)).length;
+  return bulletLines >= 5;
 }
 
 async function sendTyping(activity: TeamsActivity) {
