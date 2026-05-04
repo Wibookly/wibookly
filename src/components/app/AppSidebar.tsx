@@ -118,6 +118,20 @@ export function AppSidebar() {
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
+  // "Chat-only" users: have AI Chat but no email/drafting/reporting features.
+  // For these users we collapse the sidebar to just connected emails + AI Chat.
+  const isChatOnly =
+    !featureLoading &&
+    !isSuperAdmin &&
+    hasFeature('ai_chat') &&
+    !hasFeature('ai_draft') &&
+    !hasFeature('ai_auto_reply') &&
+    !hasFeature('daily_brief') &&
+    !hasFeature('reports') &&
+    !hasFeature('feature.follow_up_reminder') &&
+    !hasFeature('follow_up_reminder') &&
+    !hasFeature('email_agent');
+
   // Check if onboarding has been dismissed
   useEffect(() => {
     if (organization?.id) {
