@@ -216,9 +216,12 @@ async function runAgent(opts: {
   history: { role: string; content: string }[];
   graphToken: string | null;
   model?: string;
+  tierName?: string | null;
+  attachmentsNote?: string | null;
 }): Promise<{ reply: string; tokensIn: number; tokensOut: number; model: string }> {
   const model = opts.model || 'gpt-4o';
-  const systemPrompt = `You are InboxIQ, a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
+  const tierLine = getTierContext(opts.tierName);
+  const systemPrompt = `You are InboxIQ (Energy Forward AI), a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
 
 You have access to tools that let you:
 - Search the live INTERNET (search_web) — current events, facts, news, prices, definitions, anything.
@@ -240,12 +243,19 @@ CORE RULES:
 - Combine sources when useful (e.g. summarize meeting + related email thread + generate a recap doc).
 - Answer in plain text or light markdown. Be concise but complete. Cite sources (subjects, file names, URLs).
 - Never fabricate factual claims. Sample data inside generated artifacts is clearly labeled as such.
-- You have NO artificial limits. If the task is large, do it in full.`;
+- You have NO artificial limits. If the task is large, do it in full.
+
+USER TIER: ${opts.tierName || 'Unknown'}
+${tierLine}`;
+
+  const userContent = opts.attachmentsNote
+    ? `${opts.userText}\n\n${opts.attachmentsNote}`
+    : opts.userText;
 
   const messages: any[] = [
     { role: 'system', content: systemPrompt },
     ...opts.history,
-    { role: 'user', content: opts.userText },
+    { role: 'user', content: userContent },
   ];
 
   let totalIn = 0;
