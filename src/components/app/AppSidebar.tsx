@@ -196,56 +196,64 @@ export function AppSidebar() {
       <div className="flex-1 overflow-y-auto min-h-0">
 
         <nav className="p-3 pt-0 space-y-2">
-          {/* Account Provisioning */}
-          <NavSection title="Account Provisioning" icon={UserPlus} defaultOpen colorClass="text-blue-500">
-            <NavItem href="/integrations" icon={Link2}>Email & Calendar Connections</NavItem>
-          </NavSection>
-
-          {/* AI Intelligence - was "AI Assistant"; now also includes Email Intelligence (categories) */}
-          {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat')) && (
+          {isChatOnly ? (
             <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
-              {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>}
-              <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
-              {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
+              <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>
             </NavSection>
-          )}
+          ) : (
+            <>
+              {/* Account Provisioning */}
+              <NavSection title="Account Provisioning" icon={UserPlus} defaultOpen colorClass="text-blue-500">
+                <NavItem href="/integrations" icon={Link2}>Email & Calendar Connections</NavItem>
+              </NavSection>
 
-          {/* My Settings - profile, signature, AI draft/auto-reply, availability */}
-          <NavSection title="My Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
-            <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
-            {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
-              <>
-                {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
-                  <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
-                ) : (
+              {/* AI Intelligence */}
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat')) && (
+                <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
+                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>}
+                  <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
+                </NavSection>
+              )}
+
+              {/* My Settings */}
+              <NavSection title="My Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
+                <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
+                {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
                   <>
-                    {(isSuperAdmin || hasFeature('ai_draft')) && (
-                      <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
-                    )}
-                    {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
-                      <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                    {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
+                      <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
+                    ) : (
+                      <>
+                        {(isSuperAdmin || hasFeature('ai_draft')) && (
+                          <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+                        )}
+                        {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
+                          <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                        )}
+                      </>
                     )}
                   </>
                 )}
-              </>
-            )}
-            <NavItem href="/integrations?tab=settings" icon={Clock}>My Availability and Calendar</NavItem>
-          </NavSection>
+                <NavItem href="/integrations?tab=settings" icon={Clock}>My Availability and Calendar</NavItem>
+              </NavSection>
 
-          {/* Reports - AI Activity + My Daily Brief */}
-          {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
-            <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-              {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>}
-              {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
-            </NavSection>
-          )}
+              {/* Reports */}
+              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
+                <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
+                </NavSection>
+              )}
 
-          {/* Admin - only for super admin */}
-          {isSuperAdmin && (
-            <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
-              <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
-              <NavItem href="/admin/control-panel" icon={Cog}>Control Panel</NavItem>
-            </NavSection>
+              {/* Admin */}
+              {isSuperAdmin && (
+                <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
+                  <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
+                  <NavItem href="/admin/control-panel" icon={Cog}>Control Panel</NavItem>
+                </NavSection>
+              )}
+            </>
           )}
         </nav>
       </div>
