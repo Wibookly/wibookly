@@ -718,9 +718,87 @@ serve(async (req) => {
       });
     }
 
-    const { messages, connectionId } = await req.json();
-    
-    if (!messages || !Array.isArray(messages)) {
+    const body = await req.json();
+    const {
+      messages: bodyMessages,
+      connectionId,
+      message: chatMessage,
+      conversation_id: conversationIdInput,
+      attachments: attachmentUrls,
+      stream: streamMode,
+    } = body as {
+      messages?: Array<{ role: string; content: string }>;
+      connectionId?: string;
+      message?: string;
+      conversation_id?: string | null;
+      attachments?: string[];
+      stream?: boolean;
+    };
+
+    const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
+
+    const { data: profileEarly } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const orgIdEarly = profileEarly?.organization_id as string | undefined;
+
+    let conversationId: string | null = conversationIdInput ?? null;
+    let messages: Array<{ role: string; content: string }> = bodyMessages ?? [];
+    let isFirstMessage = false;
+
+    if (isChatPageMode) {
+      if (!orgIdEarly) {
+        return new Response(JSON.stringify({ error: 'No organization' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!conversationId) {
+        const { data: convo, error: convoErr } = await supabase
+          .from('chat_conversations')
+          .insert({ user_id: user.id, organization_id: orgIdEarly, title: 'New chat' })
+          .select('id')
+          .single();
+        if (convoErr || !convo) {
+          return new Response(JSON.stringify({ error: convoErr?.message || 'Failed to create conversation' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        conversationId = convo.id;
+        isFirstMessage = true;
+      } else {
+        const { count } = await supabase
+          .from('chat_messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('conversation_id', conversationId);
+        isFirstMessage = (count || 0) === 0;
+      }
+
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'user',
+        content: chatMessage!,
+        attachments: attachmentUrls && attachmentUrls.length ? attachmentUrls : null,
+      });
+
+      const { data: history } = await supabase
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(20);
+      messages = (history || [])
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role, content: m.content }));
+      if (attachmentUrls && attachmentUrls.length) {
+        messages.push({ role: 'user', content: `[User attached files: ${attachmentUrls.join(', ')}]` });
+      }
+    }
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Messages array required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
