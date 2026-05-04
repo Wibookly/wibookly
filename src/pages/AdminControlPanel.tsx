@@ -155,13 +155,18 @@ export default function AdminControlPanel() {
         setFeatures((f.data || []) as GroupFeatureRow[]);
         setCaps((c.data || []) as GroupCostCap[]);
         setMemberships(m.data || []);
+      } else {
+        setSelectedGroupId(null);
+        setFeatures([]);
+        setCaps([]);
+        setMemberships([]);
       }
     } finally {
       setLoading(false);
     }
   }, [orgId, profile?.email, selectedGroupId, isSuperAdmin]);
 
-  useEffect(() => { fetchAll(); }, [orgId]); // eslint-disable-line
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // KPI fetch + auto-refresh
   const fetchKPIs = useCallback(async () => {
