@@ -651,6 +651,44 @@ function createSSEStream(content: string): ReadableStream<Uint8Array> {
   });
 }
 
+// Build SSE stream of token events for the chat UI (typed events: token/done/blocked/error).
+function buildChatSSEStream(opts: {
+  fullContent: string;
+  conversationId: string;
+  usage: { promptTokens: number; completionTokens: number; costUsd: number; model: string; provider: string };
+}): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const chunks = opts.fullContent.match(/[\s\S]{1,12}/g) ?? [opts.fullContent];
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'conversation', conversation_id: opts.conversationId })}\n\n`));
+      for (const c of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`));
+        await new Promise((r) => setTimeout(r, 8));
+      }
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', usage: opts.usage })}\n\n`));
+      controller.close();
+    },
+  });
+}
+
+async function generateConversationTitle(firstMessage: string, config: AdminAIConfig): Promise<string> {
+  const prompt = `Summarize this user request in 5 words or fewer for a sidebar chat title. No quotes, no punctuation at end.\n\nRequest: ${firstMessage.slice(0, 400)}`;
+  try {
+    if (config.openai) {
+      const res = await callOpenAI([{ role: 'user', content: prompt }], 'You write very short chat titles.', config.openai, 'gpt-4o-mini');
+      return res.content.trim().replace(/^["']|["']$/g, '').slice(0, 60) || 'New chat';
+    }
+    if (config.claude) {
+      const res = await callClaude([{ role: 'user', content: prompt }], 'You write very short chat titles.', config.claude, 'claude-3-5-haiku-latest');
+      return res.content.trim().replace(/^["']|["']$/g, '').slice(0, 60) || 'New chat';
+    }
+  } catch (e) {
+    console.warn('title gen failed', e);
+  }
+  return firstMessage.slice(0, 50);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
