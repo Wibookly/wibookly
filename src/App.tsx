@@ -44,15 +44,14 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/microsoft-consent-complete" element={<MicrosoftConsentComplete />} />
-                {/* AI Chat (outside AppLayout — has its own shell) */}
-                <Route path="/chat" element={<Chat />} />
-                <Route path="/chat/upgrade" element={<ChatUpgrade />} />
-                <Route path="/chat/:id" element={<Chat />} />
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />
                 {/* Protected app routes */}
                 <Route element={<AppLayout />}>
+                  <Route path="/chat" element={<Chat />} />
+                  <Route path="/chat/upgrade" element={<ChatUpgrade />} />
+                  <Route path="/chat/:id" element={<Chat />} />
                   <Route path="/integrations" element={<Integrations />} />
                   <Route path="/integration-setup" element={<IntegrationSetup />} />
                   <Route path="/categories" element={<Categories />} />
