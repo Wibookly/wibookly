@@ -561,8 +561,8 @@ async function runSmokeTest(req: Request): Promise<Response> {
 
   // Resolve user by email directly (we don't have a real AAD id in test)
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, organization_id, full_name')
+    .from('user_profiles')
+    .select('user_id, organization_id, full_name')
     .ilike('email', senderEmail)
     .maybeSingle();
 
@@ -572,6 +572,8 @@ async function runSmokeTest(req: Request): Promise<Response> {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
+
+  const userId = profile.user_id;
 
   const gate = await enforceLimitsBeforeLLM(supabase, {
     userId: profile.id,
