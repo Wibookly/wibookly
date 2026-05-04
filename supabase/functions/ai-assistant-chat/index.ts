@@ -651,6 +651,44 @@ function createSSEStream(content: string): ReadableStream<Uint8Array> {
   });
 }
 
+// Build SSE stream of token events for the chat UI (typed events: token/done/blocked/error).
+function buildChatSSEStream(opts: {
+  fullContent: string;
+  conversationId: string;
+  usage: { promptTokens: number; completionTokens: number; costUsd: number; model: string; provider: string };
+}): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const chunks = opts.fullContent.match(/[\s\S]{1,12}/g) ?? [opts.fullContent];
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'conversation', conversation_id: opts.conversationId })}\n\n`));
+      for (const c of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`));
+        await new Promise((r) => setTimeout(r, 8));
+      }
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', usage: opts.usage })}\n\n`));
+      controller.close();
+    },
+  });
+}
+
+async function generateConversationTitle(firstMessage: string, config: AdminAIConfig): Promise<string> {
+  const prompt = `Summarize this user request in 5 words or fewer for a sidebar chat title. No quotes, no punctuation at end.\n\nRequest: ${firstMessage.slice(0, 400)}`;
+  try {
+    if (config.openai) {
+      const res = await callOpenAI([{ role: 'user', content: prompt }], 'You write very short chat titles.', config.openai, 'gpt-4o-mini');
+      return res.content.trim().replace(/^["']|["']$/g, '').slice(0, 60) || 'New chat';
+    }
+    if (config.claude) {
+      const res = await callClaude([{ role: 'user', content: prompt }], 'You write very short chat titles.', config.claude, 'claude-3-5-haiku-latest');
+      return res.content.trim().replace(/^["']|["']$/g, '').slice(0, 60) || 'New chat';
+    }
+  } catch (e) {
+    console.warn('title gen failed', e);
+  }
+  return firstMessage.slice(0, 50);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -680,9 +718,87 @@ serve(async (req) => {
       });
     }
 
-    const { messages, connectionId } = await req.json();
-    
-    if (!messages || !Array.isArray(messages)) {
+    const body = await req.json();
+    const {
+      messages: bodyMessages,
+      connectionId,
+      message: chatMessage,
+      conversation_id: conversationIdInput,
+      attachments: attachmentUrls,
+      stream: streamMode,
+    } = body as {
+      messages?: Array<{ role: string; content: string }>;
+      connectionId?: string;
+      message?: string;
+      conversation_id?: string | null;
+      attachments?: string[];
+      stream?: boolean;
+    };
+
+    const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
+
+    const { data: profileEarly } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const orgIdEarly = profileEarly?.organization_id as string | undefined;
+
+    let conversationId: string | null = conversationIdInput ?? null;
+    let messages: Array<{ role: string; content: string }> = bodyMessages ?? [];
+    let isFirstMessage = false;
+
+    if (isChatPageMode) {
+      if (!orgIdEarly) {
+        return new Response(JSON.stringify({ error: 'No organization' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!conversationId) {
+        const { data: convo, error: convoErr } = await supabase
+          .from('chat_conversations')
+          .insert({ user_id: user.id, organization_id: orgIdEarly, title: 'New chat' })
+          .select('id')
+          .single();
+        if (convoErr || !convo) {
+          return new Response(JSON.stringify({ error: convoErr?.message || 'Failed to create conversation' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        conversationId = convo.id;
+        isFirstMessage = true;
+      } else {
+        const { count } = await supabase
+          .from('chat_messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('conversation_id', conversationId);
+        isFirstMessage = (count || 0) === 0;
+      }
+
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'user',
+        content: chatMessage!,
+        attachments: attachmentUrls && attachmentUrls.length ? attachmentUrls : null,
+      });
+
+      const { data: history } = await supabase
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(20);
+      messages = (history || [])
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role, content: m.content }));
+      if (attachmentUrls && attachmentUrls.length) {
+        messages.push({ role: 'user', content: `[User attached files: ${attachmentUrls.join(', ')}]` });
+      }
+    }
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Messages array required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -794,40 +910,106 @@ When answering:
  - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
 
     const adminAIConfig = await loadAdminAIConfig(supabase);
-
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const orgId = orgIdEarly;
 
     // Enforce limits before LLM
     const { enforceLimitsBeforeLLM, recordSpend, blockedResponse } = await import('../_shared/enforce-limits.ts');
-    if (profile?.organization_id) {
+    if (orgId) {
       const fallbackModel = adminAIConfig.preference === 'claude' ? adminAIConfig.claudeModel : adminAIConfig.openaiModel;
       const gate = await enforceLimitsBeforeLLM(supabase, {
         userId: user.id,
-        organizationId: profile.organization_id,
+        organizationId: orgId,
         feature: 'ai_chat',
         fallbackModel,
       });
-      if (!gate.allowed) return blockedResponse(gate.reason || 'feature_disabled', corsHeaders);
+      if (!gate.allowed) {
+        if (isChatPageMode && streamMode) {
+          const enc = new TextEncoder();
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'conversation', conversation_id: conversationId })}\n\n`));
+              controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'blocked', reason: gate.reason })}\n\n`));
+              controller.close();
+            }
+          });
+          return new Response(stream, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+          });
+        }
+        if (isChatPageMode) {
+          return new Response(JSON.stringify({ blocked: true, reason: gate.reason, conversation_id: conversationId }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        return blockedResponse(gate.reason || 'feature_disabled', corsHeaders);
+      }
     }
 
     const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
 
-    if (profile?.organization_id) {
+    if (orgId) {
       await recordSpend(supabase, {
         userId: user.id,
-        organizationId: profile.organization_id,
+        organizationId: orgId,
         groupId: null,
         feature: 'ai_chat',
         provider: (result.provider === 'claude' ? 'anthropic' : 'openai'),
         model: result.model,
         tokensIn: result.promptTokens,
         tokensOut: result.completionTokens,
-        metadata: { connection_id: connectionId ?? null, provider_preference: adminAIConfig.preference },
+        metadata: { connection_id: connectionId ?? null, conversation_id: conversationId, provider_preference: adminAIConfig.preference },
       });
+    }
+
+    if (isChatPageMode && conversationId) {
+      // Save assistant message
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'assistant',
+        content: result.content,
+        model_used: result.model,
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        cost_usd: result.costUsd,
+      });
+      // Update conversation
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (isFirstMessage) {
+        updates.title = await generateConversationTitle(chatMessage!, adminAIConfig);
+      }
+      await supabase.from('chat_conversations').update(updates).eq('id', conversationId);
+
+      if (streamMode) {
+        return new Response(
+          buildChatSSEStream({
+            fullContent: result.content,
+            conversationId,
+            usage: {
+              promptTokens: result.promptTokens,
+              completionTokens: result.completionTokens,
+              costUsd: result.costUsd,
+              model: result.model,
+              provider: result.provider,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          content: result.content,
+          conversation_id: conversationId,
+          model: result.model,
+          provider: result.provider,
+          usage: {
+            prompt_tokens: result.promptTokens,
+            completion_tokens: result.completionTokens,
+            cost_usd: result.costUsd,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
