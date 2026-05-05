@@ -609,12 +609,16 @@ function GroupEditor({
       if ((orig.weekly_limit ?? null) !== (r.weekly_limit ?? null)) d.push(`${r.feature_key} weekly_limit: ${orig.weekly_limit ?? 'auto'} → ${r.weekly_limit ?? 'auto'}`);
       if ((orig.monthly_limit ?? null) !== (r.monthly_limit ?? null)) d.push(`${r.feature_key} monthly_limit: ${orig.monthly_limit ?? 'auto'} → ${r.monthly_limit ?? 'auto'}`);
       if ((orig.model_assignment ?? null) !== (r.model_assignment ?? null)) d.push(`${r.feature_key} model: ${orig.model_assignment} → ${r.model_assignment}`);
+      if ((orig.limit_term ?? 'daily') !== (r.limit_term ?? 'daily')) d.push(`${r.feature_key} limit_term: ${orig.limit_term ?? 'daily'} → ${r.limit_term}`);
+      if ((orig.rollover ?? 'none') !== (r.rollover ?? 'none')) d.push(`${r.feature_key} rollover: ${orig.rollover ?? 'none'} → ${r.rollover}`);
     });
     (['per_request_usd', 'per_user_daily_usd', 'per_user_weekly_usd', 'per_user_monthly_usd'] as const).forEach(k => {
       if ((cap[k] ?? null) !== (editCap[k] ?? null)) d.push(`cap ${k}: ${cap[k] ?? 'none'} → ${editCap[k] ?? 'none'}`);
     });
+    if (Number(group.price_per_user_mo ?? 0) !== Number(planPrice)) d.push(`price_per_user_mo: ${group.price_per_user_mo ?? 0} → ${planPrice}`);
+    if (Number(group.max_categories ?? 0) !== Number(planMaxCats)) d.push(`max_categories: ${group.max_categories ?? 0} → ${planMaxCats}`);
     return d;
-  }, [rows, features, cap, editCap]);
+  }, [rows, features, cap, editCap, group.price_per_user_mo, group.max_categories, planPrice, planMaxCats]);
 
   const save = async () => {
     setSaving(true);
