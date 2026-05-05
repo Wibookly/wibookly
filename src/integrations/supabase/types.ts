@@ -3215,6 +3215,10 @@ export type Database = {
         }
         Returns: string
       }
+      trim_categories_to_group_cap: {
+        Args: { _group_id?: string }
+        Returns: number
+      }
       try_acquire_conversation_lock: {
         Args: { _conversation_id: string }
         Returns: boolean
