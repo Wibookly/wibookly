@@ -89,6 +89,7 @@ const App = () => (
           
         </ActiveEmailProvider>
       </AuthProvider>
+      </ThemeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
