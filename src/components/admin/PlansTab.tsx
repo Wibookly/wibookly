@@ -397,24 +397,28 @@ export default function PlansTab() {
       </div>
 
       {/* Plan pills */}
-      <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap', marginBottom: 14 }}>
+      <div className="bg-card border border-border rounded-lg p-1.5 flex gap-2 flex-wrap mb-4">
         {visiblePlans.map(p => {
           const isSel = p.id === selectedPlanId;
+          const dotClass = ({
+            Chat: 'bg-ef-navy',
+            Standard: 'bg-ef-blue',
+            'Power User': 'bg-ef-sky',
+            Executive: 'bg-amber-600',
+          } as Record<string, string>)[p.name] || 'bg-ef-blue';
           return (
             <button
               key={p.id}
               onClick={() => setSelectedPlanId(p.id)}
-              style={{
-                padding: '6px 14px', fontSize: 13, borderRadius: 'var(--radius-md)',
-                border: isSel ? '0.5px solid var(--border-secondary)' : '0.5px solid transparent',
-                background: isSel ? 'var(--bg-primary)' : 'transparent',
-                color: isSel ? 'var(--text-primary)' : 'var(--text-secondary)',
-                cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8,
-              }}
+              className={
+                isSel
+                  ? 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-foreground font-medium bg-gradient-to-br from-ef-blue/[0.14] to-card border border-ef-blue/30 shadow-sm'
+                  : 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all font-medium'
+              }
             >
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: PLAN_DOTS[p.name] || 'var(--text-info)', flexShrink: 0 }} />
+              <span className={`w-1.5 h-1.5 rounded-full ${dotClass} flex-shrink-0`} />
               {p.name}
-              <span style={{ fontSize: 11, color: isSel ? 'var(--text-secondary)' : 'var(--text-tertiary)', fontWeight: 400 }}>
+              <span className="font-mono text-[11.5px] text-muted-foreground">
                 {fmtUSD(p.price_per_user_mo, 0)}
               </span>
             </button>
