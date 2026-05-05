@@ -581,7 +581,7 @@ Deno.serve(async (req) => {
         : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
       const cards = shouldUseAdaptiveCard(finalReply)
-        ? [buildAdaptiveCard('Energy Forward AI', finalReply)]
+        ? [buildAdaptiveCard('Response', finalReply)]
         : undefined;
 
       await sendReply(activity, finalReply, cards);
