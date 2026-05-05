@@ -79,7 +79,7 @@ export function AppLayout() {
       <AppSidebar />
 
       <div className="flex-1 flex flex-col min-h-0">
-        <main className="flex-1 overflow-auto relative" style={{ background: 'var(--gradient-hero)' }}>
+        <main className="flex-1 overflow-auto relative">
           <Outlet />
         </main>
       </div>
