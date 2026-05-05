@@ -386,6 +386,73 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
           )}
         </CardContent>
       </Card>
+
+      {/* Weekly view — matches the new weekly limit_term window */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Weekly totals</CardTitle>
+          <CardDescription>Calls and cost per ISO week (Monday–Sunday UTC), matching the weekly limit window.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {perWeek.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No data.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Week of</TableHead>
+                  <TableHead className="text-right">Calls</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {perWeek.map((w) => (
+                  <TableRow key={w.week}>
+                    <TableCell className="font-medium tabular-nums">{w.week}</TableCell>
+                    <TableCell className="text-right tabular-nums">{w.calls.toLocaleString()}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">{fmtMoney(w.cost)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Per-feature top users — helps spot who is approaching their limit */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top users per feature</CardTitle>
+          <CardDescription>The 5 highest-volume users for each feature. Pair with the user's plan limits to see who's near a cap.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {featureUserBreakdown.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No data.</p>
+          ) : (
+            featureUserBreakdown.map((f) => (
+              <div key={f.action} className="rounded-md border border-border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="outline">{f.action}</Badge>
+                  <span className="text-xs text-muted-foreground">{f.totalCalls.toLocaleString()} calls total</span>
+                </div>
+                <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {f.topUsers.map((u) => {
+                    const meta = users[u.user_id];
+                    return (
+                      <div key={u.user_id} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded bg-muted/40">
+                        <span className="truncate" title={meta?.email ?? u.user_id}>
+                          {meta?.full_name ?? meta?.email ?? u.user_id.slice(0, 8)}
+                        </span>
+                        <span className="tabular-nums shrink-0">{u.calls} · {fmtMoney(u.cost)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
