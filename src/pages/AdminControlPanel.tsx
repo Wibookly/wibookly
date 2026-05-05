@@ -622,9 +622,18 @@ function GroupEditor({
         weekly_limit: r.weekly_limit,
         monthly_limit: r.monthly_limit,
         model_assignment: r.model_assignment,
+        limit_term: r.limit_term || 'daily',
+        rollover: r.rollover || 'none',
       }));
       const { error: e1 } = await supabase.from('group_features').upsert(upsertRows, { onConflict: 'group_id,feature_key' });
       if (e1) throw e1;
+
+      // Persist plan-level fields
+      const { error: ePlan } = await supabase.from('permission_groups').update({
+        price_per_user_mo: planPrice,
+        max_categories: planMaxCats,
+      }).eq('id', group.id);
+      if (ePlan) throw ePlan;
 
       const { error: e2 } = await supabase.from('group_cost_caps').upsert({
         group_id: group.id,
