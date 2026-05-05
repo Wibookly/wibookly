@@ -616,7 +616,13 @@ Deno.serve(async (req) => {
       });
     } catch (e) {
       console.error('agent run failed', e);
-      try { await sendReply(activity, 'Sorry — something went wrong on my end. Please try again.'); } catch (_) {}
+      try {
+        await sendReply(
+          activity,
+          'Sorry — something went wrong on my end. Please try again.',
+          [buildErrorCard('Sorry — something went wrong on my end. Please try again.')],
+        );
+      } catch (_) {}
       await supabase.from('agent_messages').insert({
         organization_id: settings.organization_id,
         channel: 'teams',
