@@ -22,7 +22,7 @@
     "short": "AI assistant for inbox, calendar, and work tasks",
     "full": "Energy Forward AI helps you draft emails, summarize documents, prepare for meetings, and analyze data — all inside Microsoft Teams. Your data stays within your Microsoft tenant."
   },
-  "accentColor": "#0078D4",
+  "accentColor": "#2563EB",
   "bots": [
     {
       "botId": "7ef83b20-0a5b-4ce9-b8fc-01dbe29943a2",
