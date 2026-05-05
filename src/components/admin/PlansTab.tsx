@@ -222,10 +222,10 @@ export default function PlansTab() {
         if (userIds.length) {
           const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
           const [up, logs] = await Promise.all([
-            supabase.from('user_profiles').select('user_id, email, full_name').in('user_id', userIds),
+            supabase.rpc('get_users_basic_info', { _user_ids: userIds }),
             supabase.from('ai_usage_logs').select('user_id, cost_usd, created_at').in('user_id', userIds).gte('created_at', monthStart.toISOString()),
           ]);
-          const profileById = new Map((up.data || []).map((u: any) => [u.user_id, u]));
+          const profileById = new Map(((up.data as any[]) || []).map((u: any) => [u.user_id, u]));
           const logsByUser = new Map<string, { tasks: number; spend: number; last: string | null }>();
           (logs.data || []).forEach((l: any) => {
             const cur = logsByUser.get(l.user_id) || { tasks: 0, spend: 0, last: null };
@@ -237,10 +237,11 @@ export default function PlansTab() {
           const rows: ActiveUser[] = (m.data || []).map(mm => {
             const u: any = profileById.get(mm.user_id);
             const usage = logsByUser.get(mm.user_id) || { tasks: 0, spend: 0, last: null };
+            const email = u?.email || '';
             return {
               user_id: mm.user_id,
-              email: u?.email || '',
-              display_name: u?.full_name || u?.email || 'Unknown',
+              email,
+              display_name: formatShortName(u?.full_name, email),
               group_id: mm.group_id,
               monthly_tasks: usage.tasks,
               monthly_spend: usage.spend,
@@ -265,7 +266,7 @@ export default function PlansTab() {
     } finally {
       setLoading(false);
     }
-  }, [organization?.id, selectedPlanId, isSuperAdmin]);
+  }, [organization?.id, isSuperAdmin]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
