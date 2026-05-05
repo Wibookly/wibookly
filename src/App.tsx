@@ -79,7 +79,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/control-panel" element={<AdminControlPanel />} />
+                  <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
