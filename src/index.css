@@ -8,121 +8,74 @@
 
 @layer base {
   :root {
-    /* InboxIQ cyan-blue-green theme */
-    --background: 200 30% 97%;
-    --foreground: 220 60% 20%;
-
+    --background: 214 100% 98%;
+    --foreground: 213 73% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 220 60% 20%;
-
+    --card-foreground: 213 73% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 60% 20%;
-
-    --primary: 195 90% 45%;
+    --popover-foreground: 213 73% 15%;
+    --primary: 213 73% 15%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 195 25% 92%;
-    --secondary-foreground: 220 60% 20%;
-
-    --muted: 195 20% 94%;
-    --muted-foreground: 200 15% 45%;
-
-    --accent: 145 70% 50%;
-    --accent-foreground: 220 60% 20%;
-
-    --destructive: 0 72% 51%;
+    --secondary: 214 60% 97%;
+    --secondary-foreground: 213 73% 15%;
+    --muted: 214 60% 97%;
+    --muted-foreground: 217 18% 43%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 73% 51%;
     --destructive-foreground: 0 0% 100%;
+    --border: 213 38% 91%;
+    --input: 213 38% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.625rem;
 
-    --success: 145 70% 45%;
-    --success-foreground: 0 0% 100%;
+    /* EnergyForward brand */
+    --ef-navy: 213 73% 15%;
+    --ef-navy-2: 217 64% 18%;
+    --ef-blue: 221 83% 53%;
+    --ef-blue-2: 217 91% 60%;
+    --ef-sky: 213 94% 68%;
+    --ef-sky-soft: 212 96% 78%;
+    --ef-green: 160 84% 39%;
+    --ef-green-soft: 149 80% 90%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 60% 15%;
+    --bg-grad-from: 220 100% 97%;
+    --bg-grad-to: 149 80% 96%;
 
-    --border: 200 25% 88%;
-    --input: 200 25% 88%;
-    --ring: 195 90% 45%;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-border: 214 60% 95%;
 
-    --radius: 0.75rem;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 60% 20%;
-    --sidebar-primary: 195 90% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 195 25% 94%;
-    --sidebar-accent-foreground: 220 60% 20%;
-    --sidebar-border: 200 25% 90%;
-    --sidebar-ring: 195 90% 45%;
-
-    --chart-1: 195 90% 45%;
-    --chart-2: 145 70% 50%;
-    --chart-3: 220 70% 50%;
-    --chart-4: 170 60% 45%;
-    --chart-5: 200 80% 55%;
-
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: 'Geist', ui-sans-serif, -apple-system, system-ui, sans-serif;
+    --font-display: 'Instrument Serif', Georgia, serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-    --shadow-xs: 0 1px 2px 0 hsl(200 30% 20% / 0.03);
-    --shadow-sm: 0 1px 3px 0 hsl(200 30% 20% / 0.06), 0 1px 2px -1px hsl(200 30% 20% / 0.04);
-    --shadow: 0 4px 6px -1px hsl(200 30% 20% / 0.08), 0 2px 4px -2px hsl(200 30% 20% / 0.05);
-    --shadow-md: 0 10px 15px -3px hsl(200 30% 20% / 0.08), 0 4px 6px -4px hsl(200 30% 20% / 0.05);
-    --shadow-lg: 0 20px 25px -5px hsl(200 30% 20% / 0.10), 0 8px 10px -6px hsl(200 30% 20% / 0.06);
-    --shadow-xl: 0 25px 50px -12px hsl(200 30% 20% / 0.20);
-
-    /* InboxIQ gradient - cyan to green */
-    --gradient-hero: linear-gradient(135deg, hsl(195 85% 65%) 0%, hsl(170 70% 60%) 50%, hsl(145 65% 60%) 100%);
   }
 
   .dark {
-    --background: 220 20% 16%;
-    --foreground: 200 15% 96%;
-
-    --card: 220 18% 20%;
-    --card-foreground: 200 15% 96%;
-
-    --popover: 220 18% 20%;
-    --popover-foreground: 200 15% 96%;
-
-    --primary: 195 80% 55%;
-    --primary-foreground: 220 30% 8%;
-
-    --secondary: 220 15% 26%;
-    --secondary-foreground: 200 15% 96%;
-
-    --muted: 220 15% 24%;
-    --muted-foreground: 200 12% 70%;
-
-    --accent: 145 60% 50%;
-    --accent-foreground: 220 30% 8%;
-
-    --destructive: 0 72% 51%;
+    --background: 218 64% 8%;
+    --foreground: 218 75% 95%;
+    --card: 217 51% 12%;
+    --card-foreground: 218 75% 95%;
+    --popover: 217 51% 12%;
+    --popover-foreground: 218 75% 95%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 213 73% 15%;
+    --secondary: 217 49% 16%;
+    --secondary-foreground: 218 75% 95%;
+    --muted: 217 49% 16%;
+    --muted-foreground: 215 22% 64%;
+    --accent: 213 94% 68%;
+    --accent-foreground: 213 73% 15%;
+    --destructive: 0 73% 51%;
     --destructive-foreground: 0 0% 100%;
-
-    --success: 145 70% 45%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 30% 8%;
-
-    --border: 220 15% 30%;
-    --input: 220 15% 30%;
-    --ring: 195 80% 55%;
-
-    --sidebar-background: 220 18% 18%;
-    --sidebar-foreground: 200 15% 96%;
-    --sidebar-primary: 195 80% 55%;
-    --sidebar-primary-foreground: 220 30% 8%;
-    --sidebar-accent: 220 15% 24%;
-    --sidebar-accent-foreground: 200 15% 96%;
-    --sidebar-border: 220 15% 28%;
-    --sidebar-ring: 195 80% 55%;
-
-    --gradient-hero: linear-gradient(135deg, hsl(195 35% 25%) 0%, hsl(170 30% 22%) 50%, hsl(145 30% 22%) 100%);
+    --border: 217 41% 21%;
+    --input: 217 41% 21%;
+    --ring: 213 94% 68%;
+    --bg-grad-from: 218 67% 12%;
+    --bg-grad-to: 167 62% 10%;
+    --sidebar-bg: 218 60% 10%;
+    --sidebar-border: 217 41% 17%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
