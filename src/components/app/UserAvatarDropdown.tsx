@@ -1,4 +1,5 @@
 import { useAuth } from '@/lib/auth';
+import { useTheme, type Theme } from '@/lib/theme';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -7,8 +8,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
 
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
