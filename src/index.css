@@ -82,5 +82,24 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 0% 0%, hsl(var(--bg-grad-from)) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 60% at 100% 100%, hsl(var(--bg-grad-to)) 0%, transparent 55%);
+    background-attachment: fixed;
+    background-color: hsl(var(--background));
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-style: italic;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+  }
+  code, kbd, .font-mono {
+    font-family: var(--font-mono);
   }
 }

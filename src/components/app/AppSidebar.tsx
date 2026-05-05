@@ -95,16 +95,12 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
       className={cn(
         'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative',
         isActive
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+          ? 'bg-gradient-to-r from-ef-blue/[0.12] to-ef-blue/[0.04] text-ef-blue font-medium border-l-2 border-ef-blue dark:text-ef-sky dark:border-ef-sky'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       <Icon className="w-4 h-4" />
-      <span className={cn(
-        "relative pb-1 flex-1",
-        isActive && "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-green-500 after:rounded-full"
-      )}>{children}</span>
-      
+      <span className="relative pb-1 flex-1">{children}</span>
     </NavLink>
   );
 }
@@ -140,13 +136,22 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-0 pb-2 border-b border-border flex flex-col items-center justify-start">
-        <img
-          src={energyForwardLogo}
-          alt="EnergyForward"
-          className="h-40 w-auto object-contain shrink-0 -mt-10"
-        />
-        <InboxIQLogo className="text-2xl -mt-8 leading-none" />
+      <div className="px-4 pt-5 pb-4 border-b border-border flex items-center gap-3">
+        {/* Two-tone EF mark */}
+        <svg viewBox="0 0 40 40" className="h-9 w-9 shrink-0" aria-label="EnergyForward">
+          <rect x="4" y="8"  width="14" height="3" rx="1" fill="hsl(var(--ef-navy))" />
+          <rect x="4" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-navy))" />
+          <rect x="4" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-navy))" />
+          <rect x="4" y="26" width="8"  height="3" rx="1" fill="hsl(var(--ef-navy))" />
+          <rect x="22" y="8"  width="14" height="3" rx="1" fill="hsl(var(--ef-sky))" />
+          <rect x="22" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-sky))" />
+          <rect x="22" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-sky))" />
+          <rect x="22" y="26" width="8"  height="3" rx="1" fill="hsl(var(--ef-sky))" />
+        </svg>
+        <div className="flex flex-col leading-tight min-w-0">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">EnergyForward</span>
+          <InboxIQLogo className="text-xl leading-none" />
+        </div>
       </div>
 
       {/* Active Email Selector */}
