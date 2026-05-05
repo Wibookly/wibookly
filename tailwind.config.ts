@@ -123,8 +123,9 @@ export default {
         'xl': 'var(--shadow-xl)'
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+        sans:    ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Instrument Serif', 'Georgia', 'serif'],
+        mono:    ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1rem' }],
