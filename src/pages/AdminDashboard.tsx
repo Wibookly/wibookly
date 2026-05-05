@@ -645,17 +645,8 @@ export default function AdminDashboard() {
           <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
-          {hasFollowUpReminder && (
-            <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
-          )}
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
-
-        {hasFollowUpReminder && (
-          <TabsContent value="followups" className="space-y-6">
-            <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
-          </TabsContent>
-        )}
 
         <TabsContent value="issues" className="space-y-6">
           <SupportIssuesPanel />
