@@ -41,6 +41,7 @@ interface PermissionGroup {
   price_per_user_mo: number;
   max_categories: number;
   scope_domain: string | null;
+  domain_id: string | null;
 }
 interface GroupFeatureRow {
   id?: string;
