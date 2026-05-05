@@ -676,8 +676,18 @@ export default function AdminDashboard() {
           <PlansTab />
         </TabsContent>
 
-        {/* DOMAINS TAB (now under Settings sub-section) */}
-        <TabsContent value="domains" className="space-y-6">
+        {/* SETTINGS TAB — contains nested sections */}
+        <TabsContent value="settings" className="space-y-6">
+          <Tabs defaultValue="domains" className="w-full">
+            <TabsList className="flex-wrap h-auto">
+              <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
+              <TabsTrigger value="ai-agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
+              <TabsTrigger value="no-reply" className="gap-2"><BellRing className="w-4 h-4" /> No Reply Tracker</TabsTrigger>
+              <TabsTrigger value="api-keys" className="gap-2"><Key className="w-4 h-4" /> AI APIs</TabsTrigger>
+              <TabsTrigger value="general" className="gap-2"><Settings className="w-4 h-4" /> General</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="domains" className="space-y-6 mt-4">
           <Card className="border-primary/30 bg-primary/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
