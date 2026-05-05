@@ -572,9 +572,15 @@ function GroupEditor({
   const [saving, setSaving] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [markup, setMarkup] = useState<number>(() => lsGet(`admin_markup_${group.id}`, 3.1));
+  const [planPrice, setPlanPrice] = useState<number>(Number(group.price_per_user_mo ?? 0));
+  const [planMaxCats, setPlanMaxCats] = useState<number>(Number(group.max_categories ?? 0));
 
   useEffect(() => { lsSet(`admin_markup_${group.id}`, markup); }, [markup, group.id]);
-  useEffect(() => { setRows(initRows); setEditCap(cap); setConfirmText(''); }, [initRows, cap]);
+  useEffect(() => {
+    setRows(initRows); setEditCap(cap); setConfirmText('');
+    setPlanPrice(Number(group.price_per_user_mo ?? 0));
+    setPlanMaxCats(Number(group.max_categories ?? 0));
+  }, [initRows, cap, group.id, group.price_per_user_mo, group.max_categories]);
 
   const updateRow = (key: string, patch: Partial<GroupFeatureRow>) => {
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
