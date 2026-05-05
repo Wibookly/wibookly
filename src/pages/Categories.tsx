@@ -652,6 +652,18 @@ export default function Categories() {
       setHasChanges(false);
       setLastSaved(new Date());
 
+      // Build a friendly summary of what was just saved
+      const catCount = categories.length;
+      const ruleCount = rulesWithValues.length;
+      const summary: string[] = [];
+      if (catCount) summary.push(`${catCount} ${catCount === 1 ? 'category' : 'categories'}`);
+      if (ruleCount) summary.push(`${ruleCount} ${ruleCount === 1 ? 'rule' : 'rules'}`);
+      sonnerToast.success('Changes saved', {
+        description: summary.length
+          ? `Updated ${summary.join(' and ')}.`
+          : 'Your changes have been saved.',
+      });
+
       // Live auto-sync: push category folders/colors AND rules to the provider
       // on every change so the user never needs to click "Re-sync All".
       if (shouldSyncCategories) {
