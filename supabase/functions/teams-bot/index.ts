@@ -111,21 +111,103 @@ function getTierContext(groupName?: string | null): string {
   }
 }
 
-/* ---------------- Adaptive Card helper ---------------- */
-function buildAdaptiveCard(title: string, content: string, actions: any[] = []) {
+/* ---------------- Adaptive Card helpers (InboxIQ branded) ---------------- */
+
+const BRAND_HEADER = {
+  type: 'Container',
+  style: 'emphasis',
+  bleed: true,
+  items: [
+    {
+      type: 'ColumnSet',
+      columns: [
+        {
+          type: 'Column',
+          width: 'auto',
+          items: [
+            { type: 'TextBlock', text: '✦', size: 'Large', color: 'Accent', weight: 'Bolder', spacing: 'None' },
+          ],
+        },
+        {
+          type: 'Column',
+          width: 'stretch',
+          items: [
+            { type: 'TextBlock', text: 'InboxIQ', weight: 'Bolder', size: 'Medium', spacing: 'None' },
+            { type: 'TextBlock', text: 'by EnergyForward', size: 'Small', isSubtle: true, spacing: 'None' },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+function wrapAdaptiveCard(bodyItems: any[], actions: any[] = [], opening?: { style?: 'good' | 'attention' | 'warning' | 'emphasis' | 'default'; title?: string }) {
+  const innerItems: any[] = [];
+  if (opening?.title) {
+    innerItems.push({
+      type: 'Container',
+      style: opening.style ?? 'default',
+      items: [{ type: 'TextBlock', text: opening.title, weight: 'Bolder', size: 'Medium', wrap: true }],
+    });
+  }
   return {
     contentType: 'application/vnd.microsoft.card.adaptive',
     content: {
       type: 'AdaptiveCard',
       $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
-      version: '1.4',
+      version: '1.5',
       body: [
-        { type: 'TextBlock', text: title, size: 'Large', weight: 'Bolder', wrap: true },
-        { type: 'TextBlock', text: content, wrap: true },
+        BRAND_HEADER,
+        { type: 'Container', spacing: 'Medium', items: [...innerItems, ...bodyItems] },
       ],
       actions,
     },
   };
+}
+
+function buildAdaptiveCard(title: string, content: string, actions: any[] = []) {
+  return wrapAdaptiveCard(
+    [
+      { type: 'TextBlock', text: title, weight: 'Bolder', size: 'Medium', wrap: true, spacing: 'None' },
+      { type: 'TextBlock', text: content, wrap: true, spacing: 'Small' },
+    ],
+    actions,
+  );
+}
+
+function buildWelcomeCard() {
+  return wrapAdaptiveCard(
+    [
+      { type: 'TextBlock', text: "Hi! I'm your InboxIQ assistant.", weight: 'Bolder', size: 'Medium', wrap: true, spacing: 'None' },
+      {
+        type: 'TextBlock',
+        text: 'Ask me anything about your inbox, calendar, files, or work tasks. I can draft emails, summarize documents, prep you for meetings, or generate dashboards.',
+        wrap: true,
+        spacing: 'Small',
+      },
+      { type: 'TextBlock', text: 'Just send a message — or @mention me in a channel.', isSubtle: true, size: 'Small', wrap: true },
+    ],
+    [
+      { type: 'Action.Submit', title: 'Get my morning brief', style: 'positive', data: { command: 'daily_brief' } },
+      { type: 'Action.Submit', title: 'Settings', data: { command: 'settings' } },
+    ],
+  );
+}
+
+function buildErrorCard(message: string) {
+  return wrapAdaptiveCard(
+    [
+      {
+        type: 'Container',
+        style: 'attention',
+        items: [
+          { type: 'TextBlock', text: '● Something went wrong', color: 'Attention', weight: 'Bolder', wrap: true },
+          { type: 'TextBlock', text: message, wrap: true, spacing: 'Small' },
+        ],
+      },
+    ],
+    [{ type: 'Action.Submit', title: 'Try again', style: 'positive', data: { command: 'retry' } }],
+  );
 }
 
 /** Heuristic: if reply contains a markdown table or lots of bullet rows, surface as Adaptive Card too. */
@@ -382,9 +464,8 @@ Deno.serve(async (req) => {
           if (m.id !== activity.recipient?.id) {
             await sendReply(
               activity,
-              "👋 Hi! I'm **Energy Forward AI**. Ask me anything about your inbox, calendar, files, or work tasks. " +
-              "I can draft emails, summarize documents, prep you for meetings, or generate dashboards. " +
-              "Just send me a message — or @mention me in a channel."
+              "Hi! I'm InboxIQ. Ask me anything about your inbox, calendar, files, or work tasks.",
+              [buildWelcomeCard()],
             );
             break;
           }
@@ -500,7 +581,7 @@ Deno.serve(async (req) => {
         : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
       const cards = shouldUseAdaptiveCard(finalReply)
-        ? [buildAdaptiveCard('Energy Forward AI', finalReply)]
+        ? [buildAdaptiveCard('Response', finalReply)]
         : undefined;
 
       await sendReply(activity, finalReply, cards);
@@ -535,7 +616,13 @@ Deno.serve(async (req) => {
       });
     } catch (e) {
       console.error('agent run failed', e);
-      try { await sendReply(activity, 'Sorry — something went wrong on my end. Please try again.'); } catch (_) {}
+      try {
+        await sendReply(
+          activity,
+          'Sorry — something went wrong on my end. Please try again.',
+          [buildErrorCard('Sorry — something went wrong on my end. Please try again.')],
+        );
+      } catch (_) {}
       await supabase.from('agent_messages').insert({
         organization_id: settings.organization_id,
         channel: 'teams',
