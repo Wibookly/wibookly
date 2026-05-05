@@ -24,6 +24,7 @@ import { Loader2, Save, Plus, Trash2, AlertTriangle, Activity, Users, Building2,
 import {
   ALL_FEATURES, MODEL_OPTIONS_BY_FEATURE, costPerTask, fmtUSD, MODEL_COSTS,
 } from '@/lib/costEstimation';
+import PlansTab from '@/components/admin/PlansTab';
 
 const GROUP_COLORS: Record<string, string> = {
   Chat: 'border-teal-500 bg-teal-500/5',
@@ -247,11 +248,7 @@ export default function AdminControlPanel() {
         </TabsContent>
 
         <TabsContent value="groups" className="mt-6">
-          <GroupsTab
-            groups={groups} features={features} caps={caps} memberships={memberships}
-            selectedGroupId={selectedGroupId} setSelectedGroupId={setSelectedGroupId}
-            onSaved={fetchAll}
-          />
+          <PlansTab />
         </TabsContent>
 
         <TabsContent value="users" className="mt-6">
