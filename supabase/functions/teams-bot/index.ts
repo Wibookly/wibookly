@@ -464,9 +464,8 @@ Deno.serve(async (req) => {
           if (m.id !== activity.recipient?.id) {
             await sendReply(
               activity,
-              "👋 Hi! I'm **Energy Forward AI**. Ask me anything about your inbox, calendar, files, or work tasks. " +
-              "I can draft emails, summarize documents, prep you for meetings, or generate dashboards. " +
-              "Just send me a message — or @mention me in a channel."
+              "Hi! I'm InboxIQ. Ask me anything about your inbox, calendar, files, or work tasks.",
+              [buildWelcomeCard()],
             );
             break;
           }
