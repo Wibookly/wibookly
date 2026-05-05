@@ -150,6 +150,25 @@ function initials(name: string, email: string): string {
   return (src.slice(0, 2) || '??').toUpperCase();
 }
 
+/** Format a display name as "First L." (first name + last initial). */
+function formatShortName(fullName: string | null | undefined, email: string): string {
+  const raw = (fullName || '').trim();
+  if (raw) {
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+  }
+  // Derive from email local-part (e.g. "arahimi" -> "Arahimi", "first.last" -> "First L.")
+  const local = (email || '').split('@')[0] || '';
+  if (!local) return 'Unknown';
+  const tokens = local.split(/[._-]+/).filter(Boolean);
+  if (tokens.length >= 2) {
+    const first = tokens[0][0].toUpperCase() + tokens[0].slice(1).toLowerCase();
+    return `${first} ${tokens[tokens.length - 1][0].toUpperCase()}.`;
+  }
+  return local[0].toUpperCase() + local.slice(1).toLowerCase();
+}
+
 // ------------------------------------------------------------------
 
 export default function PlansTab() {
