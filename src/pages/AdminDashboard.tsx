@@ -29,7 +29,8 @@ import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import PlansTab from '@/components/admin/PlansTab';
-import { Bot, Clock, MessageSquareWarning, BellRing } from 'lucide-react';
+import AIUsageTab from '@/components/admin/AIUsageTab';
+import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
