@@ -688,6 +688,7 @@ function GroupEditor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Editing: {group.name}</CardTitle>
             <div className="flex items-center gap-3">
+              <PlanSettingsDialog group={group} memberCount={memberCount} onSaved={onSaved} />
               {group.domain_id && (
                 <ApplyToDomainsDialog sourceGroup={group} rows={rows} cap={editCap} onCloned={onSaved} />
               )}
@@ -1715,6 +1716,164 @@ function ApplyToDomainsDialog({
           <Button disabled={busy || selected.size === 0 || confirmText !== 'CONFIRM'} onClick={apply}>
             {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Clone to {selected.size} domain{selected.size === 1 ? '' : 's'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============================================================
+ * Plan Settings Dialog — edit name / scope / delete an existing plan.
+ * Cost caps, features, price, and max categories are edited inline in
+ * the GroupEditor; this covers the metadata that isn't editable there.
+ * ============================================================ */
+function PlanSettingsDialog({
+  group, memberCount, onSaved,
+}: {
+  group: PermissionGroup;
+  memberCount: number;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(group.name);
+  const [scope, setScope] = useState<'global' | 'domain'>(group.domain_id ? 'domain' : 'global');
+  const [domainId, setDomainId] = useState<string>(group.domain_id || '');
+  const [domains, setDomains] = useState<{ id: string; domain: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setName(group.name);
+    setScope(group.domain_id ? 'domain' : 'global');
+    setDomainId(group.domain_id || '');
+    setConfirmDelete('');
+    supabase.from('allowed_domains').select('id, domain').order('domain').then(({ data }) => {
+      setDomains(data || []);
+    });
+  }, [open, group.id, group.name, group.domain_id]);
+
+  const dirty =
+    name.trim() !== group.name ||
+    (scope === 'global') !== !group.domain_id ||
+    (scope === 'domain' && domainId !== group.domain_id);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    if (scope === 'domain' && !domainId) {
+      toast.error('Pick a domain or switch to Global scope.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const nextDomainId = scope === 'domain' ? domainId : null;
+      const { error } = await supabase.from('permission_groups').update({
+        name: name.trim(),
+        domain_id: nextDomainId,
+      }).eq('id', group.id);
+      if (error) throw error;
+      await supabase.from('admin_audit_log').insert({
+        action: 'update_plan_metadata',
+        organization_id: group.organization_id,
+        group_id: group.id,
+        details: {
+          name: { from: group.name, to: name.trim() },
+          domain_id: { from: group.domain_id, to: nextDomainId },
+        } as any,
+      });
+      toast.success('Plan updated');
+      setOpen(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update plan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    setSaving(true);
+    try {
+      // Best-effort cleanup of dependent rows (RLS allows admins in org).
+      await supabase.from('group_features').delete().eq('group_id', group.id);
+      await supabase.from('group_cost_caps').delete().eq('group_id', group.id);
+      await supabase.from('group_feature_overrides').delete().eq('group_id', group.id);
+      const { error } = await supabase.from('permission_groups').delete().eq('id', group.id);
+      if (error) throw error;
+      await supabase.from('admin_audit_log').insert({
+        action: 'delete_plan',
+        organization_id: group.organization_id,
+        group_id: group.id,
+        details: { name: group.name, member_count: memberCount } as any,
+      });
+      toast.success(`Plan "${group.name}" deleted`);
+      setOpen(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not delete plan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <SettingsIcon className="w-4 h-4 mr-2" />Plan settings
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Plan settings — {group.name}</DialogTitle>
+          <DialogDescription>Rename or change the scope of this plan. Features and pricing are edited above.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Plan name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <Label>Scope</Label>
+            <Select value={scope} onValueChange={(v: 'global' | 'domain') => setScope(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">Global (all domains)</SelectItem>
+                <SelectItem value="domain">Specific domain</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {scope === 'domain' && (
+            <div>
+              <Label>Domain</Label>
+              <Select value={domainId} onValueChange={setDomainId}>
+                <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
+                <SelectContent>
+                  {domains.map((d) => <SelectItem key={d.id} value={d.id}>@{d.domain}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-destructive font-semibold text-sm">
+              <AlertTriangle className="w-4 h-4" /> Danger zone
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Deleting this plan removes its features and caps. {memberCount} member{memberCount === 1 ? '' : 's'} will lose plan-granted access.
+              Type <span className="font-mono font-semibold">DELETE</span> to confirm.
+            </p>
+            <div className="flex gap-2">
+              <Input value={confirmDelete} onChange={(e) => setConfirmDelete(e.target.value)} placeholder="DELETE" />
+              <Button variant="destructive" disabled={saving || confirmDelete !== 'DELETE'} onClick={remove}>
+                <Trash2 className="w-4 h-4 mr-2" />Delete plan
+              </Button>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
+          <Button disabled={saving || !dirty || !name.trim()} onClick={save}>
+            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save changes
           </Button>
         </DialogFooter>
       </DialogContent>
