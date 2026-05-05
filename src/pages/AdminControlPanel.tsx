@@ -779,7 +779,7 @@ function GroupEditor({
                   );
                 })}
                 <TableRow className="border-t-2">
-                  <TableCell colSpan={7} className="text-right font-semibold">Daily total:</TableCell>
+                  <TableCell colSpan={9} className="text-right font-semibold">Daily total:</TableCell>
                   <TableCell className="text-right font-bold tabular-nums">{fmtUSD(projection.daily)}</TableCell>
                 </TableRow>
               </TableBody>
