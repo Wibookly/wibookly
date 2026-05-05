@@ -25,12 +25,11 @@ import OnboardingWizard from '@/components/admin/OnboardingWizard';
 import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
-import AgentAuditPanel from '@/components/admin/AgentAuditPanel';
-import AIUsagePanel from '@/components/admin/AIUsagePanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
-import { Bot, BarChart3, Clock, MessageSquareWarning, ScrollText } from 'lucide-react';
+import PlansTab from '@/components/admin/PlansTab';
+import { Bot, Clock, MessageSquareWarning, BellRing } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
