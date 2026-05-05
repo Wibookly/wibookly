@@ -1422,3 +1422,119 @@ function GroupBreakdownRow({ b, expanded, onToggle, jumpToGroup, jumpToUser, mem
     </>
   );
 }
+
+/* ============================================================
+ * New Plan Dialog — creates a permission_groups row with the new plan-level
+ * fields (price_per_user_mo, max_categories) and either global or
+ * per-domain scope.
+ * ============================================================ */
+function NewPlanDialog({ onCreated }: { onCreated: () => void }) {
+  const { profile, organization } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [scope, setScope] = useState<'global' | 'domain'>('global');
+  const [domainId, setDomainId] = useState<string>('');
+  const [price, setPrice] = useState<number>(0);
+  const [maxCats, setMaxCats] = useState<number>(3);
+  const [domains, setDomains] = useState<{ id: string; domain: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    supabase.from('allowed_domains').select('id, domain').order('domain').then(({ data }) => {
+      setDomains(data || []);
+      if (data && data.length && !domainId) setDomainId(data[0].id);
+    });
+  }, [open]);
+
+  const reset = () => {
+    setName(''); setScope('global'); setPrice(0); setMaxCats(3);
+  };
+
+  const submit = async () => {
+    if (!name.trim() || !organization?.id) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('permission_groups').insert({
+        name: name.trim(),
+        organization_id: organization.id,
+        domain_id: scope === 'domain' ? domainId || null : null,
+        price_per_user_mo: price,
+        max_categories: Math.max(0, Math.min(10, maxCats)),
+        created_by: profile?.user_id || null,
+      });
+      if (error) throw error;
+      await supabase.from('admin_audit_log').insert({
+        action: 'create_plan',
+        organization_id: organization.id,
+        details: { name, scope, domain_id: scope === 'domain' ? domainId : null, price_per_user_mo: price, max_categories: maxCats } as any,
+      });
+      toast.success(`Plan "${name}" created`);
+      setOpen(false);
+      reset();
+      onCreated();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not create plan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" />New Plan
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create new plan</DialogTitle>
+          <DialogDescription>Plans bundle features, limits, and price. Configure features after creating.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Plan name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Power User" />
+          </div>
+          <div>
+            <Label>Scope</Label>
+            <Select value={scope} onValueChange={(v: 'global' | 'domain') => setScope(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">Global (all domains)</SelectItem>
+                <SelectItem value="domain">Specific domain</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {scope === 'domain' && (
+            <div>
+              <Label>Domain</Label>
+              <Select value={domainId} onValueChange={setDomainId}>
+                <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
+                <SelectContent>
+                  {domains.map((d) => <SelectItem key={d.id} value={d.id}>@{d.domain}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Price / user / mo ($)</Label>
+              <Input type="number" step="0.01" value={price} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div>
+              <Label>Max categories (0–10)</Label>
+              <Input type="number" min={0} max={10} value={maxCats}
+                onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={saving || !name.trim() || (scope === 'domain' && !domainId)}>
+            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create plan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
