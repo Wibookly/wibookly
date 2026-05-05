@@ -141,6 +141,52 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
     return Array.from(map.values()).sort((a, b) => b.cost - a.cost);
   }, [rows]);
 
+  // Weekly aggregation (ISO week starting Monday UTC) — supports the new
+  // weekly limit_term in enforce_llm_limits so admins can see usage in the
+  // same window the limiter uses.
+  const perWeek = useMemo(() => {
+    const map = new Map<string, { week: string; calls: number; cost: number }>();
+    rows.forEach((r) => {
+      const d = new Date(r.created_at);
+      // Monday-of-week (UTC)
+      const day = d.getUTCDay();
+      const diff = (day === 0 ? -6 : 1 - day);
+      const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+      const key = monday.toISOString().slice(0, 10);
+      const ex = map.get(key) ?? { week: key, calls: 0, cost: 0 };
+      ex.calls += 1;
+      ex.cost += Number(r.cost_usd || 0);
+      map.set(key, ex);
+    });
+    return Array.from(map.values()).sort((a, b) => b.week.localeCompare(a.week));
+  }, [rows]);
+
+  // Feature × user matrix: shows the top spenders per feature. Useful for
+  // spotting users about to hit a daily/weekly limit (paired with the
+  // QuotaBadge surfaced in the user-facing pages).
+  const featureUserBreakdown = useMemo(() => {
+    const byFeat = new Map<string, Map<string, { calls: number; cost: number }>>();
+    rows.forEach((r) => {
+      if (!r.user_id) return;
+      const inner = byFeat.get(r.action) ?? new Map();
+      const ex = inner.get(r.user_id) ?? { calls: 0, cost: 0 };
+      ex.calls += 1;
+      ex.cost += Number(r.cost_usd || 0);
+      inner.set(r.user_id, ex);
+      byFeat.set(r.action, inner);
+    });
+    return Array.from(byFeat.entries())
+      .map(([action, users]) => ({
+        action,
+        topUsers: Array.from(users.entries())
+          .map(([uid, v]) => ({ user_id: uid, ...v }))
+          .sort((a, b) => b.calls - a.calls)
+          .slice(0, 5),
+        totalCalls: Array.from(users.values()).reduce((s, u) => s + u.calls, 0),
+      }))
+      .sort((a, b) => b.totalCalls - a.totalCalls);
+  }, [rows]);
+
   function exportCsv() {
     const header = ['Time', 'User', 'Email', 'Provider', 'Model', 'Action', 'Prompt Tokens', 'Completion Tokens', 'Total Tokens', 'Cost USD'];
     const lines = rows.map((r) => {
