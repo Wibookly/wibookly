@@ -246,7 +246,7 @@ export default function PlansTab() {
     } finally {
       setLoading(false);
     }
-  }, [organization?.id, selectedPlanId]);
+  }, [organization?.id, selectedPlanId, isSuperAdmin]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
