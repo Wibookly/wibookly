@@ -560,7 +560,9 @@ function GroupEditor({
     const existing = features.find(x => x.feature_key === f.key);
     return existing || {
       group_id: group.id, feature_key: f.key, is_enabled: false, daily_limit: 0,
-      weekly_limit: null, monthly_limit: null, model_assignment: MODEL_OPTIONS_BY_FEATURE[f.key]?.[0] || null,
+      weekly_limit: null, monthly_limit: null,
+      model_assignment: MODEL_OPTIONS_BY_FEATURE[f.key]?.[0] || null,
+      limit_term: 'daily' as const, rollover: 'none' as const,
     };
   }), [features, group.id]);
 
