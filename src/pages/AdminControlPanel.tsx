@@ -493,7 +493,10 @@ function GroupsTab({
     <div className="space-y-6">
       {/* Plan tabs */}
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">Plans</CardTitle></CardHeader>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Plans</CardTitle>
+          <NewPlanDialog onCreated={onSaved} />
+        </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {groups.map(g => {
