@@ -122,13 +122,23 @@ export default function AIUsageTab({ organizationId }: { organizationId: string 
     if (!organizationId) return;
     (async () => {
       const [u, g, d] = await Promise.all([
-        supabase.from('user_profiles').select('user_id, full_name, email').eq('organization_id', organizationId),
+        supabase.rpc('get_org_user_directory', { _organization_id: organizationId }),
         supabase.from('permission_groups').select('id, name').eq('organization_id', organizationId),
         supabase.from('allowed_domains').select('id, domain').eq('is_active', true),
       ]);
+      const formatName = (full: string | null, email: string | null) => {
+        const src = (full || '').trim();
+        if (src) {
+          const parts = src.split(/\s+/);
+          const first = parts[0];
+          const lastInitial = parts.length > 1 ? parts[parts.length - 1].charAt(0).toUpperCase() : '';
+          return lastInitial ? `${first} ${lastInitial}.` : first;
+        }
+        return (email || '').split('@')[0] || '';
+      };
       const users: Lookup['users'] = {};
       (u.data ?? []).forEach((p: any) => {
-        users[p.user_id] = { name: p.full_name || p.email || '', email: p.email || '' };
+        users[p.user_id] = { name: formatName(p.full_name, p.email), email: p.email || '' };
       });
       const groups: Lookup['groups'] = {};
       (g.data ?? []).forEach((p: any) => { groups[p.id] = p.name; });

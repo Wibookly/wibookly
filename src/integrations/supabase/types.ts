@@ -3074,6 +3074,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_org_user_directory: {
+        Args: { _organization_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          user_id: string
+        }[]
+      }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       get_user_organizations: {
         Args: { _user_id: string }
