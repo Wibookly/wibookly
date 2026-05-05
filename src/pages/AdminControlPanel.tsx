@@ -687,6 +687,9 @@ function GroupEditor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Editing: {group.name}</CardTitle>
             <div className="flex items-center gap-3">
+              {group.domain_id && (
+                <ApplyToDomainsDialog sourceGroup={group} rows={rows} cap={editCap} onCloned={onSaved} />
+              )}
               <Label className="text-xs">Pricing markup</Label>
               <Input type="number" step="0.1" className="w-20"
                 value={markup} onChange={e => setMarkup(parseFloat(e.target.value) || 1)} />
