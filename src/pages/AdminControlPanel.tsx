@@ -41,6 +41,7 @@ interface PermissionGroup {
   price_per_user_mo: number;
   max_categories: number;
   scope_domain: string | null;
+  domain_id: string | null;
 }
 interface GroupFeatureRow {
   id?: string;
@@ -687,6 +688,9 @@ function GroupEditor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Editing: {group.name}</CardTitle>
             <div className="flex items-center gap-3">
+              {group.domain_id && (
+                <ApplyToDomainsDialog sourceGroup={group} rows={rows} cap={editCap} onCloned={onSaved} />
+              )}
               <Label className="text-xs">Pricing markup</Label>
               <Input type="number" step="0.1" className="w-20"
                 value={markup} onChange={e => setMarkup(parseFloat(e.target.value) || 1)} />
@@ -1532,6 +1536,185 @@ function NewPlanDialog({ onCreated }: { onCreated: () => void }) {
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={submit} disabled={saving || !name.trim() || (scope === 'domain' && !domainId)}>
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create plan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============================================================
+ * Apply-to-domains: clone a per-domain plan into other domains
+ * ============================================================ */
+function ApplyToDomainsDialog({
+  sourceGroup, rows, cap, onCloned,
+}: {
+  sourceGroup: PermissionGroup;
+  rows: GroupFeatureRow[];
+  cap: GroupCostCap;
+  onCloned: () => void;
+}) {
+  const { profile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [domains, setDomains] = useState<{ id: string; domain: string }[]>([]);
+  const [existing, setExisting] = useState<PermissionGroup[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [overwrite, setOverwrite] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(new Set()); setConfirmText(''); setOverwrite(false);
+    (async () => {
+      const [d, g] = await Promise.all([
+        supabase.from('allowed_domains').select('id, domain').order('domain'),
+        supabase.from('permission_groups').select('*').eq('organization_id', sourceGroup.organization_id).eq('name', sourceGroup.name),
+      ]);
+      setDomains((d.data || []).filter((x) => x.id !== sourceGroup.domain_id));
+      setExisting((g.data || []) as PermissionGroup[]);
+    })();
+  }, [open, sourceGroup.id]);
+
+  const existingByDomain = useMemo(() => {
+    const m = new Map<string, PermissionGroup>();
+    existing.forEach((g) => { if (g.domain_id) m.set(g.domain_id, g); });
+    return m;
+  }, [existing]);
+
+  const toggle = (id: string) => {
+    setSelected((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const apply = async () => {
+    if (selected.size === 0) return;
+    setBusy(true);
+    try {
+      const targets = domains.filter((d) => selected.has(d.id));
+      let created = 0, updated = 0, skipped = 0;
+      for (const d of targets) {
+        const existingPlan = existingByDomain.get(d.id);
+        let targetGroupId: string;
+        if (existingPlan) {
+          if (!overwrite) { skipped++; continue; }
+          targetGroupId = existingPlan.id;
+          await supabase.from('permission_groups').update({
+            price_per_user_mo: sourceGroup.price_per_user_mo,
+            max_categories: sourceGroup.max_categories,
+          }).eq('id', targetGroupId);
+          updated++;
+        } else {
+          const { data: ins, error } = await supabase.from('permission_groups').insert({
+            name: sourceGroup.name,
+            organization_id: sourceGroup.organization_id,
+            domain_id: d.id,
+            price_per_user_mo: sourceGroup.price_per_user_mo,
+            max_categories: sourceGroup.max_categories,
+            display_order: sourceGroup.display_order,
+            created_by: profile?.user_id || null,
+          }).select('id').single();
+          if (error) throw error;
+          targetGroupId = ins.id;
+          created++;
+        }
+
+        // Clone features
+        const featRows = rows.map((r) => ({
+          group_id: targetGroupId,
+          feature_key: r.feature_key,
+          is_enabled: r.is_enabled,
+          daily_limit: r.daily_limit || 0,
+          weekly_limit: r.weekly_limit,
+          monthly_limit: r.monthly_limit,
+          model_assignment: r.model_assignment,
+          limit_term: r.limit_term || 'daily',
+          rollover: r.rollover || 'none',
+        }));
+        if (featRows.length) {
+          const { error } = await supabase.from('group_features').upsert(featRows, { onConflict: 'group_id,feature_key' });
+          if (error) throw error;
+        }
+
+        // Clone caps
+        await supabase.from('group_cost_caps').upsert({
+          group_id: targetGroupId,
+          per_request_usd: cap.per_request_usd,
+          per_user_daily_usd: cap.per_user_daily_usd,
+          per_user_weekly_usd: cap.per_user_weekly_usd,
+          per_user_monthly_usd: cap.per_user_monthly_usd,
+        }, { onConflict: 'group_id' });
+      }
+
+      await supabase.from('admin_audit_log').insert({
+        action: 'clone_plan_to_domains',
+        organization_id: sourceGroup.organization_id,
+        group_id: sourceGroup.id,
+        details: {
+          source_group_id: sourceGroup.id,
+          source_domain_id: sourceGroup.domain_id,
+          target_domain_ids: targets.map((t) => t.id),
+          overwrite,
+          created, updated, skipped,
+        } as any,
+      });
+
+      toast.success(`Cloned to ${targets.length} domain(s) — ${created} created, ${updated} updated, ${skipped} skipped`);
+      setOpen(false);
+      onCloned();
+    } catch (e: any) {
+      toast.error(e.message || 'Clone failed');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <ChevronRight className="w-4 h-4 mr-1" />Apply to other domains
+      </Button>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Apply "{sourceGroup.name}" to other domains</DialogTitle>
+          <DialogDescription>
+            Clones features, limits, models, caps, price, and max categories into the selected domains.
+            Memberships are not copied.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 max-h-80 overflow-auto">
+          {domains.length === 0 && <p className="text-sm text-muted-foreground">No other domains available.</p>}
+          {domains.map((d) => {
+            const conflict = existingByDomain.has(d.id);
+            return (
+              <label key={d.id} className="flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={selected.has(d.id)} onCheckedChange={() => toggle(d.id)} />
+                  <span className="font-medium">@{d.domain}</span>
+                </div>
+                {conflict && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-500/40">
+                    <AlertTriangle className="w-3 h-3 mr-1" />Plan exists
+                  </Badge>
+                )}
+              </label>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox checked={overwrite} onCheckedChange={(v) => setOverwrite(!!v)} id="overwrite" />
+          <Label htmlFor="overwrite" className="text-sm">Overwrite existing plans with the same name</Label>
+        </div>
+        <div>
+          <Label className="text-xs">Type CONFIRM to apply</Label>
+          <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button disabled={busy || selected.size === 0 || confirmText !== 'CONFIRM'} onClick={apply}>
+            {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Clone to {selected.size} domain{selected.size === 1 ? '' : 's'}
           </Button>
         </DialogFooter>
       </DialogContent>
