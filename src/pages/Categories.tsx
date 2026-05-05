@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star, Download } from 'lucide-react';
 import {
   Tooltip,
@@ -650,6 +651,18 @@ export default function Categories() {
 
       setHasChanges(false);
       setLastSaved(new Date());
+
+      // Build a friendly summary of what was just saved
+      const catCount = categories.length;
+      const ruleCount = rulesWithValues.length;
+      const summary: string[] = [];
+      if (catCount) summary.push(`${catCount} ${catCount === 1 ? 'category' : 'categories'}`);
+      if (ruleCount) summary.push(`${ruleCount} ${ruleCount === 1 ? 'rule' : 'rules'}`);
+      sonnerToast.success('Changes saved', {
+        description: summary.length
+          ? `Updated ${summary.join(' and ')}.`
+          : 'Your changes have been saved.',
+      });
 
       // Live auto-sync: push category folders/colors AND rules to the provider
       // on every change so the user never needs to click "Re-sync All".
