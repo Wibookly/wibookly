@@ -167,12 +167,18 @@ export default function PlansTab() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
 
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
+
   const fetchAll = useCallback(async () => {
     if (!organization?.id) return;
     setLoading(true);
     try {
+      // Plans are defined under a global org; super admin sees all, others see their own org's.
+      const plansQuery = isSuperAdmin
+        ? supabase.from('permission_groups').select('*').order('display_order')
+        : supabase.from('permission_groups').select('*').eq('organization_id', organization.id).order('display_order');
       const [p, d, pr] = await Promise.all([
-        supabase.from('permission_groups').select('*').eq('organization_id', organization.id).order('display_order'),
+        plansQuery,
         supabase.from('allowed_domains').select('id, domain, organization_name, last_directory_sync_at, is_active').eq('is_active', true).order('domain'),
         supabase.from('feature_model_pricing').select('*'),
       ]);
