@@ -868,12 +868,28 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+            </TabsContent>
 
-        {/* SETTINGS TAB */}
-        <TabsContent value="settings" className="space-y-6">
-          {/* Company Logo (shown in app sidebar + transactional emails) */}
-          <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+            <TabsContent value="ai-agent" className="space-y-6 mt-4">
+              <AgentPanel organizationId={profile?.organization_id ?? null} />
+            </TabsContent>
+
+            <TabsContent value="no-reply" className="space-y-6 mt-4">
+              {hasFollowUpReminder ? (
+                <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
+              ) : (
+                <Card><CardContent className="p-6 text-sm text-muted-foreground">
+                  No Reply Tracker is not enabled for this organization.
+                </CardContent></Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="general" className="space-y-6 mt-4">
+              {/* Company Logo (shown in app sidebar + transactional emails) */}
+              <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+            </TabsContent>
+
+            <TabsContent value="api-keys" className="space-y-6 mt-4">
 
           {/* API Keys */}
           <Card>
