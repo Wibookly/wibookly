@@ -425,47 +425,80 @@ export type Database = {
       ai_usage_logs: {
         Row: {
           action: string
+          block_reason: string | null
           completion_tokens: number
           cost_usd: number
           created_at: string
+          domain_id: string | null
+          error_message: string | null
+          group_id: string | null
           id: string
+          latency_ms: number | null
           metadata: Json
           model: string
           organization_id: string
           prompt_tokens: number
           provider: string
+          status: string
           total_tokens: number | null
           user_id: string | null
         }
         Insert: {
           action: string
+          block_reason?: string | null
           completion_tokens?: number
           cost_usd?: number
           created_at?: string
+          domain_id?: string | null
+          error_message?: string | null
+          group_id?: string | null
           id?: string
+          latency_ms?: number | null
           metadata?: Json
           model: string
           organization_id: string
           prompt_tokens?: number
           provider: string
+          status?: string
           total_tokens?: number | null
           user_id?: string | null
         }
         Update: {
           action?: string
+          block_reason?: string | null
           completion_tokens?: number
           cost_usd?: number
           created_at?: string
+          domain_id?: string | null
+          error_message?: string | null
+          group_id?: string | null
           id?: string
+          latency_ms?: number | null
           metadata?: Json
           model?: string
           organization_id?: string
           prompt_tokens?: number
           provider?: string
+          status?: string
           total_tokens?: number | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_logs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_logs_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       allowed_domains: {
         Row: {
