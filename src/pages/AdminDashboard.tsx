@@ -599,45 +599,24 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.length}</p>
-                <p className="text-sm text-muted-foreground">Total Users</p>
-              </div>
+        {[
+          { icon: Users, value: users.length, label: 'Total Users' },
+          { icon: Globe, value: domains.length, label: 'Authorized Domains' },
+          { icon: CheckCircle2, value: users.filter(u => !u.is_disabled).length, label: 'Active Users' },
+        ].map(({ icon: Icon, value, label }) => (
+          <div
+            key={label}
+            className="bg-card border border-border rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 hover:border-ef-sky-soft transition-all"
+          >
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-ef-blue/[0.14] to-ef-sky/[0.08] grid place-items-center text-ef-blue dark:text-ef-sky flex-shrink-0">
+              <Icon className="w-5 h-5" />
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Globe className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{domains.length}</p>
-                <p className="text-sm text-muted-foreground">Authorized Domains</p>
-              </div>
+            <div>
+              <p className="font-display text-3xl text-foreground tracking-tight leading-none">{value}</p>
+              <p className="text-xs text-muted-foreground mt-1 tracking-wide">{label}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.filter(u => !u.is_disabled).length}</p>
-                <p className="text-sm text-muted-foreground">Active Users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        ))}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
