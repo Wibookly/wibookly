@@ -699,8 +699,7 @@ function PlanCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5 }}>
           {activeMembers > 0 ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', fontSize: 11, fontWeight: 500, borderRadius: 999, background: 'var(--bg-success)', color: 'var(--text-success)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-success)' }} />
+            <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ef-green font-medium before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-ef-green before:ring-4 before:ring-ef-green/25">
               {activeMembers} active
             </span>
           ) : (
