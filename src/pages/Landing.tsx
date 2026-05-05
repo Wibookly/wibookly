@@ -4,16 +4,12 @@ import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 
 function EFMark({ className = 'h-8 w-8' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 40 40" className={className} aria-label="EnergyForward">
-      <rect x="4" y="8" width="14" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-      <rect x="4" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-      <rect x="4" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-      <rect x="4" y="26" width="8" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-      <rect x="22" y="8" width="14" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-      <rect x="22" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-      <rect x="22" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-      <rect x="22" y="26" width="8" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-    </svg>
+    <img
+      src="/brand/energyforward-logo-mark.png"
+      alt="EnergyForward"
+      className={`${className} object-contain`}
+      draggable={false}
+    />
   );
 }
 
