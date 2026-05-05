@@ -150,6 +150,25 @@ function initials(name: string, email: string): string {
   return (src.slice(0, 2) || '??').toUpperCase();
 }
 
+/** Format a display name as "First L." (first name + last initial). */
+function formatShortName(fullName: string | null | undefined, email: string): string {
+  const raw = (fullName || '').trim();
+  if (raw) {
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+  }
+  // Derive from email local-part (e.g. "arahimi" -> "Arahimi", "first.last" -> "First L.")
+  const local = (email || '').split('@')[0] || '';
+  if (!local) return 'Unknown';
+  const tokens = local.split(/[._-]+/).filter(Boolean);
+  if (tokens.length >= 2) {
+    const first = tokens[0][0].toUpperCase() + tokens[0].slice(1).toLowerCase();
+    return `${first} ${tokens[tokens.length - 1][0].toUpperCase()}.`;
+  }
+  return local[0].toUpperCase() + local.slice(1).toLowerCase();
+}
+
 // ------------------------------------------------------------------
 
 export default function PlansTab() {
@@ -203,10 +222,10 @@ export default function PlansTab() {
         if (userIds.length) {
           const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
           const [up, logs] = await Promise.all([
-            supabase.from('user_profiles').select('user_id, email, full_name').in('user_id', userIds),
+            supabase.rpc('get_users_basic_info', { _user_ids: userIds }),
             supabase.from('ai_usage_logs').select('user_id, cost_usd, created_at').in('user_id', userIds).gte('created_at', monthStart.toISOString()),
           ]);
-          const profileById = new Map((up.data || []).map((u: any) => [u.user_id, u]));
+          const profileById = new Map(((up.data as any[]) || []).map((u: any) => [u.user_id, u]));
           const logsByUser = new Map<string, { tasks: number; spend: number; last: string | null }>();
           (logs.data || []).forEach((l: any) => {
             const cur = logsByUser.get(l.user_id) || { tasks: 0, spend: 0, last: null };
@@ -218,10 +237,11 @@ export default function PlansTab() {
           const rows: ActiveUser[] = (m.data || []).map(mm => {
             const u: any = profileById.get(mm.user_id);
             const usage = logsByUser.get(mm.user_id) || { tasks: 0, spend: 0, last: null };
+            const email = u?.email || '';
             return {
               user_id: mm.user_id,
-              email: u?.email || '',
-              display_name: u?.full_name || u?.email || 'Unknown',
+              email,
+              display_name: formatShortName(u?.full_name, email),
               group_id: mm.group_id,
               monthly_tasks: usage.tasks,
               monthly_spend: usage.spend,
@@ -246,7 +266,7 @@ export default function PlansTab() {
     } finally {
       setLoading(false);
     }
-  }, [organization?.id, selectedPlanId, isSuperAdmin]);
+  }, [organization?.id, isSuperAdmin]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

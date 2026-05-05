@@ -3054,6 +3054,14 @@ export type Database = {
         Args: { _feature_key: string; _override_type: string; _user_id: string }
         Returns: string
       }
+      get_users_basic_info: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          email: string
+          full_name: string
+          user_id: string
+        }[]
+      }
       has_feature: {
         Args: { _feature_key: string; _user_id: string }
         Returns: boolean
