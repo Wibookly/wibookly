@@ -25,12 +25,11 @@ import OnboardingWizard from '@/components/admin/OnboardingWizard';
 import DiscoveredUsersPanel from '@/components/admin/DiscoveredUsersPanel';
 import AzurePermissionsCheck from '@/components/admin/AzurePermissionsCheck';
 import AgentPanel from '@/components/admin/AgentPanel';
-import AgentAuditPanel from '@/components/admin/AgentAuditPanel';
-import AIUsagePanel from '@/components/admin/AIUsagePanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
-import { Bot, BarChart3, Clock, MessageSquareWarning, ScrollText } from 'lucide-react';
+import PlansTab from '@/components/admin/PlansTab';
+import { Bot, Clock, MessageSquareWarning, BellRing } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
 
 const FEATURE_KEYS = [
@@ -641,39 +640,13 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
-          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Groups</TabsTrigger>
-          <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
-          <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" /> Users</TabsTrigger>
-          <TabsTrigger value="agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
-          <TabsTrigger value="agent-audit" className="gap-2"><ScrollText className="w-4 h-4" /> Agent Audit</TabsTrigger>
-          {hasFollowUpReminder && (
-            <TabsTrigger value="followups" className="gap-2"><Clock className="w-4 h-4" /> Follow-ups</TabsTrigger>
-          )}
-          <TabsTrigger value="usage" className="gap-2"><BarChart3 className="w-4 h-4" /> AI Usage</TabsTrigger>
+          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="agent" className="space-y-6">
-          <AgentPanel organizationId={profile?.organization_id ?? null} />
-        </TabsContent>
-
-        <TabsContent value="agent-audit" className="space-y-6">
-          <AgentAuditPanel organizationId={profile?.organization_id ?? null} />
-        </TabsContent>
-
-        {hasFollowUpReminder && (
-          <TabsContent value="followups" className="space-y-6">
-            <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
-          </TabsContent>
-        )}
-
-        <TabsContent value="usage" className="space-y-6">
-          <AIUsagePanel organizationId={profile?.organization_id ?? null} />
-        </TabsContent>
 
         <TabsContent value="issues" className="space-y-6">
           <SupportIssuesPanel />
@@ -700,183 +673,21 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
-          <PermissionGroupsPanel
-            organizationId={profile?.organization_id ?? null}
-            invoke={adminInvoke}
-            groups={groups}
-            domains={domains}
-            onChanged={refreshGroups}
-          />
+          <PlansTab />
         </TabsContent>
 
-        {/* USERS TAB */}
-        <TabsContent value="users" className="space-y-6">
-          {/* Create User */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><UserPlus className="w-5 h-5" /> Create New User</CardTitle>
-                  <CardDescription>Create an account for a team member. Their domain must be authorized.</CardDescription>
-                </div>
-                <BulkCreateUsersDialog
-                  groups={groups}
-                  domains={domains}
-                  invoke={adminInvoke}
-                  onCompleted={fetchData}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="newUserName">Full Name</Label>
-                  <Input id="newUserName" placeholder="John Doe" value={newUserName} onChange={e => setNewUserName(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="newUserEmail">Email</Label>
-                  <Input id="newUserEmail" type="email" placeholder="john@company.com" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="newUserPassword">Password</Label>
-                  <Input id="newUserPassword" type="password" placeholder="Min 8 characters" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} />
-                </div>
-              </div>
-              <Button onClick={handleCreateUser} disabled={creatingUser} className="mt-4">
-                {creatingUser ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                Create User
-              </Button>
-            </CardContent>
-          </Card>
+        {/* SETTINGS TAB — contains nested sections */}
+        <TabsContent value="settings" className="space-y-6">
+          <Tabs defaultValue="domains" className="w-full">
+            <TabsList className="flex-wrap h-auto">
+              <TabsTrigger value="domains" className="gap-2"><Globe className="w-4 h-4" /> Domains</TabsTrigger>
+              <TabsTrigger value="ai-agent" className="gap-2"><Bot className="w-4 h-4" /> AI Agent</TabsTrigger>
+              <TabsTrigger value="no-reply" className="gap-2"><BellRing className="w-4 h-4" /> No Reply Tracker</TabsTrigger>
+              <TabsTrigger value="api-keys" className="gap-2"><Key className="w-4 h-4" /> AI APIs</TabsTrigger>
+              <TabsTrigger value="general" className="gap-2"><Settings className="w-4 h-4" /> General</TabsTrigger>
+            </TabsList>
 
-          {/* User List with Feature Toggles */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Members</CardTitle>
-              <CardDescription>Manage user access and feature assignments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {users.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No users yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {users.map(user => {
-                    const isSelf = user.email.toLowerCase() === 'arahimi@energyforward.com';
-                    return (
-                      <div key={user.user_id} className="p-4 rounded-lg border border-border bg-background space-y-3">
-                        {/* User Header */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                              {(user.full_name || user.email)[0]?.toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">{user.full_name || 'No name'}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
-                            </div>
-                            {isSelf && <Badge variant="default">Super Admin</Badge>}
-                            {user.is_disabled && <Badge variant="destructive">Disabled</Badge>}
-                          </div>
-                          {!isSelf && (
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={() => { setResetPasswordUserId(user.user_id); setResetPasswordValue(''); }}>
-                                <KeyRound className="w-4 h-4 mr-1" /> Reset Password
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => handleToggleUser(user.user_id, user.is_disabled)}>
-                                {user.is_disabled ? <><CheckCircle2 className="w-4 h-4 mr-1" /> Enable</> : <><Ban className="w-4 h-4 mr-1" /> Disable</>}
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete user?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently delete {user.email} and all their data. This cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(user.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Feature Toggles */}
-                        {!isSelf && (
-                          <div className="space-y-3 pt-2 border-t border-border/50">
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Features</p>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {FEATURE_KEYS.map(feat => {
-                                  const featureState = getUserFeatureState(user, feat.key);
-                                  const enabled = featureState.enabled;
-                                  return (
-                                    <div key={feat.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                                      <div>
-                                        <p className="text-xs font-medium text-foreground">{feat.label}</p>
-                                        {featureState.source === 'group' && (
-                                          <p className="text-[10px] text-muted-foreground">From group</p>
-                                        )}
-                                      </div>
-                                      <Switch
-                                        checked={enabled}
-                                        onCheckedChange={() => handleToggleFeature(user.user_id, feat.key, enabled)}
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">AI Models</p>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {AI_MODEL_KEYS.map(model => {
-                                  const featureState = getUserFeatureState(user, model.key);
-                                  const enabled = featureState.enabled;
-                                  return (
-                                    <div key={model.key} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                                      <div>
-                                        <p className="text-xs font-medium text-foreground">{model.label}</p>
-                                        <p className="text-[10px] text-muted-foreground">
-                                          {featureState.source === 'group' ? 'From group' : model.description}
-                                        </p>
-                                      </div>
-                                      <Switch
-                                        checked={enabled}
-                                        onCheckedChange={() => handleToggleFeature(user.user_id, model.key, enabled)}
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {isSelf && (
-                          <p className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                            Super admin has access to all features.
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* DOMAINS TAB */}
-        <TabsContent value="domains" className="space-y-6">
+            <TabsContent value="domains" className="space-y-6 mt-4">
           <Card className="border-primary/30 bg-primary/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -1057,12 +868,28 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+            </TabsContent>
 
-        {/* SETTINGS TAB */}
-        <TabsContent value="settings" className="space-y-6">
-          {/* Company Logo (shown in app sidebar + transactional emails) */}
-          <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+            <TabsContent value="ai-agent" className="space-y-6 mt-4">
+              <AgentPanel organizationId={profile?.organization_id ?? null} />
+            </TabsContent>
+
+            <TabsContent value="no-reply" className="space-y-6 mt-4">
+              {hasFollowUpReminder ? (
+                <FollowUpsPanel organizationId={profile?.organization_id ?? null} />
+              ) : (
+                <Card><CardContent className="p-6 text-sm text-muted-foreground">
+                  No Reply Tracker is not enabled for this organization.
+                </CardContent></Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="general" className="space-y-6 mt-4">
+              {/* Company Logo (shown in app sidebar + transactional emails) */}
+              <CompanyLogoUploader organizationId={profile?.organization_id ?? null} />
+            </TabsContent>
+
+            <TabsContent value="api-keys" className="space-y-6 mt-4">
 
           {/* API Keys */}
           <Card>
@@ -1307,6 +1134,8 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
