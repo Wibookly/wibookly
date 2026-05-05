@@ -494,27 +494,37 @@ export default function PlansTab() {
 
 function SyncPill({ label }: { label: string }) {
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,
-      color: 'var(--text-secondary)', padding: '3px 9px', background: 'var(--bg-secondary)',
-      borderRadius: 999, whiteSpace: 'nowrap',
-    }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-success)', flexShrink: 0 }} />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-card border border-border text-muted-foreground whitespace-nowrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-ef-green ring-4 ring-ef-green/25 flex-shrink-0" />
       {label}
     </span>
   );
 }
 
 function KpiCard({ label, value, sub, large }: { label: string; value: string; sub: string; large?: boolean }) {
+  // Split leading "$" so it can be styled smaller per spec.
+  const hasDollar = value.startsWith('$');
+  const numberPart = hasDollar ? value.slice(1) : value;
+  if (large) {
+    return (
+      <div className="bg-gradient-to-br from-ef-navy to-ef-navy-2 text-white rounded-lg p-4">
+        <div className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-white/70">{label}</div>
+        <div className="font-display text-3xl text-white tracking-tight mt-1.5 leading-none">
+          {hasDollar && <span className="text-lg align-top mr-px opacity-80">$</span>}
+          {numberPart}
+        </div>
+        <div className="text-[11.5px] text-white/60 mt-1">{sub}</div>
+      </div>
+    );
+  }
   return (
-    <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: '9px 11px' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 3 }}>{label}</div>
-      <div style={{
-        fontSize: large ? 21 : 17, fontWeight: 500,
-        color: large ? 'var(--text-info)' : 'var(--text-primary)',
-        fontVariantNumeric: 'tabular-nums',
-      }}>{value}</div>
-      <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 2 }}>{sub}</div>
+    <div className="bg-card border border-border rounded-lg p-4">
+      <div className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
+      <div className="font-display text-3xl text-foreground tracking-tight mt-1.5 leading-none">
+        {hasDollar && <span className="text-lg align-top mr-px opacity-80">$</span>}
+        {numberPart}
+      </div>
+      <div className="text-[11.5px] text-muted-foreground mt-1">{sub}</div>
     </div>
   );
 }
