@@ -250,7 +250,6 @@ export function AppSidebar() {
               {isSuperAdmin && (
                 <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
                   <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
-                  <NavItem href="/admin/control-panel" icon={Cog}>Control Panel</NavItem>
                 </NavSection>
               )}
             </>
