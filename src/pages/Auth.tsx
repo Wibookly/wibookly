@@ -88,9 +88,10 @@ export default function Auth() {
         {/* Energy Forward logo */}
         <div className="flex justify-center mb-4">
           <img
-            src={ENERGY_FORWARD_LOGO}
-            alt="Energy Forward"
-            className="h-48 w-auto object-contain"
+            src="/brand/energyforward-logo-full.png"
+            alt="EnergyForward"
+            className="h-24 w-auto object-contain"
+            draggable={false}
           />
         </div>
         <div className="text-center mb-6">
