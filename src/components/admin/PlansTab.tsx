@@ -889,14 +889,16 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         onChange={(e) => onChange(e.target.checked)}
         style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
       />
-      <span style={{
-        position: 'absolute', inset: 0, transition: '0.15s', borderRadius: 9,
-        background: checked ? 'var(--text-info)' : 'rgba(140,140,140,0.35)',
-      }}>
+      <span
+        className={checked
+          ? 'absolute inset-0 rounded-[9px] transition-all bg-gradient-to-br from-ef-blue to-ef-sky'
+          : 'absolute inset-0 rounded-[9px] transition-all bg-muted-foreground/40 dark:bg-muted-foreground/30'}
+      >
         <span style={{
           position: 'absolute', height: 12, width: 12, left: 2, top: 2,
           background: 'white', transition: '0.15s', borderRadius: '50%',
           transform: checked ? 'translateX(12px)' : 'none',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
         }} />
       </span>
     </label>
