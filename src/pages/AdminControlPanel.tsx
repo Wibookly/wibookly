@@ -38,6 +38,9 @@ interface PermissionGroup {
   monthly_price: number | null;
   display_order: number;
   organization_id: string;
+  price_per_user_mo: number;
+  max_categories: number;
+  scope_domain: string | null;
 }
 interface GroupFeatureRow {
   id?: string;
@@ -48,6 +51,8 @@ interface GroupFeatureRow {
   weekly_limit: number | null;
   monthly_limit: number | null;
   model_assignment: string | null;
+  limit_term: 'daily' | 'weekly';
+  rollover: 'none' | 'next_day';
 }
 interface GroupCostCap {
   group_id: string;
@@ -231,7 +236,7 @@ export default function AdminControlPanel() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="org"><Building2 className="w-4 h-4 mr-2" />Org</TabsTrigger>
-          <TabsTrigger value="groups"><SettingsIcon className="w-4 h-4 mr-2" />Groups</TabsTrigger>
+          <TabsTrigger value="groups"><SettingsIcon className="w-4 h-4 mr-2" />Plans</TabsTrigger>
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
           <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-2" />Live Activity</TabsTrigger>
         </TabsList>
@@ -495,12 +500,17 @@ function GroupsTab({
               const daily = dailyCostForGroup(g.id);
               const n = memberCount(g.id);
               const isSel = g.id === selectedGroupId;
+              const price = Number(g.price_per_user_mo ?? 0);
               return (
                 <button key={g.id} onClick={() => setSelectedGroupId(g.id)}
                   className={`text-left rounded-lg border-2 p-4 transition-all ${GROUP_COLORS[g.name] || 'border-muted'} ${isSel ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'}`}>
-                  <div className="font-bold">{g.name} · {n} user{n !== 1 ? 's' : ''}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold">{g.name}</div>
+                    <Badge variant="secondary" className="text-[10px]">{g.max_categories} cat</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{n} user{n !== 1 ? 's' : ''} · {fmtUSD(price)}/user/mo</div>
                   <div className="text-xl font-bold mt-1">{fmtUSD(daily * 22 * n)}/mo</div>
-                  <div className="text-xs text-muted-foreground mt-1">{fmtUSD(daily)}/day per user</div>
+                  <div className="text-xs text-muted-foreground mt-1">cost {fmtUSD(daily)}/day per user</div>
                 </button>
               );
             })}
