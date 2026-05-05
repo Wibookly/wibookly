@@ -692,6 +692,25 @@ function GroupEditor({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Plan-level fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-md border p-3 bg-muted/20">
+            <div>
+              <Label>Price per user / month ($)</Label>
+              <Input type="number" step="0.01" value={planPrice}
+                onChange={e => setPlanPrice(parseFloat(e.target.value) || 0)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Customer-facing price for this plan.</p>
+            </div>
+            <div>
+              <Label>Max categories (0–10)</Label>
+              <Input type="number" min={0} max={10} value={planMaxCats}
+                onChange={e => {
+                  const n = parseInt(e.target.value) || 0;
+                  setPlanMaxCats(Math.max(0, Math.min(10, n)));
+                }} />
+              <p className="text-[10px] text-muted-foreground mt-1">Number of email categories users on this plan can configure.</p>
+            </div>
+          </div>
+
           {/* Feature matrix */}
           <div className="overflow-x-auto">
             <Table>
@@ -702,6 +721,8 @@ function GroupEditor({
                   <TableHead>Per day</TableHead>
                   <TableHead>Per week</TableHead>
                   <TableHead>Per month</TableHead>
+                  <TableHead>Limit term</TableHead>
+                  <TableHead>Rollover</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead className="text-right">$/task</TableHead>
                   <TableHead className="text-right">$/day</TableHead>
@@ -727,6 +748,24 @@ function GroupEditor({
                       <TableCell>
                         <Input className="w-24" type="number" placeholder={`auto:${(r.daily_limit || 0) * 22}`}
                           value={r.monthly_limit ?? ''} onChange={e => updateRow(r.feature_key, { monthly_limit: e.target.value === '' ? null : parseInt(e.target.value) })} />
+                      </TableCell>
+                      <TableCell>
+                        <Select value={r.limit_term || 'daily'} onValueChange={(v: 'daily' | 'weekly') => updateRow(r.feature_key, { limit_term: v })}>
+                          <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={r.rollover || 'none'} onValueChange={(v: 'none' | 'next_day') => updateRow(r.feature_key, { rollover: v })}>
+                          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="next_day">Next day</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Select value={model} onValueChange={v => updateRow(r.feature_key, { model_assignment: v })}>
