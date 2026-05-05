@@ -678,6 +678,10 @@ export default function AdminDashboard() {
           <PlansTab />
         </TabsContent>
 
+        <TabsContent value="ai-usage" className="space-y-6">
+          <AIUsageTab organizationId={profile?.organization_id ?? null} />
+        </TabsContent>
+
         {/* SETTINGS TAB — contains nested sections */}
         <TabsContent value="settings" className="space-y-6">
           <Tabs defaultValue="domains" className="w-full">
