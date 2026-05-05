@@ -1,4 +1,5 @@
 import { useAuth } from '@/lib/auth';
+import { useTheme, type Theme } from '@/lib/theme';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -7,11 +8,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
 
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   // Extract first name + last initial (e.g. "John D.") - no email fallback
   const getNameParts = () => {
@@ -70,6 +74,19 @@ export function UserAvatarDropdown() {
             Settings
           </a>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
+          <DropdownMenuRadioItem value="light" className="gap-2">
+            <Sun className="w-4 h-4" /> Light
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark" className="gap-2">
+            <Moon className="w-4 h-4" /> Dark
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system" className="gap-2">
+            <Monitor className="w-4 h-4" /> System
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="flex items-center gap-2">
           <LogOut className="w-4 h-4" />
