@@ -38,6 +38,9 @@ interface PermissionGroup {
   monthly_price: number | null;
   display_order: number;
   organization_id: string;
+  price_per_user_mo: number;
+  max_categories: number;
+  scope_domain: string | null;
 }
 interface GroupFeatureRow {
   id?: string;
@@ -48,6 +51,8 @@ interface GroupFeatureRow {
   weekly_limit: number | null;
   monthly_limit: number | null;
   model_assignment: string | null;
+  limit_term: 'daily' | 'weekly';
+  rollover: 'none' | 'next_day';
 }
 interface GroupCostCap {
   group_id: string;
@@ -231,7 +236,7 @@ export default function AdminControlPanel() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-4 w-full max-w-2xl">
           <TabsTrigger value="org"><Building2 className="w-4 h-4 mr-2" />Org</TabsTrigger>
-          <TabsTrigger value="groups"><SettingsIcon className="w-4 h-4 mr-2" />Groups</TabsTrigger>
+          <TabsTrigger value="groups"><SettingsIcon className="w-4 h-4 mr-2" />Plans</TabsTrigger>
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Users</TabsTrigger>
           <TabsTrigger value="activity"><Activity className="w-4 h-4 mr-2" />Live Activity</TabsTrigger>
         </TabsList>
@@ -495,12 +500,17 @@ function GroupsTab({
               const daily = dailyCostForGroup(g.id);
               const n = memberCount(g.id);
               const isSel = g.id === selectedGroupId;
+              const price = Number(g.price_per_user_mo ?? 0);
               return (
                 <button key={g.id} onClick={() => setSelectedGroupId(g.id)}
                   className={`text-left rounded-lg border-2 p-4 transition-all ${GROUP_COLORS[g.name] || 'border-muted'} ${isSel ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'}`}>
-                  <div className="font-bold">{g.name} · {n} user{n !== 1 ? 's' : ''}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold">{g.name}</div>
+                    <Badge variant="secondary" className="text-[10px]">{g.max_categories} cat</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{n} user{n !== 1 ? 's' : ''} · {fmtUSD(price)}/user/mo</div>
                   <div className="text-xl font-bold mt-1">{fmtUSD(daily * 22 * n)}/mo</div>
-                  <div className="text-xs text-muted-foreground mt-1">{fmtUSD(daily)}/day per user</div>
+                  <div className="text-xs text-muted-foreground mt-1">cost {fmtUSD(daily)}/day per user</div>
                 </button>
               );
             })}
@@ -550,7 +560,9 @@ function GroupEditor({
     const existing = features.find(x => x.feature_key === f.key);
     return existing || {
       group_id: group.id, feature_key: f.key, is_enabled: false, daily_limit: 0,
-      weekly_limit: null, monthly_limit: null, model_assignment: MODEL_OPTIONS_BY_FEATURE[f.key]?.[0] || null,
+      weekly_limit: null, monthly_limit: null,
+      model_assignment: MODEL_OPTIONS_BY_FEATURE[f.key]?.[0] || null,
+      limit_term: 'daily' as const, rollover: 'none' as const,
     };
   }), [features, group.id]);
 
@@ -560,9 +572,15 @@ function GroupEditor({
   const [saving, setSaving] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [markup, setMarkup] = useState<number>(() => lsGet(`admin_markup_${group.id}`, 3.1));
+  const [planPrice, setPlanPrice] = useState<number>(Number(group.price_per_user_mo ?? 0));
+  const [planMaxCats, setPlanMaxCats] = useState<number>(Number(group.max_categories ?? 0));
 
   useEffect(() => { lsSet(`admin_markup_${group.id}`, markup); }, [markup, group.id]);
-  useEffect(() => { setRows(initRows); setEditCap(cap); setConfirmText(''); }, [initRows, cap]);
+  useEffect(() => {
+    setRows(initRows); setEditCap(cap); setConfirmText('');
+    setPlanPrice(Number(group.price_per_user_mo ?? 0));
+    setPlanMaxCats(Number(group.max_categories ?? 0));
+  }, [initRows, cap, group.id, group.price_per_user_mo, group.max_categories]);
 
   const updateRow = (key: string, patch: Partial<GroupFeatureRow>) => {
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
@@ -591,12 +609,16 @@ function GroupEditor({
       if ((orig.weekly_limit ?? null) !== (r.weekly_limit ?? null)) d.push(`${r.feature_key} weekly_limit: ${orig.weekly_limit ?? 'auto'} → ${r.weekly_limit ?? 'auto'}`);
       if ((orig.monthly_limit ?? null) !== (r.monthly_limit ?? null)) d.push(`${r.feature_key} monthly_limit: ${orig.monthly_limit ?? 'auto'} → ${r.monthly_limit ?? 'auto'}`);
       if ((orig.model_assignment ?? null) !== (r.model_assignment ?? null)) d.push(`${r.feature_key} model: ${orig.model_assignment} → ${r.model_assignment}`);
+      if ((orig.limit_term ?? 'daily') !== (r.limit_term ?? 'daily')) d.push(`${r.feature_key} limit_term: ${orig.limit_term ?? 'daily'} → ${r.limit_term}`);
+      if ((orig.rollover ?? 'none') !== (r.rollover ?? 'none')) d.push(`${r.feature_key} rollover: ${orig.rollover ?? 'none'} → ${r.rollover}`);
     });
     (['per_request_usd', 'per_user_daily_usd', 'per_user_weekly_usd', 'per_user_monthly_usd'] as const).forEach(k => {
       if ((cap[k] ?? null) !== (editCap[k] ?? null)) d.push(`cap ${k}: ${cap[k] ?? 'none'} → ${editCap[k] ?? 'none'}`);
     });
+    if (Number(group.price_per_user_mo ?? 0) !== Number(planPrice)) d.push(`price_per_user_mo: ${group.price_per_user_mo ?? 0} → ${planPrice}`);
+    if (Number(group.max_categories ?? 0) !== Number(planMaxCats)) d.push(`max_categories: ${group.max_categories ?? 0} → ${planMaxCats}`);
     return d;
-  }, [rows, features, cap, editCap]);
+  }, [rows, features, cap, editCap, group.price_per_user_mo, group.max_categories, planPrice, planMaxCats]);
 
   const save = async () => {
     setSaving(true);
@@ -610,9 +632,18 @@ function GroupEditor({
         weekly_limit: r.weekly_limit,
         monthly_limit: r.monthly_limit,
         model_assignment: r.model_assignment,
+        limit_term: r.limit_term || 'daily',
+        rollover: r.rollover || 'none',
       }));
       const { error: e1 } = await supabase.from('group_features').upsert(upsertRows, { onConflict: 'group_id,feature_key' });
       if (e1) throw e1;
+
+      // Persist plan-level fields
+      const { error: ePlan } = await supabase.from('permission_groups').update({
+        price_per_user_mo: planPrice,
+        max_categories: planMaxCats,
+      }).eq('id', group.id);
+      if (ePlan) throw ePlan;
 
       const { error: e2 } = await supabase.from('group_cost_caps').upsert({
         group_id: group.id,
@@ -661,6 +692,25 @@ function GroupEditor({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Plan-level fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-md border p-3 bg-muted/20">
+            <div>
+              <Label>Price per user / month ($)</Label>
+              <Input type="number" step="0.01" value={planPrice}
+                onChange={e => setPlanPrice(parseFloat(e.target.value) || 0)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Customer-facing price for this plan.</p>
+            </div>
+            <div>
+              <Label>Max categories (0–10)</Label>
+              <Input type="number" min={0} max={10} value={planMaxCats}
+                onChange={e => {
+                  const n = parseInt(e.target.value) || 0;
+                  setPlanMaxCats(Math.max(0, Math.min(10, n)));
+                }} />
+              <p className="text-[10px] text-muted-foreground mt-1">Number of email categories users on this plan can configure.</p>
+            </div>
+          </div>
+
           {/* Feature matrix */}
           <div className="overflow-x-auto">
             <Table>
@@ -671,6 +721,8 @@ function GroupEditor({
                   <TableHead>Per day</TableHead>
                   <TableHead>Per week</TableHead>
                   <TableHead>Per month</TableHead>
+                  <TableHead>Limit term</TableHead>
+                  <TableHead>Rollover</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead className="text-right">$/task</TableHead>
                   <TableHead className="text-right">$/day</TableHead>
@@ -698,6 +750,24 @@ function GroupEditor({
                           value={r.monthly_limit ?? ''} onChange={e => updateRow(r.feature_key, { monthly_limit: e.target.value === '' ? null : parseInt(e.target.value) })} />
                       </TableCell>
                       <TableCell>
+                        <Select value={r.limit_term || 'daily'} onValueChange={(v: 'daily' | 'weekly') => updateRow(r.feature_key, { limit_term: v })}>
+                          <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={r.rollover || 'none'} onValueChange={(v: 'none' | 'next_day') => updateRow(r.feature_key, { rollover: v })}>
+                          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="next_day">Next day</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <Select value={model} onValueChange={v => updateRow(r.feature_key, { model_assignment: v })}>
                           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                           <SelectContent>{opts.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
@@ -709,7 +779,7 @@ function GroupEditor({
                   );
                 })}
                 <TableRow className="border-t-2">
-                  <TableCell colSpan={7} className="text-right font-semibold">Daily total:</TableCell>
+                  <TableCell colSpan={9} className="text-right font-semibold">Daily total:</TableCell>
                   <TableCell className="text-right font-bold tabular-nums">{fmtUSD(projection.daily)}</TableCell>
                 </TableRow>
               </TableBody>
