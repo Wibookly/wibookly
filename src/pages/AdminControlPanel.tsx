@@ -688,6 +688,7 @@ function GroupEditor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Editing: {group.name}</CardTitle>
             <div className="flex items-center gap-3">
+              <PlanSettingsDialog group={group} memberCount={memberCount} onSaved={onSaved} />
               {group.domain_id && (
                 <ApplyToDomainsDialog sourceGroup={group} rows={rows} cap={editCap} onCloned={onSaved} />
               )}
