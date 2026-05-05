@@ -650,6 +650,45 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_group_features_v2: {
+        Row: {
+          created_at: string | null
+          daily_limit: number | null
+          feature_key: string | null
+          group_id: string | null
+          id: string | null
+          is_enabled: boolean | null
+          model_assignment: string | null
+          monthly_limit: number | null
+          updated_at: string | null
+          weekly_limit: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_limit?: number | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          model_assignment?: string | null
+          monthly_limit?: number | null
+          updated_at?: string | null
+          weekly_limit?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_limit?: number | null
+          feature_key?: string | null
+          group_id?: string | null
+          id?: string | null
+          is_enabled?: boolean | null
+          model_assignment?: string | null
+          monthly_limit?: number | null
+          updated_at?: string | null
+          weekly_limit?: number | null
+        }
+        Relationships: []
+      }
       backup_org_agent_budget_v1: {
         Row: {
           current_day: string | null
@@ -710,6 +749,48 @@ export type Database = {
           description?: string | null
           domain_id?: string | null
           id?: string | null
+          name?: string | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      backup_permission_groups_v2: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          display_order: number | null
+          domain_id: string | null
+          id: string | null
+          is_default_for_new_users: boolean | null
+          monthly_price: number | null
+          name: string | null
+          organization_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          domain_id?: string | null
+          id?: string | null
+          is_default_for_new_users?: boolean | null
+          monthly_price?: number | null
+          name?: string | null
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          display_order?: number | null
+          domain_id?: string | null
+          id?: string | null
+          is_default_for_new_users?: boolean | null
+          monthly_price?: number | null
           name?: string | null
           organization_id?: string | null
           updated_at?: string | null
@@ -1329,6 +1410,30 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_model_pricing: {
+        Row: {
+          dollar_per_task: number
+          feature_id: string
+          last_updated: string
+          model_id: string
+          updated_by: string | null
+        }
+        Insert: {
+          dollar_per_task: number
+          feature_id: string
+          last_updated?: string
+          model_id: string
+          updated_by?: string | null
+        }
+        Update: {
+          dollar_per_task?: number
+          feature_id?: string
+          last_updated?: string
+          model_id?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       follow_up_settings: {
         Row: {
           auto_draft_enabled: boolean
@@ -1582,8 +1687,10 @@ export type Database = {
           group_id: string
           id: string
           is_enabled: boolean
+          limit_term: string
           model_assignment: string | null
           monthly_limit: number | null
+          rollover: string
           updated_at: string
           weekly_limit: number | null
         }
@@ -1594,8 +1701,10 @@ export type Database = {
           group_id: string
           id?: string
           is_enabled?: boolean
+          limit_term?: string
           model_assignment?: string | null
           monthly_limit?: number | null
+          rollover?: string
           updated_at?: string
           weekly_limit?: number | null
         }
@@ -1606,8 +1715,10 @@ export type Database = {
           group_id?: string
           id?: string
           is_enabled?: boolean
+          limit_term?: string
           model_assignment?: string | null
           monthly_limit?: number | null
+          rollover?: string
           updated_at?: string
           weekly_limit?: number | null
         }
@@ -1968,6 +2079,45 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_group_domain_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain_id: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain_id: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain_id?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_group_domain_assignments_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_group_domain_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_groups: {
         Row: {
           created_at: string
@@ -1977,9 +2127,12 @@ export type Database = {
           domain_id: string | null
           id: string
           is_default_for_new_users: boolean
+          max_categories: number
           monthly_price: number | null
           name: string
           organization_id: string
+          price_per_user_mo: number
+          scope_domain: string | null
           updated_at: string
         }
         Insert: {
@@ -1990,9 +2143,12 @@ export type Database = {
           domain_id?: string | null
           id?: string
           is_default_for_new_users?: boolean
+          max_categories?: number
           monthly_price?: number | null
           name: string
           organization_id: string
+          price_per_user_mo?: number
+          scope_domain?: string | null
           updated_at?: string
         }
         Update: {
@@ -2003,9 +2159,12 @@ export type Database = {
           domain_id?: string | null
           id?: string
           is_default_for_new_users?: boolean
+          max_categories?: number
           monthly_price?: number | null
           name?: string
           organization_id?: string
+          price_per_user_mo?: number
+          scope_domain?: string | null
           updated_at?: string
         }
         Relationships: [
