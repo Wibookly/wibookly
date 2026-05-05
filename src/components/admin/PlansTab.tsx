@@ -1276,3 +1276,44 @@ function DeletePlanDialog({
     </Dialog>
   );
 }
+
+function FragmentRow({ row, empty, expanded, planUsers, togglePlanRow }: {
+  row: { plan: Plan; members: number; perUser: number; total: number; share: number };
+  empty: boolean; expanded: boolean; planUsers: ActiveUser[];
+  togglePlanRow: (id: string) => void;
+}) {
+  return (
+    <>
+      <tr
+        onClick={() => !empty && togglePlanRow(row.plan.id)}
+        style={{ cursor: empty ? 'default' : 'pointer', opacity: empty ? 0.55 : 1 }}
+        onMouseEnter={(e) => { if (!empty) (e.currentTarget as HTMLTableRowElement).style.background = 'var(--bg-secondary)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
+      >
+        <Td>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}>
+            <span style={{
+              fontSize: 10, color: 'var(--text-tertiary)',
+              display: 'inline-block', width: 12, transition: 'transform 0.15s',
+              transform: expanded ? 'rotate(90deg)' : 'none',
+              visibility: empty ? 'hidden' : 'visible',
+            }}>▸</span>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: PLAN_DOTS[row.plan.name] || 'var(--text-info)', flexShrink: 0 }} />
+            {row.plan.name}
+          </div>
+        </Td>
+        <Td align="right">{row.members}</Td>
+        <Td align="right">{fmtUSD(row.perUser, 0)}</Td>
+        <Td align="right">{fmtUSD(row.total, 0)}</Td>
+        <Td align="right">{row.share.toFixed(0)}%</Td>
+      </tr>
+      {expanded && !empty && (
+        <tr style={{ background: 'var(--bg-secondary)' }}>
+          <td colSpan={5} style={{ padding: 0, borderBottom: '0.5px solid var(--border-tertiary)' }}>
+            <UserBreakdown users={planUsers} planMonthlyCostPerUser={row.perUser} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
