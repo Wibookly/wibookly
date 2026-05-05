@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSearchParams } from "react-router-dom";
+import { QuotaBadge } from "@/components/app/QuotaBadge";
 
 interface Category {
   id: string;
