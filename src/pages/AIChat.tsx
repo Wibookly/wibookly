@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { QuotaBadge } from '@/components/app/QuotaBadge';
 
 interface Message {
   id: string;
@@ -321,11 +322,14 @@ export default function AIChat() {
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* Sidebar - Chat History */}
       <div className="w-64 border-r border-border bg-card/50 flex flex-col">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border space-y-2">
           <Button onClick={startNewChat} className="w-full gap-2" variant="outline">
             <Plus className="w-4 h-4" />
             New Chat
           </Button>
+          <div className="flex justify-center">
+            <QuotaBadge featureKey="ai_chat" label="Chat" />
+          </div>
         </div>
         
         <ScrollArea className="flex-1">
