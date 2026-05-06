@@ -8,6 +8,7 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
 
 import { useState, useEffect } from 'react';
