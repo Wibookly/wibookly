@@ -108,10 +108,11 @@ export default function EmailDraft() {
   const [exampleReply, setExampleReply] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
 
-  const [generatedDraft, setGeneratedDraft] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [exampleEditable, setExampleEditable] = useState(false);
+  const [savedExample, setSavedExample] = useState("");
 
   const [aiSettings, setAiSettings] = useState<AISettings>({
     writing_style: "professional",
