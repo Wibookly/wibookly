@@ -167,7 +167,7 @@ export default function AIDailyBrief() {
         body: JSON.stringify({
           force: true,
           userId: user.id,
-          briefType: currentHour < 14 ? 'morning' : 'evening',
+          briefType: new Date().getHours() < 14 ? 'morning' : 'evening',
         }),
       });
       const json = await res.json().catch(() => ({}));
