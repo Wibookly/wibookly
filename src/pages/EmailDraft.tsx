@@ -424,7 +424,7 @@ export default function EmailDraft() {
 
   const targetCategory = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
   const headerTitle = "AI Draft / Auto Reply Settings";
-  const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Customize AI label colors at the bottom of the page.";
+  const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Saving will generate and store one sample reply you can review or remove anytime.";
 
   return (
     <div className="min-h-full p-4 lg:p-6">
