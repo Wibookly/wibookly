@@ -678,7 +678,7 @@ export default function EmailDraft() {
                     </span>
                     {generatedDraft && (
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleCopy}>
+                        <Button variant="outline" size="sm" onClick={handleCopy} title="Copy">
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
@@ -686,16 +686,36 @@ export default function EmailDraft() {
                           size="sm"
                           onClick={handleGenerate}
                           disabled={isGenerating}
+                          title="Regenerate"
                         >
                           <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleClearSample(target === GLOBAL_TARGET ? null : target)
+                          }
+                          title="Delete saved sample"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     )}
                   </CardTitle>
-                  <CardDescription>
-                    {target === GLOBAL_TARGET
-                      ? "Preview of AI-generated reply using global default"
-                      : `Preview of AI-generated reply for ${targetCategory?.name}`}
+                  <CardDescription className="flex items-center gap-2">
+                    <span>
+                      {target === GLOBAL_TARGET
+                        ? "Saved AI sample for the global default"
+                        : `Saved AI sample for ${targetCategory?.name}`}
+                    </span>
+                    {generatedDraft && (
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        Saved
+                      </Badge>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -706,10 +726,7 @@ export default function EmailDraft() {
                   ) : (
                     <div className="rounded-lg border border-dashed border-accent/30 bg-gradient-to-br from-accent/5 to-transparent p-8 min-h-[300px] flex items-center justify-center text-muted-foreground">
                       <div className="text-center">
-                        <div className="p-3 rounded-full bg-accent/10 inline-block mb-3">
-                          <Sparkles className="h-8 w-8 text-accent/50" />
-                        </div>
-                        <p>Click "Preview Draft" to see a sample reply</p>
+                        <p className="text-sm">No sample yet — click <span className="font-medium text-foreground">Save</span> or <span className="font-medium text-foreground">Generate Sample</span> to create one.</p>
                       </div>
                     </div>
                   )}
