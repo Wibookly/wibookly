@@ -321,9 +321,7 @@ export default function EmailDraft() {
     }
   };
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    setGeneratedDraft("");
+  const generateSample = async (): Promise<string | null> => {
     try {
       const cat = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
       const { data, error } = await supabase.functions.invoke("draft-email", {
@@ -339,15 +337,62 @@ export default function EmailDraft() {
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
-        return;
+        return null;
       }
-      setGeneratedDraft(data.draft);
-      toast.success("Preview generated!");
+      return (data?.draft as string) || null;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to generate";
       toast.error(msg);
+      return null;
+    }
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    try {
+      const draft = await generateSample();
+      if (draft) {
+        setGeneratedDraft(draft);
+        await persistSample(draft);
+        toast.success("Sample generated and saved");
+      }
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const persistSample = async (draft: string) => {
+    if (!organization?.id || !activeConnection?.id) return;
+    if (target === GLOBAL_TARGET) {
+      if (aiSettingsId) {
+        await supabase
+          .from("ai_settings")
+          .update({ ai_generated_sample: draft } as never)
+          .eq("id", aiSettingsId);
+      } else {
+        const { data } = await supabase
+          .from("ai_settings")
+          .insert([
+            {
+              organization_id: organization.id,
+              connection_id: activeConnection.id,
+              writing_style: writingStyle,
+              ai_generated_sample: draft,
+            } as never,
+          ])
+          .select("id")
+          .single();
+        if (data?.id) setAiSettingsId(data.id);
+      }
+      setAiSettings((prev) => ({ ...prev, ai_generated_sample: draft }));
+    } else {
+      await supabase
+        .from("categories")
+        .update({ ai_generated_sample: draft } as never)
+        .eq("id", target);
+      setCategories((prev) =>
+        prev.map((c) => (c.id === target ? { ...c, ai_generated_sample: draft } : c))
+      );
     }
   };
 
