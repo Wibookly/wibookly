@@ -511,6 +511,8 @@ export default function AIDailyBrief() {
         </div>
       ) : null}
 
+      <PendingFromYesterdaySection connectionId={activeConnection?.id} />
+
 
       {isLoading ? (
         <div className="space-y-4">
