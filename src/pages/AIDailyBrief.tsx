@@ -30,6 +30,9 @@ import { cn } from '@/lib/utils';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 import { HelpDot } from '@/components/help/HelpDot';
+import { FeatureCard } from '@/components/ui/feature-card';
+import { StatCard } from '@/components/ui/stat-card';
+import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 
