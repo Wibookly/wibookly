@@ -44,9 +44,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return (localStorage.getItem(MODE_KEY) as Theme) || 'system';
   });
   const [colorTheme, setColorThemeState] = useState<ColorTheme>(() => {
-    if (typeof window === 'undefined') return 'ocean';
-    const saved = localStorage.getItem(COLOR_KEY) as ColorTheme | null;
-    return saved && COLOR_THEMES.some((t) => t.id === saved) ? saved : 'ocean';
+    if (typeof window === 'undefined') return 'aurora';
+    const saved = localStorage.getItem(COLOR_KEY) as string | null;
+    if (!saved) return 'aurora';
+    const mapped = (LEGACY_MAP[saved] ?? saved) as ColorTheme;
+    return COLOR_THEMES.some((t) => t.id === mapped) ? mapped : 'aurora';
   });
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() =>
     theme === 'system' ? getSystemTheme() : (theme as 'light' | 'dark')
