@@ -7,8 +7,6 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
-import { InboxIQLogo } from './InboxIQLogo';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 
 
@@ -107,7 +105,6 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
 
 export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
-  const orgLogoUrl = useOrganizationLogo(organization?.id);
   const location = useLocation();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
@@ -136,22 +133,13 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-5 pb-4 border-b border-border flex items-center gap-3">
-        {/* Two-tone EF mark */}
-        <svg viewBox="0 0 40 40" className="h-9 w-9 shrink-0" aria-label="EnergyForward">
-          <rect x="4" y="8"  width="14" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-          <rect x="4" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-          <rect x="4" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-navy))" />
-          <rect x="4" y="26" width="8"  height="3" rx="1" fill="hsl(var(--ef-navy))" />
-          <rect x="22" y="8"  width="14" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-          <rect x="22" y="14" width="10" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-          <rect x="22" y="20" width="12" height="3" rx="1" fill="hsl(var(--ef-sky))" />
-          <rect x="22" y="26" width="8"  height="3" rx="1" fill="hsl(var(--ef-sky))" />
-        </svg>
-        <div className="flex flex-col leading-tight min-w-0">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">EnergyForward</span>
-          <InboxIQLogo className="text-xl leading-none" />
-        </div>
+      <div className="px-4 pt-5 pb-4 border-b border-border">
+        <img
+          src={energyForwardLogo}
+          alt="EnergyForward"
+          className="h-12 w-auto max-w-full object-contain"
+          draggable={false}
+        />
       </div>
 
       {/* Active Email Selector */}
