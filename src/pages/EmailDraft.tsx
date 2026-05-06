@@ -365,7 +365,7 @@ export default function EmailDraft() {
         toast.error(data.error);
         return null;
       }
-      return (data?.draft as string) || null;
+      return stripSignature((data?.draft as string) || "") || null;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to generate";
       toast.error(msg);
