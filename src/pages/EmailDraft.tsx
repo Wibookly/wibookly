@@ -313,12 +313,13 @@ export default function EmailDraft() {
           example_reply_template: null,
           additional_context: null,
           format_style: null,
+          ai_generated_sample: null,
         } as never)
         .eq("id", target);
       setCategories((prev) =>
         prev.map((c) =>
           c.id === target
-            ? { ...c, example_reply_template: null, additional_context: null, format_style: null }
+            ? { ...c, example_reply_template: null, additional_context: null, format_style: null, ai_generated_sample: null }
             : c
         )
       );
@@ -326,6 +327,7 @@ export default function EmailDraft() {
       setExampleReply(aiSettings.example_reply_template || "");
       setAdditionalContext(aiSettings.additional_context || "");
       setFormatStyle(aiSettings.format_style || "concise");
+      setGeneratedDraft(aiSettings.ai_generated_sample || "");
       toast.success("Override removed — this category now uses the global default");
     } catch (e) {
       toast.error("Failed to reset");
