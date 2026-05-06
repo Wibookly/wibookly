@@ -1026,4 +1026,87 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
   );
 }
 
+// Surfaces overdue follow-ups (pending from yesterday or earlier) so they
+// jump the queue at the top of the brief.
+function PendingFromYesterdaySection({ connectionId }: { connectionId?: string }) {
+  const { hasFeature, loading: featLoading } = useFeatureAccess();
+
+  const { data: items } = useQuery({
+    queryKey: ['daily-brief-yesterday-pending', connectionId],
+    enabled: !!connectionId && !featLoading && hasFeature('feature.follow_up_reminder'),
+    staleTime: 2 * 60 * 1000,
+    queryFn: async (): Promise<PendingFollowUp[]> => {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from('follow_up_trackers')
+        .select('id, subject, to_recipients, sent_at, due_at, reminder_count, status')
+        .eq('connection_id', connectionId!)
+        .is('replied_at', null)
+        .in('status', ['pending', 'drafted', 'reminded'])
+        .lt('due_at', startOfToday.toISOString())
+        .order('due_at', { ascending: true })
+        .limit(15);
+      if (error) throw error;
+      return (data || []) as PendingFollowUp[];
+    },
+  });
+
+  if (!items || items.length === 0) return null;
+
+  const formatRecipients = (r: any): string => {
+    if (!r) return '';
+    const arr = Array.isArray(r) ? r : [];
+    const emails = arr
+      .map((x: any) => x?.emailAddress?.address || x?.address || x?.email || '')
+      .filter(Boolean);
+    if (!emails.length) return '';
+    return emails.length > 2 ? `${emails.slice(0, 2).join(', ')} +${emails.length - 2}` : emails.join(', ');
+  };
+
+  return (
+    <Card className="mb-6 border-amber-300 bg-amber-50/50 dark:bg-amber-950/20">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <History className="w-5 h-5 text-amber-600" />
+          Pending from Yesterday
+          <Badge variant="destructive" className="text-xs">{items.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {items.map((item) => {
+            const recipients = formatRecipients(item.to_recipients);
+            return (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 p-3 rounded-lg border border-l-4 border-l-destructive bg-background/70"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{item.subject || '(no subject)'}</p>
+                  {recipients && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">To: {recipients}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-1 text-xs">
+                    {item.sent_at && (
+                      <span className="text-muted-foreground inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Sent {formatDistanceToNow(new Date(item.sent_at), { addSuffix: true })}
+                      </span>
+                    )}
+                    {item.due_at && (
+                      <span className="font-medium text-destructive">
+                        Overdue {formatDistanceToNow(new Date(item.due_at), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
