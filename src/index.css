@@ -51,20 +51,20 @@
   }
 
   .dark {
-    --background: 218 64% 8%;
-    --foreground: 218 75% 95%;
-    --card: 217 51% 12%;
-    --card-foreground: 218 75% 95%;
-    --popover: 217 51% 12%;
-    --popover-foreground: 218 75% 95%;
-    --primary: 213 94% 68%;
-    --primary-foreground: 213 73% 15%;
-    --secondary: 217 49% 16%;
-    --secondary-foreground: 218 75% 95%;
-    --muted: 217 49% 16%;
-    --muted-foreground: 215 22% 64%;
-    --accent: 213 94% 68%;
-    --accent-foreground: 213 73% 15%;
+    --background: 222 47% 9%;
+    --foreground: 210 40% 98%;
+    --card: 222 44% 13%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 13%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 213 94% 72%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 19%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 19%;
+    --muted-foreground: 215 25% 78%;
+    --accent: 213 94% 72%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 73% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 217 41% 21%;
@@ -83,8 +83,8 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-size: 14.5px;
-    line-height: 1.55;
+    font-size: 15px;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-image:
@@ -93,11 +93,25 @@
     background-attachment: fixed;
     background-color: hsl(var(--background));
   }
+  /* Page + section headings: clean, modern SaaS sans (Geist/Inter) — not italic serif */
   h1, h2, h3, h4 {
-    font-family: var(--font-display);
-    font-style: italic;
-    letter-spacing: -0.015em;
-    font-weight: 500;
+    font-family: var(--font-sans);
+    font-style: normal;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+  h1 { font-size: 1.75rem; line-height: 1.2; }
+  h2 { font-size: 1.375rem; line-height: 1.3; }
+  h3 { font-size: 1.125rem; line-height: 1.35; }
+  h4 { font-size: 1rem; line-height: 1.4; }
+  /* Improve dark-mode contrast for body copy and "soft" gray text */
+  .dark p, .dark li, .dark td, .dark span:not([class*="text-"]) {
+    color: hsl(var(--foreground));
+  }
+  .dark .text-muted-foreground { color: hsl(215 25% 78%); }
+  .dark .text-slate-500, .dark .text-slate-600, .dark .text-gray-500, .dark .text-gray-600 {
+    color: hsl(215 25% 78%) !important;
   }
   code, kbd, .font-mono {
     font-family: var(--font-mono);
