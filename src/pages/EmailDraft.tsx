@@ -611,17 +611,99 @@ export default function EmailDraft() {
                     </Select>
                   </div>
 
-                  {/* Example Reply */}
+                  {/* AI Reply Template (was: Example Reply + Preview) */}
                   <div className="space-y-2">
-                    <Label>Example Reply Template</Label>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <Label className="flex items-center gap-2">
+                        AI Reply Template
+                        {generatedDraft && (
+                          <Badge variant="secondary" className="gap-1 text-[10px]">
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                            Saved
+                          </Badge>
+                        )}
+                      </Label>
+                      <div className="flex items-center gap-1">
+                        {exampleEditable ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2"
+                            onClick={async () => {
+                              setExampleEditable(false);
+                              if (exampleReply.trim()) {
+                                await persistSample(exampleReply);
+                                toast.success("Template saved");
+                              }
+                            }}
+                          >
+                            <Save className="h-3.5 w-3.5 mr-1" /> Save
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => setExampleEditable(true)}
+                            disabled={!generatedDraft}
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                          </Button>
+                        )}
+                        {generatedDraft && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={handleCopy}
+                              title="Copy"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={handleGenerate}
+                              disabled={isGenerating}
+                              title="Regenerate"
+                            >
+                              <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                              onClick={() => handleClearSample(target === GLOBAL_TARGET ? null : target)}
+                              title="Delete saved template"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                     <Textarea
                       value={exampleReply}
                       onChange={(e) => setExampleReply(e.target.value)}
-                      placeholder="Paste an example of how you want replies to look. The AI will use this as a reference for tone, structure, and formatting..."
-                      rows={6}
+                      onBlur={async () => {
+                        // Autosave on blur when in edit mode
+                        if (exampleEditable && exampleReply.trim()) {
+                          await persistSample(exampleReply);
+                        }
+                      }}
+                      readOnly={!exampleEditable && !!generatedDraft}
+                      placeholder={
+                        generatedDraft
+                          ? ""
+                          : "Click Generate Sample to create an AI reply template, or click Edit to write your own."
+                      }
+                      rows={10}
+                      className={!exampleEditable && generatedDraft ? "bg-muted/30" : ""}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Provide a sample reply that represents your preferred style. The AI will mimic this format.
+                      The AI uses this as the reference for tone, structure, and formatting on every reply in {target === GLOBAL_TARGET ? "all categories" : "this category"}. Generated automatically on Save and persisted — edit anytime.
                     </p>
                   </div>
 
