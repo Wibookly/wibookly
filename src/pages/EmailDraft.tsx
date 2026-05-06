@@ -778,6 +778,12 @@ export default function EmailDraft() {
                             />
                             <span className="font-medium text-sm truncate">{c.name}</span>
                             <Badge variant="secondary" className="text-xs">Custom</Badge>
+                            {c.ai_generated_sample && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                Sample saved
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button
