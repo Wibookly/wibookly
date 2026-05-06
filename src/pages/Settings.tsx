@@ -674,7 +674,7 @@ export default function Settings() {
               Re-run the guided setup wizard at any time, or toggle the in-app help icons.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -682,6 +682,16 @@ export default function Settings() {
             >
               Restart Setup Wizard
             </Button>
+            {profile?.email?.toLowerCase() === 'arahimi@energyforward.com' && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => window.location.assign('/settings/help')}
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                Edit Help & Support (AI)
+              </Button>
+            )}
           </div>
         </section>
 
