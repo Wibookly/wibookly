@@ -79,8 +79,9 @@ export function AppLayout() {
       {/* Desktop Sidebar */}
       <AppSidebar />
 
-      <div className="flex-1 flex flex-col min-h-0">
-        <main className="flex-1 overflow-auto relative">
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        <OceanWaves />
+        <main className="flex-1 overflow-auto relative z-10">
           <Outlet />
         </main>
       </div>
