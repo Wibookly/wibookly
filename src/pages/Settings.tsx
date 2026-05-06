@@ -263,6 +263,21 @@ export default function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, activeConnection?.id]);
 
+  // Auto-generate Responsibilities + Communication style the first time we
+  // have enough context (company OR title) and both fields are empty. This
+  // gives every new user pre-filled defaults they can immediately edit.
+  const autoGenAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (autoGenAttemptedRef.current) return;
+    if (!profile?.user_id) return;
+    const hasContext = !!(aboutMe.company || organization?.name || title);
+    const isEmpty = !aboutMe.responsibilities && !aboutMe.communication_style;
+    if (!hasContext || !isEmpty) return;
+    autoGenAttemptedRef.current = true;
+    generateProfileDefaults('both');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.user_id, aboutMe.company, aboutMe.responsibilities, aboutMe.communication_style, organization?.name, title]);
+
   const fetchAvailability = async () => {
     if (!activeConnection?.id || !profile?.user_id) return;
     
