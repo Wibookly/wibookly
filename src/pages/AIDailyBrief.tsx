@@ -915,6 +915,27 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
     (i) => i.due_at && new Date(i.due_at).getTime() < Date.now()
   ).length;
 
+  // Empty → render a slim one-line bar so it doesn't dominate the page.
+  if (!isLoading && (!items || items.length === 0)) {
+    return (
+      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2 rounded-md border bg-muted/30 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 min-w-0">
+          <BellRing className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+          <span className="truncate">
+            <span className="font-medium text-foreground">No Reply Tracker:</span>{' '}
+            All sent emails have replies. 🎉
+          </span>
+        </div>
+        <Link
+          to="/follow-up-reminder"
+          className="text-primary hover:underline inline-flex items-center gap-1 flex-shrink-0"
+        >
+          Settings <ExternalLink className="w-3 h-3" />
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <Card className="mb-6 border-primary/30">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -951,13 +972,9 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
       <CardContent className="pt-0">
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
-        ) : !items || items.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No emails awaiting a reply. 🎉
-          </p>
         ) : (
           <div className="space-y-2">
-            {items.map((item) => {
+            {(items || []).map((item) => {
               const overdue = item.due_at && new Date(item.due_at).getTime() < Date.now();
               const recipients = formatRecipients(item.to_recipients);
               return (
