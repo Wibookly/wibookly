@@ -336,6 +336,17 @@ export default function EmailDraft() {
     }
   };
 
+  // Strip HTML signature/blocks from generated draft so the template
+  // contains only the plain-text email body.
+  const stripSignature = (text: string): string => {
+    if (!text) return "";
+    const htmlIdx = text.indexOf("<");
+    let body = htmlIdx >= 0 ? text.slice(0, htmlIdx) : text;
+    // Remove trailing sign-offs that may precede a stripped signature
+    body = body.replace(/\n+\s*(Best regards|Kind regards|Regards|Sincerely|Thanks|Thank you|Cheers)[, ]*\s*$/i, "");
+    return body.trim();
+  };
+
   const generateSample = async (): Promise<string | null> => {
     try {
       const cat = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
