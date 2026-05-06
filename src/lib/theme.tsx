@@ -1,15 +1,17 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
-export type ColorTheme = 'ocean' | 'sunset' | 'forest' | 'cosmic' | 'mocha';
+export type ColorTheme = 'aurora' | 'sunset' | 'ocean' | 'cosmic' | 'pearl';
 
 export const COLOR_THEMES: { id: ColorTheme; name: string; subtitle: string; gradient: string }[] = [
-  { id: 'ocean',  name: 'Ocean Tide',   subtitle: 'Calm focus',         gradient: 'linear-gradient(135deg, #2563EB 0%, #06B6D4 50%, #8B5CF6 100%)' },
-  { id: 'sunset', name: 'Sunset Glow',  subtitle: 'Warm + inviting',    gradient: 'linear-gradient(135deg, #FACC15 0%, #EA580C 50%, #DB2777 100%)' },
-  { id: 'forest', name: 'Forest Calm',  subtitle: 'Grounded + natural', gradient: 'linear-gradient(135deg, #14532D 0%, #65A30D 50%, #EAB308 100%)' },
-  { id: 'cosmic', name: 'Cosmic Drift', subtitle: 'AI-forward',         gradient: 'linear-gradient(135deg, #6D28D9 0%, #D946EF 50%, #06B6D4 100%)' },
-  { id: 'mocha',  name: 'Mocha Cream',  subtitle: 'Cozy + refined',     gradient: 'linear-gradient(135deg, #92400E 0%, #EA580C 50%, #FACC15 100%)' },
+  { id: 'aurora', name: 'Aurora',  subtitle: 'Full rainbow',      gradient: 'conic-gradient(from 0deg, #FF6B9D, #FFA500, #FFE66D, #6BFF95, #6BCBFF, #B26BFF, #FF6BD9, #FF6B9D)' },
+  { id: 'sunset', name: 'Sunset',  subtitle: 'Warm rainbow',      gradient: 'linear-gradient(135deg, #FFE66D, #FFA500, #FF6B9D, #DC2626)' },
+  { id: 'ocean',  name: 'Ocean',   subtitle: 'Cool rainbow',      gradient: 'linear-gradient(135deg, #6BFF95, #6BCBFF, #B26BFF, #FF6BD9)' },
+  { id: 'cosmic', name: 'Cosmic',  subtitle: 'Vivid purple/cyan', gradient: 'linear-gradient(135deg, #B26BFF, #FF6BD9, #FF6B9D, #6BCBFF)' },
+  { id: 'pearl',  name: 'Pearl',   subtitle: 'Soft pastel',       gradient: 'linear-gradient(135deg, #FFA0BC, #FFD8A0, #A0FFD8, #B8A0FF)' },
 ];
+
+const LEGACY_MAP: Record<string, ColorTheme> = { forest: 'aurora', mocha: 'pearl' };
 
 interface ThemeContextValue {
   theme: Theme;
