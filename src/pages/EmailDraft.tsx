@@ -112,7 +112,11 @@ export default function EmailDraft() {
   const [isSaving, setIsSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [exampleEditable, setExampleEditable] = useState(false);
-  const [savedExample, setSavedExample] = useState("");
+  // The "AI Reply Template" textarea IS the generated draft. We keep
+  // a single source of truth (`exampleReply`) and alias the legacy
+  // generatedDraft setter so existing code paths keep working.
+  const generatedDraft = exampleReply;
+  const setGeneratedDraft = setExampleReply;
 
   const [aiSettings, setAiSettings] = useState<AISettings>({
     writing_style: "professional",
