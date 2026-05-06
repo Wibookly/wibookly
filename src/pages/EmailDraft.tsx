@@ -118,12 +118,11 @@ export default function EmailDraft() {
     format_style: "concise",
     example_reply_template: "",
     additional_context: "",
-    ai_draft_label_color: "#3B82F6",
-    ai_sent_label_color: "#F97316",
+    ai_generated_sample: "",
   });
   const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
-  const [savingColors, setSavingColors] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingClearSampleId, setPendingClearSampleId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!organization?.id || !activeConnection?.id) return;
