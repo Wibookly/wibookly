@@ -189,6 +189,7 @@ export default function EmailDraft() {
       setFormatStyle(aiSettings.format_style || "concise");
       setExampleReply(aiSettings.example_reply_template || "");
       setAdditionalContext(aiSettings.additional_context || "");
+      setGeneratedDraft(aiSettings.ai_generated_sample || "");
     } else {
       const cat = categories.find((c) => c.id === target);
       if (cat) {
@@ -196,9 +197,9 @@ export default function EmailDraft() {
         setFormatStyle(cat.format_style || aiSettings.format_style || "concise");
         setExampleReply(cat.example_reply_template || "");
         setAdditionalContext(cat.additional_context || "");
+        setGeneratedDraft(cat.ai_generated_sample || "");
       }
     }
-    setGeneratedDraft("");
   }, [target, categories, aiSettings]);
 
   const handleSave = async () => {
