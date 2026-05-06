@@ -766,72 +766,7 @@ export default function EmailDraft() {
                 </CardContent>
               </Card>
 
-              {/* Preview */}
-              <Card className="border-accent/20 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-accent/5 to-transparent rounded-t-lg">
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-accent/10">
-                        <Sparkles className="h-5 w-5 text-accent" />
-                      </div>
-                      Preview
-                    </span>
-                    {generatedDraft && (
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleCopy} title="Copy">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGenerate}
-                          disabled={isGenerating}
-                          title="Regenerate"
-                        >
-                          <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleClearSample(target === GLOBAL_TARGET ? null : target)
-                          }
-                          title="Delete saved sample"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2">
-                    <span>
-                      {target === GLOBAL_TARGET
-                        ? "Saved AI sample for the global default"
-                        : `Saved AI sample for ${targetCategory?.name}`}
-                    </span>
-                    {generatedDraft && (
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
-                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                        Saved
-                      </Badge>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {generatedDraft ? (
-                    <div className="rounded-lg border border-accent/20 bg-gradient-to-br from-accent/5 to-transparent p-4 min-h-[300px] whitespace-pre-wrap">
-                      {generatedDraft}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-accent/30 bg-gradient-to-br from-accent/5 to-transparent p-8 min-h-[300px] flex items-center justify-center text-muted-foreground">
-                      <div className="text-center">
-                        <p className="text-sm">No sample yet — click <span className="font-medium text-foreground">Save</span> or <span className="font-medium text-foreground">Generate Sample</span> to create one.</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Preview card removed — template now lives inline above */}
             </div>
 
             {/* AI Label Colors removed per request */}
