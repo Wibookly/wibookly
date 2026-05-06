@@ -433,7 +433,16 @@ export default function AIDailyBrief() {
             })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEmailMe}
+            disabled={isEmailing}
+          >
+            <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
+            {isEmailing ? 'Sending…' : 'Email me this brief'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
