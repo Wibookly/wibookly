@@ -85,6 +85,8 @@ const typeIcons = {
 
 export default function AIDailyBrief() {
   const { activeConnection } = useActiveEmail();
+  const { profile } = useAuth();
+  const firstName = (profile?.full_name || profile?.email || 'there').split(/[ @]/)[0];
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEmailing, setIsEmailing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
