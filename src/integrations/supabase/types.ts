@@ -1765,6 +1765,51 @@ export type Database = {
           },
         ]
       }
+      help_articles: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean
+          keywords: string[]
+          slug: string
+          sort_order: number
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          keywords?: string[]
+          slug: string
+          sort_order?: number
+          summary?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          keywords?: string[]
+          slug?: string
+          sort_order?: number
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           completed_at: string | null
@@ -3127,7 +3172,9 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
-      is_super_admin: { Args: { _email: string }; Returns: boolean }
+      is_super_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { _email: string }; Returns: boolean }
       match_email_messages: {
         Args: {
           match_count?: number
