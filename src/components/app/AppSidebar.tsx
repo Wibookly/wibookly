@@ -91,11 +91,12 @@ function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps)
     <NavLink
       to={href}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative',
-        isActive
-          ? 'bg-gradient-to-r from-ef-blue/[0.12] to-ef-blue/[0.04] text-ef-blue font-medium border-l-2 border-ef-blue dark:text-ef-sky dark:border-ef-sky'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all relative',
+        isActive ? 'iri-border' : 'hover:bg-muted'
       )}
+      style={isActive
+        ? { background: 'var(--surface-elevated)', color: 'var(--text)' }
+        : { color: 'var(--text-muted)' }}
     >
       <Icon className="w-4 h-4" />
       <span className="relative pb-1 flex-1">{children}</span>
