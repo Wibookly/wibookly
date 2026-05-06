@@ -51,24 +51,19 @@ interface NavSectionProps {
   colorClass?: string;
 }
 
-function NavSection({ title, icon: Icon, children, defaultOpen = false, colorClass = 'text-primary' }: NavSectionProps) {
+function NavSection({ title, icon: Icon, children, defaultOpen = true }: NavSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  
+
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/50 transition-colors group">
-        <div className="flex items-center gap-3">
-          <div className={cn("p-1.5 rounded-md bg-secondary/80", colorClass)}>
-            <Icon className="w-4 h-4" />
-          </div>
-          <span className={cn(
-            "text-foreground relative pb-1",
-            isOpen && "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-blue-500 after:rounded-full"
-          )}>{title}</span>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-3">
+      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 rounded-md text-overline transition-colors group" style={{ color: 'var(--text-subtle)' }}>
+        <div className="flex items-center gap-2">
+          <Icon className="w-3.5 h-3.5" />
+          <span>{title}</span>
         </div>
-        <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform group-hover:text-foreground", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isOpen && "rotate-180")} />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pl-4 space-y-0.5 mt-1 ml-3 border-l-2 border-border/50">
+      <CollapsibleContent className="space-y-0.5 mt-1">
         {children}
       </CollapsibleContent>
     </Collapsible>
@@ -82,24 +77,23 @@ interface NavItemProps {
   showUpgradeBadge?: boolean;
 }
 
-function NavItem({ href, icon: Icon, children, showUpgradeBadge }: NavItemProps) {
+function NavItem({ href, icon: Icon, children }: NavItemProps) {
   const location = useLocation();
   const currentUrl = location.pathname + location.search;
   const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
-  
+
   return (
     <NavLink
       to={href}
-      className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all relative',
-        isActive ? 'iri-border' : 'hover:bg-muted'
-      )}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-button transition-colors"
       style={isActive
-        ? { background: 'var(--surface-elevated)', color: 'var(--text)' }
-        : { color: 'var(--text-muted)' }}
+        ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }
+        : { color: 'var(--text-body)' }}
+      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--nav-hover-bg)'; }}
+      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
     >
-      <Icon className="w-4 h-4" />
-      <span className="relative pb-1 flex-1">{children}</span>
+      <Icon className="w-4 h-4 shrink-0" />
+      <span className="flex-1 truncate">{children}</span>
     </NavLink>
   );
 }
@@ -132,16 +126,16 @@ export function AppSidebar() {
   }, [organization?.id]);
 
   return (
-    <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-7 pb-5 border-b border-border flex flex-col items-center justify-center gap-2">
+    <aside className="hidden lg:flex w-72 h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-24 w-auto max-w-full object-contain"
+          className="h-16 w-auto max-w-full object-contain"
           draggable={false}
         />
-        <div className="font-sans font-bold tracking-tight text-2xl leading-none">
-          <span className="iri-text-shift">InboxIQ</span>
+        <div className="font-sans font-bold tracking-tight text-xl leading-none" style={{ color: 'var(--text)' }}>
+          InboxIQ
         </div>
       </div>
 
