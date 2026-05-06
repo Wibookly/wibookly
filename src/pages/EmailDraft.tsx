@@ -798,6 +798,18 @@ export default function EmailDraft() {
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            {c.ai_generated_sample && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                onClick={() => handleClearSample(c.id)}
+                                aria-label="Delete saved sample"
+                                title="Delete saved sample"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
