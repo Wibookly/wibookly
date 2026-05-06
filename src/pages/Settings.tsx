@@ -812,7 +812,7 @@ export default function Settings() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="aboutCompany" className="text-xs">Company</Label>
-                <Input id="aboutCompany" value={aboutMe.company} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input id="aboutCompany" value={aboutMe.company || organization?.name || ''} disabled className="bg-background/60 h-9" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="aboutDept" className="text-xs">Department</Label>
