@@ -103,3 +103,92 @@
     font-family: var(--font-mono);
   }
 }
+/* ============================================================
+   5-Palette Color Themes — overrides primary/accent/ring tokens
+   ============================================================ */
+@layer base {
+  /* Ocean (default — matches existing brand tokens) */
+  [data-theme="ocean"] {
+    --primary: 221 83% 53%;
+    --accent: 188 94% 43%;
+    --ring: 221 83% 53%;
+    --ef-blue: 221 83% 53%;
+    --ef-sky: 188 94% 56%;
+  }
+  [data-theme="ocean"].dark {
+    --primary: 213 94% 68%;
+    --accent: 188 94% 56%;
+    --ring: 213 94% 68%;
+  }
+
+  [data-theme="sunset"] {
+    --primary: 0 72% 51%;       /* #DC2626 */
+    --accent: 21 90% 48%;       /* #EA580C */
+    --ring: 0 72% 51%;
+    --ef-blue: 0 72% 51%;
+    --ef-sky: 21 90% 56%;
+  }
+  [data-theme="sunset"].dark {
+    --primary: 17 88% 60%;
+    --accent: 47 95% 53%;
+    --ring: 17 88% 60%;
+  }
+
+  [data-theme="forest"] {
+    --primary: 142 72% 29%;     /* #15803D */
+    --accent: 84 81% 35%;       /* #65A30D */
+    --ring: 142 72% 29%;
+    --ef-blue: 142 72% 29%;
+    --ef-sky: 84 81% 44%;
+  }
+  [data-theme="forest"].dark {
+    --primary: 142 69% 45%;
+    --accent: 84 81% 50%;
+    --ring: 142 69% 45%;
+  }
+
+  [data-theme="cosmic"] {
+    --primary: 263 70% 50%;     /* #6D28D9 */
+    --accent: 292 84% 61%;      /* #D946EF */
+    --ring: 263 70% 50%;
+    --ef-blue: 263 70% 50%;
+    --ef-sky: 292 84% 70%;
+  }
+  [data-theme="cosmic"].dark {
+    --primary: 270 95% 75%;
+    --accent: 292 84% 70%;
+    --ring: 270 95% 75%;
+  }
+
+  [data-theme="mocha"] {
+    --primary: 22 78% 31%;      /* #92400E */
+    --accent: 21 90% 48%;       /* #EA580C */
+    --ring: 22 78% 31%;
+    --ef-blue: 22 78% 31%;
+    --ef-sky: 21 90% 60%;
+  }
+  [data-theme="mocha"].dark {
+    --primary: 25 70% 55%;
+    --accent: 38 95% 55%;
+    --ring: 25 70% 55%;
+  }
+}
+
+/* ============================================================
+   Animated Ocean Waves background layer
+   ============================================================ */
+@layer utilities {
+  @keyframes wave-drift-1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(3%, -2%) scale(1.05); }
+  }
+  @keyframes wave-drift-2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-3%, 2%) scale(1.08); }
+  }
+  .ocean-waves-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .ocean-wave { position: absolute; border-radius: 9999px; filter: blur(80px); opacity: 0.5; }
+  .ocean-wave-1 { top: -10%; left: -10%; width: 60%; height: 60%; background: hsl(var(--primary) / 0.25); animation: wave-drift-1 18s ease-in-out infinite; }
+  .ocean-wave-2 { bottom: -10%; right: -10%; width: 55%; height: 55%; background: hsl(var(--accent) / 0.22); animation: wave-drift-2 22s ease-in-out infinite; }
+  .ocean-wave-3 { top: 30%; right: 10%; width: 35%; height: 35%; background: hsl(var(--primary) / 0.15); animation: wave-drift-1 26s ease-in-out infinite reverse; }
+}
