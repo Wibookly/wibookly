@@ -132,7 +132,7 @@ export default function EmailDraft() {
         supabase
           .from("categories")
           .select(
-            "id, name, color, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style"
+            "id, name, color, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style, ai_generated_sample"
           )
           .eq("organization_id", organization.id)
           .eq("connection_id", activeConnection.id)
