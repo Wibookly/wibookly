@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
+import { OceanWaves } from '@/components/theme/OceanWaves';
 
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
