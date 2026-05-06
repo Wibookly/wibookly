@@ -8,7 +8,7 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
-
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
 import { useState, useEffect } from 'react';
 import {
@@ -132,13 +132,17 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-5 pb-4 border-b border-border">
+      <div className="px-4 pt-6 pb-5 border-b border-border flex items-center justify-center">
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-12 w-auto max-w-full object-contain"
+          className="h-16 w-auto max-w-full object-contain"
           draggable={false}
         />
+      </div>
+
+      <div className="px-3 py-2 border-b border-border flex justify-center">
+        <ThemeSwitcher />
       </div>
 
       {/* Active Email Selector */}

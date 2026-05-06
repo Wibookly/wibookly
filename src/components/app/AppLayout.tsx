@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
+import { OceanWaves } from '@/components/theme/OceanWaves';
 
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
@@ -78,8 +79,9 @@ export function AppLayout() {
       {/* Desktop Sidebar */}
       <AppSidebar />
 
-      <div className="flex-1 flex flex-col min-h-0">
-        <main className="flex-1 overflow-auto relative">
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        <OceanWaves />
+        <main className="flex-1 overflow-auto relative z-10">
           <Outlet />
         </main>
       </div>
