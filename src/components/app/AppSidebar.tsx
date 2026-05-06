@@ -141,6 +141,10 @@ export function AppSidebar() {
         />
       </div>
 
+      <div className="px-3 py-2 border-b border-border flex justify-center">
+        <ThemeSwitcher />
+      </div>
+
       {/* Active Email Selector */}
       <div className="p-3 border-b border-border">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected Emails</h3>
