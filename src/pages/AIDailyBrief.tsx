@@ -20,7 +20,10 @@ import {
   Printer,
   Settings2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Send,
+  CalendarClock,
+  History,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
