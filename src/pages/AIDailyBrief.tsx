@@ -411,114 +411,140 @@ export default function AIDailyBrief() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6" ref={printRef}>
+    <div className="min-h-full p-4 lg:p-8 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-indigo-950/10" ref={printRef}>
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Sun className="w-6 h-6 text-amber-500" />
-            Good {timeOfDay}!
-            <HelpDot articleId="daily-brief" label="What is the Daily Brief? Open the guide." />
-          </h1>
-          <p className="text-muted-foreground">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEmailMe}
-            disabled={isEmailing}
-          >
-            <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
-            {isEmailing ? 'Sending…' : 'Email me this brief'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePrint('all')}
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoading || isRefreshing}
-          >
-            <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
-            Refresh
-          </Button>
+      {/* Executive Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-xl mb-6">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,white,transparent_60%)]" />
+        <div className="relative px-6 py-6 md:px-8 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-[0.2em] text-white/70 font-semibold mb-1">
+              Executive Daily Brief
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 flex-wrap">
+              <Sun className="w-7 h-7 text-amber-200 drop-shadow" />
+              Good {timeOfDay}!
+              <HelpDot articleId="daily-brief" label="What is the Daily Brief? Open the guide." />
+            </h1>
+            <p className="text-sm md:text-base text-white/85 mt-1">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+              {activeConnection?.email && (
+                <span className="ml-2 text-white/70">• {activeConnection.email}</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleEmailMe}
+              disabled={isEmailing}
+              className="bg-white/15 hover:bg-white/25 text-white border-white/30 backdrop-blur"
+            >
+              <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
+              {isEmailing ? 'Sending…' : 'Email me'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handlePrint('all')}
+              className="bg-white/15 hover:bg-white/25 text-white border-white/30 backdrop-blur"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
+              className="bg-white text-indigo-700 hover:bg-white/90 border-transparent shadow"
+            >
+              <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* AI Analysis moved above follow-ups */}
+      {/* SECTION 1 — AI Analysis (top of brief) */}
       {brief?.aiAnalysis && (
-        <Card className="mb-6 border-indigo-200 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-indigo-600" />
-              AI Analysis — What to do first
+        <Card className="mb-6 border-0 shadow-lg overflow-hidden ring-1 ring-indigo-200/60 dark:ring-indigo-900/40">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />
+          <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30">
+            <CardTitle className="text-lg flex items-center gap-3">
+              <span className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
+                <Lightbulb className="w-4 h-4" />
+              </span>
+              <span>
+                AI Analysis
+                <span className="ml-2 text-xs font-normal text-muted-foreground">— What to do first</span>
+              </span>
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={() => handlePrint('all')}>
               <Printer className="w-4 h-4" />
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-5">
             {brief.aiAnalysis.headline && (
-              <p className="text-sm font-semibold text-foreground">{brief.aiAnalysis.headline}</p>
+              <p className="text-sm md:text-base font-semibold text-foreground leading-relaxed">
+                {brief.aiAnalysis.headline}
+              </p>
             )}
             {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
               <ol className="space-y-2">
                 {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
-                  <li key={i} className="flex gap-3 p-3 bg-background/70 rounded-lg border border-indigo-100">
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                  <li key={i} className="flex gap-3 p-3 bg-card rounded-lg border border-indigo-100 dark:border-indigo-900/40 shadow-sm">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-sm font-bold flex items-center justify-center shadow">
                       {item.step ?? i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{item.action}</p>
                       {item.why && <p className="text-xs text-muted-foreground mt-0.5">{item.why}</p>}
                       {item.estimatedMinutes && (
-                        <p className="text-xs text-indigo-600 font-medium mt-1">⏱ ~{item.estimatedMinutes} min</p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">⏱ ~{item.estimatedMinutes} min</p>
                       )}
                     </div>
                   </li>
                 ))}
               </ol>
             )}
-            {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
-              <div className="p-3 bg-destructive/10 border-l-4 border-destructive rounded">
-                <p className="text-xs font-bold text-destructive uppercase mb-1">⚠️ At Risk</p>
-                <ul className="text-sm text-destructive list-disc pl-5 space-y-0.5">
-                  {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-            {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
-              <div className="p-3 bg-emerald-500/10 border-l-4 border-emerald-500 rounded">
-                <p className="text-xs font-bold text-emerald-700 uppercase mb-1">✨ Quick Wins</p>
-                <ul className="text-sm text-emerald-700 list-disc pl-5 space-y-0.5">
-                  {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              </div>
-            )}
+            <div className="grid gap-3 md:grid-cols-2">
+              {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg">
+                  <p className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> At Risk
+                  </p>
+                  <ul className="text-sm text-rose-900 dark:text-rose-200 list-disc pl-5 space-y-0.5">
+                    {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+              {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-lg">
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
+                  </p>
+                  <ul className="text-sm text-emerald-900 dark:text-emerald-200 list-disc pl-5 space-y-0.5">
+                    {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
 
+      {/* SECTION 2 — Pending from Yesterday (only if overdue exists) */}
       <PendingFromYesterdaySection connectionId={activeConnection?.id} />
-      <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -543,141 +569,14 @@ export default function AIDailyBrief() {
         </Card>
       ) : brief ? (
         <div className="space-y-6">
-          {/* Summary Card - hidden when there's nothing to summarise */}
-          {((brief.schedule && brief.schedule.length > 0) ||
-            (brief.emailHighlights && brief.emailHighlights.length > 0)) && (
-            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-              <CardContent className="pt-6">
-                {brief.greeting && <p className="text-lg">{brief.greeting}</p>}
-                {brief.summary && <p className="text-muted-foreground mt-1">{brief.summary}</p>}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Email Highlights - full width */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Mail className="w-5 h-5 text-purple-500" />
-                Email Highlights
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handlePrint('priorities')}>
-                <Printer className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[350px]">
-                <div className="space-y-2">
-                  {brief.emailHighlights && brief.emailHighlights.length > 0 ? (
-                    brief.emailHighlights.map((email, index) => {
-                      const urgency = email.urgency || 'medium';
-                      return (
-                        <div
-                          key={index}
-                          className="flex items-start gap-4 p-3 rounded-lg border transition-colors hover:bg-secondary/30"
-                          style={{
-                            borderLeftWidth: '4px',
-                            borderLeftColor: urgency === 'high' ? priorityColors.high :
-                                            urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                          }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge
-                                variant="outline"
-                                className="text-xs"
-                                style={getUrgencyStyle(urgency)}
-                              >
-                                {urgency}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">{email.from}</span>
-                            </div>
-                            <p className="font-medium truncate">{email.subject}</p>
-                            {email.preview && (
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                {email.preview}
-                              </p>
-                            )}
-                          </div>
-                          <Badge variant="secondary" className="flex-shrink-0">
-                            {email.action}
-                          </Badge>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">
-                      No email highlights for today
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Today's Schedule - full width, stacked below highlights */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-500" />
-                Today's Schedule
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handlePrint('calendar')}>
-                <Printer className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[350px]">
-                <div className="space-y-1">
-                  {(() => {
-                    const bookedItems = (brief.schedule || []).filter(item => {
-                      const type = (item.type || '').toLowerCase();
-                      const title = (item.title || '').toLowerCase();
-                      if (type === 'focus' || type === 'available' || type === 'free') return false;
-                      if (title.includes('available for focus') || title.includes('available')) return false;
-                      return true;
-                    });
-                    return bookedItems.length > 0 ? (
-                      bookedItems.map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex flex-col gap-1 p-3 rounded-lg hover:bg-secondary/30 border-l-2 border-primary/50"
-                        >
-                          <span className="text-xs font-mono text-primary font-medium uppercase tracking-wide">
-                            {item.time}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm break-words">{item.title}</p>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {item.description}
-                              </p>
-                            )}
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {item.type}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8">
-                        <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-muted-foreground text-sm">
-                          No meetings scheduled
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Priorities */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
+          {/* SECTION 3 — Today's Priorities (executive top focus) */}
+          <Card className="border-0 shadow-lg overflow-hidden ring-1 ring-amber-200/60 dark:ring-amber-900/40">
+            <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
+            <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+              <CardTitle className="text-lg flex items-center gap-3">
+                <span className="p-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
+                  <AlertTriangle className="w-4 h-4" />
+                </span>
                 Today's Priorities
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={() => handlePrint('todo')}>
@@ -685,7 +584,7 @@ export default function AIDailyBrief() {
                 To-Do List
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {brief.priorities && brief.priorities.length > 0 ? (
                   brief.priorities.map((priority, index) => {
@@ -693,32 +592,31 @@ export default function AIDailyBrief() {
                     return (
                       <div
                         key={index}
-                        className="p-4 rounded-lg border"
+                        className="p-4 rounded-xl border shadow-sm hover:shadow-md transition-shadow bg-card"
                         style={{
-                          backgroundColor: priority.urgency === 'high' ? `${priorityColors.high}10` :
-                                          priority.urgency === 'medium' ? `${priorityColors.medium}10` : `${priorityColors.low}10`,
-                          borderColor: priority.urgency === 'high' ? `${priorityColors.high}30` :
-                                       priority.urgency === 'medium' ? `${priorityColors.medium}30` : `${priorityColors.low}30`,
+                          borderLeftWidth: '4px',
+                          borderLeftColor: priority.urgency === 'high' ? priorityColors.high :
+                                          priority.urgency === 'medium' ? priorityColors.medium : priorityColors.low,
                         }}
                       >
                         <div className="flex items-start gap-3">
-                          <Icon 
-                            className="w-5 h-5 mt-0.5 flex-shrink-0" 
+                          <Icon
+                            className="w-5 h-5 mt-0.5 flex-shrink-0"
                             style={{ color: priority.urgency === 'high' ? priorityColors.high :
                                            priority.urgency === 'medium' ? priorityColors.medium : priorityColors.low }}
                           />
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{priority.title}</span>
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs"
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">{priority.title}</span>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase tracking-wide"
                                 style={getUrgencyStyle(priority.urgency)}
                               >
                                 {priority.urgency}
                               </Badge>
                             </div>
-                            <p className="text-sm mt-1 text-muted-foreground">{priority.description}</p>
+                            <p className="text-sm mt-1.5 text-muted-foreground leading-relaxed">{priority.description}</p>
                           </div>
                         </div>
                       </div>
@@ -733,127 +631,235 @@ export default function AIDailyBrief() {
             </CardContent>
           </Card>
 
-          {/* Suggestions */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-amber-500" />
-                Productivity Tips
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {brief.suggestions && brief.suggestions.length > 0 ? (
-                  brief.suggestions.map((suggestion, index) => {
-                    const text = typeof suggestion === 'string' 
-                      ? suggestion 
+          {/* SECTION 4 — Today's Schedule + Email Highlights side-by-side on large screens */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Today's Schedule */}
+            <Card className="border-0 shadow-lg overflow-hidden ring-1 ring-blue-200/60 dark:ring-blue-900/40">
+              <div className="h-1 bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500" />
+              <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/20 dark:to-blue-950/20">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md">
+                    <CalendarClock className="w-4 h-4" />
+                  </span>
+                  Today's Schedule
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => handlePrint('calendar')}>
+                  <Printer className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <ScrollArea className="h-[350px]">
+                  <div className="space-y-2">
+                    {(() => {
+                      const bookedItems = (brief.schedule || []).filter(item => {
+                        const type = (item.type || '').toLowerCase();
+                        const title = (item.title || '').toLowerCase();
+                        if (type === 'focus' || type === 'available' || type === 'free') return false;
+                        if (title.includes('available for focus') || title.includes('available')) return false;
+                        return true;
+                      });
+                      return bookedItems.length > 0 ? (
+                        bookedItems.map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex gap-3 p-3 rounded-lg bg-card border border-sky-100 dark:border-sky-900/40 hover:shadow-sm transition-shadow"
+                          >
+                            <div className="flex-shrink-0 w-16 text-center">
+                              <div className="text-xs font-mono font-bold text-sky-700 dark:text-sky-300 uppercase">
+                                {item.time}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0 border-l border-sky-200 dark:border-sky-800 pl-3">
+                              <p className="font-medium text-sm break-words">{item.title}</p>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {item.description}
+                                </p>
+                              )}
+                              <Badge variant="outline" className="text-[10px] mt-1 border-sky-200 text-sky-700 dark:text-sky-300">
+                                {item.type}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12">
+                          <Calendar className="w-12 h-12 text-sky-300 mx-auto mb-3" />
+                          <p className="text-muted-foreground text-sm font-medium">
+                            No meetings scheduled
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            A clear day for focused work.
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Email Highlights */}
+            <Card className="border-0 shadow-lg overflow-hidden ring-1 ring-purple-200/60 dark:ring-purple-900/40">
+              <div className="h-1 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-violet-500" />
+              <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-fuchsia-50 to-purple-50 dark:from-fuchsia-950/20 dark:to-purple-950/20">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white shadow-md">
+                    <Mail className="w-4 h-4" />
+                  </span>
+                  Email Highlights
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => handlePrint('priorities')}>
+                  <Printer className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <ScrollArea className="h-[350px]">
+                  <div className="space-y-2">
+                    {brief.emailHighlights && brief.emailHighlights.length > 0 ? (
+                      brief.emailHighlights.map((email, index) => {
+                        const urgency = email.urgency || 'medium';
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-start gap-3 p-3 rounded-lg bg-card border hover:shadow-sm transition-shadow"
+                            style={{
+                              borderLeftWidth: '4px',
+                              borderLeftColor: urgency === 'high' ? priorityColors.high :
+                                              urgency === 'medium' ? priorityColors.medium : priorityColors.low
+                            }}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] uppercase"
+                                  style={getUrgencyStyle(urgency)}
+                                >
+                                  {urgency}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground truncate">{email.from}</span>
+                              </div>
+                              <p className="font-medium text-sm truncate">{email.subject}</p>
+                              {email.preview && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                  {email.preview}
+                                </p>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="flex-shrink-0 text-[10px]">
+                              {email.action}
+                            </Badge>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-12">
+                        <Mail className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                        <p className="text-muted-foreground text-sm">No email highlights for today</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SECTION 5 — No Reply Tracker (slim if empty) */}
+          <PendingFollowUpsSection connectionId={activeConnection?.id} />
+
+          {/* Optional summary line */}
+          {((brief.schedule && brief.schedule.length > 0) ||
+            (brief.emailHighlights && brief.emailHighlights.length > 0)) &&
+            (brief.greeting || brief.summary) && (
+            <Card className="border-0 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-900/60">
+              <CardContent className="py-4">
+                {brief.greeting && <p className="text-sm font-medium">{brief.greeting}</p>}
+                {brief.summary && <p className="text-xs text-muted-foreground mt-1">{brief.summary}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* SECTION 6 — Productivity Tips */}
+          {brief.suggestions && brief.suggestions.length > 0 && (
+            <Card className="border-0 shadow-md overflow-hidden ring-1 ring-emerald-200/60 dark:ring-emerald-900/40">
+              <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+              <CardHeader className="pb-3 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+                <CardTitle className="text-base flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
+                    <Lightbulb className="w-4 h-4" />
+                  </span>
+                  Productivity Tips
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {brief.suggestions.map((suggestion, index) => {
+                    const text = typeof suggestion === 'string'
+                      ? suggestion
                       : (suggestion as { suggestion?: string })?.suggestion || JSON.stringify(suggestion);
                     return (
                       <div
                         key={index}
-                        className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-sm"
+                        className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 text-sm text-emerald-900 dark:text-emerald-100"
                       >
                         {text}
                       </div>
                     );
-                  })
-                ) : (
-                  <p className="text-muted-foreground col-span-full text-center py-4">
-                    No suggestions available
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Daily Brief Schedule */}
           <DailyBriefSchedule />
 
           {/* Settings Section */}
           <Card>
-            <CardHeader 
+            <CardHeader
               className="pb-3 cursor-pointer"
               onClick={() => setShowSettings(!showSettings)}
             >
-              <CardTitle className="text-lg flex items-center justify-between">
+              <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <Settings2 className="w-5 h-5 text-muted-foreground" />
+                  <Settings2 className="w-4 h-4 text-muted-foreground" />
                   Priority Color Settings
                 </span>
-                {showSettings ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </CardTitle>
             </CardHeader>
             {showSettings && (
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-5 h-5 rounded-full border-2" 
-                        style={{ backgroundColor: priorityColors.high, borderColor: priorityColors.high }}
-                      />
-                      <span className="text-sm font-medium">High Priority</span>
+                  {(['high', 'medium', 'low'] as const).map((level) => (
+                    <div key={level} className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-5 h-5 rounded-full border-2"
+                          style={{ backgroundColor: priorityColors[level], borderColor: priorityColors[level] }}
+                        />
+                        <span className="text-sm font-medium capitalize">{level} Priority</span>
+                      </div>
+                      <label className="relative cursor-pointer">
+                        <input
+                          type="color"
+                          value={priorityColors[level]}
+                          onChange={(e) => setPriorityColors(prev => ({ ...prev, [level]: e.target.value }))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div
+                          className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
+                          style={{ backgroundColor: priorityColors[level] }}
+                        />
+                      </label>
                     </div>
-                    <label className="relative cursor-pointer">
-                      <input
-                        type="color"
-                        value={priorityColors.high}
-                        onChange={(e) => setPriorityColors(prev => ({ ...prev, high: e.target.value }))}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div 
-                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
-                        style={{ backgroundColor: priorityColors.high }}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-5 h-5 rounded-full border-2" 
-                        style={{ backgroundColor: priorityColors.medium, borderColor: priorityColors.medium }}
-                      />
-                      <span className="text-sm font-medium">Medium Priority</span>
-                    </div>
-                    <label className="relative cursor-pointer">
-                      <input
-                        type="color"
-                        value={priorityColors.medium}
-                        onChange={(e) => setPriorityColors(prev => ({ ...prev, medium: e.target.value }))}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div 
-                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
-                        style={{ backgroundColor: priorityColors.medium }}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-5 h-5 rounded-full border-2" 
-                        style={{ backgroundColor: priorityColors.low, borderColor: priorityColors.low }}
-                      />
-                      <span className="text-sm font-medium">Low Priority</span>
-                    </div>
-                    <label className="relative cursor-pointer">
-                      <input
-                        type="color"
-                        value={priorityColors.low}
-                        onChange={(e) => setPriorityColors(prev => ({ ...prev, low: e.target.value }))}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div 
-                        className="w-10 h-8 rounded-md border-2 border-border shadow-sm transition-all hover:scale-105"
-                        style={{ backgroundColor: priorityColors.low }}
-                      />
-                    </label>
-                  </div>
+                  ))}
                 </div>
                 <Separator className="my-4" />
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setPriorityColors({ high: '#ef4444', medium: '#f59e0b', low: '#10b981' })}
                   >
