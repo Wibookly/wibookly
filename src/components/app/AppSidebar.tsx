@@ -126,16 +126,16 @@ export function AppSidebar() {
   }, [organization?.id]);
 
   return (
-    <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-7 pb-5 border-b border-border flex flex-col items-center justify-center gap-2">
+    <aside className="hidden lg:flex w-72 h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-24 w-auto max-w-full object-contain"
+          className="h-16 w-auto max-w-full object-contain"
           draggable={false}
         />
-        <div className="font-sans font-bold tracking-tight text-2xl leading-none">
-          <span className="iri-text-shift">InboxIQ</span>
+        <div className="font-sans font-bold tracking-tight text-xl leading-none" style={{ color: 'var(--text)' }}>
+          InboxIQ
         </div>
       </div>
 
