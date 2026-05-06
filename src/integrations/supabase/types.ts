@@ -367,6 +367,7 @@ export type Database = {
           additional_context: string | null
           ai_calendar_event_color: string | null
           ai_draft_label_color: string | null
+          ai_generated_sample: string | null
           ai_sent_label_color: string | null
           connection_id: string | null
           created_at: string
@@ -381,6 +382,7 @@ export type Database = {
           additional_context?: string | null
           ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
+          ai_generated_sample?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
           created_at?: string
@@ -395,6 +397,7 @@ export type Database = {
           additional_context?: string | null
           ai_calendar_event_color?: string | null
           ai_draft_label_color?: string | null
+          ai_generated_sample?: string | null
           ai_sent_label_color?: string | null
           connection_id?: string | null
           created_at?: string
@@ -834,6 +837,7 @@ export type Database = {
         Row: {
           additional_context: string | null
           ai_draft_enabled: boolean
+          ai_generated_sample: string | null
           auto_reply_enabled: boolean
           color: string
           connection_id: string | null
@@ -855,6 +859,7 @@ export type Database = {
         Insert: {
           additional_context?: string | null
           ai_draft_enabled?: boolean
+          ai_generated_sample?: string | null
           auto_reply_enabled?: boolean
           color?: string
           connection_id?: string | null
@@ -876,6 +881,7 @@ export type Database = {
         Update: {
           additional_context?: string | null
           ai_draft_enabled?: boolean
+          ai_generated_sample?: string | null
           auto_reply_enabled?: boolean
           color?: string
           connection_id?: string | null
@@ -3035,6 +3041,7 @@ export type Database = {
         Returns: {
           additional_context: string | null
           ai_draft_enabled: boolean
+          ai_generated_sample: string | null
           auto_reply_enabled: boolean
           color: string
           connection_id: string | null

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Palette, Globe, Tag, Pencil, X } from "lucide-react";
+import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Globe, Tag, Pencil, X, CheckCircle2, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,7 @@ interface Category {
   example_reply_template: string | null;
   additional_context: string | null;
   format_style: string | null;
+  ai_generated_sample: string | null;
 }
 
 interface AISettings {
@@ -42,8 +43,7 @@ interface AISettings {
   format_style: string;
   example_reply_template: string;
   additional_context: string;
-  ai_draft_label_color: string;
-  ai_sent_label_color: string;
+  ai_generated_sample: string;
 }
 
 const GLOBAL_TARGET = "__global__";
@@ -118,12 +118,11 @@ export default function EmailDraft() {
     format_style: "concise",
     example_reply_template: "",
     additional_context: "",
-    ai_draft_label_color: "#3B82F6",
-    ai_sent_label_color: "#F97316",
+    ai_generated_sample: "",
   });
   const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
-  const [savingColors, setSavingColors] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  
 
   const fetchAll = useCallback(async () => {
     if (!organization?.id || !activeConnection?.id) return;
@@ -133,7 +132,7 @@ export default function EmailDraft() {
         supabase
           .from("categories")
           .select(
-            "id, name, color, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style"
+            "id, name, color, writing_style, sort_order, ai_draft_enabled, auto_reply_enabled, example_reply_template, additional_context, format_style, ai_generated_sample"
           )
           .eq("organization_id", organization.id)
           .eq("connection_id", activeConnection.id)
@@ -156,8 +155,7 @@ export default function EmailDraft() {
         format_style: (aiRow.format_style as string) || "concise",
         example_reply_template: (aiRow.example_reply_template as string) || "",
         additional_context: (aiRow.additional_context as string) || "",
-        ai_draft_label_color: (aiRow.ai_draft_label_color as string) || "#3B82F6",
-        ai_sent_label_color: (aiRow.ai_sent_label_color as string) || "#F97316",
+        ai_generated_sample: (aiRow.ai_generated_sample as string) || "",
       };
       setAiSettings(nextAi);
       setAiSettingsId((aiRow.id as string) || null);
@@ -191,6 +189,7 @@ export default function EmailDraft() {
       setFormatStyle(aiSettings.format_style || "concise");
       setExampleReply(aiSettings.example_reply_template || "");
       setAdditionalContext(aiSettings.additional_context || "");
+      setGeneratedDraft(aiSettings.ai_generated_sample || "");
     } else {
       const cat = categories.find((c) => c.id === target);
       if (cat) {
@@ -198,9 +197,9 @@ export default function EmailDraft() {
         setFormatStyle(cat.format_style || aiSettings.format_style || "concise");
         setExampleReply(cat.example_reply_template || "");
         setAdditionalContext(cat.additional_context || "");
+        setGeneratedDraft(cat.ai_generated_sample || "");
       }
     }
-    setGeneratedDraft("");
   }, [target, categories, aiSettings]);
 
   const handleSave = async () => {
@@ -286,7 +285,20 @@ export default function EmailDraft() {
     } catch (e) {
       console.error(e);
       toast.error("Failed to save settings");
+      setIsSaving(false);
+      return;
+    }
+    // Auto-generate and persist a sample reply for this target
+    setIsGenerating(true);
+    try {
+      const draft = await generateSample();
+      if (draft) {
+        setGeneratedDraft(draft);
+        await persistSample(draft);
+        toast.success("Sample reply generated & saved");
+      }
     } finally {
+      setIsGenerating(false);
       setIsSaving(false);
     }
   };
@@ -301,12 +313,13 @@ export default function EmailDraft() {
           example_reply_template: null,
           additional_context: null,
           format_style: null,
+          ai_generated_sample: null,
         } as never)
         .eq("id", target);
       setCategories((prev) =>
         prev.map((c) =>
           c.id === target
-            ? { ...c, example_reply_template: null, additional_context: null, format_style: null }
+            ? { ...c, example_reply_template: null, additional_context: null, format_style: null, ai_generated_sample: null }
             : c
         )
       );
@@ -314,6 +327,7 @@ export default function EmailDraft() {
       setExampleReply(aiSettings.example_reply_template || "");
       setAdditionalContext(aiSettings.additional_context || "");
       setFormatStyle(aiSettings.format_style || "concise");
+      setGeneratedDraft(aiSettings.ai_generated_sample || "");
       toast.success("Override removed — this category now uses the global default");
     } catch (e) {
       toast.error("Failed to reset");
@@ -322,9 +336,7 @@ export default function EmailDraft() {
     }
   };
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    setGeneratedDraft("");
+  const generateSample = async (): Promise<string | null> => {
     try {
       const cat = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
       const { data, error } = await supabase.functions.invoke("draft-email", {
@@ -340,15 +352,62 @@ export default function EmailDraft() {
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
-        return;
+        return null;
       }
-      setGeneratedDraft(data.draft);
-      toast.success("Preview generated!");
+      return (data?.draft as string) || null;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to generate";
       toast.error(msg);
+      return null;
+    }
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    try {
+      const draft = await generateSample();
+      if (draft) {
+        setGeneratedDraft(draft);
+        await persistSample(draft);
+        toast.success("Sample generated and saved");
+      }
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const persistSample = async (draft: string) => {
+    if (!organization?.id || !activeConnection?.id) return;
+    if (target === GLOBAL_TARGET) {
+      if (aiSettingsId) {
+        await supabase
+          .from("ai_settings")
+          .update({ ai_generated_sample: draft } as never)
+          .eq("id", aiSettingsId);
+      } else {
+        const { data } = await supabase
+          .from("ai_settings")
+          .insert([
+            {
+              organization_id: organization.id,
+              connection_id: activeConnection.id,
+              writing_style: writingStyle,
+              ai_generated_sample: draft,
+            } as never,
+          ])
+          .select("id")
+          .single();
+        if (data?.id) setAiSettingsId(data.id);
+      }
+      setAiSettings((prev) => ({ ...prev, ai_generated_sample: draft }));
+    } else {
+      await supabase
+        .from("categories")
+        .update({ ai_generated_sample: draft } as never)
+        .eq("id", target);
+      setCategories((prev) =>
+        prev.map((c) => (c.id === target ? { ...c, ai_generated_sample: draft } : c))
+      );
     }
   };
 
@@ -357,36 +416,30 @@ export default function EmailDraft() {
     toast.success("Copied to clipboard!");
   };
 
-  const saveAILabelColors = async () => {
+  const handleClearSample = async (categoryId: string | null) => {
     if (!organization?.id || !activeConnection?.id) return;
-    setSavingColors(true);
     try {
-      const payload = {
-        ai_draft_label_color: aiSettings.ai_draft_label_color,
-        ai_sent_label_color: aiSettings.ai_sent_label_color,
-      } as Record<string, unknown>;
-      if (aiSettingsId) {
-        await supabase.from("ai_settings").update(payload).eq("id", aiSettingsId);
+      if (categoryId === null) {
+        if (aiSettingsId) {
+          await supabase
+            .from("ai_settings")
+            .update({ ai_generated_sample: null } as never)
+            .eq("id", aiSettingsId);
+        }
+        setAiSettings((prev) => ({ ...prev, ai_generated_sample: "" }));
       } else {
-        const { data } = await supabase
-          .from("ai_settings")
-          .insert([
-            {
-              organization_id: organization.id,
-              connection_id: activeConnection.id,
-              writing_style: "professional",
-              ...payload,
-            } as never,
-          ])
-          .select("id")
-          .single();
-        if (data?.id) setAiSettingsId(data.id);
+        await supabase
+          .from("categories")
+          .update({ ai_generated_sample: null } as never)
+          .eq("id", categoryId);
+        setCategories((prev) =>
+          prev.map((c) => (c.id === categoryId ? { ...c, ai_generated_sample: null } : c))
+        );
       }
-      toast.success("AI label colors saved!");
+      if (target === (categoryId ?? GLOBAL_TARGET)) setGeneratedDraft("");
+      toast.success("Saved sample removed");
     } catch (e) {
-      toast.error("Failed to save label colors");
-    } finally {
-      setSavingColors(false);
+      toast.error("Failed to remove sample");
     }
   };
 
@@ -432,7 +485,7 @@ export default function EmailDraft() {
 
   const targetCategory = target === GLOBAL_TARGET ? null : categories.find((c) => c.id === target);
   const headerTitle = "AI Draft / Auto Reply Settings";
-  const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Customize AI label colors at the bottom of the page.";
+  const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Saving will generate and store one sample reply you can review or remove anytime.";
 
   return (
     <div className="min-h-full p-4 lg:p-6">
@@ -607,7 +660,7 @@ export default function EmailDraft() {
                       ) : (
                         <>
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Preview Draft
+                          Generate Sample
                         </>
                       )}
                     </Button>
@@ -627,7 +680,7 @@ export default function EmailDraft() {
                     </span>
                     {generatedDraft && (
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleCopy}>
+                        <Button variant="outline" size="sm" onClick={handleCopy} title="Copy">
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
@@ -635,16 +688,36 @@ export default function EmailDraft() {
                           size="sm"
                           onClick={handleGenerate}
                           disabled={isGenerating}
+                          title="Regenerate"
                         >
                           <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleClearSample(target === GLOBAL_TARGET ? null : target)
+                          }
+                          title="Delete saved sample"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     )}
                   </CardTitle>
-                  <CardDescription>
-                    {target === GLOBAL_TARGET
-                      ? "Preview of AI-generated reply using global default"
-                      : `Preview of AI-generated reply for ${targetCategory?.name}`}
+                  <CardDescription className="flex items-center gap-2">
+                    <span>
+                      {target === GLOBAL_TARGET
+                        ? "Saved AI sample for the global default"
+                        : `Saved AI sample for ${targetCategory?.name}`}
+                    </span>
+                    {generatedDraft && (
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        Saved
+                      </Badge>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -655,10 +728,7 @@ export default function EmailDraft() {
                   ) : (
                     <div className="rounded-lg border border-dashed border-accent/30 bg-gradient-to-br from-accent/5 to-transparent p-8 min-h-[300px] flex items-center justify-center text-muted-foreground">
                       <div className="text-center">
-                        <div className="p-3 rounded-full bg-accent/10 inline-block mb-3">
-                          <Sparkles className="h-8 w-8 text-accent/50" />
-                        </div>
-                        <p>Click "Preview Draft" to see a sample reply</p>
+                        <p className="text-sm">No sample yet — click <span className="font-medium text-foreground">Save</span> or <span className="font-medium text-foreground">Generate Sample</span> to create one.</p>
                       </div>
                     </div>
                   )}
@@ -666,79 +736,7 @@ export default function EmailDraft() {
               </Card>
             </div>
 
-            {/* AI Label Colors — compact card placed between settings and overrides */}
-            <Card className="border-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Palette className="h-4 w-4 text-purple-500" />
-                  AI Label Colors
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Choose colors for AI-processed email labels in your inbox.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="aiDraftColor" className="text-sm">AI Draft</Label>
-                      <p className="text-[11px] text-muted-foreground truncate">Drafts AI created for review</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div
-                        className="w-7 h-7 rounded-md border border-border shadow-sm cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: aiSettings.ai_draft_label_color }}
-                      >
-                        <input
-                          type="color"
-                          id="aiDraftColor"
-                          value={aiSettings.ai_draft_label_color}
-                          onChange={(e) =>
-                            setAiSettings((prev) => ({ ...prev, ai_draft_label_color: e.target.value }))
-                          }
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {aiSettings.ai_draft_label_color}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="aiSentColor" className="text-sm">AI Auto-Reply</Label>
-                      <p className="text-[11px] text-muted-foreground truncate">Emails AI replied to automatically</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div
-                        className="w-7 h-7 rounded-md border border-border shadow-sm cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: aiSettings.ai_sent_label_color }}
-                      >
-                        <input
-                          type="color"
-                          id="aiSentColor"
-                          value={aiSettings.ai_sent_label_color}
-                          onChange={(e) =>
-                            setAiSettings((prev) => ({ ...prev, ai_sent_label_color: e.target.value }))
-                          }
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {aiSettings.ai_sent_label_color}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <Button onClick={saveAILabelColors} disabled={savingColors} size="sm">
-                  {savingColors && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Colors
-                </Button>
-              </CardContent>
-            </Card>
+            {/* AI Label Colors removed per request */}
 
             {/* Per-category overrides — only shown when at least one custom override exists */}
             {hasCategoryOverrides && (
@@ -780,6 +778,12 @@ export default function EmailDraft() {
                             />
                             <span className="font-medium text-sm truncate">{c.name}</span>
                             <Badge variant="secondary" className="text-xs">Custom</Badge>
+                            {c.ai_generated_sample && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                Sample saved
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button
@@ -794,6 +798,18 @@ export default function EmailDraft() {
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            {c.ai_generated_sample && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                onClick={() => handleClearSample(c.id)}
+                                aria-label="Delete saved sample"
+                                title="Delete saved sample"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
