@@ -285,7 +285,20 @@ export default function EmailDraft() {
     } catch (e) {
       console.error(e);
       toast.error("Failed to save settings");
+      setIsSaving(false);
+      return;
+    }
+    // Auto-generate and persist a sample reply for this target
+    setIsGenerating(true);
+    try {
+      const draft = await generateSample();
+      if (draft) {
+        setGeneratedDraft(draft);
+        await persistSample(draft);
+        toast.success("Sample reply generated & saved");
+      }
     } finally {
+      setIsGenerating(false);
       setIsSaving(false);
     }
   };
