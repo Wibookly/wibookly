@@ -417,139 +417,101 @@ export default function AIDailyBrief() {
 
   return (
     <div className="min-h-full p-4 lg:p-8 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-indigo-950/10" ref={printRef}>
-      <div className="mb-4 flex justify-end">
+  return (
+    <div className="min-h-full p-4 lg:p-8" style={{ background: 'var(--bg)' }} ref={printRef}>
+      <div className="mb-4 flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
+          <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
+          {isEmailing ? 'Sending…' : 'Email me'}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => handlePrint('all')}>
+          <Printer className="w-4 h-4 mr-2" /> Print
+        </Button>
+        <Button size="sm" onClick={handleRefresh} disabled={isLoading || isRefreshing}>
+          <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
+          Refresh
+        </Button>
         <UserAvatarDropdown />
       </div>
 
-      {/* Executive Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-xl mb-6">
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,white,transparent_60%)]" />
-        <div className="relative px-6 py-6 md:px-8 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-xs uppercase tracking-[0.2em] text-white/70 font-semibold mb-1">
-              Executive Daily Brief
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2 flex-wrap">
-              <Sun className="w-7 h-7 text-amber-200 drop-shadow" />
-              Good {timeOfDay}!
-              <HelpDot articleId="daily-brief" label="What is the Daily Brief? Open the guide." />
-            </h1>
-            <p className="text-sm md:text-base text-white/85 mt-1">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-              {activeConnection?.email && (
-                <span className="ml-2 text-white/70">• {activeConnection.email}</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleEmailMe}
-              disabled={isEmailing}
-              className="bg-white/15 hover:bg-white/25 text-white border-white/30 backdrop-blur"
-            >
-              <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
-              {isEmailing ? 'Sending…' : 'Email me'}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handlePrint('all')}
-              className="bg-white/15 hover:bg-white/25 text-white border-white/30 backdrop-blur"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-              className="bg-white text-indigo-700 hover:bg-white/90 border-transparent shadow"
-            >
-              <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
-              Refresh
-            </Button>
-          </div>
+      {/* Vibrant FeatureCard — AI Analysis hero */}
+      {brief?.aiAnalysis ? (
+        <div className="mb-6">
+          <FeatureCard
+            eyebrow="AI Analysis · What to do first"
+            title={`Good ${timeOfDay}, ${firstName}`}
+          >
+            {brief.aiAnalysis.headline || brief.summary || 'Your daily brief is ready below.'}
+          </FeatureCard>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6">
+          <FeatureCard eyebrow="Daily Brief" title={`Good ${timeOfDay}, ${firstName}`}>
+            {brief?.summary || `Here's a snapshot of your day. Review priorities and email highlights below.`}
+          </FeatureCard>
+        </div>
+      )}
 
-      {/* SECTION 1 — AI Analysis (top of brief) */}
-      {brief?.aiAnalysis && (
-        <Card className="mb-6 border-0 shadow-lg overflow-hidden ring-1 ring-indigo-200/60 dark:ring-indigo-900/40">
-          <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />
-          <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30">
-            <CardTitle className="text-lg flex items-center gap-3">
-              <span className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
-                <Lightbulb className="w-4 h-4" />
-              </span>
-              <span>
-                AI Analysis
-                <span className="ml-2 text-xs font-normal text-muted-foreground">— What to do first</span>
-              </span>
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => handlePrint('all')}>
-              <Printer className="w-4 h-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-5">
-            {brief.aiAnalysis.headline && (
-              <p className="text-sm md:text-base font-semibold text-foreground leading-relaxed">
-                {brief.aiAnalysis.headline}
-              </p>
-            )}
-            {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
+      {/* 4-up StatCard grid */}
+      {brief && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard label="Priorities" value={String(brief.priorities?.length ?? 0)} />
+          <StatCard label="Meetings Today" value={String((brief.schedule || []).filter(s => {
+            const t = (s.type || '').toLowerCase();
+            return !(t === 'focus' || t === 'available' || t === 'free');
+          }).length)} />
+          <StatCard label="Email Highlights" value={String(brief.emailHighlights?.length ?? 0)} />
+          <StatCard label="Quick Wins" value={String(brief.aiAnalysis?.wins?.length ?? 0)} />
+        </div>
+      )}
+
+      {/* AI Analysis details (steps + risks/wins) */}
+      {brief?.aiAnalysis && (brief.aiAnalysis.whatToDoFirst?.length || brief.aiAnalysis.risks?.length || brief.aiAnalysis.wins?.length) ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
+            <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <h3 className="text-h6 mb-3" style={{ color: 'var(--text)' }}>What to do first</h3>
               <ol className="space-y-2">
                 {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
-                  <li key={i} className="flex gap-3 p-3 bg-card rounded-lg border border-indigo-100 dark:border-indigo-900/40 shadow-sm">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-sm font-bold flex items-center justify-center shadow">
+                  <li key={i} className="flex gap-3 p-3 rounded-xl" style={{ background: 'var(--surface-2)' }}>
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full text-white text-sm font-bold grid place-items-center" style={{ background: 'var(--c-blue)' }}>
                       {item.step ?? i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{item.action}</p>
-                      {item.why && <p className="text-xs text-muted-foreground mt-0.5">{item.why}</p>}
-                      {item.estimatedMinutes && (
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">⏱ ~{item.estimatedMinutes} min</p>
-                      )}
+                      <p className="text-button" style={{ color: 'var(--text)' }}>{item.action}</p>
+                      {item.why && <p className="text-caption mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.why}</p>}
+                      {item.estimatedMinutes && <p className="text-caption font-semibold mt-1" style={{ color: 'var(--c-blue)' }}>~{item.estimatedMinutes} min</p>}
                     </div>
                   </li>
                 ))}
               </ol>
-            )}
-            <div className="grid gap-3 md:grid-cols-2">
-              {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg">
-                  <p className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> At Risk
-                  </p>
-                  <ul className="text-sm text-rose-900 dark:text-rose-200 list-disc pl-5 space-y-0.5">
-                    {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
-                  </ul>
-                </div>
-              )}
-              {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-lg">
-                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
-                  </p>
-                  <ul className="text-sm text-emerald-900 dark:text-emerald-200 list-disc pl-5 space-y-0.5">
-                    {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+          <div className="space-y-4">
+            {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
+              <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
+                <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
+                  <AlertTriangle className="w-3.5 h-3.5" /> At Risk
+                </p>
+                <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                  {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+            {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
+              <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
+                <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
+                </p>
+                <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                  {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
-      {/* SECTION 2 — Pending from Yesterday (only if overdue exists) */}
-      <PendingFromYesterdaySection connectionId={activeConnection?.id} />
 
       {isLoading ? (
         <div className="space-y-4">
