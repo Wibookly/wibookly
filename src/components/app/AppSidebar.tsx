@@ -132,16 +132,21 @@ export function AppSidebar() {
 
   return (
     <aside className="hidden lg:flex w-80 h-screen sticky top-0 bg-card border-r border-border flex-col shrink-0">
-      <div className="px-4 pt-6 pb-5 border-b border-border flex items-center justify-center">
+      <div className="px-4 pt-7 pb-5 border-b border-border flex flex-col items-center justify-center gap-2">
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-16 w-auto max-w-full object-contain"
+          className="h-24 w-auto max-w-full object-contain"
           draggable={false}
         />
+        <div className="font-sans font-bold tracking-tight text-2xl leading-none">
+          <span className="bg-gradient-to-r from-ef-navy via-ef-blue to-ef-sky bg-clip-text text-transparent">
+            InboxIQ
+          </span>
+        </div>
       </div>
 
-      <div className="px-3 py-2 border-b border-border flex justify-center">
+      <div className="px-3 py-2.5 border-b border-border flex justify-center">
         <ThemeSwitcher />
       </div>
 

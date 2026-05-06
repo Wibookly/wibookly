@@ -27,6 +27,7 @@ import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 import Chat from "./pages/Chat";
 import ChatUpgrade from "./pages/ChatUpgrade";
+import HelpAdmin from "./pages/HelpAdmin";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
                   <Route path="/categories" element={<Categories />} />
                   <Route path="/sync" element={<Sync />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/help" element={<HelpAdmin />} />
                   <Route path="/email-draft" element={
                     <FeatureRoute featureKeys={['ai_draft', 'ai_auto_reply']}>
                       <EmailDraft />
