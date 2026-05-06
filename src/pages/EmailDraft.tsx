@@ -355,36 +355,30 @@ export default function EmailDraft() {
     toast.success("Copied to clipboard!");
   };
 
-  const saveAILabelColors = async () => {
+  const handleClearSample = async (categoryId: string | null) => {
     if (!organization?.id || !activeConnection?.id) return;
-    setSavingColors(true);
     try {
-      const payload = {
-        ai_draft_label_color: aiSettings.ai_draft_label_color,
-        ai_sent_label_color: aiSettings.ai_sent_label_color,
-      } as Record<string, unknown>;
-      if (aiSettingsId) {
-        await supabase.from("ai_settings").update(payload).eq("id", aiSettingsId);
+      if (categoryId === null) {
+        if (aiSettingsId) {
+          await supabase
+            .from("ai_settings")
+            .update({ ai_generated_sample: null } as never)
+            .eq("id", aiSettingsId);
+        }
+        setAiSettings((prev) => ({ ...prev, ai_generated_sample: "" }));
       } else {
-        const { data } = await supabase
-          .from("ai_settings")
-          .insert([
-            {
-              organization_id: organization.id,
-              connection_id: activeConnection.id,
-              writing_style: "professional",
-              ...payload,
-            } as never,
-          ])
-          .select("id")
-          .single();
-        if (data?.id) setAiSettingsId(data.id);
+        await supabase
+          .from("categories")
+          .update({ ai_generated_sample: null } as never)
+          .eq("id", categoryId);
+        setCategories((prev) =>
+          prev.map((c) => (c.id === categoryId ? { ...c, ai_generated_sample: null } : c))
+        );
       }
-      toast.success("AI label colors saved!");
+      if (target === (categoryId ?? GLOBAL_TARGET)) setGeneratedDraft("");
+      toast.success("Saved sample removed");
     } catch (e) {
-      toast.error("Failed to save label colors");
-    } finally {
-      setSavingColors(false);
+      toast.error("Failed to remove sample");
     }
   };
 
