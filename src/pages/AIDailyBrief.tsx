@@ -416,9 +416,8 @@ export default function AIDailyBrief() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-8 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-indigo-950/10" ref={printRef}>
-  return (
     <div className="min-h-full p-4 lg:p-8" style={{ background: 'var(--bg)' }} ref={printRef}>
+
       <div className="mb-4 flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
           <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
