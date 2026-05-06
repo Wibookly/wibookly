@@ -187,6 +187,11 @@ export default function Settings() {
     responsibilities: '',
     communication_style: '',
   });
+  // Edit-mode toggles for AI-generated profile blurbs (read-only by default
+  // so users don't accidentally change them; click "Edit" to unlock).
+  const [respEditable, setRespEditable] = useState(false);
+  const [styleEditable, setStyleEditable] = useState(false);
+  const [generatingDefaults, setGeneratingDefaults] = useState(false);
 
   // Load profile fields synced from Microsoft 365 + AI personalization
   useEffect(() => {
