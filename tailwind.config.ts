@@ -113,7 +113,15 @@ export default {
         'bounce': {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-4px)' }
-        }
+        },
+        shiftBg: {
+          '0%':   { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
+        rotate: {
+          '0%':   { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -121,7 +129,9 @@ export default {
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-in': 'slide-in 0.3s ease-out',
         'scale-in': 'scale-in 0.2s ease-out',
-        'bounce': 'bounce 0.4s ease-in-out'
+        'bounce': 'bounce 0.4s ease-in-out',
+        'shift-bg': 'shiftBg 6s linear infinite',
+        'rotate-slow': 'rotate 8s linear infinite',
       },
       boxShadow: {
         'xs': 'var(--shadow-xs)',
