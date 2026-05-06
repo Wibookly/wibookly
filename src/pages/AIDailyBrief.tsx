@@ -83,6 +83,7 @@ const typeIcons = {
 export default function AIDailyBrief() {
   const { activeConnection } = useActiveEmail();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isEmailing, setIsEmailing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   
