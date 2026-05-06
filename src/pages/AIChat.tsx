@@ -389,32 +389,40 @@ export default function AIChat() {
           <div className="max-w-3xl mx-auto space-y-4">
             {!activeConversationId && messages.length === 0 && !isStreaming ? (
               <div className="flex flex-col items-center justify-center h-full py-20">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <MessageSquare className="w-8 h-8 text-primary" />
+                <div
+                  className="w-20 h-20 rounded-2xl grid place-items-center mb-5 text-white text-h4 font-bold shadow-lg"
+                  style={{ background: 'var(--grad-feature-soft)' }}
+                >
+                  IQ
                 </div>
-                <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
-                <p className="text-muted-foreground text-center max-w-md mb-6">
-                  I have full access to your emails and calendar. Ask me to find emails, search for information, check your schedule, or help you manage your inbox.
+                <h2 className="text-h4 mb-2" style={{ color: 'var(--text)' }}>How can I help today?</h2>
+                <p className="text-body-2 text-center max-w-md mb-8" style={{ color: 'var(--text-muted)' }}>
+                  I have full access to your emails and calendar. Ask me anything.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-lg">
-                  <Card 
-                    className="cursor-pointer hover:bg-secondary/50 transition-colors"
-                    onClick={() => setInput('Show me emails from this week')}
-                  >
-                    <CardContent className="p-3 flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-primary" />
-                      <span className="text-sm">Show emails from this week</span>
-                    </CardContent>
-                  </Card>
-                  <Card 
-                    className="cursor-pointer hover:bg-secondary/50 transition-colors"
-                    onClick={() => setInput("What's on my calendar today?")}
-                  >
-                    <CardContent className="p-3 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="text-sm">What's on my calendar?</span>
-                    </CardContent>
-                  </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full px-4">
+                  {[
+                    { icon: Mail, title: 'Find emails', sub: 'Show emails from this week', q: 'Show me emails from this week' },
+                    { icon: Calendar, title: "Today's calendar", sub: "What's on my schedule?", q: "What's on my calendar today?" },
+                    { icon: MessageSquare, title: 'Summarize a thread', sub: 'Catch me up on the latest', q: 'Summarize my most recent important email thread' },
+                    { icon: Send, title: 'Draft a reply', sub: 'Help me respond quickly', q: 'Help me draft a polite follow-up reply' },
+                  ].map(({ icon: Icon, title, sub, q }) => (
+                    <button
+                      key={title}
+                      onClick={() => setInput(q)}
+                      className="text-left rounded-2xl p-4 transition-all hover:shadow-md"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--c-blue) 12%, transparent)' }}>
+                          <Icon className="w-4 h-4" style={{ color: 'var(--c-blue)' }} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-button" style={{ color: 'var(--text)' }}>{title}</div>
+                          <div className="text-caption mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
