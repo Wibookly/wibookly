@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Palette, Globe, Tag, Pencil, X } from "lucide-react";
+import { Loader2, Sparkles, Copy, RefreshCw, Save, Mail, Globe, Tag, Pencil, X, CheckCircle2, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
