@@ -404,24 +404,28 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
           <div className="space-y-1.5">
             <Label>Business days</Label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {DAY_LABELS.map((label, idx) => {
                 const active = settings.business_days.includes(idx);
                 return (
-                  <Button
+                  <button
                     key={idx}
                     type="button"
-                    variant={active ? 'default' : 'outline'}
-                    size="sm"
                     onClick={() => {
                       const next = active
                         ? settings.business_days.filter((d) => d !== idx)
                         : [...settings.business_days, idx].sort();
                       patch({ business_days: next });
                     }}
+                    className="w-12 h-12 rounded-full text-button transition-colors"
+                    style={
+                      active
+                        ? { background: 'var(--c-blue)', color: '#FFFFFF', border: '1px solid var(--c-blue)' }
+                        : { background: 'var(--surface)', color: 'var(--text-body)', border: '1px solid var(--border)' }
+                    }
                   >
                     {label}
-                  </Button>
+                  </button>
                 );
               })}
             </div>
