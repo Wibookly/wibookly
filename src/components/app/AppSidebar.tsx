@@ -10,6 +10,9 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
+      <div className="px-3 py-2 border-b border-border flex justify-center">
+        <ThemeSwitcher />
+      </div>
 
 import { useState, useEffect } from 'react';
 import {
