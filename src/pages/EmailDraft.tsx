@@ -658,7 +658,7 @@ export default function EmailDraft() {
                       ) : (
                         <>
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Preview Draft
+                          Generate Sample
                         </>
                       )}
                     </Button>
