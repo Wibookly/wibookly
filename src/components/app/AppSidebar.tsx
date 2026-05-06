@@ -8,7 +8,7 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
-import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { useState, useEffect } from 'react';
 import {
@@ -145,10 +145,6 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <div className="px-3 py-2.5 border-b border-border flex justify-center">
-        <ThemeSwitcher />
-      </div>
-
       {/* Active Email Selector */}
       <div className="p-3 border-b border-border">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected Emails</h3>
@@ -257,7 +253,8 @@ export function AppSidebar() {
         </nav>
       </div>
 
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border space-y-1">
+        <ModeToggle />
         <button
           onClick={signOut}
           className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
