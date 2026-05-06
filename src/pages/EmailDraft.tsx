@@ -35,6 +35,7 @@ interface Category {
   example_reply_template: string | null;
   additional_context: string | null;
   format_style: string | null;
+  ai_generated_sample: string | null;
 }
 
 interface AISettings {
@@ -42,8 +43,7 @@ interface AISettings {
   format_style: string;
   example_reply_template: string;
   additional_context: string;
-  ai_draft_label_color: string;
-  ai_sent_label_color: string;
+  ai_generated_sample: string;
 }
 
 const GLOBAL_TARGET = "__global__";
