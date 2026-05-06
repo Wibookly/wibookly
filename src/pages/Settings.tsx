@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2 } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2, Pencil, Check, Wand2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
