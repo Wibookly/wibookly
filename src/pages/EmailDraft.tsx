@@ -122,7 +122,7 @@ export default function EmailDraft() {
   });
   const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [pendingClearSampleId, setPendingClearSampleId] = useState<string | null>(null);
+  
 
   const fetchAll = useCallback(async () => {
     if (!organization?.id || !activeConnection?.id) return;
