@@ -517,6 +517,7 @@ export default function AIDailyBrief() {
         </Card>
       )}
 
+      <PendingFromYesterdaySection connectionId={activeConnection?.id} />
       <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
       {isLoading ? (
