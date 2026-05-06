@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2 } from 'lucide-react';
+import { Loader2, Save, Sparkles, Upload, X, Image as ImageIcon, Mail, Calendar, Clock, User2, Building2, Pencil, Check, Wand2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
@@ -187,6 +187,11 @@ export default function Settings() {
     responsibilities: '',
     communication_style: '',
   });
+  // Edit-mode toggles for AI-generated profile blurbs (read-only by default
+  // so users don't accidentally change them; click "Edit" to unlock).
+  const [respEditable, setRespEditable] = useState(false);
+  const [styleEditable, setStyleEditable] = useState(false);
+  const [generatingDefaults, setGeneratingDefaults] = useState(false);
 
   // Load profile fields synced from Microsoft 365 + AI personalization
   useEffect(() => {
@@ -258,6 +263,21 @@ export default function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, activeConnection?.id]);
 
+  // Auto-generate Responsibilities + Communication style the first time we
+  // have enough context (company OR title) and both fields are empty. This
+  // gives every new user pre-filled defaults they can immediately edit.
+  const autoGenAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (autoGenAttemptedRef.current) return;
+    if (!profile?.user_id) return;
+    const hasContext = !!(aboutMe.company || organization?.name || title);
+    const isEmpty = !aboutMe.responsibilities && !aboutMe.communication_style;
+    if (!hasContext || !isEmpty) return;
+    autoGenAttemptedRef.current = true;
+    generateProfileDefaults('both');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.user_id, aboutMe.company, aboutMe.responsibilities, aboutMe.communication_style, organization?.name, title]);
+
   const fetchAvailability = async () => {
     if (!activeConnection?.id || !profile?.user_id) return;
     
@@ -281,6 +301,61 @@ export default function Settings() {
         return defaultDay;
       });
       setAvailability(merged);
+    }
+  };
+
+  // Generate Responsibilities + Communication style via Lovable AI based on
+  // company + title + department. Persists immediately so the user sees the
+  // "auto-saved" behavior described in the request. `which` lets the caller
+  // regenerate just one field at a time without overwriting the other.
+  const generateProfileDefaults = async (
+    which: 'both' | 'responsibilities' | 'communication_style' = 'both'
+  ) => {
+    if (!profile?.user_id) return;
+    setGeneratingDefaults(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'generate-profile-defaults',
+        {
+          body: {
+            company: aboutMe.company || organization?.name || '',
+            title: title || aboutMe.profile_title || '',
+            department: aboutMe.department || '',
+            fullName: fullName || '',
+          },
+        }
+      );
+      if (error) throw error;
+      const result = (data as { result?: { responsibilities?: string; communication_style?: string } } | null)?.result;
+      if (!result) throw new Error('No content returned');
+
+      const next = { ...aboutMe };
+      if (which === 'both' || which === 'responsibilities') {
+        if (result.responsibilities) next.responsibilities = result.responsibilities;
+      }
+      if (which === 'both' || which === 'communication_style') {
+        if (result.communication_style) next.communication_style = result.communication_style;
+      }
+      setAboutMe(next);
+
+      // Persist immediately so it sticks even if the user navigates away.
+      await supabase
+        .from('user_profiles')
+        .update({
+          responsibilities: next.responsibilities || null,
+          communication_style: next.communication_style || null,
+        } as Record<string, unknown>)
+        .eq('user_id', profile.user_id);
+
+      toast({
+        title: 'Profile updated',
+        description: 'AI-generated profile saved automatically. You can edit it any time.',
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate';
+      toast({ title: 'Generation failed', description: msg, variant: 'destructive' });
+    } finally {
+      setGeneratingDefaults(false);
     }
   };
 
@@ -778,24 +853,85 @@ export default function Settings() {
               />
             </div>
 
+            {/* AI-generated profile blurbs (Responsibilities + Communication style).
+                Auto-generated once based on company + title; user can edit or
+                regenerate at any time via the controls in each row. */}
             <div className="space-y-1.5">
-              <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="aboutResp" className="text-xs inline-flex items-center gap-1.5">
+                  Responsibilities
+                  <span className="text-[10px] text-muted-foreground">(AI-generated, editable)</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setRespEditable(v => !v)}
+                  >
+                    {respEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={generatingDefaults}
+                    onClick={() => generateProfileDefaults('responsibilities')}
+                  >
+                    {generatingDefaults ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="aboutResp"
                 value={aboutMe.responsibilities}
                 onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
                 placeholder="Approvals, follow-ups, contracts, scheduling…"
                 rows={2}
+                readOnly={!respEditable}
+                className={!respEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="aboutStyle" className="text-xs">Communication style</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="aboutStyle" className="text-xs inline-flex items-center gap-1.5">
+                  Communication style
+                  <span className="text-[10px] text-muted-foreground">(AI-generated, editable)</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setStyleEditable(v => !v)}
+                  >
+                    {styleEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={generatingDefaults}
+                    onClick={() => generateProfileDefaults('communication_style')}
+                  >
+                    {generatingDefaults ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="aboutStyle"
                 value={aboutMe.communication_style}
                 onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
                 placeholder="Tone, length, signoffs, things to avoid"
                 rows={2}
+                readOnly={!styleEditable}
+                className={!styleEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
           </div>
