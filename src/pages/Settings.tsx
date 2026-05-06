@@ -289,6 +289,61 @@ export default function Settings() {
     }
   };
 
+  // Generate Responsibilities + Communication style via Lovable AI based on
+  // company + title + department. Persists immediately so the user sees the
+  // "auto-saved" behavior described in the request. `which` lets the caller
+  // regenerate just one field at a time without overwriting the other.
+  const generateProfileDefaults = async (
+    which: 'both' | 'responsibilities' | 'communication_style' = 'both'
+  ) => {
+    if (!profile?.user_id) return;
+    setGeneratingDefaults(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'generate-profile-defaults',
+        {
+          body: {
+            company: aboutMe.company || organization?.name || '',
+            title: title || aboutMe.profile_title || '',
+            department: aboutMe.department || '',
+            fullName: fullName || '',
+          },
+        }
+      );
+      if (error) throw error;
+      const result = (data as { result?: { responsibilities?: string; communication_style?: string } } | null)?.result;
+      if (!result) throw new Error('No content returned');
+
+      const next = { ...aboutMe };
+      if (which === 'both' || which === 'responsibilities') {
+        if (result.responsibilities) next.responsibilities = result.responsibilities;
+      }
+      if (which === 'both' || which === 'communication_style') {
+        if (result.communication_style) next.communication_style = result.communication_style;
+      }
+      setAboutMe(next);
+
+      // Persist immediately so it sticks even if the user navigates away.
+      await supabase
+        .from('user_profiles')
+        .update({
+          responsibilities: next.responsibilities || null,
+          communication_style: next.communication_style || null,
+        } as Record<string, unknown>)
+        .eq('user_id', profile.user_id);
+
+      toast({
+        title: 'Profile updated',
+        description: 'AI-generated profile saved automatically. You can edit it any time.',
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate';
+      toast({ title: 'Generation failed', description: msg, variant: 'destructive' });
+    } finally {
+      setGeneratingDefaults(false);
+    }
+  };
+
   const fetchEmailProfile = async () => {
     if (!activeConnection?.id) return;
     
