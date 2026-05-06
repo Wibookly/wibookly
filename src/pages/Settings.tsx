@@ -778,24 +778,85 @@ export default function Settings() {
               />
             </div>
 
+            {/* AI-generated profile blurbs (Responsibilities + Communication style).
+                Auto-generated once based on company + title; user can edit or
+                regenerate at any time via the controls in each row. */}
             <div className="space-y-1.5">
-              <Label htmlFor="aboutResp" className="text-xs">Responsibilities</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="aboutResp" className="text-xs inline-flex items-center gap-1.5">
+                  Responsibilities
+                  <span className="text-[10px] text-muted-foreground">(AI-generated, editable)</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setRespEditable(v => !v)}
+                  >
+                    {respEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={generatingDefaults}
+                    onClick={() => generateProfileDefaults('responsibilities')}
+                  >
+                    {generatingDefaults ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="aboutResp"
                 value={aboutMe.responsibilities}
                 onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
                 placeholder="Approvals, follow-ups, contracts, scheduling…"
                 rows={2}
+                readOnly={!respEditable}
+                className={!respEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="aboutStyle" className="text-xs">Communication style</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="aboutStyle" className="text-xs inline-flex items-center gap-1.5">
+                  Communication style
+                  <span className="text-[10px] text-muted-foreground">(AI-generated, editable)</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setStyleEditable(v => !v)}
+                  >
+                    {styleEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    disabled={generatingDefaults}
+                    onClick={() => generateProfileDefaults('communication_style')}
+                  >
+                    {generatingDefaults ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="aboutStyle"
                 value={aboutMe.communication_style}
                 onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
                 placeholder="Tone, length, signoffs, things to avoid"
                 rows={2}
+                readOnly={!styleEditable}
+                className={!styleEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
           </div>
