@@ -131,7 +131,7 @@ export function AppSidebar() {
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-16 w-auto max-w-full object-contain"
+          className="h-9 w-auto"
           draggable={false}
         />
         <div className="font-sans font-bold tracking-tight text-xl leading-none" style={{ color: 'var(--text)' }}>
