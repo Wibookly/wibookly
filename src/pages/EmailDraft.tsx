@@ -155,8 +155,7 @@ export default function EmailDraft() {
         format_style: (aiRow.format_style as string) || "concise",
         example_reply_template: (aiRow.example_reply_template as string) || "",
         additional_context: (aiRow.additional_context as string) || "",
-        ai_draft_label_color: (aiRow.ai_draft_label_color as string) || "#3B82F6",
-        ai_sent_label_color: (aiRow.ai_sent_label_color as string) || "#F97316",
+        ai_generated_sample: (aiRow.ai_generated_sample as string) || "",
       };
       setAiSettings(nextAi);
       setAiSettingsId((aiRow.id as string) || null);
