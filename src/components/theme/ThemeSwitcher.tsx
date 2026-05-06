@@ -24,12 +24,17 @@ export function ThemeSwitcher() {
               title={`${t.name} — ${t.subtitle}`}
               aria-label={`Switch to ${t.name} theme`}
               className={cn(
-                'h-4 w-4 rounded-full transition-all duration-200 hover:scale-125',
-                active
-                  ? 'ring-2 ring-foreground/70 ring-offset-2 ring-offset-card scale-110'
-                  : 'opacity-80 hover:opacity-100'
+                'h-5 w-5 rounded-full transition-all duration-200 hover:scale-125',
+                active ? 'scale-110' : 'opacity-80 hover:opacity-100'
               )}
-              style={{ background: t.gradient }}
+              style={{
+                background: t.gradient,
+                backgroundSize: t.id === 'aurora' ? '200% 200%' : undefined,
+                animation: t.id === 'aurora' ? 'shiftBg 6s linear infinite' : undefined,
+                boxShadow: active
+                  ? '0 0 0 2px var(--surface-elevated), 0 0 0 4px var(--primary), 0 4px 14px -2px var(--accent)'
+                  : undefined,
+              }}
             />
           );
         })}
