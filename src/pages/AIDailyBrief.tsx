@@ -150,6 +150,42 @@ export default function AIDailyBrief() {
     }
   };
 
+  const handleEmailMe = async () => {
+    setIsEmailing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-daily-brief`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          force: true,
+          userId: user.id,
+          briefType: currentHour < 14 ? 'morning' : 'evening',
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        throw new Error(json?.error || 'Failed to send brief');
+      }
+      if (json?.sent > 0) {
+        toast.success('Daily brief emailed to you (with PDF attached).');
+      } else {
+        toast.message('No matching schedule was found. Configure one below to enable email delivery.');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to email brief');
+    } finally {
+      setIsEmailing(false);
+    }
+  };
+
   const handlePrint = (type: 'all' | 'priorities' | 'calendar' | 'todo') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
