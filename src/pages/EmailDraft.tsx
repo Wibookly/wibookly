@@ -531,7 +531,7 @@ export default function EmailDraft() {
         <>
           {/* AI Label Colors are shown at the bottom (see below). */}
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6">
               {/* Settings Panel */}
               <Card className="border-primary/20 shadow-sm">
                 <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent rounded-t-lg">
