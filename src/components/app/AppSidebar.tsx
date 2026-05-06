@@ -141,9 +141,7 @@ export function AppSidebar() {
           draggable={false}
         />
         <div className="font-sans font-bold tracking-tight text-2xl leading-none">
-          <span className="bg-gradient-to-r from-ef-navy via-ef-blue to-ef-sky bg-clip-text text-transparent">
-            InboxIQ
-          </span>
+          <span className="iri-text-shift">InboxIQ</span>
         </div>
       </div>
 
