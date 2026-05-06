@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { QuotaBadge } from '@/components/app/QuotaBadge';
+import { AIThinking } from '@/components/ai/AIThinking';
 
 interface Message {
   id: string;
@@ -514,12 +515,10 @@ export default function AIChat() {
                   </div>
                 )}
                 
-                {/* Loading indicator */}
+                {/* Loading indicator — futuristic AI thinking */}
                 {isStreaming && !streamingContent && (
                   <div className="flex justify-start">
-                    <div className="rounded-lg px-4 py-3 bg-secondary">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    </div>
+                    <AIThinking />
                   </div>
                 )}
               </>

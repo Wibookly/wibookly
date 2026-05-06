@@ -205,4 +205,18 @@
   .ocean-wave-1 { top: -10%; left: -10%; width: 60%; height: 60%; background: hsl(var(--primary) / 0.25); animation: wave-drift-1 18s ease-in-out infinite; }
   .ocean-wave-2 { bottom: -10%; right: -10%; width: 55%; height: 55%; background: hsl(var(--accent) / 0.22); animation: wave-drift-2 22s ease-in-out infinite; }
   .ocean-wave-3 { top: 30%; right: 10%; width: 35%; height: 35%; background: hsl(var(--primary) / 0.15); animation: wave-drift-1 26s ease-in-out infinite reverse; }
+
+  /* AI Thinking indicator */
+  @keyframes ai-spin { to { transform: rotate(360deg); } }
+  .ai-think-ring { animation: ai-spin 1.6s linear infinite; }
+  @keyframes ai-dot {
+    0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-2px); }
+  }
+  .ai-think-dots > span {
+    display: inline-block;
+    animation: ai-dot 1.2s ease-in-out infinite;
+  }
+  .ai-think-dots > span:nth-child(2) { animation-delay: 0.15s; }
+  .ai-think-dots > span:nth-child(3) { animation-delay: 0.3s; }
 }
