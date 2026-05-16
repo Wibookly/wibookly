@@ -232,16 +232,19 @@ export default function AIActivityDashboard() {
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
-      
+
+      <PageHero
+        eyebrow="Reports"
+        title="AI Activity"
+        description="Track AI-generated drafts, auto-replies, and calendar events across your organization."
+        accent="green"
+        icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
+      />
+
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">AI Activity Dashboard</h1>
-            <p className="mt-1 text-muted-foreground">
-              Track AI-generated drafts and auto-replies across your organization.
-            </p>
-          </div>
-        
+          <div />
+
         <div className="flex flex-wrap items-center gap-3">
           <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
             <SelectTrigger className="w-[140px]">
