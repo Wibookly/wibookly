@@ -23,6 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { organizationNameSchema, fullNameSchema, validateField } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
+import { UserCircle2 } from 'lucide-react';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 
 // Default company logo URL (absolute) used when no per-user/org logo is set.
