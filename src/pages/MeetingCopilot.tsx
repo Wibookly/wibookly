@@ -246,7 +246,28 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  
+  const [stats, setStats] = useState({ meetings: 0, sessions: 0, hours: '0h', actions: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const since = new Date(); since.setDate(since.getDate() - 7);
+      const sinceIso = since.toISOString();
+      const [{ count: meetings }, { data: sessRows, count: sessions }, { count: actions }] = await Promise.all([
+        supabase.from('meeting_copilot_preferences').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('meeting_sessions').select('duration_seconds', { count: 'exact' }).eq('user_id', user.id).gte('started_at', sinceIso),
+        supabase.from('meeting_action_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      const totalSec = (sessRows || []).reduce((a, r: any) => a + (r.duration_seconds || 0), 0);
+      const hours = totalSec >= 3600 ? `${(totalSec / 3600).toFixed(1)}h` : `${Math.round(totalSec / 60)}m`;
+      setStats({
+        meetings: upcoming.length || meetings || 0,
+        sessions: sessions || 0,
+        hours,
+        actions: actions || 0,
+      });
+    })();
+  }, [user, upcoming.length, openSession, recent.length]);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
