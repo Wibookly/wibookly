@@ -617,32 +617,35 @@ export default function Chat() {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border h-14 flex items-center px-4 gap-2">
-          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(true)}>
-            <Menu className="h-4 w-4" />
-          </Button>
-          <div className="font-semibold">Energy Forward AI Chat</div>
-          <div className="flex-1" />
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
+        {/* Sticky header — stays in place while the chat scrolls */}
+        <header className="shrink-0 z-20 bg-background border-b border-border">
+          <div className="h-14 flex items-center px-4 gap-2">
+            <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </Button>
+            <AgentAvatar className="h-8 w-8 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold truncate">
+                {activeConversationTitle}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {activeId
+                  ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
+                  : 'Ask anything about your inbox, calendar, or work.'}
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          </div>
         </header>
 
         <div
           ref={scrollContainerRef}
           onScroll={onScrollContainer}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto min-h-0"
         >
-          <div className="max-w-4xl mx-auto px-4 pt-6">
-            <PageHero
-              eyebrow="AI Assistant"
-              title="InboxIQ Chat"
-              description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
-              accent="blue"
-              icon={<AgentAvatar className="w-10 h-10" />}
-            />
-          </div>
           {messages.length === 0 && !streamingText ? (
             <div className="max-w-4xl mx-auto px-4 pb-16">
               <div className="flex flex-col items-center mt-4">
