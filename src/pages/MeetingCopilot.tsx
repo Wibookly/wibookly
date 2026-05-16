@@ -99,11 +99,12 @@ export default function MeetingCopilot() {
     auto_draft_followup: true,
     suggestion_style: 'concise',
   });
-  const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({
-    m1: true, m2: true, m3: false, m4: true,
-  });
+  const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
+  const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
+  const [usingMockMeetings, setUsingMockMeetings] = useState(true);
   const [editingProfile, setEditingProfile] = useState(false);
   const [draftProfile, setDraftProfile] = useState(profile);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   // Load settings + profile
   useEffect(() => {
@@ -130,6 +131,43 @@ export default function MeetingCopilot() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Load upcoming meetings from Microsoft Graph
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
+        if (error || !data || data.error || !Array.isArray(data.meetings) || data.meetings.length === 0) return;
+        const fmt = (iso: string) => {
+          const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+          let h = d.getHours();
+          const m = d.getMinutes();
+          const period = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
+        };
+        const mapped = data.meetings.map((m: any) => {
+          const { timeLabel, period } = fmt(m.startTime);
+          return {
+            id: m.id,
+            title: m.title,
+            timeLabel: m.isLive ? 'Now' : timeLabel,
+            period: m.isLive ? 'LIVE' : period,
+            platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
+            attendees: m.attendeeCount,
+            duration: m.isLive ? 'In progress' : `${m.durationMin} min`,
+            isLive: m.isLive,
+          };
+        });
+        const prefs: Record<string, boolean> = {};
+        data.meetings.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
+        setUpcoming(mapped);
+        setPerMeeting(prefs);
+        setUsingMockMeetings(false);
+      } catch { /* keep mock */ }
+    })();
   }, [user]);
 
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
@@ -170,7 +208,7 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  const activeMeeting = MOCK_UPCOMING.find((m) => m.isLive);
+  const activeMeeting = upcoming.find((m) => m.isLive);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -193,14 +231,16 @@ export default function MeetingCopilot() {
             </p>
           </div>
           <div className="flex flex-col gap-3 shrink-0">
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold"
+            <button onClick={() => setPrivacyOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
+            <a href="#" onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
               style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
               <ExternalLink className="w-4 h-4" /> Install Chrome Extension
-            </button>
+            </a>
           </div>
         </div>
       </div>
@@ -329,7 +369,7 @@ export default function MeetingCopilot() {
             <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
           </div>
           <div className="space-y-3">
-            {MOCK_UPCOMING.map((m) => (
+            {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true} onToggle={(v) => toggleMeeting(m.id, v)} />
             ))}
           </div>
@@ -414,6 +454,8 @@ export default function MeetingCopilot() {
           </div>
         </div>
       )}
+
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }
@@ -498,6 +540,59 @@ function MeetingCard({ meeting, enabled, onToggle }: { meeting: typeof MOCK_UPCO
         style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
         {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
       </button>
+    </div>
+  );
+}
+
+function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl p-6 shadow-2xl"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #6D28D9, #EC4899)' }}>
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-h5 mb-1" style={{ color: 'var(--text-1)' }}>Your privacy comes first</h3>
+            <p className="text-caption" style={{ color: 'var(--text-2)' }}>Here's exactly what happens when you enable Meeting Copilot.</p>
+          </div>
+        </div>
+
+        <ul className="space-y-3 mb-5">
+          {[
+            ['No audio is ever recorded.', 'Audio is transcribed live, in real time. The raw audio is never saved — not on your device, not on our servers.'],
+            ['Only text persists.', 'The transcript is stored in your private InboxIQ account, encrypted at rest. You control retention (default: 30 days).'],
+            ['No bot joins the meeting.', 'Audio is captured locally by the Chrome extension on your own machine. Other attendees never see an extra participant.'],
+            ['You decide per-meeting.', 'Even with auto-join enabled, you can toggle the Copilot off for any individual meeting.'],
+          ].map(([t, d]) => (
+            <li key={t} className="flex gap-3">
+              <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-green)' }} />
+              <div>
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{t}</div>
+                <div className="text-caption" style={{ color: 'var(--text-2)' }}>{d}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="rounded-xl p-3 mb-5 text-caption"
+          style={{ background: 'color-mix(in srgb, var(--c-orange) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--c-orange) 30%, transparent)',
+            color: 'var(--text-2)' }}>
+          <strong style={{ color: 'var(--text-1)' }}>Heads up:</strong> Recording laws vary by jurisdiction. We recommend adding a line to your email signature like: <em>"AI may transcribe this call for my private note-taking. No audio is recorded."</em>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>I understand — Install Extension</Button>
+        </div>
+      </div>
     </div>
   );
 }
