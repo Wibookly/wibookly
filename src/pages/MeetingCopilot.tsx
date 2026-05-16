@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
+import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
