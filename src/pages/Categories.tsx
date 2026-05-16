@@ -254,24 +254,47 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
               updateCategory(category.id, 'is_enabled', checked);
             }
           }}
-          className={category.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
         />
       </TableCell>
       <TableCell className="text-center">
-        <Switch
-          checked={category.ai_draft_enabled}
-          onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
-          disabled={!category.is_enabled}
-          className={category.ai_draft_enabled && category.is_enabled ? 'data-[state=checked]:bg-blue-500' : ''}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={category.ai_draft_enabled}
+                  onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
+                  disabled={!category.is_enabled}
+                />
+              </span>
+            </TooltipTrigger>
+            {!category.is_enabled && (
+              <TooltipContent>Turn on <b>Active</b> first to enable AI Draft.</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
       <TableCell className="text-center">
-        <Switch
-          checked={category.auto_reply_enabled}
-          onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
-          disabled={!category.is_enabled || !category.ai_draft_enabled}
-          className={category.auto_reply_enabled && category.is_enabled && category.ai_draft_enabled ? 'data-[state=checked]:bg-orange-500' : ''}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={category.auto_reply_enabled}
+                  onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
+                  disabled={!category.is_enabled || !category.ai_draft_enabled}
+                />
+              </span>
+            </TooltipTrigger>
+            {(!category.is_enabled || !category.ai_draft_enabled) && (
+              <TooltipContent>
+                {!category.is_enabled
+                  ? 'Turn on Active first, then enable AI Draft.'
+                  : 'Turn on AI Draft first to enable Auto-Reply.'}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
       <TableCell className="text-center">
         {category.is_enabled ? (
@@ -1119,7 +1142,12 @@ export default function Categories() {
                     ({categoryRules.length} rule{categoryRules.length !== 1 ? 's' : ''})
                   </span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => addRule(category.id)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addRule(category.id)}
+                  className="border-2 border-primary/60 text-primary hover:bg-primary hover:text-primary-foreground shadow-sm"
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Rule
                 </Button>
@@ -1166,7 +1194,7 @@ export default function Categories() {
                         <Switch
                           checked={rule.is_enabled}
                           onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
-                          className={rule.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
+                          
                         />
 
                         <TooltipProvider>

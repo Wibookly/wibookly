@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { PageHero } from '@/components/app/PageHero';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
 
 interface Conversation {
   id: string;
@@ -497,32 +499,39 @@ export default function Chat() {
           className="flex-1 overflow-y-auto"
         >
           {messages.length === 0 && !streamingText ? (
-            <div className="max-w-3xl mx-auto px-4 py-16 flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold text-2xl mb-6">
-                IQ
-              </div>
-              <h1 className="text-2xl font-semibold mb-2">How can I help you today?</h1>
-              <p className="text-muted-foreground mb-8 text-sm">Ask anything about your inbox, calendar, or work.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                {examplePrompts.map((p) => (
-                  <button
-                    key={p.title}
-                    onClick={() => setInput(`${p.title} ${p.desc}`)}
-                    className="text-left border border-border rounded-xl p-4 hover:bg-accent transition group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
-                        <p.icon className="h-4 w-4" />
+            <div className="max-w-4xl mx-auto px-4 pt-6 pb-16">
+              <PageHero
+                eyebrow="AI Assistant"
+                title="InboxIQ Chat"
+                description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
+                accent="blue"
+                icon={<AgentAvatar active={isStreaming} className="w-10 h-10 rounded-xl" />}
+              />
+              <div className="flex flex-col items-center mt-4">
+                <AgentAvatar active={isStreaming} className="w-16 h-16 mb-4" />
+                <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
+                <p className="text-muted-foreground mb-6 text-sm">Pick a starter or type your own message.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                  {examplePrompts.map((p) => (
+                    <button
+                      key={p.title}
+                      onClick={() => setInput(`${p.title} ${p.desc}`)}
+                      className="text-left border-2 border-border rounded-xl p-4 hover:border-primary hover:bg-accent transition group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                          <p.icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{p.title}</div>
+                          <div className="text-xs text-muted-foreground">{p.desc}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-sm">{p.title}</div>
-                        <div className="text-xs text-muted-foreground">{p.desc}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-10 text-xs text-muted-foreground">Type your message below to start</div>
               </div>
-              <div className="mt-10 text-xs text-muted-foreground">Type your message below to start</div>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -561,7 +570,7 @@ export default function Chat() {
                 ))}
               </div>
             )}
-            <div className="relative flex items-end gap-2 border border-border rounded-2xl p-2 bg-background focus-within:ring-2 focus-within:ring-ring">
+            <div className="relative flex items-end gap-2 border-2 border-[var(--border-strong)] hover:border-primary focus-within:border-primary rounded-2xl p-2 bg-[var(--surface-2)] focus-within:ring-2 focus-within:ring-ring transition-colors shadow-sm">
               <input
                 ref={fileInputRef}
                 type="file"
