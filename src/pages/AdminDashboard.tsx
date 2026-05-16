@@ -32,6 +32,8 @@ import PlansTab from '@/components/admin/PlansTab';
 import AIUsageTab from '@/components/admin/AIUsageTab';
 import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
+import { ShieldCheck } from 'lucide-react';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
