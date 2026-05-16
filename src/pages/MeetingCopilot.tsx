@@ -307,10 +307,10 @@ export default function MeetingCopilot() {
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Meetings this week', value: '12', trend: '+3', Icon: Calendar, grad: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' },
-          { label: 'Copilot sessions',   value: '8',  trend: '+2', Icon: Mic,      grad: 'linear-gradient(135deg, #EC4899, #C026D3)' },
-          { label: 'Hours transcribed',  value: '14.2h',           Icon: Clock,    grad: 'linear-gradient(135deg, #06B6D4, #3B82F6)' },
-          { label: 'Action items captured', value: '47', trend: '+18', Icon: CheckCircle, grad: 'linear-gradient(135deg, #22C55E, #10B981)' },
+          { label: 'Upcoming this week', value: String(stats.meetings), Icon: Calendar, grad: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' },
+          { label: 'Copilot sessions (7d)', value: String(stats.sessions), Icon: Mic, grad: 'linear-gradient(135deg, #EC4899, #C026D3)' },
+          { label: 'Hours transcribed (7d)', value: stats.hours, Icon: Clock, grad: 'linear-gradient(135deg, #06B6D4, #3B82F6)' },
+          { label: 'Action items captured', value: String(stats.actions), Icon: CheckCircle, grad: 'linear-gradient(135deg, #22C55E, #10B981)' },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-5"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
