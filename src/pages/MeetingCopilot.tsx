@@ -99,11 +99,12 @@ export default function MeetingCopilot() {
     auto_draft_followup: true,
     suggestion_style: 'concise',
   });
-  const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({
-    m1: true, m2: true, m3: false, m4: true,
-  });
+  const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
+  const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
+  const [usingMockMeetings, setUsingMockMeetings] = useState(true);
   const [editingProfile, setEditingProfile] = useState(false);
   const [draftProfile, setDraftProfile] = useState(profile);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   // Load settings + profile
   useEffect(() => {
