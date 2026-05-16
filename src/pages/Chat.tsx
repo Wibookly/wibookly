@@ -547,7 +547,11 @@ export default function Chat() {
                     )}
                     onClick={() => handleSelectConv(c.id)}
                   >
-                    <span className="flex-1 truncate">{c.title || 'New chat'}</span>
+                    <span className="flex-1 truncate">
+                      {c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
+                        ? c.title
+                        : 'New chat'}
+                    </span>
                     {expiring && (
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
