@@ -9,6 +9,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
@@ -105,6 +106,7 @@ export default function MeetingCopilot() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [draftProfile, setDraftProfile] = useState(profile);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
 
   // Load settings + profile
   useEffect(() => {
@@ -208,7 +210,7 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  const activeMeeting = upcoming.find((m) => m.isLive);
+  
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -370,7 +372,9 @@ export default function MeetingCopilot() {
           </div>
           <div className="space-y-3">
             {upcoming.map((m) => (
-              <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true} onToggle={(v) => toggleMeeting(m.id, v)} />
+              <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
+                onToggle={(v) => toggleMeeting(m.id, v)}
+                onOpen={() => setOpenSession({ id: m.id, title: m.title })} />
             ))}
           </div>
         </div>
@@ -409,50 +413,8 @@ export default function MeetingCopilot() {
         </div>
       </div>
 
-      {/* LIVE PREVIEW */}
-      {activeMeeting && (
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: '#EF4444', boxShadow: '0 0 8px #EF4444' }} />
-              <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Live Copilot — {activeMeeting.title}</h3>
-            </div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>● LIVE</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-overline mb-3" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
-              <div className="space-y-3">
-                {MOCK_TRANSCRIPT.map((t, i) => (
-                  <div key={i} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-2)' }}>{t.time}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-overline mb-3" style={{ color: 'var(--text-2)' }}>AI SUGGESTIONS</div>
-              <div className="space-y-3">
-                {MOCK_SUGGESTIONS.map((s, i) => (
-                  <div key={i} className="rounded-xl p-4"
-                    style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)' }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+      {openSession && (
+        <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
       )}
 
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
@@ -498,7 +460,7 @@ function StyleCard({ Icon, title, desc, active, onClick }: { Icon: any; title: s
   );
 }
 
-function MeetingCard({ meeting, enabled, onToggle }: { meeting: typeof MOCK_UPCOMING[0]; enabled: boolean; onToggle: (v: boolean) => void; }) {
+function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: typeof MOCK_UPCOMING[0]; enabled: boolean; onToggle: (v: boolean) => void; onOpen?: () => void; }) {
   const platformStyles: Record<string, { bg: string; color: string; label: string }> = {
     teams: { bg: 'rgba(98,100,167,0.18)', color: '#8E91D8', label: 'TEAMS' },
     zoom:  { bg: 'rgba(45,140,255,0.16)', color: '#60A5FA', label: 'ZOOM' },
@@ -536,7 +498,8 @@ function MeetingCard({ meeting, enabled, onToggle }: { meeting: typeof MOCK_UPCO
         <span className={`w-1.5 h-1.5 rounded-full`} style={{ background: enabled ? 'var(--c-purple)' : 'var(--text-3)' }} />
         Copilot {enabled ? 'ON' : 'OFF'}
       </button>
-      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0"
+      <button onClick={onOpen}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0"
         style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
         {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
       </button>
