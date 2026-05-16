@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
+import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
@@ -70,12 +71,6 @@ const MOCK_UPCOMING = [
   },
 ];
 
-const MOCK_RECENT = [
-  { id: 's1', title: 'Energytrux insurance review', when: 'Today, 10:00 AM', duration: '42 min', actions: 8, initials: ['MM','RH','SH'] },
-  { id: 's2', title: 'EnergyForward advisor agreement', when: 'Yesterday, 3:30 PM', duration: '28 min', actions: 5, initials: ['CN','JV'] },
-  { id: 's3', title: 'Sprint retro — Q1 wrap-up', when: 'Yesterday, 2:00 PM', duration: '61 min', actions: 12, initials: ['KT','DF','+3'] },
-  { id: 's4', title: 'Microsoft 365 license review', when: 'Monday, 11:00 AM', duration: '35 min', actions: 7, initials: ['JV','SH'] },
-];
 
 const MOCK_TRANSCRIPT = [
   { speaker: 'Dustin Rosepink', color: '#22C55E', time: '12:42', text: "So we're looking at three engineering hires this quarter — one senior structural, two intermediate. Budget is approved but I'm a bit worried about the timeline." },
@@ -107,6 +102,47 @@ export default function MeetingCopilot() {
   const [draftProfile, setDraftProfile] = useState(profile);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
+  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
+  const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
+
+  // Load recent (completed) sessions
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: sessions } = await supabase
+        .from('meeting_sessions')
+        .select('id, meeting_title, started_at, ended_at, duration_seconds')
+        .eq('user_id', user.id)
+        .in('status', ['completed', 'ended'])
+        .order('started_at', { ascending: false })
+        .limit(8);
+      if (!sessions?.length) return;
+      const ids = sessions.map((s) => s.id);
+      const { data: items } = await supabase
+        .from('meeting_action_items')
+        .select('session_id')
+        .in('session_id', ids);
+      const counts = (items || []).reduce<Record<string, number>>((acc, r: any) => {
+        acc[r.session_id] = (acc[r.session_id] || 0) + 1; return acc;
+      }, {});
+      setRecent(sessions.map((s) => {
+        const d = new Date(s.started_at as string);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const sDay = new Date(d); sDay.setHours(0,0,0,0);
+        const diffDays = Math.round((today.getTime() - sDay.getTime()) / 86400000);
+        const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const when = diffDays === 0 ? `Today, ${time}` : diffDays === 1 ? `Yesterday, ${time}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        const mins = s.duration_seconds ? Math.round((s.duration_seconds as number) / 60) : 0;
+        return {
+          id: s.id,
+          title: (s.meeting_title as string) || 'Untitled meeting',
+          when,
+          duration: mins ? `${mins} min` : '—',
+          actions: counts[s.id] || 0,
+        };
+      }));
+    })();
+  }, [user, openSession]);
 
   // Load settings + profile
   useEffect(() => {
@@ -390,14 +426,18 @@ export default function MeetingCopilot() {
             <a className="text-sm font-medium" style={{ color: 'var(--c-green)' }} href="#">View all →</a>
           </div>
           <div className="space-y-3">
-            {MOCK_RECENT.map((s) => (
-              <div key={s.id} className="rounded-xl p-4 flex items-center gap-3"
+            {recent.length === 0 && (
+              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                No completed sessions yet. End a Live Copilot session to see it here.
+              </div>
+            )}
+            {recent.map((s) => (
+              <button key={s.id} onClick={() => setViewSession({ id: s.id, title: s.title })}
+                className="w-full text-left rounded-xl p-4 flex items-center gap-3 transition-colors hover:opacity-90"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div className="flex -space-x-2">
-                  {s.initials.map((ini, idx) => (
-                    <div key={idx} className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2"
-                      style={{ background: ['#EC4899','#F97316','#22C55E','#06B6D4','#A855F7'][idx % 5], borderColor: 'var(--surface)' }}>{ini}</div>
-                  ))}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
+                  <CheckCircle className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
@@ -407,7 +447,7 @@ export default function MeetingCopilot() {
                   style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
                   {s.actions} actions
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -415,6 +455,10 @@ export default function MeetingCopilot() {
 
       {openSession && (
         <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
+      )}
+
+      {viewSession && (
+        <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
       )}
 
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
