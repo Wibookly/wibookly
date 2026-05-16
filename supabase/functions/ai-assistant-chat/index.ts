@@ -612,11 +612,22 @@ async function callOpenAIWebSearch(
   systemPrompt: string,
   apiKey: string,
   model: string,
+  userLocation?: { city?: string; region?: string; country?: string; timezone?: string } | null,
 ): Promise<AIUsageResult> {
   const input = [
     { role: 'system', content: systemPrompt },
     ...messages,
   ];
+  const webSearchTool: Record<string, unknown> = { type: 'web_search' };
+  if (userLocation && (userLocation.city || userLocation.region || userLocation.country || userLocation.timezone)) {
+    webSearchTool.user_location = {
+      type: 'approximate',
+      ...(userLocation.city ? { city: userLocation.city } : {}),
+      ...(userLocation.region ? { region: userLocation.region } : {}),
+      ...(userLocation.country ? { country: userLocation.country } : {}),
+      ...(userLocation.timezone ? { timezone: userLocation.timezone } : {}),
+    };
+  }
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -626,7 +637,7 @@ async function callOpenAIWebSearch(
     body: JSON.stringify({
       model,
       input,
-      tools: [{ type: 'web_search' }],
+      tools: [webSearchTool],
     }),
   });
 
@@ -807,6 +818,7 @@ serve(async (req) => {
       attachments: attachmentUrls,
       stream: streamMode,
       web_search: webSearchRequested,
+      user_location: userLocation,
     } = body as {
       messages?: Array<{ role: string; content: string }>;
       connectionId?: string;
@@ -815,6 +827,7 @@ serve(async (req) => {
       attachments?: string[];
       stream?: boolean;
       web_search?: boolean;
+      user_location?: { city?: string; region?: string; country?: string; timezone?: string } | null;
     };
 
     const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
@@ -1074,7 +1087,7 @@ When answering:
         if (gfRows && gfRows[0]?.model_assignment) wsModel = gfRows[0].model_assignment as string;
       } catch (_e) { /* keep default */ }
 
-      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel);
+      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel, userLocation ?? null);
     } else {
       result = await generateChatReply(messages, systemPrompt, adminAIConfig);
     }

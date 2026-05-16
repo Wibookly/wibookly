@@ -119,6 +119,7 @@ export default function Chat() {
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -231,9 +232,13 @@ export default function Chat() {
   const activeConversationTitle = useMemo(() => {
     if (!activeId) return 'New chat';
     const conv = conversations.find((c) => c.id === activeId);
-    if (conv?.title && conv.title.trim() && conv.title.toLowerCase() !== 'user greeting') {
-      return conv.title;
+    const placeholderTitles = new Set(['user greeting', 'new chat', 'new conversation', 'untitled']);
+    const raw = conv?.title?.trim();
+    if (raw && !placeholderTitles.has(raw.toLowerCase())) {
+      return raw;
     }
+    // Backend hasn't generated a title yet (or saved the placeholder) — derive
+    // one from the first user message so every conversation gets a real header.
     const firstUser = messages.find((m) => m.role === 'user')?.content?.trim();
     if (firstUser) {
       return firstUser.length > 60 ? firstUser.slice(0, 60) + '…' : firstUser;
@@ -347,6 +352,7 @@ export default function Chat() {
           attachments: attachmentUrls,
           stream: true,
           web_search: webSearch && canWebSearch,
+          user_location: webSearch && canWebSearch ? userLocation : null,
         }),
       });
 
@@ -762,7 +768,38 @@ export default function Chat() {
                   onClick={() => {
                     setWebSearch((v) => {
                       const next = !v;
-                      toast.success(next ? 'Web search on — answers will include live results' : 'Web search off');
+                      if (next) {
+                        toast.success('Web search on — using live results & your approximate location');
+                        // Best-effort: capture timezone immediately, ask for
+                        // geolocation in the background and reverse-geocode
+                        // for city/region/country so location-aware queries work.
+                        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        setUserLocation((prev) => ({ ...(prev || {}), timezone: tz }));
+                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            async (pos) => {
+                              try {
+                                const r = await fetch(
+                                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+                                  { headers: { 'Accept-Language': 'en' } },
+                                );
+                                const j = await r.json();
+                                const a = j.address || {};
+                                setUserLocation({
+                                  city: a.city || a.town || a.village || a.hamlet,
+                                  region: a.state || a.region,
+                                  country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+                                  timezone: tz,
+                                });
+                              } catch {/* keep timezone-only fallback */}
+                            },
+                            () => {/* permission denied — keep timezone-only */},
+                            { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+                          );
+                        }
+                      } else {
+                        toast.success('Web search off');
+                      }
                       return next;
                     });
                   }}
