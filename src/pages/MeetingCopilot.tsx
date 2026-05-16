@@ -540,7 +540,8 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: typeof M
         <span className={`w-1.5 h-1.5 rounded-full`} style={{ background: enabled ? 'var(--c-purple)' : 'var(--text-3)' }} />
         Copilot {enabled ? 'ON' : 'OFF'}
       </button>
-      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0"
+      <button onClick={onOpen}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0"
         style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
         {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
       </button>
