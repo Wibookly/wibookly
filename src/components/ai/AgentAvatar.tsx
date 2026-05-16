@@ -37,7 +37,7 @@ export function AgentAvatar({ active = false, className }: AgentAvatarProps) {
       playsInline
       preload="auto"
       className={cn(
-        'object-contain rounded-full bg-gradient-to-br from-primary/15 via-background to-accent/15 ring-1 ring-border',
+        'object-contain rounded-2xl bg-gradient-to-br from-primary/15 via-background to-accent/15 ring-1 ring-border',
         className,
       )}
       aria-label="InboxIQ AI agent"

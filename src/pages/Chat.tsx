@@ -498,17 +498,19 @@ export default function Chat() {
           onScroll={onScrollContainer}
           className="flex-1 overflow-y-auto"
         >
+          <div className="max-w-4xl mx-auto px-4 pt-6">
+            <PageHero
+              eyebrow="AI Assistant"
+              title="InboxIQ Chat"
+              description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
+              accent="blue"
+              icon={<AgentAvatar active className="w-10 h-10" />}
+            />
+          </div>
           {messages.length === 0 && !streamingText ? (
-            <div className="max-w-4xl mx-auto px-4 pt-6 pb-16">
-              <PageHero
-                eyebrow="AI Assistant"
-                title="InboxIQ Chat"
-                description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
-                accent="blue"
-                icon={<AgentAvatar active className="w-10 h-10" />}
-              />
+            <div className="max-w-4xl mx-auto px-4 pb-16">
               <div className="flex flex-col items-center mt-4">
-                <AgentAvatar active className="w-36 h-36 mb-4 shadow-glow" />
+                <AgentAvatar active className="w-40 h-40 mb-4 shadow-glow" />
                 <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
                 <p className="text-muted-foreground mb-6 text-sm">Pick a starter or type your own message.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
