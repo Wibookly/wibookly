@@ -365,7 +365,7 @@ FORMAT INSTRUCTIONS: ${formatPrompt}
 
 CATEGORY CONTEXT: ${cleanCategoryName}
 ${categoryContext}
-${exampleContext}
+${aboutBlock}${exampleContext}
 
 OUTPUT RULES:
 - Generate a complete, ready-to-send email reply template
