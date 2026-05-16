@@ -413,50 +413,8 @@ export default function MeetingCopilot() {
         </div>
       </div>
 
-      {/* LIVE PREVIEW */}
-      {activeMeeting && (
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: '#EF4444', boxShadow: '0 0 8px #EF4444' }} />
-              <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Live Copilot — {activeMeeting.title}</h3>
-            </div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>● LIVE</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-overline mb-3" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
-              <div className="space-y-3">
-                {MOCK_TRANSCRIPT.map((t, i) => (
-                  <div key={i} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-2)' }}>{t.time}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-overline mb-3" style={{ color: 'var(--text-2)' }}>AI SUGGESTIONS</div>
-              <div className="space-y-3">
-                {MOCK_SUGGESTIONS.map((s, i) => (
-                  <div key={i} className="rounded-xl p-4"
-                    style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)' }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+      {openSession && (
+        <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
       )}
 
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
