@@ -315,8 +315,15 @@ function buildBriefPdf(
     y += 18;
   };
 
-  const sectionHeading = (title: string) => {
-    ensureSpace(36);
+  // sectionHeading(title, opts.newPage=true) forces the section to start at
+  // the top of a fresh page. This matches the executive layout requested:
+  // AI Analysis = page 1, Priorities = page 2, To-Do = page 3, etc.
+  const sectionHeading = (title: string, opts: { newPage?: boolean } = {}) => {
+    if (opts.newPage) {
+      startSectionPage();
+    } else {
+      ensureSpace(36);
+    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
