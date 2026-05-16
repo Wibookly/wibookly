@@ -128,6 +128,7 @@ export default function Chat() {
 
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
   const canChat = isSuperAdmin || hasFeature('ai_assistant');
+  const canWebSearch = isSuperAdmin || hasFeature('ai_chat_web_search');
 
   // Sync url param to active id
   useEffect(() => {
