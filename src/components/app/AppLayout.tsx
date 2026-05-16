@@ -6,6 +6,7 @@ import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
 import { OceanWaves } from '@/components/theme/OceanWaves';
+import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
