@@ -98,7 +98,8 @@ function renderBriefHtml(
   brief_type: string,
   recipient: string,
   pendingFollowUps: any[] = [],
-  dateLabel: string = ""
+  dateLabel: string = "",
+  recipientName: string = ""
 ): string {
   const moonSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#1e3a8a" style="vertical-align:-4px;margin-right:6px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
   const sunSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
@@ -210,19 +211,30 @@ function renderBriefHtml(
     : "";
 
   return `<!DOCTYPE html>
-<html><body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;background:#f8fafc;margin:0;padding:24px">
+<html><head><style>
+  @page { margin: 0.6in; }
+  @media print {
+    .brief-section { page-break-inside: avoid; break-inside: avoid; }
+  }
+  .brief-section { page-break-inside: avoid; break-inside: avoid; }
+</style></head>
+<body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;background:#f8fafc;margin:0;padding:24px">
   <div style="max-width:720px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px 36px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <h1 style="font-size:24px;margin:0 0 4px;color:#0f172a">${heading}</h1>
-    <p style="color:#94a3b8;font-size:13px;margin:0 0 20px">${esc(dateLabel)}</p>
+    <div style="border-bottom:3px solid #0ea5e9;padding-bottom:14px;margin-bottom:20px">
+      <h1 style="font-size:26px;margin:0 0 6px;color:#0f172a">${heading}</h1>
+      ${recipientName ? `<p style="margin:6px 0 0;font-size:16px;font-weight:600;color:#0f172a">${esc(recipientName)}</p>` : ""}
+      <p style="margin:2px 0 0;font-size:13px;color:#64748b">${esc(recipient)}</p>
+      <p style="margin:2px 0 0;font-size:13px;color:#64748b">${esc(dateLabel)}</p>
+    </div>
     ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 8px">${greeting}</p>` : ""}
     <p style="color:#0f172a;font-size:15px;margin:0 0 8px">${summary}</p>
-    ${aiBlock}
-    ${prioritiesBlock}
-    ${scheduleBlock}
-    ${emailsBlock}
-    ${followUpsBlock}
-    ${todoBlock}
-    ${suggestionsBlock}
+    <div class="brief-section">${aiBlock}</div>
+    <div class="brief-section">${prioritiesBlock}</div>
+    <div class="brief-section">${scheduleBlock}</div>
+    <div class="brief-section">${emailsBlock}</div>
+    <div class="brief-section">${followUpsBlock}</div>
+    <div class="brief-section">${todoBlock}</div>
+    <div class="brief-section">${suggestionsBlock}</div>
     <hr style="margin-top:28px;border:none;border-top:1px solid #e2e8f0"/>
     <p style="color:#94a3b8;font-size:12px;margin-top:14px">Sent by InboxIQ Agent · delivered to ${esc(recipient)} · You can print or forward this brief.</p>
   </div>
@@ -246,7 +258,8 @@ function buildBriefPdf(
   briefType: string,
   recipient: string,
   pendingFollowUps: any[],
-  dateLabel: string
+  dateLabel: string,
+  recipientName: string = ""
 ): Uint8Array {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -263,6 +276,16 @@ function buildBriefPdf(
     }
   };
 
+  // Force the next section to start at the top of a new page UNLESS the
+  // current page is essentially empty (so we don't waste a blank sheet on
+  // the very first section right after the header).
+  const startSectionPage = () => {
+    if (y > marginTop + 4) {
+      doc.addPage();
+      y = marginTop;
+    }
+  };
+
   const drawCoverHeader = () => {
     doc.setFillColor(14, 165, 233);
     doc.rect(0, 0, pageW, 6, "F");
@@ -272,21 +295,35 @@ function buildBriefPdf(
     const heading = briefType === "morning" ? "Morning Brief" : "End-of-Day Recap";
     doc.text(heading, marginX, y);
     y += 22;
+    if (recipientName) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text(recipientName, marginX, y);
+      y += 16;
+    }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(100, 116, 139);
-    doc.text(dateLabel, marginX, y);
+    doc.text(recipient, marginX, y);
     y += 14;
-    doc.text(`Prepared for: ${recipient}`, marginX, y);
-    y += 24;
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
+    doc.text(dateLabel, marginX, y);
+    y += 18;
+    doc.setDrawColor(14, 165, 233);
+    doc.setLineWidth(2);
     doc.line(marginX, y, pageW - marginX, y);
     y += 18;
   };
 
-  const sectionHeading = (title: string) => {
-    ensureSpace(36);
+  // sectionHeading(title, opts.newPage=true) forces the section to start at
+  // the top of a fresh page. This matches the executive layout requested:
+  // AI Analysis = page 1, Priorities = page 2, To-Do = page 3, etc.
+  const sectionHeading = (title: string, opts: { newPage?: boolean } = {}) => {
+    if (opts.newPage) {
+      startSectionPage();
+    } else {
+      ensureSpace(36);
+    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42);
@@ -346,7 +383,7 @@ function buildBriefPdf(
     y += 8;
   }
 
-  // AI Analysis
+  // AI Analysis — first major section. Stays on page 1 (no force-page).
   const ai = brief?.aiAnalysis || {};
   const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
   if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
@@ -449,9 +486,32 @@ function buildBriefPdf(
     }
   }
 
-  // Today's Schedule
+  // Priorities — starts on a fresh page so executives see them cleanly.
+  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
+  if (priorities.length) {
+    sectionHeading("Today's Priorities", { newPage: true });
+    priorities.forEach((p: any) => {
+      ensureSpace(30);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      const tag = String(p.urgency || "medium").toUpperCase();
+      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
+      y += 14;
+      if (p.description) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+      }
+      y += 4;
+    });
+    y += 6;
+  }
+
+  // Today's Schedule — fresh page.
   const schedule = Array.isArray(brief?.schedule) ? brief.schedule : [];
-  sectionHeading("Today's Schedule");
+  sectionHeading("Today's Schedule", { newPage: true });
   if (schedule.length === 0) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
@@ -484,9 +544,9 @@ function buildBriefPdf(
   }
   y += 6;
 
-  // Email Highlights
+  // Email Highlights — fresh page.
   const emails = Array.isArray(brief?.emailHighlights) ? brief.emailHighlights : [];
-  sectionHeading("Email Highlights");
+  sectionHeading("Email Highlights", { newPage: true });
   if (emails.length === 0) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
@@ -513,32 +573,9 @@ function buildBriefPdf(
   }
   y += 6;
 
-  // Priorities
-  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
-  if (priorities.length) {
-    sectionHeading("Today's Priorities");
-    priorities.forEach((p: any) => {
-      ensureSpace(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      const tag = String(p.urgency || "medium").toUpperCase();
-      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
-      y += 14;
-      if (p.description) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
-      }
-      y += 4;
-    });
-    y += 6;
-  }
-
-  // No Reply Tracker
+  // No Reply Tracker — fresh page.
   if (pendingFollowUps && pendingFollowUps.length) {
-    sectionHeading("No Reply Tracker");
+    sectionHeading("No Reply Tracker", { newPage: true });
     pendingFollowUps.forEach((f: any) => {
       const overdue = f.due_at && new Date(f.due_at) < new Date();
       ensureSpace(30);
@@ -558,10 +595,44 @@ function buildBriefPdf(
     y += 6;
   }
 
-  // Suggestions
+  // To-Do List — combined priorities + email actions, mirroring the on-screen view.
+  const todoLines: Array<{ label: string; sub?: string }> = [];
+  priorities.forEach((p: any) => {
+    todoLines.push({
+      label: String(p.title || ""),
+      sub: p.description ? String(p.description) : undefined,
+    });
+  });
+  emails.slice(0, 5).forEach((e: any) => {
+    todoLines.push({
+      label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
+      sub: e.from ? `From ${e.from}` : undefined,
+    });
+  });
+  if (todoLines.length) {
+    sectionHeading("To-Do List", { newPage: true });
+    todoLines.forEach((t) => {
+      ensureSpace(24);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("☐", marginX, y);
+      writeWrapped(t.label, marginX + 16, pageW - 2 * marginX - 16, 14);
+      if (t.sub) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        writeWrapped(t.sub, marginX + 16, pageW - 2 * marginX - 16, 12);
+      }
+      y += 4;
+    });
+    y += 6;
+  }
+
+  // Suggestions — fresh page.
   const suggestions = Array.isArray(brief?.suggestions) ? brief.suggestions : [];
   if (suggestions.length) {
-    sectionHeading("Suggestions");
+    sectionHeading("Suggestions", { newPage: true });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(71, 85, 105);
@@ -729,10 +800,17 @@ serve(async (req) => {
         if (fallback) agent = fallback;
       }
 
-      const recipient =
-        s.recipient_email ||
-        (await supabase.from("user_profiles").select("email").eq("user_id", s.user_id).maybeSingle())
-          .data?.email;
+      // Look up the user's profile once — we want both the recipient email
+      // (as a fallback) and the full name so the brief header reads
+      // "Name / email / date" just like the printed view in the app.
+      const { data: profileRow } = await supabase
+        .from("user_profiles")
+        .select("email, full_name")
+        .eq("user_id", s.user_id)
+        .maybeSingle();
+
+      const recipient = s.recipient_email || profileRow?.email;
+      const recipientName = profileRow?.full_name || "";
 
       if (!recipient) {
         console.warn("No recipient for schedule", s.id);
@@ -812,12 +890,12 @@ serve(async (req) => {
         (requestedBriefType || s.brief_type) === "morning"
           ? `Your Morning Brief — ${nw.date}`
           : `Your End-of-Day Recap — ${nw.date}`;
-      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
+      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel, recipientName);
 
       // Build PDF attachment so executives can print/read offline.
       let pdfAttachments: Array<{ name: string; contentType: string; bytes: Uint8Array }> = [];
       try {
-        const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
+        const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel, recipientName);
         const pdfName = `InboxIQ-Daily-Brief-${nw.date}.pdf`;
         pdfAttachments = [{ name: pdfName, contentType: "application/pdf", bytes: pdfBytes }];
       } catch (e) {
