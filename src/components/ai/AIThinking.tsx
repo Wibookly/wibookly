@@ -1,5 +1,5 @@
-import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AgentAvatar } from './AgentAvatar';
 
 const PHASES = [
   'Reading your inbox',
@@ -9,10 +9,8 @@ const PHASES = [
 ];
 
 /**
- * Futuristic AI thinking indicator. Animated orbiting ring with a glowing
- * sparkle core and rotating status messages. Works in both light and dark
- * themes by using semantic tokens + the primary/accent gradients from the
- * active theme.
+ * AI thinking indicator. Shows the animated agent avatar (looping video)
+ * alongside a rotating status message — used while the AI is generating.
  */
 export function AIThinking({ label }: { label?: string }) {
   const [phase, setPhase] = useState(0);
@@ -25,25 +23,7 @@ export function AIThinking({ label }: { label?: string }) {
 
   return (
     <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border border-primary/20 shadow-sm">
-      <div className="relative flex items-center justify-center w-9 h-9">
-        {/* Outer pulsing ring */}
-        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-        {/* Rotating gradient ring */}
-        <div
-          className="absolute inset-0 rounded-full ai-think-ring"
-          style={{
-            background:
-              'conic-gradient(from 0deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 50%, transparent 75%, hsl(var(--primary)) 100%)',
-            mask: 'radial-gradient(circle, transparent 55%, black 56%)',
-            WebkitMask: 'radial-gradient(circle, transparent 55%, black 56%)',
-          }}
-        />
-        {/* Core */}
-        <div className="relative w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/40">
-          <Sparkles className="w-3.5 h-3.5 text-primary-foreground" />
-        </div>
-      </div>
-
+      <AgentAvatar active className="w-10 h-10 shrink-0" />
       <div className="flex flex-col min-w-0">
         <span className="text-sm font-medium text-foreground">
           {label ?? PHASES[phase]}
