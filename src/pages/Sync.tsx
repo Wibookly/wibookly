@@ -120,7 +120,7 @@ export default function Sync() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6">
+    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
       {/* User Avatar Row */}
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />

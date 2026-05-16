@@ -471,7 +471,7 @@ export default function EmailDraft() {
 
   if (!activeConnection) {
     return (
-      <div className="min-h-full p-4 lg:p-6">
+      <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
         <div className="mb-4 flex justify-end">
           <UserAvatarDropdown />
         </div>
@@ -506,7 +506,7 @@ export default function EmailDraft() {
   const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Saving will generate and store one sample reply you can review or remove anytime.";
 
   return (
-    <div className="min-h-full p-4 lg:p-6">
+    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
