@@ -1027,7 +1027,57 @@ When answering:
       }
     }
 
-    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+    // Web search path — gated by group feature `ai_chat_web_search`.
+    let result: AIUsageResult;
+    if (webSearchRequested) {
+      // Verify the user actually has access (super admin bypasses).
+      let allowed = false;
+      try {
+        const { data: hasWs } = await supabase.rpc('has_feature', {
+          _user_id: user.id,
+          _feature_key: 'ai_chat_web_search',
+        });
+        allowed = hasWs === true;
+      } catch (_e) { allowed = false; }
+
+      if (!allowed) {
+        const msg = 'Web search is not enabled for your group. Ask your admin to enable "AI Chat — Web Search".';
+        if (isChatPageMode && streamMode) {
+          return new Response(
+            buildChatSSEStream({
+              fullContent: msg,
+              conversationId: conversationId!,
+              usage: { promptTokens: 0, completionTokens: 0, costUsd: 0, model: 'n/a', provider: 'openai' },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } }
+          );
+        }
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!adminAIConfig.openai) {
+        throw new Error('Web search requires an OpenAI API key. Add one in Admin → Settings.');
+      }
+      // Per-group model override if admin assigned one; otherwise default to gpt-5-mini.
+      let wsModel = 'gpt-5-mini';
+      try {
+        const { data: gfRows } = await supabase
+          .from('group_features')
+          .select('model_assignment, permission_groups!inner(organization_id)')
+          .eq('feature_key', 'ai_chat_web_search')
+          .eq('is_enabled', true)
+          .eq('permission_groups.organization_id', orgId)
+          .not('model_assignment', 'is', null)
+          .limit(1);
+        if (gfRows && gfRows[0]?.model_assignment) wsModel = gfRows[0].model_assignment as string;
+      } catch (_e) { /* keep default */ }
+
+      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel);
+    } else {
+      result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+    }
 
     if (orgId) {
       await recordSpend(supabase, {
