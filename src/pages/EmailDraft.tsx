@@ -510,22 +510,19 @@ export default function EmailDraft() {
       </div>
 
       <div className="w-full space-y-5">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-xl bg-card/80 backdrop-blur-sm border border-border shadow-sm p-5">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-          <div className="relative flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {headerTitle}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">{headerSubtitle}</p>
-            </div>
+        <PageHero
+          eyebrow="AI Intelligence"
+          title={headerTitle}
+          description={headerSubtitle}
+          accent="orange"
+          icon={<Sparkles className="w-5 h-5 text-white" strokeWidth={2} />}
+          actions={
             <div className="flex flex-col gap-1.5 items-end">
               <QuotaBadge featureKey="ai_draft" label="AI Draft" />
               <QuotaBadge featureKey="ai_auto_reply" label="Auto Reply" />
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Main settings always render. AI Label Colors card is appended below. */}
         <>
