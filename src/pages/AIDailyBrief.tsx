@@ -229,8 +229,9 @@ export default function AIDailyBrief() {
     if (type === 'all' && brief.aiAnalysis) {
       const ai = brief.aiAnalysis;
       content += `
-        <div style="margin-bottom: 30px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe; page-break-inside: avoid;">
-          <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #4338ca; text-transform: uppercase; margin-bottom: 6px;">🤖 AI Analysis — What to do first</div>
+        <section class="brief-section">
+        <h2>AI Analysis — What to do first</h2>
+        <div style="margin-bottom: 16px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe;">
           ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${ai.headline}</p>` : ''}
           ${(ai.whatToDoFirst || []).length ? `<ol style="margin:0;padding-left:0;list-style:none">
             ${ai.whatToDoFirst.map((it: any, i: number) => `
@@ -246,15 +247,16 @@ export default function AIDailyBrief() {
           ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${r}</li>`).join('')}</ul></div>` : ''}
           ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${w}</li>`).join('')}</ul></div>` : ''}
         </div>
+        </section>
       `;
     }
 
     if (type === 'all' || type === 'priorities') {
       content += `
-        <div style="margin-bottom: 30px;">
-          <h2 style="font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Priorities</h2>
+        <section class="brief-section">
+          <h2>Priorities</h2>
           ${brief.priorities?.length ? brief.priorities.map(p => `
-            <div style="padding: 12px; margin: 10px 0; border-left: 4px solid ${
+            <div class="priority-item" style="padding: 12px; margin: 10px 0; border-left: 4px solid ${
               p.urgency === 'high' ? priorityColors.high : 
               p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
             }; background: #f9f9f9;">
@@ -271,14 +273,14 @@ export default function AIDailyBrief() {
               <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${p.description}</p>
             </div>
           `).join('') : '<p style="color: #999;">No priorities for today</p>'}
-        </div>
+        </section>
       `;
     }
 
     if (type === 'all' || type === 'calendar') {
       content += `
-        <div style="margin-bottom: 30px;">
-          <h2 style="font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Today's Schedule</h2>
+        <section class="brief-section">
+          <h2>Today's Schedule</h2>
           ${(() => {
             const booked = (brief.schedule || []).filter(s => {
               const t = (s.type || '').toLowerCase();
@@ -288,7 +290,7 @@ export default function AIDailyBrief() {
               return true;
             });
             return booked.length ? booked.map(s => `
-            <div style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
+            <div class="priority-item" style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
               <span style="width: 80px; font-family: monospace; color: #666;">${s.time}</span>
               <div style="flex: 1;">
                 <strong>${s.title}</strong>
@@ -297,13 +299,13 @@ export default function AIDailyBrief() {
             </div>
           `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
           })()}
-        </div>
+        </section>
       `;
     }
 
     if (type === 'all' || type === 'todo') {
       content += `
-        <div style="margin-bottom: 30px;">
+        <section class="brief-section">
           <h2>To-Do List</h2>
           ${brief.priorities?.length || brief.emailHighlights?.length ? `
             <div style="display: grid; gap: 12px;">
@@ -340,7 +342,7 @@ export default function AIDailyBrief() {
               `).join('') || ''}
             </div>
           ` : '<p style="color: #94a3b8; text-align: center; padding: 40px;">No to-do items for today</p>'}
-        </div>
+        </section>
       `;
     }
 
