@@ -243,6 +243,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
+                <StepBadge n={1} />
                 <Mail className="w-5 h-5 text-primary" /> No Reply Tracker
                 {settings.is_enabled ? (
                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">Active</Badge>
@@ -251,6 +252,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 )}
               </CardTitle>
               <CardDescription className="mt-1.5 max-w-2xl">
+                <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
+                <br />
                 BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
                 (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
                 original to your <strong>No Reply Tracker</strong> category (red) and applies the action you choose below.
@@ -288,18 +291,25 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       </Card>
 
       {/* Action mode */}
-      <Card className={!settings.is_enabled ? 'opacity-60 pointer-events-none' : ''}>
+      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
-          <CardTitle className="text-base">When the due date arrives</CardTitle>
-          <CardDescription>Pick what InboxIQ does after confirming there's been no reply.</CardDescription>
+          <CardTitle className="text-base flex items-center gap-2">
+            <StepBadge n={2} /> When the due date arrives
+          </CardTitle>
+          <CardDescription>
+            {settings.is_enabled
+              ? 'Pick what InboxIQ does after confirming there\'s been no reply.'
+              : 'Locked — turn on Step 1 (the master switch above) to edit these actions.'}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className={`space-y-4 ${!settings.is_enabled ? 'pointer-events-none' : ''}`}>
           <ActionRow
             icon={Tag}
             title="Always: move to No Reply Tracker category"
             description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
             checked={true}
             disabled
+            disabledHint="This action is always on while the tracker is enabled."
             onChange={() => {}}
           />
           <ActionRow
@@ -307,6 +317,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             title="Auto Draft a follow-up"
             description="AI writes a polite nudge into your Outlook Drafts. You review and send."
             checked={settings.auto_draft_enabled}
+            disabled={!settings.is_enabled}
+            disabledHint="Turn on Step 1 (master switch) to enable Auto Draft."
             onChange={(v) => patch({ auto_draft_enabled: v })}
           />
           <ActionRow
@@ -314,6 +326,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             title="Auto Reply (sends automatically)"
             description="AI writes AND sends the follow-up without review. Use with care."
             checked={settings.auto_reply_enabled}
+            disabled={!settings.is_enabled}
+            disabledHint="Turn on Step 1 (master switch) to enable Auto Reply."
             onChange={(v) => patch({ auto_reply_enabled: v })}
             warning={settings.auto_reply_enabled ? 'Replies will be sent without your review.' : undefined}
           />
@@ -321,12 +335,12 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       </Card>
 
       {/* Business hours */}
-      <Card className={!settings.is_enabled ? 'opacity-60 pointer-events-none' : ''}>
+      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Business hours
+                <StepBadge n={3} /> <Clock className="w-4 h-4" /> Business hours
               </CardTitle>
               <CardDescription className="mt-1.5">
                 When on, <strong>Auto Draft</strong>, <strong>Auto Reply</strong> and the
@@ -347,7 +361,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             />
           </div>
         </CardHeader>
-        <CardContent className={`space-y-4 ${!settings.business_hours_only ? 'opacity-60 pointer-events-none' : ''}`}>
+        <CardContent className={`space-y-4 ${!settings.business_hours_only ? 'opacity-70 pointer-events-none' : ''}`}>
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="bh-start">Start (local)</Label>
