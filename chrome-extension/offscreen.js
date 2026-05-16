@@ -13,14 +13,14 @@ let cfg = null;
 async function transcribeBlob(blob) {
   const buf = await blob.arrayBuffer();
   const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  const res = await fetch(`${cfg.supabaseUrl}/functions/v1/transcribe-audio`, {
+  const res = await fetch(`${cfg.supabaseUrl}/functions/v1/voice-to-text`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       apikey: cfg.supabaseAnonKey,
       Authorization: `Bearer ${cfg.token}`,
     },
-    body: JSON.stringify({ audio: b64, mimeType: blob.type }),
+    body: JSON.stringify({ audio: b64 }),
   });
   if (!res.ok) throw new Error(`transcribe ${res.status}`);
   const data = await res.json().catch(() => ({}));
