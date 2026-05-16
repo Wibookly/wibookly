@@ -159,7 +159,21 @@ export default function MeetingCopilot() {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
-        if (error || !data || data.error || !Array.isArray(data.meetings) || data.meetings.length === 0) return;
+        if (error) {
+          setCalendarStatus({ state: 'error', detail: error.message || 'Calendar request failed' });
+          return;
+        }
+        if (data?.error === 'no_outlook_connection') {
+          setCalendarStatus({ state: 'not_connected' });
+          return;
+        }
+        if (data?.error) {
+          setCalendarStatus({ state: 'error', detail: data.detail || data.error });
+          return;
+        }
+        const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
+        setCalendarStatus({ state: 'connected', count: list.length });
+        if (list.length === 0) return; // keep mock visual for layout, but banner makes it clear
         const fmt = (iso: string) => {
           const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
           let h = d.getHours();
@@ -168,7 +182,7 @@ export default function MeetingCopilot() {
           h = h % 12 || 12;
           return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
         };
-        const mapped = data.meetings.map((m: any) => {
+        const mapped = list.map((m: any) => {
           const { timeLabel, period } = fmt(m.startTime);
           return {
             id: m.id,
@@ -182,13 +196,31 @@ export default function MeetingCopilot() {
           };
         });
         const prefs: Record<string, boolean> = {};
-        data.meetings.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
+        list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
         setUpcoming(mapped);
         setPerMeeting(prefs);
         setUsingMockMeetings(false);
-      } catch { /* keep mock */ }
+      } catch (e) {
+        setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
+      }
     })();
   }, [user]);
+
+  const downloadExtension = async () => {
+    try {
+      const res = await fetch('/inboxiq-meeting-copilot.zip');
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'inboxiq-meeting-copilot.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success('Extension downloaded — unzip it, then load it at chrome://extensions');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Download failed');
+    }
+  };
 
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
     const next = { ...settings, ...patch };
