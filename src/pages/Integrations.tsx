@@ -31,6 +31,7 @@ import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErr
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
 
 interface Connection {
   id: string;
