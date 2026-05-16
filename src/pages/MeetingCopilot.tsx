@@ -246,7 +246,28 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  
+  const [stats, setStats] = useState({ meetings: 0, sessions: 0, hours: '0h', actions: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const since = new Date(); since.setDate(since.getDate() - 7);
+      const sinceIso = since.toISOString();
+      const [{ count: meetings }, { data: sessRows, count: sessions }, { count: actions }] = await Promise.all([
+        supabase.from('meeting_copilot_preferences').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('meeting_sessions').select('duration_seconds', { count: 'exact' }).eq('user_id', user.id).gte('started_at', sinceIso),
+        supabase.from('meeting_action_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      const totalSec = (sessRows || []).reduce((a, r: any) => a + (r.duration_seconds || 0), 0);
+      const hours = totalSec >= 3600 ? `${(totalSec / 3600).toFixed(1)}h` : `${Math.round(totalSec / 60)}m`;
+      setStats({
+        meetings: upcoming.length || meetings || 0,
+        sessions: sessions || 0,
+        hours,
+        actions: actions || 0,
+      });
+    })();
+  }, [user, upcoming.length, openSession, recent.length]);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -286,10 +307,10 @@ export default function MeetingCopilot() {
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Meetings this week', value: '12', trend: '+3', Icon: Calendar, grad: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' },
-          { label: 'Copilot sessions',   value: '8',  trend: '+2', Icon: Mic,      grad: 'linear-gradient(135deg, #EC4899, #C026D3)' },
-          { label: 'Hours transcribed',  value: '14.2h',           Icon: Clock,    grad: 'linear-gradient(135deg, #06B6D4, #3B82F6)' },
-          { label: 'Action items captured', value: '47', trend: '+18', Icon: CheckCircle, grad: 'linear-gradient(135deg, #22C55E, #10B981)' },
+          { label: 'Upcoming this week', value: String(stats.meetings), Icon: Calendar, grad: 'linear-gradient(135deg, #6D28D9, #8B5CF6)' },
+          { label: 'Copilot sessions (7d)', value: String(stats.sessions), Icon: Mic, grad: 'linear-gradient(135deg, #EC4899, #C026D3)' },
+          { label: 'Hours transcribed (7d)', value: stats.hours, Icon: Clock, grad: 'linear-gradient(135deg, #06B6D4, #3B82F6)' },
+          { label: 'Action items captured', value: String(stats.actions), Icon: CheckCircle, grad: 'linear-gradient(135deg, #22C55E, #10B981)' },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-5"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -301,12 +322,6 @@ export default function MeetingCopilot() {
             </div>
             <div className="flex items-baseline gap-2">
               <div className="text-h3" style={{ color: 'var(--text-1)' }}>{s.value}</div>
-              {s.trend && (
-                <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
-                  style={{ background: 'color-mix(in srgb, var(--c-green) 18%, transparent)', color: 'var(--c-green)' }}>
-                  {s.trend}
-                </span>
-              )}
             </div>
           </div>
         ))}
