@@ -1087,7 +1087,7 @@ When answering:
         if (gfRows && gfRows[0]?.model_assignment) wsModel = gfRows[0].model_assignment as string;
       } catch (_e) { /* keep default */ }
 
-      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel);
+      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel, userLocation ?? null);
     } else {
       result = await generateChatReply(messages, systemPrompt, adminAIConfig);
     }
