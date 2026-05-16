@@ -157,58 +157,76 @@ export function AppSidebar() {
     }
   }, [organization?.id]);
 
+  const accents = {
+    cyan:   'var(--c-cyan)',
+    purple: 'var(--c-purple)',
+    orange: 'var(--c-orange)',
+    green:  'var(--c-green)',
+    red:    'var(--c-rose)',
+  };
+
   return (
-    <aside className="hidden lg:flex w-72 h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
-      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+    <aside className="hidden lg:flex w-[264px] h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-9 w-auto"
+          className="h-[70px] w-auto object-contain"
           draggable={false}
         />
-        <div className="font-sans font-bold tracking-tight text-xl leading-none" style={{ color: 'var(--text)' }}>
-          InboxIQ
+        <InboxIQLogo className="text-[18px] leading-none" />
+        <div
+          className="mt-0.5"
+          style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-soft)' }}
+        >
+          AI inbox for M365
         </div>
       </div>
 
       {/* Active Email Selector */}
-      <div className="p-3 border-b border-border">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected Emails</h3>
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-soft)' }}>
+        <h3
+          className="mb-2 px-1"
+          style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}
+        >
+          Connected Emails
+        </h3>
         {loading ? (
-          <div className="h-10 bg-muted/50 animate-pulse rounded-md" />
+          <div className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--surface-3)' }} />
         ) : connections.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer min-w-0">
+              <div
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl transition-colors cursor-pointer min-w-0"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {activeConnection && (
-                    <ProviderIcon provider={activeConnection.provider} className="w-4 h-4 flex-shrink-0" />
-                  )}
-                  <span className="text-xs font-medium text-primary truncate">
+                  <ProviderIcon provider="outlook" className="flex-shrink-0" />
+                  <span className="text-xs font-medium truncate" style={{ color: 'var(--primary)' }}>
                     {activeConnection?.email || 'Select email'}
                   </span>
                 </div>
-                <ChevronDown className="w-3 h-3 text-primary flex-shrink-0" />
+                <ChevronDown className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--primary)' }} />
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px]">
+            <DropdownMenuContent align="start" className="w-[240px]">
               {connections.map((connection) => (
                 <DropdownMenuItem
                   key={connection.id}
                   onClick={() => setActiveConnectionId(connection.id)}
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <ProviderIcon provider={connection.provider} className="w-4 h-4 flex-shrink-0" />
+                  <ProviderIcon provider="outlook" className="flex-shrink-0" />
                   <span className="text-xs truncate flex-1">{connection.email}</span>
                   {activeConnection?.id === connection.id && (
-                    <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                    <Check className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--primary)' }} />
                   )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 rounded-md">
+          <div className="px-3 py-2 text-xs rounded-xl" style={{ color: 'var(--text-muted)', background: 'var(--surface)', border: '1px solid var(--border)' }}>
             No emails connected
           </div>
         )}
@@ -217,61 +235,61 @@ export function AppSidebar() {
       {/* Scrollable middle section containing nav */}
       <div className="flex-1 overflow-y-auto min-h-0">
 
-        <nav className="p-3 pt-0 space-y-2">
+        <nav className="p-3 space-y-2">
           {isChatOnly ? (
-            <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
-              <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>
+            <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
+              <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>
             </NavSection>
           ) : (
             <>
               {/* Account Provisioning */}
-              <NavSection title="Account Provisioning" icon={UserPlus} defaultOpen colorClass="text-blue-500">
-                <NavItem href="/integrations" icon={Link2}>Email & Calendar Connections</NavItem>
+              <NavSection title="Account Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
+                <NavItem href="/integrations" icon={Link2} accent={accents.cyan}>Email & Calendar Connections</NavItem>
               </NavSection>
 
               {/* AI Intelligence */}
               {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat')) && (
-                <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
-                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>}
-                  <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
+                <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
+                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
+                  <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing} accent={accents.purple}>No Reply Tracker</NavItem>}
                 </NavSection>
               )}
 
               {/* My Settings */}
-              <NavSection title="My Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
-                <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
+              <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
+                <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
                 {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
                   <>
                     {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
-                      <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
+                      <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft / Auto Reply Settings</NavItem>
                     ) : (
                       <>
                         {(isSuperAdmin || hasFeature('ai_draft')) && (
-                          <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+                          <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft Settings</NavItem>
                         )}
                         {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
-                          <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                          <NavItem href="/email-draft" icon={MessageSquare} accent={accents.orange}>AI Auto Reply</NavItem>
                         )}
                       </>
                     )}
                   </>
                 )}
-                <NavItem href="/integrations?tab=settings" icon={Clock}>My Availability and Calendar</NavItem>
+                <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
               </NavSection>
 
               {/* Reports */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
-                <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
+                <NavSection title="Reports" icon={BarChart3} accent={accents.green} defaultOpen>
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.green}>My Daily Brief</NavItem>}
                 </NavSection>
               )}
 
               {/* Admin */}
               {isSuperAdmin && (
-                <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
-                  <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
+                <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
+                  <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>
                 </NavSection>
               )}
             </>
