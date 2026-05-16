@@ -685,6 +685,7 @@ async function callOpenAIWebSearch(
   };
 }
 
+async function generateChatReply(messages: Array<{ role: string; content: string }>, systemPrompt: string, config: AdminAIConfig): Promise<AIUsageResult> {
   const primary = choosePrimaryProvider(messages, config.preference);
   const order: AIProvider[] = primary === 'openai' ? ['openai', 'claude'] : ['claude', 'openai'];
   const errors: string[] = [];
