@@ -92,7 +92,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       session_id: sessionId,
       user_id: user.id,
       speaker,
-      content: newLine.text,
+      text: newLine.text,
       spoken_at: now.toISOString(),
     });
 
