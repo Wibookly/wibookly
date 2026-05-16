@@ -208,7 +208,7 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  const activeMeeting = MOCK_UPCOMING.find((m) => m.isLive);
+  const activeMeeting = upcoming.find((m) => m.isLive);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -367,7 +367,7 @@ export default function MeetingCopilot() {
             <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
           </div>
           <div className="space-y-3">
-            {MOCK_UPCOMING.map((m) => (
+            {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true} onToggle={(v) => toggleMeeting(m.id, v)} />
             ))}
           </div>
