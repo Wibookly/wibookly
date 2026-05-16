@@ -1194,7 +1194,7 @@ export default function Categories() {
                         <Switch
                           checked={rule.is_enabled}
                           onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
-                          className={rule.is_enabled ? 'data-[state=checked]:bg-green-500' : ''}
+                          
                         />
 
                         <TooltipProvider>
