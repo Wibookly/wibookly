@@ -297,10 +297,10 @@ export default function MeetingCopilot() {
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <a href="#" onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+            <a href="/inboxiq-meeting-copilot.zip" onClick={(e) => { e.preventDefault(); downloadExtension(); }}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
               style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
-              <ExternalLink className="w-4 h-4" /> Install Chrome Extension
+              <ExternalLink className="w-4 h-4" /> Download Chrome Extension
             </a>
           </div>
         </div>
