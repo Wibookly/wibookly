@@ -81,40 +81,51 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/25 via-background to-accent/20 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-card/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-border/50">
-        {/* Energy Forward logo */}
-        <div className="flex justify-center mb-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: 'var(--bg)' }}
+    >
+      {/* Soft radial glow behind card */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(60% 50% at 50% 40%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%), radial-gradient(40% 35% at 70% 70%, color-mix(in srgb, var(--ef-sky) 18%, transparent), transparent 70%)',
+        }}
+      />
+      <div
+        className="relative w-full max-w-md p-8 rounded-2xl"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-lg)',
+        }}
+      >
+        {/* Brand lockup */}
+        <div className="flex flex-col items-center mb-6">
           <img
             src={energyForwardLogo}
             alt="EnergyForward"
-            className="h-24 w-auto object-contain"
+            className="h-[88px] w-auto object-contain"
             draggable={false}
           />
-        </div>
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-primary leading-tight">
-            Welcome to InboxIQ
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sign in with your Microsoft 365 account to continue
-          </p>
+          <InboxIQLogo className="text-[26px] leading-none mt-1" />
+          <div
+            className="mt-1"
+            style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-soft)' }}
+          >
+            AI inbox for M365
+          </div>
         </div>
 
-        {/* Value props */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
-          <div className="flex flex-col items-center text-center p-2">
-            <Sparkles className="w-4 h-4 text-primary mb-1" />
-            <span className="text-[10px] text-muted-foreground leading-tight">AI Intelligence</span>
-          </div>
-          <div className="flex flex-col items-center text-center p-2">
-            <Shield className="w-4 h-4 text-primary mb-1" />
-            <span className="text-[10px] text-muted-foreground leading-tight">Secure SSO</span>
-          </div>
-          <div className="flex flex-col items-center text-center p-2">
-            <Zap className="w-4 h-4 text-primary mb-1" />
-            <span className="text-[10px] text-muted-foreground leading-tight">Instant Access</span>
-          </div>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold tracking-tight leading-tight" style={{ color: 'var(--text-strong)', letterSpacing: '-0.02em' }}>
+            Welcome back
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Sign in with your work account to open your AI-prioritized inbox.
+          </p>
         </div>
 
         {/* Email input + Microsoft SSO */}
