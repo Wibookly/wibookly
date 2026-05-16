@@ -169,28 +169,28 @@
     --radius: 1rem;
 
     /* Legacy ef-* bridge */
-    --ef-navy: var(--text);
-    --ef-navy-2: var(--text-body);
-    --ef-blue: var(--primary);
-    --ef-blue-2: var(--accent);
-    --ef-sky: var(--c-cyan);
-    --ef-sky-soft: var(--surface-2);
+    --ef-navy: var(--ef-navy-brand);
+    --ef-navy-2: var(--ef-navy-brand);
+    --ef-blue: var(--ef-blue-brand);
+    --ef-blue-2: var(--ef-blue-brand);
+    --ef-sky: var(--ef-sky-brand);
+    --ef-sky-soft: var(--primary-softer);
     --ef-green: var(--success);
-    --ef-green-soft: var(--surface-3);
-    --sidebar-bg: var(--surface);
+    --ef-green-soft: var(--success-bg);
+    --sidebar-bg: var(--bg-elev);
     --sidebar-border: var(--border-soft);
-    --sidebar-background: var(--surface);
+    --sidebar-background: var(--bg-elev);
     --sidebar-foreground: var(--text);
     --sidebar-primary: var(--primary);
     --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: var(--surface-2);
+    --sidebar-accent: var(--surface-3);
     --sidebar-accent-foreground: var(--text);
     --sidebar-ring: var(--primary);
     --bg-grad-from: var(--bg);
     --bg-grad-to: var(--bg);
 
-    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    --font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+    --font-display: var(--font-sans);
     --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
   }
 
