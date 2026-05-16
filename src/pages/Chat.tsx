@@ -505,10 +505,10 @@ export default function Chat() {
                 title="InboxIQ Chat"
                 description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
                 accent="blue"
-                icon={<AgentAvatar active={isStreaming} className="w-10 h-10 rounded-xl" />}
+                icon={<AgentAvatar active className="w-10 h-10" />}
               />
               <div className="flex flex-col items-center mt-4">
-                <AgentAvatar active={isStreaming} className="w-16 h-16 mb-4" />
+                <AgentAvatar active className="w-36 h-36 mb-4 shadow-glow" />
                 <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
                 <p className="text-muted-foreground mb-6 text-sm">Pick a starter or type your own message.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
@@ -661,11 +661,15 @@ function MessageBubble({
 
   return (
     <div className={cn('flex gap-3 group', isUser && 'flex-row-reverse')}>
-      <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className={cn('text-xs', isUser ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-          {isUser ? userInitial : 'IQ'}
-        </AvatarFallback>
-      </Avatar>
+      {isUser ? (
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+            {userInitial}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
+      )}
       <div className={cn('max-w-[85%] flex flex-col gap-1', isUser && 'items-end')}>
         <div
           className={cn(
