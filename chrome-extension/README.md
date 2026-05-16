@@ -24,7 +24,7 @@ Captures the audio of your current meeting tab (Teams / Zoom Web / Google Meet /
 
 - The popup grabs the current InboxIQ session token from `localStorage` of the open InboxIQ tab.
 - `background.js` requests a `tabCapture` media stream ID for the active meeting tab and hands it to an offscreen document.
-- `offscreen.js` records 6-second Opus chunks and posts them (base64) to the `transcribe-audio` edge function.
+- `offscreen.js` records 6-second Opus chunks and posts them (base64) to the `voice-to-text` edge function (OpenAI Whisper).
 - Transcribed text is forwarded to `meeting-copilot-ingest`, which writes a `meeting_transcripts` row and (optionally) triggers `meeting-copilot-suggestion`.
 - Audio is never persisted — only transcript text is stored, scoped to your account via RLS.
 
