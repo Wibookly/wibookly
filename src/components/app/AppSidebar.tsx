@@ -58,22 +58,35 @@ function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook';
 interface NavSectionProps {
   title: string;
   icon: React.ElementType;
+  accent: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
   colorClass?: string;
 }
 
-function NavSection({ title, icon: Icon, children, defaultOpen = true }: NavSectionProps) {
+function NavSection({ title, accent, children, defaultOpen = true }: NavSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-3">
-      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 rounded-md text-overline transition-colors group" style={{ color: 'var(--text-subtle)' }}>
+      <CollapsibleTrigger
+        className="flex items-center justify-between w-full px-3 py-1.5 rounded-md transition-colors group"
+        style={{
+          color: accent,
+          fontSize: '9px',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Icon className="w-3.5 h-3.5" />
+          <span
+            className="inline-block rounded-full"
+            style={{ width: 6, height: 6, background: accent }}
+          />
           <span>{title}</span>
         </div>
-        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen && 'rotate-180')} style={{ color: accent, opacity: 0.7 }} />
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-0.5 mt-1">
         {children}
@@ -85,31 +98,38 @@ function NavSection({ title, icon: Icon, children, defaultOpen = true }: NavSect
 interface NavItemProps {
   href: string;
   icon: React.ElementType;
+  accent: string;
   children: React.ReactNode;
   showUpgradeBadge?: boolean;
 }
 
-function NavItem({ href, icon: Icon, children }: NavItemProps) {
+function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
   const location = useLocation();
   const currentUrl = location.pathname + location.search;
   const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
 
+  const activeStyle: React.CSSProperties = {
+    background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 88%, black))`,
+    color: '#FFFFFF',
+    fontWeight: 600,
+    boxShadow: `0 6px 16px -4px color-mix(in srgb, ${accent} 55%, transparent)`,
+  };
+
   return (
     <NavLink
       to={href}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-button transition-colors"
+      className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors"
       style={isActive
-        ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }
-        : { color: 'var(--text-body)' }}
+        ? activeStyle
+        : { color: 'var(--text-body)', fontSize: '13.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
       onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--nav-hover-bg)'; }}
       onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
     >
-      <Icon className="w-4 h-4 shrink-0" />
-      <span className="flex-1 truncate">{children}</span>
+      <Icon className="w-4 h-4 shrink-0" style={{ color: isActive ? '#FFFFFF' : accent }} />
+      <span className="flex-1 truncate" style={{ fontSize: '13.5px' }}>{children}</span>
     </NavLink>
   );
 }
-
 export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
