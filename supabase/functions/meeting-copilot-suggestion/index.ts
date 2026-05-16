@@ -37,8 +37,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [{ data: profile }, { data: session }, { data: settings }] = await Promise.all([
-      sb.from('user_ai_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+    const [{ data: profile }, { data: aiProfile }, { data: session }, { data: settings }] = await Promise.all([
+      sb.from('user_profiles')
+        .select('full_name, title, company, department, role_description, responsibilities, communication_style')
+        .eq('user_id', user.id).maybeSingle(),
+      sb.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle(),
       sb.from('meeting_sessions').select('meeting_title').eq('id', sessionId).maybeSingle(),
       sb.from('meeting_copilot_settings').select('suggestion_style').eq('user_id', user.id).maybeSingle(),
     ]);
@@ -50,10 +53,22 @@ Deno.serve(async (req) => {
       strategic: 'Surface angles, risks, opportunities, and second-order effects.',
     };
 
-    const systemPrompt = `You are a real-time silent meeting copilot for ${profile?.role || 'a professional'}.
-Their responsibilities: ${profile?.responsibilities || 'general business'}.
-Communication style: ${profile?.communication_style || 'professional'}.
+    // Build identity block from the centralized user_profiles row.
+    const p = (profile || {}) as Record<string, string | null>;
+    const identityLines: string[] = [];
+    if (p.full_name) identityLines.push(`Name: ${p.full_name}`);
+    if (p.title) identityLines.push(`Title: ${p.title}`);
+    if (p.company) identityLines.push(`Company: ${p.company}`);
+    if (p.department) identityLines.push(`Department: ${p.department}`);
+    if (p.role_description) identityLines.push(`Role: ${p.role_description}`);
+    if (p.responsibilities) identityLines.push(`Responsibilities: ${p.responsibilities}`);
+    if (p.communication_style) identityLines.push(`Communication style: ${p.communication_style}`);
+    const identityBlock = identityLines.length ? identityLines.join('\n') : 'A professional in a business meeting.';
+    const extraCtx = (aiProfile?.custom_context as string | undefined)?.trim();
 
+    const systemPrompt = `You are a real-time silent meeting copilot for the following user:
+${identityBlock}
+${extraCtx ? `\nExtra meeting-specific context:\n${extraCtx}\n` : ''}
 You are listening to their meeting: "${session?.meeting_title || 'a meeting'}".
 Generate 1-3 helpful suggestions based on the most recent conversation.
 
