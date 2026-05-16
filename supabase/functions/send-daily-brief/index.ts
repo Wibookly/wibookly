@@ -890,12 +890,12 @@ serve(async (req) => {
         (requestedBriefType || s.brief_type) === "morning"
           ? `Your Morning Brief — ${nw.date}`
           : `Your End-of-Day Recap — ${nw.date}`;
-      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
+      const html = renderBriefHtml(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel, recipientName);
 
       // Build PDF attachment so executives can print/read offline.
       let pdfAttachments: Array<{ name: string; contentType: string; bytes: Uint8Array }> = [];
       try {
-        const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel);
+        const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel, recipientName);
         const pdfName = `InboxIQ-Daily-Brief-${nw.date}.pdf`;
         pdfAttachments = [{ name: pdfName, contentType: "application/pdf", bytes: pdfBytes }];
       } catch (e) {
