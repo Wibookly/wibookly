@@ -54,40 +54,66 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
   const [extraDraft, setExtraDraft] = useState('');
   const [editingExtra, setEditingExtra] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Load identity + per-surface extra context
-  useEffect(() => {
+  const loadProfile = async (cancelledRef?: { cancelled: boolean }) => {
     if (!user) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const [{ data: prof }, extraRow] = await Promise.all([
-        supabase
-          .from('user_profiles')
-          .select('full_name, title, company, department, role_description, responsibilities, communication_style')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        surface === 'meeting_copilot'
-          ? supabase.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle()
-          : Promise.resolve({ data: null } as { data: { custom_context?: string | null } | null }),
-      ]);
-      if (cancelled) return;
-      setProfile({
-        full_name: (prof as ProfileFields | null)?.full_name ?? null,
-        title: (prof as ProfileFields | null)?.title ?? null,
-        company: (prof as ProfileFields | null)?.company ?? null,
-        department: (prof as ProfileFields | null)?.department ?? null,
-        role_description: (prof as ProfileFields | null)?.role_description ?? null,
-        responsibilities: (prof as ProfileFields | null)?.responsibilities ?? null,
-        communication_style: (prof as ProfileFields | null)?.communication_style ?? null,
-      });
-      const ex = (extraRow?.data?.custom_context as string | undefined) || '';
-      setExtra(ex);
-      setExtraDraft(ex);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    setLoading(true);
+    const [{ data: prof }, extraRow] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('full_name, title, company, department, role_description, responsibilities, communication_style, phone, mobile, profile_photo_url, email')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      surface === 'meeting_copilot'
+        ? supabase.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null } as { data: { custom_context?: string | null } | null }),
+    ]);
+    if (cancelledRef?.cancelled) return;
+    const p = prof as Partial<ProfileFields> | null;
+    setProfile({
+      full_name: p?.full_name ?? null,
+      title: p?.title ?? null,
+      company: p?.company ?? null,
+      department: p?.department ?? null,
+      role_description: p?.role_description ?? null,
+      responsibilities: p?.responsibilities ?? null,
+      communication_style: p?.communication_style ?? null,
+      phone: p?.phone ?? null,
+      mobile: p?.mobile ?? null,
+      profile_photo_url: p?.profile_photo_url ?? null,
+      email: p?.email ?? user.email ?? null,
+    });
+    const ex = (extraRow?.data?.custom_context as string | undefined) || '';
+    setExtra(ex);
+    setExtraDraft(ex);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const ref = { cancelled: false };
+    loadProfile(ref);
+    return () => { ref.cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, surface]);
+
+  const handleSyncFromMicrosoft = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-microsoft-profile', { body: {} });
+      if (error || (data as { error?: string })?.error) {
+        toast.error((data as { error?: string })?.error || error?.message || 'Sync failed — reconnect Microsoft 365 in Integrations.');
+      } else {
+        toast.success('Profile synced from Microsoft 365');
+        await loadProfile();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const saveExtra = async () => {
     if (!user) return;
