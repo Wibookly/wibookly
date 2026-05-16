@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { QuotaBadge } from '@/components/app/QuotaBadge';
 import { AIThinking } from '@/components/ai/AIThinking';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
 
 interface Message {
   id: string;
