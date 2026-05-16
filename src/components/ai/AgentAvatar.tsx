@@ -27,7 +27,7 @@ export function AgentAvatar({ active = false, className }: AgentAvatarProps) {
   }, [active]);
 
   const baseClass = cn(
-    'object-contain rounded-2xl bg-gradient-to-br from-primary/15 via-background to-accent/15 ring-1 ring-border',
+    'object-cover rounded-full aspect-square bg-gradient-to-br from-primary/15 via-background to-accent/15 ring-1 ring-border',
     className,
   );
 
