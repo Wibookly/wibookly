@@ -388,6 +388,43 @@ export default function MeetingCopilot() {
             </div>
             <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
           </div>
+          {/* Honest status banner — replaces silent mock fallback */}
+          {calendarStatus.state === 'loading' && (
+            <div className="mb-3 rounded-xl p-3 text-xs flex items-center gap-2"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Checking your Microsoft 365 calendar…
+            </div>
+          )}
+          {calendarStatus.state === 'not_connected' && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-orange) 12%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-orange) 35%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Calendar not connected.</strong> The meetings below are sample data. <a href="/integrations" className="underline font-semibold">Connect Microsoft 365</a> to see your real calendar and use Copilot on your meetings & emails.
+            </div>
+          )}
+          {calendarStatus.state === 'error' && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-rose) 12%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-rose) 35%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Couldn't load your calendar.</strong> {calendarStatus.detail.slice(0, 200)} — try <a href="/integrations" className="underline font-semibold">reconnecting Microsoft 365</a>.
+            </div>
+          )}
+          {calendarStatus.state === 'connected' && calendarStatus.count === 0 && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+              Calendar connected — no meetings in the next 7 days. The cards below are samples to preview the UI.
+            </div>
+          )}
+          {calendarStatus.state === 'connected' && calendarStatus.count > 0 && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-green) 10%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar. Your recent emails are read by the follow-up Copilot when a session ends.
+            </div>
+          )}
           <div className="space-y-3">
             {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
