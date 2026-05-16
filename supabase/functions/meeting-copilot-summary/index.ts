@@ -50,13 +50,36 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'ai_unavailable' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const prompt = `Analyze this meeting transcript and output JSON ONLY with this exact shape:
+    // Load the user's Settings profile so the summary + follow-up email
+    // are written in their voice (name, title, company, role, responsibilities,
+    // and communication style).
+    const { data: profile } = await sb
+      .from('user_profiles')
+      .select('full_name, title, company, department, role_description, responsibilities, communication_style')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const p = (profile || {}) as Record<string, string | null>;
+    const aboutLines: string[] = [];
+    if (p.full_name) aboutLines.push(`Name: ${p.full_name}`);
+    if (p.title) aboutLines.push(`Title: ${p.title}`);
+    if (p.company) aboutLines.push(`Company: ${p.company}`);
+    if (p.department) aboutLines.push(`Department: ${p.department}`);
+    if (p.role_description) aboutLines.push(`Role: ${p.role_description}`);
+    if (p.responsibilities) aboutLines.push(`Responsibilities: ${p.responsibilities}`);
+    if (p.communication_style) aboutLines.push(`Preferred communication style: ${p.communication_style}`);
+    const aboutBlock = aboutLines.length
+      ? `ABOUT ME (write the follow-up email in this person's voice — match their role, seniority, and communication style):\n${aboutLines.join('\n')}\n\n`
+      : '';
+
+    const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
 {
   "summary": "2-3 sentence overall summary",
   "key_decisions": ["..."],
   "action_items": [{ "description": "...", "assigned_to": "name or null", "due_date": "YYYY-MM-DD or null" }],
   "followup_email": { "subject": "...", "body_html": "<p>...</p>" }
 }
+
+The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
 
 Meeting title: ${session.meeting_title}
 Transcript:
