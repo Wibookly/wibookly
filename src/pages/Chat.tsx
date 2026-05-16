@@ -795,7 +795,7 @@ function MessageBubble({
   };
 
   return (
-    <div className={cn('flex gap-3 group', isUser && 'flex-row-reverse')}>
+    <div className="flex gap-3 group">
       {isUser ? (
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarFallback className="text-xs bg-primary text-primary-foreground">
@@ -805,7 +805,7 @@ function MessageBubble({
       ) : (
         <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
       )}
-      <div className={cn('max-w-[85%] flex flex-col gap-1', isUser && 'items-end')}>
+      <div className="max-w-[85%] flex flex-col gap-1 items-start">
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
