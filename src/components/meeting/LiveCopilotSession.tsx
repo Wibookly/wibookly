@@ -51,7 +51,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         .insert({
           user_id: user.id,
           meeting_external_id: meeting.id,
-          title: meeting.title,
+          meeting_title: meeting.title,
           status: 'active',
           started_at: new Date().toISOString(),
         })
