@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>InboxIQ Copilot</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <div class="logo">IQ</div>
+        <div>
+          <div class="title">InboxIQ Copilot</div>
+          <div class="subtitle">Local meeting capture</div>
+        </div>
+      </div>
+      <span id="dot" class="dot off"></span>
+    </header>
+
+    <section id="signed-out" class="hidden">
+      <p>Sign in to InboxIQ in your browser, then click below.</p>
+      <button id="open-app" class="primary">Open InboxIQ</button>
+    </section>
+
+    <section id="signed-in" class="hidden">
+      <div class="field">
+        <label>Active session</label>
+        <select id="session"></select>
+      </div>
+
+      <div class="row">
+        <button id="start" class="primary">Start capture</button>
+        <button id="stop" class="ghost" disabled>Stop</button>
+      </div>
+
+      <div id="status" class="status">Idle</div>
+
+      <details>
+        <summary>Privacy</summary>
+        <ul>
+          <li>Audio is processed in real time and never stored.</li>
+          <li>Only the text transcript is sent to your private InboxIQ account.</li>
+          <li>No bot joins the call. Other attendees see nothing.</li>
+        </ul>
+      </details>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
