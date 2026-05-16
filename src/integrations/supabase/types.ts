@@ -3261,6 +3261,7 @@ export type Database = {
           reason: string
         }[]
       }
+      cleanup_old_chat_conversations: { Args: never; Returns: number }
       cleanup_old_meeting_transcripts: { Args: never; Returns: undefined }
       count_followup_impact: {
         Args: { _group_id: string }

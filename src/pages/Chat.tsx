@@ -7,6 +7,7 @@ import 'highlight.js/styles/github-dark.css';
 import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
+  MoreVertical, Download, FileSpreadsheet, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -74,6 +75,30 @@ function dateBucket(dateStr: string): string {
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
   if (diffDays < 7) return 'Previous 7 days';
   return 'Older';
+}
+
+const RETENTION_DAYS = 30;
+const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
+
+function daysUntilExpiry(createdAt: string): number {
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  const ageDays = Math.floor(ageMs / 86400000);
+  return Math.max(0, RETENTION_DAYS - ageDays);
+}
+
+function downloadBase64File(filename: string, mime: string, base64: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export default function Chat() {
@@ -218,6 +243,36 @@ export default function Chat() {
     if (activeId === id) handleNewChat();
     loadConversations();
   };
+
+  const [exporting, setExporting] = useState<string | null>(null);
+  const handleExport = async (
+    conversationId: string | null,
+    format: 'pdf' | 'xlsx',
+  ) => {
+    const key = `${conversationId || 'all'}-${format}`;
+    setExporting(key);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      const { data, error } = await supabase.functions.invoke('export-chat', {
+        body: { conversation_id: conversationId, format },
+      });
+      if (error) throw error;
+      const file = data as { filename: string; mime_type: string; base64: string };
+      if (!file?.base64) throw new Error('Empty export');
+      downloadBase64File(file.filename, file.mime_type, file.base64);
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const expiringSoon = useMemo(
+    () => conversations.filter((c) => daysUntilExpiry(c.created_at) <= EXPIRY_WARN_DAYS),
+    [conversations],
+  );
 
   const uploadFiles = async (toUpload: File[]): Promise<string[]> => {
     if (!user || !toUpload.length) return [];
@@ -417,28 +472,106 @@ export default function Chat() {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
+          {expiringSoon.length > 0 && (
+            <div className="mx-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold">
+                    {expiringSoon.length} chat{expiringSoon.length === 1 ? '' : 's'} expiring soon
+                  </div>
+                  <div className="opacity-80">
+                    Chats are deleted after {RETENTION_DAYS} days. Export to keep a copy.
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs flex-1"
+                  disabled={exporting === 'all-pdf'}
+                  onClick={() => handleExport(null, 'pdf')}
+                >
+                  {exporting === 'all-pdf'
+                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    : <Download className="h-3 w-3 mr-1" />}
+                  All PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs flex-1"
+                  disabled={exporting === 'all-xlsx'}
+                  onClick={() => handleExport(null, 'xlsx')}
+                >
+                  {exporting === 'all-xlsx'
+                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    : <FileSpreadsheet className="h-3 w-3 mr-1" />}
+                  All Excel
+                </Button>
+              </div>
+            </div>
+          )}
           {Object.entries(groupedConversations).map(([label, items]) => (
             <div key={label}>
               <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-              {items.map((c) => (
-                <div
-                  key={c.id}
-                  className={cn(
-                    'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
-                    activeId === c.id && 'bg-accent'
-                  )}
-                  onClick={() => handleSelectConv(c.id)}
-                >
-                  <span className="flex-1 truncate">{c.title || 'New chat'}</span>
-                  <button
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteConv(c.id); }}
-                    title="Delete"
+              {items.map((c) => {
+                const days = daysUntilExpiry(c.created_at);
+                const expiring = days <= EXPIRY_WARN_DAYS;
+                return (
+                  <div
+                    key={c.id}
+                    className={cn(
+                      'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
+                      activeId === c.id && 'bg-accent'
+                    )}
+                    onClick={() => handleSelectConv(c.id)}
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
+                    <span className="flex-1 truncate">{c.title || 'New chat'}</span>
+                    {expiring && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
+                        title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
+                      >
+                        {days}d
+                      </span>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+                          onClick={(e) => e.stopPropagation()}
+                          title="More"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem
+                          disabled={exporting === `${c.id}-pdf`}
+                          onClick={() => handleExport(c.id, 'pdf')}
+                        >
+                          <Download className="h-4 w-4 mr-2" /> Export as PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={exporting === `${c.id}-xlsx`}
+                          onClick={() => handleExport(c.id, 'xlsx')}
+                        >
+                          <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDeleteConv(c.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
             </div>
           ))}
           {!conversations.length && (
