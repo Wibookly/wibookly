@@ -211,19 +211,30 @@ function renderBriefHtml(
     : "";
 
   return `<!DOCTYPE html>
-<html><body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;background:#f8fafc;margin:0;padding:24px">
+<html><head><style>
+  @page { margin: 0.6in; }
+  @media print {
+    .brief-section { page-break-inside: avoid; break-inside: avoid; }
+  }
+  .brief-section { page-break-inside: avoid; break-inside: avoid; }
+</style></head>
+<body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;background:#f8fafc;margin:0;padding:24px">
   <div style="max-width:720px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px 36px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <h1 style="font-size:24px;margin:0 0 4px;color:#0f172a">${heading}</h1>
-    <p style="color:#94a3b8;font-size:13px;margin:0 0 20px">${esc(dateLabel)}</p>
+    <div style="border-bottom:3px solid #0ea5e9;padding-bottom:14px;margin-bottom:20px">
+      <h1 style="font-size:26px;margin:0 0 6px;color:#0f172a">${heading}</h1>
+      ${recipientName ? `<p style="margin:6px 0 0;font-size:16px;font-weight:600;color:#0f172a">${esc(recipientName)}</p>` : ""}
+      <p style="margin:2px 0 0;font-size:13px;color:#64748b">${esc(recipient)}</p>
+      <p style="margin:2px 0 0;font-size:13px;color:#64748b">${esc(dateLabel)}</p>
+    </div>
     ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 8px">${greeting}</p>` : ""}
     <p style="color:#0f172a;font-size:15px;margin:0 0 8px">${summary}</p>
-    ${aiBlock}
-    ${prioritiesBlock}
-    ${scheduleBlock}
-    ${emailsBlock}
-    ${followUpsBlock}
-    ${todoBlock}
-    ${suggestionsBlock}
+    <div class="brief-section">${aiBlock}</div>
+    <div class="brief-section">${prioritiesBlock}</div>
+    <div class="brief-section">${scheduleBlock}</div>
+    <div class="brief-section">${emailsBlock}</div>
+    <div class="brief-section">${followUpsBlock}</div>
+    <div class="brief-section">${todoBlock}</div>
+    <div class="brief-section">${suggestionsBlock}</div>
     <hr style="margin-top:28px;border:none;border-top:1px solid #e2e8f0"/>
     <p style="color:#94a3b8;font-size:12px;margin-top:14px">Sent by InboxIQ Agent · delivered to ${esc(recipient)} · You can print or forward this brief.</p>
   </div>
