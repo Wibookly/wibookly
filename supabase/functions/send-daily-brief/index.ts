@@ -800,10 +800,17 @@ serve(async (req) => {
         if (fallback) agent = fallback;
       }
 
-      const recipient =
-        s.recipient_email ||
-        (await supabase.from("user_profiles").select("email").eq("user_id", s.user_id).maybeSingle())
-          .data?.email;
+      // Look up the user's profile once — we want both the recipient email
+      // (as a fallback) and the full name so the brief header reads
+      // "Name / email / date" just like the printed view in the app.
+      const { data: profileRow } = await supabase
+        .from("user_profiles")
+        .select("email, full_name")
+        .eq("user_id", s.user_id)
+        .maybeSingle();
+
+      const recipient = s.recipient_email || profileRow?.email;
+      const recipientName = profileRow?.full_name || "";
 
       if (!recipient) {
         console.warn("No recipient for schedule", s.id);
