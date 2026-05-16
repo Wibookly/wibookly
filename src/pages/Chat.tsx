@@ -244,6 +244,36 @@ export default function Chat() {
     loadConversations();
   };
 
+  const [exporting, setExporting] = useState<string | null>(null);
+  const handleExport = async (
+    conversationId: string | null,
+    format: 'pdf' | 'xlsx',
+  ) => {
+    const key = `${conversationId || 'all'}-${format}`;
+    setExporting(key);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      const { data, error } = await supabase.functions.invoke('export-chat', {
+        body: { conversation_id: conversationId, format },
+      });
+      if (error) throw error;
+      const file = data as { filename: string; mime_type: string; base64: string };
+      if (!file?.base64) throw new Error('Empty export');
+      downloadBase64File(file.filename, file.mime_type, file.base64);
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const expiringSoon = useMemo(
+    () => conversations.filter((c) => daysUntilExpiry(c.created_at) <= EXPIRY_WARN_DAYS),
+    [conversations],
+  );
+
   const uploadFiles = async (toUpload: File[]): Promise<string[]> => {
     if (!user || !toUpload.length) return [];
     const urls: string[] = [];
