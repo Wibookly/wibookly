@@ -368,7 +368,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <Label htmlFor="bh-start">Start (local)</Label>
               <select
                 id="bh-start"
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="w-full h-10 rounded-md border-2 border-[var(--border-strong)] bg-[var(--surface-2)] hover:border-[var(--primary)] focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-2 focus:ring-ring px-3 text-sm text-foreground transition-colors"
                 value={settings.business_hours_start}
                 onChange={(e) => patch({ business_hours_start: parseInt(e.target.value, 10) })}
               >
@@ -381,7 +381,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               <Label htmlFor="bh-end">End (local)</Label>
               <select
                 id="bh-end"
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="w-full h-10 rounded-md border-2 border-[var(--border-strong)] bg-[var(--surface-2)] hover:border-[var(--primary)] focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-2 focus:ring-ring px-3 text-sm text-foreground transition-colors"
                 value={settings.business_hours_end}
                 onChange={(e) => patch({ business_hours_end: parseInt(e.target.value, 10) })}
               >
