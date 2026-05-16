@@ -795,7 +795,7 @@ function MessageBubble({
   };
 
   return (
-    <div className="flex gap-3 group">
+    <div className="flex flex-col gap-1.5 group">
       {!isUser && (
         <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
       )}
