@@ -372,7 +372,9 @@ export default function MeetingCopilot() {
           </div>
           <div className="space-y-3">
             {upcoming.map((m) => (
-              <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true} onToggle={(v) => toggleMeeting(m.id, v)} />
+              <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
+                onToggle={(v) => toggleMeeting(m.id, v)}
+                onOpen={() => setOpenSession({ id: m.id, title: m.title })} />
             ))}
           </div>
         </div>
