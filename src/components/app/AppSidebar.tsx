@@ -35,12 +35,23 @@ function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook';
       </svg>
     );
   }
+  // Outlook: white "O+envelope" mark on solid #0078D4 tile
   return (
-    <svg className={className} viewBox="0 0 48 48" fill="none">
-      <path d="M28 8H44V40H28V8Z" fill="#1976D2"/>
-      <path d="M28 8L4 13V35L28 40V8Z" fill="#2196F3"/>
-      <path d="M16 18C12.686 18 10 20.686 10 24C10 27.314 12.686 30 16 30C19.314 30 22 27.314 22 24C22 20.686 19.314 18 16 18ZM16 27C14.343 27 13 25.657 13 24C13 22.343 14.343 21 16 21C17.657 21 19 22.343 19 24C19 25.657 17.657 27 16 27Z" fill="white"/>
-    </svg>
+    <span
+      className={cn('inline-flex items-center justify-center rounded-md', className)}
+      style={{ background: '#0078D4', width: '1.25rem', height: '1.25rem' }}
+      aria-label="Outlook"
+    >
+      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" aria-hidden="true">
+        <path
+          d="M3 7.5h12v9H3v-9zm0 0l6 4.5 6-4.5M17 9h4v6h-4V9zm0 0l2 1.5L21 9"
+          stroke="#FFFFFF"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }
 
