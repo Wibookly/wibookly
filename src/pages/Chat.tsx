@@ -767,7 +767,38 @@ export default function Chat() {
                   onClick={() => {
                     setWebSearch((v) => {
                       const next = !v;
-                      toast.success(next ? 'Web search on — answers will include live results' : 'Web search off');
+                      if (next) {
+                        toast.success('Web search on — using live results & your approximate location');
+                        // Best-effort: capture timezone immediately, ask for
+                        // geolocation in the background and reverse-geocode
+                        // for city/region/country so location-aware queries work.
+                        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        setUserLocation((prev) => ({ ...(prev || {}), timezone: tz }));
+                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            async (pos) => {
+                              try {
+                                const r = await fetch(
+                                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+                                  { headers: { 'Accept-Language': 'en' } },
+                                );
+                                const j = await r.json();
+                                const a = j.address || {};
+                                setUserLocation({
+                                  city: a.city || a.town || a.village || a.hamlet,
+                                  region: a.state || a.region,
+                                  country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+                                  timezone: tz,
+                                });
+                              } catch {/* keep timezone-only fallback */}
+                            },
+                            () => {/* permission denied — keep timezone-only */},
+                            { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+                          );
+                        }
+                      } else {
+                        toast.success('Web search off');
+                      }
                       return next;
                     });
                   }}
