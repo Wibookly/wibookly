@@ -133,6 +133,43 @@ export default function MeetingCopilot() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Load upcoming meetings from Microsoft Graph
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
+        if (error || !data || data.error || !Array.isArray(data.meetings) || data.meetings.length === 0) return;
+        const fmt = (iso: string) => {
+          const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+          let h = d.getHours();
+          const m = d.getMinutes();
+          const period = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
+        };
+        const mapped = data.meetings.map((m: any) => {
+          const { timeLabel, period } = fmt(m.startTime);
+          return {
+            id: m.id,
+            title: m.title,
+            timeLabel: m.isLive ? 'Now' : timeLabel,
+            period: m.isLive ? 'LIVE' : period,
+            platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
+            attendees: m.attendeeCount,
+            duration: m.isLive ? 'In progress' : `${m.durationMin} min`,
+            isLive: m.isLive,
+          };
+        });
+        const prefs: Record<string, boolean> = {};
+        data.meetings.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
+        setUpcoming(mapped);
+        setPerMeeting(prefs);
+        setUsingMockMeetings(false);
+      } catch { /* keep mock */ }
+    })();
+  }, [user]);
+
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
     const next = { ...settings, ...patch };
     setSettings(next);
