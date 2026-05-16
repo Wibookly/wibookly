@@ -5,7 +5,8 @@ import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Play, Check, X, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, Play, Check, X, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import { PageHero } from '@/components/app/PageHero';
 import {
   Table,
   TableBody,
@@ -124,16 +125,15 @@ export default function Sync() {
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
-      
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Sync</h1>
-            <p className="mt-1 text-muted-foreground">
-              Manually trigger syncs and view job history
-            </p>
-          </div>
-          <Button onClick={runSync} disabled={syncing}>
+
+      <PageHero
+        eyebrow="Account Provisioning"
+        title="Sync"
+        description="Manually trigger syncs and view recent job history."
+        accent="cyan"
+        icon={<RefreshCw className="w-5 h-5 text-white" strokeWidth={2} />}
+        actions={
+          <Button onClick={runSync} disabled={syncing} className="bg-white text-slate-900 hover:bg-white/90">
             {syncing ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
@@ -141,7 +141,10 @@ export default function Sync() {
             )}
             Run Sync Now
           </Button>
-        </div>
+        }
+      />
+
+      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
       {jobs.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-lg border border-border">

@@ -50,6 +50,8 @@ const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
+import { Tags } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -1009,17 +1011,16 @@ export default function Categories() {
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
-      
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">Categories <HelpDot articleId="categories-overview" label="How categories work — open the step-by-step guide." /></h1>
-            <p className="mt-1 text-muted-foreground">
-              Customize how your emails are organized. Drag to reorder.
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+
+      <PageHero
+        eyebrow="AI Intelligence"
+        title="Email Intelligence"
+        description="Customize how your emails are organized. Drag to reorder, edit rules, and re-sync labels."
+        accent="purple"
+        icon={<Tags className="w-5 h-5 text-white" strokeWidth={2} />}
+        actions={
+          <>
+            <div className="flex items-center gap-2 text-sm text-white/90">
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1027,16 +1028,17 @@ export default function Categories() {
                 </>
               ) : lastSaved ? (
                 <>
-                  <Check className="w-4 h-4 text-green-500" />
+                  <Check className="w-4 h-4" />
                   <span>Saved</span>
                 </>
               ) : null}
             </div>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={resyncAll}
               disabled={resyncing || !activeConnection?.id}
-              title="Re-create folders/labels and re-apply all rules to existing emails. Disabled categories' emails are moved back to Inbox before their folder is removed."
+              className="bg-white/15 text-white border border-white/25 hover:bg-white/25"
+              title="Re-create folders/labels and re-apply all rules to existing emails."
             >
               {resyncing ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1045,8 +1047,11 @@ export default function Categories() {
               )}
               Re-sync All
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
+
+      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">

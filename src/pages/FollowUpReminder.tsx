@@ -1,18 +1,17 @@
 import FollowUpReminderSettings from '@/components/follow-up/FollowUpReminderSettings';
-import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
+import { BellRing } from 'lucide-react';
 
 export default function FollowUpReminderPage() {
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          No Reply Tracker
-          <HelpDot articleId="follow-up-reminder" label="How follow-ups work" />
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Never lose a thread. BCC a numeric address to schedule an automatic nudge.
-        </p>
-      </div>
+      <PageHero
+        eyebrow="AI Intelligence"
+        title="No Reply Tracker"
+        description="Never lose a thread. BCC a numeric address to schedule an automatic nudge when no one replies."
+        accent="pink"
+        icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
+      />
       <FollowUpReminderSettings />
     </div>
   );

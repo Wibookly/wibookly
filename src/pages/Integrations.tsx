@@ -31,6 +31,7 @@ import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErr
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
 
 interface Connection {
   id: string;
@@ -565,29 +566,24 @@ export default function Integrations() {
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
-      
-      
+
+      <PageHero
+        eyebrow="Account Provisioning"
+        title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
+        description="Connect Google or Microsoft so InboxIQ can start organizing your inbox and calendar."
+        accent="cyan"
+        icon={<LinkIcon className="w-5 h-5 text-white" strokeWidth={2} />}
+        actions={
+          <Link to="/integration-setup">
+            <Button variant="secondary" size="sm" className="bg-white/15 text-white border border-white/25 hover:bg-white/25">
+              <LinkIcon className="w-4 h-4 mr-2" />
+              Setup Guide
+            </Button>
+          </Link>
+        }
+      />
 
       <section className="animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
-        <header className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-                Welcome back{firstName ? `, ${firstName}` : ''}
-                <HelpDot articleId="connect-mailbox" label="How to connect your mailbox — open the guide." />
-              </h1>
-              <p className="mt-1 text-muted-foreground">Connect your email providers to start organizing</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/integration-setup">
-                <Button variant="ghost" size="sm">
-                  <LinkIcon className="w-4 h-4 mr-2" />
-                  Setup Guide
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </header>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => {
         if (!open) {
