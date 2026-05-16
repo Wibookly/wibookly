@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSearchParams } from "react-router-dom";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
+import { PageHero } from "@/components/app/PageHero";
 
 interface Category {
   id: string;
