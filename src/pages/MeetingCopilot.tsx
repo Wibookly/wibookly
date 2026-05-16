@@ -431,14 +431,18 @@ export default function MeetingCopilot() {
             <a className="text-sm font-medium" style={{ color: 'var(--c-green)' }} href="#">View all →</a>
           </div>
           <div className="space-y-3">
-            {MOCK_RECENT.map((s) => (
-              <div key={s.id} className="rounded-xl p-4 flex items-center gap-3"
+            {recent.length === 0 && (
+              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                No completed sessions yet. End a Live Copilot session to see it here.
+              </div>
+            )}
+            {recent.map((s) => (
+              <button key={s.id} onClick={() => setViewSession({ id: s.id, title: s.title })}
+                className="w-full text-left rounded-xl p-4 flex items-center gap-3 transition-colors hover:opacity-90"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div className="flex -space-x-2">
-                  {s.initials.map((ini, idx) => (
-                    <div key={idx} className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2"
-                      style={{ background: ['#EC4899','#F97316','#22C55E','#06B6D4','#A855F7'][idx % 5], borderColor: 'var(--surface)' }}>{ini}</div>
-                  ))}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
+                  <CheckCircle className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
@@ -448,7 +452,7 @@ export default function MeetingCopilot() {
                   style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
                   {s.actions} actions
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
