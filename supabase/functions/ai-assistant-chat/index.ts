@@ -818,6 +818,7 @@ serve(async (req) => {
       attachments: attachmentUrls,
       stream: streamMode,
       web_search: webSearchRequested,
+      user_location: userLocation,
     } = body as {
       messages?: Array<{ role: string; content: string }>;
       connectionId?: string;
@@ -826,6 +827,7 @@ serve(async (req) => {
       attachments?: string[];
       stream?: boolean;
       web_search?: boolean;
+      user_location?: { city?: string; region?: string; country?: string; timezone?: string } | null;
     };
 
     const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
