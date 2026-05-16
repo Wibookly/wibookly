@@ -587,6 +587,17 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   );
 }
 
+function StepBadge({ n }: { n: number }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold border-2 border-primary text-primary bg-primary/10 shrink-0"
+      aria-label={`Step ${n}`}
+    >
+      {n}
+    </span>
+  );
+}
+
 function ActionRow({
   icon: Icon,
   title,
@@ -594,6 +605,7 @@ function ActionRow({
   checked,
   onChange,
   disabled,
+  disabledHint,
   warning,
 }: {
   icon: React.ElementType;
@@ -602,10 +614,11 @@ function ActionRow({
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  disabledHint?: string;
   warning?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+    <div className="flex items-start justify-between gap-4 rounded-lg border-2 p-3 bg-[var(--surface-2)]">
       <div className="flex items-start gap-3 min-w-0">
         <div className="p-2 rounded-md bg-secondary/60 text-foreground/80 mt-0.5">
           <Icon className="w-4 h-4" />
@@ -620,7 +633,16 @@ function ActionRow({
           ) : null}
         </div>
       </div>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-block">
+              <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+            </span>
+          </TooltipTrigger>
+          {disabled && disabledHint && <TooltipContent>{disabledHint}</TooltipContent>}
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
