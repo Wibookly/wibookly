@@ -5,7 +5,8 @@ import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Play, Check, X, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, Play, Check, X, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import { PageHero } from '@/components/app/PageHero';
 import {
   Table,
   TableBody,
