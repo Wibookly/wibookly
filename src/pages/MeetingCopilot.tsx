@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
   Sparkles, Calendar, Clock, Users, CheckCircle, Mic, Play,
-  Headphones, ExternalLink, Pencil, Settings as SettingsIcon, Zap,
+  Headphones, ExternalLink, Settings as SettingsIcon, Zap,
   MessageSquare, Target,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -22,11 +22,8 @@ interface CopilotSettings {
   suggestion_style: SuggestionStyle;
 }
 
-interface AIProfile {
-  role: string;
-  responsibilities: string;
-  communication_style: string;
-}
+// Note: per-user identity (role, responsibilities, communication style) is
+// now centralized in `user_profiles` and rendered by <ProfileContextCard />.
 
 // ---------- MOCK DATA (replaced with Graph + Supabase in Sprint 2) ----------
 const MOCK_UPCOMING = [
@@ -85,11 +82,6 @@ const MOCK_SUGGESTIONS = [
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<AIProfile>({
-    role: 'IT Systems Administrator at 4 S.T.E.L. Engineering',
-    responsibilities: 'M365 administration, network infrastructure, structural engineering systems support',
-    communication_style: 'Technical and direct. Prefers concrete examples and step-by-step explanations.',
-  });
   const [settings, setSettings] = useState<CopilotSettings>({
     auto_join_all: false,
     show_live_suggestions: true,
@@ -99,8 +91,6 @@ export default function MeetingCopilot() {
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
   const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
   const [usingMockMeetings, setUsingMockMeetings] = useState(true);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [draftProfile, setDraftProfile] = useState(profile);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
