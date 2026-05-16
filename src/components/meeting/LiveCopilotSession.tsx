@@ -45,6 +45,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   // Create session on mount
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from('meeting_sessions')
@@ -61,9 +62,50 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         toast.error('Could not start Copilot session');
         return;
       }
+      if (cancelled) return;
       setSessionId(data.id);
     })();
+    return () => { cancelled = true; };
   }, [user, meeting.id, meeting.title]);
+
+  // Realtime: listen for transcript + suggestion inserts (pushed by the Chrome extension)
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`copilot-${sessionId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'meeting_transcripts',
+        filter: `session_id=eq.${sessionId}`,
+      }, (payload) => {
+        const r: any = payload.new;
+        setTranscript((cur) => {
+          if (cur.some((l) => l.id === r.id)) return cur;
+          const d = new Date(r.spoken_at || r.created_at);
+          const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          const color = r.speaker === 'You'
+            ? '#A855F7'
+            : SPEAKER_COLORS[Math.abs(hashCode(String(r.speaker || 'Other'))) % SPEAKER_COLORS.length];
+          return [...cur, { id: r.id, speaker: r.speaker || 'Other', text: r.text, time, color }];
+        });
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'meeting_suggestions',
+        filter: `session_id=eq.${sessionId}`,
+      }, (payload) => {
+        const r: any = payload.new;
+        setSuggestions((cur) => {
+          if (cur.some((s) => s.id === r.id)) return cur;
+          return [{
+            id: r.id,
+            label: (r.suggestion_type || r.type || 'Suggestion').toUpperCase(),
+            content: r.content || r.text || '',
+            kind: r.suggestion_type,
+          }, ...cur].slice(0, 6);
+        });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [sessionId]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
