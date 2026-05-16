@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { PageHero } from '@/components/app/PageHero';
+
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 
 interface Conversation {
