@@ -383,7 +383,7 @@ function buildBriefPdf(
     y += 8;
   }
 
-  // AI Analysis
+  // AI Analysis — first major section. Stays on page 1 (no force-page).
   const ai = brief?.aiAnalysis || {};
   const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
   if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
@@ -486,9 +486,32 @@ function buildBriefPdf(
     }
   }
 
-  // Today's Schedule
+  // Priorities — starts on a fresh page so executives see them cleanly.
+  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
+  if (priorities.length) {
+    sectionHeading("Today's Priorities", { newPage: true });
+    priorities.forEach((p: any) => {
+      ensureSpace(30);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      const tag = String(p.urgency || "medium").toUpperCase();
+      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
+      y += 14;
+      if (p.description) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+      }
+      y += 4;
+    });
+    y += 6;
+  }
+
+  // Today's Schedule — fresh page.
   const schedule = Array.isArray(brief?.schedule) ? brief.schedule : [];
-  sectionHeading("Today's Schedule");
+  sectionHeading("Today's Schedule", { newPage: true });
   if (schedule.length === 0) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
@@ -521,9 +544,9 @@ function buildBriefPdf(
   }
   y += 6;
 
-  // Email Highlights
+  // Email Highlights — fresh page.
   const emails = Array.isArray(brief?.emailHighlights) ? brief.emailHighlights : [];
-  sectionHeading("Email Highlights");
+  sectionHeading("Email Highlights", { newPage: true });
   if (emails.length === 0) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
@@ -550,32 +573,9 @@ function buildBriefPdf(
   }
   y += 6;
 
-  // Priorities
-  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
-  if (priorities.length) {
-    sectionHeading("Today's Priorities");
-    priorities.forEach((p: any) => {
-      ensureSpace(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      const tag = String(p.urgency || "medium").toUpperCase();
-      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
-      y += 14;
-      if (p.description) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
-      }
-      y += 4;
-    });
-    y += 6;
-  }
-
-  // No Reply Tracker
+  // No Reply Tracker — fresh page.
   if (pendingFollowUps && pendingFollowUps.length) {
-    sectionHeading("No Reply Tracker");
+    sectionHeading("No Reply Tracker", { newPage: true });
     pendingFollowUps.forEach((f: any) => {
       const overdue = f.due_at && new Date(f.due_at) < new Date();
       ensureSpace(30);
@@ -595,10 +595,44 @@ function buildBriefPdf(
     y += 6;
   }
 
-  // Suggestions
+  // To-Do List — combined priorities + email actions, mirroring the on-screen view.
+  const todoLines: Array<{ label: string; sub?: string }> = [];
+  priorities.forEach((p: any) => {
+    todoLines.push({
+      label: String(p.title || ""),
+      sub: p.description ? String(p.description) : undefined,
+    });
+  });
+  emails.slice(0, 5).forEach((e: any) => {
+    todoLines.push({
+      label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
+      sub: e.from ? `From ${e.from}` : undefined,
+    });
+  });
+  if (todoLines.length) {
+    sectionHeading("To-Do List", { newPage: true });
+    todoLines.forEach((t) => {
+      ensureSpace(24);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("☐", marginX, y);
+      writeWrapped(t.label, marginX + 16, pageW - 2 * marginX - 16, 14);
+      if (t.sub) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        writeWrapped(t.sub, marginX + 16, pageW - 2 * marginX - 16, 12);
+      }
+      y += 4;
+    });
+    y += 6;
+  }
+
+  // Suggestions — fresh page.
   const suggestions = Array.isArray(brief?.suggestions) ? brief.suggestions : [];
   if (suggestions.length) {
-    sectionHeading("Suggestions");
+    sectionHeading("Suggestions", { newPage: true });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(71, 85, 105);
