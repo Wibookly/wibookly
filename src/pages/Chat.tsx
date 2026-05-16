@@ -77,6 +77,30 @@ function dateBucket(dateStr: string): string {
   return 'Older';
 }
 
+const RETENTION_DAYS = 30;
+const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
+
+function daysUntilExpiry(createdAt: string): number {
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  const ageDays = Math.floor(ageMs / 86400000);
+  return Math.max(0, RETENTION_DAYS - ageDays);
+}
+
+function downloadBase64File(filename: string, mime: string, base64: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Chat() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { hasFeature, loading: featLoading } = useFeatureAccess();
