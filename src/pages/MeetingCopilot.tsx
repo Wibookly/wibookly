@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
 import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
+import { ProfileContextCard } from '@/components/app/ProfileContextCard';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
@@ -327,43 +328,8 @@ export default function MeetingCopilot() {
         ))}
       </div>
 
-      {/* AI PROFILE */}
-      <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="flex items-start gap-4 mb-5">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-semibold"
-            style={{ background: 'linear-gradient(135deg, #6D28D9, #EC4899)' }}>{initials}</div>
-          <div className="flex-1">
-            <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Your AI Profile</h3>
-            <p className="text-caption" style={{ color: 'var(--text-2)' }}>What the Copilot knows about you to give better suggestions</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => { setDraftProfile(profile); setEditingProfile((v) => !v); }}>
-            <Pencil className="w-3.5 h-3.5 mr-1.5" /> {editingProfile ? 'Cancel' : 'Edit Profile'}
-          </Button>
-        </div>
-        {editingProfile ? (
-          <div className="space-y-3">
-            {(['role','responsibilities','communication_style'] as const).map((key) => (
-              <div key={key}>
-                <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>{key.replace('_',' ')}</div>
-                <textarea
-                  className="w-full rounded-xl p-3 text-sm resize-none"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-                  rows={2}
-                  value={draftProfile[key]}
-                  onChange={(e) => setDraftProfile({ ...draftProfile, [key]: e.target.value })}
-                />
-              </div>
-            ))}
-            <Button onClick={saveProfile} size="sm">Save Profile</Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <ProfileField label="Role" value={profile.role} />
-            <ProfileField label="Responsibilities" value={profile.responsibilities} />
-            <ProfileField label="Communication style" value={profile.communication_style} />
-          </div>
-        )}
-      </div>
+      {/* AI PROFILE — centralized from Settings → Profile */}
+      <ProfileContextCard surface="meeting_copilot" />
 
       {/* COPILOT BEHAVIOR */}
       <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

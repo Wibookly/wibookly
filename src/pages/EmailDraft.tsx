@@ -24,6 +24,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { PageHero } from "@/components/app/PageHero";
+import { ProfileContextCard } from "@/components/app/ProfileContextCard";
 
 interface Category {
   id: string;
@@ -524,6 +525,8 @@ export default function EmailDraft() {
             </div>
           }
         />
+
+        <ProfileContextCard surface="ai_draft" />
 
         {/* Main settings always render. AI Label Colors card is appended below. */}
         <>
