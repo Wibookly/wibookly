@@ -135,31 +135,19 @@ export default function MeetingCopilot() {
     })();
   }, [user, openSession]);
 
-  // Load settings + profile
+  // Load copilot settings (profile is handled by <ProfileContextCard />)
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [{ data: s }, { data: p }] = await Promise.all([
-        supabase.from('meeting_copilot_settings').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('user_ai_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-      ]);
+      const { data: s } = await supabase
+        .from('meeting_copilot_settings').select('*').eq('user_id', user.id).maybeSingle();
       if (s) setSettings({
         auto_join_all: s.auto_join_all,
         show_live_suggestions: s.show_live_suggestions,
         auto_draft_followup: s.auto_draft_followup,
         suggestion_style: s.suggestion_style as SuggestionStyle,
       });
-      if (p) {
-        const loaded = {
-          role: p.role || profile.role,
-          responsibilities: p.responsibilities || profile.responsibilities,
-          communication_style: p.communication_style || profile.communication_style,
-        };
-        setProfile(loaded);
-        setDraftProfile(loaded);
-      }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Load upcoming meetings from Microsoft Graph
@@ -207,18 +195,6 @@ export default function MeetingCopilot() {
       user_id: user.id,
       ...next,
     }, { onConflict: 'user_id' });
-  };
-
-  const saveProfile = async () => {
-    setProfile(draftProfile);
-    setEditingProfile(false);
-    if (!user) return;
-    const { error } = await supabase.from('user_ai_profiles').upsert({
-      user_id: user.id,
-      ...draftProfile,
-    }, { onConflict: 'user_id' });
-    if (error) toast.error('Could not save profile');
-    else toast.success('AI profile saved');
   };
 
   const toggleMeeting = (id: string, enabled: boolean) => {
