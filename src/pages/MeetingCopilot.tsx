@@ -543,3 +543,56 @@ function MeetingCard({ meeting, enabled, onToggle }: { meeting: typeof MOCK_UPCO
     </div>
   );
 }
+
+function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl p-6 shadow-2xl"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #6D28D9, #EC4899)' }}>
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-h5 mb-1" style={{ color: 'var(--text-1)' }}>Your privacy comes first</h3>
+            <p className="text-caption" style={{ color: 'var(--text-2)' }}>Here's exactly what happens when you enable Meeting Copilot.</p>
+          </div>
+        </div>
+
+        <ul className="space-y-3 mb-5">
+          {[
+            ['No audio is ever recorded.', 'Audio is transcribed live, in real time. The raw audio is never saved — not on your device, not on our servers.'],
+            ['Only text persists.', 'The transcript is stored in your private InboxIQ account, encrypted at rest. You control retention (default: 30 days).'],
+            ['No bot joins the meeting.', 'Audio is captured locally by the Chrome extension on your own machine. Other attendees never see an extra participant.'],
+            ['You decide per-meeting.', 'Even with auto-join enabled, you can toggle the Copilot off for any individual meeting.'],
+          ].map(([t, d]) => (
+            <li key={t} className="flex gap-3">
+              <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-green)' }} />
+              <div>
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{t}</div>
+                <div className="text-caption" style={{ color: 'var(--text-2)' }}>{d}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="rounded-xl p-3 mb-5 text-caption"
+          style={{ background: 'color-mix(in srgb, var(--c-orange) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--c-orange) 30%, transparent)',
+            color: 'var(--text-2)' }}>
+          <strong style={{ color: 'var(--text-1)' }}>Heads up:</strong> Recording laws vary by jurisdiction. We recommend adding a line to your email signature like: <em>"AI may transcribe this call for my private note-taking. No audio is recorded."</em>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>I understand — Install Extension</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
