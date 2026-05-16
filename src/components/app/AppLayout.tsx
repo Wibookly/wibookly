@@ -82,6 +82,10 @@ export function AppLayout() {
 
       <div className="flex-1 flex flex-col min-h-0 relative">
         <OceanWaves />
+        {/* Global top-right theme toggle (sun / moon) */}
+        <div className="absolute top-3 right-4 z-30 hidden lg:block">
+          <ModeToggle variant="icon" />
+        </div>
         <main className="flex-1 overflow-auto relative z-10">
           <Outlet />
         </main>
