@@ -258,7 +258,8 @@ function buildBriefPdf(
   briefType: string,
   recipient: string,
   pendingFollowUps: any[],
-  dateLabel: string
+  dateLabel: string,
+  recipientName: string = ""
 ): Uint8Array {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -275,6 +276,16 @@ function buildBriefPdf(
     }
   };
 
+  // Force the next section to start at the top of a new page UNLESS the
+  // current page is essentially empty (so we don't waste a blank sheet on
+  // the very first section right after the header).
+  const startSectionPage = () => {
+    if (y > marginTop + 4) {
+      doc.addPage();
+      y = marginTop;
+    }
+  };
+
   const drawCoverHeader = () => {
     doc.setFillColor(14, 165, 233);
     doc.rect(0, 0, pageW, 6, "F");
@@ -284,15 +295,22 @@ function buildBriefPdf(
     const heading = briefType === "morning" ? "Morning Brief" : "End-of-Day Recap";
     doc.text(heading, marginX, y);
     y += 22;
+    if (recipientName) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text(recipientName, marginX, y);
+      y += 16;
+    }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(100, 116, 139);
-    doc.text(dateLabel, marginX, y);
+    doc.text(recipient, marginX, y);
     y += 14;
-    doc.text(`Prepared for: ${recipient}`, marginX, y);
-    y += 24;
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(1);
+    doc.text(dateLabel, marginX, y);
+    y += 18;
+    doc.setDrawColor(14, 165, 233);
+    doc.setLineWidth(2);
     doc.line(marginX, y, pageW - marginX, y);
     y += 18;
   };
