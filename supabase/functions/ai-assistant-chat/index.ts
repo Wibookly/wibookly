@@ -612,11 +612,22 @@ async function callOpenAIWebSearch(
   systemPrompt: string,
   apiKey: string,
   model: string,
+  userLocation?: { city?: string; region?: string; country?: string; timezone?: string } | null,
 ): Promise<AIUsageResult> {
   const input = [
     { role: 'system', content: systemPrompt },
     ...messages,
   ];
+  const webSearchTool: Record<string, unknown> = { type: 'web_search' };
+  if (userLocation && (userLocation.city || userLocation.region || userLocation.country || userLocation.timezone)) {
+    webSearchTool.user_location = {
+      type: 'approximate',
+      ...(userLocation.city ? { city: userLocation.city } : {}),
+      ...(userLocation.region ? { region: userLocation.region } : {}),
+      ...(userLocation.country ? { country: userLocation.country } : {}),
+      ...(userLocation.timezone ? { timezone: userLocation.timezone } : {}),
+    };
+  }
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -626,7 +637,7 @@ async function callOpenAIWebSearch(
     body: JSON.stringify({
       model,
       input,
-      tools: [{ type: 'web_search' }],
+      tools: [webSearchTool],
     }),
   });
 
