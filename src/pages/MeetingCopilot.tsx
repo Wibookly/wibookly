@@ -463,6 +463,10 @@ export default function MeetingCopilot() {
         <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
       )}
 
+      {viewSession && (
+        <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
+      )}
+
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
