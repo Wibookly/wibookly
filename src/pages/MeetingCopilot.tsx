@@ -322,12 +322,6 @@ export default function MeetingCopilot() {
             </div>
             <div className="flex items-baseline gap-2">
               <div className="text-h3" style={{ color: 'var(--text-1)' }}>{s.value}</div>
-              {s.trend && (
-                <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
-                  style={{ background: 'color-mix(in srgb, var(--c-green) 18%, transparent)', color: 'var(--c-green)' }}>
-                  {s.trend}
-                </span>
-              )}
             </div>
           </div>
         ))}
