@@ -36,7 +36,10 @@ export function AgentAvatar({ active = false, className }: AgentAvatarProps) {
       loop
       playsInline
       preload="auto"
-      className={cn('object-cover rounded-2xl', className)}
+      className={cn(
+        'object-contain rounded-full bg-gradient-to-br from-primary/15 via-background to-accent/15 ring-1 ring-border',
+        className,
+      )}
       aria-label="InboxIQ AI agent"
     />
   );
