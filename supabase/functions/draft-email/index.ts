@@ -226,11 +226,11 @@ serve(async (req) => {
     
     const { data: profileData } = await serviceClient
       .from('user_profiles')
-      .select('organization_id, full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
+      .select('organization_id, full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color, company, department, role_description, responsibilities, communication_style')
       .eq('user_id', user.id)
       .single();
     const organizationId: string = profileData?.organization_id || '';
-    
+
     const senderName = profileData?.full_name || null;
     const senderTitle = profileData?.title || null;
     const emailSignature = profileData?.email_signature || null;
@@ -241,6 +241,20 @@ serve(async (req) => {
     const signatureFont = profileData?.signature_font || 'Arial, sans-serif';
     const signatureColor = profileData?.signature_color || '#333333';
     const userEmail = user.email || null;
+
+    // Build "About Me" block from the user's Settings profile so AI drafts
+    // and auto-replies sound like this specific person, not a generic bot.
+    const aboutLines: string[] = [];
+    if (profileData?.full_name) aboutLines.push(`Name: ${profileData.full_name}`);
+    if (profileData?.title) aboutLines.push(`Title: ${profileData.title}`);
+    if (profileData?.company) aboutLines.push(`Company: ${profileData.company}`);
+    if (profileData?.department) aboutLines.push(`Department: ${profileData.department}`);
+    if (profileData?.role_description) aboutLines.push(`Role: ${profileData.role_description}`);
+    if (profileData?.responsibilities) aboutLines.push(`Responsibilities: ${profileData.responsibilities}`);
+    if (profileData?.communication_style) aboutLines.push(`Preferred communication style: ${profileData.communication_style}`);
+    const aboutBlock = aboutLines.length
+      ? `\nABOUT ME (write in this person's voice — match their role, seniority, and communication style):\n${aboutLines.join('\n')}\n`
+      : '';
     // ===== END AUTHENTICATION CHECK =====
 
     const rawBody = await req.json();
