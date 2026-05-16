@@ -504,7 +504,7 @@ export default function Chat() {
               title="InboxIQ Chat"
               description="Ask anything about your inbox, calendar, or work. Drafts, summaries, follow-ups — all in one place."
               accent="blue"
-              icon={<AgentAvatar active className="w-10 h-10" />}
+              icon={<AgentAvatar className="w-10 h-10" />}
             />
           </div>
           {messages.length === 0 && !streamingText ? (
