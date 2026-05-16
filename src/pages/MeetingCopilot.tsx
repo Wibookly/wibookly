@@ -106,6 +106,7 @@ export default function MeetingCopilot() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [draftProfile, setDraftProfile] = useState(profile);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
 
   // Load settings + profile
   useEffect(() => {
