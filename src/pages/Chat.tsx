@@ -330,6 +330,7 @@ export default function Chat() {
           conversation_id: activeId,
           attachments: attachmentUrls,
           stream: true,
+          web_search: webSearch && canWebSearch,
         }),
       });
 
