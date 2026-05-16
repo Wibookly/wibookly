@@ -389,12 +389,10 @@ export default function AIChat() {
           <div className="max-w-3xl mx-auto space-y-4">
             {!activeConversationId && messages.length === 0 && !isStreaming ? (
               <div className="flex flex-col items-center justify-center h-full py-20">
-                <div
-                  className="w-20 h-20 rounded-2xl grid place-items-center mb-5 text-white text-h4 font-bold shadow-lg"
-                  style={{ background: 'var(--grad-feature-soft)' }}
-                >
-                  IQ
-                </div>
+                <AgentAvatar
+                  active={isStreaming}
+                  className="w-24 h-24 mb-5 shadow-lg"
+                />
                 <h2 className="text-h4 mb-2" style={{ color: 'var(--text)' }}>How can I help today?</h2>
                 <p className="text-body-2 text-center max-w-md mb-8" style={{ color: 'var(--text-muted)' }}>
                   I have full access to your emails and calendar. Ask me anything.
