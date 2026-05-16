@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info } from 'lucide-react';
+import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info, Mail, Phone, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProfileFields {
