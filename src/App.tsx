@@ -21,6 +21,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
+import MeetingCopilot from "./pages/MeetingCopilot";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
@@ -82,6 +83,7 @@ const App = () => (
                       <FollowUpReminder />
                     </FeatureRoute>
                   } />
+                  <Route path="/meeting-copilot" element={<MeetingCopilot />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
                 </Route>
