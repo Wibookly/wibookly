@@ -210,7 +210,7 @@ export default function MeetingCopilot() {
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }, [user]);
 
-  void activeMeetingPlaceholder;
+  
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
