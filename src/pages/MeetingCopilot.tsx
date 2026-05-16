@@ -454,6 +454,8 @@ export default function MeetingCopilot() {
           </div>
         </div>
       )}
+
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }
