@@ -7,7 +7,8 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import energyForwardLogo from '@/assets/ef-logo.png';
+import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { useState, useEffect } from 'react';
