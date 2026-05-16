@@ -726,6 +726,7 @@ serve(async (req) => {
       conversation_id: conversationIdInput,
       attachments: attachmentUrls,
       stream: streamMode,
+      web_search: webSearchRequested,
     } = body as {
       messages?: Array<{ role: string; content: string }>;
       connectionId?: string;
@@ -733,6 +734,7 @@ serve(async (req) => {
       conversation_id?: string | null;
       attachments?: string[];
       stream?: boolean;
+      web_search?: boolean;
     };
 
     const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
