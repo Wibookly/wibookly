@@ -50,6 +50,8 @@ const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
 import { categoryNameSchema, categoryColorSchema, validateField, validateRuleValue } from '@/lib/validation';
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
+import { PageHero } from '@/components/app/PageHero';
+import { Tags } from 'lucide-react';
 import {
   Table,
   TableBody,
