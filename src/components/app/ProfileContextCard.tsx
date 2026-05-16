@@ -152,18 +152,34 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
       style={{ borderColor: 'var(--border)' }}
     >
       <header className="flex items-start gap-3 p-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-10 h-10 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-primary/15 to-accent/15 ring-1 ring-border">
-          <User className="w-5 h-5 text-primary" />
-        </div>
+        {profile.profile_photo_url ? (
+          <img
+            src={profile.profile_photo_url}
+            alt={profile.full_name || 'Profile'}
+            className="w-10 h-10 shrink-0 rounded-xl object-cover ring-1 ring-border"
+          />
+        ) : (
+          <div className="w-10 h-10 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-primary/15 to-accent/15 ring-1 ring-border">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-foreground">{headingTitle}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">{headingDesc}</p>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link to="/settings?tab=profile">
-            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit in Settings
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={handleSyncFromMicrosoft} disabled={syncing}>
+            {syncing
+              ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+            Sync from Microsoft 365
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/settings?tab=profile">
+              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -178,6 +194,8 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
             <IdentityRow icon={<Briefcase className="w-3.5 h-3.5" />} label="Title" value={profile.title} />
             <IdentityRow icon={<Building2 className="w-3.5 h-3.5" />} label="Company" value={profile.company} />
             <IdentityRow icon={<Building2 className="w-3.5 h-3.5" />} label="Department" value={profile.department} />
+            <IdentityRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={profile.email} />
+            <IdentityRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={profile.mobile || profile.phone} />
           </div>
 
           {/* About-me long form */}
