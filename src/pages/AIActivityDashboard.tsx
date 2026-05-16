@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon, CalendarCheck } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { PageHero } from '@/components/app/PageHero';
+import { BarChart3 } from 'lucide-react';
 
 interface ActivityStats {
   totalDrafts: number;
