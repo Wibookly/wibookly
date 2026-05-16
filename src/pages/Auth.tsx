@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Sparkles, Shield, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import energyForwardLogo from '@/assets/ef-logo.png';
+import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 
 // Microsoft icon
 const MicrosoftIcon = () => (
