@@ -352,6 +352,7 @@ export default function Chat() {
           attachments: attachmentUrls,
           stream: true,
           web_search: webSearch && canWebSearch,
+          user_location: webSearch && canWebSearch ? userLocation : null,
         }),
       });
 
