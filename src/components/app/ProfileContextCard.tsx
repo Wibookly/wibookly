@@ -16,6 +16,10 @@ interface ProfileFields {
   role_description: string | null;
   responsibilities: string | null;
   communication_style: string | null;
+  phone: string | null;
+  mobile: string | null;
+  profile_photo_url: string | null;
+  email: string | null;
 }
 
 interface ProfileContextCardProps {
@@ -29,6 +33,7 @@ interface ProfileContextCardProps {
 const EMPTY: ProfileFields = {
   full_name: null, title: null, company: null, department: null,
   role_description: null, responsibilities: null, communication_style: null,
+  phone: null, mobile: null, profile_photo_url: null, email: null,
 };
 
 /**
