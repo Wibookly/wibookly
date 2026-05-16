@@ -1142,7 +1142,12 @@ export default function Categories() {
                     ({categoryRules.length} rule{categoryRules.length !== 1 ? 's' : ''})
                   </span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => addRule(category.id)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addRule(category.id)}
+                  className="border-2 border-primary/60 text-primary hover:bg-primary hover:text-primary-foreground shadow-sm"
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Rule
                 </Button>
