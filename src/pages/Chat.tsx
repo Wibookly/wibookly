@@ -225,6 +225,22 @@ export default function Chat() {
     return groups;
   }, [conversations]);
 
+  // Pick a header title that reflects the current conversation, not a
+  // generic label. Prefers the saved conversation title; falls back to the
+  // first user message; finally falls back to "New chat".
+  const activeConversationTitle = useMemo(() => {
+    if (!activeId) return 'New chat';
+    const conv = conversations.find((c) => c.id === activeId);
+    if (conv?.title && conv.title.trim() && conv.title.toLowerCase() !== 'user greeting') {
+      return conv.title;
+    }
+    const firstUser = messages.find((m) => m.role === 'user')?.content?.trim();
+    if (firstUser) {
+      return firstUser.length > 60 ? firstUser.slice(0, 60) + '…' : firstUser;
+    }
+    return 'New chat';
+  }, [activeId, conversations, messages]);
+
   const handleNewChat = () => {
     setActiveId(null);
     setMessages([]);
