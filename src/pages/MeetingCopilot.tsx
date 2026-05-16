@@ -231,14 +231,16 @@ export default function MeetingCopilot() {
             </p>
           </div>
           <div className="flex flex-col gap-3 shrink-0">
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold"
+            <button onClick={() => setPrivacyOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
+            <a href="#" onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
               style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
               <ExternalLink className="w-4 h-4" /> Install Chrome Extension
-            </button>
+            </a>
           </div>
         </div>
       </div>
