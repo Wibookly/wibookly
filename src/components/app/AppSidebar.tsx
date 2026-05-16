@@ -7,7 +7,8 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import energyForwardLogo from '@/assets/ef-logo.png';
+import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { useState, useEffect } from 'react';
@@ -34,34 +35,58 @@ function ProviderIcon({ provider, className }: { provider: 'google' | 'outlook';
       </svg>
     );
   }
+  // Outlook: white "O+envelope" mark on solid #0078D4 tile
   return (
-    <svg className={className} viewBox="0 0 48 48" fill="none">
-      <path d="M28 8H44V40H28V8Z" fill="#1976D2"/>
-      <path d="M28 8L4 13V35L28 40V8Z" fill="#2196F3"/>
-      <path d="M16 18C12.686 18 10 20.686 10 24C10 27.314 12.686 30 16 30C19.314 30 22 27.314 22 24C22 20.686 19.314 18 16 18ZM16 27C14.343 27 13 25.657 13 24C13 22.343 14.343 21 16 21C17.657 21 19 22.343 19 24C19 25.657 17.657 27 16 27Z" fill="white"/>
-    </svg>
+    <span
+      className={cn('inline-flex items-center justify-center rounded-md', className)}
+      style={{ background: '#0078D4', width: '1.25rem', height: '1.25rem' }}
+      aria-label="Outlook"
+    >
+      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" aria-hidden="true">
+        <path
+          d="M3 7.5h12v9H3v-9zm0 0l6 4.5 6-4.5M17 9h4v6h-4V9zm0 0l2 1.5L21 9"
+          stroke="#FFFFFF"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }
 
 interface NavSectionProps {
   title: string;
   icon: React.ElementType;
+  accent: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
   colorClass?: string;
 }
 
-function NavSection({ title, icon: Icon, children, defaultOpen = true }: NavSectionProps) {
+function NavSection({ title, accent, children, defaultOpen = true }: NavSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-3">
-      <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 rounded-md text-overline transition-colors group" style={{ color: 'var(--text-subtle)' }}>
+      <CollapsibleTrigger
+        className="flex items-center justify-between w-full px-3 py-1.5 rounded-md transition-colors group"
+        style={{
+          color: accent,
+          fontSize: '9px',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Icon className="w-3.5 h-3.5" />
+          <span
+            className="inline-block rounded-full"
+            style={{ width: 6, height: 6, background: accent }}
+          />
           <span>{title}</span>
         </div>
-        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen && 'rotate-180')} style={{ color: accent, opacity: 0.7 }} />
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-0.5 mt-1">
         {children}
@@ -73,31 +98,38 @@ function NavSection({ title, icon: Icon, children, defaultOpen = true }: NavSect
 interface NavItemProps {
   href: string;
   icon: React.ElementType;
+  accent: string;
   children: React.ReactNode;
   showUpgradeBadge?: boolean;
 }
 
-function NavItem({ href, icon: Icon, children }: NavItemProps) {
+function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
   const location = useLocation();
   const currentUrl = location.pathname + location.search;
   const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
 
+  const activeStyle: React.CSSProperties = {
+    background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 88%, black))`,
+    color: '#FFFFFF',
+    fontWeight: 600,
+    boxShadow: `0 6px 16px -4px color-mix(in srgb, ${accent} 55%, transparent)`,
+  };
+
   return (
     <NavLink
       to={href}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-button transition-colors"
+      className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors"
       style={isActive
-        ? { background: 'var(--nav-active-bg)', color: 'var(--nav-active-text)', fontWeight: 600 }
-        : { color: 'var(--text-body)' }}
+        ? activeStyle
+        : { color: 'var(--text-body)', fontSize: '13.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
       onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--nav-hover-bg)'; }}
       onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
     >
-      <Icon className="w-4 h-4 shrink-0" />
-      <span className="flex-1 truncate">{children}</span>
+      <Icon className="w-4 h-4 shrink-0" style={{ color: isActive ? '#FFFFFF' : accent }} />
+      <span className="flex-1 truncate" style={{ fontSize: '13.5px' }}>{children}</span>
     </NavLink>
   );
 }
-
 export function AppSidebar() {
   const { signOut, organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
@@ -125,58 +157,76 @@ export function AppSidebar() {
     }
   }, [organization?.id]);
 
+  const accents = {
+    cyan:   'var(--c-cyan)',
+    purple: 'var(--c-purple)',
+    orange: 'var(--c-orange)',
+    green:  'var(--c-green)',
+    red:    'var(--c-rose)',
+  };
+
   return (
-    <aside className="hidden lg:flex w-72 h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
-      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+    <aside className="hidden lg:flex w-[264px] h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-9 w-auto"
+          className="h-[70px] w-auto object-contain"
           draggable={false}
         />
-        <div className="font-sans font-bold tracking-tight text-xl leading-none" style={{ color: 'var(--text)' }}>
-          InboxIQ
+        <InboxIQLogo className="text-[18px] leading-none" />
+        <div
+          className="mt-0.5"
+          style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-soft)' }}
+        >
+          AI inbox for M365
         </div>
       </div>
 
       {/* Active Email Selector */}
-      <div className="p-3 border-b border-border">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Connected Emails</h3>
+      <div className="p-3" style={{ borderBottom: '1px solid var(--border-soft)' }}>
+        <h3
+          className="mb-2 px-1"
+          style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}
+        >
+          Connected Emails
+        </h3>
         {loading ? (
-          <div className="h-10 bg-muted/50 animate-pulse rounded-md" />
+          <div className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--surface-3)' }} />
         ) : connections.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-md transition-colors cursor-pointer min-w-0">
+              <div
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl transition-colors cursor-pointer min-w-0"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {activeConnection && (
-                    <ProviderIcon provider={activeConnection.provider} className="w-4 h-4 flex-shrink-0" />
-                  )}
-                  <span className="text-xs font-medium text-primary truncate">
+                  <ProviderIcon provider="outlook" className="flex-shrink-0" />
+                  <span className="text-xs font-medium truncate" style={{ color: 'var(--primary)' }}>
                     {activeConnection?.email || 'Select email'}
                   </span>
                 </div>
-                <ChevronDown className="w-3 h-3 text-primary flex-shrink-0" />
+                <ChevronDown className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--primary)' }} />
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px]">
+            <DropdownMenuContent align="start" className="w-[240px]">
               {connections.map((connection) => (
                 <DropdownMenuItem
                   key={connection.id}
                   onClick={() => setActiveConnectionId(connection.id)}
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <ProviderIcon provider={connection.provider} className="w-4 h-4 flex-shrink-0" />
+                  <ProviderIcon provider="outlook" className="flex-shrink-0" />
                   <span className="text-xs truncate flex-1">{connection.email}</span>
                   {activeConnection?.id === connection.id && (
-                    <Check className="w-3 h-3 text-primary flex-shrink-0" />
+                    <Check className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--primary)' }} />
                   )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 rounded-md">
+          <div className="px-3 py-2 text-xs rounded-xl" style={{ color: 'var(--text-muted)', background: 'var(--surface)', border: '1px solid var(--border)' }}>
             No emails connected
           </div>
         )}
@@ -185,61 +235,61 @@ export function AppSidebar() {
       {/* Scrollable middle section containing nav */}
       <div className="flex-1 overflow-y-auto min-h-0">
 
-        <nav className="p-3 pt-0 space-y-2">
+        <nav className="p-3 space-y-2">
           {isChatOnly ? (
-            <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
-              <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>
+            <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
+              <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>
             </NavSection>
           ) : (
             <>
               {/* Account Provisioning */}
-              <NavSection title="Account Provisioning" icon={UserPlus} defaultOpen colorClass="text-blue-500">
-                <NavItem href="/integrations" icon={Link2}>Email & Calendar Connections</NavItem>
+              <NavSection title="Account Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
+                <NavItem href="/integrations" icon={Link2} accent={accents.cyan}>Email & Calendar Connections</NavItem>
               </NavSection>
 
               {/* AI Intelligence */}
               {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat')) && (
-                <NavSection title="AI Intelligence" icon={Bot} defaultOpen colorClass="text-cyan-500">
-                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare}>AI Chat</NavItem>}
-                  <NavItem href="/categories" icon={Tag}>Email Intelligence</NavItem>
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing}>No Reply Tracker</NavItem>}
+                <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
+                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
+                  <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing} accent={accents.purple}>No Reply Tracker</NavItem>}
                 </NavSection>
               )}
 
               {/* My Settings */}
-              <NavSection title="My Settings" icon={Settings} defaultOpen colorClass="text-slate-500">
-                <NavItem href="/settings" icon={User}>My Profile &amp; Signature</NavItem>
+              <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
+                <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
                 {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
                   <>
                     {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
-                      <NavItem href="/email-draft" icon={Sparkles}>AI Draft / Auto Reply Settings</NavItem>
+                      <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft / Auto Reply Settings</NavItem>
                     ) : (
                       <>
                         {(isSuperAdmin || hasFeature('ai_draft')) && (
-                          <NavItem href="/email-draft" icon={Sparkles}>AI Draft Settings</NavItem>
+                          <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft Settings</NavItem>
                         )}
                         {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
-                          <NavItem href="/email-draft" icon={MessageSquare}>AI Auto Reply</NavItem>
+                          <NavItem href="/email-draft" icon={MessageSquare} accent={accents.orange}>AI Auto Reply</NavItem>
                         )}
                       </>
                     )}
                   </>
                 )}
-                <NavItem href="/integrations?tab=settings" icon={Clock}>My Availability and Calendar</NavItem>
+                <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
               </NavSection>
 
               {/* Reports */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
-                <NavSection title="Reports" icon={BarChart3} defaultOpen colorClass="text-emerald-500">
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3}>AI Activity</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun}>My Daily Brief</NavItem>}
+                <NavSection title="Reports" icon={BarChart3} accent={accents.green} defaultOpen>
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.green}>My Daily Brief</NavItem>}
                 </NavSection>
               )}
 
               {/* Admin */}
               {isSuperAdmin && (
-                <NavSection title="Administration" icon={Shield} defaultOpen colorClass="text-red-500">
-                  <NavItem href="/admin" icon={Shield}>Admin Dashboard</NavItem>
+                <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
+                  <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>
                 </NavSection>
               )}
             </>
