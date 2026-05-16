@@ -7,6 +7,7 @@ import 'highlight.js/styles/github-dark.css';
 import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
+  MoreVertical, Download, FileSpreadsheet, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
