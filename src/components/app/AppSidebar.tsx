@@ -275,6 +275,7 @@ export function AppSidebar() {
                     )}
                   </>
                 )}
+                <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
                 <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
               </NavSection>
 
