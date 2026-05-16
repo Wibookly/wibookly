@@ -731,14 +731,16 @@ export default function Settings() {
       <div className="mb-4 flex justify-end">
         <UserAvatarDropdown />
       </div>
-      
+
+      <PageHero
+        eyebrow="My Settings"
+        title="My Profile & Signature"
+        description="Personalize how your name, role, and signature appear across InboxIQ and your AI-drafted replies."
+        accent="orange"
+        icon={<UserCircle2 className="w-5 h-5 text-white" strokeWidth={2} />}
+      />
+
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">My Profile <HelpDot articleId="profile-signature" label="How profile and signature work — open the guide." /></h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage my profile / signature
-          </p>
-        </div>
 
 
       <div className="space-y-6">
