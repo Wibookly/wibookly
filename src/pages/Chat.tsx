@@ -726,6 +726,28 @@ export default function Chat() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
+              {canWebSearch && (
+                <Button
+                  type="button"
+                  variant={webSearch ? 'default' : 'ghost'}
+                  size="icon"
+                  className={cn(
+                    'h-9 w-9 shrink-0',
+                    webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  )}
+                  disabled={isStreaming || limitReached}
+                  onClick={() => {
+                    setWebSearch((v) => {
+                      const next = !v;
+                      toast.success(next ? 'Web search on — answers will include live results' : 'Web search off');
+                      return next;
+                    });
+                  }}
+                  title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
+                >
+                  <Globe className="h-4 w-4" />
+                </Button>
+              )}
               <Textarea
                 ref={textareaRef}
                 value={input}
