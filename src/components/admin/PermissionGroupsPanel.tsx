@@ -21,6 +21,7 @@ const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft' },
   { key: 'ai_auto_reply', label: 'AI Auto Reply' },
   { key: 'ai_assistant', label: 'AI Chat' },
+  { key: 'ai_chat_web_search', label: 'AI Chat — Web Search' },
   { key: 'daily_brief', label: 'My Daily Brief' },
   { key: 'reports', label: 'AI Activity Reports' },
   { key: 'ai_model_chatgpt', label: 'ChatGPT Model' },

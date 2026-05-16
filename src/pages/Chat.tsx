@@ -7,7 +7,7 @@ import 'highlight.js/styles/github-dark.css';
 import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
-  MoreVertical, Download, FileSpreadsheet, AlertTriangle,
+  MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -118,6 +118,7 @@ export default function Chat() {
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
+  const [webSearch, setWebSearch] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +128,7 @@ export default function Chat() {
 
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
   const canChat = isSuperAdmin || hasFeature('ai_assistant');
+  const canWebSearch = isSuperAdmin || hasFeature('ai_chat_web_search');
 
   // Sync url param to active id
   useEffect(() => {
@@ -328,6 +330,7 @@ export default function Chat() {
           conversation_id: activeId,
           attachments: attachmentUrls,
           stream: true,
+          web_search: webSearch && canWebSearch,
         }),
       });
 
@@ -723,6 +726,28 @@ export default function Chat() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
+              {canWebSearch && (
+                <Button
+                  type="button"
+                  variant={webSearch ? 'default' : 'ghost'}
+                  size="icon"
+                  className={cn(
+                    'h-9 w-9 shrink-0',
+                    webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  )}
+                  disabled={isStreaming || limitReached}
+                  onClick={() => {
+                    setWebSearch((v) => {
+                      const next = !v;
+                      toast.success(next ? 'Web search on — answers will include live results' : 'Web search off');
+                      return next;
+                    });
+                  }}
+                  title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
+                >
+                  <Globe className="h-4 w-4" />
+                </Button>
+              )}
               <Textarea
                 ref={textareaRef}
                 value={input}

@@ -605,6 +605,86 @@ async function callClaude(messages: Array<{ role: string; content: string }>, sy
   };
 }
 
+// Web search via OpenAI Responses API (native web_search tool).
+// Default model: gpt-5-mini per project policy.
+async function callOpenAIWebSearch(
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string,
+  apiKey: string,
+  model: string,
+): Promise<AIUsageResult> {
+  const input = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      input,
+      tools: [{ type: 'web_search' }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI Responses ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  // Prefer output_text aggregate; fallback to walking output array.
+  let content: string = data.output_text || '';
+  if (!content && Array.isArray(data.output)) {
+    for (const item of data.output) {
+      if (item.type === 'message' && Array.isArray(item.content)) {
+        for (const c of item.content) {
+          if (c.type === 'output_text' && typeof c.text === 'string') content += c.text;
+        }
+      }
+    }
+  }
+  if (!content) content = '(no response)';
+
+  // Citations — append as markdown footnotes if available.
+  const citations: string[] = [];
+  if (Array.isArray(data.output)) {
+    for (const item of data.output) {
+      if (item.type === 'message' && Array.isArray(item.content)) {
+        for (const c of item.content) {
+          if (Array.isArray(c.annotations)) {
+            for (const a of c.annotations) {
+              if (a.type === 'url_citation' && a.url) {
+                const title = a.title || a.url;
+                const line = `- [${title}](${a.url})`;
+                if (!citations.includes(line)) citations.push(line);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (citations.length) {
+    content += `\n\n**Sources:**\n${citations.join('\n')}`;
+  }
+
+  const promptTokens = data.usage?.input_tokens ?? 0;
+  const completionTokens = data.usage?.output_tokens ?? 0;
+
+  return {
+    content,
+    provider: 'openai',
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    costUsd: calculateCost('openai', model, promptTokens, completionTokens),
+  };
+}
+
 async function generateChatReply(messages: Array<{ role: string; content: string }>, systemPrompt: string, config: AdminAIConfig): Promise<AIUsageResult> {
   const primary = choosePrimaryProvider(messages, config.preference);
   const order: AIProvider[] = primary === 'openai' ? ['openai', 'claude'] : ['claude', 'openai'];
@@ -726,6 +806,7 @@ serve(async (req) => {
       conversation_id: conversationIdInput,
       attachments: attachmentUrls,
       stream: streamMode,
+      web_search: webSearchRequested,
     } = body as {
       messages?: Array<{ role: string; content: string }>;
       connectionId?: string;
@@ -733,6 +814,7 @@ serve(async (req) => {
       conversation_id?: string | null;
       attachments?: string[];
       stream?: boolean;
+      web_search?: boolean;
     };
 
     const isChatPageMode = typeof chatMessage === 'string' && chatMessage.length > 0;
@@ -945,7 +1027,57 @@ When answering:
       }
     }
 
-    const result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+    // Web search path — gated by group feature `ai_chat_web_search`.
+    let result: AIUsageResult;
+    if (webSearchRequested) {
+      // Verify the user actually has access (super admin bypasses).
+      let allowed = false;
+      try {
+        const { data: hasWs } = await supabase.rpc('has_feature', {
+          _user_id: user.id,
+          _feature_key: 'ai_chat_web_search',
+        });
+        allowed = hasWs === true;
+      } catch (_e) { allowed = false; }
+
+      if (!allowed) {
+        const msg = 'Web search is not enabled for your group. Ask your admin to enable "AI Chat — Web Search".';
+        if (isChatPageMode && streamMode) {
+          return new Response(
+            buildChatSSEStream({
+              fullContent: msg,
+              conversationId: conversationId!,
+              usage: { promptTokens: 0, completionTokens: 0, costUsd: 0, model: 'n/a', provider: 'openai' },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } }
+          );
+        }
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!adminAIConfig.openai) {
+        throw new Error('Web search requires an OpenAI API key. Add one in Admin → Settings.');
+      }
+      // Per-group model override if admin assigned one; otherwise default to gpt-5-mini.
+      let wsModel = 'gpt-5-mini';
+      try {
+        const { data: gfRows } = await supabase
+          .from('group_features')
+          .select('model_assignment, permission_groups!inner(organization_id)')
+          .eq('feature_key', 'ai_chat_web_search')
+          .eq('is_enabled', true)
+          .eq('permission_groups.organization_id', orgId)
+          .not('model_assignment', 'is', null)
+          .limit(1);
+        if (gfRows && gfRows[0]?.model_assignment) wsModel = gfRows[0].model_assignment as string;
+      } catch (_e) { /* keep default */ }
+
+      result = await callOpenAIWebSearch(messages, systemPrompt, adminAIConfig.openai, wsModel);
+    } else {
+      result = await generateChatReply(messages, systemPrompt, adminAIConfig);
+    }
 
     if (orgId) {
       await recordSpend(supabase, {
