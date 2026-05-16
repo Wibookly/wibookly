@@ -91,6 +91,9 @@ export default function MeetingCopilot() {
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
   const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
   const [usingMockMeetings, setUsingMockMeetings] = useState(true);
+  const [calendarStatus, setCalendarStatus] = useState<
+    { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
+  >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
