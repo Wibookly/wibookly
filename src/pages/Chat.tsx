@@ -231,9 +231,13 @@ export default function Chat() {
   const activeConversationTitle = useMemo(() => {
     if (!activeId) return 'New chat';
     const conv = conversations.find((c) => c.id === activeId);
-    if (conv?.title && conv.title.trim() && conv.title.toLowerCase() !== 'user greeting') {
-      return conv.title;
+    const placeholderTitles = new Set(['user greeting', 'new chat', 'new conversation', 'untitled']);
+    const raw = conv?.title?.trim();
+    if (raw && !placeholderTitles.has(raw.toLowerCase())) {
+      return raw;
     }
+    // Backend hasn't generated a title yet (or saved the placeholder) — derive
+    // one from the first user message so every conversation gets a real header.
     const firstUser = messages.find((m) => m.role === 'user')?.content?.trim();
     if (firstUser) {
       return firstUser.length > 60 ? firstUser.slice(0, 60) + '…' : firstUser;
