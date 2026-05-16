@@ -71,12 +71,6 @@ const MOCK_UPCOMING = [
   },
 ];
 
-const MOCK_RECENT = [
-  { id: 's1', title: 'Energytrux insurance review', when: 'Today, 10:00 AM', duration: '42 min', actions: 8, initials: ['MM','RH','SH'] },
-  { id: 's2', title: 'EnergyForward advisor agreement', when: 'Yesterday, 3:30 PM', duration: '28 min', actions: 5, initials: ['CN','JV'] },
-  { id: 's3', title: 'Sprint retro — Q1 wrap-up', when: 'Yesterday, 2:00 PM', duration: '61 min', actions: 12, initials: ['KT','DF','+3'] },
-  { id: 's4', title: 'Microsoft 365 license review', when: 'Monday, 11:00 AM', duration: '35 min', actions: 7, initials: ['JV','SH'] },
-];
 
 const MOCK_TRANSCRIPT = [
   { speaker: 'Dustin Rosepink', color: '#22C55E', time: '12:42', text: "So we're looking at three engineering hires this quarter — one senior structural, two intermediate. Budget is approved but I'm a bit worried about the timeline." },
