@@ -362,19 +362,28 @@ export default function AIDailyBrief() {
               line-height: 1.5;
             }
             h2 { 
-              font-size: 18px; 
+              font-size: 20px; 
               font-weight: 600; 
               color: #0f172a; 
               margin: 0 0 16px 0;
               padding-bottom: 8px;
               border-bottom: 2px solid #e2e8f0;
             }
+            .brief-section {
+              margin-bottom: 28px;
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
             .priority-item {
               page-break-inside: avoid;
+              break-inside: avoid;
             }
+            @page { margin: 0.6in; }
             @media print { 
-              body { padding: 30px; } 
-              .priority-item { break-inside: avoid; }
+              body { padding: 0; max-width: none; } 
+              .brief-section { page-break-inside: avoid; break-inside: avoid; }
+              .brief-section + .brief-section { page-break-before: auto; }
+              .priority-item { break-inside: avoid; page-break-inside: avoid; }
             }
           </style>
         </head>
