@@ -4,7 +4,7 @@ import { BellRing } from 'lucide-react';
 
 export default function FollowUpReminderPage() {
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
       <PageHero
         eyebrow="AI Intelligence"
         title="No Reply Tracker"

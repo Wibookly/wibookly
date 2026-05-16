@@ -429,7 +429,7 @@ export default function AIDailyBrief() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-8" style={{ background: 'var(--bg)' }} ref={printRef}>
+    <div className="min-h-full p-4 lg:p-8 max-w-7xl mx-auto w-full" style={{ background: 'var(--bg)' }} ref={printRef}>
 
       <div className="mb-4 flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
