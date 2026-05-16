@@ -107,6 +107,47 @@ export default function MeetingCopilot() {
   const [draftProfile, setDraftProfile] = useState(profile);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
+  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
+  const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
+
+  // Load recent (completed) sessions
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: sessions } = await supabase
+        .from('meeting_sessions')
+        .select('id, meeting_title, started_at, ended_at, duration_seconds')
+        .eq('user_id', user.id)
+        .in('status', ['completed', 'ended'])
+        .order('started_at', { ascending: false })
+        .limit(8);
+      if (!sessions?.length) return;
+      const ids = sessions.map((s) => s.id);
+      const { data: items } = await supabase
+        .from('meeting_action_items')
+        .select('session_id')
+        .in('session_id', ids);
+      const counts = (items || []).reduce<Record<string, number>>((acc, r: any) => {
+        acc[r.session_id] = (acc[r.session_id] || 0) + 1; return acc;
+      }, {});
+      setRecent(sessions.map((s) => {
+        const d = new Date(s.started_at as string);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const sDay = new Date(d); sDay.setHours(0,0,0,0);
+        const diffDays = Math.round((today.getTime() - sDay.getTime()) / 86400000);
+        const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const when = diffDays === 0 ? `Today, ${time}` : diffDays === 1 ? `Yesterday, ${time}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        const mins = s.duration_seconds ? Math.round((s.duration_seconds as number) / 60) : 0;
+        return {
+          id: s.id,
+          title: (s.meeting_title as string) || 'Untitled meeting',
+          when,
+          duration: mins ? `${mins} min` : '—',
+          actions: counts[s.id] || 0,
+        };
+      }));
+    })();
+  }, [user, openSession]);
 
   // Load settings + profile
   useEffect(() => {
