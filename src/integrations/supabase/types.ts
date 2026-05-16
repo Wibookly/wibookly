@@ -2015,6 +2015,234 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_action_items: {
+        Row: {
+          assigned_to: string | null
+          completed: boolean
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed?: boolean
+          created_at?: string
+          description: string
+          due_date?: string | null
+          id?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed?: boolean
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_action_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_copilot_preferences: {
+        Row: {
+          copilot_enabled: boolean
+          created_at: string
+          id: string
+          meeting_external_id: string
+          user_id: string
+        }
+        Insert: {
+          copilot_enabled?: boolean
+          created_at?: string
+          id?: string
+          meeting_external_id: string
+          user_id: string
+        }
+        Update: {
+          copilot_enabled?: boolean
+          created_at?: string
+          id?: string
+          meeting_external_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meeting_copilot_settings: {
+        Row: {
+          auto_draft_followup: boolean
+          auto_join_all: boolean
+          created_at: string
+          id: string
+          save_transcripts: boolean
+          show_live_suggestions: boolean
+          suggestion_style: string
+          transcript_retention_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_draft_followup?: boolean
+          auto_join_all?: boolean
+          created_at?: string
+          id?: string
+          save_transcripts?: boolean
+          show_live_suggestions?: boolean
+          suggestion_style?: string
+          transcript_retention_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_draft_followup?: boolean
+          auto_join_all?: boolean
+          created_at?: string
+          id?: string
+          save_transcripts?: boolean
+          show_live_suggestions?: boolean
+          suggestion_style?: string
+          transcript_retention_days?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meeting_sessions: {
+        Row: {
+          attendees: Json
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          meeting_external_id: string | null
+          meeting_title: string
+          platform: string | null
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attendees?: Json
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          meeting_external_id?: string | null
+          meeting_title: string
+          platform?: string | null
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          attendees?: Json
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          meeting_external_id?: string | null
+          meeting_title?: string
+          platform?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meeting_suggestions: {
+        Row: {
+          content: string
+          generated_at: string
+          id: string
+          session_id: string
+          suggestion_type: string | null
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          content: string
+          generated_at?: string
+          id?: string
+          session_id: string
+          suggestion_type?: string | null
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          content?: string
+          generated_at?: string
+          id?: string
+          session_id?: string
+          suggestion_type?: string | null
+          used?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_suggestions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_transcripts: {
+        Row: {
+          created_at: string
+          id: string
+          is_final: boolean
+          session_id: string
+          speaker: string | null
+          speaker_color: string | null
+          spoken_at: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          session_id: string
+          speaker?: string | null
+          speaker_color?: string | null
+          spoken_at?: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          session_id?: string
+          speaker?: string | null
+          speaker_color?: string | null
+          spoken_at?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_transcripts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_token_vault: {
         Row: {
           created_at: string | null
@@ -2573,6 +2801,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ai_profiles: {
+        Row: {
+          communication_style: string | null
+          created_at: string
+          custom_context: string | null
+          id: string
+          responsibilities: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          communication_style?: string | null
+          created_at?: string
+          custom_context?: string | null
+          id?: string
+          responsibilities?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          communication_style?: string | null
+          created_at?: string
+          custom_context?: string | null
+          id?: string
+          responsibilities?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_daily_spend: {
         Row: {
           day: string
@@ -3000,6 +3261,7 @@ export type Database = {
           reason: string
         }[]
       }
+      cleanup_old_meeting_transcripts: { Args: never; Returns: undefined }
       count_followup_impact: {
         Args: { _group_id: string }
         Returns: {
