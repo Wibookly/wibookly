@@ -91,6 +91,9 @@ export default function MeetingCopilot() {
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
   const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
   const [usingMockMeetings, setUsingMockMeetings] = useState(true);
+  const [calendarStatus, setCalendarStatus] = useState<
+    { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
+  >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
@@ -156,7 +159,21 @@ export default function MeetingCopilot() {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
-        if (error || !data || data.error || !Array.isArray(data.meetings) || data.meetings.length === 0) return;
+        if (error) {
+          setCalendarStatus({ state: 'error', detail: error.message || 'Calendar request failed' });
+          return;
+        }
+        if (data?.error === 'no_outlook_connection') {
+          setCalendarStatus({ state: 'not_connected' });
+          return;
+        }
+        if (data?.error) {
+          setCalendarStatus({ state: 'error', detail: data.detail || data.error });
+          return;
+        }
+        const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
+        setCalendarStatus({ state: 'connected', count: list.length });
+        if (list.length === 0) return; // keep mock visual for layout, but banner makes it clear
         const fmt = (iso: string) => {
           const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
           let h = d.getHours();
@@ -165,7 +182,7 @@ export default function MeetingCopilot() {
           h = h % 12 || 12;
           return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
         };
-        const mapped = data.meetings.map((m: any) => {
+        const mapped = list.map((m: any) => {
           const { timeLabel, period } = fmt(m.startTime);
           return {
             id: m.id,
@@ -179,13 +196,31 @@ export default function MeetingCopilot() {
           };
         });
         const prefs: Record<string, boolean> = {};
-        data.meetings.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
+        list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
         setUpcoming(mapped);
         setPerMeeting(prefs);
         setUsingMockMeetings(false);
-      } catch { /* keep mock */ }
+      } catch (e) {
+        setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
+      }
     })();
   }, [user]);
+
+  const downloadExtension = async () => {
+    try {
+      const res = await fetch('/inboxiq-meeting-copilot.zip');
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'inboxiq-meeting-copilot.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success('Extension downloaded — unzip it, then load it at chrome://extensions');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Download failed');
+    }
+  };
 
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
     const next = { ...settings, ...patch };
@@ -262,10 +297,10 @@ export default function MeetingCopilot() {
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <a href="#" onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+            <a href="/inboxiq-meeting-copilot.zip" onClick={(e) => { e.preventDefault(); downloadExtension(); }}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
               style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
-              <ExternalLink className="w-4 h-4" /> Install Chrome Extension
+              <ExternalLink className="w-4 h-4" /> Download Chrome Extension
             </a>
           </div>
         </div>
@@ -353,6 +388,43 @@ export default function MeetingCopilot() {
             </div>
             <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
           </div>
+          {/* Honest status banner — replaces silent mock fallback */}
+          {calendarStatus.state === 'loading' && (
+            <div className="mb-3 rounded-xl p-3 text-xs flex items-center gap-2"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Checking your Microsoft 365 calendar…
+            </div>
+          )}
+          {calendarStatus.state === 'not_connected' && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-orange) 12%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-orange) 35%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Calendar not connected.</strong> The meetings below are sample data. <a href="/integrations" className="underline font-semibold">Connect Microsoft 365</a> to see your real calendar and use Copilot on your meetings & emails.
+            </div>
+          )}
+          {calendarStatus.state === 'error' && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-rose) 12%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-rose) 35%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Couldn't load your calendar.</strong> {calendarStatus.detail.slice(0, 200)} — try <a href="/integrations" className="underline font-semibold">reconnecting Microsoft 365</a>.
+            </div>
+          )}
+          {calendarStatus.state === 'connected' && calendarStatus.count === 0 && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+              Calendar connected — no meetings in the next 7 days. The cards below are samples to preview the UI.
+            </div>
+          )}
+          {calendarStatus.state === 'connected' && calendarStatus.count > 0 && (
+            <div className="mb-3 rounded-xl p-3 text-xs"
+              style={{ background: 'color-mix(in srgb, var(--c-green) 10%, transparent)',
+                       border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)',
+                       color: 'var(--text-1)' }}>
+              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar. Your recent emails are read by the follow-up Copilot when a session ends.
+            </div>
+          )}
           <div className="space-y-3">
             {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}

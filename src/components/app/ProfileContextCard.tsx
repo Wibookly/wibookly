@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info } from 'lucide-react';
+import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info, Mail, Phone, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProfileFields {
@@ -16,6 +16,10 @@ interface ProfileFields {
   role_description: string | null;
   responsibilities: string | null;
   communication_style: string | null;
+  phone: string | null;
+  mobile: string | null;
+  profile_photo_url: string | null;
+  email: string | null;
 }
 
 interface ProfileContextCardProps {
@@ -29,6 +33,7 @@ interface ProfileContextCardProps {
 const EMPTY: ProfileFields = {
   full_name: null, title: null, company: null, department: null,
   role_description: null, responsibilities: null, communication_style: null,
+  phone: null, mobile: null, profile_photo_url: null, email: null,
 };
 
 /**
@@ -49,40 +54,66 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
   const [extraDraft, setExtraDraft] = useState('');
   const [editingExtra, setEditingExtra] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Load identity + per-surface extra context
-  useEffect(() => {
+  const loadProfile = async (cancelledRef?: { cancelled: boolean }) => {
     if (!user) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const [{ data: prof }, extraRow] = await Promise.all([
-        supabase
-          .from('user_profiles')
-          .select('full_name, title, company, department, role_description, responsibilities, communication_style')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        surface === 'meeting_copilot'
-          ? supabase.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle()
-          : Promise.resolve({ data: null } as { data: { custom_context?: string | null } | null }),
-      ]);
-      if (cancelled) return;
-      setProfile({
-        full_name: (prof as ProfileFields | null)?.full_name ?? null,
-        title: (prof as ProfileFields | null)?.title ?? null,
-        company: (prof as ProfileFields | null)?.company ?? null,
-        department: (prof as ProfileFields | null)?.department ?? null,
-        role_description: (prof as ProfileFields | null)?.role_description ?? null,
-        responsibilities: (prof as ProfileFields | null)?.responsibilities ?? null,
-        communication_style: (prof as ProfileFields | null)?.communication_style ?? null,
-      });
-      const ex = (extraRow?.data?.custom_context as string | undefined) || '';
-      setExtra(ex);
-      setExtraDraft(ex);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    setLoading(true);
+    const [{ data: prof }, extraRow] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('full_name, title, company, department, role_description, responsibilities, communication_style, phone, mobile, profile_photo_url, email')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      surface === 'meeting_copilot'
+        ? supabase.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null } as { data: { custom_context?: string | null } | null }),
+    ]);
+    if (cancelledRef?.cancelled) return;
+    const p = prof as Partial<ProfileFields> | null;
+    setProfile({
+      full_name: p?.full_name ?? null,
+      title: p?.title ?? null,
+      company: p?.company ?? null,
+      department: p?.department ?? null,
+      role_description: p?.role_description ?? null,
+      responsibilities: p?.responsibilities ?? null,
+      communication_style: p?.communication_style ?? null,
+      phone: p?.phone ?? null,
+      mobile: p?.mobile ?? null,
+      profile_photo_url: p?.profile_photo_url ?? null,
+      email: p?.email ?? user.email ?? null,
+    });
+    const ex = (extraRow?.data?.custom_context as string | undefined) || '';
+    setExtra(ex);
+    setExtraDraft(ex);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const ref = { cancelled: false };
+    loadProfile(ref);
+    return () => { ref.cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, surface]);
+
+  const handleSyncFromMicrosoft = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-microsoft-profile', { body: {} });
+      if (error || (data as { error?: string })?.error) {
+        toast.error((data as { error?: string })?.error || error?.message || 'Sync failed — reconnect Microsoft 365 in Integrations.');
+      } else {
+        toast.success('Profile synced from Microsoft 365');
+        await loadProfile();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const saveExtra = async () => {
     if (!user) return;
@@ -121,18 +152,34 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
       style={{ borderColor: 'var(--border)' }}
     >
       <header className="flex items-start gap-3 p-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-10 h-10 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-primary/15 to-accent/15 ring-1 ring-border">
-          <User className="w-5 h-5 text-primary" />
-        </div>
+        {profile.profile_photo_url ? (
+          <img
+            src={profile.profile_photo_url}
+            alt={profile.full_name || 'Profile'}
+            className="w-10 h-10 shrink-0 rounded-xl object-cover ring-1 ring-border"
+          />
+        ) : (
+          <div className="w-10 h-10 shrink-0 rounded-xl grid place-items-center bg-gradient-to-br from-primary/15 to-accent/15 ring-1 ring-border">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-foreground">{headingTitle}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">{headingDesc}</p>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link to="/settings?tab=profile">
-            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit in Settings
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={handleSyncFromMicrosoft} disabled={syncing}>
+            {syncing
+              ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+            Sync from Microsoft 365
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/settings?tab=profile">
+              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -147,6 +194,8 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
             <IdentityRow icon={<Briefcase className="w-3.5 h-3.5" />} label="Title" value={profile.title} />
             <IdentityRow icon={<Building2 className="w-3.5 h-3.5" />} label="Company" value={profile.company} />
             <IdentityRow icon={<Building2 className="w-3.5 h-3.5" />} label="Department" value={profile.department} />
+            <IdentityRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={profile.email} />
+            <IdentityRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={profile.mobile || profile.phone} />
           </div>
 
           {/* About-me long form */}
