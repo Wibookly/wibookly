@@ -500,6 +500,8 @@ export default function Settings() {
       await supabase
         .from('user_profiles')
         .update({
+          full_name: fullNameValidation.data || null,
+          title: title || null,
           responsibilities: aboutMe.responsibilities || null,
           communication_style: aboutMe.communication_style || null,
         } as Record<string, unknown>)
