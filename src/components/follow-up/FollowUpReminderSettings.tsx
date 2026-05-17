@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, RefreshCw, Search, CalendarClock } from 'lucide-react';
+import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, Search, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -69,7 +69,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState(false);
+  
   const [intervalsDraft, setIntervalsDraft] = useState('');
   const [auditing, setAuditing] = useState(false);
   const [auditFrom, setAuditFrom] = useState(isoDaysAgo(30));
@@ -99,6 +99,14 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   }
 
   useEffect(() => { load(); }, [activeConnection?.id]);
+
+  // When the page is opened, kick off a silent background scan so the
+  // dashboard reflects the latest activity without requiring a button click.
+  useEffect(() => {
+    if (!activeConnection?.id) return;
+    supabase.functions.invoke('cron-follow-ups', { body: {} }).catch(() => { /* silent */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConnection?.id]);
 
   async function ensureTrackerCategory() {
     if (!activeConnection?.id) return;
@@ -155,19 +163,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
     toast({ title: 'Reminder schedule saved' });
   }
 
-  async function runScan() {
-    setRunning(true);
-    try {
-      const { error } = await supabase.functions.invoke('cron-follow-ups', { body: {} });
-      if (error) throw error;
-      toast({ title: 'Scan started', description: 'Trackers and drafts will appear in a moment.' });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
-    } finally {
-      setRunning(false);
-    }
-  }
+
+
 
   async function runAudit() {
     if (!activeConnection?.id) return;
@@ -252,19 +249,32 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   <Badge variant="outline">Off</Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1.5 max-w-2xl">
-                <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
-                <br />
-                BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
-                (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
-                original to your <strong>No Reply Tracker</strong> category (red) and applies the action you choose below.
-                <br />
-                <span className="text-foreground">
-                  When this is ON, InboxIQ automatically scans your sent emails <strong>every 24 hours</strong>,
-                  keeps Business Hours active, drafts follow-ups for unanswered threads, and adds them back to
-                  the <strong>No Reply Tracker</strong> category until the recipient replies. Once they reply,
-                  the email leaves the tracker automatically.
-                </span>
+              <CardDescription className="mt-1.5 max-w-2xl space-y-2">
+                <p>
+                  <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
+                </p>
+                <p>
+                  <strong>1. Track a thread.</strong> BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email you send
+                  (where <em>N</em> is the number of days you'll wait for a reply).
+                </p>
+                <p>
+                  <strong>2. Due date hits, no reply.</strong> InboxIQ moves the original message to your Outlook <strong>Follow-up</strong> folder,
+                  surfaces it in the red <strong>No Reply Tracker</strong> category, and — if Auto Draft is on —
+                  writes a polite nudge into your Drafts.
+                </p>
+                <p>
+                  <strong>3. Up to {settings.reminder_max_count} reminders, then auto-stop.</strong> If you don't act on the draft, InboxIQ pings you
+                  on the schedule below. After <strong>{settings.reminder_max_count}</strong> nudges with no reply and no action, the tracker stops
+                  automatically — the email stays labeled <strong>No Reply Tracker</strong> so you can decide
+                  manually. Once the recipient replies, the tracker clears itself.
+                </p>
+                <p>
+                  <strong>4. Stop a thread anytime.</strong> Send a new email on the thread with BCC
+                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">stop@{domain}</code> (or
+                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">0@{domain}</code>).
+                  InboxIQ cancels the tracker, moves the message back to your inbox, and stops all reminders.
+                  To re-arm, just send another email with a numeric BCC like <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">2@{domain}</code>.
+                </p>
               </CardDescription>
             </div>
             <Switch
@@ -335,7 +345,46 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
+      {/* Lifecycle & how to stop */}
+      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-primary" /> Lifecycle & how to stop a tracker
+          </CardTitle>
+          <CardDescription>
+            Every tracker ends one of four ways. Knowing this prevents endless nudges.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ul className="space-y-2 text-muted-foreground">
+            <li><strong className="text-foreground">Reply received</strong> — tracker clears automatically and the email leaves the No Reply Tracker category.</li>
+            <li><strong className="text-foreground">Auto-stop after {settings.reminder_max_count} nudges</strong> — if you don't act on the draft and there's still no reply after the maximum reminders, the tracker stops on its own. The email stays in the No Reply Tracker category so you can decide manually.</li>
+            <li>
+              <strong className="text-foreground">Manual stop via BCC</strong> — send a new email on the thread with one of these BCCs to cancel immediately and move the original message back to the inbox:
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {['stop', '0'].map((w) => {
+                  const addr = `${w}@${domain}`;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(addr); toast({ title: 'Copied', description: addr }); }}
+                      className="font-mono text-xs px-2 py-1 rounded border bg-muted hover:bg-accent transition-colors"
+                      title="Click to copy"
+                    >
+                      {addr}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+            <li><strong className="text-foreground">Re-arm anytime</strong> — sending a fresh email on the thread with a numeric BCC like <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">2@{domain}</code> starts a brand-new tracker with a fresh due date and a fresh reminder count.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       {/* Business hours */}
+
       <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -529,17 +578,11 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between pt-2">
-        <p className="text-xs text-muted-foreground">
-          Background scan runs every 15 min. <strong>Auto Draft</strong>, <strong>Auto Reply</strong>,
-          and the daily auto-audit only fire during your business hours
-          {settings.timezone ? <> ({settings.timezone})</> : null}.
-        </p>
-        <Button variant="outline" onClick={runScan} disabled={running}>
-          {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          Run scan now
-        </Button>
-      </div>
+      <p className="text-xs text-muted-foreground pt-2">
+        Background scan runs every 15 min and refreshes automatically each time you open this page.
+        {' '}<strong>Auto Draft</strong>, <strong>Auto Reply</strong>, and the daily auto-audit only fire during your business hours
+        {settings.timezone ? <> ({settings.timezone})</> : null}.
+      </p>
     </div>
   );
 }

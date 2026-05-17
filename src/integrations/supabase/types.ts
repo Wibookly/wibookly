@@ -1534,6 +1534,7 @@ export type Database = {
           reminder_intervals_days: number[]
           reminder_max_count: number
           skip_if_replied: boolean
+          stop_aliases: string[]
           timezone: string | null
           updated_at: string
           user_id: string
@@ -1557,6 +1558,7 @@ export type Database = {
           reminder_intervals_days?: number[]
           reminder_max_count?: number
           skip_if_replied?: boolean
+          stop_aliases?: string[]
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -1580,6 +1582,7 @@ export type Database = {
           reminder_intervals_days?: number[]
           reminder_max_count?: number
           skip_if_replied?: boolean
+          stop_aliases?: string[]
           timezone?: string | null
           updated_at?: string
           user_id?: string
@@ -1591,6 +1594,8 @@ export type Database = {
           action_mode: string
           auto_sent_at: string | null
           bcc_alias: string
+          cancellation_alias: string | null
+          cancelled_at: string | null
           cc_recipients: Json
           connection_id: string
           conversation_id: string | null
@@ -1619,6 +1624,8 @@ export type Database = {
           action_mode?: string
           auto_sent_at?: string | null
           bcc_alias: string
+          cancellation_alias?: string | null
+          cancelled_at?: string | null
           cc_recipients?: Json
           connection_id: string
           conversation_id?: string | null
@@ -1647,6 +1654,8 @@ export type Database = {
           action_mode?: string
           auto_sent_at?: string | null
           bcc_alias?: string
+          cancellation_alias?: string | null
+          cancelled_at?: string | null
           cc_recipients?: Json
           connection_id?: string
           conversation_id?: string | null
@@ -3279,6 +3288,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      cancel_trackers_for_conversation: {
+        Args: {
+          _alias: string
+          _connection_id: string
+          _conversation_id: string
+        }
+        Returns: {
+          message_id: string
+        }[]
+      }
       check_and_reserve_budget: {
         Args: { _est_cost_usd?: number; _org_id: string }
         Returns: {
@@ -3419,6 +3438,7 @@ export type Database = {
           reminder_intervals_days: number[]
           reminder_max_count: number
           skip_if_replied: boolean
+          stop_aliases: string[]
           timezone: string | null
           updated_at: string
           user_id: string
