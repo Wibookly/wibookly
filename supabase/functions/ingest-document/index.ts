@@ -248,8 +248,8 @@ Deno.serve(async (req) => {
 
     // Embed in batches of 100
     const allEmbeddings: number[][] = [];
-    for (let i = 0; i < chunks.length; i += 100) {
-      const batch = chunks.slice(i, i + 100);
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+      const batch = chunks.slice(i, i + EMBED_BATCH);
       const emb = await embedBatch(batch);
       allEmbeddings.push(...emb);
     }
