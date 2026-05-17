@@ -17,9 +17,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Require service-role (cron uses this; manual admin invocations should not call this).
-  const auth = req.headers.get("Authorization") || "";
-  if (auth !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
+  // Auth: accept anon or service-role apikey (pg_cron pattern used across this project).
+  const apikey = req.headers.get("apikey") || (req.headers.get("Authorization") || "").replace(/^Bearer\s+/, "");
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  if (apikey !== SUPABASE_SERVICE_ROLE_KEY && apikey !== ANON_KEY) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
