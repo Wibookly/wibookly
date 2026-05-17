@@ -589,17 +589,11 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between pt-2">
-        <p className="text-xs text-muted-foreground">
-          Background scan runs every 15 min. <strong>Auto Draft</strong>, <strong>Auto Reply</strong>,
-          and the daily auto-audit only fire during your business hours
-          {settings.timezone ? <> ({settings.timezone})</> : null}.
-        </p>
-        <Button variant="outline" onClick={runScan} disabled={running}>
-          {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          Run scan now
-        </Button>
-      </div>
+      <p className="text-xs text-muted-foreground pt-2">
+        Background scan runs every 15 min and refreshes automatically each time you open this page.
+        {' '}<strong>Auto Draft</strong>, <strong>Auto Reply</strong>, and the daily auto-audit only fire during your business hours
+        {settings.timezone ? <> ({settings.timezone})</> : null}.
+      </p>
     </div>
   );
 }
