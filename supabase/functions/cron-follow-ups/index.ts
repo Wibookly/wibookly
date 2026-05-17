@@ -184,7 +184,12 @@ interface Connection {
   inbox_followup_folder_id: string | null; connected_email: string | null;
 }
 
-async function scanSentForTriggers(conn: Connection, token: string, ourDomain: string): Promise<number> {
+async function scanSentForTriggers(
+  conn: Connection,
+  token: string,
+  ourDomain: string,
+  stopWords: string[],
+): Promise<{ added: number; cancelled: number }> {
   // Look back 30 days; the BCC tag survives forever, so we catch anything we missed too.
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   let url: string | null =
@@ -193,6 +198,7 @@ async function scanSentForTriggers(conn: Connection, token: string, ourDomain: s
     `&$select=id,subject,conversationId,toRecipients,ccRecipients,bccRecipients,sentDateTime,bodyPreview` +
     `&$orderby=sentDateTime desc&$top=50`;
   let added = 0;
+  let cancelled = 0;
   let pages = 0;
   while (url && pages < 6) {
     const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -204,6 +210,35 @@ async function scanSentForTriggers(conn: Connection, token: string, ourDomain: s
     for (const m of (json.value ?? [])) {
       const bccs: string[] = (m.bccRecipients ?? []).map((r: any) => r.emailAddress?.address ?? '').filter(Boolean);
       if (bccs.length === 0) continue;
+
+      // 1. STOP signal — cancel all open trackers in this conversation and
+      //    move their original sent messages back out of the Follow-up folder.
+      const stopAlias = parseStopAlias(bccs, ourDomain, stopWords);
+      if (stopAlias && m.conversationId) {
+        try {
+          const { data: rows } = await supabase.rpc('cancel_trackers_for_conversation', {
+            _connection_id: conn.id,
+            _conversation_id: m.conversationId,
+            _alias: stopAlias,
+          });
+          const ids: string[] = ((rows ?? []) as Array<{ message_id: string }>).map((r) => r.message_id);
+          for (const origId of ids) {
+            // Move back to inbox so it leaves the "Follow-up" folder.
+            await fetch(`https://graph.microsoft.com/v1.0/me/messages/${origId}/move`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ destinationId: 'inbox' }),
+            }).catch(() => null);
+          }
+          cancelled += ids.length;
+        } catch (e) {
+          console.warn('cancel-by-BCC failed', e);
+        }
+        // A stop signal is not also a tracker trigger.
+        continue;
+      }
+
+      // 2. Numeric trigger — schedule a tracker.
       const parsed = parseFollowupAlias(bccs, ourDomain);
       if (!parsed) continue;
 
@@ -231,7 +266,7 @@ async function scanSentForTriggers(conn: Connection, token: string, ourDomain: s
     pages++;
     url = json['@odata.nextLink'] ?? null;
   }
-  return added;
+  return { added, cancelled };
 }
 
 async function conversationHasReply(token: string, conversationId: string, originalSentAt: string, originalRecipients: string[], myEmail: string | null): Promise<boolean> {
