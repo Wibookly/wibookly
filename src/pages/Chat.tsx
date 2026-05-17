@@ -305,14 +305,28 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 8 * 24) + 'px';
   }, [input]);
 
+  const rootConversations = useMemo(
+    () => conversations.filter((c) => !c.folder_id),
+    [conversations],
+  );
+
+  const conversationsByFolder = useMemo(() => {
+    const map: Record<string, Conversation[]> = {};
+    for (const c of conversations) {
+      if (!c.folder_id) continue;
+      (map[c.folder_id] = map[c.folder_id] || []).push(c);
+    }
+    return map;
+  }, [conversations]);
+
   const groupedConversations = useMemo(() => {
     const groups: Record<string, Conversation[]> = {};
-    for (const c of conversations) {
+    for (const c of rootConversations) {
       const k = dateBucket(c.updated_at || c.created_at);
       (groups[k] = groups[k] || []).push(c);
     }
     return groups;
-  }, [conversations]);
+  }, [rootConversations]);
 
   // Pick a header title that reflects the current conversation, not a
   // generic label. Prefers the saved conversation title; falls back to the
