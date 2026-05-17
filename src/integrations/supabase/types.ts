@@ -2124,6 +2124,103 @@ export type Database = {
           },
         ]
       }
+      m365_sync_jobs: {
+        Row: {
+          completed_at: string | null
+          connection_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          items_failed: number
+          items_processed: number
+          retry_after: string | null
+          source: string
+          started_at: string | null
+          status: string
+          sync_type: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          connection_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_failed?: number
+          items_processed?: number
+          retry_after?: string | null
+          source: string
+          started_at?: string | null
+          status?: string
+          sync_type: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          connection_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_failed?: number
+          items_processed?: number
+          retry_after?: string | null
+          source?: string
+          started_at?: string | null
+          status?: string
+          sync_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_sync_jobs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_sync_state: {
+        Row: {
+          connection_id: string
+          created_at: string
+          delta_link: string | null
+          id: string
+          last_sync_at: string | null
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          delta_link?: string | null
+          id?: string
+          last_sync_at?: string | null
+          source: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          delta_link?: string | null
+          id?: string
+          last_sync_at?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_sync_state_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_action_items: {
         Row: {
           assigned_to: string | null
