@@ -979,12 +979,24 @@ serve(async (req) => {
     let documentContext = "";
     let accessToken: string | null = null;
     let provider = "";
+    let resolvedConnectionId = connectionId ?? null;
 
-    if (connectionId) {
+    if (!resolvedConnectionId && conversationId) {
+      const { data: conversationConnection } = await supabase
+        .from('chat_conversations')
+        .select('connection_id')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      resolvedConnectionId = conversationConnection?.connection_id ?? null;
+    }
+
+    if (resolvedConnectionId) {
       const { data: connection } = await supabase
         .from('provider_connections')
         .select('*')
-        .eq('id', connectionId)
+        .eq('id', resolvedConnectionId)
         .eq('user_id', user.id)
         .single();
       
@@ -1013,7 +1025,7 @@ serve(async (req) => {
       const { data: categories } = await supabase
         .from('categories')
         .select('name')
-        .eq('connection_id', connectionId)
+        .eq('connection_id', resolvedConnectionId)
         .eq('is_enabled', true);
       
       if (categories?.length) {
