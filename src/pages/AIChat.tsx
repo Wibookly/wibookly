@@ -221,9 +221,8 @@ export default function AIChat() {
         conversationId = newConversation.id;
       }
 
-      // Save user message
-      await saveMessage(conversationId, 'user', userMessage);
-      queryClient.invalidateQueries({ queryKey: ['ai-messages', conversationId] });
+      // NOTE: agent-orchestrator persists both the user message AND the assistant reply
+      // into ai_chat_messages (with citations, tool_calls, tokens). Do NOT double-write here.
 
       // Update title if first message
       if (messages.length === 0) {
@@ -257,12 +256,8 @@ export default function AIChat() {
         setEmailResults(emails);
       }
 
-      // Save assistant message (clean version without email tags)
-      if (fullContent) {
-        const cleanContent = fullContent.replace(/\[EMAIL_RESULT\].*?\[\/EMAIL_RESULT\]/gs, '').trim();
-        await saveMessage(conversationId, 'assistant', cleanContent);
-        queryClient.invalidateQueries({ queryKey: ['ai-messages', conversationId] });
-      }
+      // Refresh persisted messages written server-side by agent-orchestrator
+      queryClient.invalidateQueries({ queryKey: ['ai-messages', conversationId] });
 
       // Update conversation timestamp
       await supabase
