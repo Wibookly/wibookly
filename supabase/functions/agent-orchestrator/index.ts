@@ -207,6 +207,23 @@ async function callRetrieve(
   return await resp.json();
 }
 
+async function callExtract(authHeader: string, payload: Record<string, unknown>): Promise<any> {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/m365-extract-file`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+      body: JSON.stringify(payload),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { ok: false, status: resp.status, error: json?.error || `HTTP ${resp.status}` };
+    return { ok: true, ...json };
+  } catch (e) {
+    return { ok: false, error: String((e as Error)?.message || e) };
+  }
+}
+
+const EXTRACTABLE_EXT = /\.(pdf|docx|xlsx|txt|md|csv)$/i;
+
 async function executeTool(
   name: string,
   args: any,
