@@ -264,12 +264,13 @@ interface FollowUpSettings {
   business_hours_end: number;
   business_days: number[];
   timezone: string | null;
+  stop_aliases: string[];
 }
 
 async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
   const { data } = await supabase
     .from('follow_up_settings')
-    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days,business_hours_only,business_hours_start,business_hours_end,business_days,timezone')
+    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days,business_hours_only,business_hours_start,business_hours_end,business_days,timezone,stop_aliases')
     .eq('connection_id', connectionId)
     .maybeSingle();
   return (data as FollowUpSettings | null) ?? {
@@ -284,6 +285,7 @@ async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
     business_hours_end: 17,
     business_days: [1, 2, 3, 4, 5],
     timezone: null,
+    stop_aliases: ['stop', '0'],
   };
 }
 
