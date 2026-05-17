@@ -292,8 +292,8 @@ Deno.serve(async (req) => {
     if (!chunks.length) throw new Error("No chunks produced");
 
     const allEmb: number[][] = [];
-    for (let i = 0; i < chunks.length; i += 100) {
-      const batch = chunks.slice(i, i + 100);
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+      const batch = chunks.slice(i, i + EMBED_BATCH);
       const emb = await embedBatch(batch);
       allEmb.push(...emb);
     }
