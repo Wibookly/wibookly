@@ -34,6 +34,12 @@ interface Conversation {
   title: string | null;
   created_at: string;
   updated_at: string;
+  folder_id: string | null;
+}
+interface Folder {
+  id: string;
+  name: string;
+  created_at: string;
 }
 interface Msg {
   id: string;
