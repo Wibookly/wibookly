@@ -1157,6 +1157,9 @@ function MessageBubble({
             ))}
           </div>
         )}
+        {!isUser && message.citations && message.citations.length > 0 && (
+          <CitationChips citations={message.citations} />
+        )}
         {!isUser && !streaming && (
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
