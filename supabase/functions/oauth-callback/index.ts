@@ -214,6 +214,16 @@ serve(async (req) => {
     const connectionId = connectionData.id;
     console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault, calendar enabled)`);
 
+    // Link the vault row to this connection (required for multi-account token lookups)
+    const { error: vaultLinkError } = await supabase
+      .from('oauth_token_vault')
+      .update({ connection_id: connectionId })
+      .eq('user_id', userId)
+      .eq('provider', provider);
+    if (vaultLinkError) {
+      console.error('Failed to link vault row to connection:', vaultLinkError);
+    }
+
     // Initialize default data for new connections
     if (isNewConnection) {
       console.log('New connection detected, initializing default categories and settings...');
