@@ -583,6 +583,97 @@ export default function Chat() {
 
   const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
 
+  const renderConvRow = (c: Conversation, opts: { indent?: boolean } = {}) => {
+    const days = daysUntilExpiry(c.created_at);
+    const expiring = days <= EXPIRY_WARN_DAYS;
+    const titleText = c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
+      ? c.title
+      : 'New chat';
+    return (
+      <div
+        key={c.id}
+        className={cn(
+          'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
+          opts.indent && 'ml-5',
+          activeId === c.id && 'bg-accent'
+        )}
+        onClick={() => handleSelectConv(c.id)}
+      >
+        <span className="flex-1 truncate">{titleText}</span>
+        {expiring && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
+            title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
+          >
+            {days}d
+          </span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+              onClick={(e) => e.stopPropagation()}
+              title="More"
+            >
+              <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FolderInput className="h-4 w-4 mr-2" /> Move to folder
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  {folders.length === 0 && (
+                    <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
+                  )}
+                  {folders.map((f) => (
+                    <DropdownMenuItem
+                      key={f.id}
+                      disabled={c.folder_id === f.id}
+                      onClick={() => handleMoveConv(c.id, f.id)}
+                    >
+                      <Folder className="h-4 w-4 mr-2" /> {f.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {c.folder_id && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleMoveConv(c.id, null)}>
+                        Remove from folder
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={exporting === `${c.id}-pdf`}
+              onClick={() => handleExport(c.id, 'pdf')}
+            >
+              <Download className="h-4 w-4 mr-2" /> Export as PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={exporting === `${c.id}-xlsx`}
+              onClick={() => handleExport(c.id, 'xlsx')}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => handleDeleteConv(c.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
