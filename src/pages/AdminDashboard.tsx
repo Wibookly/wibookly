@@ -855,6 +855,8 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
+
+          <MicrosoftStatusPanel />
             </TabsContent>
 
             <TabsContent value="ai-agent" className="space-y-6 mt-4">
