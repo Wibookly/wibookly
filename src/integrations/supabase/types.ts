@@ -920,6 +920,7 @@ export type Database = {
       chat_conversations: {
         Row: {
           created_at: string | null
+          folder_id: string | null
           id: string
           is_archived: boolean | null
           organization_id: string
@@ -929,6 +930,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           is_archived?: boolean | null
           organization_id: string
@@ -938,11 +940,50 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           is_archived?: boolean | null
           organization_id?: string
           title?: string | null
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
