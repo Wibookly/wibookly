@@ -8,6 +8,7 @@ import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
+  Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -20,7 +21,9 @@ import {
 } from '@/components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -31,6 +34,12 @@ interface Conversation {
   title: string | null;
   created_at: string;
   updated_at: string;
+  folder_id: string | null;
+}
+interface Folder {
+  id: string;
+  name: string;
+  created_at: string;
 }
 interface Msg {
   id: string;
@@ -109,6 +118,11 @@ export default function Chat() {
   const { theme, toggle: toggleTheme } = useTheme();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [folderNameDraft, setFolderNameDraft] = useState('');
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -141,14 +155,88 @@ export default function Chat() {
     if (!user) return;
     const { data } = await supabase
       .from('chat_conversations')
-      .select('id, title, created_at, updated_at')
+      .select('id, title, created_at, updated_at, folder_id')
       .eq('is_archived', false)
       .order('updated_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     setConversations((data as Conversation[]) || []);
   }, [user]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // Load folders
+  const loadFolders = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('chat_folders')
+      .select('id, name, created_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    setFolders((data as Folder[]) || []);
+  }, [user]);
+
+  useEffect(() => { loadFolders(); }, [loadFolders]);
+
+  // Persist expanded folders per-user in localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('inboxiq-chat-expanded-folders');
+      if (raw) setExpandedFolders(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('inboxiq-chat-expanded-folders', JSON.stringify(Array.from(expandedFolders)));
+    } catch { /* ignore */ }
+  }, [expandedFolders]);
+
+  // Folder operations
+  const toggleFolder = (id: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreateFolder = async () => {
+    if (!user || !profile?.organization_id) return;
+    const { data, error } = await supabase
+      .from('chat_folders')
+      .insert({ user_id: user.id, organization_id: profile.organization_id, name: 'New folder' })
+      .select('id, name, created_at')
+      .single();
+    if (error || !data) { toast.error('Could not create folder'); return; }
+    setFolders((prev) => [...prev, data as Folder]);
+    setExpandedFolders((prev) => new Set(prev).add(data.id));
+    setRenamingFolderId(data.id);
+    setFolderNameDraft(data.name);
+  };
+
+  const handleRenameFolder = async (id: string, name: string) => {
+    const trimmed = name.trim() || 'New folder';
+    setFolders((prev) => prev.map((f) => f.id === id ? { ...f, name: trimmed } : f));
+    setRenamingFolderId(null);
+    const { error } = await supabase.from('chat_folders').update({ name: trimmed }).eq('id', id);
+    if (error) toast.error('Rename failed');
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Delete this folder? Chats inside will move to the top level.')) return;
+    const { error } = await supabase.from('chat_folders').delete().eq('id', id);
+    if (error) { toast.error('Delete failed'); return; }
+    setFolders((prev) => prev.filter((f) => f.id !== id));
+    setConversations((prev) => prev.map((c) => c.folder_id === id ? { ...c, folder_id: null } : c));
+    if (activeFolderId === id) setActiveFolderId(null);
+  };
+
+  const handleMoveConv = async (convId: string, folderId: string | null) => {
+    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, folder_id: folderId } : c));
+    const { error } = await supabase.from('chat_conversations').update({ folder_id: folderId }).eq('id', convId);
+    if (error) { toast.error('Move failed'); loadConversations(); return; }
+    if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
+  };
+
 
   // Load messages
   useEffect(() => {
@@ -217,14 +305,28 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 8 * 24) + 'px';
   }, [input]);
 
+  const rootConversations = useMemo(
+    () => conversations.filter((c) => !c.folder_id),
+    [conversations],
+  );
+
+  const conversationsByFolder = useMemo(() => {
+    const map: Record<string, Conversation[]> = {};
+    for (const c of conversations) {
+      if (!c.folder_id) continue;
+      (map[c.folder_id] = map[c.folder_id] || []).push(c);
+    }
+    return map;
+  }, [conversations]);
+
   const groupedConversations = useMemo(() => {
     const groups: Record<string, Conversation[]> = {};
-    for (const c of conversations) {
+    for (const c of rootConversations) {
       const k = dateBucket(c.updated_at || c.created_at);
       (groups[k] = groups[k] || []).push(c);
     }
     return groups;
-  }, [conversations]);
+  }, [rootConversations]);
 
   // Pick a header title that reflects the current conversation, not a
   // generic label. Prefers the saved conversation title; falls back to the
@@ -246,18 +348,22 @@ export default function Chat() {
     return 'New chat';
   }, [activeId, conversations, messages]);
 
-  const handleNewChat = () => {
+  const handleNewChat = (folderId: string | null = null) => {
     setActiveId(null);
     setMessages([]);
     setInput('');
     setFiles([]);
     setSidebarOpen(false);
+    setActiveFolderId(folderId);
+    if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
     navigate('/chat');
   };
 
   const handleSelectConv = (id: string) => {
     setActiveId(id);
     setSidebarOpen(false);
+    const conv = conversations.find((c) => c.id === id);
+    setActiveFolderId(conv?.folder_id ?? null);
     navigate(`/chat/${id}`);
   };
 
@@ -349,6 +455,7 @@ export default function Chat() {
         body: JSON.stringify({
           message: text,
           conversation_id: activeId,
+          folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           stream: true,
           web_search: webSearch && canWebSearch,
@@ -478,6 +585,97 @@ export default function Chat() {
 
   const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
 
+  const renderConvRow = (c: Conversation, opts: { indent?: boolean } = {}) => {
+    const days = daysUntilExpiry(c.created_at);
+    const expiring = days <= EXPIRY_WARN_DAYS;
+    const titleText = c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
+      ? c.title
+      : 'New chat';
+    return (
+      <div
+        key={c.id}
+        className={cn(
+          'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
+          opts.indent && 'ml-5',
+          activeId === c.id && 'bg-accent'
+        )}
+        onClick={() => handleSelectConv(c.id)}
+      >
+        <span className="flex-1 truncate">{titleText}</span>
+        {expiring && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
+            title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
+          >
+            {days}d
+          </span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+              onClick={(e) => e.stopPropagation()}
+              title="More"
+            >
+              <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FolderInput className="h-4 w-4 mr-2" /> Move to folder
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  {folders.length === 0 && (
+                    <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
+                  )}
+                  {folders.map((f) => (
+                    <DropdownMenuItem
+                      key={f.id}
+                      disabled={c.folder_id === f.id}
+                      onClick={() => handleMoveConv(c.id, f.id)}
+                    >
+                      <Folder className="h-4 w-4 mr-2" /> {f.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {c.folder_id && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleMoveConv(c.id, null)}>
+                        Remove from folder
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={exporting === `${c.id}-pdf`}
+              onClick={() => handleExport(c.id, 'pdf')}
+            >
+              <Download className="h-4 w-4 mr-2" /> Export as PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={exporting === `${c.id}-xlsx`}
+              onClick={() => handleExport(c.id, 'xlsx')}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => handleDeleteConv(c.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
@@ -491,9 +689,12 @@ export default function Chat() {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="p-3">
-          <Button onClick={handleNewChat} variant="outline" className="w-full justify-start gap-2">
+        <div className="p-3 space-y-2">
+          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2">
             <Plus className="h-4 w-4" /> New chat
+          </Button>
+          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground">
+            <FolderPlus className="h-3.5 w-3.5" /> New folder
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
@@ -538,69 +739,93 @@ export default function Chat() {
               </div>
             </div>
           )}
-          {Object.entries(groupedConversations).map(([label, items]) => (
-            <div key={label}>
-              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-              {items.map((c) => {
-                const days = daysUntilExpiry(c.created_at);
-                const expiring = days <= EXPIRY_WARN_DAYS;
+          {/* Folders */}
+          {folders.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Folders</div>
+              {folders.map((f) => {
+                const expanded = expandedFolders.has(f.id);
+                const items = conversationsByFolder[f.id] || [];
+                const isRenaming = renamingFolderId === f.id;
                 return (
-                  <div
-                    key={c.id}
-                    className={cn(
-                      'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
-                      activeId === c.id && 'bg-accent'
-                    )}
-                    onClick={() => handleSelectConv(c.id)}
-                  >
-                    <span className="flex-1 truncate">
-                      {c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
-                        ? c.title
-                        : 'New chat'}
-                    </span>
-                    {expiring && (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
-                        title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
-                      >
-                        {days}d
-                      </span>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+                  <div key={f.id}>
+                    <div
+                      className={cn(
+                        'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-accent',
+                      )}
+                      onClick={() => !isRenaming && toggleFolder(f.id)}
+                    >
+                      {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {isRenaming ? (
+                        <Input
+                          autoFocus
+                          value={folderNameDraft}
+                          onChange={(e) => setFolderNameDraft(e.target.value)}
                           onClick={(e) => e.stopPropagation()}
-                          title="More"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleRenameFolder(f.id, folderNameDraft); }
+                            if (e.key === 'Escape') { setRenamingFolderId(null); }
+                          }}
+                          onBlur={() => handleRenameFolder(f.id, folderNameDraft)}
+                          className="h-6 text-sm px-1 py-0 flex-1"
+                        />
+                      ) : (
+                        <span className="flex-1 truncate font-medium">{f.name}</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{items.length}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+                            onClick={(e) => e.stopPropagation()}
+                            title="More"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={() => { handleNewChat(f.id); }}>
+                            <Plus className="h-4 w-4 mr-2" /> New chat in folder
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setRenamingFolderId(f.id); setFolderNameDraft(f.name); }}>
+                            <Check className="h-4 w-4 mr-2" /> Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteFolder(f.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete folder
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {expanded && (
+                      <div className="space-y-0.5">
+                        {items.length === 0 ? (
+                          <div className="ml-5 px-2 py-1.5 text-xs text-muted-foreground italic">Empty — start a new chat here</div>
+                        ) : (
+                          items.map((c) => renderConvRow(c, { indent: true }))
+                        )}
+                        <button
+                          className="ml-5 flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => handleNewChat(f.id)}
                         >
-                          <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Plus className="h-3 w-3" /> New chat in this folder
                         </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem
-                          disabled={exporting === `${c.id}-pdf`}
-                          onClick={() => handleExport(c.id, 'pdf')}
-                        >
-                          <Download className="h-4 w-4 mr-2" /> Export as PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={exporting === `${c.id}-xlsx`}
-                          onClick={() => handleExport(c.id, 'xlsx')}
-                        >
-                          <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDeleteConv(c.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {Object.entries(groupedConversations).map(([label, items]) => (
+            <div key={label}>
+              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+              {items.map((c) => renderConvRow(c))}
             </div>
           ))}
           {!conversations.length && (
