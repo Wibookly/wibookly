@@ -100,6 +100,14 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
   useEffect(() => { load(); }, [activeConnection?.id]);
 
+  // When the page is opened, kick off a silent background scan so the
+  // dashboard reflects the latest activity without requiring a button click.
+  useEffect(() => {
+    if (!activeConnection?.id) return;
+    supabase.functions.invoke('cron-follow-ups', { body: {} }).catch(() => { /* silent */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConnection?.id]);
+
   async function ensureTrackerCategory() {
     if (!activeConnection?.id) return;
     try {
