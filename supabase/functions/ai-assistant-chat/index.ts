@@ -1,3 +1,8 @@
+// DEPRECATED 2026-05-17: replaced by agent-orchestrator (via chat-agent SSE adapter).
+// The /chat UI now invokes supabase/functions/chat-agent, which proxies to
+// agent-orchestrator and gives the model real tool access to Outlook / OneDrive
+// / SharePoint instead of just web search. Keep this file around for rollback;
+// safe to delete after 30 days of stable agent-orchestrator usage.
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
