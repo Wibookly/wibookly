@@ -929,7 +929,7 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} />)}
               {isStreaming && (
                 <MessageBubble
