@@ -163,19 +163,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
     toast({ title: 'Reminder schedule saved' });
   }
 
-  async function runScan() {
-    setRunning(true);
-    try {
-      const { error } = await supabase.functions.invoke('cron-follow-ups', { body: {} });
-      if (error) throw error;
-      toast({ title: 'Scan started', description: 'Trackers and drafts will appear in a moment.' });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
-    } finally {
-      setRunning(false);
-    }
-  }
+
+
 
   async function runAudit() {
     if (!activeConnection?.id) return;
