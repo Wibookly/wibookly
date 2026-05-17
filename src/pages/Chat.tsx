@@ -155,14 +155,88 @@ export default function Chat() {
     if (!user) return;
     const { data } = await supabase
       .from('chat_conversations')
-      .select('id, title, created_at, updated_at')
+      .select('id, title, created_at, updated_at, folder_id')
       .eq('is_archived', false)
       .order('updated_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     setConversations((data as Conversation[]) || []);
   }, [user]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // Load folders
+  const loadFolders = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('chat_folders')
+      .select('id, name, created_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    setFolders((data as Folder[]) || []);
+  }, [user]);
+
+  useEffect(() => { loadFolders(); }, [loadFolders]);
+
+  // Persist expanded folders per-user in localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('inboxiq-chat-expanded-folders');
+      if (raw) setExpandedFolders(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('inboxiq-chat-expanded-folders', JSON.stringify(Array.from(expandedFolders)));
+    } catch { /* ignore */ }
+  }, [expandedFolders]);
+
+  // Folder operations
+  const toggleFolder = (id: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreateFolder = async () => {
+    if (!user || !profile?.organization_id) return;
+    const { data, error } = await supabase
+      .from('chat_folders')
+      .insert({ user_id: user.id, organization_id: profile.organization_id, name: 'New folder' })
+      .select('id, name, created_at')
+      .single();
+    if (error || !data) { toast.error('Could not create folder'); return; }
+    setFolders((prev) => [...prev, data as Folder]);
+    setExpandedFolders((prev) => new Set(prev).add(data.id));
+    setRenamingFolderId(data.id);
+    setFolderNameDraft(data.name);
+  };
+
+  const handleRenameFolder = async (id: string, name: string) => {
+    const trimmed = name.trim() || 'New folder';
+    setFolders((prev) => prev.map((f) => f.id === id ? { ...f, name: trimmed } : f));
+    setRenamingFolderId(null);
+    const { error } = await supabase.from('chat_folders').update({ name: trimmed }).eq('id', id);
+    if (error) toast.error('Rename failed');
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Delete this folder? Chats inside will move to the top level.')) return;
+    const { error } = await supabase.from('chat_folders').delete().eq('id', id);
+    if (error) { toast.error('Delete failed'); return; }
+    setFolders((prev) => prev.filter((f) => f.id !== id));
+    setConversations((prev) => prev.map((c) => c.folder_id === id ? { ...c, folder_id: null } : c));
+    if (activeFolderId === id) setActiveFolderId(null);
+  };
+
+  const handleMoveConv = async (convId: string, folderId: string | null) => {
+    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, folder_id: folderId } : c));
+    const { error } = await supabase.from('chat_conversations').update({ folder_id: folderId }).eq('id', convId);
+    if (error) { toast.error('Move failed'); loadConversations(); return; }
+    if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
+  };
+
 
   // Load messages
   useEffect(() => {
