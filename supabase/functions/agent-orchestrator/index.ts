@@ -2,6 +2,7 @@
 // Supports Q&A and email-drafting agents with multi-turn tool execution
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
+import { callGraph } from "../_shared/graph-call.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,66 @@ const TOOLS = [
         type: "object",
         properties: { thread_id: { type: "string" } },
         required: ["thread_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_outlook_mail",
+      description: "Search the user's live Outlook mailbox via Microsoft Graph. Use for questions about specific senders, invoices, receipts, conversations, or anything that may live in email. Returns subject, from, snippet, receivedDateTime, webLink.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Free-text search query (Graph $search syntax). Example: 'invoice gowithsupport'." },
+          top: { type: "number", description: "Max results (default 10, max 25)." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_onedrive",
+      description: "Search the user's OneDrive for files (documents, PDFs, spreadsheets, images) by name or content.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          top: { type: "number", description: "Default 10, max 25." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_sharepoint",
+      description: "Search SharePoint sites the user has access to for documents and pages.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          top: { type: "number", description: "Default 10, max 25." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_calendar_events",
+      description: "Fetch the user's calendar events in a time window. Use for 'what's on my calendar', 'meetings today/tomorrow/this week'.",
+      parameters: {
+        type: "object",
+        properties: {
+          start_iso: { type: "string", description: "ISO start datetime (UTC). Defaults to now." },
+          end_iso: { type: "string", description: "ISO end datetime (UTC). Defaults to 7 days from start." },
+          top: { type: "number", description: "Default 20, max 50." },
+        },
       },
     },
   },
