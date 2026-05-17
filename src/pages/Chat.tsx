@@ -901,7 +901,7 @@ export default function Chat() {
           className="flex-1 overflow-y-auto min-h-0"
         >
           {messages.length === 0 && !streamingText ? (
-            <div className="max-w-4xl mx-auto px-4 pb-16">
+            <div className="max-w-6xl mx-auto px-6 pb-16">
               <div className="flex flex-col items-center mt-4">
                 <AgentAvatar className="w-40 h-40 mb-4 shadow-glow" />
                 <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
@@ -929,7 +929,7 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} />)}
               {isStreaming && (
                 <MessageBubble
@@ -950,7 +950,7 @@ export default function Chat() {
 
         {/* Input area */}
         <div className="border-t border-border bg-background">
-          <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="max-w-6xl mx-auto px-6 py-4">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {files.map((f, i) => (
