@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -112,6 +113,7 @@ function downloadBase64File(filename: string, mime: string, base64: string) {
 
 export default function Chat() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { activeConnection } = useActiveEmail();
   const { hasFeature, loading: featLoading } = useFeatureAccess();
   const navigate = useNavigate();
   const params = useParams<{ id?: string }>();
@@ -455,6 +457,7 @@ export default function Chat() {
         body: JSON.stringify({
           message: text,
           conversation_id: activeId,
+          connectionId: activeConnection?.id,
           folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           stream: true,
