@@ -334,12 +334,14 @@ export default function Chat() {
     return 'New chat';
   }, [activeId, conversations, messages]);
 
-  const handleNewChat = () => {
+  const handleNewChat = (folderId: string | null = null) => {
     setActiveId(null);
     setMessages([]);
     setInput('');
     setFiles([]);
     setSidebarOpen(false);
+    setActiveFolderId(folderId);
+    if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
     navigate('/chat');
   };
 
