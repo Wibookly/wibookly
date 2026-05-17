@@ -425,6 +425,77 @@ async function getRecentEmailsSummary(accessToken: string, provider: string, cou
   }
 }
 
+// Search documents in OneDrive / SharePoint / Google Drive
+async function searchDocuments(accessToken: string, provider: string, query: string, maxResults: number = 10): Promise<string> {
+  try {
+    if (provider === 'google') {
+      // Google Drive search
+      const q = query
+        ? `fullText contains '${query.replace(/'/g, "\\'")}' and trashed=false`
+        : `trashed=false`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=${maxResults}&fields=files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))&orderBy=modifiedTime desc`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return `Failed to search Google Drive (${res.status})`;
+      const data = await res.json();
+      if (!data.files?.length) return "No documents found.";
+      return data.files.map((f: { name?: string; mimeType?: string; modifiedTime?: string; webViewLink?: string; owners?: { displayName?: string }[] }) =>
+        `- ${f.name || 'Untitled'} (${f.mimeType || ''}) — modified ${f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString() : 'n/a'}${f.owners?.[0]?.displayName ? ` by ${f.owners[0].displayName}` : ''}${f.webViewLink ? ` — ${f.webViewLink}` : ''}`
+      ).join('\n');
+    } else {
+      // Microsoft Graph search across OneDrive + SharePoint
+      const results: string[] = [];
+
+      if (query && query.trim().length > 0) {
+        // Unified search across driveItem entities (covers OneDrive + SharePoint document libraries)
+        const searchRes = await fetch(`https://graph.microsoft.com/v1.0/search/query`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{
+              entityTypes: ['driveItem'],
+              query: { queryString: query },
+              from: 0,
+              size: maxResults,
+            }],
+          }),
+        });
+        if (searchRes.ok) {
+          const data = await searchRes.json();
+          const hits = data.value?.[0]?.hitsContainers?.[0]?.hits || [];
+          for (const h of hits) {
+            const r = h.resource || {};
+            const name = r.name || r.title || 'Untitled';
+            const link = r.webUrl || '';
+            const modified = r.lastModifiedDateTime ? new Date(r.lastModifiedDateTime).toLocaleDateString() : 'n/a';
+            const site = r.parentReference?.siteId ? ' [SharePoint]' : ' [OneDrive]';
+            results.push(`- ${name}${site} — modified ${modified}${link ? ` — ${link}` : ''}`);
+          }
+        } else {
+          results.push(`(Graph search returned ${searchRes.status})`);
+        }
+      } else {
+        // No query: list recent OneDrive files
+        const recentRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/drive/recent?$top=${maxResults}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (recentRes.ok) {
+          const data = await recentRes.json();
+          for (const f of data.value || []) {
+            const modified = f.lastModifiedDateTime ? new Date(f.lastModifiedDateTime).toLocaleDateString() : 'n/a';
+            results.push(`- ${f.name || 'Untitled'} [OneDrive] — modified ${modified}${f.webUrl ? ` — ${f.webUrl}` : ''}`);
+          }
+        }
+      }
+
+      return results.length ? results.join('\n') : "No documents found.";
+    }
+  } catch (error) {
+    console.error('Error searching documents:', error);
+    return "Error searching documents";
+  }
+}
+
 type AIProvider = 'openai' | 'claude';
 
 interface AdminAIConfig {
@@ -905,6 +976,7 @@ serve(async (req) => {
     // Get email context if connection provided
     let emailContext = "";
     let calendarContext = "";
+    let documentContext = "";
     let accessToken: string | null = null;
     let provider = "";
 
@@ -959,6 +1031,13 @@ serve(async (req) => {
                             lastUserMessage.includes('event') || lastUserMessage.includes('busy');
     const isSearchQuery = lastUserMessage.includes('find') || lastUserMessage.includes('search') ||
                           lastUserMessage.includes('look for') || lastUserMessage.includes('about');
+    const isDocumentQuery = lastUserMessage.includes('document') || lastUserMessage.includes('file') ||
+                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('sharepoint') ||
+                            lastUserMessage.includes('drive') || lastUserMessage.includes('folder') ||
+                            lastUserMessage.includes('spreadsheet') || lastUserMessage.includes('powerpoint') ||
+                            lastUserMessage.includes('word doc') || lastUserMessage.includes('excel') ||
+                            lastUserMessage.includes('.docx') || lastUserMessage.includes('.xlsx') ||
+                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf');
 
     if (accessToken) {
       // If searching for specific emails
@@ -983,28 +1062,39 @@ serve(async (req) => {
         const events = await fetchCalendarEvents(accessToken, provider, 14);
         calendarContext = `\n\nUpcoming calendar events (next 2 weeks):\n${events}`;
       }
+
+      if (isDocumentQuery) {
+        // Extract a simple search term
+        const docTerms = lastUserMessage
+          .replace(/find|search|look for|show me|list|recent|my|the|please|can you|documents?|files?|folders?|onedrive|sharepoint|drive|spreadsheets?|powerpoints?|word docs?|excel|about|regarding|related to|named|called/gi, '')
+          .replace(/[?.!,]/g, '')
+          .trim();
+        const docs = await searchDocuments(accessToken, provider, docTerms, 10);
+        documentContext = `\n\nDocuments from ${provider === 'google' ? 'Google Drive' : 'OneDrive / SharePoint'}${docTerms ? ` matching "${docTerms}"` : ' (recent)'}:\n${docs}`;
+      }
     }
 
-    const systemPrompt = `You are the InboxIQ AI chat assistant. You help the user work faster using their inbox and calendar context when available.
+    const systemPrompt = `You are the InboxIQ AI chat assistant. You help the user work faster using their inbox, calendar, and document repository (OneDrive / SharePoint / Google Drive) context when available.
 
 Your capabilities:
 1. Search and retrieve specific emails by sender, subject, or content
 2. Summarize email threads and conversations
 3. Find attachments mentioned in emails
 4. View calendar events, meetings, and appointments
-5. Analyze communication patterns and priorities
-6. Help draft responses or suggest actions
+5. Search documents and files in OneDrive, SharePoint, and Google Drive
+6. Analyze communication patterns and priorities
+7. Help draft responses or suggest actions
 
 Current date/time: ${new Date().toLocaleString()}
-${emailContext}${calendarContext}
+${emailContext}${calendarContext}${documentContext}
 
 When answering:
-- Use the ACTUAL email and calendar data provided above
-- If you found relevant emails/events, reference them specifically
+- Use the ACTUAL email, calendar, and document data provided above
+- If you found relevant emails / events / files, reference them specifically and include links when present
 - If data is limited, explain what you can see and suggest searching for more specific terms
 - Be helpful and proactive in suggesting follow-up actions
  - Format information clearly with bullet points or sections when appropriate
- - If you use general knowledge beyond the mailbox context, say so briefly and clearly`;
+ - If you use general knowledge beyond the user's connected data, say so briefly and clearly`;
 
     const adminAIConfig = await loadAdminAIConfig(supabase);
     const orgId = orgIdEarly;

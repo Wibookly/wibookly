@@ -126,7 +126,7 @@ serve(async (req) => {
       // Use calendar-only scopes if requested (for adding calendar to existing connection)
       const scope = calendarOnly
         ? 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
-        : 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
+        : 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.readonly';
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -158,7 +158,7 @@ serve(async (req) => {
       // Use calendar-only scopes if requested
       const scope = calendarOnly
         ? 'openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite'
-        : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read';
+        : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All';
 
       const tenantSegment = microsoftTenantId || 'common';
 
