@@ -2065,6 +2065,53 @@ export type Database = {
         }
         Relationships: []
       }
+      m365_api_health: {
+        Row: {
+          api_name: string
+          checked_at: string
+          connection_id: string | null
+          endpoint: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          response_ms: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          api_name: string
+          checked_at?: string
+          connection_id?: string | null
+          endpoint?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          response_ms?: number | null
+          status: string
+          user_id: string
+        }
+        Update: {
+          api_name?: string
+          checked_at?: string
+          connection_id?: string | null
+          endpoint?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          response_ms?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_api_health_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_action_items: {
         Row: {
           assigned_to: string | null
@@ -2295,36 +2342,59 @@ export type Database = {
       }
       oauth_token_vault: {
         Row: {
+          connection_id: string | null
           created_at: string | null
           encrypted_access_token: string
           encrypted_refresh_token: string | null
           expires_at: string | null
           id: string
+          last_refresh_at: string | null
+          last_refresh_error: string | null
           provider: string
+          refresh_failure_count: number
+          requires_reauth: boolean
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          connection_id?: string | null
           created_at?: string | null
           encrypted_access_token: string
           encrypted_refresh_token?: string | null
           expires_at?: string | null
           id?: string
+          last_refresh_at?: string | null
+          last_refresh_error?: string | null
           provider: string
+          refresh_failure_count?: number
+          requires_reauth?: boolean
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          connection_id?: string | null
           created_at?: string | null
           encrypted_access_token?: string
           encrypted_refresh_token?: string | null
           expires_at?: string | null
           id?: string
+          last_refresh_at?: string | null
+          last_refresh_error?: string | null
           provider?: string
+          refresh_failure_count?: number
+          requires_reauth?: boolean
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "oauth_token_vault_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_agent_budget: {
         Row: {
