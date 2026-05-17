@@ -453,50 +453,6 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
-      {/* Reminder loop */}
-      <Card className={!settings.is_enabled ? 'opacity-60 pointer-events-none' : ''}>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="w-4 h-4" /> Missed follow-up reminders
-          </CardTitle>
-          <CardDescription>
-            If you miss a drafted follow-up, the agent will email you a reminder up to{' '}
-            <strong>{settings.reminder_max_count}</strong> times.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="rmax">Maximum reminders</Label>
-              <Input
-                id="rmax"
-                type="number"
-                min={0}
-                max={5}
-                value={settings.reminder_max_count}
-                onChange={(e) =>
-                  patch({ reminder_max_count: Math.max(0, Math.min(5, parseInt(e.target.value, 10) || 0)) })
-                }
-              />
-              <p className="text-xs text-muted-foreground">0–5 nudges before giving up.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rint">Reminder intervals (days)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="rint"
-                  value={intervalsDraft}
-                  onChange={(e) => setIntervalsDraft(e.target.value)}
-                  placeholder="1, 3, 7"
-                />
-                <Button variant="outline" onClick={saveIntervals}>Save</Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Days after the missed action to nudge you.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Manual inbox audit */}
       <Card>
         <CardHeader>
