@@ -59,12 +59,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_outlook_mail",
-      description: "Search the user's live Outlook mailbox via Microsoft Graph. Use for questions about specific senders, invoices, receipts, conversations, or anything that may live in email. Returns subject, from, snippet, receivedDateTime, webLink.",
+      description: "Search the user's live Outlook mailbox via Microsoft Graph. Returns subject, from, snippet, receivedDateTime, webLink. Set extract=true to also download and index supported attachments (PDF/DOCX/XLSX/TXT) so their full contents become searchable via search_context.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string", description: "Free-text search query (Graph $search syntax). Example: 'invoice gowithsupport'." },
           top: { type: "number", description: "Max results (default 10, max 25)." },
+          extract: { type: "boolean", description: "If true, download + index attachments from matching messages." },
         },
         required: ["query"],
       },
@@ -74,12 +75,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_onedrive",
-      description: "Search the user's OneDrive for files (documents, PDFs, spreadsheets, images) by name or content.",
+      description: "Search the user's OneDrive for files. Set extract=true to download + index supported file contents.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string" },
           top: { type: "number", description: "Default 10, max 25." },
+          extract: { type: "boolean", description: "If true, download + index supported file contents." },
         },
         required: ["query"],
       },
@@ -89,12 +91,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_sharepoint",
-      description: "Search SharePoint sites the user has access to for documents and pages.",
+      description: "Search SharePoint sites the user has access to. Set extract=true to download + index supported file contents.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string" },
           top: { type: "number", description: "Default 10, max 25." },
+          extract: { type: "boolean", description: "If true, download + index supported file contents." },
         },
         required: ["query"],
       },
