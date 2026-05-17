@@ -174,16 +174,24 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const token = authHeader.slice(7);
+    const internalUserId = req.headers.get("x-internal-user-id");
+    let userId: string;
+    if (token === SUPABASE_SERVICE_ROLE_KEY && internalUserId) {
+      // Server-to-server call from m365-sync-* with explicit user context.
+      userId = internalUserId;
+    } else {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = userData.user.id;
     }
-    const userId = userData.user.id;
 
     admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
