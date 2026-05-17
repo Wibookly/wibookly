@@ -118,6 +118,11 @@ export default function Chat() {
   const { theme, toggle: toggleTheme } = useTheme();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [folderNameDraft, setFolderNameDraft] = useState('');
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
