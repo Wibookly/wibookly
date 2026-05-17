@@ -69,7 +69,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState(false);
+  
   const [intervalsDraft, setIntervalsDraft] = useState('');
   const [auditing, setAuditing] = useState(false);
   const [auditFrom, setAuditFrom] = useState(isoDaysAgo(30));
