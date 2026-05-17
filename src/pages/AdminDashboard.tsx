@@ -33,6 +33,7 @@ import AIUsageTab from '@/components/admin/AIUsageTab';
 import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-react';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
+import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -854,6 +855,8 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
+
+          <MicrosoftStatusPanel />
             </TabsContent>
 
             <TabsContent value="ai-agent" className="space-y-6 mt-4">
