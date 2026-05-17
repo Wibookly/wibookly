@@ -42,12 +42,23 @@ interface Folder {
   name: string;
   created_at: string;
 }
+interface Citation {
+  source?: string;
+  source_type?: string;
+  id?: string | null;
+  title?: string;
+  url?: string | null;
+  from?: string | null;
+  sent_at?: string | null;
+  snippet?: string | null;
+}
 interface Msg {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
   attachments?: string[] | null;
+  citations?: Citation[] | null;
 }
 
 const examplePrompts = [
