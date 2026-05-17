@@ -855,7 +855,7 @@ serve(async (req) => {
       if (!conversationId) {
         const { data: convo, error: convoErr } = await supabase
           .from('chat_conversations')
-          .insert({ user_id: user.id, organization_id: orgIdEarly, title: 'New chat' })
+          .insert({ user_id: user.id, organization_id: orgIdEarly, title: 'New chat', folder_id: folderIdInput ?? null })
           .select('id')
           .single();
         if (convoErr || !convo) {
