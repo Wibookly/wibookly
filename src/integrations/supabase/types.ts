@@ -919,6 +919,7 @@ export type Database = {
       }
       chat_conversations: {
         Row: {
+          agent_conversation_id: string | null
           created_at: string | null
           folder_id: string | null
           id: string
@@ -929,6 +930,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_conversation_id?: string | null
           created_at?: string | null
           folder_id?: string | null
           id?: string
@@ -939,6 +941,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_conversation_id?: string | null
           created_at?: string | null
           folder_id?: string | null
           id?: string
@@ -991,6 +994,7 @@ export type Database = {
       chat_messages: {
         Row: {
           attachments: Json | null
+          citations: Json | null
           completion_tokens: number | null
           content: string
           conversation_id: string
@@ -1004,6 +1008,7 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          citations?: Json | null
           completion_tokens?: number | null
           content: string
           conversation_id: string
@@ -1017,6 +1022,7 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          citations?: Json | null
           completion_tokens?: number | null
           content?: string
           conversation_id?: string

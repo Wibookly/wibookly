@@ -1,3 +1,6 @@
+// INTERNAL — testing harness, not user-facing. The production chat surface is
+// src/pages/Chat.tsx (routed at /chat). Kept for direct knowledge-retrieval
+// testing against agent-orchestrator + retrieve-context.
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';

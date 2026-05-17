@@ -42,12 +42,23 @@ interface Folder {
   name: string;
   created_at: string;
 }
+interface Citation {
+  source?: string;
+  source_type?: string;
+  id?: string | null;
+  title?: string;
+  url?: string | null;
+  from?: string | null;
+  sent_at?: string | null;
+  snippet?: string | null;
+}
 interface Msg {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
   attachments?: string[] | null;
+  citations?: Citation[] | null;
 }
 
 const examplePrompts = [
@@ -129,6 +140,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [streamingText, setStreamingText] = useState('');
+  const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -246,7 +258,7 @@ export default function Chat() {
     (async () => {
       const { data } = await supabase
         .from('chat_messages')
-        .select('id, role, content, created_at, attachments')
+        .select('id, role, content, created_at, attachments, citations')
         .eq('conversation_id', activeId)
         .order('created_at', { ascending: true });
       setMessages(((data as Msg[]) || []).filter((m) => m.role !== 'system'));
@@ -437,6 +449,7 @@ export default function Chat() {
     setFiles([]);
     setIsStreaming(true);
     setStreamingText('');
+    setStreamingCitations([]);
 
     try {
       const attachmentUrls = await uploadFiles(toUpload);
@@ -445,7 +458,10 @@ export default function Chat() {
       if (!token) throw new Error('Not authenticated');
 
       const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectRef}.supabase.co/functions/v1/ai-assistant-chat`;
+      // Route through chat-agent (SSE adapter around agent-orchestrator) so
+      // the AI has tool access to Outlook / OneDrive / SharePoint and can
+      // actually read file contents instead of just naming them.
+      const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -461,8 +477,6 @@ export default function Chat() {
           folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           stream: true,
-          web_search: webSearch && canWebSearch,
-          user_location: webSearch && canWebSearch ? userLocation : null,
         }),
       });
 
@@ -493,6 +507,8 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 assembled += data.content;
                 setStreamingText(assembled);
+              } else if (data.type === 'citations') {
+                setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
               } else if (data.type === 'done') {
@@ -507,7 +523,7 @@ export default function Chat() {
         if (newConvId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
-            .select('id, role, content, created_at, attachments')
+            .select('id, role, content, created_at, attachments, citations')
             .eq('conversation_id', newConvId)
             .order('created_at', { ascending: true });
           setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
@@ -529,7 +545,7 @@ export default function Chat() {
           if (cid) {
             const { data: msgs } = await supabase
               .from('chat_messages')
-              .select('id, role, content, created_at, attachments')
+              .select('id, role, content, created_at, attachments, citations')
               .eq('conversation_id', cid)
               .order('created_at', { ascending: true });
             setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
@@ -543,6 +559,7 @@ export default function Chat() {
     } finally {
       setIsStreaming(false);
       setStreamingText('');
+      setStreamingCitations([]);
     }
   };
 
@@ -938,6 +955,7 @@ export default function Chat() {
                     role: 'assistant',
                     content: streamingText || '...',
                     created_at: new Date().toISOString(),
+                    citations: streamingCitations.length ? streamingCitations : null,
                   }}
                   userInitial={userInitial}
                   streaming
@@ -1139,6 +1157,9 @@ function MessageBubble({
             ))}
           </div>
         )}
+        {!isUser && message.citations && message.citations.length > 0 && (
+          <CitationChips citations={message.citations} />
+        )}
         {!isUser && !streaming && (
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
@@ -1147,6 +1168,60 @@ function MessageBubble({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function citationIcon(sourceType?: string) {
+  switch ((sourceType || '').toLowerCase()) {
+    case 'sharepoint': return FileSpreadsheet;
+    case 'onedrive': return FolderInput;
+    case 'mail_attachment':
+    case 'outlook':
+    case 'email': return Mail;
+    default: return FileText;
+  }
+}
+
+function citationLabel(sourceType?: string) {
+  switch ((sourceType || '').toLowerCase()) {
+    case 'sharepoint': return 'SharePoint';
+    case 'onedrive': return 'OneDrive';
+    case 'mail_attachment': return 'Email attachment';
+    case 'outlook':
+    case 'email': return 'Outlook';
+    default: return 'Source';
+  }
+}
+
+function CitationChips({ citations }: { citations: Citation[] }) {
+  // Dedupe by url+title, cap to 8 chips so long-tail retrievals don't overwhelm the bubble.
+  const seen = new Set<string>();
+  const items = citations.filter((c) => {
+    const k = `${c.url || ''}|${c.title || ''}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 8);
+  if (!items.length) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {items.map((c, i) => {
+        const Icon = citationIcon(c.source_type);
+        const title = c.title || citationLabel(c.source_type);
+        const chip = (
+          <span className="inline-flex items-center gap-1.5 max-w-[280px] rounded-full border border-border bg-background hover:bg-accent px-2.5 py-1 text-xs text-foreground transition">
+            <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="truncate" title={title}>{title}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0">{citationLabel(c.source_type)}</span>
+          </span>
+        );
+        return c.url ? (
+          <a key={i} href={c.url} target="_blank" rel="noopener noreferrer" className="no-underline">{chip}</a>
+        ) : (
+          <span key={i}>{chip}</span>
+        );
+      })}
     </div>
   );
 }
