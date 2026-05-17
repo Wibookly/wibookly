@@ -17,6 +17,9 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const EMBED_MODEL = "text-embedding-3-small";
 const CHUNK_TARGET_CHARS = 2000;
 const CHUNK_OVERLAP_CHARS = 200;
+const MIN_CHUNK_CHARS = 50;
+const MAX_CHUNK_CHARS = 7000;
+const EMBED_BATCH = 20;
 const MAX_BYTES = 25 * 1024 * 1024;       // 25 MB hard cap
 const MIN_TEXT_CHARS = 20;
 
