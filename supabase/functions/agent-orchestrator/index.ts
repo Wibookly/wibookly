@@ -610,21 +610,66 @@ Deno.serve(async (req) => {
         if (toolName === "compose_email_draft" && result?.draft) {
           draft = result.draft;
         }
+        // Collect citations from search_context (hybrid retrieve-context shape)
         if (toolName === "search_context" && Array.isArray(result?.results)) {
           for (const r of result.results) {
-            const key = `${r.type || 'doc'}:${r.id || r.document_id || r.thread_id || r.subject || ''}`;
+            const md = r.metadata || {};
+            const sourceType: string = md.source_type
+              || (r.source === 'email' ? 'email' : 'knowledge');
+            const key = `${sourceType}:${r.id || md.document_id || ''}`;
             if (seenCitationKeys.has(key)) continue;
             seenCitationKeys.add(key);
             citations.push({
-              type: r.type || (r.from_email ? 'email' : 'document'),
+              source: r.source || 'knowledge',
+              source_type: sourceType,
               id: r.id ?? null,
-              title: r.subject || r.title || r.from_email || 'Source',
-              from: r.from_email ?? null,
-              sent_at: r.sent_at ?? null,
-              snippet: typeof r.content === 'string'
-                ? r.content.slice(0, 240)
-                : (typeof r.body_clean === 'string' ? r.body_clean.slice(0, 240) : null),
-              similarity: typeof r.similarity === 'number' ? r.similarity : null,
+              title: r.title || 'Source',
+              url: md.source_ref || md.web_link || null,
+              from: md.from_email ?? null,
+              sent_at: md.sent_at ?? null,
+              snippet: typeof r.snippet === 'string' ? r.snippet.slice(0, 240) : null,
+              similarity: typeof md.similarity === 'number' ? md.similarity : null,
+            });
+          }
+        }
+        // Also surface direct tool hits as citations so the user sees source chips
+        // even when the LLM answers directly from Graph search results.
+        if (toolName === "search_outlook_mail" && Array.isArray(result?.results)) {
+          for (const m of result.results.slice(0, 6)) {
+            const key = `outlook:${m.id}`;
+            if (seenCitationKeys.has(key)) continue;
+            seenCitationKeys.add(key);
+            citations.push({
+              source: 'email', source_type: 'outlook',
+              id: m.id, title: m.subject || '(no subject)',
+              url: m.web_link || null, from: m.from || null,
+              sent_at: m.received || null, snippet: m.snippet || null,
+            });
+          }
+        }
+        if (toolName === "search_onedrive" && Array.isArray(result?.results)) {
+          for (const f of result.results.slice(0, 6)) {
+            if (f.kind === 'folder') continue;
+            const key = `onedrive:${f.id}`;
+            if (seenCitationKeys.has(key)) continue;
+            seenCitationKeys.add(key);
+            citations.push({
+              source: 'document', source_type: 'onedrive',
+              id: f.id, title: f.name, url: f.web_url || null,
+              sent_at: f.modified || null,
+            });
+          }
+        }
+        if (toolName === "search_sharepoint" && Array.isArray(result?.results)) {
+          for (const it of result.results.slice(0, 6)) {
+            const key = `sharepoint:${it.item_id || it.web_url}`;
+            if (seenCitationKeys.has(key)) continue;
+            seenCitationKeys.add(key);
+            citations.push({
+              source: 'document', source_type: 'sharepoint',
+              id: it.item_id || null, title: it.name || 'SharePoint item',
+              url: it.web_url || null, sent_at: it.last_modified || null,
+              snippet: it.summary || null,
             });
           }
         }
