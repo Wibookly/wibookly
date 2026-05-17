@@ -1032,12 +1032,20 @@ serve(async (req) => {
     const isSearchQuery = lastUserMessage.includes('find') || lastUserMessage.includes('search') ||
                           lastUserMessage.includes('look for') || lastUserMessage.includes('about');
     const isDocumentQuery = lastUserMessage.includes('document') || lastUserMessage.includes('file') ||
-                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('sharepoint') ||
+                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('one drive') ||
+                            lastUserMessage.includes('sharepoint') || lastUserMessage.includes('share point') ||
                             lastUserMessage.includes('drive') || lastUserMessage.includes('folder') ||
                             lastUserMessage.includes('spreadsheet') || lastUserMessage.includes('powerpoint') ||
                             lastUserMessage.includes('word doc') || lastUserMessage.includes('excel') ||
                             lastUserMessage.includes('.docx') || lastUserMessage.includes('.xlsx') ||
-                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf');
+                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf') ||
+                            lastUserMessage.includes('invoice') || lastUserMessage.includes('receipt') ||
+                            lastUserMessage.includes('contract') || lastUserMessage.includes('proposal') ||
+                            lastUserMessage.includes('report') || lastUserMessage.includes('policy') ||
+                            lastUserMessage.includes('presentation') || lastUserMessage.includes('deck') ||
+                            lastUserMessage.includes('agreement') || lastUserMessage.includes('statement') ||
+                            lastUserMessage.includes('quote') || lastUserMessage.includes('po ') ||
+                            lastUserMessage.includes('purchase order') || lastUserMessage.includes('attachment');
 
     if (accessToken) {
       // If searching for specific emails
