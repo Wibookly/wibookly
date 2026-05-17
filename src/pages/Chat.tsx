@@ -1171,3 +1171,57 @@ function MessageBubble({
     </div>
   );
 }
+
+function citationIcon(sourceType?: string) {
+  switch ((sourceType || '').toLowerCase()) {
+    case 'sharepoint': return FileSpreadsheet;
+    case 'onedrive': return FolderInput;
+    case 'mail_attachment':
+    case 'outlook':
+    case 'email': return Mail;
+    default: return FileText;
+  }
+}
+
+function citationLabel(sourceType?: string) {
+  switch ((sourceType || '').toLowerCase()) {
+    case 'sharepoint': return 'SharePoint';
+    case 'onedrive': return 'OneDrive';
+    case 'mail_attachment': return 'Email attachment';
+    case 'outlook':
+    case 'email': return 'Outlook';
+    default: return 'Source';
+  }
+}
+
+function CitationChips({ citations }: { citations: Citation[] }) {
+  // Dedupe by url+title, cap to 8 chips so long-tail retrievals don't overwhelm the bubble.
+  const seen = new Set<string>();
+  const items = citations.filter((c) => {
+    const k = `${c.url || ''}|${c.title || ''}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 8);
+  if (!items.length) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {items.map((c, i) => {
+        const Icon = citationIcon(c.source_type);
+        const title = c.title || citationLabel(c.source_type);
+        const chip = (
+          <span className="inline-flex items-center gap-1.5 max-w-[280px] rounded-full border border-border bg-background hover:bg-accent px-2.5 py-1 text-xs text-foreground transition">
+            <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="truncate" title={title}>{title}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0">{citationLabel(c.source_type)}</span>
+          </span>
+        );
+        return c.url ? (
+          <a key={i} href={c.url} target="_blank" rel="noopener noreferrer" className="no-underline">{chip}</a>
+        ) : (
+          <span key={i}>{chip}</span>
+        );
+      })}
+    </div>
+  );
+}
