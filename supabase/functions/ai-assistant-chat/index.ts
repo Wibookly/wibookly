@@ -1031,6 +1031,13 @@ serve(async (req) => {
                             lastUserMessage.includes('event') || lastUserMessage.includes('busy');
     const isSearchQuery = lastUserMessage.includes('find') || lastUserMessage.includes('search') ||
                           lastUserMessage.includes('look for') || lastUserMessage.includes('about');
+    const isDocumentQuery = lastUserMessage.includes('document') || lastUserMessage.includes('file') ||
+                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('sharepoint') ||
+                            lastUserMessage.includes('drive') || lastUserMessage.includes('folder') ||
+                            lastUserMessage.includes('spreadsheet') || lastUserMessage.includes('powerpoint') ||
+                            lastUserMessage.includes('word doc') || lastUserMessage.includes('excel') ||
+                            lastUserMessage.includes('.docx') || lastUserMessage.includes('.xlsx') ||
+                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf');
 
     if (accessToken) {
       // If searching for specific emails
