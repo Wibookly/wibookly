@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
       top_k = 8,
       semantic_k = 20,
       keyword_k = 20,
+      strict_connection = false,
     } = await req.json();
 
     if (!query || typeof query !== 'string') {
@@ -120,76 +121,38 @@ Deno.serve(async (req) => {
 
     const citations: Citation[] = [];
 
-    /* ---------- Knowledge chunks ---------- */
-    if (sources.includes('knowledge')) {
-      // Semantic
-      let semanticChunks: any[] = [];
-      if (embeddingLiteral) {
-        const { data, error } = await admin.rpc('match_knowledge_chunks', {
-          query_embedding: embeddingLiteral,
-          p_user_id: user.id,
-          p_connection_id: connection_id,
-          match_count: semantic_k,
-        }).maybeSingle ? await admin.rpc('match_knowledge_chunks', {
-          query_embedding: embeddingLiteral,
-          p_user_id: user.id,
-          p_connection_id: connection_id,
-          match_count: semantic_k,
-        }) : { data: [], error: null };
-
-        // Fallback: direct query using order on cosine distance if RPC missing
-        if (error || !data) {
-          const { data: directData } = await admin
-            .from('knowledge_chunks')
-            .select('id, content, document_id, chunk_index, embedding')
-            .eq('user_id', user.id)
-            .or(`connection_id.eq.${connection_id},connection_id.is.null`)
-            .not('embedding', 'is', null)
-            .limit(200);
-          // We can't compute cosine in JS efficiently here, accept top by recency as fallback
-          semanticChunks = (directData || []).slice(0, semantic_k);
-        } else {
-          semanticChunks = data;
+    /* ---------- Knowledge chunks (hybrid via SQL RPC) ---------- */
+    if (sources.includes('knowledge') && embeddingLiteral) {
+      const { data: hybrid, error: hybridErr } = await admin.rpc('search_knowledge_hybrid', {
+        query_embedding: embeddingLiteral,
+        query_text: query,
+        p_user_id: user.id,
+        p_connection_id: connection_id,
+        strict_connection,
+        match_count: Math.max(top_k, semantic_k),
+      });
+      if (hybridErr) {
+        console.error('search_knowledge_hybrid error', hybridErr);
+      } else {
+        for (const r of (hybrid || []).slice(0, top_k)) {
+          citations.push({
+            source: 'knowledge',
+            id: r.chunk_id,
+            title: r.title || 'Document',
+            snippet: snippet(r.content),
+            score: Number(r.combined_score) || 0,
+            metadata: {
+              document_id: r.document_id,
+              chunk_index: r.chunk_index,
+              similarity: r.similarity,
+              keyword_rank: r.keyword_rank,
+              source_type: r.source_type,
+              source_ref: r.source_ref,
+              extracted_metadata: r.extracted_metadata,
+              connection_id: r.connection_id,
+            },
+          });
         }
-      }
-
-      // Keyword
-      const { data: keywordChunks } = await admin
-        .from('knowledge_chunks')
-        .select('id, content, document_id, chunk_index')
-        .eq('user_id', user.id)
-        .or(`connection_id.eq.${connection_id},connection_id.is.null`)
-        .ilike('content', `%${query.slice(0, 100)}%`)
-        .limit(keyword_k);
-
-      const semList = semanticChunks.map((c: any, i: number) => ({ id: c.id, rank: i + 1 }));
-      const kwList = (keywordChunks || []).map((c: any, i: number) => ({ id: c.id, rank: i + 1 }));
-      const fused = rrf([semList, kwList]);
-
-      // Build lookup
-      const all = new Map<string, any>();
-      for (const c of [...semanticChunks, ...(keywordChunks || [])]) all.set(c.id, c);
-
-      // Resolve titles
-      const docIds = Array.from(new Set(Array.from(all.values()).map((c: any) => c.document_id)));
-      const { data: docs } = await admin
-        .from('knowledge_documents')
-        .select('id, title')
-        .in('id', docIds.length ? docIds : ['00000000-0000-0000-0000-000000000000']);
-      const titleById = new Map((docs || []).map((d: any) => [d.id, d.title]));
-
-      const sorted = Array.from(fused.entries()).sort((a, b) => b[1] - a[1]);
-      for (const [id, score] of sorted.slice(0, top_k)) {
-        const c = all.get(id);
-        if (!c) continue;
-        citations.push({
-          source: 'knowledge',
-          id,
-          title: titleById.get(c.document_id) || 'Document',
-          snippet: snippet(c.content),
-          score,
-          metadata: { document_id: c.document_id, chunk_index: c.chunk_index },
-        });
       }
     }
 
