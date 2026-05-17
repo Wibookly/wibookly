@@ -252,8 +252,8 @@ async function executeTool(
   if (name === "search_outlook_mail") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
-    // Graph $search requires quoted value; ConsistencyLevel: eventual
     const endpoint = `/me/messages?$search="${encodeURIComponent(q).replace(/"/g, '%22')}"&$top=${top}&$select=id,subject,from,receivedDateTime,bodyPreview,webLink,hasAttachments`;
     const res = await callGraph(ctx.user_id, ctx.connection_id, "mail", endpoint, {
       headers: { ConsistencyLevel: "eventual" },
@@ -270,11 +270,51 @@ async function executeTool(
       has_attachments: m.hasAttachments,
       web_link: m.webLink,
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const m of items) {
+        if (!m.has_attachments) continue;
+        // List attachments for this message
+        const attRes = await callGraph(ctx.user_id, ctx.connection_id, "mail",
+          `/me/messages/${encodeURIComponent(m.id)}/attachments?$select=id,name,contentType,size,@odata.type`);
+        if (!attRes.ok) continue;
+        for (const att of attRes.data?.value || []) {
+          const odataType = att["@odata.type"] || "";
+          if (!odataType.includes("fileAttachment")) continue; // skip itemAttachment/referenceAttachment
+          if (!EXTRACTABLE_EXT.test(att.name || "")) continue;
+          const ex = await callExtract(ctx.authHeader, {
+            connection_id: ctx.connection_id,
+            source_type: "mail_attachment",
+            external_id: `${m.id}:${att.id}`,
+            title: att.name,
+            mime_type: att.contentType,
+            message_id: m.id,
+            attachment_id: att.id,
+            source_ref: m.web_link,
+            extra_metadata: { message_subject: m.subject, from: m.from, received: m.received },
+          });
+          extracted.push({
+            message_id: m.id, message_subject: m.subject,
+            attachment_name: att.name, size: att.size,
+            status: ex.status || (ex.ok ? "ok" : "error"),
+            document_id: ex.document_id,
+            extracted_metadata: ex.extracted_metadata,
+            error: ex.error,
+          });
+        }
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
   if (name === "search_onedrive") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
     const endpoint = `/me/drive/root/search(q='${encodeURIComponent(q).replace(/'/g, "%27")}')?$top=${top}&$select=id,name,webUrl,size,lastModifiedDateTime,file,folder`;
     const res = await callGraph(ctx.user_id, ctx.connection_id, "onedrive", endpoint);
@@ -284,11 +324,41 @@ async function executeTool(
       modified: f.lastModifiedDateTime,
       kind: f.folder ? "folder" : (f.file?.mimeType || "file"),
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const f of items) {
+        if (f.kind === "folder") continue;
+        if (!EXTRACTABLE_EXT.test(f.name || "")) continue;
+        const ex = await callExtract(ctx.authHeader, {
+          connection_id: ctx.connection_id,
+          source_type: "onedrive",
+          external_id: f.id,
+          title: f.name,
+          mime_type: typeof f.kind === "string" ? f.kind : undefined,
+          drive_item_id: f.id,
+          source_ref: f.web_url,
+          extra_metadata: { size: f.size, modified: f.modified },
+        });
+        extracted.push({
+          file_name: f.name, size: f.size,
+          status: ex.status || (ex.ok ? "ok" : "error"),
+          document_id: ex.document_id,
+          extracted_metadata: ex.extracted_metadata,
+          error: ex.error,
+        });
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
   if (name === "search_sharepoint") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
     const body = {
       requests: [{
@@ -311,10 +381,40 @@ async function executeTool(
       web_url: h.resource?.webUrl,
       last_modified: h.resource?.lastModifiedDateTime,
       kind: h.resource?.["@odata.type"],
+      drive_id: h.resource?.parentReference?.driveId,
+      item_id: h.resource?.id,
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const it of items) {
+        if (!it.drive_id || !it.item_id) continue;
+        if (!it.name || !EXTRACTABLE_EXT.test(it.name)) continue;
+        const ex = await callExtract(ctx.authHeader, {
+          connection_id: ctx.connection_id,
+          source_type: "sharepoint",
+          external_id: `${it.drive_id}:${it.item_id}`,
+          title: it.name,
+          drive_id: it.drive_id,
+          item_id: it.item_id,
+          source_ref: it.web_url,
+          extra_metadata: { last_modified: it.last_modified },
+        });
+        extracted.push({
+          file_name: it.name,
+          status: ex.status || (ex.ok ? "ok" : "error"),
+          document_id: ex.document_id,
+          extracted_metadata: ex.extracted_metadata,
+          error: ex.error,
+        });
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
-  if (name === "get_calendar_events") {
     const start = args.start_iso ? new Date(args.start_iso) : new Date();
     const end = args.end_iso ? new Date(args.end_iso) : new Date(start.getTime() + 7 * 24 * 3600 * 1000);
     const top = Math.min(Math.max(Number(args.top) || 20, 1), 50);
