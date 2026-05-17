@@ -1032,12 +1032,20 @@ serve(async (req) => {
     const isSearchQuery = lastUserMessage.includes('find') || lastUserMessage.includes('search') ||
                           lastUserMessage.includes('look for') || lastUserMessage.includes('about');
     const isDocumentQuery = lastUserMessage.includes('document') || lastUserMessage.includes('file') ||
-                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('sharepoint') ||
+                            lastUserMessage.includes('onedrive') || lastUserMessage.includes('one drive') ||
+                            lastUserMessage.includes('sharepoint') || lastUserMessage.includes('share point') ||
                             lastUserMessage.includes('drive') || lastUserMessage.includes('folder') ||
                             lastUserMessage.includes('spreadsheet') || lastUserMessage.includes('powerpoint') ||
                             lastUserMessage.includes('word doc') || lastUserMessage.includes('excel') ||
                             lastUserMessage.includes('.docx') || lastUserMessage.includes('.xlsx') ||
-                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf');
+                            lastUserMessage.includes('.pptx') || lastUserMessage.includes('.pdf') ||
+                            lastUserMessage.includes('invoice') || lastUserMessage.includes('receipt') ||
+                            lastUserMessage.includes('contract') || lastUserMessage.includes('proposal') ||
+                            lastUserMessage.includes('report') || lastUserMessage.includes('policy') ||
+                            lastUserMessage.includes('presentation') || lastUserMessage.includes('deck') ||
+                            lastUserMessage.includes('agreement') || lastUserMessage.includes('statement') ||
+                            lastUserMessage.includes('quote') || lastUserMessage.includes('po ') ||
+                            lastUserMessage.includes('purchase order') || lastUserMessage.includes('attachment');
 
     if (accessToken) {
       // If searching for specific emails
@@ -1064,10 +1072,12 @@ serve(async (req) => {
       }
 
       if (isDocumentQuery) {
-        // Extract a simple search term
+        // Extract a simple search term — strip filler words but keep distinctive names
         const docTerms = lastUserMessage
-          .replace(/find|search|look for|show me|list|recent|my|the|please|can you|documents?|files?|folders?|onedrive|sharepoint|drive|spreadsheets?|powerpoints?|word docs?|excel|about|regarding|related to|named|called/gi, '')
+          .replace(/\b(what|whats|what's|where|when|who|why|how|is|are|the|a|an|my|your|our|of|in|on|for|to|cost|price|amount|total|details?|info|information|find|search|look for|show me|list|recent|please|can you|could you|do i have|i have|saved?|stored?|have)\b/gi, '')
+          .replace(/\b(documents?|files?|folders?|onedrive|one drive|sharepoint|share point|drive|spreadsheets?|powerpoints?|word docs?|excel|attachments?|about|regarding|related to|named|called)\b/gi, '')
           .replace(/[?.!,]/g, '')
+          .replace(/\s+/g, ' ')
           .trim();
         const docs = await searchDocuments(accessToken, provider, docTerms, 10);
         documentContext = `\n\nDocuments from ${provider === 'google' ? 'Google Drive' : 'OneDrive / SharePoint'}${docTerms ? ` matching "${docTerms}"` : ' (recent)'}:\n${docs}`;
