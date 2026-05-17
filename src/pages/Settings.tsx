@@ -195,27 +195,37 @@ export default function Settings() {
   const [styleEditable, setStyleEditable] = useState(false);
   const [generatingDefaults, setGeneratingDefaults] = useState(false);
 
-  // Load profile fields synced from Microsoft 365 + AI personalization
+  // Load the persisted profile snapshot first so saved directory fields and
+  // AI blurbs are stable on every visit.
   useEffect(() => {
     if (!profile?.user_id) return;
+    let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('company, department, phone, mobile, title, responsibilities, communication_style')
-        .eq('user_id', profile.user_id)
-        .maybeSingle() as { data: Record<string, string | null> | null };
-      if (data) {
+      const { data, error } = await supabase.rpc('get_my_profile');
+      if (cancelled || error) return;
+      const row = ((data as Array<Record<string, string | null>> | null) || [])[0];
+      if (row) {
         setAboutMe({
-          company: data.company || '',
-          department: data.department || '',
-          business_phone: data.phone || '',
-          mobile_phone: data.mobile || '',
-          profile_title: data.title || '',
-          responsibilities: data.responsibilities || '',
-          communication_style: data.communication_style || '',
+          company: row.company || '',
+          department: row.department || '',
+          business_phone: row.phone || '',
+          mobile_phone: row.mobile || '',
+          profile_title: row.title || '',
+          responsibilities: row.responsibilities || '',
+          communication_style: row.communication_style || '',
         });
+        setFullName((prev) => prev || row.full_name || '');
+        setSignatureFields((prev) => ({
+          ...prev,
+          phone: row.phone || prev.phone,
+          mobile: row.mobile || prev.mobile,
+          profilePhotoUrl: row.profile_photo_url || prev.profilePhotoUrl,
+        }));
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.user_id]);
 
   // Fetch email profile for active connection
@@ -243,19 +253,25 @@ export default function Settings() {
         const { data, error } = await supabase.functions.invoke('sync-microsoft-profile');
         if (cancelled || error) return;
         const p = (data as { profile?: Record<string, string | null> } | null)?.profile || {};
-        if (p.full_name) setFullName(prev => prev || p.full_name || '');
+        const keepIfPresent = (value: string | null | undefined) => {
+          const trimmed = value?.trim();
+          return trimmed ? trimmed : null;
+        };
+        const nextFullName = keepIfPresent(p.full_name);
+        if (nextFullName) setFullName(prev => prev || nextFullName);
         setAboutMe(prev => ({
           ...prev,
-          company: p.company || prev.company,
-          department: p.department || prev.department,
-          business_phone: p.phone || prev.business_phone,
-          mobile_phone: p.mobile || prev.mobile_phone,
-          profile_title: p.title || prev.profile_title,
+          company: keepIfPresent(p.company) ?? prev.company,
+          department: keepIfPresent(p.department) ?? prev.department,
+          business_phone: keepIfPresent(p.phone) ?? prev.business_phone,
+          mobile_phone: keepIfPresent(p.mobile) ?? prev.mobile_phone,
+          profile_title: keepIfPresent(p.title) ?? prev.profile_title,
         }));
         setSignatureFields(prev => ({
           ...prev,
-          phone: p.phone || prev.phone,
-          mobile: p.mobile || prev.mobile,
+          phone: keepIfPresent(p.phone) ?? prev.phone,
+          mobile: keepIfPresent(p.mobile) ?? prev.mobile,
+          profilePhotoUrl: keepIfPresent(p.profile_photo_url) ?? prev.profilePhotoUrl,
         }));
       } catch {
         // silent
@@ -265,20 +281,9 @@ export default function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, activeConnection?.id]);
 
-  // Auto-generate Responsibilities + Communication style the first time we
-  // have enough context (company OR title) and both fields are empty. This
-  // gives every new user pre-filled defaults they can immediately edit.
-  const autoGenAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (autoGenAttemptedRef.current) return;
-    if (!profile?.user_id) return;
-    const hasContext = !!(aboutMe.company || organization?.name || title);
-    const isEmpty = !aboutMe.responsibilities && !aboutMe.communication_style;
-    if (!hasContext || !isEmpty) return;
-    autoGenAttemptedRef.current = true;
-    generateProfileDefaults('both');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.user_id, aboutMe.company, aboutMe.responsibilities, aboutMe.communication_style, organization?.name, title]);
+  // Responsibilities + communication style are intentionally manual: we only
+  // generate when the user explicitly clicks Regenerate so saved edits never
+  // get replaced just by reopening the page.
 
   const fetchAvailability = async () => {
     if (!activeConnection?.id || !profile?.user_id) return;
