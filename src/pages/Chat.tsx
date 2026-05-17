@@ -955,6 +955,7 @@ export default function Chat() {
                     role: 'assistant',
                     content: streamingText || '...',
                     created_at: new Date().toISOString(),
+                    citations: streamingCitations.length ? streamingCitations : null,
                   }}
                   userInitial={userInitial}
                   streaming
