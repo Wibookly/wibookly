@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info, Mail, Phone, RefreshCw } from 'lucide-react';
+import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info, Mail, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProfileFields {
@@ -54,7 +54,6 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
   const [extraDraft, setExtraDraft] = useState('');
   const [editingExtra, setEditingExtra] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   // Load identity + per-surface extra context
   const loadProfile = async (cancelledRef?: { cancelled: boolean }) => {
@@ -94,23 +93,6 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
     return () => { ref.cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, surface]);
-
-  const handleSyncFromMicrosoft = async () => {
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-microsoft-profile', { body: {} });
-      if (error || (data as { error?: string })?.error) {
-        toast.error((data as { error?: string })?.error || error?.message || 'Sync failed — reconnect Microsoft 365 in Integrations.');
-      } else {
-        toast.success('Profile synced from Microsoft 365');
-        await loadProfile();
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Sync failed');
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const saveExtra = async () => {
     if (!user) return;
@@ -165,12 +147,6 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
           <p className="text-xs text-muted-foreground mt-0.5">{headingDesc}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={handleSyncFromMicrosoft} disabled={syncing}>
-            {syncing
-              ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-            Sync from Microsoft 365
-          </Button>
           <Button asChild variant="outline" size="sm">
             <Link to="/settings?tab=profile">
               <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
