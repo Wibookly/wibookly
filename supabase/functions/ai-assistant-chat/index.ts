@@ -1118,9 +1118,23 @@ When answering:
         completion_tokens: result.completionTokens,
         cost_usd: result.costUsd,
       });
-      // Update conversation
+      // Update conversation. Always (re)generate a title if the saved title
+      // is still a placeholder, not just on the very first message — fixes
+      // chats that kept "New chat" after later sends.
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (isFirstMessage) {
+      let needsTitle = isFirstMessage;
+      if (!needsTitle) {
+        const { data: convRow } = await supabase
+          .from('chat_conversations')
+          .select('title')
+          .eq('id', conversationId)
+          .maybeSingle();
+        const t = (convRow?.title || '').trim().toLowerCase();
+        if (!t || ['new chat', 'user greeting', 'new conversation', 'untitled'].includes(t)) {
+          needsTitle = true;
+        }
+      }
+      if (needsTitle) {
         updates.title = await generateConversationTitle(chatMessage!, adminAIConfig);
       }
       await supabase.from('chat_conversations').update(updates).eq('id', conversationId);
