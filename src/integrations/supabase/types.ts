@@ -3406,12 +3406,19 @@ export type Database = {
       get_my_profile: {
         Args: never
         Returns: {
+          communication_style: string
+          company: string
           created_at: string
+          department: string
           email: string
           full_name: string
           id: string
+          mobile: string
           organization_id: string
+          phone: string
           profile_photo_url: string
+          responsibilities: string
+          role_description: string
           title: string
           updated_at: string
           user_id: string

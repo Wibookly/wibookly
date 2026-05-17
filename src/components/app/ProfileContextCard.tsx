@@ -60,18 +60,15 @@ export function ProfileContextCard({ surface, compact, className }: ProfileConte
   const loadProfile = async (cancelledRef?: { cancelled: boolean }) => {
     if (!user) return;
     setLoading(true);
-    const [{ data: prof }, extraRow] = await Promise.all([
-      supabase
-        .from('user_profiles')
-        .select('full_name, title, company, department, role_description, responsibilities, communication_style, phone, mobile, profile_photo_url, email')
-        .eq('user_id', user.id)
-        .maybeSingle(),
+    const [profResp, extraRow] = await Promise.all([
+      supabase.rpc('get_my_profile'),
       surface === 'meeting_copilot'
         ? supabase.from('user_ai_profiles').select('custom_context').eq('user_id', user.id).maybeSingle()
         : Promise.resolve({ data: null } as { data: { custom_context?: string | null } | null }),
     ]);
     if (cancelledRef?.cancelled) return;
-    const p = prof as Partial<ProfileFields> | null;
+    const rows = (profResp.data as Partial<ProfileFields>[] | null) || [];
+    const p = rows[0] || null;
     setProfile({
       full_name: p?.full_name ?? null,
       title: p?.title ?? null,
