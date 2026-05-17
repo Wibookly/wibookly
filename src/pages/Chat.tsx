@@ -257,7 +257,7 @@ export default function Chat() {
     (async () => {
       const { data } = await supabase
         .from('chat_messages')
-        .select('id, role, content, created_at, attachments')
+        .select('id, role, content, created_at, attachments, citations')
         .eq('conversation_id', activeId)
         .order('created_at', { ascending: true });
       setMessages(((data as Msg[]) || []).filter((m) => m.role !== 'system'));
@@ -518,7 +518,7 @@ export default function Chat() {
         if (newConvId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
-            .select('id, role, content, created_at, attachments')
+            .select('id, role, content, created_at, attachments, citations')
             .eq('conversation_id', newConvId)
             .order('created_at', { ascending: true });
           setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
@@ -540,7 +540,7 @@ export default function Chat() {
           if (cid) {
             const { data: msgs } = await supabase
               .from('chat_messages')
-              .select('id, role, content, created_at, attachments')
+              .select('id, role, content, created_at, attachments, citations')
               .eq('conversation_id', cid)
               .order('created_at', { ascending: true });
             setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
