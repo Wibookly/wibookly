@@ -1,3 +1,7 @@
+// INTERNAL — testing harness, not user-facing. The production chat surface is
+// src/pages/Chat.tsx (routed at /chat), which talks to chat-agent →
+// agent-orchestrator. This file is kept as a minimal harness for exercising
+// agent-orchestrator directly without the chat_conversations/chat_messages UI.
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
