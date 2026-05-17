@@ -59,12 +59,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_outlook_mail",
-      description: "Search the user's live Outlook mailbox via Microsoft Graph. Use for questions about specific senders, invoices, receipts, conversations, or anything that may live in email. Returns subject, from, snippet, receivedDateTime, webLink.",
+      description: "Search the user's live Outlook mailbox via Microsoft Graph. Returns subject, from, snippet, receivedDateTime, webLink. Set extract=true to also download and index supported attachments (PDF/DOCX/XLSX/TXT) so their full contents become searchable via search_context.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string", description: "Free-text search query (Graph $search syntax). Example: 'invoice gowithsupport'." },
           top: { type: "number", description: "Max results (default 10, max 25)." },
+          extract: { type: "boolean", description: "If true, download + index attachments from matching messages." },
         },
         required: ["query"],
       },
@@ -74,12 +75,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_onedrive",
-      description: "Search the user's OneDrive for files (documents, PDFs, spreadsheets, images) by name or content.",
+      description: "Search the user's OneDrive for files. Set extract=true to download + index supported file contents.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string" },
           top: { type: "number", description: "Default 10, max 25." },
+          extract: { type: "boolean", description: "If true, download + index supported file contents." },
         },
         required: ["query"],
       },
@@ -89,12 +91,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_sharepoint",
-      description: "Search SharePoint sites the user has access to for documents and pages.",
+      description: "Search SharePoint sites the user has access to. Set extract=true to download + index supported file contents.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string" },
           top: { type: "number", description: "Default 10, max 25." },
+          extract: { type: "boolean", description: "If true, download + index supported file contents." },
         },
         required: ["query"],
       },
@@ -143,6 +146,11 @@ Tool selection:
 - For indexed knowledge base / prior synced threads → call search_context.
 - You may call multiple tools in parallel or sequentially to gather evidence.
 - Generic chit-chat or general-knowledge questions ("hi", "what is RAG?") do NOT need tools.
+
+Reading file contents (invoices, contracts, spreadsheets):
+- search_outlook_mail / search_onedrive / search_sharepoint only return SNIPPETS and metadata — not the full file body.
+- When the user asks about something that lives INSIDE a file (e.g. "what was the invoice total", "what does the contract say about renewal", "summarize this PDF"), FIRST call the relevant search tool with extract=true. This downloads + indexes the file contents.
+- THEN call search_context with a precise query to retrieve the actual extracted text. Cite the document title.
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
@@ -199,6 +207,23 @@ async function callRetrieve(
   return await resp.json();
 }
 
+async function callExtract(authHeader: string, payload: Record<string, unknown>): Promise<any> {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/m365-extract-file`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+      body: JSON.stringify(payload),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { ok: false, status: resp.status, error: json?.error || `HTTP ${resp.status}` };
+    return { ok: true, ...json };
+  } catch (e) {
+    return { ok: false, error: String((e as Error)?.message || e) };
+  }
+}
+
+const EXTRACTABLE_EXT = /\.(pdf|docx|xlsx|txt|md|csv)$/i;
+
 async function executeTool(
   name: string,
   args: any,
@@ -227,8 +252,8 @@ async function executeTool(
   if (name === "search_outlook_mail") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
-    // Graph $search requires quoted value; ConsistencyLevel: eventual
     const endpoint = `/me/messages?$search="${encodeURIComponent(q).replace(/"/g, '%22')}"&$top=${top}&$select=id,subject,from,receivedDateTime,bodyPreview,webLink,hasAttachments`;
     const res = await callGraph(ctx.user_id, ctx.connection_id, "mail", endpoint, {
       headers: { ConsistencyLevel: "eventual" },
@@ -245,11 +270,51 @@ async function executeTool(
       has_attachments: m.hasAttachments,
       web_link: m.webLink,
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const m of items) {
+        if (!m.has_attachments) continue;
+        // List attachments for this message
+        const attRes = await callGraph(ctx.user_id, ctx.connection_id, "mail",
+          `/me/messages/${encodeURIComponent(m.id)}/attachments?$select=id,name,contentType,size,@odata.type`);
+        if (!attRes.ok) continue;
+        for (const att of attRes.data?.value || []) {
+          const odataType = att["@odata.type"] || "";
+          if (!odataType.includes("fileAttachment")) continue; // skip itemAttachment/referenceAttachment
+          if (!EXTRACTABLE_EXT.test(att.name || "")) continue;
+          const ex = await callExtract(ctx.authHeader, {
+            connection_id: ctx.connection_id,
+            source_type: "mail_attachment",
+            external_id: `${m.id}:${att.id}`,
+            title: att.name,
+            mime_type: att.contentType,
+            message_id: m.id,
+            attachment_id: att.id,
+            source_ref: m.web_link,
+            extra_metadata: { message_subject: m.subject, from: m.from, received: m.received },
+          });
+          extracted.push({
+            message_id: m.id, message_subject: m.subject,
+            attachment_name: att.name, size: att.size,
+            status: ex.status || (ex.ok ? "ok" : "error"),
+            document_id: ex.document_id,
+            extracted_metadata: ex.extracted_metadata,
+            error: ex.error,
+          });
+        }
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
   if (name === "search_onedrive") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
     const endpoint = `/me/drive/root/search(q='${encodeURIComponent(q).replace(/'/g, "%27")}')?$top=${top}&$select=id,name,webUrl,size,lastModifiedDateTime,file,folder`;
     const res = await callGraph(ctx.user_id, ctx.connection_id, "onedrive", endpoint);
@@ -259,11 +324,41 @@ async function executeTool(
       modified: f.lastModifiedDateTime,
       kind: f.folder ? "folder" : (f.file?.mimeType || "file"),
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const f of items) {
+        if (f.kind === "folder") continue;
+        if (!EXTRACTABLE_EXT.test(f.name || "")) continue;
+        const ex = await callExtract(ctx.authHeader, {
+          connection_id: ctx.connection_id,
+          source_type: "onedrive",
+          external_id: f.id,
+          title: f.name,
+          mime_type: typeof f.kind === "string" ? f.kind : undefined,
+          drive_item_id: f.id,
+          source_ref: f.web_url,
+          extra_metadata: { size: f.size, modified: f.modified },
+        });
+        extracted.push({
+          file_name: f.name, size: f.size,
+          status: ex.status || (ex.ok ? "ok" : "error"),
+          document_id: ex.document_id,
+          extracted_metadata: ex.extracted_metadata,
+          error: ex.error,
+        });
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
   if (name === "search_sharepoint") {
     const q = String(args.query || "").trim();
     const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    const extract = !!args.extract;
     if (!q) return { error: "query required" };
     const body = {
       requests: [{
@@ -286,8 +381,39 @@ async function executeTool(
       web_url: h.resource?.webUrl,
       last_modified: h.resource?.lastModifiedDateTime,
       kind: h.resource?.["@odata.type"],
+      drive_id: h.resource?.parentReference?.driveId,
+      item_id: h.resource?.id,
     }));
-    return { count: items.length, results: items };
+
+    let extracted: any[] = [];
+    if (extract) {
+      for (const it of items) {
+        if (!it.drive_id || !it.item_id) continue;
+        if (!it.name || !EXTRACTABLE_EXT.test(it.name)) continue;
+        const ex = await callExtract(ctx.authHeader, {
+          connection_id: ctx.connection_id,
+          source_type: "sharepoint",
+          external_id: `${it.drive_id}:${it.item_id}`,
+          title: it.name,
+          drive_id: it.drive_id,
+          item_id: it.item_id,
+          source_ref: it.web_url,
+          extra_metadata: { last_modified: it.last_modified },
+        });
+        extracted.push({
+          file_name: it.name,
+          status: ex.status || (ex.ok ? "ok" : "error"),
+          document_id: ex.document_id,
+          extracted_metadata: ex.extracted_metadata,
+          error: ex.error,
+        });
+      }
+    }
+
+    return {
+      count: items.length, results: items,
+      ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
+    };
   }
   if (name === "get_calendar_events") {
     const start = args.start_iso ? new Date(args.start_iso) : new Date();

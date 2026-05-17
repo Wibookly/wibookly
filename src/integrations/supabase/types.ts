@@ -1964,6 +1964,10 @@ export type Database = {
           content: string
           created_at: string
           error_message: string | null
+          external_id: string | null
+          extracted_metadata: Json
+          extraction_error: string | null
+          extraction_status: string
           id: string
           indexed_at: string | null
           metadata: Json
@@ -1981,6 +1985,10 @@ export type Database = {
           content: string
           created_at?: string
           error_message?: string | null
+          external_id?: string | null
+          extracted_metadata?: Json
+          extraction_error?: string | null
+          extraction_status?: string
           id?: string
           indexed_at?: string | null
           metadata?: Json
@@ -1998,6 +2006,10 @@ export type Database = {
           content?: string
           created_at?: string
           error_message?: string | null
+          external_id?: string | null
+          extracted_metadata?: Json
+          extraction_error?: string | null
+          extraction_status?: string
           id?: string
           indexed_at?: string | null
           metadata?: Json
