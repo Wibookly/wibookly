@@ -27,7 +27,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { OAuthDiagnostics } from '@/components/integrations/OAuthDiagnostics';
-import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
+
 import { GoogleOAuthErrorScreen } from '@/components/integrations/GoogleOAuthErrorScreen';
 import { useConnectAttemptLogger } from '@/hooks/useConnectAttemptLogger';
 import { HelpTip } from '@/components/help/HelpTip';
