@@ -425,6 +425,77 @@ async function getRecentEmailsSummary(accessToken: string, provider: string, cou
   }
 }
 
+// Search documents in OneDrive / SharePoint / Google Drive
+async function searchDocuments(accessToken: string, provider: string, query: string, maxResults: number = 10): Promise<string> {
+  try {
+    if (provider === 'google') {
+      // Google Drive search
+      const q = query
+        ? `fullText contains '${query.replace(/'/g, "\\'")}' and trashed=false`
+        : `trashed=false`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=${maxResults}&fields=files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))&orderBy=modifiedTime desc`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return `Failed to search Google Drive (${res.status})`;
+      const data = await res.json();
+      if (!data.files?.length) return "No documents found.";
+      return data.files.map((f: { name?: string; mimeType?: string; modifiedTime?: string; webViewLink?: string; owners?: { displayName?: string }[] }) =>
+        `- ${f.name || 'Untitled'} (${f.mimeType || ''}) — modified ${f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString() : 'n/a'}${f.owners?.[0]?.displayName ? ` by ${f.owners[0].displayName}` : ''}${f.webViewLink ? ` — ${f.webViewLink}` : ''}`
+      ).join('\n');
+    } else {
+      // Microsoft Graph search across OneDrive + SharePoint
+      const results: string[] = [];
+
+      if (query && query.trim().length > 0) {
+        // Unified search across driveItem entities (covers OneDrive + SharePoint document libraries)
+        const searchRes = await fetch(`https://graph.microsoft.com/v1.0/search/query`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{
+              entityTypes: ['driveItem'],
+              query: { queryString: query },
+              from: 0,
+              size: maxResults,
+            }],
+          }),
+        });
+        if (searchRes.ok) {
+          const data = await searchRes.json();
+          const hits = data.value?.[0]?.hitsContainers?.[0]?.hits || [];
+          for (const h of hits) {
+            const r = h.resource || {};
+            const name = r.name || r.title || 'Untitled';
+            const link = r.webUrl || '';
+            const modified = r.lastModifiedDateTime ? new Date(r.lastModifiedDateTime).toLocaleDateString() : 'n/a';
+            const site = r.parentReference?.siteId ? ' [SharePoint]' : ' [OneDrive]';
+            results.push(`- ${name}${site} — modified ${modified}${link ? ` — ${link}` : ''}`);
+          }
+        } else {
+          results.push(`(Graph search returned ${searchRes.status})`);
+        }
+      } else {
+        // No query: list recent OneDrive files
+        const recentRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/drive/recent?$top=${maxResults}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (recentRes.ok) {
+          const data = await recentRes.json();
+          for (const f of data.value || []) {
+            const modified = f.lastModifiedDateTime ? new Date(f.lastModifiedDateTime).toLocaleDateString() : 'n/a';
+            results.push(`- ${f.name || 'Untitled'} [OneDrive] — modified ${modified}${f.webUrl ? ` — ${f.webUrl}` : ''}`);
+          }
+        }
+      }
+
+      return results.length ? results.join('\n') : "No documents found.";
+    }
+  } catch (error) {
+    console.error('Error searching documents:', error);
+    return "Error searching documents";
+  }
+}
+
 type AIProvider = 'openai' | 'claude';
 
 interface AdminAIConfig {
