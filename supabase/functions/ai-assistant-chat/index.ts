@@ -976,6 +976,7 @@ serve(async (req) => {
     // Get email context if connection provided
     let emailContext = "";
     let calendarContext = "";
+    let documentContext = "";
     let accessToken: string | null = null;
     let provider = "";
 
