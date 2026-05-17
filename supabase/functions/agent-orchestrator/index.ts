@@ -415,6 +415,7 @@ async function executeTool(
       ...(extract ? { extracted, next_step: "Call search_context with a specific query to retrieve full extracted content." } : {}),
     };
   }
+  if (name === "get_calendar_events") {
     const start = args.start_iso ? new Date(args.start_iso) : new Date();
     const end = args.end_iso ? new Date(args.end_iso) : new Date(start.getTime() + 7 * 24 * 3600 * 1000);
     const top = Math.min(Math.max(Number(args.top) || 20, 1), 50);
