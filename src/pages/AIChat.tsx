@@ -230,24 +230,23 @@ export default function AIChat() {
         await updateConversationTitle(conversationId, userMessage);
       }
 
-      // Prepare messages for API
-      const apiMessages = [
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: 'user' as const, content: userMessage }
-      ];
-
-      // Call edge function (non-streaming JSON for reliability through preview proxy)
-      const { data, error: invokeError } = await supabase.functions.invoke('ai-assistant-chat', {
+      // Route through agent-orchestrator (RAG + live M365 tools).
+      if (!activeConnection?.id) {
+        throw new Error('Please connect a Microsoft 365 account before chatting.');
+      }
+      const { data, error: invokeError } = await supabase.functions.invoke('agent-orchestrator', {
         body: {
-          messages: apiMessages,
-          connectionId: activeConnection?.id,
+          agent: 'qa',
+          connection_id: activeConnection.id,
+          conversation_id: conversationId,
+          user_message: userMessage,
         },
       });
 
       if (invokeError) throw new Error(invokeError.message || 'Failed to get response');
       if (data?.error) throw new Error(data.error);
 
-      const fullContent: string = data?.content || '';
+      const fullContent: string = data?.reply || '';
 
       // Show full content as the streaming buffer (so existing UI works)
       setStreamingContent(fullContent);
