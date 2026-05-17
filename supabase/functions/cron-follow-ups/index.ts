@@ -129,7 +129,22 @@ function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | 
     if (!m) continue;
     if (m[2] !== domain) continue;
     const days = parseInt(m[1], 10);
+    // 0 is reserved as a stop signal — handled separately.
     if (Number.isInteger(days) && days >= 1 && days <= MAX_DAYS) return { alias: a, days };
+  }
+  return null;
+}
+
+// Returns the matched stop alias (e.g. "stop@example.com" or "0@example.com")
+// if any BCC recipient is a configured cancel signal for our domain.
+function parseStopAlias(addresses: string[], domain: string, stopWords: string[]): string | null {
+  const wanted = new Set(stopWords.map((s) => s.toLowerCase().trim()).filter(Boolean));
+  for (const raw of addresses) {
+    const a = raw.toLowerCase().trim();
+    const m = a.match(/^([^@]+)@(.+)$/);
+    if (!m) continue;
+    if (m[2] !== domain) continue;
+    if (wanted.has(m[1])) return a;
   }
   return null;
 }
