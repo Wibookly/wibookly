@@ -953,9 +953,6 @@ export default function Integrations() {
       </div>
       )}
 
-      <div className="mt-6">
-        <MicrosoftStatusPanel />
-      </div>
 
       </section>
     </div>
