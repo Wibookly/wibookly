@@ -260,19 +260,32 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   <Badge variant="outline">Off</Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1.5 max-w-2xl">
-                <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
-                <br />
-                BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email
-                (where N = days). When the due date hits, if the recipient hasn't replied, InboxIQ moves the
-                original to your <strong>No Reply Tracker</strong> category (red) and applies the action you choose below.
-                <br />
-                <span className="text-foreground">
-                  When this is ON, InboxIQ automatically scans your sent emails <strong>every 24 hours</strong>,
-                  keeps Business Hours active, drafts follow-ups for unanswered threads, and adds them back to
-                  the <strong>No Reply Tracker</strong> category until the recipient replies. Once they reply,
-                  the email leaves the tracker automatically.
-                </span>
+              <CardDescription className="mt-1.5 max-w-2xl space-y-2">
+                <p>
+                  <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
+                </p>
+                <p>
+                  <strong>1. Track a thread.</strong> BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email you send
+                  (where <em>N</em> is the number of days you'll wait for a reply).
+                </p>
+                <p>
+                  <strong>2. Due date hits, no reply.</strong> InboxIQ moves the original message to your Outlook <strong>Follow-up</strong> folder,
+                  surfaces it in the red <strong>No Reply Tracker</strong> category, and — if Auto Draft is on —
+                  writes a polite nudge into your Drafts.
+                </p>
+                <p>
+                  <strong>3. Up to {settings.reminder_max_count} reminders, then auto-stop.</strong> If you don't act on the draft, InboxIQ pings you
+                  on the schedule below. After <strong>{settings.reminder_max_count}</strong> nudges with no reply and no action, the tracker stops
+                  automatically — the email stays labeled <strong>No Reply Tracker</strong> so you can decide
+                  manually. Once the recipient replies, the tracker clears itself.
+                </p>
+                <p>
+                  <strong>4. Stop a thread anytime.</strong> Send a new email on the thread with BCC
+                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">stop@{domain}</code> (or
+                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">0@{domain}</code>).
+                  InboxIQ cancels the tracker, moves the message back to your inbox, and stops all reminders.
+                  To re-arm, just send another email with a numeric BCC like <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">2@{domain}</code>.
+                </p>
               </CardDescription>
             </div>
             <Switch
