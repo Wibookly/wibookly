@@ -581,9 +581,12 @@ export default function Chat() {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="p-3">
-          <Button onClick={handleNewChat} variant="outline" className="w-full justify-start gap-2">
+        <div className="p-3 space-y-2">
+          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2">
             <Plus className="h-4 w-4" /> New chat
+          </Button>
+          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground">
+            <FolderPlus className="h-3.5 w-3.5" /> New folder
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
