@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import { User, Building2, Briefcase, MessageSquare, Pencil, Save, Loader2, Info, Mail, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
