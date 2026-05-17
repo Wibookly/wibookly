@@ -356,7 +356,46 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
+      {/* Lifecycle & how to stop */}
+      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-primary" /> Lifecycle & how to stop a tracker
+          </CardTitle>
+          <CardDescription>
+            Every tracker ends one of four ways. Knowing this prevents endless nudges.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ul className="space-y-2 text-muted-foreground">
+            <li><strong className="text-foreground">Reply received</strong> — tracker clears automatically and the email leaves the No Reply Tracker category.</li>
+            <li><strong className="text-foreground">Auto-stop after {settings.reminder_max_count} nudges</strong> — if you don't act on the draft and there's still no reply after the maximum reminders, the tracker stops on its own. The email stays in the No Reply Tracker category so you can decide manually.</li>
+            <li>
+              <strong className="text-foreground">Manual stop via BCC</strong> — send a new email on the thread with one of these BCCs to cancel immediately and move the original message back to the inbox:
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {['stop', '0'].map((w) => {
+                  const addr = `${w}@${domain}`;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(addr); toast({ title: 'Copied', description: addr }); }}
+                      className="font-mono text-xs px-2 py-1 rounded border bg-muted hover:bg-accent transition-colors"
+                      title="Click to copy"
+                    >
+                      {addr}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+            <li><strong className="text-foreground">Re-arm anytime</strong> — sending a fresh email on the thread with a numeric BCC like <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">2@{domain}</code> starts a brand-new tracker with a fresh due date and a fresh reminder count.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       {/* Business hours */}
+
       <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
