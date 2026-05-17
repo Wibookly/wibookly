@@ -76,7 +76,9 @@ async function extractText(bytes: Uint8Array, mime: string, filename: string): P
 function chunkText(text: string): string[] {
   const cleaned = text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
   if (!cleaned) return [];
-  if (cleaned.length <= CHUNK_TARGET_CHARS) return [cleaned];
+  if (cleaned.length <= CHUNK_TARGET_CHARS) {
+    return cleaned.length >= MIN_CHUNK_CHARS ? [cleaned.slice(0, MAX_CHUNK_CHARS)] : [];
+  }
   const chunks: string[] = [];
   let start = 0;
   while (start < cleaned.length) {
@@ -91,7 +93,7 @@ function chunkText(text: string): string[] {
       if (breakAt > 0) end = start + breakAt;
     }
     const chunk = cleaned.slice(start, end).trim();
-    if (chunk) chunks.push(chunk);
+    if (chunk.length >= MIN_CHUNK_CHARS) chunks.push(chunk.slice(0, MAX_CHUNK_CHARS));
     if (end >= cleaned.length) break;
     start = Math.max(end - CHUNK_OVERLAP_CHARS, start + 1);
   }
