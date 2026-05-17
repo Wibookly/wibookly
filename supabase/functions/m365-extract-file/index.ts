@@ -17,6 +17,9 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const EMBED_MODEL = "text-embedding-3-small";
 const CHUNK_TARGET_CHARS = 2000;
 const CHUNK_OVERLAP_CHARS = 200;
+const MIN_CHUNK_CHARS = 50;
+const MAX_CHUNK_CHARS = 7000;
+const EMBED_BATCH = 20;
 const MAX_BYTES = 25 * 1024 * 1024;       // 25 MB hard cap
 const MIN_TEXT_CHARS = 20;
 
@@ -73,7 +76,9 @@ async function extractText(bytes: Uint8Array, mime: string, filename: string): P
 function chunkText(text: string): string[] {
   const cleaned = text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
   if (!cleaned) return [];
-  if (cleaned.length <= CHUNK_TARGET_CHARS) return [cleaned];
+  if (cleaned.length <= CHUNK_TARGET_CHARS) {
+    return cleaned.length >= MIN_CHUNK_CHARS ? [cleaned.slice(0, MAX_CHUNK_CHARS)] : [];
+  }
   const chunks: string[] = [];
   let start = 0;
   while (start < cleaned.length) {
@@ -88,7 +93,7 @@ function chunkText(text: string): string[] {
       if (breakAt > 0) end = start + breakAt;
     }
     const chunk = cleaned.slice(start, end).trim();
-    if (chunk) chunks.push(chunk);
+    if (chunk.length >= MIN_CHUNK_CHARS) chunks.push(chunk.slice(0, MAX_CHUNK_CHARS));
     if (end >= cleaned.length) break;
     start = Math.max(end - CHUNK_OVERLAP_CHARS, start + 1);
   }
@@ -287,8 +292,8 @@ Deno.serve(async (req) => {
     if (!chunks.length) throw new Error("No chunks produced");
 
     const allEmb: number[][] = [];
-    for (let i = 0; i < chunks.length; i += 100) {
-      const batch = chunks.slice(i, i + 100);
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+      const batch = chunks.slice(i, i + EMBED_BATCH);
       const emb = await embedBatch(batch);
       allEmb.push(...emb);
     }

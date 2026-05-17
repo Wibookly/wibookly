@@ -3674,6 +3674,30 @@ export type Database = {
         Returns: undefined
       }
       resume_followups_with_permission: { Args: never; Returns: number }
+      search_knowledge_hybrid: {
+        Args: {
+          match_count?: number
+          p_connection_id?: string
+          p_user_id: string
+          query_embedding: string
+          query_text: string
+          strict_connection?: boolean
+        }
+        Returns: {
+          chunk_id: string
+          chunk_index: number
+          combined_score: number
+          connection_id: string
+          content: string
+          document_id: string
+          extracted_metadata: Json
+          keyword_rank: number
+          similarity: number
+          source_ref: string
+          source_type: string
+          title: string
+        }[]
+      }
       signup_initialize_user: {
         Args: {
           _full_name: string
