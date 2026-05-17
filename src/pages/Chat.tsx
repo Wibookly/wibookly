@@ -439,6 +439,7 @@ export default function Chat() {
         body: JSON.stringify({
           message: text,
           conversation_id: activeId,
+          folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           stream: true,
           web_search: webSearch && canWebSearch,
