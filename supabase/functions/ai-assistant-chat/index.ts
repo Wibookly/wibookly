@@ -815,6 +815,7 @@ serve(async (req) => {
       connectionId,
       message: chatMessage,
       conversation_id: conversationIdInput,
+      folder_id: folderIdInput,
       attachments: attachmentUrls,
       stream: streamMode,
       web_search: webSearchRequested,
@@ -824,6 +825,7 @@ serve(async (req) => {
       connectionId?: string;
       message?: string;
       conversation_id?: string | null;
+      folder_id?: string | null;
       attachments?: string[];
       stream?: boolean;
       web_search?: boolean;
