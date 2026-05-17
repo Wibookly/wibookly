@@ -2,6 +2,7 @@
 // Supports Q&A and email-drafting agents with multi-turn tool execution
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
+import { callGraph } from "../_shared/graph-call.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +58,66 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "search_outlook_mail",
+      description: "Search the user's live Outlook mailbox via Microsoft Graph. Use for questions about specific senders, invoices, receipts, conversations, or anything that may live in email. Returns subject, from, snippet, receivedDateTime, webLink.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Free-text search query (Graph $search syntax). Example: 'invoice gowithsupport'." },
+          top: { type: "number", description: "Max results (default 10, max 25)." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_onedrive",
+      description: "Search the user's OneDrive for files (documents, PDFs, spreadsheets, images) by name or content.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          top: { type: "number", description: "Default 10, max 25." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_sharepoint",
+      description: "Search SharePoint sites the user has access to for documents and pages.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          top: { type: "number", description: "Default 10, max 25." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_calendar_events",
+      description: "Fetch the user's calendar events in a time window. Use for 'what's on my calendar', 'meetings today/tomorrow/this week'.",
+      parameters: {
+        type: "object",
+        properties: {
+          start_iso: { type: "string", description: "ISO start datetime (UTC). Defaults to now." },
+          end_iso: { type: "string", description: "ISO end datetime (UTC). Defaults to 7 days from start." },
+          top: { type: "number", description: "Default 20, max 50." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "compose_email_draft",
       description: "Produce the final email draft. Call this once you have enough context to write the reply. Returns the draft to the user (does NOT send).",
       parameters: {
@@ -73,14 +134,25 @@ const TOOLS = [
   },
 ];
 
-const QA_SYSTEM = `You are an InboxIQ assistant with access to the user's knowledge base and email history.
-- ALWAYS call search_context first to gather grounded evidence before answering substantive questions.
-- Cite sources inline using [#] markers tied to the snippets returned.
-- If retrieved context is insufficient, say so honestly. Never fabricate.
+const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
+
+Tool selection:
+- For questions about emails, invoices, senders, receipts, conversations → call search_outlook_mail.
+- For files, documents, PDFs, spreadsheets → call search_onedrive and/or search_sharepoint.
+- For meetings, calendar, schedule → call get_calendar_events.
+- For indexed knowledge base / prior synced threads → call search_context.
+- You may call multiple tools in parallel or sequentially to gather evidence.
+- Generic chit-chat or general-knowledge questions ("hi", "what is RAG?") do NOT need tools.
+
+Rules:
+- NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
+- If a tool returns no_token / unauthorized / forbidden_scope, surface the friendly reconnect message verbatim.
+- Cite sources inline with the subject/filename and link when available. Never fabricate.
 - Be concise and structured.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
-- Use search_context to gather background on the recipient, prior threads, and relevant knowledge.
+- Use search_outlook_mail and search_context to gather background on the recipient and prior threads.
+- For files referenced by the user, use search_onedrive / search_sharepoint.
 - If a thread_id is provided, call get_email_thread to read the conversation.
 - When ready, call compose_email_draft with the final subject and body. Never send — drafts always go to the user for review.
 - Match the user's writing style (concise, professional). Never invent facts.`;
@@ -151,6 +223,95 @@ async function executeTool(
       .order("sent_at", { ascending: true })
       .limit(50);
     return { thread, messages: messages || [] };
+  }
+  if (name === "search_outlook_mail") {
+    const q = String(args.query || "").trim();
+    const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    if (!q) return { error: "query required" };
+    // Graph $search requires quoted value; ConsistencyLevel: eventual
+    const endpoint = `/me/messages?$search="${encodeURIComponent(q).replace(/"/g, '%22')}"&$top=${top}&$select=id,subject,from,receivedDateTime,bodyPreview,webLink,hasAttachments`;
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "mail", endpoint, {
+      headers: { ConsistencyLevel: "eventual" },
+    });
+    if (!res.ok) return { error: res.error, hint: res.error?.kind === "forbidden_scope"
+      ? "Mail.Read scope missing — ask user to reconnect Microsoft 365." : undefined };
+    const items = (res.data?.value || []).map((m: any) => ({
+      id: m.id,
+      subject: m.subject,
+      from: m.from?.emailAddress?.address,
+      from_name: m.from?.emailAddress?.name,
+      received: m.receivedDateTime,
+      snippet: m.bodyPreview,
+      has_attachments: m.hasAttachments,
+      web_link: m.webLink,
+    }));
+    return { count: items.length, results: items };
+  }
+  if (name === "search_onedrive") {
+    const q = String(args.query || "").trim();
+    const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    if (!q) return { error: "query required" };
+    const endpoint = `/me/drive/root/search(q='${encodeURIComponent(q).replace(/'/g, "%27")}')?$top=${top}&$select=id,name,webUrl,size,lastModifiedDateTime,file,folder`;
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "onedrive", endpoint);
+    if (!res.ok) return { error: res.error };
+    const items = (res.data?.value || []).map((f: any) => ({
+      id: f.id, name: f.name, web_url: f.webUrl, size: f.size,
+      modified: f.lastModifiedDateTime,
+      kind: f.folder ? "folder" : (f.file?.mimeType || "file"),
+    }));
+    return { count: items.length, results: items };
+  }
+  if (name === "search_sharepoint") {
+    const q = String(args.query || "").trim();
+    const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    if (!q) return { error: "query required" };
+    const body = {
+      requests: [{
+        entityTypes: ["driveItem", "listItem", "site"],
+        query: { queryString: q },
+        from: 0,
+        size: top,
+      }],
+    };
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "sharepoint", "/search/query", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return { error: res.error };
+    const hits = res.data?.value?.[0]?.hitsContainers?.[0]?.hits || [];
+    const items = hits.map((h: any) => ({
+      rank: h.rank,
+      summary: h.summary,
+      name: h.resource?.name || h.resource?.displayName,
+      web_url: h.resource?.webUrl,
+      last_modified: h.resource?.lastModifiedDateTime,
+      kind: h.resource?.["@odata.type"],
+    }));
+    return { count: items.length, results: items };
+  }
+  if (name === "get_calendar_events") {
+    const start = args.start_iso ? new Date(args.start_iso) : new Date();
+    const end = args.end_iso ? new Date(args.end_iso) : new Date(start.getTime() + 7 * 24 * 3600 * 1000);
+    const top = Math.min(Math.max(Number(args.top) || 20, 1), 50);
+    const endpoint = `/me/calendarView?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}`
+      + `&$orderby=start/dateTime&$top=${top}`
+      + `&$select=id,subject,organizer,start,end,location,onlineMeeting,webLink,isAllDay,attendees`;
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "calendar", endpoint, {
+      headers: { Prefer: 'outlook.timezone="UTC"' },
+    });
+    if (!res.ok) return { error: res.error };
+    const items = (res.data?.value || []).map((e: any) => ({
+      id: e.id,
+      subject: e.subject,
+      organizer: e.organizer?.emailAddress?.address,
+      start: e.start?.dateTime, end: e.end?.dateTime,
+      location: e.location?.displayName,
+      online_join_url: e.onlineMeeting?.joinUrl,
+      web_link: e.webLink,
+      is_all_day: e.isAllDay,
+      attendees: (e.attendees || []).map((a: any) => a.emailAddress?.address).filter(Boolean),
+    }));
+    return { count: items.length, results: items };
   }
   if (name === "compose_email_draft") {
     return {
