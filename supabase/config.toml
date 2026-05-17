@@ -53,3 +53,5 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.export-chat]
     verify_jwt = false
+  [functions.test-microsoft-connection]
+    verify_jwt = false
