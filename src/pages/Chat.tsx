@@ -449,6 +449,7 @@ export default function Chat() {
     setFiles([]);
     setIsStreaming(true);
     setStreamingText('');
+    setStreamingCitations([]);
 
     try {
       const attachmentUrls = await uploadFiles(toUpload);
@@ -457,7 +458,10 @@ export default function Chat() {
       if (!token) throw new Error('Not authenticated');
 
       const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectRef}.supabase.co/functions/v1/ai-assistant-chat`;
+      // Route through chat-agent (SSE adapter around agent-orchestrator) so
+      // the AI has tool access to Outlook / OneDrive / SharePoint and can
+      // actually read file contents instead of just naming them.
+      const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -473,8 +477,6 @@ export default function Chat() {
           folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           stream: true,
-          web_search: webSearch && canWebSearch,
-          user_location: webSearch && canWebSearch ? userLocation : null,
         }),
       });
 
@@ -505,6 +507,8 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 assembled += data.content;
                 setStreamingText(assembled);
+              } else if (data.type === 'citations') {
+                setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
               } else if (data.type === 'done') {
@@ -555,6 +559,7 @@ export default function Chat() {
     } finally {
       setIsStreaming(false);
       setStreamingText('');
+      setStreamingCitations([]);
     }
   };
 
