@@ -1062,6 +1062,16 @@ serve(async (req) => {
         const events = await fetchCalendarEvents(accessToken, provider, 14);
         calendarContext = `\n\nUpcoming calendar events (next 2 weeks):\n${events}`;
       }
+
+      if (isDocumentQuery) {
+        // Extract a simple search term
+        const docTerms = lastUserMessage
+          .replace(/find|search|look for|show me|list|recent|my|the|please|can you|documents?|files?|folders?|onedrive|sharepoint|drive|spreadsheets?|powerpoints?|word docs?|excel|about|regarding|related to|named|called/gi, '')
+          .replace(/[?.!,]/g, '')
+          .trim();
+        const docs = await searchDocuments(accessToken, provider, docTerms, 10);
+        documentContext = `\n\nDocuments from ${provider === 'google' ? 'Google Drive' : 'OneDrive / SharePoint'}${docTerms ? ` matching "${docTerms}"` : ' (recent)'}:\n${docs}`;
+      }
     }
 
     const systemPrompt = `You are the InboxIQ AI chat assistant. You help the user work faster using their inbox and calendar context when available.
