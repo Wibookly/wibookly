@@ -53,6 +53,10 @@ async function extractText(
   throw new Error(`Unsupported file type: ${mime} (${filename})`);
 }
 
+const MIN_CHUNK_CHARS = 50;
+const MAX_CHUNK_CHARS = 7000;  // belt-and-braces (~1750 tokens, well under 8191 limit)
+const EMBED_BATCH = 20;
+
 function chunkText(
   text: string,
   targetChars: number,
@@ -60,14 +64,15 @@ function chunkText(
 ): string[] {
   const cleaned = text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
   if (cleaned.length === 0) return [];
-  if (cleaned.length <= targetChars) return [cleaned];
+  if (cleaned.length <= targetChars) {
+    return cleaned.length >= MIN_CHUNK_CHARS ? [cleaned.slice(0, MAX_CHUNK_CHARS)] : [];
+  }
 
   const chunks: string[] = [];
   let start = 0;
   while (start < cleaned.length) {
     let end = Math.min(start + targetChars, cleaned.length);
     if (end < cleaned.length) {
-      // Try to break at paragraph or sentence boundary
       const slice = cleaned.slice(start, end);
       const lastPara = slice.lastIndexOf("\n\n");
       const lastSent = Math.max(
@@ -83,7 +88,9 @@ function chunkText(
       if (breakAt > 0) end = start + breakAt;
     }
     const chunk = cleaned.slice(start, end).trim();
-    if (chunk.length > 0) chunks.push(chunk);
+    if (chunk.length >= MIN_CHUNK_CHARS) {
+      chunks.push(chunk.slice(0, MAX_CHUNK_CHARS));
+    }
     if (end >= cleaned.length) break;
     start = Math.max(end - overlapChars, start + 1);
   }
