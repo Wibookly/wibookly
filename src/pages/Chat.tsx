@@ -950,7 +950,7 @@ export default function Chat() {
 
         {/* Input area */}
         <div className="border-t border-border bg-background">
-          <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="max-w-6xl mx-auto px-6 py-4">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {files.map((f, i) => (
