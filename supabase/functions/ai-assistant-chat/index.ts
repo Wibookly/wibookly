@@ -1072,10 +1072,12 @@ serve(async (req) => {
       }
 
       if (isDocumentQuery) {
-        // Extract a simple search term
+        // Extract a simple search term — strip filler words but keep distinctive names
         const docTerms = lastUserMessage
-          .replace(/find|search|look for|show me|list|recent|my|the|please|can you|documents?|files?|folders?|onedrive|sharepoint|drive|spreadsheets?|powerpoints?|word docs?|excel|about|regarding|related to|named|called/gi, '')
+          .replace(/\b(what|whats|what's|where|when|who|why|how|is|are|the|a|an|my|your|our|of|in|on|for|to|cost|price|amount|total|details?|info|information|find|search|look for|show me|list|recent|please|can you|could you|do i have|i have|saved?|stored?|have)\b/gi, '')
+          .replace(/\b(documents?|files?|folders?|onedrive|one drive|sharepoint|share point|drive|spreadsheets?|powerpoints?|word docs?|excel|attachments?|about|regarding|related to|named|called)\b/gi, '')
           .replace(/[?.!,]/g, '')
+          .replace(/\s+/g, ' ')
           .trim();
         const docs = await searchDocuments(accessToken, provider, docTerms, 10);
         documentContext = `\n\nDocuments from ${provider === 'google' ? 'Google Drive' : 'OneDrive / SharePoint'}${docTerms ? ` matching "${docTerms}"` : ' (recent)'}:\n${docs}`;
