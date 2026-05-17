@@ -585,8 +585,8 @@ async function processMissedReminders(conn: Connection, settings: FollowUpSettin
   return sent;
 }
 
-async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; skipped: boolean }> {
-  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, skipped: false };
+async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; cancelled: number; skipped: boolean }> {
+  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled: 0, skipped: false };
   if (conn.provider !== 'outlook') return { ...empty, skipped: true };
 
   const settings = await loadSettings(conn.id);
@@ -618,14 +618,15 @@ async function processConnection(conn: Connection): Promise<{ added: number; dra
     }
   }
 
-  const added = await scanSentForTriggers(conn, token, ourDomain);
+  const stopWords = (settings.stop_aliases && settings.stop_aliases.length > 0) ? settings.stop_aliases : ['stop', '0'];
+  const { added, cancelled } = await scanSentForTriggers(conn, token, ourDomain, stopWords);
   const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings, effectiveTz);
   // Missed-reminder *emails* (transactional reminders to the user) only
   // go out during business hours so we don't ping people overnight.
   const reminded = isWithinBusinessHours(settings, effectiveTz)
     ? await processMissedReminders(conn, settings, myEmail)
     : 0;
-  return { added, drafted, replied, autoSent, labeled, reminded, skipped: false };
+  return { added, drafted, replied, autoSent, labeled, reminded, cancelled, skipped: false };
 }
 
 // Permission check: returns true if the user is allowed to use the
