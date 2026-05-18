@@ -168,14 +168,24 @@ const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
 async function callGateway(
   authHeader: string,
   body: Record<string, unknown>,
+  userId?: string,
 ): Promise<any> {
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: ANON_KEY,
+  };
+  // Prefer internal service-role call when we have a verified user id.
+  // This bypasses JWT re-validation issues across function-to-function calls.
+  if (userId) {
+    headers["Authorization"] = `Bearer ${SERVICE_ROLE_KEY}`;
+    headers["x-internal-user-id"] = userId;
+  } else {
+    headers["Authorization"] = authHeader;
+  }
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/llm-gateway`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: authHeader,
-      apikey: ANON_KEY,
-    },
+    headers,
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
