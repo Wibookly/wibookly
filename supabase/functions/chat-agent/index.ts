@@ -21,6 +21,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+interface AttachmentRef { path: string; name: string; mime_type?: string }
+
 interface Body {
   message: string;
   conversation_id?: string | null;
@@ -28,6 +30,7 @@ interface Body {
   connection_id?: string | null;
   folder_id?: string | null;
   attachments?: string[];
+  attachment_refs?: AttachmentRef[];
   stream?: boolean;
 }
 
@@ -146,6 +149,44 @@ Deno.serve(async (req) => {
       try {
         send({ type: "conversation", conversation_id });
 
+        // Extract text from uploaded attachments so the model can actually read them.
+        // Downloads via service role from the chat-attachments bucket, parses
+        // PDFs/DOCX/text, and injects truncated content into the user_message.
+        let augmentedMessage = message;
+        const refs = Array.isArray(body.attachment_refs) ? body.attachment_refs : [];
+        if (refs.length) {
+          const { extractAttachmentText } = await import("../_shared/extract-attachment-text.ts");
+          const MAX_CHARS_PER_FILE = 40000;
+          const blocks: string[] = [];
+          for (const ref of refs) {
+            try {
+              const { data: blob, error: dlErr } = await admin.storage
+                .from("chat-attachments")
+                .download(ref.path);
+              if (dlErr || !blob) throw new Error(dlErr?.message || "download failed");
+              const bytes = new Uint8Array(await blob.arrayBuffer());
+              const raw = await extractAttachmentText(bytes, ref.mime_type || blob.type || "", ref.name);
+              const cleaned = (raw || "").replace(/\r\n/g, "\n").trim();
+              if (!cleaned) {
+                blocks.push(`[Attached file: ${ref.name}] (no extractable text)`);
+                continue;
+              }
+              const truncated = cleaned.length > MAX_CHARS_PER_FILE
+                ? cleaned.slice(0, MAX_CHARS_PER_FILE) + `\n\n…[truncated, ${cleaned.length - MAX_CHARS_PER_FILE} more chars]`
+                : cleaned;
+              blocks.push(`[Attached file: ${ref.name}]\n${truncated}`);
+            } catch (e) {
+              blocks.push(`[Attached file: ${ref.name}] (could not read: ${(e as Error).message})`);
+            }
+          }
+          if (blocks.length) {
+            augmentedMessage =
+              `The user attached ${blocks.length} file(s). Use their contents as primary context when answering.\n\n` +
+              blocks.join("\n\n---\n\n") +
+              `\n\n---\nUser message:\n${message}`;
+          }
+        }
+
         // Invoke the agent orchestrator (non-streaming). Pass the linked agent
         // conversation_id so its own tool-call history stays continuous across
         // turns within the same /chat thread.
@@ -159,7 +200,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             agent: "qa",
             connection_id,
-            user_message: message,
+            user_message: augmentedMessage,
             conversation_id: agent_conversation_id || undefined,
           }),
         });
