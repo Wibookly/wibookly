@@ -156,7 +156,7 @@ export default function MeetingCopilot() {
         list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
         setUpcoming(mapped);
         setPerMeeting(prefs);
-        setUsingMockMeetings(false);
+        
       } catch (e) {
         setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
       }
