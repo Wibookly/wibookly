@@ -61,7 +61,7 @@ async function callOpenAI(opts: {
   response_format?: any;
 }) {
   const body: any = {
-    model: opts.model,
+    model: opts.model.replace(/^openai\//, ''),
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
   };
@@ -158,7 +158,7 @@ async function callAnthropic(opts: {
 }) {
   const { system, messages } = convertMessagesForAnthropic(opts.messages);
   const body: any = {
-    model: opts.model,
+    model: opts.model.replace(/^anthropic\//, ''),
     messages,
     max_tokens: opts.max_tokens ?? 4096,
     temperature: opts.temperature ?? 0.7,
