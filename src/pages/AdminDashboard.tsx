@@ -657,8 +657,8 @@ export default function AdminDashboard() {
           <AzurePermissionsCheck invoke={adminInvoke} autoRunNonce={autoCheckNonce} />
         </TabsContent>
 
-        <TabsContent value="indexing" className="space-y-6">
-          <M365IndexingPanel />
+        <TabsContent value="integrations" className="space-y-6">
+          <IntegrationsTab />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
