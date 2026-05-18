@@ -61,7 +61,7 @@ async function callOpenAI(opts: {
   response_format?: any;
 }) {
   const body: any = {
-    model: opts.model,
+    model: opts.model.replace(/^openai\//, ''),
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
   };
