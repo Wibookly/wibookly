@@ -1359,7 +1359,25 @@ serve(async (req) => {
         });
       }
 
-      default:
+      case 'check_secrets': {
+        // Reports presence (not values) of integration-critical secrets so the
+        // Admin → Integrations panel can flag missing config.
+        const NAMES = [
+          'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'LOVABLE_API_KEY',
+          'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET', 'MICROSOFT_TENANT_ID',
+          'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
+          'TEAMS_BOT_APP_ID', 'TEAMS_BOT_APP_PASSWORD', 'TEAMS_BOT_TENANT_ID',
+          'TOKEN_ENCRYPTION_KEY',
+        ];
+        const secrets = NAMES.map((name) => ({
+          name,
+          configured: Boolean(Deno.env.get(name)?.trim()),
+        }));
+        return new Response(JSON.stringify({ secrets }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
