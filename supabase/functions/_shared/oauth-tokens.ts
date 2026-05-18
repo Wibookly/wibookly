@@ -115,8 +115,16 @@ export async function getValidAccessToken(
     ? `${base}&connection_id=eq.${connectionId}&limit=1`
     : `${base}&order=created_at.asc&limit=1`;
 
-  const r = await fetch(url, { headers });
-  const arr = await r.json();
+  let r = await fetch(url, { headers });
+  let arr = await r.json();
+  // Legacy fallback: some vault rows predate per-connection tagging and have
+  // connection_id = NULL. If a connection-scoped lookup misses, retry without
+  // the filter so the user's single token still resolves.
+  if (connectionId && (!Array.isArray(arr) || !arr[0])) {
+    const fallback = `${base}&connection_id=is.null&order=created_at.asc&limit=1`;
+    r = await fetch(fallback, { headers });
+    arr = await r.json();
+  }
   if (!Array.isArray(arr) || !arr[0]) return null;
   const td = arr[0];
 
