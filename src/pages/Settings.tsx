@@ -345,14 +345,14 @@ export default function Settings() {
       }
       setAboutMe(next);
 
-      // Persist immediately so it sticks even if the user navigates away.
-      await supabase
-        .from('user_profiles')
-        .update({
-          responsibilities: next.responsibilities || null,
-          communication_style: next.communication_style || null,
-        } as Record<string, unknown>)
-        .eq('user_id', profile.user_id);
+      // Persist immediately via secure RPC so it sticks even if the user
+      // navigates away. Direct .update() on user_profiles is blocked by
+      // column grants — only the SECURITY DEFINER RPC can write.
+      const { error: saveErr } = await supabase.rpc('update_my_about_me', {
+        _responsibilities: next.responsibilities || null,
+        _communication_style: next.communication_style || null,
+      } as Record<string, unknown>);
+      if (saveErr) throw saveErr;
 
       toast({
         title: 'Profile updated',
