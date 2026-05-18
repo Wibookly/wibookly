@@ -130,7 +130,7 @@ export default function MeetingCopilot() {
         }
         const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
         setCalendarStatus({ state: 'connected', count: list.length });
-        if (list.length === 0) return; // keep mock visual for layout, but banner makes it clear
+        if (list.length === 0) { setUpcoming([]); return; }
         const fmt = (iso: string) => {
           const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
           let h = d.getHours();
