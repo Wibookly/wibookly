@@ -34,7 +34,7 @@ import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-rea
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
-import M365IndexingPanel from '@/components/admin/M365IndexingPanel';
+import IntegrationsTab from '@/components/admin/IntegrationsTab';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -626,7 +626,7 @@ export default function AdminDashboard() {
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
-          <TabsTrigger value="indexing" className="gap-2"><Activity className="w-4 h-4" /> M365 Indexing</TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-2"><Activity className="w-4 h-4" /> Integrations</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="ai-usage" className="gap-2"><Activity className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
@@ -657,8 +657,8 @@ export default function AdminDashboard() {
           <AzurePermissionsCheck invoke={adminInvoke} autoRunNonce={autoCheckNonce} />
         </TabsContent>
 
-        <TabsContent value="indexing" className="space-y-6">
-          <M365IndexingPanel />
+        <TabsContent value="integrations" className="space-y-6">
+          <IntegrationsTab />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
