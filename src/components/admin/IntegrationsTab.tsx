@@ -5,25 +5,31 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   Mail, Calendar as CalendarIcon, FolderOpen, Building2, Users as TeamsIcon,
   Bot, Brain, MessageSquare, Sparkles, RefreshCw, Activity,
   CheckCircle2, AlertTriangle, Loader2, Play, Workflow, Inbox, BellRing,
-  ChevronRight, ExternalLink,
+  ExternalLink, ShieldCheck, Key, Cable, Server, Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import M365IndexingPanel from './M365IndexingPanel';
+import AzurePermissionsCheck from './AzurePermissionsCheck';
+import AgentPanel from './AgentPanel';
+import FollowUpsPanel from './FollowUpsPanel';
 
 /* ============================ Registry ============================ */
 
 type ServiceId =
-  | 'mail' | 'calendar' | 'onedrive' | 'sharepoint' | 'teams'
-  | 'llm_gateway' | 'embeddings' | 'agent_orchestrator' | 'chat_agent'
+  | 'mail' | 'calendar' | 'onedrive' | 'sharepoint' | 'teams_graph'
+  | 'email_agent' | 'teams_bot' | 'chat_agent' | 'agent_orchestrator'
+  | 'llm_gateway' | 'embeddings'
   | 'm365_sync' | 'ingest_emails' | 'process_ai_emails' | 'follow_ups'
   | 'indexing';
 
-type Section = 'graph' | 'ai' | 'jobs' | 'connectors';
+type Section = 'm365' | 'agents' | 'ai' | 'jobs' | 'connectors';
 
 interface ServiceDef {
   id: ServiceId;
@@ -31,76 +37,84 @@ interface ServiceDef {
   name: string;
   description: string;
   icon: typeof Mail;
-  /** m365_api_health.api_name match (Graph services) */
   apiName?: 'mail' | 'calendar' | 'onedrive' | 'sharepoint' | 'user';
-  /** ai_usage_logs action match (AI services) */
   aiAction?: string;
-  /** jobs.job_type match (background jobs) */
   jobType?: string;
-  /** m365_sync_jobs.source match */
   syncSource?: string;
-  /** edge function deployed name (for log links / probe target) */
   functionName?: string;
-  /** Show "Test" button */
   testable: boolean;
+  /** Settings panel kind to render in the Settings tab. */
+  settings?:
+    | 'graph_scopes'
+    | 'agent_email'
+    | 'agent_teams'
+    | 'llm_keys'
+    | 'embeddings_keys'
+    | 'job_schedule'
+    | 'indexing'
+    | 'orchestrator'
+    | 'follow_ups';
+  /** Required env secrets surfaced in the Settings tab. */
+  requiredSecrets?: string[];
+  docsLink?: { label: string; href: string };
 }
 
 const SERVICES: ServiceDef[] = [
-  // Microsoft Graph services
-  { id: 'mail', section: 'graph', name: 'Outlook Mail', description: 'Read mailboxes, threads, attachments via Microsoft Graph.',
-    icon: Mail, apiName: 'mail', testable: true },
-  { id: 'calendar', section: 'graph', name: 'Calendar', description: 'Meetings, scheduling, availability.',
-    icon: CalendarIcon, apiName: 'calendar', testable: true },
-  { id: 'onedrive', section: 'graph', name: 'OneDrive', description: 'Personal file search and extraction.',
-    icon: FolderOpen, apiName: 'onedrive', testable: true },
-  { id: 'sharepoint', section: 'graph', name: 'SharePoint', description: 'Tenant-wide file & site search.',
-    icon: Building2, apiName: 'sharepoint', testable: true },
-  { id: 'teams', section: 'graph', name: 'Microsoft Teams', description: 'Teams agent — channel & DM access. Requires extra scopes.',
-    icon: TeamsIcon, apiName: 'user', testable: true },
+  /* ---- Microsoft 365 (Graph) ---- */
+  { id: 'mail', section: 'm365', name: 'Outlook Mail', description: 'Read mailboxes, threads, and attachments via Microsoft Graph.',
+    icon: Mail, apiName: 'mail', testable: true, settings: 'graph_scopes' },
+  { id: 'calendar', section: 'm365', name: 'Calendar', description: 'Meetings, scheduling, availability windows.',
+    icon: CalendarIcon, apiName: 'calendar', testable: true, settings: 'graph_scopes' },
+  { id: 'onedrive', section: 'm365', name: 'OneDrive', description: 'Personal file search & extraction.',
+    icon: FolderOpen, apiName: 'onedrive', testable: true, settings: 'graph_scopes' },
+  { id: 'sharepoint', section: 'm365', name: 'SharePoint', description: 'Tenant-wide file & site search.',
+    icon: Building2, apiName: 'sharepoint', testable: true, settings: 'graph_scopes' },
+  { id: 'teams_graph', section: 'm365', name: 'Teams (Graph)', description: 'Teams data access via Graph (channels, chats).',
+    icon: TeamsIcon, apiName: 'user', testable: true, settings: 'graph_scopes' },
 
-  // AI services
-  { id: 'llm_gateway', section: 'ai', name: 'LLM Gateway', description: 'Routes OpenAI / Anthropic calls with quota enforcement.',
-    icon: Brain, aiAction: 'ai_chat', functionName: 'llm-gateway', testable: true },
-  { id: 'embeddings', section: 'ai', name: 'Embeddings', description: 'text-embedding-3-small (vector(1536)).',
-    icon: Sparkles, functionName: 'embed-text', testable: true },
-  { id: 'agent_orchestrator', section: 'ai', name: 'Agent Orchestrator', description: 'Multi-tool reasoning loop powering /chat.',
-    icon: Bot, functionName: 'agent-orchestrator', testable: true },
-  { id: 'chat_agent', section: 'ai', name: 'Chat Agent (SSE)', description: 'Streaming bridge between /chat UI and the orchestrator.',
-    icon: MessageSquare, functionName: 'chat-agent', testable: true },
+  /* ---- AI Agents (product-level) ---- */
+  { id: 'email_agent', section: 'agents', name: 'AI Email Agent', description: 'Inbound mail → categorization, AI drafts, follow-ups.',
+    icon: Mail, aiAction: 'ai_email_draft', functionName: 'process-ai-emails', testable: true, settings: 'agent_email' },
+  { id: 'teams_bot', section: 'agents', name: 'Teams Bot', description: 'Conversational agent inside Microsoft Teams.',
+    icon: TeamsIcon, functionName: 'teams-bot', testable: true, settings: 'agent_teams',
+    requiredSecrets: ['TEAMS_BOT_APP_ID', 'TEAMS_BOT_APP_PASSWORD', 'TEAMS_BOT_TENANT_ID'] },
+  { id: 'chat_agent', section: 'agents', name: 'Chat (Web)', description: 'Streaming /chat UI bridge to the orchestrator.',
+    icon: MessageSquare, functionName: 'chat-agent', testable: true, settings: 'orchestrator' },
+  { id: 'agent_orchestrator', section: 'agents', name: 'Agent Orchestrator', description: 'Multi-tool reasoning loop powering every agent surface.',
+    icon: Bot, functionName: 'agent-orchestrator', testable: true, settings: 'orchestrator' },
 
-  // Internal jobs
-  { id: 'm365_sync', section: 'jobs', name: 'M365 Sync (delta)', description: 'Hourly delta sync across all active connections.',
-    icon: RefreshCw, syncSource: 'onedrive', functionName: 'm365-sync-all', testable: true },
-  { id: 'ingest_emails', section: 'jobs', name: 'Ingest Emails', description: 'Pulls recent mail into email_messages for retrieval.',
-    icon: Inbox, jobType: 'email_ingest', functionName: 'cron-ingest-emails', testable: true },
-  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Processor', description: 'Categorization + AI drafts on inbound mail.',
-    icon: Workflow, jobType: 'ai_email_processing', functionName: 'process-ai-emails', testable: true },
-  { id: 'follow_ups', section: 'jobs', name: 'Follow-Up Reminders', description: 'BCC-triggered auto-reminders.',
-    icon: BellRing, jobType: 'follow_up_audit', functionName: 'cron-follow-ups', testable: true },
+  /* ---- AI Infrastructure ---- */
+  { id: 'llm_gateway', section: 'ai', name: 'LLM Gateway', description: 'Routes OpenAI / Anthropic with quota & cost logging.',
+    icon: Brain, aiAction: 'ai_chat', functionName: 'llm-gateway', testable: true, settings: 'llm_keys',
+    requiredSecrets: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY'] },
+  { id: 'embeddings', section: 'ai', name: 'Embeddings', description: 'text-embedding-3-small for retrieval (vector 1536).',
+    icon: Sparkles, functionName: 'embed-text', testable: true, settings: 'embeddings_keys',
+    requiredSecrets: ['OPENAI_API_KEY'] },
 
-  // Connectors / indexing
+  /* ---- Background jobs ---- */
+  { id: 'm365_sync', section: 'jobs', name: 'M365 Delta Sync', description: 'Hourly delta sync across all active connections.',
+    icon: RefreshCw, syncSource: 'onedrive', functionName: 'm365-sync-all', testable: true, settings: 'job_schedule' },
+  { id: 'ingest_emails', section: 'jobs', name: 'Email Ingest', description: 'Pulls recent mail into email_messages for retrieval.',
+    icon: Inbox, jobType: 'email_ingest', functionName: 'cron-ingest-emails', testable: true, settings: 'job_schedule' },
+  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Processor', description: 'Categorization + AI drafts on new inbound mail.',
+    icon: Workflow, jobType: 'ai_email_processing', functionName: 'process-ai-emails', testable: true, settings: 'job_schedule' },
+  { id: 'follow_ups', section: 'jobs', name: 'Follow-Up Reminders', description: 'BCC-triggered auto-reminders for sent mail.',
+    icon: BellRing, jobType: 'follow_up_audit', functionName: 'cron-follow-ups', testable: true, settings: 'follow_ups' },
+
+  /* ---- Connectors / indexing ---- */
   { id: 'indexing', section: 'connectors', name: 'Document Indexing', description: 'OneDrive / SharePoint / mail attachment extraction & embedding.',
-    icon: Activity, testable: false },
+    icon: Activity, testable: false, settings: 'indexing' },
 ];
 
-const SECTION_META: Record<Section, { title: string; description: string }> = {
-  graph: {
-    title: 'Microsoft Graph services',
-    description: 'Live status for each Microsoft 365 surface. "Test" probes against the super-admin connection.',
-  },
-  ai: {
-    title: 'AI services',
-    description: 'LLM gateway, embeddings, and the orchestrator/chat agent that power /chat.',
-  },
-  jobs: {
-    title: 'Background jobs',
-    description: 'Scheduled crons + manual "Run now" triggers. Last execution shown per job.',
-  },
-  connectors: {
-    title: 'External connectors',
-    description: 'Indexing pipelines and integrations that feed the agent.',
-  },
+const SECTION_META: Record<Section, { title: string; description: string; icon: typeof Mail }> = {
+  m365:       { title: 'Microsoft 365',        description: 'Graph surfaces & tenant access',         icon: Building2 },
+  agents:     { title: 'AI Agents',            description: 'Email, Teams, Chat & orchestrator',     icon: Bot },
+  ai:         { title: 'AI Infrastructure',    description: 'LLM gateway, embeddings, providers',    icon: Cpu },
+  jobs:       { title: 'Background Jobs',      description: 'Scheduled crons & manual triggers',     icon: Server },
+  connectors: { title: 'Connectors & Indexing', description: 'Document extraction pipelines',         icon: Cable },
 };
+
+const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'jobs', 'connectors'];
 
 /* ============================ Types ============================ */
 
@@ -111,15 +125,15 @@ interface Snapshot {
   lastActivityAt: string | null;
   lastMessage: string | null;
   latencyMs: number | null;
-  meta?: Record<string, unknown>;
 }
-
 type SnapshotMap = Partial<Record<ServiceId, Snapshot>>;
 
 interface HealthRow { api_name: string; status: string; endpoint: string | null; response_ms: number | null; error_code: string | null; error_message: string | null; checked_at: string; }
 interface SyncJobRow { id: string; source: string; sync_type: string; status: string; items_processed: number; items_failed: number; error_message: string | null; created_at: string; }
 interface JobRow { id: string; job_type: string; status: string; error_message: string | null; started_at: string | null; completed_at: string | null; created_at: string; }
 interface UsageRow { action: string; status: string; provider: string; model: string; latency_ms: number | null; error_message: string | null; created_at: string; }
+
+interface SecretStatus { name: string; configured: boolean }
 
 /* ============================ Helpers ============================ */
 
@@ -133,80 +147,83 @@ function timeAgo(iso: string | null): string {
 }
 
 function statusBadge(s: Status) {
-  if (s === 'healthy') return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">Healthy</Badge>;
-  if (s === 'degraded') return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">Degraded</Badge>;
-  if (s === 'failed') return <Badge variant="destructive">Failed</Badge>;
-  if (s === 'idle') return <Badge variant="secondary">Idle</Badge>;
+  if (s === 'healthy')  return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Healthy</Badge>;
+  if (s === 'degraded') return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">Degraded</Badge>;
+  if (s === 'failed')   return <Badge variant="destructive">Failed</Badge>;
+  if (s === 'idle')     return <Badge variant="secondary">Idle</Badge>;
   return <Badge variant="outline">Unknown</Badge>;
 }
 
-function StatusIcon({ s }: { s: Status }) {
-  if (s === 'healthy') return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-  if (s === 'failed' || s === 'degraded') return <AlertTriangle className="h-4 w-4 text-destructive" />;
-  return <Activity className="h-4 w-4 text-muted-foreground" />;
+function statusDot(s: Status) {
+  const cls =
+    s === 'healthy'  ? 'bg-emerald-500' :
+    s === 'degraded' ? 'bg-amber-500'   :
+    s === 'failed'   ? 'bg-destructive' :
+    s === 'idle'     ? 'bg-muted-foreground/40' :
+                       'bg-muted-foreground/30';
+  return <span className={cn('inline-block h-2 w-2 rounded-full', cls)} />;
 }
 
 /* ============================ Main component ============================ */
 
-export default function IntegrationsTab() {
+interface Props {
+  adminInvoke: (action: string, payload?: Record<string, any>) => Promise<any>;
+  organizationId: string | null;
+}
+
+export default function IntegrationsTab({ adminInvoke, organizationId }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [loading, setLoading] = useState(true);
-  const [openId, setOpenId] = useState<ServiceId | null>(null);
+  const [activeId, setActiveId] = useState<ServiceId>('mail');
   const [testingId, setTestingId] = useState<ServiceId | null>(null);
+  const [secrets, setSecrets] = useState<SecretStatus[]>([]);
+
+  const active = useMemo(() => SERVICES.find((s) => s.id === activeId) ?? SERVICES[0], [activeId]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [healthRes, syncRes, jobsRes, usageRes] = await Promise.all([
-        // m365_api_health is service-role only — admin RLS not granted. We rely
-        // on the super admin's own user_id rows for the latest snapshot.
+      const [healthRes, syncRes, jobsRes, usageRes, secretRes] = await Promise.all([
         supabase.from('m365_api_health')
           .select('api_name, status, endpoint, response_ms, error_code, error_message, checked_at')
-          .order('checked_at', { ascending: false })
-          .limit(500),
+          .order('checked_at', { ascending: false }).limit(500),
         supabase.from('m365_sync_jobs')
           .select('id, source, sync_type, status, items_processed, items_failed, error_message, created_at')
-          .order('created_at', { ascending: false })
-          .limit(200),
+          .order('created_at', { ascending: false }).limit(200),
         supabase.from('jobs')
           .select('id, job_type, status, error_message, started_at, completed_at, created_at')
-          .order('created_at', { ascending: false })
-          .limit(200),
+          .order('created_at', { ascending: false }).limit(200),
         supabase.from('ai_usage_logs')
           .select('action, status, provider, model, latency_ms, error_message, created_at')
-          .order('created_at', { ascending: false })
-          .limit(200),
+          .order('created_at', { ascending: false }).limit(200),
+        adminInvoke('check_secrets').catch(() => ({ secrets: [] })),
       ]);
+
+      setSecrets(Array.isArray(secretRes?.secrets) ? secretRes.secrets : []);
 
       const snap: SnapshotMap = {};
 
-      // Graph services from m365_api_health
-      const healthByApi = new Map<string, HealthRow[]>();
+      // Graph services
+      const byApi = new Map<string, HealthRow[]>();
       for (const r of (healthRes.data ?? []) as HealthRow[]) {
-        const arr = healthByApi.get(r.api_name) ?? [];
-        arr.push(r);
-        healthByApi.set(r.api_name, arr);
+        const arr = byApi.get(r.api_name) ?? []; arr.push(r); byApi.set(r.api_name, arr);
       }
       for (const svc of SERVICES.filter((s) => s.apiName)) {
-        const rows = healthByApi.get(svc.apiName!) ?? [];
-        const latest = rows[0];
-        if (!latest) { snap[svc.id] = { status: 'unknown', lastActivityAt: null, lastMessage: null, latencyMs: null }; continue; }
-        snap[svc.id] = {
+        const latest = (byApi.get(svc.apiName!) ?? [])[0];
+        snap[svc.id] = latest ? {
           status: (latest.status as Status) ?? 'unknown',
           lastActivityAt: latest.checked_at,
           lastMessage: latest.error_message || latest.endpoint || 'OK',
           latencyMs: latest.response_ms ?? null,
-        };
+        } : { status: 'unknown', lastActivityAt: null, lastMessage: null, latencyMs: null };
       }
 
-      // AI services from ai_usage_logs (best-available signal)
+      // AI usage
       const usageRows = (usageRes.data ?? []) as UsageRow[];
       const latestAi = usageRows[0];
-      const aiHealthy = latestAi?.status === 'success';
-      for (const svc of SERVICES.filter((s) => s.section === 'ai')) {
-        // Match by action when available; otherwise use the overall latest row.
+      for (const svc of SERVICES.filter((s) => s.section === 'ai' || s.section === 'agents')) {
         const row = svc.aiAction
           ? usageRows.find((r) => r.action === svc.aiAction)
           : latestAi;
@@ -218,10 +235,9 @@ export default function IntegrationsTab() {
         };
       }
 
-      // Jobs from jobs + m365_sync_jobs
+      // Jobs
       const syncRows = (syncRes.data ?? []) as SyncJobRow[];
       const jobRows = (jobsRes.data ?? []) as JobRow[];
-      // M365 sync card
       const latestSync = syncRows[0];
       snap.m365_sync = {
         status: !latestSync ? 'idle'
@@ -243,17 +259,16 @@ export default function IntegrationsTab() {
         };
       }
 
-      // Indexing card — aggregate from knowledge_documents
+      // Indexing aggregate
       const { data: docs } = await supabase.from('knowledge_documents')
         .select('extraction_status, updated_at')
         .in('source_type', ['mail_attachment', 'onedrive', 'sharepoint'])
-        .order('updated_at', { ascending: false })
-        .limit(500);
+        .order('updated_at', { ascending: false }).limit(500);
       const total = docs?.length ?? 0;
       const failed = docs?.filter((d: any) => d.extraction_status === 'failed').length ?? 0;
       snap.indexing = {
         status: total === 0 ? 'idle' : failed > total * 0.2 ? 'degraded' : 'healthy',
-        lastActivityAt: docs?.[0]?.updated_at ?? null,
+        lastActivityAt: (docs as any)?.[0]?.updated_at ?? null,
         lastMessage: total === 0 ? 'No M365 documents indexed yet' : `${total} documents indexed · ${failed} failed`,
         latencyMs: null,
       };
@@ -266,7 +281,7 @@ export default function IntegrationsTab() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const runTest = async (svc: ServiceDef) => {
     if (!session?.access_token) return;
@@ -283,7 +298,6 @@ export default function IntegrationsTab() {
         description: `${data?.message ?? ''}${data?.latency_ms ? ` · ${data.latency_ms}ms` : ''}`,
         variant: ok ? 'default' : 'destructive',
       });
-      // Snapshot refresh so the badge reflects the probe
       await load();
     } catch (e: any) {
       toast({ title: `${svc.name}: failed`, description: e.message, variant: 'destructive' });
@@ -291,8 +305,6 @@ export default function IntegrationsTab() {
       setTestingId(null);
     }
   };
-
-  const sections: Section[] = ['graph', 'ai', 'jobs', 'connectors'];
 
   if (loading) {
     return (
@@ -302,100 +314,402 @@ export default function IntegrationsTab() {
     );
   }
 
-  return (
-    <div className="space-y-8">
-      {sections.map((section) => {
-        const services = SERVICES.filter((s) => s.section === section);
-        return (
-          <section key={section} className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold">{SECTION_META[section].title}</h3>
-              <p className="text-sm text-muted-foreground">{SECTION_META[section].description}</p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {services.map((svc) => {
-                const snap = snapshots[svc.id] ?? { status: 'unknown' as Status, lastActivityAt: null, lastMessage: null, latencyMs: null };
-                const Icon = svc.icon;
-                return (
-                  <Card
-                    key={svc.id}
-                    className={cn(
-                      'cursor-pointer transition hover:border-primary/60 hover:shadow-sm',
-                      snap.status === 'failed' && 'border-destructive/40',
-                    )}
-                    onClick={() => setOpenId(svc.id)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="rounded-md bg-muted p-2 shrink-0"><Icon className="h-4 w-4" /></div>
-                          <div className="min-w-0">
-                            <CardTitle className="text-sm truncate">{svc.name}</CardTitle>
-                            <CardDescription className="text-xs line-clamp-1">{svc.description}</CardDescription>
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <StatusIcon s={snap.status} />
-                          {statusBadge(snap.status)}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{timeAgo(snap.lastActivityAt)}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">
-                        {snap.lastMessage || '\u00A0'}
-                      </div>
-                      {svc.testable && (
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs text-muted-foreground">
-                            {snap.latencyMs != null ? `${snap.latencyMs}ms` : ''}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={testingId === svc.id}
-                            onClick={(e) => { e.stopPropagation(); void runTest(svc); }}
-                          >
-                            {testingId === svc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                            <span className="ml-1.5 text-xs">Test</span>
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+  const snap = snapshots[active.id] ?? { status: 'unknown' as Status, lastActivityAt: null, lastMessage: null, latencyMs: null };
 
-      <ServiceDetailSheet
-        serviceId={openId}
-        onClose={() => setOpenId(null)}
-        snapshot={openId ? snapshots[openId] : undefined}
-        onTest={(svc) => runTest(svc)}
-        testingId={testingId}
-      />
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      {/* ============== Left rail ============== */}
+      <aside className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold">Integrations</h2>
+          <p className="text-xs text-muted-foreground">All services, settings & audit in one place.</p>
+        </div>
+        <ScrollArea className="lg:h-[calc(100vh-220px)] pr-2">
+          <nav className="space-y-5">
+            {SECTION_ORDER.map((section) => {
+              const services = SERVICES.filter((s) => s.section === section);
+              const SectionIcon = SECTION_META[section].icon;
+              return (
+                <div key={section} className="space-y-1">
+                  <div className="flex items-center gap-2 px-2">
+                    <SectionIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {SECTION_META[section].title}
+                    </h3>
+                  </div>
+                  <div className="space-y-0.5">
+                    {services.map((svc) => {
+                      const s = snapshots[svc.id]?.status ?? 'unknown';
+                      const Icon = svc.icon;
+                      const isActive = activeId === svc.id;
+                      return (
+                        <button
+                          key={svc.id}
+                          onClick={() => setActiveId(svc.id)}
+                          className={cn(
+                            'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-left transition',
+                            'hover:bg-muted/60',
+                            isActive && 'bg-muted text-foreground shadow-sm',
+                            !isActive && 'text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-foreground')} />
+                          <span className="flex-1 truncate">{svc.name}</span>
+                          {statusDot(s)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+        </ScrollArea>
+      </aside>
+
+      {/* ============== Detail panel ============== */}
+      <section className="space-y-4">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="rounded-lg bg-primary/10 text-primary p-2.5 shrink-0">
+                  <active.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-lg">{active.name}</CardTitle>
+                    {statusBadge(snap.status)}
+                  </div>
+                  <CardDescription className="mt-1">{active.description}</CardDescription>
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <span>Last activity: {timeAgo(snap.lastActivityAt)}</span>
+                    {snap.latencyMs != null && <span>· {snap.latencyMs}ms</span>}
+                    {active.functionName && (
+                      <a
+                        href={`https://supabase.com/dashboard/project/_/functions/${active.functionName}/logs`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        Edge logs <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {active.testable && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  disabled={testingId === active.id}
+                  onClick={() => runTest(active)}
+                  className="shrink-0"
+                >
+                  {testingId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                  <span className="ml-1.5">Run test</span>
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Tabs defaultValue="overview" key={active.id} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Overview</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Settings</TabsTrigger>
+            <TabsTrigger value="audit" className="gap-1.5"><Server className="h-3.5 w-3.5" /> Audit & history</TabsTrigger>
+          </TabsList>
+
+          {/* OVERVIEW */}
+          <TabsContent value="overview" className="space-y-4">
+            <OverviewPanel svc={active} snapshot={snap} secrets={secrets} />
+          </TabsContent>
+
+          {/* SETTINGS */}
+          <TabsContent value="settings" className="space-y-4">
+            <SettingsPanel
+              svc={active}
+              adminInvoke={adminInvoke}
+              organizationId={organizationId}
+              secrets={secrets}
+            />
+          </TabsContent>
+
+          {/* AUDIT */}
+          <TabsContent value="audit" className="space-y-4">
+            <AuditPanel svc={active} />
+          </TabsContent>
+        </Tabs>
+      </section>
     </div>
   );
 }
 
-/* ============================ Detail Sheet ============================ */
+/* ============================ Overview ============================ */
 
-function ServiceDetailSheet({
-  serviceId, onClose, snapshot, onTest, testingId,
+function OverviewPanel({ svc, snapshot, secrets }: { svc: ServiceDef; snapshot: Snapshot; secrets: SecretStatus[] }) {
+  const required = svc.requiredSecrets ?? [];
+  const missingSecrets = required.filter((n) => !secrets.find((s) => s.name === n && s.configured));
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Live status</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            {snapshot.status === 'healthy' && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            {snapshot.status === 'failed' && <AlertTriangle className="h-4 w-4 text-destructive" />}
+            {snapshot.status !== 'healthy' && snapshot.status !== 'failed' && <Activity className="h-4 w-4 text-muted-foreground" />}
+            {statusBadge(snapshot.status)}
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div>Last activity: <span className="text-foreground">{timeAgo(snapshot.lastActivityAt)}</span></div>
+            {snapshot.latencyMs != null && <div>Latency: <span className="text-foreground">{snapshot.latencyMs}ms</span></div>}
+            {snapshot.lastMessage && (
+              <div className="break-words">Message: <span className="text-foreground">{snapshot.lastMessage}</span></div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Required configuration</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-xs">
+          {required.length === 0 && (
+            <p className="text-muted-foreground">No secrets required for this service.</p>
+          )}
+          {required.map((name) => {
+            const ok = !missingSecrets.includes(name);
+            return (
+              <div key={name} className="flex items-center justify-between">
+                <span className="font-mono">{name}</span>
+                {ok ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Set</Badge>
+                ) : (
+                  <Badge variant="destructive">Missing</Badge>
+                )}
+              </div>
+            );
+          })}
+          {svc.functionName && (
+            <>
+              <Separator className="my-2" />
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Edge function</span>
+                <a
+                  href={`https://supabase.com/dashboard/project/_/functions/${svc.functionName}/logs`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 hover:text-foreground font-mono"
+                >
+                  {svc.functionName} <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================ Settings (per-service) ============================ */
+
+function SettingsPanel({
+  svc, adminInvoke, organizationId, secrets,
 }: {
-  serviceId: ServiceId | null;
-  onClose: () => void;
-  snapshot?: Snapshot;
-  onTest: (svc: ServiceDef) => void;
-  testingId: ServiceId | null;
+  svc: ServiceDef;
+  adminInvoke: (action: string, payload?: Record<string, any>) => Promise<any>;
+  organizationId: string | null;
+  secrets: SecretStatus[];
 }) {
-  const svc = useMemo(() => SERVICES.find((s) => s.id === serviceId) ?? null, [serviceId]);
+  switch (svc.settings) {
+    case 'graph_scopes':
+      return (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Azure tenant permissions</CardTitle>
+              <CardDescription className="text-xs">
+                Verify admin-consented Graph scopes for this surface. Run this whenever scope errors appear in audit logs.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AzurePermissionsCheck invoke={adminInvoke} />
+            </CardContent>
+          </Card>
+          <ScopeReference serviceId={svc.id} />
+        </div>
+      );
+
+    case 'agent_email':
+    case 'agent_teams':
+      return (
+        <div className="space-y-4">
+          {svc.settings === 'agent_teams' && (
+            <SecretStatusCard required={svc.requiredSecrets ?? []} secrets={secrets} />
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2"><Bot className="h-4 w-4" /> Agent configuration</CardTitle>
+              <CardDescription className="text-xs">
+                Manage email & Teams agent toggles, allowed sender domains, and shared mailbox.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AgentPanel organizationId={organizationId} />
+            </CardContent>
+          </Card>
+        </div>
+      );
+
+    case 'follow_ups':
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><BellRing className="h-4 w-4" /> Follow-up settings</CardTitle>
+            <CardDescription className="text-xs">
+              BCC alias, reminder cadence, and auto-reply behavior.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FollowUpsPanel organizationId={organizationId} />
+          </CardContent>
+        </Card>
+      );
+
+    case 'llm_keys':
+    case 'embeddings_keys':
+      return (
+        <div className="space-y-4">
+          <SecretStatusCard required={svc.requiredSecrets ?? []} secrets={secrets} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2"><Key className="h-4 w-4" /> Provider keys</CardTitle>
+              <CardDescription className="text-xs">
+                Provider API keys are managed centrally under <span className="font-medium text-foreground">Settings → AI APIs</span>.
+                This service is healthy as long as the required secrets above are set and the gateway responds to Test.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      );
+
+    case 'orchestrator':
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><Bot className="h-4 w-4" /> Orchestrator</CardTitle>
+            <CardDescription className="text-xs">
+              The orchestrator uses tools <span className="font-mono">search_outlook_mail</span>, <span className="font-mono">search_onedrive</span>, <span className="font-mono">search_sharepoint</span>, <span className="font-mono">get_calendar_events</span>, <span className="font-mono">search_context</span>, and <span className="font-mono">compose_email_draft</span>.
+              Per-user cost caps and model assignment live in <span className="font-medium text-foreground">Plans</span>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs text-muted-foreground">
+            <div>Default model: <span className="font-mono text-foreground">gpt-5-mini</span></div>
+            <div>Drafts are never auto-sent — they always wait for user review.</div>
+          </CardContent>
+        </Card>
+      );
+
+    case 'job_schedule':
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><Server className="h-4 w-4" /> Cron schedule</CardTitle>
+            <CardDescription className="text-xs">
+              This job runs on pg_cron. Use <span className="font-medium text-foreground">Run test</span> above to fire it manually.
+              History appears in the Audit tab.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground space-y-1">
+            <div>Function: <span className="font-mono text-foreground">{svc.functionName}</span></div>
+            <div>Trigger: pg_cron via pg_net</div>
+          </CardContent>
+        </Card>
+      );
+
+    case 'indexing':
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2"><Cable className="h-4 w-4" /> Indexing controls</CardTitle>
+            <CardDescription className="text-xs">
+              Trigger sync across all connections or a specific one. Failed extractions show in the Audit tab.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <M365IndexingPanel />
+          </CardContent>
+        </Card>
+      );
+
+    default:
+      return (
+        <Card>
+          <CardContent className="py-6 text-xs text-muted-foreground">
+            No editable settings for this service.
+          </CardContent>
+        </Card>
+      );
+  }
+}
+
+function SecretStatusCard({ required, secrets }: { required: string[]; secrets: SecretStatus[] }) {
+  if (required.length === 0) return null;
+  const missing = required.filter((n) => !secrets.find((s) => s.name === n && s.configured));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2"><Key className="h-4 w-4" /> Secrets</CardTitle>
+        <CardDescription className="text-xs">
+          {missing.length === 0 ? 'All required secrets are configured.' : `${missing.length} required secret(s) missing.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 text-xs">
+        {required.map((name) => {
+          const ok = !missing.includes(name);
+          return (
+            <div key={name} className="flex items-center justify-between">
+              <span className="font-mono">{name}</span>
+              {ok ? (
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Set</Badge>
+              ) : (
+                <Badge variant="destructive">Missing</Badge>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScopeReference({ serviceId }: { serviceId: ServiceId }) {
+  const SCOPES: Partial<Record<ServiceId, string[]>> = {
+    mail: ['Mail.Read', 'Mail.ReadWrite', 'Mail.Send', 'MailboxSettings.Read'],
+    calendar: ['Calendars.ReadWrite'],
+    onedrive: ['Files.Read.All', 'Sites.Read.All'],
+    sharepoint: ['Sites.Read.All', 'Files.Read.All'],
+    teams_graph: ['ChannelMessage.Read.All', 'Chat.Read'],
+  };
+  const scopes = SCOPES[serviceId] ?? [];
+  if (scopes.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Required Graph scopes</CardTitle>
+        <CardDescription className="text-xs">Grant admin consent in Azure AD for this surface.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-1.5">
+        {scopes.map((s) => <Badge key={s} variant="outline" className="font-mono text-xs">{s}</Badge>)}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ============================ Audit ============================ */
+
+function AuditPanel({ svc }: { svc: ServiceDef }) {
   const [healthLogs, setHealthLogs] = useState<HealthRow[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncJobRow[]>([]);
   const [jobLogs, setJobLogs] = useState<JobRow[]>([]);
@@ -403,7 +717,6 @@ function ServiceDetailSheet({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!svc) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -411,31 +724,26 @@ function ServiceDetailSheet({
         if (svc.apiName) {
           const { data } = await supabase.from('m365_api_health')
             .select('api_name, status, endpoint, response_ms, error_code, error_message, checked_at')
-            .eq('api_name', svc.apiName)
-            .order('checked_at', { ascending: false })
-            .limit(50);
+            .eq('api_name', svc.apiName).order('checked_at', { ascending: false }).limit(50);
           if (!cancelled) setHealthLogs((data ?? []) as HealthRow[]);
         }
         if (svc.id === 'm365_sync' || svc.id === 'indexing') {
           const { data } = await supabase.from('m365_sync_jobs')
             .select('id, source, sync_type, status, items_processed, items_failed, error_message, created_at')
-            .order('created_at', { ascending: false })
-            .limit(50);
+            .order('created_at', { ascending: false }).limit(50);
           if (!cancelled) setSyncLogs((data ?? []) as SyncJobRow[]);
         }
         if (svc.jobType) {
           const { data } = await supabase.from('jobs')
             .select('id, job_type, status, error_message, started_at, completed_at, created_at')
-            .eq('job_type', svc.jobType)
-            .order('created_at', { ascending: false })
-            .limit(50);
+            .eq('job_type', svc.jobType).order('created_at', { ascending: false }).limit(50);
           if (!cancelled) setJobLogs((data ?? []) as JobRow[]);
         }
-        if (svc.section === 'ai') {
-          const { data } = await supabase.from('ai_usage_logs')
+        if (svc.section === 'ai' || svc.section === 'agents') {
+          const q = supabase.from('ai_usage_logs')
             .select('action, status, provider, model, latency_ms, error_message, created_at')
-            .order('created_at', { ascending: false })
-            .limit(50);
+            .order('created_at', { ascending: false }).limit(50);
+          const { data } = svc.aiAction ? await q.eq('action', svc.aiAction) : await q;
           if (!cancelled) setUsageLogs((data ?? []) as UsageRow[]);
         }
       } finally {
@@ -445,123 +753,75 @@ function ServiceDetailSheet({
     return () => { cancelled = true; };
   }, [svc]);
 
-  if (!svc) return null;
-  const Icon = svc.icon;
-  const snap = snapshot ?? { status: 'unknown' as Status, lastActivityAt: null, lastMessage: null, latencyMs: null };
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-6">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading audit data…
+      </div>
+    );
+  }
 
   return (
-    <Sheet open={!!serviceId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="rounded-md bg-muted p-2"><Icon className="h-5 w-5" /></div>
-            <div>
-              <SheetTitle>{svc.name}</SheetTitle>
-              <SheetDescription>{svc.description}</SheetDescription>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-2">
-            {statusBadge(snap.status)}
-            <span className="text-xs text-muted-foreground">Last activity: {timeAgo(snap.lastActivityAt)}</span>
-            {snap.latencyMs != null && <span className="text-xs text-muted-foreground">· {snap.latencyMs}ms</span>}
-            <div className="ml-auto flex items-center gap-2">
-              {svc.testable && (
-                <Button size="sm" variant="outline" disabled={testingId === svc.id} onClick={() => onTest(svc)}>
-                  {testingId === svc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  <span className="ml-1.5 text-xs">Test now</span>
-                </Button>
-              )}
-              {svc.functionName && (
-                <a
-                  href={`https://supabase.com/dashboard/project/_/functions/${svc.functionName}/logs`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                >
-                  Logs <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </div>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading audit data…
-            </div>
-          )}
-
-          {svc.apiName && (
-            <LogTable
-              title="Recent Graph API calls"
-              empty="No recorded calls in m365_api_health."
-              rows={healthLogs}
-              columns={[
-                { head: 'When', cell: (r) => new Date(r.checked_at).toLocaleString() },
-                { head: 'Status', cell: (r) => statusBadge(r.status as Status) },
-                { head: 'Endpoint', cell: (r) => <span className="font-mono text-xs">{(r.endpoint ?? '').slice(0, 70)}</span> },
-                { head: 'ms', cell: (r) => r.response_ms ?? '' },
-                { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_code}: {r.error_message}</span> : '' },
-              ]}
-            />
-          )}
-
-          {svc.section === 'ai' && (
-            <LogTable
-              title="Recent AI usage"
-              empty="No ai_usage_logs entries yet."
-              rows={usageLogs}
-              columns={[
-                { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
-                { head: 'Action', cell: (r) => r.action },
-                { head: 'Provider/Model', cell: (r) => <span className="font-mono text-xs">{r.provider}/{r.model}</span> },
-                { head: 'Status', cell: (r) => statusBadge(r.status === 'success' ? 'healthy' : 'failed') },
-                { head: 'ms', cell: (r) => r.latency_ms ?? '' },
-                { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
-              ]}
-            />
-          )}
-
-          {(svc.id === 'm365_sync' || svc.id === 'indexing') && (
-            <LogTable
-              title="Sync job history"
-              empty="No sync jobs yet."
-              rows={syncLogs}
-              columns={[
-                { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
-                { head: 'Source', cell: (r) => r.source },
-                { head: 'Type', cell: (r) => r.sync_type },
-                { head: 'Status', cell: (r) => statusBadge(r.status === 'complete' ? 'healthy' : r.status === 'failed' ? 'failed' : 'degraded') },
-                { head: 'Items', cell: (r) => `${r.items_processed} ok · ${r.items_failed} fail` },
-                { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
-              ]}
-            />
-          )}
-
-          {svc.jobType && (
-            <LogTable
-              title="Job runs"
-              empty="No job rows yet."
-              rows={jobLogs}
-              columns={[
-                { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
-                { head: 'Status', cell: (r) => statusBadge(r.status === 'completed' || r.status === 'complete' ? 'healthy' : r.status === 'failed' ? 'failed' : 'degraded') },
-                { head: 'Started', cell: (r) => r.started_at ? new Date(r.started_at).toLocaleTimeString() : '—' },
-                { head: 'Completed', cell: (r) => r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : '—' },
-                { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
-              ]}
-            />
-          )}
-
-          {svc.id === 'indexing' && (
-            <div className="space-y-3 pt-2">
-              <h4 className="text-sm font-semibold">Indexing controls</h4>
-              <M365IndexingPanel />
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
+    <div className="space-y-6">
+      {svc.apiName && (
+        <LogTable
+          title="Recent Graph API calls"
+          empty="No recorded Graph API calls."
+          rows={healthLogs}
+          columns={[
+            { head: 'When', cell: (r) => new Date(r.checked_at).toLocaleString() },
+            { head: 'Status', cell: (r) => statusBadge(r.status as Status) },
+            { head: 'Endpoint', cell: (r) => <span className="font-mono text-xs">{(r.endpoint ?? '').slice(0, 70)}</span> },
+            { head: 'ms', cell: (r) => r.response_ms ?? '' },
+            { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_code}: {r.error_message}</span> : '' },
+          ]}
+        />
+      )}
+      {(svc.section === 'ai' || svc.section === 'agents') && (
+        <LogTable
+          title="Recent AI activity"
+          empty="No AI usage records yet."
+          rows={usageLogs}
+          columns={[
+            { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
+            { head: 'Action', cell: (r) => r.action },
+            { head: 'Provider/Model', cell: (r) => <span className="font-mono text-xs">{r.provider}/{r.model}</span> },
+            { head: 'Status', cell: (r) => statusBadge(r.status === 'success' ? 'healthy' : 'failed') },
+            { head: 'ms', cell: (r) => r.latency_ms ?? '' },
+            { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
+          ]}
+        />
+      )}
+      {(svc.id === 'm365_sync' || svc.id === 'indexing') && (
+        <LogTable
+          title="Sync job history"
+          empty="No sync jobs yet."
+          rows={syncLogs}
+          columns={[
+            { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
+            { head: 'Source', cell: (r) => r.source },
+            { head: 'Type', cell: (r) => r.sync_type },
+            { head: 'Status', cell: (r) => statusBadge(r.status === 'complete' ? 'healthy' : r.status === 'failed' ? 'failed' : 'degraded') },
+            { head: 'Items', cell: (r) => `${r.items_processed} ok · ${r.items_failed} fail` },
+            { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
+          ]}
+        />
+      )}
+      {svc.jobType && (
+        <LogTable
+          title="Job runs"
+          empty="No job rows yet."
+          rows={jobLogs}
+          columns={[
+            { head: 'When', cell: (r) => new Date(r.created_at).toLocaleString() },
+            { head: 'Status', cell: (r) => statusBadge(r.status === 'completed' || r.status === 'complete' ? 'healthy' : r.status === 'failed' ? 'failed' : 'degraded') },
+            { head: 'Started', cell: (r) => r.started_at ? new Date(r.started_at).toLocaleTimeString() : '—' },
+            { head: 'Completed', cell: (r) => r.completed_at ? new Date(r.completed_at).toLocaleTimeString() : '—' },
+            { head: 'Error', cell: (r) => r.error_message ? <span className="text-destructive text-xs">{r.error_message}</span> : '' },
+          ]}
+        />
+      )}
+    </div>
   );
 }
 
@@ -576,30 +836,34 @@ function LogTable<R>({
   columns: { head: string; cell: (r: R) => React.ReactNode }[];
 }) {
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold">{title}</h4>
-      {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{empty}</p>
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left text-xs uppercase text-muted-foreground">
-                {columns.map((c) => <th key={c.head} className="px-3 py-2 whitespace-nowrap">{c.head}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-t">
-                  {columns.map((c) => (
-                    <td key={c.head} className="px-3 py-2 align-top whitespace-nowrap">{c.cell(r)}</td>
-                  ))}
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{empty}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  {columns.map((c) => <th key={c.head} className="px-3 py-2 whitespace-nowrap">{c.head}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-t">
+                    {columns.map((c) => (
+                      <td key={c.head} className="px-3 py-2 align-top whitespace-nowrap">{c.cell(r)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
