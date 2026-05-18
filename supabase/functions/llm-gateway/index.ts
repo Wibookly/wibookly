@@ -287,7 +287,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin
       .from('user_profiles')
       .select('organization_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
     const organization_id = profile?.organization_id || null;
 
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
       errorMsg = err.message;
       const latency_ms = Date.now() - startedAt;
       await logCall(admin, {
-        user_id: user.id,
+        user_id: userId,
         organization_id,
         connection_id: connection_id || null,
         conversation_id: conversation_id || null,
@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
     const cost_usd = (result.tokens_in * px.in + result.tokens_out * px.out) / 1_000_000;
 
     await logCall(admin, {
-      user_id: user.id,
+      user_id: userId,
       organization_id,
       connection_id: connection_id || null,
       conversation_id: conversation_id || null,
