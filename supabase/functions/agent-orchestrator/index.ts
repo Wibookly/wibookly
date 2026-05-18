@@ -3,7 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 import { callGraph } from "../_shared/graph-call.ts";
-import { finalizeReply, FRIENDLY_RECONNECT_MESSAGE, isAuthRelatedToolError, looksLikeReconnectResponse } from "./reply-guards.ts";
+import { finalizeReply, isAuthRelatedToolError } from "./reply-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
