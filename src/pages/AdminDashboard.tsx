@@ -658,7 +658,10 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
-          <IntegrationsTab />
+          <IntegrationsTab
+            adminInvoke={adminInvoke}
+            organizationId={profile?.organization_id ?? null}
+          />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
