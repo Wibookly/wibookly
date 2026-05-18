@@ -2,7 +2,7 @@
 // Logs every call to llm_call_logs with tokens, cost, latency.
 // Supports: chat completion, tool/function calling, streaming.
 // deno-lint-ignore-file no-explicit-any
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -221,21 +221,45 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const authHeader = req.headers.get('Authorization') || '';
+    const internalUserId = req.headers.get('x-internal-user-id') || '';
+    const isInternalServiceCall =
+      internalUserId &&
+      authHeader.replace(/^Bearer\s+/i, '').trim() === SERVICE_ROLE_KEY;
 
-    const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    let userId: string | null = null;
+
+    if (isInternalServiceCall) {
+      userId = internalUserId;
+    } else {
+      if (!authHeader) {
+        console.error('llm-gateway: missing Authorization header');
+        return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'missing_auth_header' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+      if (!anonKey) {
+        console.error('llm-gateway: SUPABASE_ANON_KEY env var missing');
+        return new Response(JSON.stringify({ error: 'Server misconfigured: anon key missing' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const userClient = createClient(SUPABASE_URL, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
+      if (!user) {
+        console.error('llm-gateway: getUser failed', {
+          err: getUserErr?.message,
+          authPrefix: authHeader.slice(0, 20),
+        });
+        return new Response(JSON.stringify({ error: 'Unauthorized', reason: getUserErr?.message || 'no_user' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = user.id;
     }
 
     const {
@@ -263,7 +287,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin
       .from('user_profiles')
       .select('organization_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
     const organization_id = profile?.organization_id || null;
 
@@ -281,7 +305,7 @@ Deno.serve(async (req) => {
       errorMsg = err.message;
       const latency_ms = Date.now() - startedAt;
       await logCall(admin, {
-        user_id: user.id,
+        user_id: userId,
         organization_id,
         connection_id: connection_id || null,
         conversation_id: conversation_id || null,
@@ -302,7 +326,7 @@ Deno.serve(async (req) => {
     const cost_usd = (result.tokens_in * px.in + result.tokens_out * px.out) / 1_000_000;
 
     await logCall(admin, {
-      user_id: user.id,
+      user_id: userId,
       organization_id,
       connection_id: connection_id || null,
       conversation_id: conversation_id || null,
