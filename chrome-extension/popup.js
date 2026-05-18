@@ -1,9 +1,7 @@
 // Popup: lets the user choose an active InboxIQ session and start/stop capture.
-importScripts?.("config.js");
+
 if (typeof INBOXIQ_CONFIG === "undefined") {
-  const s = document.createElement("script");
-  s.src = "config.js";
-  document.head.appendChild(s);
+  throw new Error("InboxIQ extension config failed to load.");
 }
 
 const $ = (id) => document.getElementById(id);
