@@ -345,14 +345,14 @@ export default function Settings() {
       }
       setAboutMe(next);
 
-      // Persist immediately so it sticks even if the user navigates away.
-      await supabase
-        .from('user_profiles')
-        .update({
-          responsibilities: next.responsibilities || null,
-          communication_style: next.communication_style || null,
-        } as Record<string, unknown>)
-        .eq('user_id', profile.user_id);
+      // Persist immediately via secure RPC so it sticks even if the user
+      // navigates away. Direct .update() on user_profiles is blocked by
+      // column grants — only the SECURITY DEFINER RPC can write.
+      const { error: saveErr } = await supabase.rpc('update_my_about_me', {
+        _responsibilities: next.responsibilities || null,
+        _communication_style: next.communication_style || null,
+      } as Record<string, unknown>);
+      if (saveErr) throw saveErr;
 
       toast({
         title: 'Profile updated',
@@ -496,16 +496,19 @@ export default function Settings() {
         .update({ name: orgNameValidation.data })
         .eq('id', organization.id);
 
-      // Update About Me on user_profiles
-      await supabase
-        .from('user_profiles')
-        .update({
-          full_name: fullNameValidation.data || null,
-          title: title || null,
-          responsibilities: aboutMe.responsibilities || null,
-          communication_style: aboutMe.communication_style || null,
-        } as Record<string, unknown>)
-        .eq('user_id', profile.user_id);
+      // Update About Me via secure RPC (direct table writes are blocked
+      // by column grants on user_profiles).
+      const { error: aboutErr } = await supabase.rpc('update_my_about_me', {
+        _full_name: fullNameValidation.data || null,
+        _title: title || null,
+        _responsibilities: aboutMe.responsibilities || null,
+        _communication_style: aboutMe.communication_style || null,
+        _company: aboutMe.company || null,
+        _department: aboutMe.department || null,
+        _business_phone: aboutMe.business_phone || null,
+        _mobile_phone: aboutMe.mobile_phone || null,
+      } as Record<string, unknown>);
+      if (aboutErr) throw aboutErr;
       // Update or create email profile for this connection
       const emailProfileData = {
         connection_id: activeConnection.id,
