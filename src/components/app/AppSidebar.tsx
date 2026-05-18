@@ -243,7 +243,7 @@ export function AppSidebar() {
           ) : (
             <>
               {/* Account Provisioning */}
-              <NavSection title="Account Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
+              <NavSection title="Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
                 <NavItem href="/integrations" icon={Link2} accent={accents.cyan}>Email & Calendar Connections</NavItem>
               </NavSection>
 
