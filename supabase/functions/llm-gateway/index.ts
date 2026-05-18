@@ -221,33 +221,45 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('llm-gateway: missing Authorization header');
-      return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'missing_auth_header' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const authHeader = req.headers.get('Authorization') || '';
+    const internalUserId = req.headers.get('x-internal-user-id') || '';
+    const isInternalServiceCall =
+      internalUserId &&
+      authHeader.replace(/^Bearer\s+/i, '').trim() === SERVICE_ROLE_KEY;
 
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
-    if (!anonKey) {
-      console.error('llm-gateway: SUPABASE_ANON_KEY env var missing');
-      return new Response(JSON.stringify({ error: 'Server misconfigured: anon key missing' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    let userId: string | null = null;
+
+    if (isInternalServiceCall) {
+      userId = internalUserId;
+    } else {
+      if (!authHeader) {
+        console.error('llm-gateway: missing Authorization header');
+        return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'missing_auth_header' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+      if (!anonKey) {
+        console.error('llm-gateway: SUPABASE_ANON_KEY env var missing');
+        return new Response(JSON.stringify({ error: 'Server misconfigured: anon key missing' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const userClient = createClient(SUPABASE_URL, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
-    }
-    const userClient = createClient(SUPABASE_URL, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
-    if (!user) {
-      console.error('llm-gateway: getUser failed', {
-        err: getUserErr?.message,
-        authPrefix: authHeader.slice(0, 20),
-      });
-      return new Response(JSON.stringify({ error: 'Unauthorized', reason: getUserErr?.message || 'no_user' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
+      if (!user) {
+        console.error('llm-gateway: getUser failed', {
+          err: getUserErr?.message,
+          authPrefix: authHeader.slice(0, 20),
+        });
+        return new Response(JSON.stringify({ error: 'Unauthorized', reason: getUserErr?.message || 'no_user' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = user.id;
     }
 
     const {
