@@ -417,17 +417,21 @@ export default function Chat() {
     [conversations],
   );
 
-  const uploadFiles = async (toUpload: File[]): Promise<string[]> => {
-    if (!user || !toUpload.length) return [];
+  const uploadFiles = async (
+    toUpload: File[],
+  ): Promise<{ urls: string[]; refs: { path: string; name: string; mime_type: string }[] }> => {
+    if (!user || !toUpload.length) return { urls: [], refs: [] };
     const urls: string[] = [];
+    const refs: { path: string; name: string; mime_type: string }[] = [];
     for (const f of toUpload) {
       const path = `${user.id}/${Date.now()}-${f.name}`;
       const { error } = await supabase.storage.from('chat-attachments').upload(path, f);
       if (error) { toast.error(`Upload failed: ${f.name}`); continue; }
       const { data } = await supabase.storage.from('chat-attachments').createSignedUrl(path, 60 * 60 * 24);
       if (data?.signedUrl) urls.push(data.signedUrl);
+      refs.push({ path, name: f.name, mime_type: f.type || '' });
     }
-    return urls;
+    return { urls, refs };
   };
 
   const handleSend = async () => {
