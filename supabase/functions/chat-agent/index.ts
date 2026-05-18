@@ -21,6 +21,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+interface AttachmentRef { path: string; name: string; mime_type?: string }
+
 interface Body {
   message: string;
   conversation_id?: string | null;
@@ -28,6 +30,7 @@ interface Body {
   connection_id?: string | null;
   folder_id?: string | null;
   attachments?: string[];
+  attachment_refs?: AttachmentRef[];
   stream?: boolean;
 }
 
