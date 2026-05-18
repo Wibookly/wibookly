@@ -600,6 +600,8 @@ Deno.serve(async (req) => {
     let draft: any = null;
     const citations: any[] = [];
     const seenCitationKeys = new Set<string>();
+    let sawAuthToolFailure = false;
+    let sawSuccessfulDataTool = false;
 
     for (let step = 0; step < maxSteps; step++) {
       const llmResp = await callGateway(authHeader, {
@@ -639,6 +641,15 @@ Deno.serve(async (req) => {
         }
         const toolName = call.function?.name || call.name;
         const result = await executeTool(toolName, parsedArgs, ctx);
+        if (isAuthRelatedToolError(result)) {
+          sawAuthToolFailure = true;
+        }
+        if (
+          ["search_outlook_mail", "search_onedrive", "search_sharepoint", "get_calendar_events", "search_context", "get_email_thread"].includes(toolName)
+          && !result?.error
+        ) {
+          sawSuccessfulDataTool = true;
+        }
         if (toolName === "compose_email_draft" && result?.draft) {
           draft = result.draft;
         }
@@ -714,7 +725,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    const finalText = final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request.");
+    let finalText = final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request.");
+    if (sawAuthToolFailure) {
+      finalText = FRIENDLY_RECONNECT_MESSAGE;
+    } else if (sawSuccessfulDataTool && looksLikeReconnectResponse(finalText)) {
+      finalText = citations.length
+        ? "I searched your Microsoft 365 data, but I couldn't confirm the exact total from the results I found. Please give me a narrower vendor name, invoice number, sender, or date range and I'll keep digging."
+        : "I searched your Microsoft 365 data, but I couldn't confirm the exact total yet. Please give me a narrower vendor name, invoice number, sender, or date range and I'll keep digging.";
+    }
 
     // Persist assistant reply
     const persistedToolCalls = messages
