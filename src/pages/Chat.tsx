@@ -456,7 +456,7 @@ export default function Chat() {
     setStreamingCitations([]);
 
     try {
-      const attachmentUrls = await uploadFiles(toUpload);
+      const { urls: attachmentUrls, refs: attachmentRefs } = await uploadFiles(toUpload);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error('Not authenticated');
@@ -480,6 +480,7 @@ export default function Chat() {
           connectionId: activeConnection?.id,
           folder_id: activeId ? undefined : activeFolderId,
           attachments: attachmentUrls,
+          attachment_refs: attachmentRefs,
           stream: true,
         }),
       });
