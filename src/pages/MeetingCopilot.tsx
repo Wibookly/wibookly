@@ -480,7 +480,7 @@ function StyleCard({ Icon, title, desc, active, onClick }: { Icon: any; title: s
   );
 }
 
-function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: typeof MOCK_UPCOMING[0]; enabled: boolean; onToggle: (v: boolean) => void; onOpen?: () => void; }) {
+function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: UpcomingMeeting; enabled: boolean; onToggle: (v: boolean) => void; onOpen?: () => void; }) {
   const platformStyles: Record<string, { bg: string; color: string; label: string }> = {
     teams: { bg: 'rgba(98,100,167,0.18)', color: '#8E91D8', label: 'TEAMS' },
     zoom:  { bg: 'rgba(45,140,255,0.16)', color: '#60A5FA', label: 'ZOOM' },
