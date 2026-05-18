@@ -587,7 +587,7 @@ Deno.serve(async (req) => {
         purpose: `agent:${body.agent}`,
         conversation_id,
         connection_id: body.connection_id,
-      });
+      }, user.id);
       lastUsage = llmResp.usage;
       totalTokensIn += Number(llmResp.usage?.tokens_in ?? llmResp.usage?.prompt_tokens ?? 0);
       totalTokensOut += Number(llmResp.usage?.tokens_out ?? llmResp.usage?.completion_tokens ?? 0);
