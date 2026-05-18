@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 import { callGraph } from "../_shared/graph-call.ts";
+import { finalizeReply, FRIENDLY_RECONNECT_MESSAGE, isAuthRelatedToolError, looksLikeReconnectResponse } from "./reply-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,18 +19,6 @@ type Msg = { role: "system" | "user" | "assistant" | "tool"; content: any; tool_
 
 function normalizeToolCalls(value: unknown): any[] | undefined {
   return Array.isArray(value) && value.length > 0 ? value : undefined;
-}
-
-const FRIENDLY_RECONNECT_MESSAGE = "I need you to reconnect your Microsoft 365 account from Integrations before I can access your email, files, or calendar. Once you've reconnected it, try again and I'll continue.";
-const RECONNECT_RESPONSE_RE = /\b(reconnect|reauthoriz|re-authoriz|token expired|isn't connected|is not connected|connect your microsoft 365)\b/i;
-
-function isAuthRelatedToolError(result: any): boolean {
-  const kind = result?.error?.kind;
-  return kind === "no_token" || kind === "unauthorized" || kind === "forbidden_scope";
-}
-
-function looksLikeReconnectResponse(text: string): boolean {
-  return RECONNECT_RESPONSE_RE.test(text || "");
 }
 
 interface OrchestrateRequest {
@@ -725,14 +714,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    let finalText = final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request.");
-    if (sawAuthToolFailure) {
-      finalText = FRIENDLY_RECONNECT_MESSAGE;
-    } else if (sawSuccessfulDataTool && looksLikeReconnectResponse(finalText)) {
-      finalText = citations.length
-        ? "I searched your Microsoft 365 data, but I couldn't confirm the exact total from the results I found. Please give me a narrower vendor name, invoice number, sender, or date range and I'll keep digging."
-        : "I searched your Microsoft 365 data, but I couldn't confirm the exact total yet. Please give me a narrower vendor name, invoice number, sender, or date range and I'll keep digging.";
-    }
+    const finalText = finalizeReply({
+      finalText: final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request."),
+      sawAuthToolFailure,
+      sawSuccessfulDataTool,
+      citationsLength: citations.length,
+    });
 
     // Persist assistant reply
     const persistedToolCalls = messages
