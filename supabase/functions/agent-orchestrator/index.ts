@@ -16,6 +16,10 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 type Msg = { role: "system" | "user" | "assistant" | "tool"; content: any; tool_calls?: any[]; tool_call_id?: string; name?: string };
 
+function normalizeToolCalls(value: unknown): any[] | undefined {
+  return Array.isArray(value) && value.length > 0 ? value : undefined;
+}
+
 interface OrchestrateRequest {
   conversation_id?: string;
   connection_id: string;
@@ -536,7 +540,11 @@ Deno.serve(async (req) => {
     const messages: Msg[] = [{ role: "system", content: systemPrompt }];
     for (const m of prior || []) {
       if (m.role === "user" || m.role === "assistant") {
-        messages.push({ role: m.role as any, content: m.content, tool_calls: (m as any).tool_calls ?? undefined });
+        messages.push({
+          role: m.role as any,
+          content: m.content,
+          tool_calls: normalizeToolCalls((m as any).tool_calls),
+        });
       }
     }
     messages.push({ role: "user", content: body.user_message });
@@ -695,11 +703,15 @@ Deno.serve(async (req) => {
     const finalText = final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request.");
 
     // Persist assistant reply
+    const persistedToolCalls = messages
+      .filter((m) => m.role === "assistant")
+      .flatMap((m) => normalizeToolCalls(m.tool_calls) || []);
+
     await admin.from("ai_chat_messages").insert({
       conversation_id,
       role: "assistant",
       content: finalText,
-      tool_calls: messages.filter((m) => m.role === "assistant" && m.tool_calls).flatMap((m) => m.tool_calls || []),
+      tool_calls: persistedToolCalls.length ? persistedToolCalls : null,
       tool_results: draft ? { draft } : null,
       citations: citations.length ? citations : null,
       model_used: model,
