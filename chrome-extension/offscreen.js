@@ -4,6 +4,7 @@
 // `meeting-copilot-ingest`.
 
 let mediaStream = null;
+let inputStreams = [];
 let recorder = null;
 let context = null;
 let chunkTimer = null;
@@ -56,18 +57,41 @@ async function flushChunk() {
   }
 }
 
-async function start(streamId) {
-  mediaStream = await navigator.mediaDevices.getUserMedia({
+async function start(streamId, includeMic = false) {
+  const tabStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId },
     },
     video: false,
   });
 
-  // Keep tab audio audible to the user.
+  inputStreams = [tabStream];
   context = new AudioContext();
-  const src = context.createMediaStreamSource(mediaStream);
-  src.connect(context.destination);
+  const destination = context.createMediaStreamDestination();
+
+  const tabSource = context.createMediaStreamSource(tabStream);
+  tabSource.connect(destination);
+  tabSource.connect(context.destination);
+
+  if (includeMic) {
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      inputStreams.push(micStream);
+      const micSource = context.createMediaStreamSource(micStream);
+      micSource.connect(destination);
+    } catch (e) {
+      console.warn("InboxIQ microphone capture unavailable", e);
+    }
+  }
+
+  mediaStream = destination.stream;
 
   recorder = new MediaRecorder(mediaStream, { mimeType: "audio/webm;codecs=opus" });
   recorder.ondataavailable = (e) => { if (e.data.size) buffer.push(e.data); };
@@ -79,9 +103,10 @@ async function start(streamId) {
 function stop() {
   clearInterval(chunkTimer); chunkTimer = null;
   try { recorder?.stop(); } catch (_) {}
+  try { inputStreams.forEach((s) => s?.getTracks().forEach((t) => t.stop())); } catch (_) {}
   try { mediaStream?.getTracks().forEach((t) => t.stop()); } catch (_) {}
   try { context?.close(); } catch (_) {}
-  recorder = null; mediaStream = null; context = null;
+  recorder = null; mediaStream = null; context = null; inputStreams = [];
   flushChunk();
 }
 
@@ -92,7 +117,7 @@ chrome.runtime.onMessage.addListener((msg) => {
       sessionId: msg.sessionId, token: msg.token,
       supabaseUrl: msg.supabaseUrl, supabaseAnonKey: msg.supabaseAnonKey,
     };
-    start(msg.streamId).catch((e) => console.error("InboxIQ start failed", e));
+    start(msg.streamId, !!msg.includeMic).catch((e) => console.error("InboxIQ start failed", e));
   } else if (msg.type === "OFFSCREEN_STOP") {
     stop();
   }
