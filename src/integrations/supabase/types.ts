@@ -3817,6 +3817,19 @@ export type Database = {
         Args: { _conversation_id: string }
         Returns: boolean
       }
+      update_my_about_me: {
+        Args: {
+          _business_phone?: string
+          _communication_style?: string
+          _company?: string
+          _department?: string
+          _full_name?: string
+          _mobile_phone?: string
+          _responsibilities?: string
+          _title?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "member"
