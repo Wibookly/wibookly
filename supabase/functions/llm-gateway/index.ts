@@ -50,6 +50,17 @@ function detectProvider(model: string): 'openai' | 'anthropic' {
   return 'openai';
 }
 
+function sanitizeMessages(messages: any[]): any[] {
+  return messages.map((message) => {
+    if (!message || typeof message !== 'object') return message;
+    const next = { ...message };
+    if (Array.isArray(next.tool_calls) && next.tool_calls.length === 0) {
+      delete next.tool_calls;
+    }
+    return next;
+  });
+}
+
 /* -------- OpenAI -------- */
 async function callOpenAI(opts: {
   model: string;
@@ -60,9 +71,10 @@ async function callOpenAI(opts: {
   max_tokens?: number;
   response_format?: any;
 }) {
+  const sanitizedMessages = sanitizeMessages(opts.messages);
   const body: any = {
     model: opts.model.replace(/^openai\//, ''),
-    messages: opts.messages,
+    messages: sanitizedMessages,
     temperature: opts.temperature ?? 0.7,
   };
   if (opts.max_tokens) body.max_tokens = opts.max_tokens;
@@ -156,7 +168,7 @@ async function callAnthropic(opts: {
   temperature?: number;
   max_tokens?: number;
 }) {
-  const { system, messages } = convertMessagesForAnthropic(opts.messages);
+  const { system, messages } = convertMessagesForAnthropic(sanitizeMessages(opts.messages));
   const body: any = {
     model: opts.model.replace(/^anthropic\//, ''),
     messages,
