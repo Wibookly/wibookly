@@ -531,41 +531,43 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: typeof M
   };
   const p = platformStyles[meeting.platform] || platformStyles.teams;
   return (
-    <div className="rounded-xl p-4 flex items-center gap-4"
+    <div className="rounded-xl p-4 flex flex-wrap items-center gap-x-4 gap-y-3"
       style={{
         background: meeting.isLive ? 'color-mix(in srgb, var(--c-rose) 6%, var(--surface-2))' : 'var(--surface-2)',
         border: `1px solid ${meeting.isLive ? 'color-mix(in srgb, var(--c-rose) 35%, transparent)' : 'var(--border)'}`,
       }}>
-      <div className="text-center min-w-[52px]">
+      <div className="text-center min-w-[52px] shrink-0">
         <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{meeting.timeLabel}</div>
         <div className="text-[10px] font-semibold tracking-wider"
           style={{ color: meeting.isLive ? '#EF4444' : 'var(--text-2)' }}>{meeting.period}</div>
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 basis-[200px]">
         <div className="text-sm font-semibold truncate mb-1" style={{ color: 'var(--text-1)' }}>{meeting.title}</div>
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--text-2)' }}>
           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider"
             style={{ background: p.bg, color: p.color }}>{p.label}</span>
           <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> {meeting.attendees} attendees</span>
           <span>·</span>
-          <span>{meeting.duration}</span>
+          <span className="whitespace-nowrap">{meeting.duration}</span>
         </div>
       </div>
-      <button onClick={() => onToggle(!enabled)}
-        className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all border"
-        style={{
-          background: enabled ? 'color-mix(in srgb, var(--c-purple) 12%, transparent)' : 'var(--surface-3)',
-          borderColor: enabled ? 'color-mix(in srgb, var(--c-purple) 45%, transparent)' : 'var(--border)',
-          color: enabled ? 'var(--c-purple)' : 'var(--text-2)',
-        }}>
-        <span className={`w-1.5 h-1.5 rounded-full`} style={{ background: enabled ? 'var(--c-purple)' : 'var(--text-3)' }} />
-        Copilot {enabled ? 'ON' : 'OFF'}
-      </button>
-      <button onClick={onOpen}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0"
-        style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
-        {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
-      </button>
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <button onClick={() => onToggle(!enabled)}
+          className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 whitespace-nowrap"
+          style={{
+            background: enabled ? 'color-mix(in srgb, var(--c-purple) 12%, transparent)' : 'var(--surface-3)',
+            borderColor: enabled ? 'color-mix(in srgb, var(--c-purple) 45%, transparent)' : 'var(--border)',
+            color: enabled ? 'var(--c-purple)' : 'var(--text-2)',
+          }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: enabled ? 'var(--c-purple)' : 'var(--text-3)' }} />
+          Copilot {enabled ? 'ON' : 'OFF'}
+        </button>
+        <button onClick={onOpen}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0 whitespace-nowrap"
+          style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
+          {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
+        </button>
+      </div>
     </div>
   );
 }
