@@ -223,17 +223,29 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error('llm-gateway: missing Authorization header');
+      return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'missing_auth_header' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+    if (!anonKey) {
+      console.error('llm-gateway: SUPABASE_ANON_KEY env var missing');
+      return new Response(JSON.stringify({ error: 'Server misconfigured: anon key missing' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const userClient = createClient(SUPABASE_URL, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user } } = await userClient.auth.getUser();
+    const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error('llm-gateway: getUser failed', {
+        err: getUserErr?.message,
+        authPrefix: authHeader.slice(0, 20),
+      });
+      return new Response(JSON.stringify({ error: 'Unauthorized', reason: getUserErr?.message || 'no_user' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
