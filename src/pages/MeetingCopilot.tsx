@@ -371,7 +371,7 @@ export default function MeetingCopilot() {
           {calendarStatus.state === 'connected' && calendarStatus.count === 0 && (
             <div className="mb-3 rounded-xl p-3 text-xs"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-              Calendar connected — no meetings in the next 7 days. The cards below are samples to preview the UI.
+              Calendar connected — no meetings in the next 7 days.
             </div>
           )}
           {calendarStatus.state === 'connected' && calendarStatus.count > 0 && (
@@ -379,10 +379,16 @@ export default function MeetingCopilot() {
               style={{ background: 'color-mix(in srgb, var(--c-green) 10%, transparent)',
                        border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)',
                        color: 'var(--text-1)' }}>
-              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar. Your recent emails are read by the follow-up Copilot when a session ends.
+              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar.
             </div>
           )}
           <div className="space-y-3">
+            {upcoming.length === 0 && calendarStatus.state !== 'loading' && (
+              <div className="rounded-xl p-6 text-center text-sm"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                No upcoming meetings to show. Once your calendar has events in the next 7 days they'll appear here automatically.
+              </div>
+            )}
             {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
                 onToggle={(v) => toggleMeeting(m.id, v)}
