@@ -25,59 +25,17 @@ interface CopilotSettings {
 // Note: per-user identity (role, responsibilities, communication style) is
 // now centralized in `user_profiles` and rendered by <ProfileContextCard />.
 
-// ---------- MOCK DATA (replaced with Graph + Supabase in Sprint 2) ----------
-const MOCK_UPCOMING = [
-  {
-    id: 'm1',
-    title: 'Q2 Roadmap Sync — Engineering Leadership',
-    timeLabel: 'Now',
-    period: 'LIVE',
-    platform: 'teams' as const,
-    attendees: 6,
-    duration: 'Started 12 min ago',
-    isLive: true,
-  },
-  {
-    id: 'm2',
-    title: 'Customer call — Acme Corp implementation',
-    timeLabel: '2:00',
-    period: 'PM',
-    platform: 'zoom' as const,
-    attendees: 4,
-    duration: '45 min',
-    isLive: false,
-  },
-  {
-    id: 'm3',
-    title: '1:1 with Dustin — Sprint planning',
-    timeLabel: '3:30',
-    period: 'PM',
-    platform: 'teams' as const,
-    attendees: 2,
-    duration: '30 min',
-    isLive: false,
-  },
-  {
-    id: 'm4',
-    title: 'Vendor demo — CRM integration options',
-    timeLabel: '4:30',
-    period: 'PM',
-    platform: 'meet' as const,
-    attendees: 5,
-    duration: '60 min',
-    isLive: false,
-  },
-];
-
-
-const MOCK_TRANSCRIPT = [
-  { speaker: 'Dustin Rosepink', color: '#22C55E', time: '12:42', text: "So we're looking at three engineering hires this quarter — one senior structural, two intermediate. Budget is approved but I'm a bit worried about the timeline." },
-  { speaker: 'You', color: '#A855F7', time: '12:43', text: "Yeah, the M365 licenses and access provisioning is on me. I can have that ready within a day of offer." },
-];
-
-const MOCK_SUGGESTIONS = [
-  { type: 'say' as const, label: 'WHAT TO SAY', content: '"I already opened a procurement request last week anticipating this. We have a dedicated Autodesk reseller who can turn Revit licenses around in 48 hours now. I\'ll send the SKUs to your team today so we can pre-provision."' },
-];
+// Upcoming meeting shape (always sourced from Microsoft Graph — no mock data).
+type UpcomingMeeting = {
+  id: string;
+  title: string;
+  timeLabel: string;
+  period: string;
+  platform: 'teams' | 'zoom' | 'meet';
+  attendees: number;
+  duration: string;
+  isLive: boolean;
+};
 
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
