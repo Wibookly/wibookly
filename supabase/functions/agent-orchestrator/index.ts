@@ -20,6 +20,18 @@ function normalizeToolCalls(value: unknown): any[] | undefined {
   return Array.isArray(value) && value.length > 0 ? value : undefined;
 }
 
+const FRIENDLY_RECONNECT_MESSAGE = "I need you to reconnect your Microsoft 365 account from Integrations before I can access your email, files, or calendar. Once you've reconnected it, try again and I'll continue.";
+const RECONNECT_RESPONSE_RE = /\b(reconnect|reauthoriz|re-authoriz|token expired|isn't connected|is not connected|connect your microsoft 365)\b/i;
+
+function isAuthRelatedToolError(result: any): boolean {
+  const kind = result?.error?.kind;
+  return kind === "no_token" || kind === "unauthorized" || kind === "forbidden_scope";
+}
+
+function looksLikeReconnectResponse(text: string): boolean {
+  return RECONNECT_RESPONSE_RE.test(text || "");
+}
+
 interface OrchestrateRequest {
   conversation_id?: string;
   connection_id: string;
@@ -158,7 +170,9 @@ Reading file contents (invoices, contracts, spreadsheets):
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
-- If a tool returns no_token / unauthorized / forbidden_scope, surface the friendly reconnect message verbatim.
+- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.
+- If tools run successfully but return no matches, say you couldn't find a reliable match yet and ask for a narrower sender, filename, vendor name, invoice number, or date range.
+- If mail/file search succeeds but the exact answer is still not visible, never blame connection state; explain what was or wasn't found.
 - Cite sources inline with the subject/filename and link when available. Never fabricate.
 - Be concise and structured.`;
 
