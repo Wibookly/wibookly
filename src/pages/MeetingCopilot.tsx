@@ -25,59 +25,17 @@ interface CopilotSettings {
 // Note: per-user identity (role, responsibilities, communication style) is
 // now centralized in `user_profiles` and rendered by <ProfileContextCard />.
 
-// ---------- MOCK DATA (replaced with Graph + Supabase in Sprint 2) ----------
-const MOCK_UPCOMING = [
-  {
-    id: 'm1',
-    title: 'Q2 Roadmap Sync — Engineering Leadership',
-    timeLabel: 'Now',
-    period: 'LIVE',
-    platform: 'teams' as const,
-    attendees: 6,
-    duration: 'Started 12 min ago',
-    isLive: true,
-  },
-  {
-    id: 'm2',
-    title: 'Customer call — Acme Corp implementation',
-    timeLabel: '2:00',
-    period: 'PM',
-    platform: 'zoom' as const,
-    attendees: 4,
-    duration: '45 min',
-    isLive: false,
-  },
-  {
-    id: 'm3',
-    title: '1:1 with Dustin — Sprint planning',
-    timeLabel: '3:30',
-    period: 'PM',
-    platform: 'teams' as const,
-    attendees: 2,
-    duration: '30 min',
-    isLive: false,
-  },
-  {
-    id: 'm4',
-    title: 'Vendor demo — CRM integration options',
-    timeLabel: '4:30',
-    period: 'PM',
-    platform: 'meet' as const,
-    attendees: 5,
-    duration: '60 min',
-    isLive: false,
-  },
-];
-
-
-const MOCK_TRANSCRIPT = [
-  { speaker: 'Dustin Rosepink', color: '#22C55E', time: '12:42', text: "So we're looking at three engineering hires this quarter — one senior structural, two intermediate. Budget is approved but I'm a bit worried about the timeline." },
-  { speaker: 'You', color: '#A855F7', time: '12:43', text: "Yeah, the M365 licenses and access provisioning is on me. I can have that ready within a day of offer." },
-];
-
-const MOCK_SUGGESTIONS = [
-  { type: 'say' as const, label: 'WHAT TO SAY', content: '"I already opened a procurement request last week anticipating this. We have a dedicated Autodesk reseller who can turn Revit licenses around in 48 hours now. I\'ll send the SKUs to your team today so we can pre-provision."' },
-];
+// Upcoming meeting shape (always sourced from Microsoft Graph — no mock data).
+type UpcomingMeeting = {
+  id: string;
+  title: string;
+  timeLabel: string;
+  period: string;
+  platform: 'teams' | 'zoom' | 'meet';
+  attendees: number;
+  duration: string;
+  isLive: boolean;
+};
 
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
@@ -89,8 +47,7 @@ export default function MeetingCopilot() {
     suggestion_style: 'concise',
   });
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
-  const [upcoming, setUpcoming] = useState<typeof MOCK_UPCOMING>(MOCK_UPCOMING);
-  const [usingMockMeetings, setUsingMockMeetings] = useState(true);
+  const [upcoming, setUpcoming] = useState<UpcomingMeeting[]>([]);
   const [calendarStatus, setCalendarStatus] = useState<
     { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
   >({ state: 'loading' });
@@ -173,7 +130,7 @@ export default function MeetingCopilot() {
         }
         const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
         setCalendarStatus({ state: 'connected', count: list.length });
-        if (list.length === 0) return; // keep mock visual for layout, but banner makes it clear
+        if (list.length === 0) { setUpcoming([]); return; }
         const fmt = (iso: string) => {
           const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
           let h = d.getHours();
@@ -199,7 +156,7 @@ export default function MeetingCopilot() {
         list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
         setUpcoming(mapped);
         setPerMeeting(prefs);
-        setUsingMockMeetings(false);
+        
       } catch (e) {
         setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
       }
@@ -414,7 +371,7 @@ export default function MeetingCopilot() {
           {calendarStatus.state === 'connected' && calendarStatus.count === 0 && (
             <div className="mb-3 rounded-xl p-3 text-xs"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-              Calendar connected — no meetings in the next 7 days. The cards below are samples to preview the UI.
+              Calendar connected — no meetings in the next 7 days.
             </div>
           )}
           {calendarStatus.state === 'connected' && calendarStatus.count > 0 && (
@@ -422,10 +379,16 @@ export default function MeetingCopilot() {
               style={{ background: 'color-mix(in srgb, var(--c-green) 10%, transparent)',
                        border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)',
                        color: 'var(--text-1)' }}>
-              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar. Your recent emails are read by the follow-up Copilot when a session ends.
+              <strong>Calendar connected.</strong> Showing {calendarStatus.count} real meeting{calendarStatus.count === 1 ? '' : 's'} from your Microsoft 365 calendar.
             </div>
           )}
           <div className="space-y-3">
+            {upcoming.length === 0 && calendarStatus.state !== 'loading' && (
+              <div className="rounded-xl p-6 text-center text-sm"
+                style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                No upcoming meetings to show. Once your calendar has events in the next 7 days they'll appear here automatically.
+              </div>
+            )}
             {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
                 onToggle={(v) => toggleMeeting(m.id, v)}
@@ -523,7 +486,7 @@ function StyleCard({ Icon, title, desc, active, onClick }: { Icon: any; title: s
   );
 }
 
-function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: typeof MOCK_UPCOMING[0]; enabled: boolean; onToggle: (v: boolean) => void; onOpen?: () => void; }) {
+function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: UpcomingMeeting; enabled: boolean; onToggle: (v: boolean) => void; onOpen?: () => void; }) {
   const platformStyles: Record<string, { bg: string; color: string; label: string }> = {
     teams: { bg: 'rgba(98,100,167,0.18)', color: '#8E91D8', label: 'TEAMS' },
     zoom:  { bg: 'rgba(45,140,255,0.16)', color: '#60A5FA', label: 'ZOOM' },
