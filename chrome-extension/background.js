@@ -40,6 +40,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           streamId,
           sessionId: msg.sessionId,
           token: msg.token,
+          includeMic: true,
           supabaseUrl: INBOXIQ_CONFIG.supabaseUrl,
           supabaseAnonKey: INBOXIQ_CONFIG.supabaseAnonKey,
         });
