@@ -2,7 +2,7 @@
 // Logs every call to llm_call_logs with tokens, cost, latency.
 // Supports: chat completion, tool/function calling, streaming.
 // deno-lint-ignore-file no-explicit-any
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
