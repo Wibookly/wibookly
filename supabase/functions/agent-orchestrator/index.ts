@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 import { callGraph } from "../_shared/graph-call.ts";
+import { finalizeReply, isAuthRelatedToolError } from "./reply-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -158,7 +159,9 @@ Reading file contents (invoices, contracts, spreadsheets):
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
-- If a tool returns no_token / unauthorized / forbidden_scope, surface the friendly reconnect message verbatim.
+- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.
+- If tools run successfully but return no matches, say you couldn't find a reliable match yet and ask for a narrower sender, filename, vendor name, invoice number, or date range.
+- If mail/file search succeeds but the exact answer is still not visible, never blame connection state; explain what was or wasn't found.
 - Cite sources inline with the subject/filename and link when available. Never fabricate.
 - Be concise and structured.`;
 
@@ -586,6 +589,8 @@ Deno.serve(async (req) => {
     let draft: any = null;
     const citations: any[] = [];
     const seenCitationKeys = new Set<string>();
+    let sawAuthToolFailure = false;
+    let sawSuccessfulDataTool = false;
 
     for (let step = 0; step < maxSteps; step++) {
       const llmResp = await callGateway(authHeader, {
@@ -625,6 +630,15 @@ Deno.serve(async (req) => {
         }
         const toolName = call.function?.name || call.name;
         const result = await executeTool(toolName, parsedArgs, ctx);
+        if (isAuthRelatedToolError(result)) {
+          sawAuthToolFailure = true;
+        }
+        if (
+          ["search_outlook_mail", "search_onedrive", "search_sharepoint", "get_calendar_events", "search_context", "get_email_thread"].includes(toolName)
+          && !result?.error
+        ) {
+          sawSuccessfulDataTool = true;
+        }
         if (toolName === "compose_email_draft" && result?.draft) {
           draft = result.draft;
         }
@@ -700,7 +714,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    const finalText = final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request.");
+    const finalText = finalizeReply({
+      finalText: final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request."),
+      sawAuthToolFailure,
+      sawSuccessfulDataTool,
+      citationsLength: citations.length,
+    });
 
     // Persist assistant reply
     const persistedToolCalls = messages
