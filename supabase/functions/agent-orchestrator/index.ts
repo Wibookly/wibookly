@@ -541,13 +541,16 @@ Deno.serve(async (req) => {
 
     const systemPrompt = body.agent === "email_draft" ? DRAFT_SYSTEM : QA_SYSTEM;
     const messages: Msg[] = [{ role: "system", content: systemPrompt }];
+    // Replay only text history. We intentionally drop stored tool_calls because
+    // their matching `tool` result messages are not persisted as separate rows,
+    // and sending assistant.tool_calls without immediate tool responses makes
+    // OpenAI reject the conversation with "tool_calls must be followed by tool
+    // messages responding to each tool_call_id".
     for (const m of prior || []) {
       if (m.role === "user" || m.role === "assistant") {
-        messages.push({
-          role: m.role as any,
-          content: m.content,
-          tool_calls: normalizeToolCalls((m as any).tool_calls),
-        });
+        const content = typeof m.content === "string" ? m.content : (m.content ?? "");
+        if (!content) continue; // skip empty assistant turns that only had tool_calls
+        messages.push({ role: m.role as any, content });
       }
     }
     messages.push({ role: "user", content: body.user_message });
