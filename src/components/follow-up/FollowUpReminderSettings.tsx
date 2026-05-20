@@ -231,7 +231,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
   if (!settings) return null;
 
-  const domain = settings.bcc_domain;
+  // Always derive the BCC domain from the user's actual mailbox so the
+  // instructions on this page work for ANY tenant — no shared mailbox or
+  // hardcoded domain required. The stored bcc_domain is only a fallback.
+  const mailboxDomain =
+    (activeConnection.email?.split('@')[1] || '').trim().toLowerCase() ||
+    settings.bcc_domain;
+  const domain = mailboxDomain;
 
   return (
     <div className="space-y-6">
@@ -239,8 +245,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       <Card className={compact ? 'border-primary/30' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 flex-wrap">
                 <StepBadge n={1} />
                 <Mail className="w-5 h-5 text-primary" /> No Reply Tracker
                 {settings.is_enabled ? (
@@ -249,32 +255,11 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   <Badge variant="outline">Off</Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1.5 max-w-2xl space-y-2">
-                <p>
-                  <strong>Start here.</strong> Turn this master switch ON to unlock every section below.
-                </p>
-                <p>
-                  <strong>1. Track a thread.</strong> BCC <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">N@{domain}</code> on any email you send
-                  (where <em>N</em> is the number of days you'll wait for a reply).
-                </p>
-                <p>
-                  <strong>2. Due date hits, no reply.</strong> InboxIQ moves the original message to your Outlook <strong>Follow-up</strong> folder,
-                  surfaces it in the red <strong>No Reply Tracker</strong> category, and — if Auto Draft is on —
-                  writes a polite nudge into your Drafts.
-                </p>
-                <p>
-                  <strong>3. Up to {settings.reminder_max_count} reminders, then auto-stop.</strong> If you don't act on the draft, InboxIQ pings you
-                  on the schedule below. After <strong>{settings.reminder_max_count}</strong> nudges with no reply and no action, the tracker stops
-                  automatically — the email stays labeled <strong>No Reply Tracker</strong> so you can decide
-                  manually. Once the recipient replies, the tracker clears itself.
-                </p>
-                <p>
-                  <strong>4. Stop a thread anytime.</strong> Send a new email on the thread with BCC
-                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">stop@{domain}</code> (or
-                  {' '}<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">0@{domain}</code>).
-                  InboxIQ cancels the tracker, moves the message back to your inbox, and stops all reminders.
-                  To re-arm, just send another email with a numeric BCC like <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted">2@{domain}</code>.
-                </p>
+              <CardDescription className="mt-1.5 max-w-2xl">
+                Turn this ON, then BCC yourself with a number to track any thread.
+                Works on <strong>any</strong> domain — no shared mailbox or extra
+                inbox required. The BCC address is just a private trigger; it never
+                needs to receive mail.
               </CardDescription>
             </div>
             <Switch
@@ -284,22 +269,71 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             />
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="text-xs text-muted-foreground">
             Active mailbox: <span className="font-mono text-foreground">{activeConnection.email}</span>
+            {' '}· Your trigger domain: <span className="font-mono text-foreground">@{domain}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((d) => (
-              <Badge key={d} variant="outline" className="font-mono">
-                {d}@{domain}
+
+          {/* Visual flow */}
+          <div className="grid md:grid-cols-4 gap-2">
+            <FlowStep
+              n={1}
+              title="BCC a number"
+              body={
+                <>Send your email and BCC <code className="font-mono text-[11px] px-1 rounded bg-muted">N@{domain}</code> where <strong>N</strong> is the days to wait (min 2).</>
+              }
+            />
+            <FlowStep
+              n={2}
+              title="We watch the reply"
+              body="On the due date InboxIQ checks the thread. If the recipient replied, the tracker clears itself."
+            />
+            <FlowStep
+              n={3}
+              title="No reply → nudge"
+              body={
+                <>If still no reply, we tag the message <strong>No Reply Tracker</strong> and (if Auto Draft is on) write a polite follow-up into your Drafts.</>
+              }
+            />
+            <FlowStep
+              n={4}
+              title="Up to 3 attempts"
+              body={
+                <>You get <strong>up to {settings.reminder_max_count} reminders</strong>, then we stop automatically. The label stays so you can decide.</>
+              }
+            />
+          </div>
+
+          {/* Cancel + examples */}
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+            <div className="font-medium text-foreground">Stop or restart anytime</div>
+            <p className="text-xs text-muted-foreground">
+              Reply on the thread with BCC{' '}
+              <code className="font-mono text-[11px] px-1 rounded bg-background border">stop@{domain}</code>{' '}
+              (or <code className="font-mono text-[11px] px-1 rounded bg-background border">0@{domain}</code>) to cancel.
+              To re-arm, send a new email with another numeric BCC like{' '}
+              <code className="font-mono text-[11px] px-1 rounded bg-background border">3@{domain}</code>.
+            </p>
+          </div>
+
+          {/* Sample addresses */}
+          <div>
+            <div className="text-xs text-muted-foreground mb-1.5">Examples for your mailbox:</div>
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((d) => (
+                <Badge key={d} variant="outline" className="font-mono">
+                  {d}@{domain}
+                </Badge>
+              ))}
+              <Badge variant="outline" className="font-mono text-muted-foreground">
+                …any number ≥ 2 works
               </Badge>
-            ))}
-            <Badge variant="outline" className="font-mono text-muted-foreground">
-              …any number works
-            </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
+
 
       {/* Action mode */}
       <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
@@ -587,6 +621,18 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   );
 }
 
+function FlowStep({ n, title, body }: { n: number; title: string; body: React.ReactNode }) {
+  return (
+    <div className="relative rounded-lg border-2 border-[var(--border-strong)] bg-[var(--surface-2)] p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <StepBadge n={n} />
+        <div className="text-sm font-semibold">{title}</div>
+      </div>
+      <div className="text-xs text-muted-foreground leading-relaxed">{body}</div>
+    </div>
+  );
+}
+
 function StepBadge({ n }: { n: number }) {
   return (
     <span
@@ -597,6 +643,7 @@ function StepBadge({ n }: { n: number }) {
     </span>
   );
 }
+
 
 function ActionRow({
   icon: Icon,
