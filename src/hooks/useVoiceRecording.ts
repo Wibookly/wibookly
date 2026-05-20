@@ -105,16 +105,15 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: 
               lastVoiceAtRef.current = now;
               hasSpokenRef.current = true;
             }
-            if (now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              // Silent too long — stop mic to avoid leaving it open.
-              toast.info(
-                hasSpokenRef.current
-                  ? 'Microphone stopped after 5s of silence'
-                  : 'Microphone stopped — no speech detected'
-              );
+            // Only auto-stop AFTER the user has actually started speaking.
+            // This prevents killing the mic while the user is still thinking
+            // (which made it look like the mic "doesn't work").
+            if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
+              toast.info('Microphone stopped after 5s of silence');
               stopRecording();
               return;
             }
+
             silenceRafRef.current = requestAnimationFrame(tick);
           };
           silenceRafRef.current = requestAnimationFrame(tick);
