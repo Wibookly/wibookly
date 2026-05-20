@@ -1100,6 +1100,43 @@ export default function Chat() {
                   <Globe className="h-4 w-4" />
                 </Button>
               )}
+              <Button
+                type="button"
+                variant={deepMode ? 'default' : 'ghost'}
+                size="icon"
+                className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                disabled={isStreaming || limitReached}
+                onClick={() => {
+                  setDeepMode((v) => {
+                    const next = !v;
+                    toast.success(next
+                      ? 'Deep mode ON — thorough multi-step answers, no follow-up questions'
+                      : 'Deep mode OFF');
+                    return next;
+                  });
+                }}
+                title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={voiceOut ? 'default' : 'ghost'}
+                size="icon"
+                className={cn('h-9 w-9 shrink-0', voiceOut && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                disabled={isStreaming || limitReached}
+                onClick={() => {
+                  setVoiceOut((v) => {
+                    const next = !v;
+                    if (!next) stopSpeak();
+                    toast.success(next ? 'Voice replies ON — answers will be spoken aloud' : 'Voice replies OFF');
+                    return next;
+                  });
+                }}
+                title={voiceOut ? 'Voice replies: ON — click to disable' : 'Voice replies: OFF — click to hear answers spoken'}
+              >
+                {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}
