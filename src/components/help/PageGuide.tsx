@@ -39,6 +39,7 @@ export function PageGuide() {
   const storageKey = primary ? `inboxiq-page-guide-dismissed:${primary.id}` : null;
 
   const [collapsed, setCollapsed] = useState(false);
+  const [training, setTraining] = useTrainingMode();
 
   useEffect(() => {
     if (!storageKey) {
