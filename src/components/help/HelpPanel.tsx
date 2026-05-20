@@ -96,6 +96,43 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
     navigate(path);
   };
 
+  // Hover-highlight: temporarily ring & scroll a target element into view.
+  const highlightTarget = (selector?: string) => {
+    if (!selector || typeof document === 'undefined') return;
+    let el: HTMLElement | null = null;
+    try {
+      el = document.querySelector(selector) as HTMLElement | null;
+    } catch {
+      return;
+    }
+    if (!el) return;
+    // Clear any previous
+    document.querySelectorAll('[data-help-highlight="1"]').forEach((n) => {
+      (n as HTMLElement).removeAttribute('data-help-highlight');
+      (n as HTMLElement).style.boxShadow = '';
+      (n as HTMLElement).style.outline = '';
+      (n as HTMLElement).style.borderRadius = '';
+      (n as HTMLElement).style.transition = '';
+    });
+    el.setAttribute('data-help-highlight', '1');
+    el.style.transition = 'box-shadow 200ms ease, outline-color 200ms ease';
+    el.style.outline = '2px solid hsl(var(--primary))';
+    el.style.outlineOffset = '4px';
+    el.style.borderRadius = el.style.borderRadius || '8px';
+    el.style.boxShadow = '0 0 0 6px hsl(var(--primary) / 0.18)';
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+  const clearHighlight = () => {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-help-highlight="1"]').forEach((n) => {
+      const e = n as HTMLElement;
+      e.removeAttribute('data-help-highlight');
+      e.style.boxShadow = '';
+      e.style.outline = '';
+      e.style.outlineOffset = '';
+    });
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
