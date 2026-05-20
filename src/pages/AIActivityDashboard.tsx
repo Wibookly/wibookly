@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon, CalendarCheck } from 'lucide-react';
+import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as MailIcon, CalendarCheck, MessageSquare, Video } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PageHero } from '@/components/app/PageHero';
@@ -19,6 +19,9 @@ interface ActivityStats {
   totalAutoReplies: number;
   totalEmails: number;
   totalScheduledEvents: number;
+  totalChatMessages: number;
+  totalChatConversations: number;
+  totalMeetings: number;
 }
 
 interface DailyActivity {
@@ -39,7 +42,7 @@ export default function AIActivityDashboard() {
   const { user, organization, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0 });
+  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0, totalChatMessages: 0, totalChatConversations: 0, totalMeetings: 0 });
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>('30days');
@@ -72,76 +75,96 @@ export default function AIActivityDashboard() {
   };
 
   useEffect(() => {
-    if (organization?.id && activeConnection?.id) {
+    if (organization?.id && user?.id) {
       fetchActivityData();
     }
-  }, [organization?.id, activeConnection?.id, dateRange, customStartDate, customEndDate]);
+  }, [organization?.id, user?.id, activeConnection?.id, dateRange, customStartDate, customEndDate]);
 
   const fetchActivityData = async () => {
-    if (!organization?.id || !activeConnection?.id) return;
+    if (!organization?.id || !user?.id) return;
     setLoading(true);
 
     try {
       const { start, end } = getDateRange();
+      const startIso = start.toISOString();
+      const endIso = end.toISOString();
 
-      // Fetch activity logs filtered by connection
-      const { data: logs, error } = await supabase
+      // AI activity logs (drafts, auto-replies, scheduled events) - scoped to current user
+      let activityQuery = supabase
         .from('ai_activity_logs')
         .select('*')
         .eq('organization_id', organization.id)
-        .eq('connection_id', activeConnection.id)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
+        .eq('user_id', user.id)
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching activity logs:', error);
-        setLoading(false);
-        return;
+      if (activeConnection?.id) {
+        activityQuery = activityQuery.eq('connection_id', activeConnection.id);
       }
 
-      // Calculate stats
-      const drafts = logs?.filter(l => l.activity_type === 'draft') || [];
-      const autoReplies = logs?.filter(l => l.activity_type === 'auto_reply') || [];
-      const scheduledEvents = logs?.filter(l => l.activity_type === 'scheduled_event') || [];
+      const [activityRes, chatMsgRes, chatConvRes, meetingsRes] = await Promise.all([
+        activityQuery,
+        supabase
+          .from('chat_messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('role', 'user')
+          .gte('created_at', startIso)
+          .lte('created_at', endIso),
+        supabase
+          .from('chat_conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startIso)
+          .lte('created_at', endIso),
+        supabase
+          .from('meeting_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('started_at', startIso)
+          .lte('started_at', endIso),
+      ]);
+
+      const logs = activityRes.data || [];
+      if (activityRes.error) console.error('Error fetching activity logs:', activityRes.error);
+
+      const drafts = logs.filter(l => l.activity_type === 'draft');
+      const autoReplies = logs.filter(l => l.activity_type === 'auto_reply');
+      const scheduledEvents = logs.filter(l => l.activity_type === 'scheduled_event');
 
       setStats({
         totalDrafts: drafts.length,
         totalAutoReplies: autoReplies.length,
-        totalEmails: logs?.length || 0,
-        totalScheduledEvents: scheduledEvents.length
+        totalEmails: logs.length,
+        totalScheduledEvents: scheduledEvents.length,
+        totalChatMessages: chatMsgRes.count || 0,
+        totalChatConversations: chatConvRes.count || 0,
+        totalMeetings: meetingsRes.count || 0,
       });
 
-      // Calculate daily activity
+      // Daily activity (drafts + auto-replies)
       const dailyMap = new Map<string, { drafts: number; autoReplies: number }>();
-      logs?.forEach(log => {
+      logs.forEach(log => {
         const date = format(new Date(log.created_at), 'yyyy-MM-dd');
         const current = dailyMap.get(date) || { drafts: 0, autoReplies: 0 };
-        if (log.activity_type === 'draft') {
-          current.drafts++;
-        } else {
-          current.autoReplies++;
-        }
+        if (log.activity_type === 'draft') current.drafts++;
+        else if (log.activity_type === 'auto_reply') current.autoReplies++;
         dailyMap.set(date, current);
       });
-
       const dailyData: DailyActivity[] = Array.from(dailyMap.entries())
         .map(([date, data]) => ({ date, ...data }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setDailyActivity(dailyData);
 
-      // Calculate category breakdown
+      // Category breakdown
       const categoryMap = new Map<string, { drafts: number; autoReplies: number }>();
-      logs?.forEach(log => {
+      logs.forEach(log => {
         const current = categoryMap.get(log.category_name) || { drafts: 0, autoReplies: 0 };
-        if (log.activity_type === 'draft') {
-          current.drafts++;
-        } else {
-          current.autoReplies++;
-        }
+        if (log.activity_type === 'draft') current.drafts++;
+        else if (log.activity_type === 'auto_reply') current.autoReplies++;
         categoryMap.set(log.category_name, current);
       });
-
       const categoryData: CategoryBreakdown[] = Array.from(categoryMap.entries())
         .map(([categoryName, data]) => ({ categoryName, ...data }))
         .sort((a, b) => (b.drafts + b.autoReplies) - (a.drafts + a.autoReplies));
@@ -161,11 +184,12 @@ export default function AIActivityDashboard() {
 
       // Create CSV content
       const headers = ['Date', 'Category', 'Activity Type', 'Email Subject', 'Email From'];
-      
+
       const { data: logs } = await supabase
         .from('ai_activity_logs')
         .select('*')
         .eq('organization_id', organization?.id)
+        .eq('user_id', user?.id)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
@@ -204,27 +228,8 @@ export default function AIActivityDashboard() {
     );
   }
 
-  if (!activeConnection) {
-    return (
-      <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-        <div className="mb-4 flex justify-end">
-          <UserAvatarDropdown />
-        </div>
-        <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <MailIcon className="w-12 h-12 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
-            <p className="text-muted-foreground mb-6">
-              Connect a Gmail or Outlook account to view AI activity
-            </p>
-            <Button onClick={() => window.location.href = '/integrations'}>
-              Connect Email Account
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Note: we no longer block when there's no active connection — chat & meeting
+  // activity exist independent of an email connection.
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
@@ -236,7 +241,7 @@ export default function AIActivityDashboard() {
       <PageHero
         eyebrow="Reports"
         title="AI Activity"
-        description="Track AI-generated drafts, auto-replies, and calendar events across your organization."
+        description="Your personal AI activity — drafts, auto-replies, scheduled events, chats and meetings. Filter by date range."
         accent="green"
         icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
       />
@@ -300,7 +305,7 @@ export default function AIActivityDashboard() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">AI Drafts Created</CardTitle>
@@ -342,6 +347,30 @@ export default function AIActivityDashboard() {
               <CardContent>
                 <div className="text-3xl font-bold">{stats.totalEmails}</div>
                 <p className="text-xs text-muted-foreground mt-1">All AI-handled emails</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">AI Chats</CardTitle>
+                <MessageSquare className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.totalChatMessages}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.totalChatConversations} conversation{stats.totalChatConversations === 1 ? '' : 's'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Meeting Copilot</CardTitle>
+                <Video className="h-4 w-4 text-pink-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.totalMeetings}</div>
+                <p className="text-xs text-muted-foreground mt-1">Meetings assisted</p>
               </CardContent>
             </Card>
           </div>
