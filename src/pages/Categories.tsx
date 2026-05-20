@@ -241,8 +241,28 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
         />
       </TableCell>
         <TableCell>
-          <div className="text-sm text-muted-foreground">
-            {WRITING_STYLES.find(s => s.value === category.writing_style)?.label || 'Professional & Polished'}
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground flex-1 truncate">
+              {WRITING_STYLES.find(s => s.value === category.writing_style)?.label || 'Professional & Polished'}
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 gap-1 rounded-full"
+                    onClick={() => onConfigureTone(category)}
+                    disabled={!category.is_enabled}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Tone
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Configure AI tone for this category</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </TableCell>
       <TableCell className="text-center">
@@ -264,7 +284,10 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
               <span className="inline-block">
                 <Switch
                   checked={category.ai_draft_enabled}
-                  onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
+                  onCheckedChange={(checked) => {
+                    updateCategory(category.id, 'ai_draft_enabled', checked);
+                    if (checked && !category.ai_draft_enabled) onConfigureTone(category);
+                  }}
                   disabled={!category.is_enabled}
                 />
               </span>
@@ -282,7 +305,10 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
               <span className="inline-block">
                 <Switch
                   checked={category.auto_reply_enabled}
-                  onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
+                  onCheckedChange={(checked) => {
+                    updateCategory(category.id, 'auto_reply_enabled', checked);
+                    if (checked && !category.auto_reply_enabled) onConfigureTone(category);
+                  }}
                   disabled={!category.is_enabled || !category.ai_draft_enabled}
                 />
               </span>
