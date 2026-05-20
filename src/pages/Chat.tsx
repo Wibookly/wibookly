@@ -1269,6 +1269,7 @@ export default function Chat() {
                   });
                 }}
                 title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
+                data-tour="chat-deep"
               >
                 <Sparkles className="h-4 w-4" />
               </Button>
@@ -1281,6 +1282,7 @@ export default function Chat() {
                 disabled={isStreaming || limitReached}
                 rows={1}
                 className="flex-1 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
+                data-tour="chat-input"
               />
               <Button
                 size="icon"
