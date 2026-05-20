@@ -22,13 +22,28 @@ export function looksLikeReconnectResponse(text: string): boolean {
   return RECONNECT_RESPONSE_RE.test(text || "");
 }
 
+// Structured failure record collected during a tool loop. Used by clients to
+// decide if a reconnect prompt should appear (only when kind === 'unauthorized'
+// or 'no_token').
+export type ToolFailure = {
+  tool: string;
+  kind: "no_token" | "unauthorized" | "forbidden_scope" | "other";
+  file?: string;
+  reason: string;
+};
+
 export function finalizeReply(input: {
   finalText: string;
   sawAuthToolFailure: boolean;
   sawSuccessfulDataTool: boolean;
   citationsLength: number;
+  // When a pre-flight probe confirms the token still works, suppress the
+  // reconnect prompt — the failure was almost certainly transient.
+  authProbeOk?: boolean;
 }) {
-  if (input.sawAuthToolFailure) {
+  const realAuthFailure = input.sawAuthToolFailure && input.authProbeOk !== true;
+
+  if (realAuthFailure) {
     return FRIENDLY_RECONNECT_MESSAGE;
   }
 

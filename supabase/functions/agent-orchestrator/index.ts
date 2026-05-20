@@ -3,7 +3,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } from "../_shared/enforce-limits.ts";
 import { callGraph } from "../_shared/graph-call.ts";
-import { finalizeReply, isAuthRelatedToolError } from "./reply-guards.ts";
+import { getValidAccessToken } from "../_shared/oauth-tokens.ts";
+import { probeMicrosoftGraph } from "../_shared/token-probe.ts";
+import { finalizeReply, isAuthRelatedToolError, type ToolFailure } from "./reply-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -242,7 +244,33 @@ async function callRetrieve(
   return await resp.json();
 }
 
+// Cache token-validity per (user, connection) for the lifetime of one request,
+// so we don't probe the vault for every attachment in a batch.
+const tokenAssertionCache = new Map<string, { ok: boolean; reason?: string; at: number }>();
+
+async function assertFreshToken(userId: string, connectionId: string): Promise<{ ok: boolean; reason?: string }> {
+  const key = `${userId}:${connectionId}`;
+  const cached = tokenAssertionCache.get(key);
+  if (cached && Date.now() - cached.at < 30_000) return cached;
+  const token = await getValidAccessToken(userId, "outlook", connectionId);
+  const entry = token
+    ? { ok: true, at: Date.now() }
+    : { ok: false, reason: "no_token", at: Date.now() };
+  tokenAssertionCache.set(key, entry);
+  return entry;
+}
+
 async function callExtract(authHeader: string, userId: string, payload: Record<string, unknown>): Promise<any> {
+  // 10. Token-refresh assertion: before downloading/extracting, make sure we
+  // actually have a fresh valid token. If not, short-circuit with a single
+  // clear error instead of letting Graph fail per-file with confusing kinds.
+  const connId = String(payload.connection_id || "");
+  if (connId) {
+    const assertion = await assertFreshToken(userId, connId);
+    if (!assertion.ok) {
+      return { ok: false, status: 401, error: "no valid access token (refresh failed)", error_kind: "no_token" };
+    }
+  }
   try {
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/m365-extract-file`, {
       method: "POST",
@@ -676,6 +704,8 @@ Deno.serve(async (req) => {
     const seenCitationKeys = new Set<string>();
     let sawAuthToolFailure = false;
     let sawSuccessfulDataTool = false;
+    const failures: ToolFailure[] = [];
+    const diagnosticRows: any[] = [];
 
     for (let step = 0; step < maxSteps; step++) {
       const llmResp = await callGateway(authHeader, {
@@ -714,10 +744,46 @@ Deno.serve(async (req) => {
           parsedArgs = {};
         }
         const toolName = call.function?.name || call.name;
+        const toolStart = Date.now();
         const result = await executeTool(toolName, parsedArgs, ctx);
-        if (isAuthRelatedToolError(result)) {
+        const toolDuration = Date.now() - toolStart;
+        const isAuthErr = isAuthRelatedToolError(result);
+        if (isAuthErr) {
           sawAuthToolFailure = true;
         }
+        // 7. Structured failures[] — collect every nested or top-level error
+        // with its kind so the client (and admin) can distinguish auth issues
+        // from parser/transient failures.
+        const collectFailure = (kind: ToolFailure["kind"], reason: string, file?: string) => {
+          failures.push({ tool: toolName, kind, reason: reason.slice(0, 240), file });
+        };
+        if (result?.error) {
+          const errKind = result?.error?.kind === "no_token" || result?.error?.kind === "unauthorized" || result?.error?.kind === "forbidden_scope"
+            ? result.error.kind : "other";
+          const errMsg = typeof result.error === "string" ? result.error : (result.error?.message || JSON.stringify(result.error));
+          collectFailure(errKind as ToolFailure["kind"], errMsg);
+        }
+        if (Array.isArray(result?.extracted)) {
+          for (const ex of result.extracted) {
+            if (ex?.error || ex?.error_kind) {
+              const kind = (ex.error_kind === "no_token" || ex.error_kind === "unauthorized" || ex.error_kind === "forbidden_scope")
+                ? ex.error_kind : "other";
+              collectFailure(kind, String(ex.error || ex.error_kind || "extraction error"), ex.attachment_name || ex.file_name);
+            }
+          }
+        }
+        // 8. tool_diagnostics — buffer rows; flushed after the loop.
+        diagnosticRows.push({
+          user_id: user.id,
+          organization_id: organization_id || null,
+          connection_id: body.connection_id,
+          conversation_id,
+          tool: toolName,
+          status: result?.error ? "error" : "ok",
+          error_kind: result?.error?.kind || (isAuthErr ? "unauthorized" : null),
+          error_message: result?.error ? (typeof result.error === "string" ? result.error : JSON.stringify(result.error)).slice(0, 500) : null,
+          duration_ms: toolDuration,
+        });
         if (
           ["search_outlook_mail", "search_onedrive", "search_sharepoint", "get_calendar_events", "search_context", "get_email_thread"].includes(toolName)
           && !result?.error
@@ -799,12 +865,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 6. Pre-flight probe — if any tool reported an auth failure, verify the
+    // token still actually works against Graph before telling the user to
+    // reconnect. Suppresses false reauth prompts when failures were transient.
+    let authProbeOk: boolean | undefined;
+    if (sawAuthToolFailure) {
+      try {
+        const probe = await probeMicrosoftGraph(user.id, body.connection_id);
+        authProbeOk = probe.ok;
+      } catch (e) {
+        console.error("agent-orchestrator probe failed", e);
+        authProbeOk = false;
+      }
+    }
+
     const finalText = finalizeReply({
       finalText: final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request."),
       sawAuthToolFailure,
       sawSuccessfulDataTool,
       citationsLength: citations.length,
+      authProbeOk,
     });
+
+    // 8. flush tool diagnostics (best-effort)
+    if (diagnosticRows.length) {
+      try { await admin.from("tool_diagnostics").insert(diagnosticRows); }
+      catch (e) { console.error("tool_diagnostics insert failed", e); }
+    }
 
     // Persist assistant reply
     const persistedToolCalls = messages
@@ -846,6 +933,10 @@ Deno.serve(async (req) => {
         reply: finalText,
         draft,
         citations,
+        // 7. structured failures so the UI/admin can render reauth ONLY when
+        // failures.some(f => f.kind === 'unauthorized' || f.kind === 'no_token')
+        failures: failures.length ? failures : [],
+        auth_probe_ok: authProbeOk ?? null,
         model,
         usage: lastUsage,
       }),

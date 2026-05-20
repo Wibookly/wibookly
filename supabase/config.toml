@@ -55,3 +55,5 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.test-microsoft-connection]
     verify_jwt = false
+  [functions.extraction-regression-check]
+    verify_jwt = false
