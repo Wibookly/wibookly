@@ -150,6 +150,11 @@ export default function Chat() {
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
+  const [locationEnabled, setLocationEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const v = localStorage.getItem('inboxiq-chat-location');
+    return v === null ? true : v === '1';
+  });
   const [deepMode, setDeepMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('inboxiq-chat-deep') === '1';
@@ -157,6 +162,37 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-location', locationEnabled ? '1' : '0'); }, [locationEnabled]);
+
+  // Capture timezone + best-effort geolocation whenever location sharing is on.
+  // Runs on mount (default on) and whenever the user re-enables it.
+  useEffect(() => {
+    if (!locationEnabled) { setUserLocation(null); return; }
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setUserLocation((prev) => ({ ...(prev || {}), timezone: tz }));
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+            { headers: { 'Accept-Language': 'en' } },
+          );
+          const j = await r.json();
+          const a = j.address || {};
+          setUserLocation({
+            city: a.city || a.town || a.village || a.hamlet,
+            region: a.state || a.region,
+            country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+            timezone: tz,
+          });
+        } catch {/* keep timezone-only fallback */}
+      },
+      () => {/* permission denied — keep timezone-only */},
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, [locationEnabled]);
+
 
   const speak = useCallback((text: string, id: string) => {
     try {
