@@ -1057,6 +1057,23 @@ export default function Chat() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
+              <Button
+                type="button"
+                variant={isRecording ? 'default' : 'ghost'}
+                size="icon"
+                className={cn(
+                  'h-9 w-9 shrink-0',
+                  isRecording && 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse',
+                )}
+                disabled={isStreaming || limitReached || isTranscribing}
+                onClick={() => (isRecording ? stopRecording() : startRecording())}
+                title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Hold to talk — speak your message'}
+              >
+                {isTranscribing
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : isRecording
+                    ? <Square className="h-4 w-4" />
+                    : <Mic className="h-4 w-4" />}
               {canWebSearch && (
                 <Button
                   type="button"
