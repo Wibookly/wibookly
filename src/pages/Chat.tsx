@@ -1261,17 +1261,23 @@ function MessageBubble({
           <CitationChips citations={message.citations} />
         )}
         {!isUser && !streaming && (
-          <div className="flex gap-1 opacity-60 hover:opacity-100 transition">
+          <div className="flex gap-1 items-center mt-1">
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
               <Copy className="h-3.5 w-3.5" />
             </button>
             {onSpeak && (
               <button
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
-                className={cn('p-1 hover:bg-accent rounded', isSpeaking ? 'text-primary' : 'text-muted-foreground')}
-                title={isSpeaking ? 'Stop speaking' : 'Read aloud'}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
+                  isSpeaking
+                    ? 'bg-primary/10 text-primary border-primary/30'
+                    : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
+                )}
+                title={isSpeaking ? 'Stop reading' : 'Read this reply aloud'}
               >
                 {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                <span>{isSpeaking ? 'Stop' : 'Play'}</span>
               </button>
             )}
           </div>
