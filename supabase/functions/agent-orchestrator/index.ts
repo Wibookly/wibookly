@@ -242,18 +242,36 @@ async function callRetrieve(
   return await resp.json();
 }
 
-async function callExtract(authHeader: string, payload: Record<string, unknown>): Promise<any> {
+async function callExtract(authHeader: string, userId: string, payload: Record<string, unknown>): Promise<any> {
   try {
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/m365-extract-file`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        "x-internal-user-id": userId,
+        apikey: ANON_KEY,
+      },
       body: JSON.stringify(payload),
     });
     const json = await resp.json().catch(() => ({}));
-    if (!resp.ok) return { ok: false, status: resp.status, error: json?.error || `HTTP ${resp.status}` };
+    if (!resp.ok) {
+      const rawError = json?.error || `HTTP ${resp.status}`;
+      const message = typeof rawError === "string" ? rawError : JSON.stringify(rawError);
+      const lower = message.toLowerCase();
+      const errorKind = lower.includes("no valid access token") || lower.includes("token expired")
+        ? "no_token"
+        : lower.includes("access is denied") || lower.includes("insufficient privileges") || lower.includes("forbidden")
+          ? "forbidden_scope"
+          : resp.status === 401
+            ? "unauthorized"
+            : "other";
+      return { ok: false, status: resp.status, error: message, error_kind: errorKind };
+    }
     return { ok: true, ...json };
   } catch (e) {
-    return { ok: false, error: String((e as Error)?.message || e) };
+    const message = String((e as Error)?.message || e);
+    return { ok: false, error: message, error_kind: "other" };
   }
 }
 
@@ -318,7 +336,7 @@ async function executeTool(
           const odataType = att["@odata.type"] || "";
           if (!odataType.includes("fileAttachment")) continue; // skip itemAttachment/referenceAttachment
           if (!EXTRACTABLE_EXT.test(att.name || "")) continue;
-          const ex = await callExtract(ctx.authHeader, {
+          const ex = await callExtract(ctx.authHeader, ctx.user_id, {
             connection_id: ctx.connection_id,
             source_type: "mail_attachment",
             external_id: `${m.id}:${att.id}`,
@@ -335,6 +353,7 @@ async function executeTool(
             status: ex.status || (ex.ok ? "ok" : "error"),
             document_id: ex.document_id,
             extracted_metadata: ex.extracted_metadata,
+            error_kind: ex.error_kind,
             error: ex.error,
           });
         }
@@ -365,7 +384,7 @@ async function executeTool(
       for (const f of items) {
         if (f.kind === "folder") continue;
         if (!EXTRACTABLE_EXT.test(f.name || "")) continue;
-        const ex = await callExtract(ctx.authHeader, {
+        const ex = await callExtract(ctx.authHeader, ctx.user_id, {
           connection_id: ctx.connection_id,
           source_type: "onedrive",
           external_id: f.id,
@@ -380,6 +399,7 @@ async function executeTool(
           status: ex.status || (ex.ok ? "ok" : "error"),
           document_id: ex.document_id,
           extracted_metadata: ex.extracted_metadata,
+          error_kind: ex.error_kind,
           error: ex.error,
         });
       }
@@ -425,7 +445,7 @@ async function executeTool(
       for (const it of items) {
         if (!it.drive_id || !it.item_id) continue;
         if (!it.name || !EXTRACTABLE_EXT.test(it.name)) continue;
-        const ex = await callExtract(ctx.authHeader, {
+        const ex = await callExtract(ctx.authHeader, ctx.user_id, {
           connection_id: ctx.connection_id,
           source_type: "sharepoint",
           external_id: `${it.drive_id}:${it.item_id}`,
@@ -440,6 +460,7 @@ async function executeTool(
           status: ex.status || (ex.ok ? "ok" : "error"),
           document_id: ex.document_id,
           extracted_metadata: ex.extracted_metadata,
+          error_kind: ex.error_kind,
           error: ex.error,
         });
       }
