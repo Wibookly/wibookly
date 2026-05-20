@@ -549,17 +549,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Internal server-to-server invocation: trusted callers (e.g. graph-mail-webhook
+    // routing an inbound email for a licensed user) pass the service-role key plus
+    // the resolved user id in `x-internal-user-id`. Same pattern as llm-gateway.
+    const bearerToken = authHeader.slice("Bearer ".length).trim();
+    const internalUserId = req.headers.get("x-internal-user-id") || "";
+    let user: { id: string };
+    if (bearerToken === SERVICE_ROLE_KEY && internalUserId) {
+      user = { id: internalUserId };
+    } else {
+      const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      user = { id: userData.user.id };
     }
-    const user = userData.user;
 
     const body = (await req.json()) as OrchestrateRequest;
     if (!body?.connection_id || !body?.agent || !body?.user_message) {
