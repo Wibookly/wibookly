@@ -1137,12 +1137,14 @@ export default function Chat() {
         <div className="border-t border-border bg-background">
           <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
             {messages.length > 0 && (
-              <ChatCapacityMeter
-                messages={messages}
-                streamingText={streamingText}
-                onSummarizeAndContinue={handleSummarizeAndContinue}
-                summarizing={summarizing}
-              />
+              <div data-tour="chat-capacity">
+                <ChatCapacityMeter
+                  messages={messages}
+                  streamingText={streamingText}
+                  onSummarizeAndContinue={handleSummarizeAndContinue}
+                  summarizing={summarizing}
+                />
+              </div>
             )}
 
             {files.length > 0 && (
