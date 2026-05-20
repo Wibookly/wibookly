@@ -92,6 +92,7 @@ export function AppLayout() {
       {/* Global help affordances */}
       <HelpLauncher />
       <PageGuide />
+      <GuidedTour />
       <SetupWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
