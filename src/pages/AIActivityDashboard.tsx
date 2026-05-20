@@ -241,7 +241,7 @@ export default function AIActivityDashboard() {
       <PageHero
         eyebrow="Reports"
         title="AI Activity"
-        description="Track AI-generated drafts, auto-replies, and calendar events across your organization."
+        description="Your personal AI activity — drafts, auto-replies, scheduled events, chats and meetings. Filter by date range."
         accent="green"
         icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
       />
