@@ -32,6 +32,9 @@ interface Body {
   attachments?: string[];
   attachment_refs?: AttachmentRef[];
   stream?: boolean;
+  web_search?: boolean;
+  deep?: boolean;
+  user_location?: { city?: string; region?: string; country?: string; timezone?: string };
 }
 
 function sseEvent(data: unknown): string {
