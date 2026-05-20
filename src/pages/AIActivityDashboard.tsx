@@ -19,6 +19,9 @@ interface ActivityStats {
   totalAutoReplies: number;
   totalEmails: number;
   totalScheduledEvents: number;
+  totalChatMessages: number;
+  totalChatConversations: number;
+  totalMeetings: number;
 }
 
 interface DailyActivity {
