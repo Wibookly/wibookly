@@ -499,8 +499,8 @@ export default function Chat() {
     const t = toast.loading('Generating handoff summary…');
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Not authenticated');
+      if (!session?.access_token) throw new Error('Not authenticated');
+
 
       // Build a compact transcript from in-memory messages to send to a
       // lightweight summarizer model. We do NOT route this through the
