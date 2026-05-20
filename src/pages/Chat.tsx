@@ -486,6 +486,87 @@ export default function Chat() {
     }
   };
 
+  // === Summarize current chat + continue in a fresh one ===
+  const [summarizing, setSummarizing] = useState(false);
+  const handleSummarizeAndContinue = useCallback(async () => {
+    if (summarizing) return;
+    if (messages.length < 2) {
+      toast.info('Send a few messages first before summarizing.');
+      return;
+    }
+    setSummarizing(true);
+    const t = toast.loading('Generating handoff summary…');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      // Build a compact transcript from in-memory messages to send to a
+      // lightweight summarizer model. We do NOT route this through the
+      // streaming agent (no tool calls needed).
+      const transcript = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-40) // cap so the summarizer prompt stays small
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${(m.content || '').slice(0, 2000)}`)
+        .join('\n\n');
+
+      const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          // Fresh, ephemeral conversation — do NOT pollute current thread.
+          ephemeral: true,
+          stream: false,
+          message:
+            `You are creating a handoff summary so the user can continue this conversation in a fresh chat without losing context.\n\n` +
+            `Write a concise markdown summary (≤ 250 words) with these sections:\n` +
+            `**Topic** — one line.\n` +
+            `**Key facts & data** — bullets of names, numbers, dates, decisions established so far.\n` +
+            `**Open questions / next steps** — what we were about to do.\n` +
+            `**Preferences** — any style/format/tool preferences the user expressed.\n\n` +
+            `Do not address the user. Do not include greetings. Output only the markdown summary.\n\n` +
+            `--- Conversation transcript ---\n${transcript}`,
+        }),
+      });
+
+      let summary = '';
+      try {
+        const data = await resp.json();
+        summary = (data?.reply || data?.message || data?.content || '').trim();
+      } catch {/* ignore */}
+
+      if (!summary) {
+        // Fallback: lightweight local summary so the user is never blocked.
+        summary = `**Continuing previous conversation**\n\n` +
+          messages.slice(-6).map((m) => `- **${m.role}:** ${(m.content || '').slice(0, 240)}`).join('\n');
+      }
+
+      // Start a fresh chat seeded with the summary as the first user message.
+      handleNewChat(activeFolderId);
+      const seed = `📋 **Carried over from previous chat:**\n\n${summary}\n\n---\n\nContinue from here:`;
+      setInput(seed);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        // Scroll cursor to end so user can keep typing.
+        const el = textareaRef.current;
+        if (el) { el.selectionStart = el.selectionEnd = el.value.length; }
+      });
+      toast.success('Summary ready in your new chat', { id: t });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not generate summary', { id: t });
+    } finally {
+      setSummarizing(false);
+    }
+  }, [summarizing, messages, activeFolderId]);
+
+
+
   const expiringSoon = useMemo(
     () => conversations.filter((c) => daysUntilExpiry(c.created_at) <= EXPIRY_WARN_DAYS),
     [conversations],
