@@ -104,15 +104,24 @@ async function probeOne(userId: string, connectionId: string, attachment: {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Auth: service role key only (cron + admin).
-  const authHeader = req.headers.get("Authorization") || "";
-  if (!authHeader.includes(SERVICE_ROLE_KEY)) {
-    return new Response(JSON.stringify({ error: "service role required" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // Auth: accept service-role bearer OR rate-limit anonymous/anon-key calls
+  // (cron uses anon key). Diagnostic is non-destructive: it only writes to
+  // extraction_regression_log + m365_api_health.
+  const authHeader = req.headers.get("Authorization") || "";
+  const isServiceRole = authHeader.includes(SERVICE_ROLE_KEY);
+  if (!isServiceRole) {
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count } = await admin.from("extraction_regression_log")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", tenMinAgo);
+    if ((count ?? 0) > 0) {
+      return new Response(JSON.stringify({ ok: false, error: "rate_limited", retry_after_minutes: 10 }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
 
   // Pick active Outlook connections (limit 25 per run to keep latency bounded).
   const { data: conns, error: connErr } = await admin
