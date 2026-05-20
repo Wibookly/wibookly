@@ -744,10 +744,46 @@ Deno.serve(async (req) => {
           parsedArgs = {};
         }
         const toolName = call.function?.name || call.name;
+        const toolStart = Date.now();
         const result = await executeTool(toolName, parsedArgs, ctx);
-        if (isAuthRelatedToolError(result)) {
+        const toolDuration = Date.now() - toolStart;
+        const isAuthErr = isAuthRelatedToolError(result);
+        if (isAuthErr) {
           sawAuthToolFailure = true;
         }
+        // 7. Structured failures[] — collect every nested or top-level error
+        // with its kind so the client (and admin) can distinguish auth issues
+        // from parser/transient failures.
+        const collectFailure = (kind: ToolFailure["kind"], reason: string, file?: string) => {
+          failures.push({ tool: toolName, kind, reason: reason.slice(0, 240), file });
+        };
+        if (result?.error) {
+          const errKind = result?.error?.kind === "no_token" || result?.error?.kind === "unauthorized" || result?.error?.kind === "forbidden_scope"
+            ? result.error.kind : "other";
+          const errMsg = typeof result.error === "string" ? result.error : (result.error?.message || JSON.stringify(result.error));
+          collectFailure(errKind as ToolFailure["kind"], errMsg);
+        }
+        if (Array.isArray(result?.extracted)) {
+          for (const ex of result.extracted) {
+            if (ex?.error || ex?.error_kind) {
+              const kind = (ex.error_kind === "no_token" || ex.error_kind === "unauthorized" || ex.error_kind === "forbidden_scope")
+                ? ex.error_kind : "other";
+              collectFailure(kind, String(ex.error || ex.error_kind || "extraction error"), ex.attachment_name || ex.file_name);
+            }
+          }
+        }
+        // 8. tool_diagnostics — buffer rows; flushed after the loop.
+        diagnosticRows.push({
+          user_id: user.id,
+          organization_id: organization_id || null,
+          connection_id: body.connection_id,
+          conversation_id,
+          tool: toolName,
+          status: result?.error ? "error" : "ok",
+          error_kind: result?.error?.kind || (isAuthErr ? "unauthorized" : null),
+          error_message: result?.error ? (typeof result.error === "string" ? result.error : JSON.stringify(result.error)).slice(0, 500) : null,
+          duration_ms: toolDuration,
+        });
         if (
           ["search_outlook_mail", "search_onedrive", "search_sharepoint", "get_calendar_events", "search_context", "get_email_thread"].includes(toolName)
           && !result?.error
