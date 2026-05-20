@@ -9,6 +9,7 @@ import { OceanWaves } from '@/components/theme/OceanWaves';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { HelpLauncher } from '@/components/help/HelpLauncher';
+import { PageGuide } from '@/components/help/PageGuide';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
@@ -89,6 +90,7 @@ export function AppLayout() {
 
       {/* Global help affordances */}
       <HelpLauncher />
+      <PageGuide />
       <SetupWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}

@@ -83,7 +83,7 @@ export function PageGuide() {
       className={cn(
         'fixed bottom-4 left-4 z-40 flex items-stretch rounded-full',
         'bg-primary text-primary-foreground shadow-xl',
-        'ring-2 ring-primary/30 animate-pulse-slow',
+        'ring-2 ring-primary/30',
       )}
       style={{
         // Soft glow so it visibly illuminates on dark + light themes.
