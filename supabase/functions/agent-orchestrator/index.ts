@@ -549,6 +549,30 @@ Deno.serve(async (req) => {
 
     const baseSystem = body.agent === "email_draft" ? DRAFT_SYSTEM : QA_SYSTEM;
     const extras: string[] = [];
+
+    // Mailbox scoping — the agent must answer ONLY from the connected account.
+    const { data: activeConn } = await admin
+      .from("provider_connections")
+      .select("connected_email, provider, organization_id")
+      .eq("id", body.connection_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const mbEmail = activeConn?.connected_email || "unknown";
+    const mbProvider = activeConn?.provider || "unknown";
+    const tenantDomain = mbEmail.includes("@") ? mbEmail.split("@")[1] : "unknown";
+    extras.push(
+      `ACTIVE MAILBOX SCOPE (STRICT):\n` +
+      `• Connected account: ${mbEmail} (provider: ${mbProvider}, tenant: ${tenantDomain})\n` +
+      `• All email, calendar, OneDrive and SharePoint tools are bound to THIS account only via connection_id. ` +
+      `Never invent or assume data from other tenants or mailboxes.\n` +
+      `• When the user asks for counts/lists (e.g. "all Microsoft invoices this month"), you MUST: ` +
+      `(1) call search_email / search_mail tools with an explicit date range and matching keywords, ` +
+      `(2) paginate until results are exhausted or clearly capped, ` +
+      `(3) report the exact number found, the date window used, the search query used, and the mailbox (${mbEmail}). ` +
+      `If results may be truncated, say so explicitly. Do NOT estimate or generalize.\n` +
+      `• If a tool returns 0 results, say "0 found in ${mbEmail} for <query> between <dates>" — never substitute generic knowledge.`
+    );
+
     if (body.web_search) {
       const loc = body.user_location || {};
       const locStr = [loc.city, loc.region, loc.country].filter(Boolean).join(", ");
