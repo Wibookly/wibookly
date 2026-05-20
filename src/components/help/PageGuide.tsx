@@ -1,20 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, X } from 'lucide-react';
+import { Sparkles, X, Compass } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getContextualArticles } from '@/config/help-content';
-import { OPEN_HELP_PANEL_EVENT, type OpenHelpPanelDetail } from './events';
+import { getContextualArticles, type HelpArticle } from '@/config/help-content';
+import {
+  OPEN_HELP_PANEL_EVENT,
+  START_GUIDED_TOUR_EVENT,
+  type OpenHelpPanelDetail,
+  type StartGuidedTourDetail,
+} from './events';
 
 /**
- * Floating "Guide me through this page" pill, anchored bottom-left.
+ * Floating page-guide affordance, anchored bottom-left.
  *
  * - Auto-detects the current route's primary contextual help article.
- * - Pulses gently so users notice it the first time they land on a page.
- * - Click → opens the global Help panel deep-linked to that article
- *   (step-by-step instructions for every button/toggle on the page).
- * - Per-page dismiss is remembered in localStorage; dismissed pages
- *   collapse to a small icon that can be re-expanded.
+ * - When that article has steps with `target` selectors, exposes a primary
+ *   "Tour this page" button that launches the GuidedTour overlay (spotlights
+ *   each element as it's described).
+ * - Always exposes a secondary "Read guide" affordance that opens the Help
+ *   panel deep-linked to the same article (full text + screenshots).
+ * - Per-page dismiss is remembered in localStorage; dismissed pages collapse
+ *   to a small icon that can be re-expanded.
  */
+
+function hasTour(article: HelpArticle | undefined) {
+  return !!article?.steps?.some((s) => !!s.target);
+}
+
 export function PageGuide() {
   const location = useLocation();
   const articles = useMemo(
@@ -22,11 +34,11 @@ export function PageGuide() {
     [location.pathname],
   );
   const primary = articles[0];
+  const tourAvailable = hasTour(primary);
   const storageKey = primary ? `inboxiq-page-guide-dismissed:${primary.id}` : null;
 
   const [collapsed, setCollapsed] = useState(false);
 
-  // Re-check dismissed state on every route change.
   useEffect(() => {
     if (!storageKey) {
       setCollapsed(false);
@@ -41,9 +53,17 @@ export function PageGuide() {
 
   if (!primary) return null;
 
-  const open = () => {
+  const openPanel = () => {
     window.dispatchEvent(
       new CustomEvent<OpenHelpPanelDetail>(OPEN_HELP_PANEL_EVENT, {
+        detail: { articleId: primary.id },
+      }),
+    );
+  };
+
+  const startTour = () => {
+    window.dispatchEvent(
+      new CustomEvent<StartGuidedTourDetail>(START_GUIDED_TOUR_EVENT, {
         detail: { articleId: primary.id },
       }),
     );
@@ -82,27 +102,53 @@ export function PageGuide() {
     <div
       className={cn(
         'fixed bottom-4 left-4 z-40 flex items-stretch rounded-full',
-        'bg-primary text-primary-foreground shadow-xl',
-        'ring-2 ring-primary/30',
+        'bg-primary text-primary-foreground shadow-xl ring-2 ring-primary/30',
       )}
       style={{
-        // Soft glow so it visibly illuminates on dark + light themes.
         boxShadow:
           '0 0 0 4px hsl(var(--primary) / 0.18), 0 10px 30px -10px hsl(var(--primary) / 0.5)',
       }}
     >
-      <button
-        type="button"
-        onClick={open}
-        className="flex items-center gap-2 pl-3 pr-2 py-2 rounded-l-full hover:bg-primary/90 transition"
-        title="Step-by-step guide for this page"
-      >
-        <Sparkles className="h-4 w-4" />
-        <span className="text-xs font-medium hidden sm:inline">
-          Guide me through this page
-        </span>
-        <span className="text-xs font-medium sm:hidden">Guide me</span>
-      </button>
+      {tourAvailable ? (
+        <button
+          type="button"
+          onClick={startTour}
+          className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-l-full hover:bg-primary/90 transition"
+          title="Walk me through every button on this page"
+        >
+          <Compass className="h-4 w-4 animate-pulse" />
+          <span className="text-xs font-semibold hidden sm:inline">
+            Tour this page
+          </span>
+          <span className="text-xs font-semibold sm:hidden">Tour</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={openPanel}
+          className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-l-full hover:bg-primary/90 transition"
+          title="Step-by-step guide for this page"
+        >
+          <Sparkles className="h-4 w-4" />
+          <span className="text-xs font-medium hidden sm:inline">
+            Guide me through this page
+          </span>
+          <span className="text-xs font-medium sm:hidden">Guide me</span>
+        </button>
+      )}
+
+      {tourAvailable && (
+        <button
+          type="button"
+          onClick={openPanel}
+          aria-label="Open full help article"
+          title="Read the full guide"
+          className="flex items-center justify-center px-2 hover:bg-primary/90 transition border-l border-primary-foreground/20"
+        >
+          <Sparkles className="h-3.5 w-3.5 opacity-90" />
+        </button>
+      )}
+
       <button
         type="button"
         onClick={dismiss}
