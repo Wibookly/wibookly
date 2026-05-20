@@ -182,6 +182,15 @@ export default function Chat() {
   }, []);
   useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
 
+  // Voice input: hold-or-toggle mic → Whisper → append transcript to input.
+  const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceRecording({
+    onTranscription: (text) => {
+      setInput((prev) => (prev ? `${prev} ${text}` : text).trim());
+      // Refocus textarea so the user can immediately send / edit.
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
