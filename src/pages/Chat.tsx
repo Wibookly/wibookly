@@ -1197,16 +1197,23 @@ function MessageBubble({
   message,
   userInitial,
   streaming,
+  speakingId,
+  onSpeak,
+  onStopSpeak,
 }: {
   message: Msg;
   userInitial: string;
   streaming?: boolean;
+  speakingId?: string | null;
+  onSpeak?: (text: string, id: string) => void;
+  onStopSpeak?: () => void;
 }) {
   const isUser = message.role === 'user';
   const copy = () => {
     navigator.clipboard.writeText(message.content);
     toast.success('Copied');
   };
+  const isSpeaking = speakingId === message.id;
 
   return (
     <div className="flex flex-col gap-1.5 group">
@@ -1248,6 +1255,15 @@ function MessageBubble({
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
               <Copy className="h-3.5 w-3.5" />
             </button>
+            {onSpeak && (
+              <button
+                onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
+                className={cn('p-1 hover:bg-accent rounded', isSpeaking ? 'text-primary' : 'text-muted-foreground')}
+                title={isSpeaking ? 'Stop speaking' : 'Read aloud'}
+              >
+                {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
         )}
       </div>
