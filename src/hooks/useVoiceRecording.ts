@@ -59,10 +59,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: 
         const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
         stream.getTracks().forEach(track => track.stop());
 
-        // If nothing was actually spoken, skip transcription entirely.
-        if (!hasSpokenRef.current || audioBlob.size < 1000) {
+        // Skip transcription only for truly empty recordings (no audio captured).
+        if (audioBlob.size < 500) {
           return;
         }
+
 
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -105,16 +106,15 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: 
               lastVoiceAtRef.current = now;
               hasSpokenRef.current = true;
             }
-            if (now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              // Silent too long — stop mic to avoid leaving it open.
-              toast.info(
-                hasSpokenRef.current
-                  ? 'Microphone stopped after 5s of silence'
-                  : 'Microphone stopped — no speech detected'
-              );
+            // Only auto-stop AFTER the user has actually started speaking.
+            // This prevents killing the mic while the user is still thinking
+            // (which made it look like the mic "doesn't work").
+            if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
+              toast.info('Microphone stopped after 5s of silence');
               stopRecording();
               return;
             }
+
             silenceRafRef.current = requestAnimationFrame(tick);
           };
           silenceRafRef.current = requestAnimationFrame(tick);
