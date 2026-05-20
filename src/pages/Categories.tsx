@@ -1136,6 +1136,7 @@ export default function Categories() {
                     index={index}
                     updateCategory={updateCategory}
                     requestDisable={setPendingDisableCategory}
+                    onConfigureTone={(c) => setToneCategory(c)}
                   />
                 ))}
               </SortableContext>
