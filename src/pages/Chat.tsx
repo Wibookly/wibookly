@@ -557,7 +557,7 @@ export default function Chat() {
           attachment_refs: attachmentRefs,
           stream: true,
           web_search: webSearch,
-          user_location: webSearch ? (userLocation || undefined) : undefined,
+          user_location: (locationEnabled && userLocation) ? userLocation : undefined,
           deep: deepMode,
         }),
       });
