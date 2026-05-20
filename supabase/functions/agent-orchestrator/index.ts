@@ -589,7 +589,7 @@ Deno.serve(async (req) => {
       content: body.user_message,
     });
 
-    const requestedModel = body.model || "openai/gpt-4.1";
+    const requestedModel = body.model || (body.deep ? "openai/gpt-5" : "openai/gpt-4.1");
 
     // Pre-flight enforcement (feature gating, daily count, per-user/org budgets, model routing)
     const featureKey = body.agent === 'email_draft' ? 'ai_draft' : 'ai_chat';
