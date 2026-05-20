@@ -184,11 +184,12 @@ export default function AIActivityDashboard() {
 
       // Create CSV content
       const headers = ['Date', 'Category', 'Activity Type', 'Email Subject', 'Email From'];
-      
+
       const { data: logs } = await supabase
         .from('ai_activity_logs')
         .select('*')
         .eq('organization_id', organization?.id)
+        .eq('user_id', user?.id)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
