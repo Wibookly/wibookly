@@ -12,6 +12,7 @@ import {
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
@@ -485,6 +486,84 @@ export default function Chat() {
       setExporting(null);
     }
   };
+
+  // === Summarize current chat + continue in a fresh one ===
+  const [summarizing, setSummarizing] = useState(false);
+  const handleSummarizeAndContinue = useCallback(async () => {
+    if (summarizing) return;
+    if (messages.length < 2) {
+      toast.info('Send a few messages first before summarizing.');
+      return;
+    }
+    setSummarizing(true);
+    const t = toast.loading('Generating handoff summary…');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+
+      // Build a compact transcript from in-memory messages to send to a
+      // lightweight summarizer model. We do NOT route this through the
+      // streaming agent (no tool calls needed).
+      const transcript = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-40) // cap so the summarizer prompt stays small
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${(m.content || '').slice(0, 2000)}`)
+        .join('\n\n');
+
+      const systemPrompt =
+        `You produce a concise handoff summary so the user can continue a long chat in a fresh thread without losing context. ` +
+        `Output ONLY markdown (≤ 250 words) with these sections:\n` +
+        `**Topic** — one line.\n` +
+        `**Key facts & data** — bullets of names, numbers, dates, decisions established so far.\n` +
+        `**Open questions / next steps** — what we were about to do.\n` +
+        `**Preferences** — any style/format/tool preferences the user expressed.\n` +
+        `Do not greet. Do not address the user. No preamble.`;
+
+      const { data, error } = await supabase.functions.invoke('llm-gateway', {
+        body: {
+          model: 'openai/gpt-5-mini',
+          purpose: 'chat_handoff_summary',
+          temperature: 0.3,
+          max_tokens: 600,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Conversation transcript:\n\n${transcript}` },
+          ],
+        },
+      });
+
+      let summary = '';
+      if (!error && data) {
+        summary = (data?.content || '').trim();
+      }
+
+
+      if (!summary) {
+        // Fallback: lightweight local summary so the user is never blocked.
+        summary = `**Continuing previous conversation**\n\n` +
+          messages.slice(-6).map((m) => `- **${m.role}:** ${(m.content || '').slice(0, 240)}`).join('\n');
+      }
+
+      // Start a fresh chat seeded with the summary as the first user message.
+      handleNewChat(activeFolderId);
+      const seed = `📋 **Carried over from previous chat:**\n\n${summary}\n\n---\n\nContinue from here:`;
+      setInput(seed);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        // Scroll cursor to end so user can keep typing.
+        const el = textareaRef.current;
+        if (el) { el.selectionStart = el.selectionEnd = el.value.length; }
+      });
+      toast.success('Summary ready in your new chat', { id: t });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not generate summary', { id: t });
+    } finally {
+      setSummarizing(false);
+    }
+  }, [summarizing, messages, activeFolderId]);
+
+
 
   const expiringSoon = useMemo(
     () => conversations.filter((c) => daysUntilExpiry(c.created_at) <= EXPIRY_WARN_DAYS),
@@ -1056,7 +1135,16 @@ export default function Chat() {
 
         {/* Input area */}
         <div className="border-t border-border bg-background">
-          <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
+            {messages.length > 0 && (
+              <ChatCapacityMeter
+                messages={messages}
+                streamingText={streamingText}
+                onSummarizeAndContinue={handleSummarizeAndContinue}
+                summarizing={summarizing}
+              />
+            )}
+
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {files.map((f, i) => (
