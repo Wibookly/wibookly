@@ -12,6 +12,7 @@ import {
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
