@@ -514,6 +514,9 @@ export default function Chat() {
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
+          web_search: webSearch,
+          user_location: webSearch ? (userLocation || undefined) : undefined,
+          deep: deepMode,
         }),
       });
 
