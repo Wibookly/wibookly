@@ -349,6 +349,30 @@ export default function AIActivityDashboard() {
                 <p className="text-xs text-muted-foreground mt-1">All AI-handled emails</p>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">AI Chats</CardTitle>
+                <MessageSquare className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.totalChatMessages}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.totalChatConversations} conversation{stats.totalChatConversations === 1 ? '' : 's'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Meeting Copilot</CardTitle>
+                <Video className="h-4 w-4 text-pink-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stats.totalMeetings}</div>
+                <p className="text-xs text-muted-foreground mt-1">Meetings assisted</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Category Breakdown */}
