@@ -75,76 +75,96 @@ export default function AIActivityDashboard() {
   };
 
   useEffect(() => {
-    if (organization?.id && activeConnection?.id) {
+    if (organization?.id && user?.id) {
       fetchActivityData();
     }
-  }, [organization?.id, activeConnection?.id, dateRange, customStartDate, customEndDate]);
+  }, [organization?.id, user?.id, activeConnection?.id, dateRange, customStartDate, customEndDate]);
 
   const fetchActivityData = async () => {
-    if (!organization?.id || !activeConnection?.id) return;
+    if (!organization?.id || !user?.id) return;
     setLoading(true);
 
     try {
       const { start, end } = getDateRange();
+      const startIso = start.toISOString();
+      const endIso = end.toISOString();
 
-      // Fetch activity logs filtered by connection
-      const { data: logs, error } = await supabase
+      // AI activity logs (drafts, auto-replies, scheduled events) - scoped to current user
+      let activityQuery = supabase
         .from('ai_activity_logs')
         .select('*')
         .eq('organization_id', organization.id)
-        .eq('connection_id', activeConnection.id)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
+        .eq('user_id', user.id)
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching activity logs:', error);
-        setLoading(false);
-        return;
+      if (activeConnection?.id) {
+        activityQuery = activityQuery.eq('connection_id', activeConnection.id);
       }
 
-      // Calculate stats
-      const drafts = logs?.filter(l => l.activity_type === 'draft') || [];
-      const autoReplies = logs?.filter(l => l.activity_type === 'auto_reply') || [];
-      const scheduledEvents = logs?.filter(l => l.activity_type === 'scheduled_event') || [];
+      const [activityRes, chatMsgRes, chatConvRes, meetingsRes] = await Promise.all([
+        activityQuery,
+        supabase
+          .from('chat_messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('role', 'user')
+          .gte('created_at', startIso)
+          .lte('created_at', endIso),
+        supabase
+          .from('chat_conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startIso)
+          .lte('created_at', endIso),
+        supabase
+          .from('meeting_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('started_at', startIso)
+          .lte('started_at', endIso),
+      ]);
+
+      const logs = activityRes.data || [];
+      if (activityRes.error) console.error('Error fetching activity logs:', activityRes.error);
+
+      const drafts = logs.filter(l => l.activity_type === 'draft');
+      const autoReplies = logs.filter(l => l.activity_type === 'auto_reply');
+      const scheduledEvents = logs.filter(l => l.activity_type === 'scheduled_event');
 
       setStats({
         totalDrafts: drafts.length,
         totalAutoReplies: autoReplies.length,
-        totalEmails: logs?.length || 0,
-        totalScheduledEvents: scheduledEvents.length
+        totalEmails: logs.length,
+        totalScheduledEvents: scheduledEvents.length,
+        totalChatMessages: chatMsgRes.count || 0,
+        totalChatConversations: chatConvRes.count || 0,
+        totalMeetings: meetingsRes.count || 0,
       });
 
-      // Calculate daily activity
+      // Daily activity (drafts + auto-replies)
       const dailyMap = new Map<string, { drafts: number; autoReplies: number }>();
-      logs?.forEach(log => {
+      logs.forEach(log => {
         const date = format(new Date(log.created_at), 'yyyy-MM-dd');
         const current = dailyMap.get(date) || { drafts: 0, autoReplies: 0 };
-        if (log.activity_type === 'draft') {
-          current.drafts++;
-        } else {
-          current.autoReplies++;
-        }
+        if (log.activity_type === 'draft') current.drafts++;
+        else if (log.activity_type === 'auto_reply') current.autoReplies++;
         dailyMap.set(date, current);
       });
-
       const dailyData: DailyActivity[] = Array.from(dailyMap.entries())
         .map(([date, data]) => ({ date, ...data }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setDailyActivity(dailyData);
 
-      // Calculate category breakdown
+      // Category breakdown
       const categoryMap = new Map<string, { drafts: number; autoReplies: number }>();
-      logs?.forEach(log => {
+      logs.forEach(log => {
         const current = categoryMap.get(log.category_name) || { drafts: 0, autoReplies: 0 };
-        if (log.activity_type === 'draft') {
-          current.drafts++;
-        } else {
-          current.autoReplies++;
-        }
+        if (log.activity_type === 'draft') current.drafts++;
+        else if (log.activity_type === 'auto_reply') current.autoReplies++;
         categoryMap.set(log.category_name, current);
       });
-
       const categoryData: CategoryBreakdown[] = Array.from(categoryMap.entries())
         .map(([categoryName, data]) => ({ categoryName, ...data }))
         .sort((a, b) => (b.drafts + b.autoReplies) - (a.drafts + a.autoReplies));
