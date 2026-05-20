@@ -1176,6 +1176,7 @@ export default function Chat() {
                 className="h-9 w-9 shrink-0"
                 disabled={isStreaming || limitReached}
                 onClick={() => fileInputRef.current?.click()}
+                data-tour="chat-attach"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
