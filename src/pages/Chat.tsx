@@ -9,7 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic,
+  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { supabase } from '@/integrations/supabase/client';
@@ -150,6 +150,11 @@ export default function Chat() {
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
+  const [locationEnabled, setLocationEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const v = localStorage.getItem('inboxiq-chat-location');
+    return v === null ? true : v === '1';
+  });
   const [deepMode, setDeepMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('inboxiq-chat-deep') === '1';
@@ -157,6 +162,37 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-location', locationEnabled ? '1' : '0'); }, [locationEnabled]);
+
+  // Capture timezone + best-effort geolocation whenever location sharing is on.
+  // Runs on mount (default on) and whenever the user re-enables it.
+  useEffect(() => {
+    if (!locationEnabled) { setUserLocation(null); return; }
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setUserLocation((prev) => ({ ...(prev || {}), timezone: tz }));
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+            { headers: { 'Accept-Language': 'en' } },
+          );
+          const j = await r.json();
+          const a = j.address || {};
+          setUserLocation({
+            city: a.city || a.town || a.village || a.hamlet,
+            region: a.state || a.region,
+            country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+            timezone: tz,
+          });
+        } catch {/* keep timezone-only fallback */}
+      },
+      () => {/* permission denied — keep timezone-only */},
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, [locationEnabled]);
+
 
   const speak = useCallback((text: string, id: string) => {
     try {
@@ -521,7 +557,7 @@ export default function Chat() {
           attachment_refs: attachmentRefs,
           stream: true,
           web_search: webSearch,
-          user_location: webSearch ? (userLocation || undefined) : undefined,
+          user_location: (locationEnabled && userLocation) ? userLocation : undefined,
           deep: deepMode,
         }),
       });
@@ -1088,38 +1124,7 @@ export default function Chat() {
                   onClick={() => {
                     setWebSearch((v) => {
                       const next = !v;
-                      if (next) {
-                        toast.success('Web search on — using live results & your approximate location');
-                        // Best-effort: capture timezone immediately, ask for
-                        // geolocation in the background and reverse-geocode
-                        // for city/region/country so location-aware queries work.
-                        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        setUserLocation((prev) => ({ ...(prev || {}), timezone: tz }));
-                        if (typeof navigator !== 'undefined' && navigator.geolocation) {
-                          navigator.geolocation.getCurrentPosition(
-                            async (pos) => {
-                              try {
-                                const r = await fetch(
-                                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
-                                  { headers: { 'Accept-Language': 'en' } },
-                                );
-                                const j = await r.json();
-                                const a = j.address || {};
-                                setUserLocation({
-                                  city: a.city || a.town || a.village || a.hamlet,
-                                  region: a.state || a.region,
-                                  country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
-                                  timezone: tz,
-                                });
-                              } catch {/* keep timezone-only fallback */}
-                            },
-                            () => {/* permission denied — keep timezone-only */},
-                            { timeout: 8000, maximumAge: 5 * 60 * 1000 },
-                          );
-                        }
-                      } else {
-                        toast.success('Web search off');
-                      }
+                      toast.success(next ? 'Web search on — using live results' : 'Web search off');
                       return next;
                     });
                   }}
@@ -1128,6 +1133,33 @@ export default function Chat() {
                   <Globe className="h-4 w-4" />
                 </Button>
               )}
+              <Button
+                type="button"
+                variant={locationEnabled ? 'default' : 'ghost'}
+                size="icon"
+                className={cn(
+                  'h-9 w-9 shrink-0',
+                  locationEnabled && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                )}
+                disabled={isStreaming || limitReached}
+                onClick={() => {
+                  setLocationEnabled((v) => {
+                    const next = !v;
+                    toast.success(next
+                      ? 'Location sharing on — the assistant can use your approximate location'
+                      : 'Location sharing off');
+                    return next;
+                  });
+                }}
+                title={
+                  locationEnabled
+                    ? `Location: ON${userLocation?.city ? ` (${userLocation.city}${userLocation.region ? ', ' + userLocation.region : ''})` : ''} — click to disable`
+                    : 'Location: OFF — click to share your approximate location with the assistant'
+                }
+              >
+                {locationEnabled ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
+              </Button>
+
               <Button
                 type="button"
                 variant={deepMode ? 'default' : 'ghost'}
