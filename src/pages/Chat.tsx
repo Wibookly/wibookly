@@ -1221,6 +1221,7 @@ export default function Chat() {
                     });
                   }}
                   title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
+                  data-tour="chat-web"
                 >
                   <Globe className="h-4 w-4" />
                 </Button>
