@@ -621,6 +621,18 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   );
 }
 
+function FlowStep({ n, title, body }: { n: number; title: string; body: React.ReactNode }) {
+  return (
+    <div className="relative rounded-lg border-2 border-[var(--border-strong)] bg-[var(--surface-2)] p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <StepBadge n={n} />
+        <div className="text-sm font-semibold">{title}</div>
+      </div>
+      <div className="text-xs text-muted-foreground leading-relaxed">{body}</div>
+    </div>
+  );
+}
+
 function StepBadge({ n }: { n: number }) {
   return (
     <span
@@ -631,6 +643,7 @@ function StepBadge({ n }: { n: number }) {
     </span>
   );
 }
+
 
 function ActionRow({
   icon: Icon,
