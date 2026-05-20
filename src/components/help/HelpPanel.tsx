@@ -96,6 +96,43 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
     navigate(path);
   };
 
+  // Hover-highlight: temporarily ring & scroll a target element into view.
+  const highlightTarget = (selector?: string) => {
+    if (!selector || typeof document === 'undefined') return;
+    let el: HTMLElement | null = null;
+    try {
+      el = document.querySelector(selector) as HTMLElement | null;
+    } catch {
+      return;
+    }
+    if (!el) return;
+    // Clear any previous
+    document.querySelectorAll('[data-help-highlight="1"]').forEach((n) => {
+      (n as HTMLElement).removeAttribute('data-help-highlight');
+      (n as HTMLElement).style.boxShadow = '';
+      (n as HTMLElement).style.outline = '';
+      (n as HTMLElement).style.borderRadius = '';
+      (n as HTMLElement).style.transition = '';
+    });
+    el.setAttribute('data-help-highlight', '1');
+    el.style.transition = 'box-shadow 200ms ease, outline-color 200ms ease';
+    el.style.outline = '2px solid hsl(var(--primary))';
+    el.style.outlineOffset = '4px';
+    el.style.borderRadius = el.style.borderRadius || '8px';
+    el.style.boxShadow = '0 0 0 6px hsl(var(--primary) / 0.18)';
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+  const clearHighlight = () => {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-help-highlight="1"]').forEach((n) => {
+      const e = n as HTMLElement;
+      e.removeAttribute('data-help-highlight');
+      e.style.boxShadow = '';
+      e.style.outline = '';
+      e.style.outlineOffset = '';
+    });
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -228,14 +265,35 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         Step-by-step
                       </p>
+                      <p className="text-[11px] text-muted-foreground -mt-2">
+                        Hover a step to highlight the matching control on the page.
+                      </p>
                       <ol className="space-y-2.5">
                         {activeArticle.steps.map((s, i) => (
                           <li
                             key={i}
-                            className="rounded-md border bg-card p-3 hover:border-primary/40 transition-colors"
+                            onMouseEnter={() => highlightTarget(s.target)}
+                            onMouseLeave={() => clearHighlight()}
+                            className={`rounded-md border bg-card p-3 transition-colors ${
+                              s.target
+                                ? 'hover:border-primary hover:bg-primary/5 cursor-pointer'
+                                : 'hover:border-primary/40'
+                            }`}
                           >
-                            <p className="text-sm font-semibold text-foreground">{s.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                            <div className="flex items-start gap-2">
+                              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                                {s.target && (
+                                  <p className="text-[10px] text-primary/70 mt-1 uppercase tracking-wide">
+                                    Hover to locate on page
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </li>
                         ))}
                       </ol>

@@ -259,22 +259,7 @@ export function AppSidebar() {
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
                 <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
-                {!featureLoading && (isSuperAdmin || hasFeature('ai_draft') || hasFeature('ai_auto_reply')) && (
-                  <>
-                    {hasFeature('ai_draft') && hasFeature('ai_auto_reply') ? (
-                      <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft / Auto Reply Settings</NavItem>
-                    ) : (
-                      <>
-                        {(isSuperAdmin || hasFeature('ai_draft')) && (
-                          <NavItem href="/email-draft" icon={Sparkles} accent={accents.orange}>AI Draft Settings</NavItem>
-                        )}
-                        {(isSuperAdmin || hasFeature('ai_auto_reply')) && !hasFeature('ai_draft') && (
-                          <NavItem href="/email-draft" icon={MessageSquare} accent={accents.orange}>AI Auto Reply</NavItem>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
+                {/* AI Draft / Auto Reply settings now live inside Email Intelligence (per-rule tone sheet). */}
                 <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
                 <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
               </NavSection>
