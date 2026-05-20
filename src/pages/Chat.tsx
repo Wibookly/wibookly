@@ -560,13 +560,19 @@ export default function Chat() {
           }
         }
         // Reload messages & conversations to capture saved rows
+        let lastAssistant: Msg | null = null;
         if (newConvId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
             .select('id, role, content, created_at, attachments, citations')
             .eq('conversation_id', newConvId)
             .order('created_at', { ascending: true });
-          setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+          const filtered = ((msgs as Msg[]) || []).filter((m) => m.role !== 'system');
+          setMessages(filtered);
+          lastAssistant = [...filtered].reverse().find((m) => m.role === 'assistant') || null;
+        }
+        if (voiceOut && lastAssistant?.content) {
+          speak(lastAssistant.content, lastAssistant.id);
         }
         loadConversations();
         loadUsage();
