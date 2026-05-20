@@ -9,7 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic, Square,
+  Sparkles, Volume2, VolumeX, Mic,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { supabase } from '@/integrations/supabase/client';
@@ -154,13 +154,9 @@ export default function Chat() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
-  const [voiceOut, setVoiceOut] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('inboxiq-chat-voice') === '1';
-  });
+  const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
-  useEffect(() => { localStorage.setItem('inboxiq-chat-voice', voiceOut ? '1' : '0'); }, [voiceOut]);
 
   const speak = useCallback((text: string, id: string) => {
     try {
@@ -1059,21 +1055,25 @@ export default function Chat() {
               </Button>
               <Button
                 type="button"
-                variant={isRecording ? 'default' : 'ghost'}
+                variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-9 w-9 shrink-0',
-                  isRecording && 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse',
+                  'relative h-9 w-9 shrink-0',
+                  isRecording && 'text-destructive',
                 )}
                 disabled={isStreaming || limitReached || isTranscribing}
                 onClick={() => (isRecording ? stopRecording() : startRecording())}
-                title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Hold to talk — speak your message'}
+                title={isRecording ? 'Listening… click to stop' : isTranscribing ? 'Transcribing…' : 'Click to talk — speak your message'}
               >
+                {isRecording && (
+                  <>
+                    <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
+                    <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
+                  </>
+                )}
                 {isTranscribing
                   ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : isRecording
-                    ? <Square className="h-4 w-4" />
-                    : <Mic className="h-4 w-4" />}
+                  : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
               </Button>
               {canWebSearch && (
                 <Button
@@ -1146,24 +1146,6 @@ export default function Chat() {
                 title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
               >
                 <Sparkles className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant={voiceOut ? 'default' : 'ghost'}
-                size="icon"
-                className={cn('h-9 w-9 shrink-0', voiceOut && 'bg-primary text-primary-foreground hover:bg-primary/90')}
-                disabled={isStreaming || limitReached}
-                onClick={() => {
-                  setVoiceOut((v) => {
-                    const next = !v;
-                    if (!next) stopSpeak();
-                    toast.success(next ? 'Voice replies ON — answers will be spoken aloud' : 'Voice replies OFF');
-                    return next;
-                  });
-                }}
-                title={voiceOut ? 'Voice replies: ON — click to disable' : 'Voice replies: OFF — click to hear answers spoken'}
-              >
-                {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
               <Textarea
                 ref={textareaRef}
@@ -1279,7 +1261,7 @@ function MessageBubble({
           <CitationChips citations={message.citations} />
         )}
         {!isUser && !streaming && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          <div className="flex gap-1 opacity-60 hover:opacity-100 transition">
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
               <Copy className="h-3.5 w-3.5" />
             </button>
