@@ -228,27 +228,8 @@ export default function AIActivityDashboard() {
     );
   }
 
-  if (!activeConnection) {
-    return (
-      <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-        <div className="mb-4 flex justify-end">
-          <UserAvatarDropdown />
-        </div>
-        <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <MailIcon className="w-12 h-12 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Email Connected</h2>
-            <p className="text-muted-foreground mb-6">
-              Connect a Gmail or Outlook account to view AI activity
-            </p>
-            <Button onClick={() => window.location.href = '/integrations'}>
-              Connect Email Account
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Note: we no longer block when there's no active connection — chat & meeting
+  // activity exist independent of an email connection.
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
