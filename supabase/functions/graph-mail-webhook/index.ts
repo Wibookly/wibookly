@@ -775,30 +775,21 @@ async function processNotification(n: GraphNotification) {
       delegated_user_id: license.user_id,
     });
 
+    // Token usage / spend is recorded inside agent-orchestrator via recordSpend()
+    // against the delegated user's daily budget, so we skip duplicate accounting
+    // here. We still log a lightweight audit row attributing the action.
     try {
-      const PRICE: Record<string, { input: number; output: number }> = {
-        'gpt-4.1': { input: 0.002, output: 0.008 },
-        'gpt-4o': { input: 0.0025, output: 0.01 },
-        'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
-      };
-      const p = PRICE[agent.model] ?? { input: 0, output: 0 };
-      const cost = (agent.prompt_tokens / 1000) * p.input + (agent.completion_tokens / 1000) * p.output;
       await supabase.from('ai_usage_logs').insert({
         organization_id: settings.organization_id,
-        user_id: null,
-        provider: agent.provider,
-        model: agent.model,
+        user_id: license.user_id,
+        provider: agentProvider,
+        model: agentModel,
         action: 'agent_email_reply',
-        prompt_tokens: agent.prompt_tokens,
-        completion_tokens: agent.completion_tokens,
-        total_tokens: agent.prompt_tokens + agent.completion_tokens,
-        cost_usd: cost.toFixed(6),
-        metadata: { sender: senderEmail, attachments: attachments.length },
-      });
-      // Record actual spend against org daily budget
-      await supabase.rpc('record_agent_spend', {
-        _org_id: settings.organization_id,
-        _cost_usd: Number(cost.toFixed(6)),
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        cost_usd: '0.000000',
+        metadata: { sender: senderEmail, delegated_mailbox: license.connected_email },
       });
     } catch (e) {
       console.error('usage log failed', e);
