@@ -67,19 +67,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
             <Tag className="w-4 h-4" /> Email Intelligence
           </NavLink>
 
-          {/* AI Draft */}
-          {!featureLoading && (isSuperAdmin || hasFeature('ai_draft')) && (
-            <NavLink to="/email-draft" onClick={handleNavClick} className={navItemClass('/email-draft')}>
-              <Sparkles className="w-4 h-4" /> AI Draft Settings
-            </NavLink>
-          )}
-
-          {/* AI Auto Reply */}
-          {!featureLoading && (isSuperAdmin || hasFeature('ai_auto_reply')) && (
-            <NavLink to="/email-draft?tab=auto-reply" onClick={handleNavClick} className={navItemClass('/email-draft?tab=auto-reply')}>
-              <MessageSquare className="w-4 h-4" /> AI Auto Reply
-            </NavLink>
-          )}
+          {/* AI Draft / Auto Reply settings now live inside Email Intelligence. */}
 
           {/* Daily Brief */}
           {!featureLoading && (isSuperAdmin || hasFeature('daily_brief')) && (
