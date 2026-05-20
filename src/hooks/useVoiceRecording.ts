@@ -4,22 +4,47 @@ import { toast } from 'sonner';
 
 interface UseVoiceRecordingOptions {
   onTranscription: (text: string) => void;
+  /** Auto-stop after this many ms of silence. Defaults to 5000. Set to 0 to disable. */
+  silenceTimeoutMs?: number;
 }
 
-export function useVoiceRecording({ onTranscription }: UseVoiceRecordingOptions) {
+export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: UseVoiceRecordingOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const silenceRafRef = useRef<number | null>(null);
+  const lastVoiceAtRef = useRef<number>(0);
+  const hasSpokenRef = useRef<boolean>(false);
+
+  const cleanupSilenceDetection = useCallback(() => {
+    if (silenceRafRef.current !== null) {
+      cancelAnimationFrame(silenceRafRef.current);
+      silenceRafRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {/* ignore */});
+      audioContextRef.current = null;
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    cleanupSilenceDetection();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, [cleanupSilenceDetection]);
 
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
       });
-      
+
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -30,10 +55,15 @@ export function useVoiceRecording({ onTranscription }: UseVoiceRecordingOptions)
       };
 
       mediaRecorder.onstop = async () => {
+        cleanupSilenceDetection();
         const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
         stream.getTracks().forEach(track => track.stop());
-        
-        // Convert to base64
+
+        // If nothing was actually spoken, skip transcription entirely.
+        if (!hasSpokenRef.current || audioBlob.size < 1000) {
+          return;
+        }
+
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Audio = (reader.result as string).split(',')[1];
@@ -44,24 +74,65 @@ export function useVoiceRecording({ onTranscription }: UseVoiceRecordingOptions)
 
       mediaRecorder.start();
       setIsRecording(true);
+
+      // --- Silence detection: auto-stop after N ms of no voice activity ---
+      if (silenceTimeoutMs > 0) {
+        try {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          const ctx: AudioContext = new AudioCtx();
+          audioContextRef.current = ctx;
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 2048;
+          source.connect(analyser);
+          const buf = new Uint8Array(analyser.fftSize);
+
+          hasSpokenRef.current = false;
+          lastVoiceAtRef.current = Date.now();
+          const VOICE_RMS_THRESHOLD = 0.015; // empirical — quiet room ≈ 0.003
+
+          const tick = () => {
+            analyser.getByteTimeDomainData(buf);
+            // RMS around 128 baseline
+            let sumSq = 0;
+            for (let i = 0; i < buf.length; i++) {
+              const v = (buf[i] - 128) / 128;
+              sumSq += v * v;
+            }
+            const rms = Math.sqrt(sumSq / buf.length);
+            const now = Date.now();
+            if (rms > VOICE_RMS_THRESHOLD) {
+              lastVoiceAtRef.current = now;
+              hasSpokenRef.current = true;
+            }
+            if (now - lastVoiceAtRef.current >= silenceTimeoutMs) {
+              // Silent too long — stop mic to avoid leaving it open.
+              toast.info(
+                hasSpokenRef.current
+                  ? 'Microphone stopped after 5s of silence'
+                  : 'Microphone stopped — no speech detected'
+              );
+              stopRecording();
+              return;
+            }
+            silenceRafRef.current = requestAnimationFrame(tick);
+          };
+          silenceRafRef.current = requestAnimationFrame(tick);
+        } catch (err) {
+          console.warn('Silence detection unavailable:', err);
+        }
+      }
     } catch (error) {
       console.error('Error starting recording:', error);
       toast.error('Could not access microphone. Please check permissions.');
     }
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  }, []);
+  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection]);
 
   const transcribeAudio = async (base64Audio: string) => {
     setIsTranscribing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-to-text`, {
         method: 'POST',
         headers: {
