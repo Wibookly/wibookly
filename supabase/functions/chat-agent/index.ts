@@ -205,6 +205,9 @@ Deno.serve(async (req) => {
             connection_id,
             user_message: augmentedMessage,
             conversation_id: agent_conversation_id || undefined,
+            web_search: !!body.web_search,
+            deep: !!body.deep,
+            user_location: body.user_location || undefined,
           }),
         });
 
