@@ -1151,24 +1151,6 @@ export default function Chat() {
               >
                 <Sparkles className="h-4 w-4" />
               </Button>
-              <Button
-                type="button"
-                variant={voiceOut ? 'default' : 'ghost'}
-                size="icon"
-                className={cn('h-9 w-9 shrink-0', voiceOut && 'bg-primary text-primary-foreground hover:bg-primary/90')}
-                disabled={isStreaming || limitReached}
-                onClick={() => {
-                  setVoiceOut((v) => {
-                    const next = !v;
-                    if (!next) stopSpeak();
-                    toast.success(next ? 'Voice replies ON — answers will be spoken aloud' : 'Voice replies OFF');
-                    return next;
-                  });
-                }}
-                title={voiceOut ? 'Voice replies: ON — click to disable' : 'Voice replies: OFF — click to hear answers spoken'}
-              >
-                {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}
