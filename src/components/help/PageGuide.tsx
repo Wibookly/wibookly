@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, X, Compass } from 'lucide-react';
+import { Sparkles, X, Compass, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTrainingMode } from './TrainingMode';
 import { getContextualArticles, type HelpArticle } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
