@@ -877,7 +877,7 @@ export default function Chat() {
           </Button>
         </div>
         <div className="p-3 space-y-2">
-          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2">
+          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
             <Plus className="h-4 w-4" /> New chat
           </Button>
           <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground">
