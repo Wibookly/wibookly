@@ -933,6 +933,10 @@ Deno.serve(async (req) => {
         reply: finalText,
         draft,
         citations,
+        // 7. structured failures so the UI/admin can render reauth ONLY when
+        // failures.some(f => f.kind === 'unauthorized' || f.kind === 'no_token')
+        failures: failures.length ? failures : [],
+        auth_probe_ok: authProbeOk ?? null,
         model,
         usage: lastUsage,
       }),
