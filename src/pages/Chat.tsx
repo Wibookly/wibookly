@@ -154,13 +154,9 @@ export default function Chat() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
-  const [voiceOut, setVoiceOut] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('inboxiq-chat-voice') === '1';
-  });
+  const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
-  useEffect(() => { localStorage.setItem('inboxiq-chat-voice', voiceOut ? '1' : '0'); }, [voiceOut]);
 
   const speak = useCallback((text: string, id: string) => {
     try {
