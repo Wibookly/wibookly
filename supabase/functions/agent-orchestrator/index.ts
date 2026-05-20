@@ -72,7 +72,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_outlook_mail",
-      description: "Search the user's live Outlook mailbox via Microsoft Graph. Returns subject, from, snippet, receivedDateTime, webLink. Set extract=true to also download and index supported attachments (PDF/DOCX/XLSX/TXT) so their full contents become searchable via search_context.",
+      description: "Search the user's live Outlook mailbox via Microsoft Graph. Returns subject, from, snippet, receivedDateTime, webLink. Set extract=true to also download and index ALL supported attachments (PDF, DOCX, DOC, XLSX, XLS, PPTX, CSV, TXT, MD, JSON, RTF, HTML, and best-effort for other types) so their full contents become searchable via search_context. ALWAYS pass extract=true when the user asks about anything that could live inside an attachment (invoices, totals, contracts, reports, statements, line items, etc.).",
       parameters: {
         type: "object",
         properties: {
