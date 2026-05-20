@@ -609,7 +609,7 @@ Deno.serve(async (req) => {
       ? routedModel
       : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
 
-    const maxSteps = Math.min(body.max_steps ?? 6, 10);
+    const maxSteps = Math.min(body.max_steps ?? (body.deep ? 12 : 6), 14);
     const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id };
 
     let final: any = null;
