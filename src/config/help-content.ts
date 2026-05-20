@@ -21,6 +21,18 @@ export interface HelpStep {
   title: string;
   /** Plain-language description of what to do at this step. */
   description: string;
+  /**
+   * Optional CSS selector pointing to the element this step describes.
+   * When present, the Guided Tour overlay will spotlight this element and
+   * scroll it into view. Use `[data-tour="..."]` attributes on the target
+   * page so the selector stays stable across refactors.
+   */
+  target?: string;
+  /**
+   * Optional path to navigate to before showing this step. Useful when a
+   * tour spans multiple pages.
+   */
+  route?: string;
 }
 
 export interface HelpArticle {
