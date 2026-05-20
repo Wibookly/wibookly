@@ -29,6 +29,14 @@ interface OrchestrateRequest {
   thread_id?: string;
   model?: string;
   max_steps?: number;
+  web_search?: boolean;
+  deep?: boolean;
+  user_location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    timezone?: string;
+  };
 }
 
 // Tool definitions exposed to the LLM (OpenAI function-calling shape; gateway converts for Anthropic)
