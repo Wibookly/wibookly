@@ -72,11 +72,17 @@ async function callOpenAI(opts: {
   response_format?: any;
 }) {
   const sanitizedMessages = sanitizeMessages(opts.messages);
+  const modelName = opts.model.replace(/^openai\//, '');
+  // GPT-5 family (and other reasoning models) only support the default temperature (1).
+  // Sending any other value returns "Unsupported value: 'temperature'". Omit it for those.
+  const supportsTemperature = !/^gpt-5/i.test(modelName) && !/^o\d/i.test(modelName);
   const body: any = {
-    model: opts.model.replace(/^openai\//, ''),
+    model: modelName,
     messages: sanitizedMessages,
-    temperature: opts.temperature ?? 0.7,
   };
+  if (supportsTemperature) {
+    body.temperature = opts.temperature ?? 0.7;
+  }
   if (opts.max_tokens) body.max_tokens = opts.max_tokens;
   if (opts.tools?.length) {
     body.tools = opts.tools;
