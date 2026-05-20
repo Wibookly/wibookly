@@ -29,5 +29,18 @@ export async function extractAttachmentText(
     return result.value || "";
   }
 
+  if (m === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      m === "application/vnd.ms-excel" ||
+      lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+    const XLSX = await import("npm:xlsx@0.18.5");
+    const wb = XLSX.read(bytes, { type: "array" });
+    const parts: string[] = [];
+    for (const name of wb.SheetNames) {
+      const sheet = wb.Sheets[name];
+      parts.push(`# Sheet: ${name}\n` + XLSX.utils.sheet_to_csv(sheet));
+    }
+    return parts.join("\n\n");
+  }
+
   throw new Error(`Unsupported attachment type: ${mime || "unknown"} (${filename})`);
 }
