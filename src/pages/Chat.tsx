@@ -9,7 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic,
+  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { supabase } from '@/integrations/supabase/client';
