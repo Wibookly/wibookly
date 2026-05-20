@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, X, Compass } from 'lucide-react';
+import { Sparkles, X, Compass, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTrainingMode } from './TrainingMode';
 import { getContextualArticles, type HelpArticle } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
@@ -38,6 +39,7 @@ export function PageGuide() {
   const storageKey = primary ? `inboxiq-page-guide-dismissed:${primary.id}` : null;
 
   const [collapsed, setCollapsed] = useState(false);
+  const [training, setTraining] = useTrainingMode();
 
   useEffect(() => {
     if (!storageKey) {
@@ -148,6 +150,26 @@ export function PageGuide() {
           <Sparkles className="h-3.5 w-3.5 opacity-90" />
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={() => setTraining(!training)}
+        aria-label={training ? 'Exit training mode' : 'Enter training mode'}
+        title={
+          training
+            ? 'Exit training mode'
+            : 'Highlight every control on this page and show inline hints on hover'
+        }
+        className={cn(
+          'flex items-center justify-center px-2 transition border-l border-primary-foreground/20',
+          training ? 'bg-primary-foreground/20' : 'hover:bg-primary/90',
+        )}
+      >
+        <GraduationCap
+          className={cn('h-3.5 w-3.5', training && 'animate-pulse')}
+        />
+      </button>
+
 
       <button
         type="button"

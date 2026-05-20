@@ -11,6 +11,7 @@ import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpLauncher } from '@/components/help/HelpLauncher';
 import { PageGuide } from '@/components/help/PageGuide';
 import { GuidedTour } from '@/components/help/GuidedTour';
+import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
@@ -93,6 +94,7 @@ export function AppLayout() {
       <HelpLauncher />
       <PageGuide />
       <GuidedTour />
+      <TrainingModeOverlay />
       <SetupWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
