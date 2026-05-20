@@ -228,14 +228,35 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         Step-by-step
                       </p>
+                      <p className="text-[11px] text-muted-foreground -mt-2">
+                        Hover a step to highlight the matching control on the page.
+                      </p>
                       <ol className="space-y-2.5">
                         {activeArticle.steps.map((s, i) => (
                           <li
                             key={i}
-                            className="rounded-md border bg-card p-3 hover:border-primary/40 transition-colors"
+                            onMouseEnter={() => highlightTarget(s.target)}
+                            onMouseLeave={() => clearHighlight()}
+                            className={`rounded-md border bg-card p-3 transition-colors ${
+                              s.target
+                                ? 'hover:border-primary hover:bg-primary/5 cursor-pointer'
+                                : 'hover:border-primary/40'
+                            }`}
                           >
-                            <p className="text-sm font-semibold text-foreground">{s.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                            <div className="flex items-start gap-2">
+                              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                                {i + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
+                                {s.target && (
+                                  <p className="text-[10px] text-primary/70 mt-1 uppercase tracking-wide">
+                                    Hover to locate on page
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </li>
                         ))}
                       </ol>
