@@ -694,50 +694,44 @@ async function processNotification(n: GraphNotification) {
     const senderName = msg.from?.emailAddress?.name ?? '';
     const taskText = msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000);
 
-    // (4) Prompt cache: hash (org + sender + subject + task)
-    const cacheInput = `${settings.organization_id}|${senderEmail}|${msg.subject ?? ''}|${taskText}`;
+    // (4) Prompt cache: hash (user + subject + task) — keyed per-sender so
+    // each user's cache is isolated by their own delegated permissions.
+    const cacheInput = `${license.user_id}|${msg.subject ?? ''}|${taskText}`;
     const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cacheInput));
     const promptHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
 
-    let agent: AgentLoopResult;
+    let replyHtml: string;
+    let agentProvider = 'cache';
+    let agentModel = 'cache';
     const { data: cachedRows } = await supabase.rpc('cache_get_response', { _hash: promptHash });
     const cached = Array.isArray(cachedRows) ? cachedRows[0] : cachedRows;
     if (cached?.reply_html) {
       console.log(`Cache HIT for ${promptHash.slice(0,12)} — skipping LLM`);
-      agent = {
-        reply_html: cached.reply_html,
-        attachments: (cached.attachments as AgentAttachment[]) ?? [],
-        provider: cached.provider ?? 'cache',
-        model: cached.model ?? 'cache',
-        iterations: 0, duration_ms: 0,
-        prompt_tokens: 0, completion_tokens: 0,
-        used_web_search: false,
-      };
+      replyHtml = cached.reply_html;
+      agentProvider = cached.provider ?? 'cache';
+      agentModel = cached.model ?? 'cache';
     } else {
-      const orgUserId = await resolveOrgRepresentativeUser(settings.organization_id);
-      agent = await invokeAgentLoop({
-        task: taskText,
+      const orch = await invokeOrchestratorAsSender({
+        userId: license.user_id,
+        connectionId: license.connection_id,
+        taskText,
         threadText,
-        senderEmail,
-        senderName,
-        subject: msg.subject ?? '',
-        organizationId: settings.organization_id,
-        userId: orgUserId,
       });
-      // Cache successful responses for 5 minutes
+      replyHtml = orch.replyHtml;
+      agentProvider = orch.provider;
+      agentModel = orch.model;
       try {
         await supabase.rpc('cache_put_response', {
           _hash: promptHash,
           _org_id: settings.organization_id,
-          _reply_html: agent.reply_html,
-          _attachments: agent.attachments ?? [],
-          _provider: agent.provider,
-          _model: agent.model,
+          _reply_html: replyHtml,
+          _attachments: [],
+          _provider: agentProvider,
+          _model: agentModel,
         });
       } catch (e) { console.warn('cache put failed', e); }
     }
-    const replyHtml = agent.reply_html;
-    const attachments = agent.attachments ?? [];
+    const attachments: AgentAttachment[] = [];
 
     await replyToMessage(
       token,
@@ -760,12 +754,10 @@ async function processNotification(n: GraphNotification) {
       conversation_id: msg.conversationId ?? null,
       status: 'sent',
       metadata: {
-        provider: agent.provider,
-        model: agent.model,
-        iterations: agent.iterations,
-        duration_ms: agent.duration_ms,
-        web_search: agent.used_web_search,
-        attachments: attachments.map((a) => ({ filename: a.filename, mime_type: a.mime_type, byte_size: a.byte_size })),
+        provider: agentProvider,
+        model: agentModel,
+        delegated_user_id: license.user_id,
+        delegated_mailbox: license.connected_email,
         reply_to: senderEmail,
       },
     });
@@ -778,10 +770,9 @@ async function processNotification(n: GraphNotification) {
     await markClaim('sent', {
       sender_email: senderEmail,
       inbound_id: inbound.id,
-      provider: agent.provider,
-      model: agent.model,
-      duration_ms: agent.duration_ms,
-      attachment_count: attachments.length,
+      provider: agentProvider,
+      model: agentModel,
+      delegated_user_id: license.user_id,
     });
 
     try {
