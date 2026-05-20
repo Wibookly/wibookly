@@ -1496,6 +1496,48 @@ export type Database = {
         }
         Relationships: []
       }
+      extraction_regression_log: {
+        Row: {
+          connection_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_kind: string | null
+          error_message: string | null
+          external_id: string | null
+          file_name: string | null
+          id: string
+          source_type: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          file_name?: string | null
+          id?: string
+          source_type: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          file_name?: string | null
+          id?: string
+          source_type?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       feature_model_pricing: {
         Row: {
           dollar_per_task: number
@@ -3033,6 +3075,48 @@ export type Database = {
           id?: string
           metadata?: Json | null
           reason?: string
+        }
+        Relationships: []
+      }
+      tool_diagnostics: {
+        Row: {
+          connection_id: string | null
+          conversation_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_kind: string | null
+          error_message: string | null
+          id: string
+          organization_id: string | null
+          status: string
+          tool: string
+          user_id: string
+        }
+        Insert: {
+          connection_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          status: string
+          tool: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string
+          tool?: string
+          user_id?: string
         }
         Relationships: []
       }
