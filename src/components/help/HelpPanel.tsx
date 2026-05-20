@@ -32,7 +32,7 @@ import {
   searchArticles,
 } from '@/config/help-content';
 import { MiniMarkdown } from './MiniMarkdown';
-import { RESTART_SETUP_WIZARD_EVENT } from './events';
+import { RESTART_SETUP_WIZARD_EVENT, START_GUIDED_TOUR_EVENT, type StartGuidedTourDetail } from './events';
 import { HelpChat } from './HelpChat';
 import { HelpIssueForm } from './HelpIssueForm';
 
