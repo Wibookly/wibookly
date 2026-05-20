@@ -3,6 +3,7 @@
 // Idempotent on (user_id, connection_id, source_type, external_id).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callGraphBinary } from "../_shared/graph-call.ts";
+import { extractAttachmentText } from "../_shared/extract-attachment-text.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,54 +24,29 @@ const EMBED_BATCH = 20;
 const MAX_BYTES = 25 * 1024 * 1024;       // 25 MB hard cap
 const MIN_TEXT_CHARS = 20;
 
-const SUPPORTED_MIME = new Set([
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       // xlsx
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-]);
+const SUPPORTED_EXT = /\.(pdf|docx|doc|xlsx|xls|pptx|txt|md|csv|json|rtf|html|htm|xml|log)$/i;
 
 function mimeFromName(name: string, fallback?: string): string {
   const n = name.toLowerCase();
   if (n.endsWith(".pdf")) return "application/pdf";
   if (n.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (n.endsWith(".doc")) return "application/msword";
   if (n.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (n.endsWith(".xls")) return "application/vnd.ms-excel";
+  if (n.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
   if (n.endsWith(".txt")) return "text/plain";
   if (n.endsWith(".md")) return "text/markdown";
   if (n.endsWith(".csv")) return "text/csv";
+  if (n.endsWith(".json")) return "application/json";
+  if (n.endsWith(".rtf")) return "application/rtf";
+  if (n.endsWith(".html") || n.endsWith(".htm")) return "text/html";
+  if (n.endsWith(".xml")) return "application/xml";
+  if (n.endsWith(".log")) return "text/plain";
   return fallback || "application/octet-stream";
 }
 
 async function extractText(bytes: Uint8Array, mime: string, filename: string): Promise<string> {
-  const m = (mime || "").toLowerCase();
-  const n = filename.toLowerCase();
-  if (m.startsWith("text/") || n.endsWith(".txt") || n.endsWith(".md") || n.endsWith(".csv")) {
-    return new TextDecoder().decode(bytes);
-  }
-  if (m === "application/pdf" || n.endsWith(".pdf")) {
-    const pdfParse = (await import("npm:pdf-parse@1.1.1")).default;
-    const data = await pdfParse(bytes);
-    return data.text || "";
-  }
-  if (m.includes("wordprocessingml") || n.endsWith(".docx")) {
-    const mammoth = await import("npm:mammoth@1.8.0");
-    const result = await mammoth.extractRawText({ buffer: bytes });
-    return result.value || "";
-  }
-  if (m.includes("spreadsheetml") || n.endsWith(".xlsx")) {
-    const XLSX = await import("npm:xlsx@0.18.5");
-    const wb = XLSX.read(bytes, { type: "array" });
-    const parts: string[] = [];
-    for (const sheetName of wb.SheetNames) {
-      const ws = wb.Sheets[sheetName];
-      parts.push(`# Sheet: ${sheetName}`);
-      parts.push(XLSX.utils.sheet_to_csv(ws));
-    }
-    return parts.join("\n\n");
-  }
-  throw new Error(`Unsupported file type: ${mime} (${filename})`);
+  return await extractAttachmentText(bytes, mime, filename);
 }
 
 function chunkText(text: string): string[] {
@@ -245,9 +221,9 @@ Deno.serve(async (req) => {
     }
 
     const mime = mimeFromName(body.title, body.mime_type);
-    if (!SUPPORTED_MIME.has(mime)) {
+    if (!SUPPORTED_EXT.test(body.title) && mime === "application/octet-stream") {
       // record a skipped row so we don't repeatedly try
-      const { data: row } = await admin.from("knowledge_documents").upsert({
+      const { data: row } = await admin.from("knowledge_documents").insert({
         user_id: userId, organization_id: organizationId, connection_id: body.connection_id,
         title: body.title, source_type: body.source_type, source_ref: body.source_ref || null,
         external_id: body.external_id,
@@ -257,23 +233,58 @@ Deno.serve(async (req) => {
         extraction_status: "skipped",
         extraction_error: `Unsupported mime: ${mime}`,
         status: "indexed",
-      }, { onConflict: "user_id,connection_id,source_type,external_id" }).select("id").single();
+      }).select("id").maybeSingle();
       return new Response(JSON.stringify({ document_id: row?.id, status: "skipped", reason: "unsupported_mime", mime }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Create / claim row in extracting state
-    const { data: claim, error: claimErr } = await admin.from("knowledge_documents").upsert({
-      user_id: userId, organization_id: organizationId, connection_id: body.connection_id,
-      title: body.title, source_type: body.source_type, source_ref: body.source_ref || null,
-      external_id: body.external_id,
-      content: "",
-      metadata: { mime_type: mime, ...(body.extra_metadata || {}) },
-      extraction_status: "extracting",
-      status: "processing",
-    }, { onConflict: "user_id,connection_id,source_type,external_id" }).select("id").single();
-    if (claimErr || !claim) throw new Error(`Claim row failed: ${claimErr?.message}`);
-    documentId = claim.id;
+    if (existing?.id) {
+      const { error: claimErr } = await admin.from("knowledge_documents").update({
+        title: body.title,
+        source_ref: body.source_ref || null,
+        metadata: { mime_type: mime, ...(body.extra_metadata || {}) },
+        extraction_status: "extracting",
+        extraction_error: null,
+        status: "processing",
+        error_message: null,
+      }).eq("id", existing.id);
+      if (claimErr) throw new Error(`Claim row failed: ${claimErr.message}`);
+      documentId = existing.id;
+    } else {
+      const { data: claim, error: claimErr } = await admin.from("knowledge_documents").insert({
+        user_id: userId, organization_id: organizationId, connection_id: body.connection_id,
+        title: body.title, source_type: body.source_type, source_ref: body.source_ref || null,
+        external_id: body.external_id,
+        content: "",
+        metadata: { mime_type: mime, ...(body.extra_metadata || {}) },
+        extraction_status: "extracting",
+        status: "processing",
+      }).select("id").single();
+      if (claimErr || !claim) {
+        const { data: raced } = await admin
+          .from("knowledge_documents")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("connection_id", body.connection_id)
+          .eq("source_type", body.source_type)
+          .eq("external_id", body.external_id)
+          .maybeSingle();
+        if (!raced?.id) throw new Error(`Claim row failed: ${claimErr?.message}`);
+        await admin.from("knowledge_documents").update({
+          title: body.title,
+          source_ref: body.source_ref || null,
+          metadata: { mime_type: mime, ...(body.extra_metadata || {}) },
+          extraction_status: "extracting",
+          extraction_error: null,
+          status: "processing",
+          error_message: null,
+        }).eq("id", raced.id);
+        documentId = raced.id;
+      } else {
+        documentId = claim.id;
+      }
+    }
 
     // Download
     const dl = await callGraphBinary(userId, body.connection_id, api, endpoint, MAX_BYTES);
