@@ -42,7 +42,7 @@ export default function AIActivityDashboard() {
   const { user, organization, loading: authLoading } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0 });
+  const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0, totalChatMessages: 0, totalChatConversations: 0, totalMeetings: 0 });
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>('30days');
