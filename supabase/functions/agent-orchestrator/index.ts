@@ -160,18 +160,28 @@ Tool selection:
 - You may call multiple tools in parallel or sequentially to gather evidence.
 - Generic chit-chat or general-knowledge questions ("hi", "what is RAG?") do NOT need tools.
 
-Reading file contents (invoices, contracts, spreadsheets):
+Reading file contents (invoices, contracts, spreadsheets) — MANDATORY for any question about amounts, totals, dates, line items, or anything inside an attachment:
 - search_outlook_mail / search_onedrive / search_sharepoint only return SNIPPETS and metadata — not the full file body.
-- When the user asks about something that lives INSIDE a file (e.g. "what was the invoice total", "what does the contract say about renewal", "summarize this PDF"), FIRST call the relevant search tool with extract=true. This downloads + indexes the file contents.
-- THEN call search_context with a precise query to retrieve the actual extracted text. Cite the document title.
+- STEP 1: Call the relevant search tool with extract=true. This downloads + indexes attachments (PDF/DOCX/XLSX/TXT) so their full text is searchable.
+- STEP 2: Call search_context with a precise query (e.g. "invoice total amount due", "subtotal", "grand total") to retrieve the actual extracted text chunks.
+- STEP 3: Quote the exact line from the extracted chunk that contains the number/fact. If you cannot quote it, you do not have it — say so.
+
+Accuracy guardrails (CRITICAL — do not violate):
+- NEVER state a monetary amount, invoice total, count, or date unless you can quote the exact source line from a tool result (email body, extracted attachment chunk, or calendar event). If you cannot, say "I could not confirm the exact figure from the source documents" and list the candidate files with their links so the user can verify.
+- NEVER sum or aggregate totals across multiple invoices unless you have extracted EACH invoice's contents and can show a per-file breakdown (filename → amount → quoted line). Show the breakdown BEFORE the sum.
+- NEVER infer a total from a subject line, snippet, body preview, OR an email that summarizes other emails (those are unverified hearsay). Always open the underlying invoice attachment via extract=true + search_context.
+- Treat any number that appears in a previous assistant message in history as UNVERIFIED. Re-run the tools; do not repeat earlier numbers without re-checking the source.
+- If you have not yet run extract=true on the relevant attachments, you MUST do so before answering — even if it takes multiple tool calls.
+
+Answer shape:
+- Answer ONLY what was asked. No extra context, no unrequested summaries, no padding.
+- If the user asks "how much / what is the total / how many", prefer returning a list of source items with individual amounts and ask the user to confirm before summing.
+- Cite sources inline with subject/filename + link. Never fabricate.
+- If a tool returns 0 results, say "0 found in <mailbox> for <query> between <dates>" — never substitute generic knowledge.
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
-- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.
-- If tools run successfully but return no matches, say you couldn't find a reliable match yet and ask for a narrower sender, filename, vendor name, invoice number, or date range.
-- If mail/file search succeeds but the exact answer is still not visible, never blame connection state; explain what was or wasn't found.
-- Cite sources inline with the subject/filename and link when available. Never fabricate.
-- Be concise and structured.`;
+- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
 - Use search_outlook_mail and search_context to gather background on the recipient and prior threads.
