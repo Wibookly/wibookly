@@ -257,7 +257,7 @@ async function callExtract(authHeader: string, payload: Record<string, unknown>)
   }
 }
 
-const EXTRACTABLE_EXT = /\.(pdf|docx|xlsx|txt|md|csv)$/i;
+const EXTRACTABLE_EXT = /\.(pdf|docx|doc|xlsx|xls|pptx|txt|md|csv|json|rtf|html|htm|xml|log)$/i;
 
 async function executeTool(
   name: string,
