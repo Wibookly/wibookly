@@ -261,8 +261,29 @@ Deno.serve(async (req) => {
         extraction_status: "extracting",
         status: "processing",
       }).select("id").single();
-      if (claimErr || !claim) throw new Error(`Claim row failed: ${claimErr?.message}`);
-      documentId = claim.id;
+      if (claimErr || !claim) {
+        const { data: raced } = await admin
+          .from("knowledge_documents")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("connection_id", body.connection_id)
+          .eq("source_type", body.source_type)
+          .eq("external_id", body.external_id)
+          .maybeSingle();
+        if (!raced?.id) throw new Error(`Claim row failed: ${claimErr?.message}`);
+        await admin.from("knowledge_documents").update({
+          title: body.title,
+          source_ref: body.source_ref || null,
+          metadata: { mime_type: mime, ...(body.extra_metadata || {}) },
+          extraction_status: "extracting",
+          extraction_error: null,
+          status: "processing",
+          error_message: null,
+        }).eq("id", raced.id);
+        documentId = raced.id;
+      } else {
+        documentId = claim.id;
+      }
     }
 
     // Download
