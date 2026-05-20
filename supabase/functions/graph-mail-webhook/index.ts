@@ -303,6 +303,167 @@ async function resolveOrgRepresentativeUser(orgId: string): Promise<string | nul
   return anyMember?.user_id ?? null;
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Per-sender license resolution.
+//
+// When a user emails the shared agent mailbox, the agent must answer using
+// THAT sender's own Microsoft 365 permissions (their Outlook mail, OneDrive,
+// and any SharePoint sites they can access). To do that we need:
+//   1. A user_profiles row for the sender in this org (proves they signed up).
+//   2. An active provider_connection (their stored OAuth token — the "license").
+//   3. has_feature(user_id, 'email_agent') = true (admin enabled Email Agent
+//      for their permission group in /admin → Groups).
+//
+// All three must pass. If any fails we politely reject so the sender knows
+// what to ask their admin for.
+// ──────────────────────────────────────────────────────────────────
+interface SenderLicense {
+  user_id: string;
+  connection_id: string;
+  connected_email: string;
+}
+
+async function resolveSenderLicense(
+  senderEmail: string,
+  organizationId: string,
+): Promise<{ ok: true; license: SenderLicense } | { ok: false; reason: string; html: string }> {
+  const normalized = senderEmail.toLowerCase().trim();
+  if (!normalized) {
+    return { ok: false, reason: 'sender_empty', html: '<p>Hello,</p><p>I could not identify the sender of this email.</p>' };
+  }
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('user_id, email')
+    .ilike('email', normalized)
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (!profile?.user_id) {
+    return {
+      ok: false,
+      reason: 'sender_no_account',
+      html:
+        `<p>Hello,</p><p>I could not find an InboxIQ account for <b>${normalized}</b> in this organization. ` +
+        `Please ask your administrator to invite you, then sign in once at <a href="https://inboxiq.energyforward.com">inboxiq.energyforward.com</a> and connect your Microsoft 365 mailbox.</p>`,
+    };
+  }
+
+  const { data: conn } = await supabase
+    .from('provider_connections')
+    .select('id, connected_email')
+    .eq('user_id', profile.user_id)
+    .eq('provider', 'outlook')
+    .not('connected_email', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!conn?.id || !conn.connected_email) {
+    return {
+      ok: false,
+      reason: 'sender_no_mailbox_connection',
+      html:
+        `<p>Hi,</p><p>I found your InboxIQ account but you have not connected your Microsoft 365 mailbox yet. ` +
+        `Please sign in at <a href="https://inboxiq.energyforward.com">inboxiq.energyforward.com</a> and click <b>Connect</b> next to Microsoft 365 on the Integrations page. ` +
+        `Once connected, email me again and I will answer using your own mailbox, OneDrive, and SharePoint access.</p>`,
+    };
+  }
+
+  const { data: featureRow, error: featureErr } = await supabase.rpc('has_feature', {
+    _user_id: profile.user_id,
+    _feature_key: 'email_agent',
+  });
+  if (featureErr) {
+    console.error('has_feature check failed', featureErr);
+  }
+  if (!featureRow) {
+    return {
+      ok: false,
+      reason: 'sender_feature_not_enabled',
+      html:
+        `<p>Hi,</p><p>Your Microsoft 365 mailbox is connected, but the <b>Email Agent</b> feature is not enabled for your permission group. ` +
+        `Please ask your InboxIQ administrator to add you to a group with Email Agent turned on (/admin → Groups).</p>`,
+    };
+  }
+
+  return {
+    ok: true,
+    license: {
+      user_id: profile.user_id,
+      connection_id: conn.id,
+      connected_email: conn.connected_email,
+    },
+  };
+}
+
+// Lightweight markdown → HTML for the agent-orchestrator reply text.
+// Handles paragraphs, **bold**, *italic*, `code`, [links](url), and bullet lists.
+function markdownToHtml(md: string): string {
+  const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s: string) =>
+    escape(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  const blocks = md.split(/\n{2,}/).map((block) => {
+    const lines = block.split('\n');
+    if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
+      return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('') + '</ul>';
+    }
+    if (lines.every((l) => /^\s*\d+\.\s+/.test(l))) {
+      return '<ol>' + lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('') + '</ol>';
+    }
+    return `<p>${inline(block).replace(/\n/g, '<br/>')}</p>`;
+  });
+  return blocks.join('\n');
+}
+
+// Invoke agent-orchestrator server-to-server, using the licensed sender's
+// own user_id + connection_id so all Graph tools (Outlook mail, OneDrive,
+// SharePoint, Calendar) run with THAT user's delegated permissions.
+async function invokeOrchestratorAsSender(args: {
+  userId: string;
+  connectionId: string;
+  taskText: string;
+  threadText: string;
+}): Promise<{ replyHtml: string; provider: string; model: string }> {
+  const userMessage =
+    args.threadText && args.threadText.trim().length
+      ? `${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
+      : args.taskText;
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-orchestrator`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      'x-internal-user-id': args.userId,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      connection_id: args.connectionId,
+      agent: 'qa',
+      user_message: userMessage,
+      max_steps: 8,
+      deep: true,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`agent-orchestrator failed: ${res.status} ${text.slice(0, 500)}`);
+  }
+  const json = await res.json();
+  const reply = typeof json?.reply === 'string' && json.reply.length
+    ? json.reply
+    : "I wasn't able to find an answer in your mailbox or files.";
+  return {
+    replyHtml: markdownToHtml(reply),
+    provider: json?.model?.startsWith('anthropic/') ? 'anthropic' : 'openai',
+    model: json?.model || 'unknown',
+  };
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
