@@ -32,7 +32,7 @@ import {
   searchArticles,
 } from '@/config/help-content';
 import { MiniMarkdown } from './MiniMarkdown';
-import { RESTART_SETUP_WIZARD_EVENT } from './events';
+import { RESTART_SETUP_WIZARD_EVENT, START_GUIDED_TOUR_EVENT, type StartGuidedTourDetail } from './events';
 import { HelpChat } from './HelpChat';
 import { HelpIssueForm } from './HelpIssueForm';
 
@@ -171,9 +171,29 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
                     <p className="text-sm text-muted-foreground mt-1">{activeArticle.summary}</p>
                   </div>
 
+                  {/* Guided tour CTA — only when this article has spotlightable steps */}
+                  {activeArticle.steps?.some((s) => !!s.target) && (
+                    <Button
+                      onClick={() => {
+                        onOpenChange(false);
+                        window.dispatchEvent(
+                          new CustomEvent<StartGuidedTourDetail>(
+                            START_GUIDED_TOUR_EVENT,
+                            { detail: { articleId: activeArticle.id } },
+                          ),
+                        );
+                      }}
+                      className="w-full justify-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Start guided tour
+                    </Button>
+                  )}
+
                   {/* Primary CTA — jump straight to the dashboard page this article describes */}
                   {activeArticle.routes && activeArticle.routes.length > 0 && (
                     <Button
+                      variant={activeArticle.steps?.some((s) => !!s.target) ? 'outline' : 'default'}
                       onClick={() => goTo(activeArticle.routes![0])}
                       className="w-full justify-center gap-2"
                     >

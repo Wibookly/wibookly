@@ -877,7 +877,7 @@ export default function Chat() {
           </Button>
         </div>
         <div className="p-3 space-y-2">
-          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2">
+          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
             <Plus className="h-4 w-4" /> New chat
           </Button>
           <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground">
@@ -1137,12 +1137,14 @@ export default function Chat() {
         <div className="border-t border-border bg-background">
           <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
             {messages.length > 0 && (
-              <ChatCapacityMeter
-                messages={messages}
-                streamingText={streamingText}
-                onSummarizeAndContinue={handleSummarizeAndContinue}
-                summarizing={summarizing}
-              />
+              <div data-tour="chat-capacity">
+                <ChatCapacityMeter
+                  messages={messages}
+                  streamingText={streamingText}
+                  onSummarizeAndContinue={handleSummarizeAndContinue}
+                  summarizing={summarizing}
+                />
+              </div>
             )}
 
             {files.length > 0 && (
@@ -1174,6 +1176,7 @@ export default function Chat() {
                 className="h-9 w-9 shrink-0"
                 disabled={isStreaming || limitReached}
                 onClick={() => fileInputRef.current?.click()}
+                data-tour="chat-attach"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
@@ -1188,6 +1191,7 @@ export default function Chat() {
                 disabled={isStreaming || limitReached || isTranscribing}
                 onClick={() => (isRecording ? stopRecording() : startRecording())}
                 title={isRecording ? 'Listening… click to stop' : isTranscribing ? 'Transcribing…' : 'Click to talk — speak your message'}
+                data-tour="chat-mic"
               >
                 {isRecording && (
                   <>
@@ -1217,6 +1221,7 @@ export default function Chat() {
                     });
                   }}
                   title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
+                  data-tour="chat-web"
                 >
                   <Globe className="h-4 w-4" />
                 </Button>
@@ -1264,6 +1269,7 @@ export default function Chat() {
                   });
                 }}
                 title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
+                data-tour="chat-deep"
               >
                 <Sparkles className="h-4 w-4" />
               </Button>
@@ -1276,6 +1282,7 @@ export default function Chat() {
                 disabled={isStreaming || limitReached}
                 rows={1}
                 className="flex-1 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
+                data-tour="chat-input"
               />
               <Button
                 size="icon"
