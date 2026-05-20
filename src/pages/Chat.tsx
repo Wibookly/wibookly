@@ -9,8 +9,9 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX,
+  Sparkles, Volume2, VolumeX, Mic, Square,
 } from 'lucide-react';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
@@ -180,6 +181,15 @@ export default function Chat() {
     setSpeakingId(null);
   }, []);
   useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
+
+  // Voice input: hold-or-toggle mic → Whisper → append transcript to input.
+  const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceRecording({
+    onTranscription: (text) => {
+      setInput((prev) => (prev ? `${prev} ${text}` : text).trim());
+      // Refocus textarea so the user can immediately send / edit.
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1046,6 +1056,24 @@ export default function Chat() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={isRecording ? 'default' : 'ghost'}
+                size="icon"
+                className={cn(
+                  'h-9 w-9 shrink-0',
+                  isRecording && 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse',
+                )}
+                disabled={isStreaming || limitReached || isTranscribing}
+                onClick={() => (isRecording ? stopRecording() : startRecording())}
+                title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Hold to talk — speak your message'}
+              >
+                {isTranscribing
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : isRecording
+                    ? <Square className="h-4 w-4" />
+                    : <Mic className="h-4 w-4" />}
               </Button>
               {canWebSearch && (
                 <Button
