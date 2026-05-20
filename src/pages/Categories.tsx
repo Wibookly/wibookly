@@ -1436,6 +1436,26 @@ export default function Categories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CategoryToneSheet
+        open={!!toneCategory}
+        onOpenChange={(o) => !o && setToneCategory(null)}
+        categoryId={toneCategory?.id ?? null}
+        categoryName={toneCategory?.name}
+        categoryColor={toneCategory?.color}
+        aiDraftEnabled={toneCategory?.ai_draft_enabled}
+        autoReplyEnabled={toneCategory?.auto_reply_enabled}
+        organizationId={organization?.id ?? ''}
+        connectionId={activeConnection?.id ?? ''}
+        onSaved={(patch) => {
+          if (!toneCategory) return;
+          setCategories((prev) =>
+            prev.map((c) =>
+              c.id === toneCategory.id ? { ...c, writing_style: patch.writing_style } : c
+            )
+          );
+        }}
+      />
     </div>
   );
 }
