@@ -149,6 +149,37 @@ export default function Chat() {
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
+  const [deepMode, setDeepMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-deep') === '1';
+  });
+  const [voiceOut, setVoiceOut] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-voice') === '1';
+  });
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-voice', voiceOut ? '1' : '0'); }, [voiceOut]);
+
+  const speak = useCallback((text: string, id: string) => {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) { toast.error('Speech not supported in this browser'); return; }
+      synth.cancel();
+      const clean = text.replace(/```[\s\S]*?```/g, ' code block ').replace(/[#*_`>~]/g, '').slice(0, 4000);
+      const u = new SpeechSynthesisUtterance(clean);
+      u.rate = 1.0; u.pitch = 1.0;
+      u.onend = () => setSpeakingId(null);
+      u.onerror = () => setSpeakingId(null);
+      setSpeakingId(id);
+      synth.speak(u);
+    } catch { setSpeakingId(null); }
+  }, []);
+  const stopSpeak = useCallback(() => {
+    try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+    setSpeakingId(null);
+  }, []);
+  useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
