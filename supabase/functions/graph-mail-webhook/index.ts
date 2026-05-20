@@ -670,6 +670,23 @@ async function processNotification(n: GraphNotification) {
   });
 
   try {
+    // ── License check: the sender must be a known InboxIQ user in this org,
+    // with an active Outlook connection and `email_agent` feature enabled.
+    // The agent will then run with THEIR delegated Graph permissions.
+    const licenseResult = await resolveSenderLicense(senderEmail, settings.organization_id);
+    if (!licenseResult.ok) {
+      console.log(`Sender ${senderEmail} not licensed: ${licenseResult.reason}`);
+      try {
+        await replyToMessage(token, settings.shared_mailbox_user_id, messageId, licenseResult.html, senderEmail, []);
+      } catch (e) {
+        console.error('unlicensed-sender reply failed', e);
+      }
+      await supabase.from('agent_messages').update({ status: 'rejected', rejected_reason: licenseResult.reason }).eq('id', inbound.id);
+      await markClaim('rejected', { sender_email: senderEmail, rejected_reason: licenseResult.reason });
+      return;
+    }
+    const license = licenseResult.license;
+
     const thread = msg.conversationId
       ? await fetchConversation(token, settings.shared_mailbox_user_id, msg.conversationId, 10)
       : [];
