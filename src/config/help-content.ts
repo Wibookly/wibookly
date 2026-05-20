@@ -317,6 +317,25 @@ export const HELP_ARTICLES: HelpArticle[] = [
     routes: ['/integrations'],
     keywords: ['reconnect', 'expired', 'token', 'disconnected'],
   },
+  {
+    id: 'email-agent',
+    title: 'Ask the agent by email (uses your own permissions)',
+    category: 'ai-features',
+    summary: 'Email agent@your-domain.com and the AI answers using your Outlook, OneDrive, and SharePoint access.',
+    intro:
+      'You can email the InboxIQ agent directly from any device. The agent answers each licensed user using THEIR own Microsoft 365 permissions — so it sees exactly the mail, OneDrive files, and SharePoint sites that you can see, and nothing more. Nothing is shared between users.',
+    steps: [
+      { title: '1. Make sure you are licensed', description: 'You must have an InboxIQ account in your organization, your Microsoft 365 mailbox connected on the Integrations page, and the Email Agent feature enabled by your admin (/admin → Groups).' },
+      { title: '2. Email the shared agent', description: 'Send any question to agent@your-domain.com from your work email. Examples: "What did Maria send last week about Q3?" or "Find the latest signed NDA in our SharePoint."' },
+      { title: '3. The agent verifies you', description: 'It looks up your account, confirms you have an active mailbox connection, and checks that Email Agent is on for your group. If any check fails, it replies with the exact step to fix.' },
+      { title: '4. It answers as YOU', description: 'The agent runs Microsoft Graph searches with your own delegated token — your Outlook mail, your OneDrive, and the SharePoint sites you can access. It will never read another user\'s data.' },
+      { title: '5. Review the reply', description: 'You get a reply in the same thread, with citations and links to the source emails/files. The agent never sends mail or modifies your inbox on its own.' },
+    ],
+    outro:
+      '**Privacy note:** Your data stays in your own Microsoft 365 tenant. The agent uses *your* OAuth token, scoped to *your* M365 permissions — not a shared service account. If you lose access to a file in SharePoint, the agent loses access too.',
+    routes: ['/integrations', '/admin'],
+    keywords: ['email agent', 'shared mailbox', 'ask by email', 'delegated', 'sharepoint', 'onedrive', 'permissions'],
+  },
 ];
 
 /**
