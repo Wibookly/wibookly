@@ -704,6 +704,8 @@ Deno.serve(async (req) => {
     const seenCitationKeys = new Set<string>();
     let sawAuthToolFailure = false;
     let sawSuccessfulDataTool = false;
+    const failures: ToolFailure[] = [];
+    const diagnosticRows: any[] = [];
 
     for (let step = 0; step < maxSteps; step++) {
       const llmResp = await callGateway(authHeader, {
