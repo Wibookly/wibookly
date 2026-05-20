@@ -244,7 +244,33 @@ async function callRetrieve(
   return await resp.json();
 }
 
+// Cache token-validity per (user, connection) for the lifetime of one request,
+// so we don't probe the vault for every attachment in a batch.
+const tokenAssertionCache = new Map<string, { ok: boolean; reason?: string; at: number }>();
+
+async function assertFreshToken(userId: string, connectionId: string): Promise<{ ok: boolean; reason?: string }> {
+  const key = `${userId}:${connectionId}`;
+  const cached = tokenAssertionCache.get(key);
+  if (cached && Date.now() - cached.at < 30_000) return cached;
+  const token = await getValidAccessToken(userId, "outlook", connectionId);
+  const entry = token
+    ? { ok: true, at: Date.now() }
+    : { ok: false, reason: "no_token", at: Date.now() };
+  tokenAssertionCache.set(key, entry);
+  return entry;
+}
+
 async function callExtract(authHeader: string, userId: string, payload: Record<string, unknown>): Promise<any> {
+  // 10. Token-refresh assertion: before downloading/extracting, make sure we
+  // actually have a fresh valid token. If not, short-circuit with a single
+  // clear error instead of letting Graph fail per-file with confusing kinds.
+  const connId = String(payload.connection_id || "");
+  if (connId) {
+    const assertion = await assertFreshToken(userId, connId);
+    if (!assertion.ok) {
+      return { ok: false, status: 401, error: "no valid access token (refresh failed)", error_kind: "no_token" };
+    }
+  }
   try {
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/m365-extract-file`, {
       method: "POST",
