@@ -29,6 +29,14 @@ interface OrchestrateRequest {
   thread_id?: string;
   model?: string;
   max_steps?: number;
+  web_search?: boolean;
+  deep?: boolean;
+  user_location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    timezone?: string;
+  };
 }
 
 // Tool definitions exposed to the LLM (OpenAI function-calling shape; gateway converts for Anthropic)
@@ -539,7 +547,26 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(40);
 
-    const systemPrompt = body.agent === "email_draft" ? DRAFT_SYSTEM : QA_SYSTEM;
+    const baseSystem = body.agent === "email_draft" ? DRAFT_SYSTEM : QA_SYSTEM;
+    const extras: string[] = [];
+    if (body.web_search) {
+      const loc = body.user_location || {};
+      const locStr = [loc.city, loc.region, loc.country].filter(Boolean).join(", ");
+      extras.push(
+        `Internet search is ENABLED. Treat the user's question as time-sensitive when relevant. ` +
+        `Answer with current, real-world information confidently. ` +
+        `User location: ${locStr || "unknown"}${loc.timezone ? ` (timezone ${loc.timezone})` : ""}. ` +
+        `Use this location for "near me", weather, local time, and regional queries.`
+      );
+    }
+    if (body.deep) {
+      extras.push(
+        `DEEP-ANSWER MODE: Be maximally thorough. Do NOT ask the user clarifying questions — make reasonable assumptions and state them. ` +
+        `Run multiple tool calls in parallel and in sequence to gather all relevant evidence (emails, files, calendar, knowledge base) before answering. ` +
+        `Structure the answer with headings, bullet lists, key numbers, dates, and source citations. Prefer a long, complete answer over a short one.`
+      );
+    }
+    const systemPrompt = extras.length ? `${baseSystem}\n\n${extras.join("\n\n")}` : baseSystem;
     const messages: Msg[] = [{ role: "system", content: systemPrompt }];
     // Replay only text history. We intentionally drop stored tool_calls because
     // their matching `tool` result messages are not persisted as separate rows,
@@ -562,7 +589,7 @@ Deno.serve(async (req) => {
       content: body.user_message,
     });
 
-    const requestedModel = body.model || "openai/gpt-4.1";
+    const requestedModel = body.model || (body.deep ? "openai/gpt-5" : "openai/gpt-4.1");
 
     // Pre-flight enforcement (feature gating, daily count, per-user/org budgets, model routing)
     const featureKey = body.agent === 'email_draft' ? 'ai_draft' : 'ai_chat';
@@ -582,7 +609,7 @@ Deno.serve(async (req) => {
       ? routedModel
       : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
 
-    const maxSteps = Math.min(body.max_steps ?? 6, 10);
+    const maxSteps = Math.min(body.max_steps ?? (body.deep ? 12 : 6), 14);
     const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id };
 
     let final: any = null;

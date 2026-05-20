@@ -32,6 +32,9 @@ interface Body {
   attachments?: string[];
   attachment_refs?: AttachmentRef[];
   stream?: boolean;
+  web_search?: boolean;
+  deep?: boolean;
+  user_location?: { city?: string; region?: string; country?: string; timezone?: string };
 }
 
 function sseEvent(data: unknown): string {
@@ -202,6 +205,9 @@ Deno.serve(async (req) => {
             connection_id,
             user_message: augmentedMessage,
             conversation_id: agent_conversation_id || undefined,
+            web_search: !!body.web_search,
+            deep: !!body.deep,
+            user_location: body.user_location || undefined,
           }),
         });
 

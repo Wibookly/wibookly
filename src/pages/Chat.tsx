@@ -9,6 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
+  Sparkles, Volume2, VolumeX,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -148,6 +149,37 @@ export default function Chat() {
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
+  const [deepMode, setDeepMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-deep') === '1';
+  });
+  const [voiceOut, setVoiceOut] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-voice') === '1';
+  });
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
+  useEffect(() => { localStorage.setItem('inboxiq-chat-voice', voiceOut ? '1' : '0'); }, [voiceOut]);
+
+  const speak = useCallback((text: string, id: string) => {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) { toast.error('Speech not supported in this browser'); return; }
+      synth.cancel();
+      const clean = text.replace(/```[\s\S]*?```/g, ' code block ').replace(/[#*_`>~]/g, '').slice(0, 4000);
+      const u = new SpeechSynthesisUtterance(clean);
+      u.rate = 1.0; u.pitch = 1.0;
+      u.onend = () => setSpeakingId(null);
+      u.onerror = () => setSpeakingId(null);
+      setSpeakingId(id);
+      synth.speak(u);
+    } catch { setSpeakingId(null); }
+  }, []);
+  const stopSpeak = useCallback(() => {
+    try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+    setSpeakingId(null);
+  }, []);
+  useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -482,6 +514,9 @@ export default function Chat() {
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
+          web_search: webSearch,
+          user_location: webSearch ? (userLocation || undefined) : undefined,
+          deep: deepMode,
         }),
       });
 
@@ -525,13 +560,19 @@ export default function Chat() {
           }
         }
         // Reload messages & conversations to capture saved rows
+        let lastAssistant: Msg | null = null;
         if (newConvId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
             .select('id, role, content, created_at, attachments, citations')
             .eq('conversation_id', newConvId)
             .order('created_at', { ascending: true });
-          setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+          const filtered = ((msgs as Msg[]) || []).filter((m) => m.role !== 'system');
+          setMessages(filtered);
+          lastAssistant = [...filtered].reverse().find((m) => m.role === 'assistant') || null;
+        }
+        if (voiceOut && lastAssistant?.content) {
+          speak(lastAssistant.content, lastAssistant.id);
         }
         loadConversations();
         loadUsage();
@@ -952,7 +993,7 @@ export default function Chat() {
             </div>
           ) : (
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} />)}
+              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} />)}
               {isStreaming && (
                 <MessageBubble
                   message={{
@@ -1059,6 +1100,43 @@ export default function Chat() {
                   <Globe className="h-4 w-4" />
                 </Button>
               )}
+              <Button
+                type="button"
+                variant={deepMode ? 'default' : 'ghost'}
+                size="icon"
+                className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                disabled={isStreaming || limitReached}
+                onClick={() => {
+                  setDeepMode((v) => {
+                    const next = !v;
+                    toast.success(next
+                      ? 'Deep mode ON — thorough multi-step answers, no follow-up questions'
+                      : 'Deep mode OFF');
+                    return next;
+                  });
+                }}
+                title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant={voiceOut ? 'default' : 'ghost'}
+                size="icon"
+                className={cn('h-9 w-9 shrink-0', voiceOut && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                disabled={isStreaming || limitReached}
+                onClick={() => {
+                  setVoiceOut((v) => {
+                    const next = !v;
+                    if (!next) stopSpeak();
+                    toast.success(next ? 'Voice replies ON — answers will be spoken aloud' : 'Voice replies OFF');
+                    return next;
+                  });
+                }}
+                title={voiceOut ? 'Voice replies: ON — click to disable' : 'Voice replies: OFF — click to hear answers spoken'}
+              >
+                {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -1119,16 +1197,23 @@ function MessageBubble({
   message,
   userInitial,
   streaming,
+  speakingId,
+  onSpeak,
+  onStopSpeak,
 }: {
   message: Msg;
   userInitial: string;
   streaming?: boolean;
+  speakingId?: string | null;
+  onSpeak?: (text: string, id: string) => void;
+  onStopSpeak?: () => void;
 }) {
   const isUser = message.role === 'user';
   const copy = () => {
     navigator.clipboard.writeText(message.content);
     toast.success('Copied');
   };
+  const isSpeaking = speakingId === message.id;
 
   return (
     <div className="flex flex-col gap-1.5 group">
@@ -1170,6 +1255,15 @@ function MessageBubble({
             <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
               <Copy className="h-3.5 w-3.5" />
             </button>
+            {onSpeak && (
+              <button
+                onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
+                className={cn('p-1 hover:bg-accent rounded', isSpeaking ? 'text-primary' : 'text-muted-foreground')}
+                title={isSpeaking ? 'Stop speaking' : 'Read aloud'}
+              >
+                {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
         )}
       </div>
