@@ -865,12 +865,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 6. Pre-flight probe — if any tool reported an auth failure, verify the
+    // token still actually works against Graph before telling the user to
+    // reconnect. Suppresses false reauth prompts when failures were transient.
+    let authProbeOk: boolean | undefined;
+    if (sawAuthToolFailure) {
+      try {
+        const probe = await probeMicrosoftGraph(user.id, body.connection_id);
+        authProbeOk = probe.ok;
+      } catch (e) {
+        console.error("agent-orchestrator probe failed", e);
+        authProbeOk = false;
+      }
+    }
+
     const finalText = finalizeReply({
       finalText: final?.content || (draft ? "Draft prepared for your review." : "I wasn't able to complete that request."),
       sawAuthToolFailure,
       sawSuccessfulDataTool,
       citationsLength: citations.length,
+      authProbeOk,
     });
+
+    // 8. flush tool diagnostics (best-effort)
+    if (diagnosticRows.length) {
+      try { await admin.from("tool_diagnostics").insert(diagnosticRows); }
+      catch (e) { console.error("tool_diagnostics insert failed", e); }
+    }
 
     // Persist assistant reply
     const persistedToolCalls = messages
