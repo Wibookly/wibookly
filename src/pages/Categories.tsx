@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
-import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star, Download } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Check, Play, Cloud, CloudOff, ChevronDown, ChevronUp, Mail, RefreshCw, Star, Download, Sparkles } from 'lucide-react';
+import { CategoryToneSheet } from '@/components/categories/CategoryToneSheet';
 import {
   Tooltip,
   TooltipContent,
@@ -148,6 +149,7 @@ interface SortableRowProps {
   index: number;
   updateCategory: (id: string, field: keyof Category, value: any) => void;
   requestDisable: (category: Category) => void;
+  onConfigureTone: (category: Category) => void;
 }
 
 function formatSyncTime(syncTime: string | null): string {
@@ -165,7 +167,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory, requestDisable }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -240,8 +242,28 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
         />
       </TableCell>
         <TableCell>
-          <div className="text-sm text-muted-foreground">
-            {WRITING_STYLES.find(s => s.value === category.writing_style)?.label || 'Professional & Polished'}
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground flex-1 truncate">
+              {WRITING_STYLES.find(s => s.value === category.writing_style)?.label || 'Professional & Polished'}
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 gap-1 rounded-full"
+                    onClick={() => onConfigureTone(category)}
+                    disabled={!category.is_enabled}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Tone
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Configure AI tone for this category</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </TableCell>
       <TableCell className="text-center">
@@ -263,7 +285,10 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
               <span className="inline-block">
                 <Switch
                   checked={category.ai_draft_enabled}
-                  onCheckedChange={(checked) => updateCategory(category.id, 'ai_draft_enabled', checked)}
+                  onCheckedChange={(checked) => {
+                    updateCategory(category.id, 'ai_draft_enabled', checked);
+                    if (checked && !category.ai_draft_enabled) onConfigureTone(category);
+                  }}
                   disabled={!category.is_enabled}
                 />
               </span>
@@ -281,7 +306,10 @@ function SortableRow({ category, index, updateCategory, requestDisable }: Sortab
               <span className="inline-block">
                 <Switch
                   checked={category.auto_reply_enabled}
-                  onCheckedChange={(checked) => updateCategory(category.id, 'auto_reply_enabled', checked)}
+                  onCheckedChange={(checked) => {
+                    updateCategory(category.id, 'auto_reply_enabled', checked);
+                    if (checked && !category.auto_reply_enabled) onConfigureTone(category);
+                  }}
                   disabled={!category.is_enabled || !category.ai_draft_enabled}
                 />
               </span>
@@ -334,6 +362,7 @@ export default function Categories() {
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
+  const [toneCategory, setToneCategory] = useState<Category | null>(null);
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
@@ -1108,6 +1137,7 @@ export default function Categories() {
                     index={index}
                     updateCategory={updateCategory}
                     requestDisable={setPendingDisableCategory}
+                    onConfigureTone={(c) => setToneCategory(c)}
                   />
                 ))}
               </SortableContext>
@@ -1406,6 +1436,26 @@ export default function Categories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CategoryToneSheet
+        open={!!toneCategory}
+        onOpenChange={(o) => !o && setToneCategory(null)}
+        categoryId={toneCategory?.id ?? null}
+        categoryName={toneCategory?.name}
+        categoryColor={toneCategory?.color}
+        aiDraftEnabled={toneCategory?.ai_draft_enabled}
+        autoReplyEnabled={toneCategory?.auto_reply_enabled}
+        organizationId={organization?.id ?? ''}
+        connectionId={activeConnection?.id ?? ''}
+        onSaved={(patch) => {
+          if (!toneCategory) return;
+          setCategories((prev) =>
+            prev.map((c) =>
+              c.id === toneCategory.id ? { ...c, writing_style: patch.writing_style } : c
+            )
+          );
+        }}
+      />
     </div>
   );
 }
