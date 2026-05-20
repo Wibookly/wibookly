@@ -153,6 +153,26 @@ export function PageGuide() {
 
       <button
         type="button"
+        onClick={() => setTraining(!training)}
+        aria-label={training ? 'Exit training mode' : 'Enter training mode'}
+        title={
+          training
+            ? 'Exit training mode'
+            : 'Highlight every control on this page and show inline hints on hover'
+        }
+        className={cn(
+          'flex items-center justify-center px-2 transition border-l border-primary-foreground/20',
+          training ? 'bg-primary-foreground/20' : 'hover:bg-primary/90',
+        )}
+      >
+        <GraduationCap
+          className={cn('h-3.5 w-3.5', training && 'animate-pulse')}
+        />
+      </button>
+
+
+      <button
+        type="button"
         onClick={dismiss}
         aria-label="Dismiss page guide"
         title="Hide for this page"
