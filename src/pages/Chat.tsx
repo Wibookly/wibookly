@@ -1191,6 +1191,7 @@ export default function Chat() {
                 disabled={isStreaming || limitReached || isTranscribing}
                 onClick={() => (isRecording ? stopRecording() : startRecording())}
                 title={isRecording ? 'Listening… click to stop' : isTranscribing ? 'Transcribing…' : 'Click to talk — speak your message'}
+                data-tour="chat-mic"
               >
                 {isRecording && (
                   <>
