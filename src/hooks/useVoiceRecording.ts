@@ -59,10 +59,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: 
         const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
         stream.getTracks().forEach(track => track.stop());
 
-        // If nothing was actually spoken, skip transcription entirely.
-        if (!hasSpokenRef.current || audioBlob.size < 1000) {
+        // Skip transcription only for truly empty recordings (no audio captured).
+        if (audioBlob.size < 500) {
           return;
         }
+
 
         const reader = new FileReader();
         reader.onloadend = async () => {
