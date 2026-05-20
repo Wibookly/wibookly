@@ -1059,21 +1059,25 @@ export default function Chat() {
               </Button>
               <Button
                 type="button"
-                variant={isRecording ? 'default' : 'ghost'}
+                variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-9 w-9 shrink-0',
-                  isRecording && 'bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse',
+                  'relative h-9 w-9 shrink-0',
+                  isRecording && 'text-destructive',
                 )}
                 disabled={isStreaming || limitReached || isTranscribing}
                 onClick={() => (isRecording ? stopRecording() : startRecording())}
-                title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Hold to talk — speak your message'}
+                title={isRecording ? 'Listening… click to stop' : isTranscribing ? 'Transcribing…' : 'Click to talk — speak your message'}
               >
+                {isRecording && (
+                  <>
+                    <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
+                    <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
+                  </>
+                )}
                 {isTranscribing
                   ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : isRecording
-                    ? <Square className="h-4 w-4" />
-                    : <Mic className="h-4 w-4" />}
+                  : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
               </Button>
               {canWebSearch && (
                 <Button
