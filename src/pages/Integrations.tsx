@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
-import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ExternalLink, Clock, Loader2, Settings2, Link as LinkIcon, Calendar, Save, Sparkles } from 'lucide-react';
@@ -563,11 +562,6 @@ export default function Integrations() {
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      {/* User Avatar Row */}
-      <div className="mb-4 flex justify-end">
-        <UserAvatarDropdown />
-      </div>
-
       <PageHero
         eyebrow="Account Provisioning"
         title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
