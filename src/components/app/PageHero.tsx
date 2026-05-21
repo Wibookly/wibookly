@@ -43,7 +43,7 @@ export function PageHero({
 }: PageHeroProps) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-6 lg:p-7 mb-6 shadow-glow"
+      className="sticky top-0 z-20 relative overflow-hidden rounded-2xl p-6 lg:p-7 mb-6 shadow-glow"
       style={{ background: GRADIENTS[accent], color: '#FFFFFF' }}
     >
       <div
