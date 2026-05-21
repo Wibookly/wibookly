@@ -864,7 +864,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
         'fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-card border-r border-border flex flex-col transition-transform',
