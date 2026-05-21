@@ -43,6 +43,7 @@ function getPageTitle(pathname: string): string {
 export function AppHeader() {
   const { profile, signOut } = useAuth();
   const { pathname } = useLocation();
+  const { startTour, hasTourForCurrentPage } = useTour();
   const title = getPageTitle(pathname);
 
   const initials = profile?.full_name
