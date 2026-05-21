@@ -326,14 +326,12 @@
   }
 
   .page-shell-sticky {
-    @apply sticky top-0 z-20 pb-4;
-    background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in srgb, var(--bg) 94%, transparent) 78%, transparent 100%);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    @apply sticky top-0 z-20 pb-6;
+    background: var(--bg);
   }
 
   .page-shell-content {
-    @apply relative z-10;
+    @apply relative z-10 pt-2;
   }
 
   body[data-training-mode="1"] [data-tour] {
