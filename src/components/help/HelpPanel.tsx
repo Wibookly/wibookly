@@ -43,9 +43,11 @@ interface HelpPanelProps {
   onOpenChange: (open: boolean) => void;
   /** Optional article id to deep-link to when the panel opens. */
   initialArticleId?: string | null;
+  /** Optional tab to open the panel on. */
+  initialTab?: HelpTab;
 }
 
-export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelProps) {
+export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: HelpPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<HelpTab>('articles');
@@ -62,6 +64,13 @@ export function HelpPanel({ open, onOpenChange, initialArticleId }: HelpPanelPro
       setQuery('');
     }
   }, [open, initialArticleId]);
+
+  // Allow opening directly to a specific tab (e.g. "issue" from the user menu).
+  useEffect(() => {
+    if (open && initialTab) {
+      setTab(initialTab);
+    }
+  }, [open, initialTab]);
 
   // Reset internal state when the panel closes
   useEffect(() => {

@@ -8,7 +8,7 @@ import { MobileSidebar } from './MobileSidebar';
 import { OceanWaves } from '@/components/theme/OceanWaves';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 
-import { HelpLauncher } from '@/components/help/HelpLauncher';
+import { HelpPanelHost } from '@/components/help/HelpPanelHost';
 import { PageGuide } from '@/components/help/PageGuide';
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
@@ -91,7 +91,7 @@ export function AppLayout() {
       </div>
 
       {/* Global help affordances */}
-      <HelpLauncher />
+      <HelpPanelHost />
       <PageGuide />
       <GuidedTour />
       <TrainingModeOverlay />
