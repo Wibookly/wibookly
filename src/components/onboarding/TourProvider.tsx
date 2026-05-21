@@ -41,6 +41,54 @@ function isDarkMode(): boolean {
   );
 }
 
+const RULE_SUB_TARGETS = new Set([
+  '[data-tour="ei-rule-row"]',
+  '[data-tour="ei-rule-type"]',
+  '[data-tour="ei-rule-value"]',
+  '[data-tour="ei-rule-toggle"]',
+  '[data-tour="ei-rule-sync"]',
+  '[data-tour="ei-rule-delete"]',
+  '[data-tour="ei-rule-advanced"]',
+]);
+
+function waitForSelector(selector: string, timeoutMs = 1500): Promise<HTMLElement | null> {
+  return new Promise((resolve) => {
+    const existing = document.querySelector<HTMLElement>(selector);
+    if (existing) return resolve(existing);
+    const started = Date.now();
+    const iv = window.setInterval(() => {
+      const el = document.querySelector<HTMLElement>(selector);
+      if (el) {
+        window.clearInterval(iv);
+        resolve(el);
+      } else if (Date.now() - started > timeoutMs) {
+        window.clearInterval(iv);
+        resolve(null);
+      }
+    }, 80);
+  });
+}
+
+/**
+ * Global `before` hook: runs before each step is shown. If the upcoming
+ * step targets a per-rule element but no rule exists yet, programmatically
+ * click "Add Rule" so the targets actually render.
+ */
+async function ensureStepReady(data: { step: { target?: unknown } }): Promise<void> {
+  const sel = typeof data.step?.target === 'string' ? (data.step.target as string) : '';
+  if (!sel || sel === 'body') return;
+
+  if (RULE_SUB_TARGETS.has(sel) && !document.querySelector(sel)) {
+    const addBtn = document.querySelector<HTMLButtonElement>('[data-tour="ei-add-rule"]');
+    if (addBtn) {
+      addBtn.click();
+      await waitForSelector(sel, 2000);
+      return;
+    }
+  }
+  await waitForSelector(sel, 1200);
+}
+
 export function TourProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [run, setRun] = useState(false);
@@ -50,7 +98,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const match = Object.entries(TOUR_REGISTRY).find(([route]) =>
       location.pathname.startsWith(route),
     );
-    return { currentRoute: match?.[0], currentTour: match?.[1] };
+    return { currentRoute: match?.[0], currentTour: match?.[1] as Step[] | undefined };
   }, [location.pathname]);
 
   // Auto-start on first visit to a tour page
@@ -114,6 +162,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
             showProgress: true,
             spotlightPadding: 6,
             buttons: ['back', 'skip', 'primary'],
+            // If a target never appears we don't want to hang the tour
+            // forever — bail out after ~1.5s and Joyride will skip / center.
+            targetWaitTimeout: 1500,
+            // Before each step, expand or seed the UI the step needs.
+            before: ensureStepReady,
+            beforeTimeout: 2500,
           }}
           locale={{
             back: 'Back',
