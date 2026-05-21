@@ -1,6 +1,5 @@
 import { useAuth } from '@/lib/auth';
 import { useTheme, type Theme } from '@/lib/theme';
-import { useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -13,13 +12,10 @@ import {
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
-import { useTour } from '@/components/onboarding/TourProvider';
 
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  useLocation();
-  useTour();
 
   // Extract first name + last initial (e.g. "John D.") - no email fallback
   const getNameParts = () => {
