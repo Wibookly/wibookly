@@ -299,75 +299,30 @@ export default function AIActivityDashboard() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">AI Drafts Created</CardTitle>
-                <FileText className="h-4 w-4 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalDrafts}</div>
-                <p className="text-xs text-muted-foreground mt-1">Emails drafted by AI</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">AI Auto-Replies Sent</CardTitle>
-                <Send className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalAutoReplies}</div>
-                <p className="text-xs text-muted-foreground mt-1">Automatically sent replies</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Events Scheduled</CardTitle>
-                <CalendarCheck className="h-4 w-4 text-purple-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalScheduledEvents}</div>
-                <p className="text-xs text-muted-foreground mt-1">AI-scheduled appointments</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total AI-Processed</CardTitle>
-                <MailIcon className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalEmails}</div>
-                <p className="text-xs text-muted-foreground mt-1">All AI-handled emails</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">AI Chats</CardTitle>
-                <MessageSquare className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalChatMessages}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stats.totalChatConversations} conversation{stats.totalChatConversations === 1 ? '' : 's'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Meeting Copilot</CardTitle>
-                <Video className="h-4 w-4 text-pink-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.totalMeetings}</div>
-                <p className="text-xs text-muted-foreground mt-1">Meetings assisted</p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+            {[
+              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI', Icon: FileText, color: 'text-blue-500' },
+              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Automatically sent replies', Icon: Send, color: 'text-orange-500' },
+              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'AI-scheduled appointments', Icon: CalendarCheck, color: 'text-purple-500' },
+              { title: 'Total AI-Processed', value: stats.totalEmails, sub: 'All AI-handled emails', Icon: MailIcon, color: 'text-primary' },
+              { title: 'AI Chats', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'}`, Icon: MessageSquare, color: 'text-green-500' },
+              { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Meetings assisted', Icon: Video, color: 'text-pink-500' },
+            ].map(({ title, value, sub, Icon, color }) => (
+              <Card key={title} className="h-full">
+                <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
+                  <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
+                    {title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
+                  <p className="text-xs text-muted-foreground mt-2 min-h-[2rem] line-clamp-2">{sub}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+
 
           {/* Category Breakdown */}
           <Card className="mb-8">
