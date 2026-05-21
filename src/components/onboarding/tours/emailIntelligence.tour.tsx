@@ -89,6 +89,62 @@ export const emailIntelligenceTour: Step[] = [
     placement: 'top',
   },
   {
+    target: '[data-tour="ei-rule-card"]',
+    title: 'One Rule Group Per Category',
+    content:
+      'Each active category gets its own rule group. Disable the category and its rules are removed automatically. Re-enable to start adding rules again.',
+    placement: 'top',
+  },
+  {
+    target: '[data-tour="ei-add-rule"]',
+    title: 'Add a Rule',
+    content:
+      'Click to append a new rule to this category. Stack as many as you need — each new rule appears below the previous one.',
+    placement: 'left',
+  },
+  {
+    target: '[data-tour="ei-rule-type"]',
+    title: 'Rule Type',
+    content:
+      'Pick what to match on: Sender (a specific address), Domain (everyone from a company), or Keyword (text in the subject or body).',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tour="ei-rule-value"]',
+    title: 'Rule Value',
+    content:
+      'Enter the value to match — e.g. john@example.com, example.com, or "invoice". Open Advanced Options below to combine with Recipient, Subject, and Body filters using AND/OR.',
+    placement: 'bottom',
+  },
+  {
+    target: '[data-tour="ei-rule-toggle"]',
+    title: 'Enable / Disable Rule',
+    content:
+      'Turn an individual rule off without deleting it. Useful for testing or pausing a rule temporarily.',
+    placement: 'left',
+  },
+  {
+    target: '[data-tour="ei-rule-sync"]',
+    title: 'Sync Rule',
+    content:
+      'Red pulse = unsaved changes. Amber = never run. Green = synced. Click to push this rule to your mailbox and reprocess matching emails.',
+    placement: 'left',
+  },
+  {
+    target: '[data-tour="ei-rule-advanced"]',
+    title: 'Advanced Options',
+    content:
+      'Expand to add Recipient, Subject contains, and Body contains conditions joined with AND/OR — for precise multi-condition matching.',
+    placement: 'right',
+  },
+  {
+    target: '[data-tour="ei-rule-delete"]',
+    title: 'Delete Rule',
+    content:
+      'Permanently removes this rule. The category stays — only this specific rule is removed and unsynced from your mailbox.',
+    placement: 'left',
+  },
+  {
     target: '[data-tour="ei-sync"]',
     title: 'Real-Time Sync',
     content:
