@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
+import { AIThinking } from '@/components/ai/AIThinking';
+
 
 interface Conversation {
   id: string;
@@ -864,7 +866,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
         'fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-card border-r border-border flex flex-col transition-transform',
@@ -1055,7 +1057,7 @@ export default function Chat() {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
+      <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
         {/* Sticky header — stays in place while the chat scrolls */}
         <header className="shrink-0 z-20 bg-background border-b border-border">
           <div className="h-14 flex items-center px-4 gap-2">
@@ -1116,18 +1118,23 @@ export default function Chat() {
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} />)}
               {isStreaming && (
-                <MessageBubble
-                  message={{
-                    id: 'streaming',
-                    role: 'assistant',
-                    content: streamingText || '...',
-                    created_at: new Date().toISOString(),
-                    citations: streamingCitations.length ? streamingCitations : null,
-                  }}
-                  userInitial={userInitial}
-                  streaming
-                />
+                streamingText ? (
+                  <MessageBubble
+                    message={{
+                      id: 'streaming',
+                      role: 'assistant',
+                      content: streamingText,
+                      created_at: new Date().toISOString(),
+                      citations: streamingCitations.length ? streamingCitations : null,
+                    }}
+                    userInitial={userInitial}
+                    streaming
+                  />
+                ) : (
+                  <AIThinking />
+                )
               )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
