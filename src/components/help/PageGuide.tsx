@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Sparkles, X, Compass, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrainingMode } from './TrainingMode';
+import { useTour } from '@/components/onboarding/TourProvider';
 import { getContextualArticles, type HelpArticle } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
