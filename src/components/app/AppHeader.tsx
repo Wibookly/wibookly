@@ -76,6 +76,31 @@ export function AppHeader() {
       <h1 className="text-h4" style={{ color: 'var(--text)' }}>{title}</h1>
 
       <div className="flex items-center gap-3">
+        {hasTourForCurrentPage && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={startTour}
+                  aria-label="Replay guided tour for this page"
+                  className="group relative inline-flex items-center gap-2 h-10 px-3 rounded-full transition-all hover:shadow-md"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.05))',
+                    border: '1px solid hsl(var(--primary) / 0.35)',
+                    color: 'hsl(var(--primary))',
+                  }}
+                >
+                  <Sparkles className="w-4 h-4" strokeWidth={1.8} />
+                  <span className="text-button hidden md:inline">Tour this page</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Replay the guided walkthrough for this page
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
         <button
           aria-label="Notifications"
           className="relative w-10 h-10 rounded-full grid place-items-center transition-colors"
