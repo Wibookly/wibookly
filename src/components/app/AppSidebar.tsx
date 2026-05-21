@@ -10,6 +10,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/ef-logo.png';
 import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
+import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 
 import { useState, useEffect } from 'react';
 import {
@@ -283,7 +284,16 @@ export function AppSidebar() {
         </nav>
       </div>
 
-      <div className="p-3 border-t border-border space-y-1">
+      <div className="p-3 border-t border-border space-y-3">
+        <div>
+          <p
+            className="mb-2 px-1"
+            style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}
+          >
+            Guidance
+          </p>
+          <HelpQuickActions compact />
+        </div>
         <ModeToggle />
         <button
           onClick={signOut}
