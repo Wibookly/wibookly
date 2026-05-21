@@ -9,7 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, ChevronDown, LogOut, User } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, User, Sparkles } from 'lucide-react';
+import { useTour } from '@/components/onboarding/TourProvider';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'Home',
@@ -36,6 +43,7 @@ function getPageTitle(pathname: string): string {
 export function AppHeader() {
   const { profile, signOut } = useAuth();
   const { pathname } = useLocation();
+  const { startTour, hasTourForCurrentPage } = useTour();
   const title = getPageTitle(pathname);
 
   const initials = profile?.full_name
@@ -68,6 +76,31 @@ export function AppHeader() {
       <h1 className="text-h4" style={{ color: 'var(--text)' }}>{title}</h1>
 
       <div className="flex items-center gap-3">
+        {hasTourForCurrentPage && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={startTour}
+                  aria-label="Replay guided tour for this page"
+                  className="group relative inline-flex items-center gap-2 h-10 px-3 rounded-full transition-all hover:shadow-md"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.05))',
+                    border: '1px solid hsl(var(--primary) / 0.35)',
+                    color: 'hsl(var(--primary))',
+                  }}
+                >
+                  <Sparkles className="w-4 h-4" strokeWidth={1.8} />
+                  <span className="text-button hidden md:inline">Tour this page</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Replay the guided walkthrough for this page
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
         <button
           aria-label="Notifications"
           className="relative w-10 h-10 rounded-full grid place-items-center transition-colors"
