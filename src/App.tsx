@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { ActiveEmailProvider } from "@/contexts/ActiveEmailContext";
 import { FeatureRoute } from "@/components/app/FeatureRoute";
+import { TourProvider } from "@/components/onboarding/TourProvider";
 
 import Auth from "./pages/Auth";
 import { AppLayout } from "./components/app/AppLayout";
@@ -42,6 +43,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <TourProvider>
               <Routes>
                 {/* Auth is the entry point */}
                 <Route path="/" element={<Navigate to="/auth" replace />} />
@@ -89,6 +91,7 @@ const App = () => (
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </TourProvider>
             </BrowserRouter>
           
         </ActiveEmailProvider>
