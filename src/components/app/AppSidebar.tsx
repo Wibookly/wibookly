@@ -245,7 +245,7 @@ export function AppSidebar() {
             <>
               {/* Account Provisioning */}
               <NavSection title="Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
-                <NavItem href="/integrations" icon={Link2} accent={accents.cyan}>Email & Calendar Connections</NavItem>
+                <NavItem href="/integrations" icon={Link2} accent={accents.cyan}><span style={{ fontSize: '12.5px' }}>Email &amp; Calendar Connections</span></NavItem>
               </NavSection>
 
               {/* AI Intelligence */}
