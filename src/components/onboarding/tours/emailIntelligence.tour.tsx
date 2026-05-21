@@ -7,7 +7,7 @@ export const emailIntelligenceTour: Step[] = [
     content:
       "This page is where you teach InboxIQ how to handle your inbox. Categories sort emails, rules route them, and AI drafts or sends replies. Let's walk through it.",
     placement: 'bottom',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="ei-reorder"]',
