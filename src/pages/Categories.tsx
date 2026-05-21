@@ -1069,6 +1069,7 @@ export default function Categories() {
         <UserAvatarDropdown />
       </div>
 
+      <div data-tour="ei-header">
       <PageHero
         eyebrow="AI Intelligence"
         title="Email Intelligence"
@@ -1107,6 +1108,7 @@ export default function Categories() {
           </>
         }
       />
+      </div>
 
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
@@ -1154,7 +1156,7 @@ export default function Categories() {
       {/* Rules Section */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight inline-flex items-center gap-2">Rules <HelpTip id="rule.conditions" /></h2>
+          <h2 data-tour="ei-rules" className="text-xl font-semibold tracking-tight inline-flex items-center gap-2">Rules <HelpTip id="rule.conditions" /></h2>
           <p className="mt-1 text-muted-foreground">
             Create rules to automatically categorize emails by sender, domain, or keyword
           </p>
