@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
+import { AIThinking } from '@/components/ai/AIThinking';
+
 
 interface Conversation {
   id: string;
