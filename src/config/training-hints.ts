@@ -36,8 +36,8 @@ export const TRAINING_HINTS: Record<string, TrainingHint> = {
   },
   'chat-mic': {
     title: 'Voice input',
-    body: 'Hold to dictate your question. We transcribe it locally with Whisper and drop the text in the box.',
-    action: 'Hold',
+    body: 'Click once and speak naturally. After about 2 seconds of silence, your speech is converted into text and dropped into the message box automatically.',
+    action: 'Click',
   },
   'chat-web': {
     title: 'Web search',
@@ -47,6 +47,11 @@ export const TRAINING_HINTS: Record<string, TrainingHint> = {
   'chat-deep': {
     title: 'Deep research',
     body: 'Triggers a slower, multi-step reasoning pass — useful for long questions where accuracy matters more than speed.',
+    action: 'Toggle',
+  },
+  'chat-location': {
+    title: 'Location context',
+    body: 'Shares only your approximate location so the assistant can answer with better local context like time zone, city, or nearby information.',
     action: 'Toggle',
   },
   'chat-input': {
