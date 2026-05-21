@@ -425,9 +425,9 @@ export default function AIDailyBrief() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-8 max-w-7xl mx-auto w-full" style={{ background: 'var(--bg)' }} ref={printRef}>
-
-      <div className="mb-4 flex justify-end gap-2">
+    <div className="page-shell" style={{ background: 'var(--bg)' }} ref={printRef}>
+      <div className="page-shell-sticky space-y-4">
+      <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
           <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
           {isEmailing ? 'Sending…' : 'Email me'}
@@ -458,7 +458,9 @@ export default function AIDailyBrief() {
           </FeatureCard>
         </div>
       )}
+      </div>
 
+      <div className="page-shell-content">
       {/* 4-up StatCard grid */}
       {brief && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -847,6 +849,7 @@ export default function AIDailyBrief() {
           </Card>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
