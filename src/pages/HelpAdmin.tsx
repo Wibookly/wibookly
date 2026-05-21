@@ -242,8 +242,9 @@ export default function HelpAdmin() {
   }));
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+      <div className="flex items-center justify-between">
         <div>
           <Button
             variant="ghost"
@@ -266,8 +267,9 @@ export default function HelpAdmin() {
           <Plus className="w-4 h-4 mr-2" /> New Article
         </Button>
       </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+      <div className="page-shell-content grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
         {/* Sidebar list */}
         <Card className="h-fit lg:sticky lg:top-4">
           <CardHeader className="pb-3">
