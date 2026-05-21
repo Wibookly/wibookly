@@ -1116,18 +1116,23 @@ export default function Chat() {
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} />)}
               {isStreaming && (
-                <MessageBubble
-                  message={{
-                    id: 'streaming',
-                    role: 'assistant',
-                    content: streamingText || '...',
-                    created_at: new Date().toISOString(),
-                    citations: streamingCitations.length ? streamingCitations : null,
-                  }}
-                  userInitial={userInitial}
-                  streaming
-                />
+                streamingText ? (
+                  <MessageBubble
+                    message={{
+                      id: 'streaming',
+                      role: 'assistant',
+                      content: streamingText,
+                      created_at: new Date().toISOString(),
+                      citations: streamingCitations.length ? streamingCitations : null,
+                    }}
+                    userInitial={userInitial}
+                    streaming
+                  />
+                ) : (
+                  <AIThinking />
+                )
               )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
