@@ -1,5 +1,6 @@
 import { useAuth } from '@/lib/auth';
 import { useTheme, type Theme } from '@/lib/theme';
+import { useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -11,11 +12,21 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
+import { LogOut, User, Sun, Moon, Monitor, Compass, LifeBuoy } from 'lucide-react';
+import { useTour } from '@/components/onboarding/TourProvider';
+import {
+  OPEN_HELP_PANEL_EVENT,
+  START_GUIDED_TOUR_EVENT,
+  type OpenHelpPanelDetail,
+  type StartGuidedTourDetail,
+} from '@/components/help/events';
+import { getContextualArticles } from '@/config/help-content';
 
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const location = useLocation();
+  const { startTour, hasTourForCurrentPage } = useTour();
 
   // Extract first name + last initial (e.g. "John D.") - no email fallback
   const getNameParts = () => {
@@ -32,6 +43,38 @@ export function UserAvatarDropdown() {
   const displayName = lastInitial ? `${firstName} ${lastInitial}.` : firstName;
   const initials = (firstName.charAt(0) + (lastInitial || firstName.charAt(1) || '')).toUpperCase();
   const photoUrl = profile?.profile_photo_url ?? undefined;
+
+  const launchUserGuide = () => {
+    // Prefer the interactive react-joyride tour for this page.
+    if (hasTourForCurrentPage) {
+      startTour();
+      return;
+    }
+    // Fallback: launch the spotlight tour tied to the page's primary help article.
+    const article = getContextualArticles(location.pathname)[0];
+    if (article?.steps?.some((s) => !!s.target)) {
+      window.dispatchEvent(
+        new CustomEvent<StartGuidedTourDetail>(START_GUIDED_TOUR_EVENT, {
+          detail: { articleId: article.id },
+        }),
+      );
+      return;
+    }
+    // Final fallback: open the help panel deep-linked to the page article.
+    window.dispatchEvent(
+      new CustomEvent<OpenHelpPanelDetail>(OPEN_HELP_PANEL_EVENT, {
+        detail: { articleId: article?.id, initialTab: 'articles' },
+      }),
+    );
+  };
+
+  const openSupport = () => {
+    window.dispatchEvent(
+      new CustomEvent<OpenHelpPanelDetail>(OPEN_HELP_PANEL_EVENT, {
+        detail: { initialTab: 'issue' },
+      }),
+    );
+  };
 
   return (
     <DropdownMenu>
@@ -52,7 +95,7 @@ export function UserAvatarDropdown() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="font-normal">
           <div className="flex items-center gap-3">
             {photoUrl ? (
@@ -73,6 +116,25 @@ export function UserAvatarDropdown() {
             <User className="w-4 h-4" />
             Settings
           </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={launchUserGuide} className="flex items-center gap-2">
+          <Compass className="w-4 h-4 text-primary" />
+          <div className="flex flex-col">
+            <span>User Guide</span>
+            <span className="text-[10px] text-muted-foreground">
+              Walk me through this page
+            </span>
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={openSupport} className="flex items-center gap-2">
+          <LifeBuoy className="w-4 h-4 text-primary" />
+          <div className="flex flex-col">
+            <span>Help &amp; Support</span>
+            <span className="text-[10px] text-muted-foreground">
+              Submit a ticket to your admin
+            </span>
+          </div>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Theme</DropdownMenuLabel>

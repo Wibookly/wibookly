@@ -4,10 +4,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Send, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+const FEATURE_OPTIONS = [
+  'AI Chat',
+  'Email Intelligence',
+  'No Reply Tracker',
+  'My Profile & Signature',
+  'Meeting Copilot',
+  'AI Activity Report',
+  'My Daily Brief',
+  'User Access',
+  'Integrations (Email & Calendar)',
+  'Other',
+] as const;
+type FeatureOption = (typeof FEATURE_OPTIONS)[number];
 
 export function HelpIssueForm() {
   const { user, profile } = useAuth();
