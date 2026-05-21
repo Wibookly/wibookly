@@ -1,13 +1,6 @@
 import { useLocation } from 'react-router-dom';
-import { Bell, Sparkles } from 'lucide-react';
-import { useTour } from '@/components/onboarding/TourProvider';
+import { Bell } from 'lucide-react';
 import { UserAvatarDropdown } from './UserAvatarDropdown';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'Home',
@@ -33,7 +26,6 @@ function getPageTitle(pathname: string): string {
 
 export function AppHeader() {
   const { pathname } = useLocation();
-  const { startTour, hasTourForCurrentPage } = useTour();
   const title = getPageTitle(pathname);
 
   return (
@@ -49,31 +41,6 @@ export function AppHeader() {
       <h1 className="text-h4 min-w-0" style={{ color: 'var(--text)' }}>{title}</h1>
 
       <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-        {hasTourForCurrentPage && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={startTour}
-                  aria-label="Replay guided tour for this page"
-                  className="group relative inline-flex items-center gap-2 h-10 px-3 rounded-full transition-all hover:shadow-md"
-                  style={{
-                    background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.05))',
-                    border: '1px solid hsl(var(--primary) / 0.35)',
-                    color: 'hsl(var(--primary))',
-                  }}
-                >
-                  <Sparkles className="w-4 h-4" strokeWidth={1.8} />
-                  <span className="text-button hidden md:inline">Tour this page</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Replay the guided walkthrough for this page
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
         <button
           aria-label="Notifications"
           className="relative hidden sm:grid w-10 h-10 rounded-full place-items-center transition-colors"
