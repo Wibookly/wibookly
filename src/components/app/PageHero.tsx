@@ -45,6 +45,7 @@ export function PageHero({
     <div
       className="sticky top-0 z-20 relative overflow-hidden rounded-2xl p-6 lg:p-7 mb-6 shadow-glow"
       style={{ background: GRADIENTS[accent], color: '#FFFFFF' }}
+      data-page-hero="true"
     >
       <div
         aria-hidden="true"
