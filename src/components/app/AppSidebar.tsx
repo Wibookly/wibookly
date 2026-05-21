@@ -167,7 +167,7 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex w-[264px] h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+    <aside className="hidden lg:flex w-[300px] h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
       <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}
