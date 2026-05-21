@@ -24,14 +24,17 @@ export default function IntegrationSetup() {
   );
 
   return (
-    <section className="max-w-3xl animate-fade-in">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Integration Setup Guide</h1>
-        <p className="mt-1 text-muted-foreground">
-          Copy-paste-ready values for configuring Google and Microsoft OAuth
-        </p>
-      </header>
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <header className="animate-fade-in">
+          <h1 className="text-2xl font-semibold tracking-tight">Integration Setup Guide</h1>
+          <p className="mt-1 text-muted-foreground">
+            Copy-paste-ready values for configuring Google and Microsoft OAuth
+          </p>
+        </header>
+      </div>
 
+      <section className="page-shell-content max-w-3xl animate-fade-in">
       {/* Google Setup */}
       <div className="bg-card border border-border rounded-lg p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
@@ -175,5 +178,6 @@ export default function IntegrationSetup() {
         </div>
       </div>
     </section>
+    </div>
   );
 }
