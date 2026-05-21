@@ -20,6 +20,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -224,6 +225,7 @@ export default function Chat() {
       // Refocus textarea so the user can immediately send / edit.
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
+    silenceTimeoutMs: 2000,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1187,99 +1189,120 @@ export default function Chat() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  'relative h-9 w-9 shrink-0',
-                  isRecording && 'text-destructive',
-                )}
-                disabled={isStreaming || limitReached || isTranscribing}
-                onClick={() => (isRecording ? stopRecording() : startRecording())}
-                title={isRecording ? 'Listening… click to stop' : isTranscribing ? 'Transcribing…' : 'Click to talk — speak your message'}
-                data-tour="chat-mic"
-              >
-                {isRecording && (
-                  <>
-                    <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
-                    <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
-                  </>
-                )}
-                {isTranscribing
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      'relative h-9 w-9 shrink-0',
+                      isRecording && 'text-destructive',
+                    )}
+                    disabled={isStreaming || limitReached || isTranscribing}
+                    onClick={() => (isRecording ? stopRecording() : startRecording())}
+                    title={isRecording ? 'Listening… pause for 2 seconds to convert' : isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
+                    data-tour="chat-mic"
+                  >
+                    {isRecording && (
+                      <>
+                        <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
+                        <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
+                      </>
+                    )}
+                    {isTranscribing
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isTranscribing ? 'Converting your speech to text' : isRecording ? 'Listening now — pause for 2 seconds to finish' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
+              </Tooltip>
               {canWebSearch && (
-                <Button
-                  type="button"
-                  variant={webSearch ? 'default' : 'ghost'}
-                  size="icon"
-                  className={cn(
-                    'h-9 w-9 shrink-0',
-                    webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  )}
-                  disabled={isStreaming || limitReached}
-                  onClick={() => {
-                    setWebSearch((v) => {
-                      const next = !v;
-                      toast.success(next ? 'Web search on — using live results' : 'Web search off');
-                      return next;
-                    });
-                  }}
-                  title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
-                  data-tour="chat-web"
-                >
-                  <Globe className="h-4 w-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={webSearch ? 'default' : 'ghost'}
+                      size="icon"
+                      className={cn(
+                        'h-9 w-9 shrink-0',
+                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      )}
+                      disabled={isStreaming || limitReached}
+                      onClick={() => {
+                        setWebSearch((v) => {
+                          const next = !v;
+                          toast.success(next ? 'Web search on — using live results' : 'Web search off');
+                          return next;
+                        });
+                      }}
+                      title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
+                      data-tour="chat-web"
+                    >
+                      <Globe className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{webSearch ? 'Live web search is on' : 'Search the live web before answering'}</TooltipContent>
+                </Tooltip>
               )}
-              <Button
-                type="button"
-                variant={locationEnabled ? 'default' : 'ghost'}
-                size="icon"
-                className={cn(
-                  'h-9 w-9 shrink-0',
-                  locationEnabled && 'bg-primary text-primary-foreground hover:bg-primary/90'
-                )}
-                disabled={isStreaming || limitReached}
-                onClick={() => {
-                  setLocationEnabled((v) => {
-                    const next = !v;
-                    toast.success(next
-                      ? 'Location sharing on — the assistant can use your approximate location'
-                      : 'Location sharing off');
-                    return next;
-                  });
-                }}
-                title={
-                  locationEnabled
-                    ? `Location: ON${userLocation?.city ? ` (${userLocation.city}${userLocation.region ? ', ' + userLocation.region : ''})` : ''} — click to disable`
-                    : 'Location: OFF — click to share your approximate location with the assistant'
-                }
-              >
-                {locationEnabled ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={locationEnabled ? 'default' : 'ghost'}
+                    size="icon"
+                    className={cn(
+                      'h-9 w-9 shrink-0 transition-colors',
+                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90'
+                    )}
+                    disabled={isStreaming || limitReached}
+                    onClick={() => {
+                      setLocationEnabled((v) => {
+                        const next = !v;
+                        toast.success(next
+                          ? 'Location sharing on — the assistant can use your approximate location'
+                          : 'Location sharing off');
+                        return next;
+                      });
+                    }}
+                    title={
+                      locationEnabled
+                        ? `Location: ON${userLocation?.city ? ` (${userLocation.city}${userLocation.region ? ', ' + userLocation.region : ''})` : ''} — click to disable`
+                        : 'Location: OFF — click to share your approximate location with the assistant'
+                    }
+                    data-tour="chat-location"
+                  >
+                    {locationEnabled ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{locationEnabled ? 'Approximate location sharing is on' : 'Share your approximate location for local context'}</TooltipContent>
+              </Tooltip>
 
-              <Button
-                type="button"
-                variant={deepMode ? 'default' : 'ghost'}
-                size="icon"
-                className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
-                disabled={isStreaming || limitReached}
-                onClick={() => {
-                  setDeepMode((v) => {
-                    const next = !v;
-                    toast.success(next
-                      ? 'Deep mode ON — thorough multi-step answers, no follow-up questions'
-                      : 'Deep mode OFF');
-                    return next;
-                  });
-                }}
-                title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
-                data-tour="chat-deep"
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={deepMode ? 'default' : 'ghost'}
+                    size="icon"
+                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                    disabled={isStreaming || limitReached}
+                    onClick={() => {
+                      setDeepMode((v) => {
+                        const next = !v;
+                        toast.success(next
+                          ? 'Deep mode ON — thorough multi-step answers, no follow-up questions'
+                          : 'Deep mode OFF');
+                        return next;
+                      });
+                    }}
+                    title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
+                    data-tour="chat-deep"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{deepMode ? 'Deep mode is on' : 'Use deeper multi-step reasoning'}</TooltipContent>
+              </Tooltip>
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -1296,6 +1319,7 @@ export default function Chat() {
                 className="h-9 w-9 shrink-0"
                 onClick={handleSend}
                 disabled={!input.trim() || isStreaming || limitReached}
+                title={isStreaming ? 'InboxIQ is processing your request' : 'Send message'}
               >
                 {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
@@ -1308,6 +1332,9 @@ export default function Chat() {
                     : `${usage.used} / ${usage.limit} messages used today`
                   : `${usage.used} messages today`}
               </span>
+              {isStreaming && (
+                <span className="text-muted-foreground">InboxIQ is processing…</span>
+              )}
               {input.length > 1000 && (
                 <span className="text-muted-foreground">{input.length} chars</span>
               )}
@@ -1368,7 +1395,7 @@ function MessageBubble({
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
-            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+            isUser ? 'bg-primary text-primary-foreground' : 'text-foreground'
           )}
         >
           {isUser ? (

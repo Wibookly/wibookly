@@ -119,26 +119,28 @@ export default function Sync() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <PageHero
-        eyebrow="Account Provisioning"
-        title="Sync"
-        description="Manually trigger syncs and view recent job history."
-        accent="cyan"
-        icon={<RefreshCw className="w-5 h-5 text-white" strokeWidth={2} />}
-        actions={
-          <Button onClick={runSync} disabled={syncing} className="bg-white text-slate-900 hover:bg-white/90">
-            {syncing ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 mr-2" />
-            )}
-            Run Sync Now
-          </Button>
-        }
-      />
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <PageHero
+          eyebrow="Account Provisioning"
+          title="Sync"
+          description="Manually trigger syncs and view recent job history."
+          accent="cyan"
+          icon={<RefreshCw className="w-5 h-5 text-white" strokeWidth={2} />}
+          actions={
+            <Button onClick={runSync} disabled={syncing} className="bg-white text-slate-900 hover:bg-white/90">
+              {syncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              Run Sync Now
+            </Button>
+          }
+        />
+      </div>
 
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
       {jobs.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-lg border border-border">

@@ -321,6 +321,21 @@
 
 /* Training mode — dashed glow on every instrumented control */
 @layer utilities {
+  .page-shell {
+    @apply min-h-full w-full max-w-7xl mx-auto p-4 lg:p-6;
+  }
+
+  .page-shell-sticky {
+    @apply sticky top-0 z-20 pb-4;
+    background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in srgb, var(--bg) 94%, transparent) 78%, transparent 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .page-shell-content {
+    @apply relative z-10;
+  }
+
   body[data-training-mode="1"] [data-tour] {
     outline: 2px dashed hsl(var(--primary) / 0.7);
     outline-offset: 4px;

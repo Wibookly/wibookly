@@ -1059,49 +1059,49 @@ export default function Categories() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <div data-tour="ei-header">
-      <PageHero
-        eyebrow="AI Intelligence"
-        title="Email Intelligence"
-        description="Customize how your emails are organized. Drag to reorder, edit rules, and re-sync labels."
-        accent="purple"
-        icon={<Tags className="w-5 h-5 text-white" strokeWidth={2} />}
-        actions={
-          <>
-            <div className="flex items-center gap-2 text-sm text-white/90">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : lastSaved ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Saved</span>
-                </>
-              ) : null}
-            </div>
-            <Button
-              variant="secondary"
-              onClick={resyncAll}
-              disabled={resyncing || !activeConnection?.id}
-              className="bg-white/15 text-white border border-white/25 hover:bg-white/25"
-              title="Re-create folders/labels and re-apply all rules to existing emails."
-            >
-              {resyncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4 mr-2" />
-              )}
-              Re-sync All
-            </Button>
-          </>
-        }
-      />
+    <div className="page-shell">
+      <div className="page-shell-sticky" data-tour="ei-header">
+        <PageHero
+          eyebrow="AI Intelligence"
+          title="Email Intelligence"
+          description="Customize how your emails are organized. Drag to reorder, edit rules, and re-sync labels."
+          accent="purple"
+          icon={<Tags className="w-5 h-5 text-white" strokeWidth={2} />}
+          actions={
+            <>
+              <div className="flex items-center gap-2 text-sm text-white/90">
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Saved</span>
+                  </>
+                ) : null}
+              </div>
+              <Button
+                variant="secondary"
+                onClick={resyncAll}
+                disabled={resyncing || !activeConnection?.id}
+                className="bg-white/15 text-white border border-white/25 hover:bg-white/25"
+                title="Re-create folders/labels and re-apply all rules to existing emails."
+              >
+                {resyncing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Re-sync All
+              </Button>
+            </>
+          }
+        />
       </div>
 
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">

@@ -732,16 +732,18 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <PageHero
-        eyebrow="My Settings"
-        title="My Profile & Signature"
-        description="Personalize how your name, role, and signature appear across InboxIQ and your AI-drafted replies."
-        accent="orange"
-        icon={<UserCircle2 className="w-5 h-5 text-white" strokeWidth={2} />}
-      />
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <PageHero
+          eyebrow="My Settings"
+          title="My Profile & Signature"
+          description="Personalize how your name, role, and signature appear across InboxIQ and your AI-drafted replies."
+          accent="orange"
+          icon={<UserCircle2 className="w-5 h-5 text-white" strokeWidth={2} />}
+        />
+      </div>
 
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
 
       <div className="space-y-6">

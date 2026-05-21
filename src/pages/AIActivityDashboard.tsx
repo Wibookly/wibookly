@@ -231,16 +231,18 @@ export default function AIActivityDashboard() {
   // activity exist independent of an email connection.
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <PageHero
-        eyebrow="Reports"
-        title="AI Activity"
-        description="Your personal AI activity — drafts, auto-replies, scheduled events, chats and meetings. Filter by date range."
-        accent="green"
-        icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
-      />
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <PageHero
+          eyebrow="Reports"
+          title="AI Activity"
+          description="Your personal AI activity — drafts, auto-replies, scheduled events, chats and meetings. Filter by date range."
+          accent="green"
+          icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
+        />
+      </div>
 
-      <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
+      <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div />
 

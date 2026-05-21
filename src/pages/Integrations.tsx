@@ -561,24 +561,26 @@ export default function Integrations() {
   }
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <PageHero
-        eyebrow="Account Provisioning"
-        title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
-        description="Connect Google or Microsoft so InboxIQ can start organizing your inbox and calendar."
-        accent="cyan"
-        icon={<LinkIcon className="w-5 h-5 text-white" strokeWidth={2} />}
-        actions={
-          <Link to="/integration-setup">
-            <Button variant="secondary" size="sm" className="bg-white/15 text-white border border-white/25 hover:bg-white/25">
-              <LinkIcon className="w-4 h-4 mr-2" />
-              Setup Guide
-            </Button>
-          </Link>
-        }
-      />
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <PageHero
+          eyebrow="Account Provisioning"
+          title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
+          description="Connect Google or Microsoft so InboxIQ can start organizing your inbox and calendar."
+          accent="cyan"
+          icon={<LinkIcon className="w-5 h-5 text-white" strokeWidth={2} />}
+          actions={
+            <Link to="/integration-setup">
+              <Button variant="secondary" size="sm" className="bg-white/15 text-white border border-white/25 hover:bg-white/25">
+                <LinkIcon className="w-4 h-4 mr-2" />
+                Setup Guide
+              </Button>
+            </Link>
+          }
+        />
+      </div>
 
-      <section className="animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
+      <section className="page-shell-content animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6" aria-busy={loading ? 'true' : 'false'}>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => {
         if (!open) {

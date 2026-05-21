@@ -4,11 +4,11 @@ import { toast } from 'sonner';
 
 interface UseVoiceRecordingOptions {
   onTranscription: (text: string) => void;
-  /** Auto-stop after this many ms of silence. Defaults to 5000. Set to 0 to disable. */
+  /** Auto-stop after this many ms of silence. Defaults to 2000. Set to 0 to disable. */
   silenceTimeoutMs?: number;
 }
 
-export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: UseVoiceRecordingOptions) {
+export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: UseVoiceRecordingOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -110,7 +110,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 5000 }: 
             // This prevents killing the mic while the user is still thinking
             // (which made it look like the mic "doesn't work").
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              toast.info('Microphone stopped after 5s of silence');
+              toast.info('Voice captured — converting it to text…');
               stopRecording();
               return;
             }

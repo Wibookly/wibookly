@@ -502,23 +502,27 @@ export default function EmailDraft() {
   const headerSubtitle = "Configure one global default for all categories — or override settings for a specific category. Saving will generate and store one sample reply you can review or remove anytime.";
 
   return (
-    <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
+    <div className="page-shell">
       <div className="w-full space-y-5">
-        <PageHero
-          eyebrow="AI Intelligence"
-          title={headerTitle}
-          description={headerSubtitle}
-          accent="orange"
-          icon={<Sparkles className="w-5 h-5 text-white" strokeWidth={2} />}
-          actions={
-            <div className="flex flex-col gap-1.5 items-end">
-              <QuotaBadge featureKey="ai_draft" label="AI Draft" />
-              <QuotaBadge featureKey="ai_auto_reply" label="Auto Reply" />
-            </div>
-          }
-        />
+        <div className="page-shell-sticky">
+          <PageHero
+            eyebrow="AI Intelligence"
+            title={headerTitle}
+            description={headerSubtitle}
+            accent="orange"
+            icon={<Sparkles className="w-5 h-5 text-white" strokeWidth={2} />}
+            actions={
+              <div className="flex flex-col gap-1.5 items-end">
+                <QuotaBadge featureKey="ai_draft" label="AI Draft" />
+                <QuotaBadge featureKey="ai_auto_reply" label="Auto Reply" />
+              </div>
+            }
+          />
+        </div>
 
-        <ProfileContextCard surface="ai_draft" />
+        <div className="page-shell-content">
+          <ProfileContextCard surface="ai_draft" />
+        </div>
 
         {/* Main settings always render. AI Label Colors card is appended below. */}
         <>

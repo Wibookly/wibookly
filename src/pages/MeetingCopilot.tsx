@@ -229,8 +229,8 @@ export default function MeetingCopilot() {
   }, [user, upcoming.length, openSession, recent.length]);
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
-      {/* HERO */}
+    <div className="page-shell">
+      <div className="page-shell-sticky">
       <div className="relative overflow-hidden rounded-2xl p-8 shadow-glow"
         style={{ background: 'var(--grad-feature)', color: '#FFFFFF' }}>
         <div aria-hidden className="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none"
@@ -262,7 +262,9 @@ export default function MeetingCopilot() {
           </div>
         </div>
       </div>
+      </div>
 
+      <div className="page-shell-content space-y-6">
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -444,6 +446,7 @@ export default function MeetingCopilot() {
       )}
 
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+      </div>
     </div>
   );
 }
