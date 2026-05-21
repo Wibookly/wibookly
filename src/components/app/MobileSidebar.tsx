@@ -3,6 +3,7 @@ import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, Bot, MessageSq
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
@@ -96,7 +97,11 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
           )}
         </nav>
 
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border space-y-3">
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Guidance</h3>
+            <HelpQuickActions compact />
+          </div>
           <button
             onClick={() => { signOut(); onClose(); }}
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"

@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 import { HelpDot } from '@/components/help/HelpDot';
 import { FeatureCard } from '@/components/ui/feature-card';
@@ -414,9 +413,6 @@ export default function AIDailyBrief() {
   if (!activeConnection) {
     return (
       <div className="min-h-full p-4 lg:p-6">
-        <div className="mb-4 flex justify-end">
-          <UserAvatarDropdown />
-        </div>
         <div className="flex flex-col items-center justify-center py-20">
           <Sun className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold mb-2">Connect an Email</h2>
@@ -443,7 +439,6 @@ export default function AIDailyBrief() {
           <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
           Refresh
         </Button>
-        <UserAvatarDropdown />
       </div>
 
       {/* Vibrant FeatureCard — AI Analysis hero */}

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { supabase } from '@/integrations/supabase/client';
-import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -233,11 +232,6 @@ export default function AIActivityDashboard() {
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      {/* User Avatar Row */}
-      <div className="mb-4 flex justify-end">
-        <UserAvatarDropdown />
-      </div>
-
       <PageHero
         eyebrow="Reports"
         title="AI Activity"

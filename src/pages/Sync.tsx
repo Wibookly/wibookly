@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -121,11 +120,6 @@ export default function Sync() {
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      {/* User Avatar Row */}
-      <div className="mb-4 flex justify-end">
-        <UserAvatarDropdown />
-      </div>
-
       <PageHero
         eyebrow="Account Provisioning"
         title="Sync"

@@ -6,9 +6,9 @@ import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileSidebar } from './MobileSidebar';
 import { OceanWaves } from '@/components/theme/OceanWaves';
-import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { HelpPanelHost } from '@/components/help/HelpPanelHost';
+import { AppHeader } from './AppHeader';
 
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
@@ -83,9 +83,10 @@ export function AppLayout() {
       {/* Desktop Sidebar */}
       <AppSidebar />
 
-      <div className="flex-1 flex flex-col min-h-0 relative">
+      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 relative overflow-hidden">
         <OceanWaves />
-        <main className="flex-1 overflow-auto relative z-10">
+        <AppHeader />
+        <main className="flex-1 min-h-0 overflow-y-auto relative z-10">
           <Outlet />
         </main>
       </div>

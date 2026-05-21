@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useActiveEmail } from "@/contexts/ActiveEmailContext";
-import { UserAvatarDropdown } from "@/components/app/UserAvatarDropdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -472,9 +471,6 @@ export default function EmailDraft() {
   if (!activeConnection) {
     return (
       <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-        <div className="mb-4 flex justify-end">
-          <UserAvatarDropdown />
-        </div>
         <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-muted-foreground mb-4" />
@@ -507,10 +503,6 @@ export default function EmailDraft() {
 
   return (
     <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
-      <div className="mb-4 flex justify-end">
-        <UserAvatarDropdown />
-      </div>
-
       <div className="w-full space-y-5">
         <PageHero
           eyebrow="AI Intelligence"
