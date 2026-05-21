@@ -1,7 +1,8 @@
 import { useEffect, useState, createContext, useContext, ReactNode, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
-import { TOUR_REGISTRY } from './tours';
+import { Joyride, STATUS } from 'react-joyride';
+import type { CallBackProps, Step } from 'react-joyride';
+import { TOUR_REGISTRY } from './tours/index';
 
 const STORAGE_KEY = 'iq_tour_completed';
 
