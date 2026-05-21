@@ -1165,9 +1165,14 @@ export default function Categories() {
         {categories.filter(c => c.is_enabled).map((category, index) => {
           const categoryRules = getRulesForCategory(category.id);
           const displayIndex = categories.findIndex(c => c.id === category.id);
-          
+          const isFirstRuleCard = index === 0;
+
           return (
-            <div key={category.id} className="bg-card rounded-lg border border-border p-4">
+            <div
+              key={category.id}
+              data-tour={isFirstRuleCard ? 'ei-rule-card' : undefined}
+              className="bg-card rounded-lg border border-border p-4"
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div
@@ -1183,6 +1188,7 @@ export default function Categories() {
                   size="sm"
                   variant="outline"
                   onClick={() => addRule(category.id)}
+                  data-tour={isFirstRuleCard ? 'ei-add-rule' : undefined}
                   className="border-2 border-primary/60 text-primary hover:bg-primary hover:text-primary-foreground shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-1" />
@@ -1196,9 +1202,12 @@ export default function Categories() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {categoryRules.map((rule) => (
+                  {categoryRules.map((rule, ruleIdx) => {
+                    const isFirstRule = isFirstRuleCard && ruleIdx === 0;
+                    return (
                     <div
                       key={rule.id}
+                      data-tour={isFirstRule ? 'ei-rule-row' : undefined}
                       className="p-3 bg-muted/50 rounded-md space-y-3"
                     >
                       {/* Main rule row */}
@@ -1207,7 +1216,7 @@ export default function Categories() {
                           value={rule.rule_type}
                           onValueChange={(val) => updateRule(rule.id, 'rule_type', val)}
                         >
-                          <SelectTrigger className="w-28">
+                          <SelectTrigger className="w-28" data-tour={isFirstRule ? 'ei-rule-type' : undefined}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1225,14 +1234,16 @@ export default function Categories() {
                           }
                           value={rule.rule_value}
                           onChange={(e) => updateRule(rule.id, 'rule_value', e.target.value)}
+                          data-tour={isFirstRule ? 'ei-rule-value' : undefined}
                           className="flex-1"
                         />
 
-                        <Switch
-                          checked={rule.is_enabled}
-                          onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
-                          
-                        />
+                        <span data-tour={isFirstRule ? 'ei-rule-toggle' : undefined}>
+                          <Switch
+                            checked={rule.is_enabled}
+                            onCheckedChange={(checked) => updateRule(rule.id, 'is_enabled', checked)}
+                          />
+                        </span>
 
                         <TooltipProvider>
                           <Tooltip>
@@ -1242,6 +1253,7 @@ export default function Categories() {
                                 size="icon"
                                 onClick={() => syncSingleRule(rule.id)}
                                 disabled={rule.id.startsWith('temp-') || saving}
+                                data-tour={isFirstRule ? 'ei-rule-sync' : undefined}
                                 className={`relative
                                   ${ruleNeedsSync(rule.id) 
                                     ? 'text-red-500 hover:text-red-600 hover:bg-red-50' 
@@ -1285,6 +1297,7 @@ export default function Categories() {
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteRule(rule.id)}
+                          data-tour={isFirstRule ? 'ei-rule-delete' : undefined}
                           className="text-red-500 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1297,6 +1310,7 @@ export default function Categories() {
                           variant="ghost"
                           size="sm"
                           onClick={() => updateRuleBasic(rule.id, 'is_advanced', !rule.is_advanced)}
+                          data-tour={isFirstRule ? 'ei-rule-advanced' : undefined}
                           className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                         >
                           {rule.is_advanced ? (
