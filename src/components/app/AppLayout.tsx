@@ -73,7 +73,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="h-screen overflow-hidden flex flex-col lg:flex-row">
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
@@ -83,10 +83,10 @@ export function AppLayout() {
       {/* Desktop Sidebar */}
       <AppSidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 relative overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
         <OceanWaves />
         <AppHeader />
-        <main className="flex-1 min-h-0 overflow-y-auto relative z-10">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-10">
           <Outlet />
         </main>
       </div>
