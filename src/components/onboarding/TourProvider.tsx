@@ -1,7 +1,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Joyride, STATUS } from 'react-joyride';
-import type { CallBackProps, Step } from 'react-joyride';
+import type { EventData, Step } from 'react-joyride';
 import { TOUR_REGISTRY } from './tours/index';
 
 const STORAGE_KEY = 'iq_tour_completed';
@@ -44,7 +44,6 @@ function isDarkMode(): boolean {
 export function TourProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [run, setRun] = useState(false);
-  const [steps, setSteps] = useState<Step[]>([]);
   const [dark, setDark] = useState(isDarkMode());
 
   const { currentRoute, currentTour } = useMemo(() => {
@@ -60,11 +59,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     if (!currentTour || !currentRoute) return;
     const completed = getCompleted();
     if (!completed[currentRoute]) {
-      // Slight delay to allow page to render targets
-      const t = setTimeout(() => {
-        setSteps(currentTour);
-        setRun(true);
-      }, 600);
+      const t = setTimeout(() => setRun(true), 700);
       return () => clearTimeout(t);
     }
   }, [currentRoute, currentTour]);
@@ -78,12 +73,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
     return () => observer.disconnect();
   }, []);
 
-  const handleCallback = (data: CallBackProps) => {
-    const { status } = data;
-    if (
-      (status === STATUS.FINISHED || status === STATUS.SKIPPED) &&
-      currentRoute
-    ) {
+  const handleEvent = (data: EventData) => {
+    const status = (data as { status?: string }).status;
+    if ((status === STATUS.FINISHED || status === STATUS.SKIPPED) && currentRoute) {
       setCompleted(currentRoute);
       setRun(false);
     }
@@ -94,52 +86,44 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const completed = getCompleted();
     delete completed[currentRoute];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
-    setSteps(currentTour);
     setRun(true);
   };
 
   const PRIMARY = '#6366f1';
   const bg = dark ? '#1e1e2e' : '#ffffff';
   const text = dark ? '#f5f5f5' : '#1a1a2e';
+  const overlay = dark ? 'rgba(0,0,0,0.65)' : 'rgba(15, 23, 42, 0.45)';
 
   return (
     <TourContext.Provider
       value={{ startTour, hasTourForCurrentPage: !!currentTour }}
     >
-      <Joyride
-        steps={steps}
-        run={run}
-        callback={handleCallback}
-        continuous
-        showProgress
-        showSkipButton
-        scrollToFirstStep
-        disableScrolling={false}
-        spotlightPadding={6}
-        styles={{
-          options: {
+      {currentTour && (
+        <Joyride
+          steps={currentTour}
+          run={run}
+          continuous
+          onEvent={handleEvent}
+          options={{
             primaryColor: PRIMARY,
             backgroundColor: bg,
             textColor: text,
             arrowColor: bg,
-            overlayColor: dark ? 'rgba(0,0,0,0.65)' : 'rgba(15, 23, 42, 0.45)',
+            overlayColor: overlay,
             zIndex: 10000,
-            width: 360,
-          },
-          tooltipContainer: { textAlign: 'left' },
-          tooltipTitle: { color: text, fontWeight: 600 },
-          buttonNext: { backgroundColor: PRIMARY, borderRadius: 8 },
-          buttonBack: { color: PRIMARY },
-          buttonSkip: { color: dark ? '#cbd5e1' : '#64748b' },
-        }}
-        locale={{
-          back: 'Back',
-          close: 'Close',
-          last: 'Done',
-          next: 'Next',
-          skip: 'Skip',
-        }}
-      />
+            showProgress: true,
+            spotlightPadding: 6,
+            buttons: ['back', 'skip', 'primary'],
+          }}
+          locale={{
+            back: 'Back',
+            close: 'Close',
+            last: 'Done',
+            next: 'Next',
+            skip: 'Skip',
+          }}
+        />
+      )}
       {children}
     </TourContext.Provider>
   );
