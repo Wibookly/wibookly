@@ -591,14 +591,16 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
-      <PageHero
-        eyebrow="Administration"
-        title="Admin Dashboard"
-        description="Manage users, authorized domains, and feature access for your organization."
-        accent="pink"
-        icon={<ShieldCheck className="w-5 h-5 text-white" strokeWidth={2} />}
-      />
+    <div className="page-shell space-y-6">
+      <div className="page-shell-sticky">
+        <PageHero
+          eyebrow="Administration"
+          title="Admin Dashboard"
+          description="Manage users, authorized domains, and feature access for your organization."
+          accent="pink"
+          icon={<ShieldCheck className="w-5 h-5 text-white" strokeWidth={2} />}
+        />
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
