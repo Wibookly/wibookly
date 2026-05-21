@@ -92,7 +92,7 @@ export function AppLayout() {
 
       {/* Global help affordances */}
       <HelpPanelHost />
-      <PageGuide />
+      
       <GuidedTour />
       <TrainingModeOverlay />
       <SetupWizard
