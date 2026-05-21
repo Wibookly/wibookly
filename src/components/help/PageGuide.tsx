@@ -36,7 +36,8 @@ export function PageGuide() {
     [location.pathname],
   );
   const primary = articles[0];
-  const tourAvailable = hasTour(primary);
+  const { startTour: startJoyride, hasTourForCurrentPage } = useTour();
+  const tourAvailable = hasTourForCurrentPage || hasTour(primary);
   const storageKey = primary ? `inboxiq-page-guide-dismissed:${primary.id}` : null;
 
   const [collapsed, setCollapsed] = useState(false);
@@ -65,6 +66,10 @@ export function PageGuide() {
   };
 
   const startTour = () => {
+    if (hasTourForCurrentPage) {
+      startJoyride();
+      return;
+    }
     window.dispatchEvent(
       new CustomEvent<StartGuidedTourDetail>(START_GUIDED_TOUR_EVENT, {
         detail: { articleId: primary.id },
