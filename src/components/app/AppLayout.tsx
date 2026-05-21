@@ -9,7 +9,7 @@ import { OceanWaves } from '@/components/theme/OceanWaves';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 
 import { HelpPanelHost } from '@/components/help/HelpPanelHost';
-import { PageGuide } from '@/components/help/PageGuide';
+
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
@@ -92,7 +92,7 @@ export function AppLayout() {
 
       {/* Global help affordances */}
       <HelpPanelHost />
-      <PageGuide />
+      
       <GuidedTour />
       <TrainingModeOverlay />
       <SetupWizard
