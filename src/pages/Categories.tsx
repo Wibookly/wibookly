@@ -183,12 +183,14 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isFirst = index === 0;
   return (
     <TableRow ref={setNodeRef} style={style}>
       <TableCell className="w-12">
         <div
           {...attributes}
           {...listeners}
+          data-tour={isFirst ? 'ei-reorder' : undefined}
           className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
         >
           <GripVertical className="w-4 h-4 text-muted-foreground" />
@@ -199,6 +201,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           <PopoverTrigger asChild>
             <button
               type="button"
+              data-tour={isFirst ? 'ei-color' : undefined}
               className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform"
               style={{ backgroundColor: category.color }}
               aria-label="Pick category color"
@@ -239,6 +242,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           value={category.name}
           onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
           className="max-w-xs"
+          data-tour={isFirst ? 'ei-name' : undefined}
         />
       </TableCell>
         <TableCell>
@@ -256,6 +260,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
                     className="h-7 px-2 gap-1 rounded-full"
                     onClick={() => onConfigureTone(category)}
                     disabled={!category.is_enabled}
+                    data-tour={isFirst ? 'ei-tone' : undefined}
                   >
                     <Sparkles className="w-3 h-3" />
                     Tone
@@ -266,7 +271,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             </TooltipProvider>
           </div>
         </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center" data-tour={isFirst ? 'ei-active' : undefined}>
         <Switch
           checked={category.is_enabled}
           onCheckedChange={(checked) => {
@@ -278,7 +283,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           }}
         />
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center" data-tour={isFirst ? 'ei-draft' : undefined}>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -299,7 +304,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </Tooltip>
         </TooltipProvider>
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center" data-tour={isFirst ? 'ei-autoreply' : undefined}>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -324,7 +329,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </Tooltip>
         </TooltipProvider>
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center" data-tour={isFirst ? 'ei-sync' : undefined}>
         {category.is_enabled ? (
           category.last_synced_at ? (
             <div className="flex items-center justify-center gap-1 text-green-600">
@@ -1064,6 +1069,7 @@ export default function Categories() {
         <UserAvatarDropdown />
       </div>
 
+      <div data-tour="ei-header">
       <PageHero
         eyebrow="AI Intelligence"
         title="Email Intelligence"
@@ -1102,6 +1108,7 @@ export default function Categories() {
           </>
         }
       />
+      </div>
 
       <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
@@ -1149,7 +1156,7 @@ export default function Categories() {
       {/* Rules Section */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight inline-flex items-center gap-2">Rules <HelpTip id="rule.conditions" /></h2>
+          <h2 data-tour="ei-rules" className="text-xl font-semibold tracking-tight inline-flex items-center gap-2">Rules <HelpTip id="rule.conditions" /></h2>
           <p className="mt-1 text-muted-foreground">
             Create rules to automatically categorize emails by sender, domain, or keyword
           </p>
