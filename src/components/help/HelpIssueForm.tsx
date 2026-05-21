@@ -34,6 +34,7 @@ export function HelpIssueForm() {
   const { user, profile } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
+  const [feature, setFeature] = useState<FeatureOption | ''>('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +43,14 @@ export function HelpIssueForm() {
   const submit = async () => {
     const s = subject.trim();
     const d = description.trim();
+    if (!feature) {
+      toast({
+        title: 'Pick a feature',
+        description: 'Tell us which feature your issue is about.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!s || !d) {
       toast({
         title: 'Missing details',
@@ -61,14 +70,16 @@ export function HelpIssueForm() {
 
     setSubmitting(true);
     try {
+      const taggedSubject = `[${feature}] ${s}`.slice(0, 200);
+      const taggedDescription = `Feature: ${feature}\n\n${d}`;
       const { data, error } = await supabase
         .from('support_issues')
         .insert({
           user_id: user.id,
           organization_id: profile.organization_id,
           user_email: profile.email || user.email || '',
-          subject: s,
-          description: d,
+          subject: taggedSubject,
+          description: taggedDescription,
           page_url: `${location.pathname}${location.search}`,
           user_agent: navigator.userAgent,
         })
@@ -80,6 +91,7 @@ export function HelpIssueForm() {
       setSubmittedId(data.id);
       setSubject('');
       setDescription('');
+      setFeature('');
       toast({
         title: 'Issue submitted',
         description: 'Your admin team has been notified.',
@@ -125,6 +137,21 @@ export function HelpIssueForm() {
         <p className="text-sm text-muted-foreground">
           Stuck on something? Send your admin team a quick note and we'll include the page you're on.
         </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="issue-feature" className="text-xs">
+          Which feature is this about? <span className="text-destructive">*</span>
+        </Label>
+        <Select value={feature} onValueChange={(v) => setFeature(v as FeatureOption)}>
+          <SelectTrigger id="issue-feature">
+            <SelectValue placeholder="Select a feature…" />
+          </SelectTrigger>
+          <SelectContent>
+            {FEATURE_OPTIONS.map((f) => (
+              <SelectItem key={f} value={f}>{f}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="issue-subject" className="text-xs">Subject</Label>
