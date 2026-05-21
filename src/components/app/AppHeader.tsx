@@ -9,7 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, ChevronDown, LogOut, User } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, User, Sparkles } from 'lucide-react';
+import { useTour } from '@/components/onboarding/TourProvider';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'Home',
