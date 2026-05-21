@@ -1055,7 +1055,7 @@ export default function Chat() {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
+      <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
         {/* Sticky header — stays in place while the chat scrolls */}
         <header className="shrink-0 z-20 bg-background border-b border-border">
           <div className="h-14 flex items-center px-4 gap-2">
