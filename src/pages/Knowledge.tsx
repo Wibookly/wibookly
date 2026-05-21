@@ -164,14 +164,17 @@ export default function Knowledge() {
   };
 
   return (
-    <div className="container mx-auto py-8 max-w-5xl space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Knowledge Base</h1>
-        <p className="text-muted-foreground mt-1">
-          Upload documents and notes the AI can reference when drafting emails or answering questions.
-        </p>
-      </header>
+    <div className="page-shell">
+      <div className="page-shell-sticky">
+        <header>
+          <h1 className="text-3xl font-bold">Knowledge Base</h1>
+          <p className="text-muted-foreground mt-1">
+            Upload documents and notes the AI can reference when drafting emails or answering questions.
+          </p>
+        </header>
+      </div>
 
+      <div className="page-shell-content space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Add to your knowledge base</CardTitle>
@@ -321,6 +324,7 @@ export default function Knowledge() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
