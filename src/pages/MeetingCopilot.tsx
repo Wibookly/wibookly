@@ -163,9 +163,12 @@ export default function MeetingCopilot() {
     })();
   }, [user]);
 
-  const downloadExtension = async () => {
+  // Set this once the extension is approved on the Microsoft Edge Add-ons store.
+  const EDGE_STORE_URL: string | null = null; // e.g. 'https://microsoftedge.microsoft.com/addons/detail/<id>'
+
+  const downloadExtension = async (target: 'edge' | 'chrome' = 'edge') => {
     try {
-      const res = await fetch('/inboxiq-meeting-copilot.zip');
+      const res = await fetch('/inboxiq-meeting-copilot-edge.zip');
       if (!res.ok) throw new Error(`Download failed: ${res.status}`);
       const blob = await res.blob();
       const a = document.createElement('a');
@@ -173,10 +176,16 @@ export default function MeetingCopilot() {
       a.download = 'inboxiq-meeting-copilot.zip';
       a.click();
       URL.revokeObjectURL(a.href);
-      toast.success('Extension downloaded — unzip it, then load it at chrome://extensions');
+      const url = target === 'edge' ? 'edge://extensions' : 'chrome://extensions';
+      toast.success(`Downloaded. Unzip it, open ${url}, enable Developer mode, then "Load unpacked".`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Download failed');
     }
+  };
+
+  const openEdgeStore = () => {
+    if (EDGE_STORE_URL) window.open(EDGE_STORE_URL, '_blank');
+    else toast.info('Edge Add-ons listing is in review. Use "Sideload for testing" below in the meantime.');
   };
 
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
@@ -254,11 +263,17 @@ export default function MeetingCopilot() {
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <a href="/inboxiq-meeting-copilot.zip" onClick={(e) => { e.preventDefault(); downloadExtension(); }}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
-              style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
-              <ExternalLink className="w-4 h-4" /> Download Chrome Extension
-            </a>
+            <button onClick={openEdgeStore}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
+              style={{ background: '#0078D4', color: '#FFFFFF', boxShadow: '0 6px 24px -8px rgba(0,120,212,0.6)' }}>
+              <ExternalLink className="w-4 h-4" /> Add to Microsoft Edge
+            </button>
+            <button onClick={() => downloadExtension('edge')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-medium border"
+              style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.25)', color: '#FFFFFF' }}
+              title="For testing before the Edge Add-ons listing goes live">
+              Sideload for testing (.zip)
+            </button>
           </div>
         </div>
       </div>

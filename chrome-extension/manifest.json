@@ -1,16 +1,15 @@
 {
   "manifest_version": 3,
   "name": "InboxIQ Meeting Copilot",
-  "version": "0.1.0",
-  "description": "Captures your meeting audio locally and feeds live transcript + AI suggestions into InboxIQ. No bot joins the call.",
+  "version": "1.0.0",
+  "description": "Live meeting transcript + AI suggestions for Teams, Zoom, Google Meet, and Webex. Audio stays on your machine — no bot joins the call.",
   "permissions": ["tabCapture", "storage", "activeTab", "scripting", "offscreen"],
   "host_permissions": [
     "https://*.teams.microsoft.com/*",
     "https://*.zoom.us/*",
     "https://meet.google.com/*",
     "https://*.webex.com/*",
-    "https://inboxiq.energyforward.com/*",
-    "https://*.lovable.app/*"
+    "https://inboxiq.energyforward.com/*"
   ],
   "action": {
     "default_title": "InboxIQ Meeting Copilot",
