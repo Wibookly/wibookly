@@ -163,9 +163,12 @@ export default function MeetingCopilot() {
     })();
   }, [user]);
 
-  const downloadExtension = async () => {
+  // Set this once the extension is approved on the Microsoft Edge Add-ons store.
+  const EDGE_STORE_URL: string | null = null; // e.g. 'https://microsoftedge.microsoft.com/addons/detail/<id>'
+
+  const downloadExtension = async (target: 'edge' | 'chrome' = 'edge') => {
     try {
-      const res = await fetch('/inboxiq-meeting-copilot.zip');
+      const res = await fetch('/inboxiq-meeting-copilot-edge.zip');
       if (!res.ok) throw new Error(`Download failed: ${res.status}`);
       const blob = await res.blob();
       const a = document.createElement('a');
@@ -173,10 +176,16 @@ export default function MeetingCopilot() {
       a.download = 'inboxiq-meeting-copilot.zip';
       a.click();
       URL.revokeObjectURL(a.href);
-      toast.success('Extension downloaded — unzip it, then load it at chrome://extensions');
+      const url = target === 'edge' ? 'edge://extensions' : 'chrome://extensions';
+      toast.success(`Downloaded. Unzip it, open ${url}, enable Developer mode, then "Load unpacked".`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Download failed');
     }
+  };
+
+  const openEdgeStore = () => {
+    if (EDGE_STORE_URL) window.open(EDGE_STORE_URL, '_blank');
+    else toast.info('Edge Add-ons listing is in review. Use "Sideload for testing" below in the meantime.');
   };
 
   const updateSettings = async (patch: Partial<CopilotSettings>) => {
