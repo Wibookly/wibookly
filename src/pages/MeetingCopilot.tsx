@@ -263,11 +263,17 @@ export default function MeetingCopilot() {
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
               <Zap className="w-4 h-4" /> Try with next meeting
             </button>
-            <a href="/inboxiq-meeting-copilot.zip" onClick={(e) => { e.preventDefault(); downloadExtension(); }}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border"
-              style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#FFFFFF' }}>
-              <ExternalLink className="w-4 h-4" /> Download Chrome Extension
-            </a>
+            <button onClick={openEdgeStore}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
+              style={{ background: '#0078D4', color: '#FFFFFF', boxShadow: '0 6px 24px -8px rgba(0,120,212,0.6)' }}>
+              <ExternalLink className="w-4 h-4" /> Add to Microsoft Edge
+            </button>
+            <button onClick={() => downloadExtension('edge')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-medium border"
+              style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.25)', color: '#FFFFFF' }}
+              title="For testing before the Edge Add-ons listing goes live">
+              Sideload for testing (.zip)
+            </button>
           </div>
         </div>
       </div>
