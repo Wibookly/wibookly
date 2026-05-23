@@ -56,7 +56,7 @@ export default function MeetingCopilot() {
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
-  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
+  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
   // Load recent (completed) sessions
@@ -65,18 +65,18 @@ export default function MeetingCopilot() {
     (async () => {
       const { data: sessions } = await supabase
         .from('meeting_sessions')
-        .select('id, meeting_title, started_at, ended_at, duration_seconds')
+        .select('id, meeting_title, started_at, ended_at, duration_seconds, summary, followup_subject')
         .eq('user_id', user.id)
         .in('status', ['completed', 'ended'])
         .order('started_at', { ascending: false })
         .limit(8);
-      if (!sessions?.length) return;
+      if (!sessions?.length) { setRecent([]); return; }
       const ids = sessions.map((s) => s.id);
       const { data: items } = await supabase
         .from('meeting_action_items')
         .select('session_id')
         .in('session_id', ids);
-      const counts = (items || []).reduce<Record<string, number>>((acc, r: any) => {
+      const counts = (items || []).reduce<Record<string, number>>((acc, r: { session_id: string }) => {
         acc[r.session_id] = (acc[r.session_id] || 0) + 1; return acc;
       }, {});
       setRecent(sessions.map((s) => {
@@ -93,6 +93,8 @@ export default function MeetingCopilot() {
           when,
           duration: mins ? `${mins} min` : '—',
           actions: counts[s.id] || 0,
+          summary: (s.summary as string | null) || null,
+          hasFollowup: !!s.followup_subject,
         };
       }));
     })();
