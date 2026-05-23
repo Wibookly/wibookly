@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -76,7 +76,7 @@ export default function MeetingSessionDetail() {
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!id || !user) return;
     setLoading(true);
     const [{ data: s }, { data: t }, { data: a }, { data: g }] = await Promise.all([
@@ -90,7 +90,7 @@ export default function MeetingSessionDetail() {
     setActions((a as ActionItem[]) || []);
     setSuggestions((g as Suggestion[]) || []);
     setLoading(false);
-  };
+  }, [id, user]);
 
   useEffect(() => { void load(); }, [id, user]);
 
