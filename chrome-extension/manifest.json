@@ -9,12 +9,16 @@
     "https://*.zoom.us/*",
     "https://meet.google.com/*",
     "https://*.webex.com/*",
-    "https://inboxiq.energyforward.com/*"
+    "https://inboxiq.energyforward.com/*",
+    "https://*.lovable.app/*",
+    "https://*.lovableproject.com/*",
+    "https://jbzctydskdpzrejvpwpn.supabase.co/*"
   ],
   "externally_connectable": {
     "matches": [
       "https://inboxiq.energyforward.com/*",
-      "https://*.lovable.app/*"
+      "https://*.lovable.app/*",
+      "https://*.lovableproject.com/*"
     ]
   },
   "action": {
