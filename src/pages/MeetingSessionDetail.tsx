@@ -92,7 +92,7 @@ export default function MeetingSessionDetail() {
     setLoading(false);
   }, [id, user]);
 
-  useEffect(() => { void load(); }, [id, user]);
+  useEffect(() => { void load(); }, [load]);
 
   const decisions: string[] = useMemo(() => {
     const k = session?.key_decisions;
