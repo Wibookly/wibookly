@@ -749,13 +749,26 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: Upcoming
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--text-2)' }}>
           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider"
             style={{ background: p.bg, color: p.color }}>{p.label}</span>
-          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> {meeting.attendees} attendees</span>
+          <span className="inline-flex items-center gap-1"
+            title={meeting.attendeeNames.length ? meeting.attendeeNames.join(', ') : `${meeting.attendees} attendee${meeting.attendees === 1 ? '' : 's'}`}>
+            <Users className="w-3 h-3" /> {meeting.attendees} attendees
+          </span>
           <span>·</span>
           <span className="whitespace-nowrap">{meeting.duration}</span>
         </div>
+        {meeting.attendeeNames.length > 0 && (
+          <div className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}
+            title={meeting.attendeeNames.join(', ')}>
+            With {meeting.attendeeNames.slice(0, 3).join(', ')}
+            {meeting.attendeeNames.length > 3 ? ` +${meeting.attendeeNames.length - 3} more` : ''}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-auto">
         <button onClick={() => onToggle(!enabled)}
+          title={enabled
+            ? 'Copilot ON — InboxIQ will automatically start listening and drafting suggestions when this meeting begins. Click to turn off.'
+            : 'Copilot OFF — InboxIQ will ignore this meeting. Click to enable automatic listening and AI suggestions.'}
           className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 whitespace-nowrap"
           style={{
             background: enabled ? 'color-mix(in srgb, var(--c-purple) 12%, transparent)' : 'var(--surface-3)',
@@ -766,6 +779,9 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: Upcoming
           Copilot {enabled ? 'ON' : 'OFF'}
         </button>
         <button onClick={onOpen}
+          title={meeting.isLive
+            ? 'Open the live Copilot panel for this meeting.'
+            : 'Open meeting prep — InboxIQ reads the invite, attachments and prior emails, then lets you join the call and start Copilot in one click.'}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0 whitespace-nowrap"
           style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
           {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
