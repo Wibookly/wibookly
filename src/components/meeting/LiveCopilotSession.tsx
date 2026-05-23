@@ -136,7 +136,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       time,
       color,
     };
-    setTranscript((t) => [...t, newLine]);
     setActiveTab('transcript');
     setDraft('');
 
@@ -161,13 +160,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       });
       if (error) throw error;
       if (data?.suggestions?.length) {
-        const mapped: Suggestion[] = data.suggestions.map((s: any, i: number) => ({
-          id: `${Date.now()}-${i}`,
-          label: (s.type || s.kind || 'Suggestion').toUpperCase(),
-          content: s.content || s.text || '',
-          kind: s.type,
-        }));
-        setSuggestions((cur) => [...mapped, ...cur].slice(0, 6));
         setActiveTab('suggestions');
       }
     } catch (e: any) {
@@ -218,8 +210,8 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       });
       if (error) throw error;
 
-      const mapped: Suggestion[] = (data?.suggestions || []).map((s: any, i: number) => ({
-        id: `${mode}-${Date.now()}-${i}`,
+      const mapped: Suggestion[] = (data?.suggestions || []).map((s: any) => ({
+        id: String(s.id || ''),
         label: (s.type || mode).toUpperCase(),
         content: s.content || s.text || '',
         kind: s.type || mode,
@@ -230,7 +222,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         return;
       }
 
-      setSuggestions((cur) => [...mapped, ...cur].slice(0, 8));
       setActiveTab('suggestions');
     } catch (e) {
       console.error('focused suggestion error', e);
