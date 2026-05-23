@@ -363,7 +363,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
             {transcript.length === 0 && (
               <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                The live transcript will appear here once the extension starts capturing tab audio and microphone audio. You can still add lines manually below while testing.
+                The live transcript will appear here once the extension starts capturing tab audio and microphone audio. If nothing is appearing yet, open the InboxIQ extension on the meeting tab and click <strong style={{ color: 'var(--text-1)' }}>Start capture</strong> — that is when the browser should prompt for microphone access. You can still add lines manually below while testing.
               </div>
             )}
             {transcript.map((t) => (
