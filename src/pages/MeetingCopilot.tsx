@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
@@ -40,6 +40,7 @@ type UpcomingMeeting = {
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
+  const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
     auto_join_all: false,
     show_live_suggestions: true,
@@ -115,7 +116,10 @@ export default function MeetingCopilot() {
     if (!user) return;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', {
+          body: { timezone },
+        });
         if (error) {
           setCalendarStatus({ state: 'error', detail: error.message || 'Calendar request failed' });
           return;
@@ -131,25 +135,34 @@ export default function MeetingCopilot() {
         const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
         setCalendarStatus({ state: 'connected', count: list.length });
         if (list.length === 0) { setUpcoming([]); return; }
-        const fmt = (iso: string) => {
-          const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+        const fmt = (date: Date) => {
           let h = d.getHours();
           const m = d.getMinutes();
           const period = h >= 12 ? 'PM' : 'AM';
           h = h % 12 || 12;
           return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
         };
+        const parseMeetingDate = (iso: string) => {
+          if (!iso) return new Date('');
+          if (iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso)) return new Date(iso);
+          return new Date(iso);
+        };
         const mapped = list.map((m: any) => {
-          const { timeLabel, period } = fmt(m.startTime);
+          const startDate = parseMeetingDate(m.startTime);
+          const endDate = parseMeetingDate(m.endTime);
+          const isLive = Number.isFinite(startDate.getTime()) && Number.isFinite(endDate.getTime())
+            ? Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime()
+            : !!m.isLive;
+          const { timeLabel, period } = fmt(startDate);
           return {
             id: m.id,
             title: m.title,
-            timeLabel: m.isLive ? 'Now' : timeLabel,
-            period: m.isLive ? 'LIVE' : period,
+            timeLabel: isLive ? 'Now' : timeLabel,
+            period: isLive ? 'LIVE' : period,
             platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
             attendees: m.attendeeCount,
-            duration: m.isLive ? 'In progress' : `${m.durationMin} min`,
-            isLive: m.isLive,
+            duration: isLive ? 'In progress' : `${m.durationMin} min`,
+            isLive,
           };
         });
         const prefs: Record<string, boolean> = {};
@@ -162,6 +175,18 @@ export default function MeetingCopilot() {
       }
     })();
   }, [user]);
+
+  const handleOpenSession = (meeting: UpcomingMeeting) => {
+    setOpenSession({ id: meeting.id, title: meeting.title });
+    window.requestAnimationFrame(() => {
+      setTimeout(() => {
+        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
+    toast.success(meeting.isLive
+      ? `Copilot opened for ${meeting.title}`
+      : `Copilot is ready for ${meeting.title}. Test your mic before the meeting starts.`);
+  };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
   const EDGE_STORE_URL: string | null = null; // e.g. 'https://microsoftedge.microsoft.com/addons/detail/<id>'
