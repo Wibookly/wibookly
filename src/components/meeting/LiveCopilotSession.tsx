@@ -1029,19 +1029,27 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
               {transcriptOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {transcriptOpen ? 'Hide live transcript' : `Show live transcript (${transcript.length})`}
             </button>
-            {listening && heardPreview && (
-              <div className="text-xs truncate max-w-md" style={{ color: 'var(--text-2)' }}>
-                <span style={{ color: 'var(--c-purple)' }}>● Hearing:</span> {heardPreview}
-              </div>
+            {listening && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-2)' }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--c-purple)' }} />
+                Listening…
+              </span>
             )}
           </div>
 
           {transcriptOpen && (
             <div className="md:col-span-2 rounded-2xl p-4"
               style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <div className="mb-3 flex items-center gap-2">
-                <Radio className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
-                <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Radio className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
+                  <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
+                </div>
+                {listening && heardPreview && (
+                  <div className="text-xs truncate max-w-md" style={{ color: 'var(--text-2)' }}>
+                    <span style={{ color: 'var(--c-purple)' }}>● Hearing:</span> {heardPreview}
+                  </div>
+                )}
               </div>
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                 {micError && (
@@ -1052,15 +1060,40 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                     Waiting for transcript lines…
                   </div>
                 )}
-                {[...transcript].reverse().map((t) => (
-                  <div key={t.id} className="rounded-lg p-2.5" style={{ background: 'var(--surface)' }}>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[11px] font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
-                      <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>{t.time}</span>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
-                  </div>
-                ))}
+                {(() => {
+                  // Group consecutive lines from the same speaker into one bubble
+                  // so the transcript reads like a conversation, not a stream of
+                  // 3-word fragments. Newest group first.
+                  const groups: Array<{ id: string; speaker: string; color: string; time: string; text: string }> = [];
+                  for (const t of transcript) {
+                    const last = groups[groups.length - 1];
+                    if (last && last.speaker === t.speaker) {
+                      last.text = `${last.text} ${t.text}`.replace(/\s+/g, ' ').trim();
+                      last.time = t.time;
+                    } else {
+                      groups.push({ id: t.id, speaker: t.speaker, color: t.color, time: t.time, text: t.text });
+                    }
+                  }
+                  return [...groups].reverse().map((g) => {
+                    const initials = g.speaker
+                      .split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+                    return (
+                      <div key={g.id} className="rounded-lg p-2.5 flex gap-2.5" style={{ background: 'var(--surface)' }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ background: `color-mix(in srgb, ${g.color} 22%, transparent)`, color: g.color }}>
+                          {initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[11px] font-semibold" style={{ color: g.color }}>{g.speaker}</span>
+                            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>{g.time}</span>
+                          </div>
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-1)' }}>{g.text}</p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
               <div className="mt-3 flex gap-2">
                 <select
