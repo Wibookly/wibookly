@@ -587,7 +587,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const startListening = async () => {
     setMicError(null);
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as WindowWithSpeechRecognition;
+    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!SR) {
       setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
       toast.error('This browser does not support live speech recognition. Try Chrome.');
@@ -614,7 +615,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         rec.interimResults = true;
         rec.lang = 'en-US';
 
-        rec.onresult = (event: any) => {
+        rec.onresult = (event: BrowserSpeechRecognitionEvent) => {
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const r = event.results[i];
             const txt = (r[0]?.transcript || '').trim();
@@ -624,7 +625,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           }
         };
 
-        rec.onerror = (e: any) => {
+        rec.onerror = (e: BrowserSpeechRecognitionErrorEvent) => {
           const err = e?.error;
           if (err === 'not-allowed' || err === 'service-not-allowed') {
             setMicError('Microphone blocked. Allow microphone access in your browser settings.');
@@ -697,9 +698,10 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }, 5000);
 
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setMicError(e?.message || 'Could not start microphone.');
+      const err = e as { message?: string };
+      setMicError(err?.message || 'Could not start microphone.');
     }
   };
 
@@ -743,7 +745,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }
       releaseMicCheck();
     };
-  }, []);
+  }, [releaseMicCheck]);
 
 
   // Auto-start listening when the user opened this session via "Join" (a real
