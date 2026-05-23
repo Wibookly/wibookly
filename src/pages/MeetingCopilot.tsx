@@ -483,22 +483,47 @@ export default function MeetingCopilot() {
               </div>
             )}
             {recent.map((s) => (
-              <button key={s.id} onClick={() => setViewSession({ id: s.id, title: s.title })}
-                className="w-full text-left rounded-xl p-4 flex items-center gap-3 transition-colors hover:opacity-90"
+              <div key={s.id}
+                className="rounded-xl p-4 transition-colors"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
-                  <CheckCircle className="w-4 h-4 text-white" />
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
+                    {s.summary && (
+                      <p className="text-xs leading-relaxed line-clamp-2 mb-3" style={{ color: 'var(--text-2)' }}>{s.summary}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] px-2 py-0.5 rounded-md"
+                        style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
+                        {s.actions} action{s.actions === 1 ? '' : 's'}
+                      </span>
+                      {s.hasFollowup && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1"
+                          style={{ background: 'color-mix(in srgb, var(--c-orange) 14%, transparent)', color: 'var(--c-orange)' }}>
+                          <Mail className="w-3 h-3" /> Follow-up
+                        </span>
+                      )}
+                      <div className="ml-auto flex gap-1.5">
+                        <button onClick={() => setViewSession({ id: s.id, title: s.title })}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-medium hover:opacity-80"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}>
+                          <FileText className="w-3 h-3" /> Quick view
+                        </button>
+                        <button onClick={() => navigate(`/meeting-copilot/sessions/${s.id}`)}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-semibold hover:opacity-90"
+                          style={{ background: 'var(--c-purple)', color: '#fff' }}>
+                          <ExternalLink className="w-3 h-3" /> Open recap
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
-                </div>
-                <div className="text-xs px-2 py-1 rounded-md shrink-0"
-                  style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
-                  {s.actions} actions
-                </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
