@@ -1147,12 +1147,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                   <Radio className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
                   <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
                 </div>
-                {listening && heardPreview && (
-                  <div className="text-xs truncate max-w-md" style={{ color: 'var(--text-2)' }}>
-                    <span style={{ color: 'var(--c-purple)' }}>● Hearing:</span> {heardPreview}
-                  </div>
-                )}
               </div>
+
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                 {micError && (
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444' }}>{micError}</div>
