@@ -658,9 +658,9 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     }
   };
 
-  const requestFocusedSuggestion = async (mode: CopilotPromptMode) => {
+  const requestFocusedSuggestion = async (mode: CopilotPromptMode, opts?: { silent?: boolean }) => {
     if (!sessionId) {
-      toast.info('Session is still starting — try again in a second.');
+      if (!opts?.silent) toast.info('Session is still starting — try again in a second.');
       return;
     }
 
@@ -670,7 +670,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       say: 'best thing to say next',
     };
 
-    setPromptBusy(mode);
+    if (!opts?.silent) setPromptBusy(mode);
     try {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-suggestion', {
         body: {
@@ -689,21 +689,19 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       }));
 
       if (mapped.length === 0) {
-        toast.info(`No ${promptLabels[mode]} available yet from the current conversation.`);
+        if (!opts?.silent) toast.info(`No ${promptLabels[mode]} available yet from the current conversation.`);
         return;
       }
 
-      if (mapped.length > 0) {
-        setSuggestions((cur) => {
-          const next = [...mapped, ...cur].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
-          return next.slice(0, 8);
-        });
-      }
+      setSuggestions((cur) => {
+        const next = [...mapped, ...cur].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
+        return next.slice(0, 8);
+      });
     } catch (e) {
       console.error('focused suggestion error', e);
-      toast.error(`Could not generate a ${promptLabels[mode]} right now.`);
+      if (!opts?.silent) toast.error(`Could not generate a ${promptLabels[mode]} right now.`);
     } finally {
-      setPromptBusy(null);
+      if (!opts?.silent) setPromptBusy(null);
     }
   };
 
