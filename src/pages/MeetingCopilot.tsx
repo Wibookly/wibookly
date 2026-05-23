@@ -77,7 +77,7 @@ export default function MeetingCopilot() {
     { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
-  const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
+  const [openSession, setOpenSession] = useState<{ id: string; title: string; durationMinutes?: number } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
