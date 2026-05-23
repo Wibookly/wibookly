@@ -63,7 +63,13 @@ export default function MeetingCopilot() {
     show_live_suggestions: true,
     auto_draft_followup: true,
     suggestion_style: 'concise',
+    notify_scheduled: true,
+    notify_detected: true,
+    microphone_device_id: null,
+    shortcuts: DEFAULT_SHORTCUTS,
   });
+  const [behaviorOpen, setBehaviorOpen] = useState(false);
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
   const [upcoming, setUpcoming] = useState<UpcomingMeeting[]>([]);
   const [calendarStatus, setCalendarStatus] = useState<
