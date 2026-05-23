@@ -101,6 +101,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [heardPreview, setHeardPreview] = useState<string | null>(null);
   const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const proactiveBusyRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
