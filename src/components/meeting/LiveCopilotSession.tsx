@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck } from 'lucide-react';
+import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Props {
@@ -84,6 +84,18 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
+  // In-browser mic listening (works without the Chrome extension)
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const shouldListenRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  const lastInsertRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
+
   const transcriptContext = useMemo(
     () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
     [transcript],
@@ -157,6 +169,111 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript.length]);
+
+  // --- In-browser microphone capture via Web Speech API ---
+  const pushHeardLine = async (text: string) => {
+    const sid = sessionIdRef.current;
+    const uid = userIdRef.current;
+    if (!sid || !uid) return;
+    const clean = text.trim();
+    if (!clean) return;
+    // de-dupe rapid duplicates
+    const now = Date.now();
+    if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
+    lastInsertRef.current = { text: clean, at: now };
+
+    await supabase.from('meeting_transcripts').insert({
+      session_id: sid,
+      user_id: uid,
+      speaker: 'You',
+      text: clean,
+      spoken_at: new Date().toISOString(),
+    });
+
+    // fire suggestion in the background
+    try {
+      const recent = [...transcript.slice(-5), { speaker: 'You', text: clean }]
+        .map((l) => `${l.speaker}: ${l.text}`).join('\n');
+      supabase.functions.invoke('meeting-copilot-suggestion', {
+        body: { sessionId: sid, recentTranscript: recent },
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  };
+
+  const startListening = () => {
+    setMicError(null);
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
+      toast.error('This browser does not support live speech recognition. Try Chrome.');
+      return;
+    }
+    if (!sessionId) {
+      toast.info('Session is still starting — try again in a second.');
+      return;
+    }
+
+    try {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+
+      rec.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const r = event.results[i];
+          if (r.isFinal) {
+            const txt = r[0]?.transcript || '';
+            if (txt.trim()) pushHeardLine(txt);
+          }
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+          setMicError('Microphone blocked. Allow microphone access in your browser settings.');
+          shouldListenRef.current = false;
+          setListening(false);
+        } else if (e?.error === 'no-speech' || e?.error === 'aborted') {
+          // benign — onend will restart
+        } else {
+          console.warn('SpeechRecognition error', e?.error);
+        }
+      };
+
+      rec.onend = () => {
+        if (shouldListenRef.current) {
+          try { rec.start(); } catch { /* will retry */ }
+        } else {
+          setListening(false);
+        }
+      };
+
+      shouldListenRef.current = true;
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+      toast.success('Listening — speak normally. Your voice is being transcribed live.');
+    } catch (e: any) {
+      console.error(e);
+      setMicError(e?.message || 'Could not start microphone.');
+    }
+  };
+
+  const stopListening = () => {
+    shouldListenRef.current = false;
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    setListening(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    };
+  }, []);
+
+
 
   const addLine = async () => {
     if (!draft.trim() || !sessionId || !user) return;
@@ -289,10 +406,31 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           </h3>
         </div>
         <div className="flex items-center gap-2">
+          {!summary && (
+            listening ? (
+              <Button size="sm" variant="outline" onClick={stopListening}
+                style={{ borderColor: '#EF4444', color: '#EF4444' }}>
+                <MicOff className="w-3.5 h-3.5 mr-1.5" />
+                Stop listening
+              </Button>
+            ) : (
+              <Button size="sm" onClick={startListening} disabled={!sessionId}
+                style={{ background: 'linear-gradient(135deg,#A855F7,#06B6D4)', color: '#fff' }}>
+                <Mic className="w-3.5 h-3.5 mr-1.5" />
+                Start listening
+              </Button>
+            )
+          )}
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>
-            ● LIVE
+            style={{
+              background: listening
+                ? 'color-mix(in srgb, #22C55E 18%, transparent)'
+                : 'color-mix(in srgb, #EF4444 18%, transparent)',
+              color: listening ? '#22C55E' : '#EF4444',
+            }}>
+            ● {listening ? 'MIC ON' : 'LIVE'}
           </span>
+
           {summary ? (
             <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
           ) : (
@@ -363,7 +501,12 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
             {transcript.length === 0 && (
               <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                The live transcript will appear here once the extension starts capturing tab audio and microphone audio. If nothing is appearing yet, open the InboxIQ extension on the meeting tab and click <strong style={{ color: 'var(--text-1)' }}>Start capture</strong> — that is when the browser should prompt for microphone access. You can still add lines manually below while testing.
+                Click <strong style={{ color: 'var(--text-1)' }}>Start listening</strong> at the top right to have the Copilot transcribe your microphone live in this tab. For full meeting audio (other participants), also start capture in the InboxIQ Chrome extension on the meeting tab.
+              </div>
+            )}
+            {micError && (
+              <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444', border: '1px solid color-mix(in srgb, #EF4444 30%, transparent)' }}>
+                {micError}
               </div>
             )}
             {transcript.map((t) => (
