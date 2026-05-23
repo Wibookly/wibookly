@@ -87,7 +87,11 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   // In-browser mic listening (works without the Chrome extension)
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  const [micReady, setMicReady] = useState(false);
+  const [micCheckBusy, setMicCheckBusy] = useState(false);
+  const [micCheckMessage, setMicCheckMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
@@ -100,12 +104,31 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
     [transcript],
   );
+  const suggestionContext = useMemo(
+    () => transcriptContext.trim() || draft.trim(),
+    [draft, transcriptContext],
+  );
 
   // Create session on mount
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
+      const { data: existing } = await supabase
+        .from('meeting_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('meeting_external_id', meeting.id)
+        .eq('status', 'active')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        if (!cancelled) setSessionId(existing.id);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('meeting_sessions')
         .insert({
@@ -126,6 +149,48 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     })();
     return () => { cancelled = true; };
   }, [user, meeting.id, meeting.title]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+
+    (async () => {
+      const [{ data: transcriptRows }, { data: suggestionRows }] = await Promise.all([
+        supabase
+          .from('meeting_transcripts')
+          .select('id, speaker, text, spoken_at, created_at')
+          .eq('session_id', sessionId)
+          .order('spoken_at', { ascending: true }),
+        supabase
+          .from('meeting_suggestions')
+          .select('id, suggestion_type, content')
+          .eq('session_id', sessionId)
+          .order('generated_at', { ascending: false })
+          .limit(12),
+      ]);
+
+      if (cancelled) return;
+
+      setTranscript(((transcriptRows || []) as RealtimeTranscriptRow[]).map((r) => {
+        const d = new Date(r.spoken_at || r.created_at || new Date().toISOString());
+        const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        const speakerName = r.speaker || 'Other';
+        const color = speakerName === 'You'
+          ? '#A855F7'
+          : SPEAKER_COLORS[Math.abs(hashCode(speakerName)) % SPEAKER_COLORS.length];
+        return { id: r.id, speaker: speakerName, text: r.text, time, color };
+      }));
+
+      setSuggestions(((suggestionRows || []) as RealtimeSuggestionRow[]).map((r) => ({
+        id: r.id,
+        label: (r.suggestion_type || 'Suggestion').toUpperCase(),
+        content: r.content || '',
+        kind: r.suggestion_type || undefined,
+      })));
+    })();
+
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   // Realtime: listen for transcript + suggestion inserts (pushed by the Chrome extension)
   useEffect(() => {
