@@ -924,17 +924,60 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }
   };
 
+  // Live clock derivations
+  const elapsedSec = startedAtMs ? Math.max(0, Math.floor((nowMs - startedAtMs) / 1000)) : 0;
+  const totalSec = durationMinutes && durationMinutes > 0 ? durationMinutes * 60 : null;
+  const remainingSec = totalSec !== null ? Math.max(0, totalSec - elapsedSec) : null;
+  const fmtClock = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+    return `${m}:${String(ss).padStart(2, '0')}`;
+  };
+  const overtime = totalSec !== null && elapsedSec > totalSec;
+
   return (
     <div className="rounded-2xl p-6"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="inline-block w-2 h-2 rounded-full animate-pulse"
             style={{ background: '#EF4444', boxShadow: '0 0 8px #EF4444' }} />
-          <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>
+          <h3 className="text-h5 truncate" style={{ color: 'var(--text-1)' }}>
             Live Copilot — {meeting.title}
           </h3>
         </div>
+
+        {/* Meeting timer */}
+        {startedAtMs && (
+          <div className="flex items-center gap-2 rounded-xl px-3 py-1.5"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-2)' }}>
+              Elapsed
+            </span>
+            <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-1)' }}>
+              {fmtClock(elapsedSec)}
+            </span>
+            {remainingSec !== null && (
+              <>
+                <span className="mx-1 opacity-40">·</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-2)' }}>
+                  {overtime ? 'Over' : 'Left'}
+                </span>
+                <span
+                  className="font-mono text-sm font-bold tabular-nums"
+                  style={{
+                    color: overtime ? '#EF4444' : remainingSec <= 300 ? '#F59E0B' : '#22C55E',
+                  }}
+                >
+                  {fmtClock(overtime ? elapsedSec - (totalSec || 0) : remainingSec)}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           {!summary && (
             listening ? (
