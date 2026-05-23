@@ -115,6 +115,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
   const speakerAnalyserRef = useRef<AnalyserNode | null>(null);
   const previewTimerRef = useRef<number | null>(null);
+  const lastSpeechAtRef = useRef<number>(0);
+  const watchdogRef = useRef<number | null>(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
@@ -528,49 +530,98 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }
 
     try {
-      const rec = new SR();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
+      const buildRecognition = () => {
+        const rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = 'en-US';
 
-      rec.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const r = event.results[i];
-          const txt = (r[0]?.transcript || '').trim();
-          if (!txt) continue;
-          setHeardPreview(txt);
-          if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
-          previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
-          if (r.isFinal) {
-            void pushHeardLine(txt);
+        rec.onresult = (event: any) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const r = event.results[i];
+            const txt = (r[0]?.transcript || '').trim();
+            if (!txt) continue;
+            lastSpeechAtRef.current = Date.now();
+            setHeardPreview(txt);
+            if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+            previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
+            if (r.isFinal) {
+              void pushHeardLine(txt);
+            }
           }
-        }
+        };
+
+        rec.onerror = (e: any) => {
+          const err = e?.error;
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            setMicError('Microphone blocked. Allow microphone access in your browser settings.');
+            shouldListenRef.current = false;
+            setListening(false);
+          } else if (err === 'audio-capture') {
+            setMicError('Microphone disconnected. Click Start listening to reconnect.');
+            shouldListenRef.current = false;
+            setListening(false);
+          } else if (err === 'no-speech' || err === 'aborted' || err === 'network') {
+            // benign — onend will restart, watchdog will recover network
+          } else {
+            console.warn('SpeechRecognition error', err);
+          }
+        };
+
+        rec.onend = () => {
+          if (!shouldListenRef.current) {
+            setListening(false);
+            return;
+          }
+          // Restart; if it throws (InvalidStateError), rebuild fresh.
+          try {
+            rec.start();
+          } catch {
+            try {
+              const fresh = buildRecognition();
+              recognitionRef.current = fresh;
+              fresh.start();
+            } catch (err) {
+              console.warn('SpeechRecognition restart failed', err);
+              shouldListenRef.current = false;
+              setListening(false);
+              setMicError('Live transcription stopped unexpectedly. Click Start listening to resume.');
+            }
+          }
+        };
+
+        return rec;
       };
 
-      rec.onerror = (e: any) => {
-        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
-          setMicError('Microphone blocked. Allow microphone access in your browser settings.');
-          shouldListenRef.current = false;
-          setListening(false);
-        } else if (e?.error === 'no-speech' || e?.error === 'aborted') {
-          // benign — onend will restart
-        } else {
-          console.warn('SpeechRecognition error', e?.error);
-        }
-      };
-
-      rec.onend = () => {
-        if (shouldListenRef.current) {
-          try { rec.start(); } catch { /* will retry */ }
-        } else {
-          setListening(false);
-        }
-      };
-
+      const rec = buildRecognition();
       shouldListenRef.current = true;
       recognitionRef.current = rec;
+      lastSpeechAtRef.current = Date.now();
       rec.start();
       setListening(true);
+
+      // If mic track ends (device unplugged, OS revoke), stop cleanly.
+      const track = micStreamRef.current?.getAudioTracks?.()[0];
+      if (track) {
+        track.onended = () => {
+          if (shouldListenRef.current) {
+            setMicError('Microphone was disconnected. Click Start listening to resume.');
+            stopListening();
+          }
+        };
+      }
+
+      // Watchdog: if no speech AND no transcription for 25s while listening, rebuild.
+      if (watchdogRef.current) window.clearInterval(watchdogRef.current);
+      watchdogRef.current = window.setInterval(() => {
+        if (!shouldListenRef.current) return;
+        const silentMs = Date.now() - lastSpeechAtRef.current;
+        if (silentMs > 25000) {
+          lastSpeechAtRef.current = Date.now();
+          try { recognitionRef.current?.stop(); } catch { /* onend will rebuild */ }
+        }
+      }, 5000);
+
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
     } catch (e: any) {
       console.error(e);
@@ -580,6 +631,10 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const stopListening = () => {
     shouldListenRef.current = false;
+    if (watchdogRef.current) {
+      window.clearInterval(watchdogRef.current);
+      watchdogRef.current = null;
+    }
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
     recognitionRef.current = null;
@@ -590,6 +645,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     setMicReady(false);
   };
 
+
   const handleClose = () => {
     stopListening();
     onClose();
@@ -598,6 +654,10 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
+      if (watchdogRef.current) {
+        window.clearInterval(watchdogRef.current);
+        watchdogRef.current = null;
+      }
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
       recognitionRef.current = null;
@@ -608,6 +668,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       releaseMicCheck();
     };
   }, []);
+
 
   // Auto-start listening when the user opened this session via "Join" (a real
   // user gesture). getUserMedia still works for a brief window after the click
