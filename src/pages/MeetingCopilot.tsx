@@ -391,52 +391,159 @@ export default function MeetingCopilot() {
         ))}
       </div>
 
-      {/* AI PROFILE — centralized from Settings → Profile */}
-      <ProfileContextCard surface="meeting_copilot" />
+      {/* PROFILE LINK — replaces the old large profile card. The Copilot reads
+          everything from Settings → My Profile & Signature. */}
+      <div className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 text-sm"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: 'color-mix(in srgb, var(--c-purple) 14%, transparent)' }}>
+          <UserIcon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
+        </div>
+        <span>
+          Copilot uses your profile, role, and tone from{' '}
+          <Link to="/settings" className="font-semibold underline" style={{ color: 'var(--c-purple)' }}>
+            My Profile &amp; Signature
+          </Link>{' '}
+          — plus each meeting's subject, body, attachments and prior emails.
+        </span>
+      </div>
 
-      {/* COPILOT BEHAVIOR */}
-      <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-2 mb-5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--c-purple) 18%, transparent)' }}>
+      {/* COPILOT BEHAVIOR — collapsible */}
+      <div className="rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          onClick={() => setBehaviorOpen((v) => !v)}
+          className="w-full flex items-center gap-3 p-5 text-left"
+          aria-expanded={behaviorOpen}
+        >
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--c-purple) 18%, transparent)' }}>
             <SettingsIcon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
           </div>
-          <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Copilot Behavior</h3>
-        </div>
-
-        <ToggleRow
-          title="Auto-join all my meetings"
-          desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
-          checked={settings.auto_join_all}
-          onChange={(v) => updateSettings({ auto_join_all: v })}
-        />
-        <ToggleRow
-          title="Live suggestions during the call"
-          desc='Show "what to say" and "follow-up questions" in real time. No audio is ever stored.'
-          checked={settings.show_live_suggestions}
-          onChange={(v) => updateSettings({ show_live_suggestions: v })}
-        />
-        <ToggleRow
-          title="Auto-draft follow-up email after each call"
-          desc="Generate a summary and action items, push as a draft into Outlook (review before sending)."
-          checked={settings.auto_draft_followup}
-          onChange={(v) => updateSettings({ auto_draft_followup: v })}
-        />
-
-        <div className="pt-5 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-          <div className="mb-3">
-            <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Suggestion style</div>
-            <div className="text-caption" style={{ color: 'var(--text-2)' }}>How the Copilot phrases live suggestions</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Copilot Behavior</h3>
+            <div className="text-caption mt-0.5" style={{ color: 'var(--text-2)' }}>
+              Auto-join {settings.auto_join_all ? 'ON' : 'OFF'} · {settings.suggestion_style[0].toUpperCase() + settings.suggestion_style.slice(1)} · Auto-draft {settings.auto_draft_followup ? 'ON' : 'OFF'} · Notifications {settings.notify_scheduled || settings.notify_detected ? 'ON' : 'OFF'}
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <StyleCard Icon={Zap} title="Concise" desc="Short bullet points. Best for quick reference during fast conversations."
-              active={settings.suggestion_style === 'concise'} onClick={() => updateSettings({ suggestion_style: 'concise' })} />
-            <StyleCard Icon={MessageSquare} title="Conversational" desc="Full sentences ready to say. Best for tough discussions and sales calls."
-              active={settings.suggestion_style === 'conversational'} onClick={() => updateSettings({ suggestion_style: 'conversational' })} />
-            <StyleCard Icon={Target} title="Strategic" desc="Surfaces angles, risks, opportunities. Best for executive meetings."
-              active={settings.suggestion_style === 'strategic'} onClick={() => updateSettings({ suggestion_style: 'strategic' })} />
+          {behaviorOpen ? <ChevronUp className="w-5 h-5" style={{ color: 'var(--text-2)' }} /> : <ChevronDown className="w-5 h-5" style={{ color: 'var(--text-2)' }} />}
+        </button>
+
+        {behaviorOpen && (
+          <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--border)' }}>
+            <ToggleRow
+              title="Auto-join all my meetings"
+              desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
+              checked={settings.auto_join_all}
+              onChange={(v) => updateSettings({ auto_join_all: v })}
+            />
+            <ToggleRow
+              title="Live suggestions during the call"
+              desc='Show "what to say" and "follow-up questions" in real time. No audio is ever stored.'
+              checked={settings.show_live_suggestions}
+              onChange={(v) => updateSettings({ show_live_suggestions: v })}
+            />
+            <ToggleRow
+              title="Auto-draft follow-up email after each call"
+              desc="Generate a summary and action items, then save them as a draft in your inbox under the 0. AI Draft follow-up category in Outlook — always review before sending."
+              checked={settings.auto_draft_followup}
+              onChange={(v) => updateSettings({ auto_draft_followup: v })}
+            />
+
+            {/* Suggestion style */}
+            <div className="pt-5 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="mb-3">
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Suggestion style</div>
+                <div className="text-caption" style={{ color: 'var(--text-2)' }}>Default tone for live suggestions. Override per meeting below.</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <StyleCard Icon={Zap} title="Concise" desc="Short bullet points. Best for quick reference during fast conversations."
+                  active={settings.suggestion_style === 'concise'} onClick={() => updateSettings({ suggestion_style: 'concise' })} />
+                <StyleCard Icon={MessageSquare} title="Conversational" desc="Full sentences ready to say. Best for tough discussions and sales calls."
+                  active={settings.suggestion_style === 'conversational'} onClick={() => updateSettings({ suggestion_style: 'conversational' })} />
+                <StyleCard Icon={Target} title="Strategic" desc="Surfaces angles, risks, opportunities. Best for executive meetings."
+                  active={settings.suggestion_style === 'strategic'} onClick={() => updateSettings({ suggestion_style: 'strategic' })} />
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Bell className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Notifications</div>
+              </div>
+              <ToggleRow
+                title="Scheduled meetings"
+                desc="Show a heads-up 1 minute before each meeting based on your calendar."
+                checked={settings.notify_scheduled}
+                onChange={(v) => updateSettings({ notify_scheduled: v })}
+              />
+              <ToggleRow
+                title="Auto-detected meetings"
+                desc="Notify me when a call is detected (Teams, Zoom, Meet) that's not on my calendar."
+                checked={settings.notify_detected}
+                onChange={(v) => updateSettings({ notify_detected: v })}
+              />
+            </div>
+
+            {/* Audio settings */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 className="w-4 h-4" style={{ color: 'var(--c-green)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Audio settings</div>
+              </div>
+              <div className="text-caption mb-3" style={{ color: 'var(--text-2)' }}>
+                Pick which microphone Copilot should use. The live mic test (with waveform) is built into the meeting window itself — open any meeting and expand "Audio setup".
+              </div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-2)' }}>Microphone source</label>
+              <select
+                value={settings.microphone_device_id || ''}
+                onChange={(e) => updateSettings({ microphone_device_id: e.target.value || null })}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+              >
+                <option value="">System default</option>
+                {micDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Microphone ${d.deviceId.slice(0, 6)}`}
+                  </option>
+                ))}
+              </select>
+              {micDevices.every((d) => !d.label) && (
+                <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-2)' }}>
+                  Device names appear after you grant microphone access once.
+                </div>
+              )}
+            </div>
+
+            {/* Shortcuts */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Keyboard className="w-4 h-4" style={{ color: 'var(--c-orange)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Shortcuts</div>
+              </div>
+              <div className="text-caption mb-3" style={{ color: 'var(--text-2)' }}>
+                Fire Copilot actions during a live session without touching the mouse. Active only while the meeting window is focused.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(['answer','ask','say','end'] as const).map((key) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <label className="text-xs font-semibold w-24 shrink-0" style={{ color: 'var(--text-2)' }}>
+                      {key === 'answer' ? 'Quick answer' : key === 'ask' ? 'What to ask' : key === 'say' ? 'What to say' : 'End session'}
+                    </label>
+                    <Input
+                      value={settings.shortcuts[key] || ''}
+                      onChange={(e) => updateSettings({ shortcuts: { ...settings.shortcuts, [key]: e.target.value } })}
+                      placeholder="Ctrl+Shift+A"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
 
       {/* UPCOMING + RECENT */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
