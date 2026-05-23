@@ -569,7 +569,18 @@ export default function MeetingCopilot() {
               </div>
               <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Upcoming Meetings</h3>
             </div>
-            <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => startPracticeSession(30)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg,#A855F7,#06B6D4)', color: '#fff' }}
+                title="Open a no-calendar practice meeting to test the Copilot end-to-end"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Start practice session
+              </button>
+              <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
+            </div>
           </div>
           {/* Honest status banner — replaces silent mock fallback */}
           {calendarStatus.state === 'loading' && (
