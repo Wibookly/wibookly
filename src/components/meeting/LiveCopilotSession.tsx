@@ -277,9 +277,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [transcript.length]);
+  // Transcript auto-scroll disabled — newest items now appear at the top.
 
   useEffect(() => {
     const extensionId = localStorage.getItem('inboxiq_extension_id');
