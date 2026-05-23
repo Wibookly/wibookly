@@ -449,6 +449,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const releaseMicCheck = () => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
+    stopAudioMeters();
   };
 
   const runMicCheck = async () => {
@@ -474,9 +475,9 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       micStreamRef.current = stream;
       setMicReady(true);
-      setMicCheckMessage('Microphone detected and permission granted. You can start listening now.');
-      toast.success('Microphone detected. You can start listening now.');
-      window.setTimeout(() => releaseMicCheck(), 900);
+      await startAudioMeters(stream);
+      setMicCheckMessage('Microphone and speaker check passed. Watch the bars move while you talk, then start listening.');
+      toast.success('Microphone and speaker check passed.');
     } catch (e: any) {
       setMicReady(false);
       const message = e?.name === 'NotAllowedError'
@@ -510,18 +511,27 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       await runMicCheck();
     }
 
+    if (!micStreamRef.current) {
+      setMicError('Test the microphone first so InboxIQ can confirm your device is ready.');
+      return;
+    }
+
     try {
       const rec = new SR();
       rec.continuous = true;
-      rec.interimResults = false;
+      rec.interimResults = true;
       rec.lang = 'en-US';
 
       rec.onresult = (event: any) => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
+          const txt = (r[0]?.transcript || '').trim();
+          if (!txt) continue;
+          setHeardPreview(txt);
+          if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+          previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
           if (r.isFinal) {
-            const txt = r[0]?.transcript || '';
-            if (txt.trim()) pushHeardLine(txt);
+            void pushHeardLine(txt);
           }
         }
       };
@@ -550,7 +560,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
-      setActiveTab('transcript');
+      setActiveTab('suggestions');
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
     } catch (e: any) {
       console.error(e);
@@ -562,12 +572,17 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     shouldListenRef.current = false;
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     setListening(false);
+    setHeardPreview(null);
   };
 
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      if (previewTimerRef.current) {
+        window.clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
       releaseMicCheck();
     };
   }, []);
