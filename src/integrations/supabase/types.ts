@@ -3795,6 +3795,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_current_user_super_admin: { Args: never; Returns: boolean }
       is_domain_allowed: { Args: { _email: string }; Returns: boolean }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
