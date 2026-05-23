@@ -88,7 +88,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const [focusedSuggestions, setFocusedSuggestions] = useState<Partial<Record<CopilotPromptMode, Suggestion>>>({});
   const [autoDraftFollowup, setAutoDraftFollowup] = useState(true);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   // In-browser mic listening (works without the Chrome extension)
   const [listening, setListening] = useState(false);
@@ -100,12 +99,10 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [autoJoin, setAutoJoin] = useState(true);
   const [micLevel, setMicLevel] = useState(0);
   const [speakerLevel, setSpeakerLevel] = useState(0);
-  const [heardPreview, setHeardPreview] = useState<string | null>(null);
   const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
-  const proactiveBusyRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
@@ -154,7 +151,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     () => transcriptContext.trim() || draft.trim(),
     [draft, transcriptContext],
   );
-  const latestSuggestions = useMemo(() => suggestions.slice(0, 6), [suggestions]);
   const micBars = useMemo(
     () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
       const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
