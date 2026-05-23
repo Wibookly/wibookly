@@ -580,14 +580,26 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const stopListening = () => {
     shouldListenRef.current = false;
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
+    recognitionRef.current = null;
     setListening(false);
     setHeardPreview(null);
+    // Fully release the microphone tracks so the browser indicator goes away.
+    releaseMicCheck();
+    setMicReady(false);
+  };
+
+  const handleClose = () => {
+    stopListening();
+    onClose();
   };
 
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
+      recognitionRef.current = null;
       if (previewTimerRef.current) {
         window.clearTimeout(previewTimerRef.current);
         previewTimerRef.current = null;
@@ -595,6 +607,19 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       releaseMicCheck();
     };
   }, []);
+
+  // Auto-start listening when the user opened this session via "Join" (a real
+  // user gesture). getUserMedia still works for a brief window after the click
+  // because the gesture context is preserved across the parent's setState.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    if (!sessionId || !user) return;
+    autoStartedRef.current = true;
+    void startListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, sessionId, user]);
+
 
 
 
