@@ -597,12 +597,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             const txt = (r[0]?.transcript || '').trim();
             if (!txt) continue;
             lastSpeechAtRef.current = Date.now();
-            setHeardPreview(txt);
-            if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
-            previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
-            if (r.isFinal) {
-              void pushHeardLine(txt);
-            }
+            queueTranscriptChunk(txt, Boolean(r.isFinal));
           }
         };
 
@@ -624,6 +619,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
 
         rec.onend = () => {
+          void flushTranscriptBuffer();
           if (!shouldListenRef.current) {
             setListening(false);
             return;
@@ -686,6 +682,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const stopListening = () => {
     shouldListenRef.current = false;
+    void flushTranscriptBuffer();
     if (watchdogRef.current) {
       window.clearInterval(watchdogRef.current);
       watchdogRef.current = null;
@@ -713,6 +710,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         window.clearInterval(watchdogRef.current);
         watchdogRef.current = null;
       }
+      clearTranscriptFlushTimer();
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
       recognitionRef.current = null;
