@@ -554,7 +554,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
-      setActiveTab('suggestions');
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
     } catch (e: any) {
       console.error(e);
@@ -621,9 +620,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         body: { sessionId, recentTranscript: recent },
       });
       if (error) throw error;
-      if (data?.suggestions?.length) {
-        setActiveTab('suggestions');
-      }
     } catch (e: unknown) {
       console.error('suggestion error', e);
     } finally {
@@ -690,8 +686,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           return next.slice(0, 8);
         });
       }
-
-      setActiveTab('suggestions');
     } catch (e) {
       console.error('focused suggestion error', e);
       toast.error(`Could not generate a ${promptLabels[mode]} right now.`);
