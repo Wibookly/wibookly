@@ -44,9 +44,10 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/integrations');
+      const returnTo = searchParams.get('return_to');
+      navigate(returnTo && returnTo.startsWith('/') ? returnTo : '/integrations');
     }
-  }, [user, navigate]);
+  }, [user, navigate, searchParams]);
 
   const handleMicrosoftSSO = async () => {
     if (!email || !email.includes('@')) {
