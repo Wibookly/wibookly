@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Mic, Square, Send, Sparkles, Loader2, FileText } from 'lucide-react';
+import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Props {
   meeting: {
@@ -28,6 +29,8 @@ interface Suggestion {
   kind?: string;
 }
 
+type CopilotPromptMode = 'answer' | 'ask' | 'say';
+
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 
 export default function LiveCopilotSession({ meeting, onClose }: Props) {
@@ -40,7 +43,14 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'suggestions' | 'transcript'>('suggestions');
+  const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const transcriptContext = useMemo(
+    () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
+    [transcript],
+  );
 
   // Create session on mount
   useEffect(() => {
@@ -127,6 +137,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       color,
     };
     setTranscript((t) => [...t, newLine]);
+    setActiveTab('transcript');
     setDraft('');
 
     // Persist
@@ -157,6 +168,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           kind: s.type,
         }));
         setSuggestions((cur) => [...mapped, ...cur].slice(0, 6));
+        setActiveTab('suggestions');
       }
     } catch (e: any) {
       console.error('suggestion error', e);
@@ -180,6 +192,60 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       toast.error('Could not generate summary');
     } finally {
       setEnding(false);
+    }
+  };
+
+  const requestFocusedSuggestion = async (mode: CopilotPromptMode) => {
+    if (!sessionId || !transcriptContext.trim()) {
+      toast.info('Let the transcript build first, then ask for a guided answer or question.');
+      return;
+    }
+
+    const promptLabels: Record<CopilotPromptMode, string> = {
+      answer: 'best answer',
+      ask: 'best question',
+      say: 'best thing to say next',
+    };
+
+    setPromptBusy(mode);
+    try {
+      const { data, error } = await supabase.functions.invoke('meeting-copilot-suggestion', {
+        body: {
+          sessionId,
+          recentTranscript: transcriptContext,
+          intent: mode,
+        },
+      });
+      if (error) throw error;
+
+      const mapped: Suggestion[] = (data?.suggestions || []).map((s: any, i: number) => ({
+        id: `${mode}-${Date.now()}-${i}`,
+        label: (s.type || mode).toUpperCase(),
+        content: s.content || s.text || '',
+        kind: s.type || mode,
+      }));
+
+      if (mapped.length === 0) {
+        toast.info(`No ${promptLabels[mode]} available yet from the current conversation.`);
+        return;
+      }
+
+      setSuggestions((cur) => [...mapped, ...cur].slice(0, 8));
+      setActiveTab('suggestions');
+    } catch (e) {
+      console.error('focused suggestion error', e);
+      toast.error(`Could not generate a ${promptLabels[mode]} right now.`);
+    } finally {
+      setPromptBusy(null);
+    }
+  };
+
+  const copySuggestion = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success('Copied suggestion');
+    } catch {
+      toast.error('Could not copy suggestion');
     }
   };
 
@@ -210,14 +276,66 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         </div>
       </div>
 
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {[
+          {
+            key: 'answer' as const,
+            title: 'I need an answer',
+            desc: 'Get the strongest answer you can give right now.',
+            Icon: Reply,
+          },
+          {
+            key: 'ask' as const,
+            title: 'What should I ask?',
+            desc: 'Pull a smart next question from the latest context.',
+            Icon: HelpCircle,
+          },
+          {
+            key: 'say' as const,
+            title: 'What should I say?',
+            desc: 'Get the best next statement to move the meeting forward.',
+            Icon: MessageSquareQuote,
+          },
+        ].map(({ key, title, desc, Icon }) => (
+          <button
+            key={key}
+            onClick={() => requestFocusedSuggestion(key)}
+            disabled={!sessionId || !transcriptContext.trim() || !!promptBusy || !!summary}
+            className="rounded-xl p-4 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--c-purple) 16%, transparent)' }}>
+                {promptBusy === key ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--c-purple)' }} /> : <Icon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />}
+              </div>
+              <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{title}</div>
+            </div>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</div>
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* TRANSCRIPT */}
         <div>
-          <div className="text-overline mb-3" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
-          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
+              <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
+                <Radio className="w-3.5 h-3.5" />
+                {transcript.length === 0 ? 'Waiting for transcript lines from the extension.' : `${transcript.length} live line${transcript.length === 1 ? '' : 's'} captured.`}
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ background: 'color-mix(in srgb, var(--c-green) 12%, transparent)', color: 'var(--c-green)' }}>
+              <BadgeCheck className="w-3.5 h-3.5" />
+              {sessionId ? 'Session live' : 'Starting session...'}
+            </div>
+          </div>
+          <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
             {transcript.length === 0 && (
-              <div className="text-sm" style={{ color: 'var(--text-2)' }}>
-                Type or paste what's being said below. The Chrome extension will populate this automatically once installed.
+              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                The live transcript will appear here once the extension starts capturing tab audio and microphone audio. You can still add lines manually below while testing.
               </div>
             )}
             {transcript.map((t) => (
@@ -264,32 +382,67 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         <div>
           {!summary ? (
             <>
-              <div className="text-overline mb-3 flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-                AI SUGGESTIONS
-                {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-              </div>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                {suggestions.length === 0 && (
-                  <div className="rounded-xl p-4 text-sm flex items-start gap-2"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                    <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
-                    Suggestions will appear here as the conversation develops.
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'suggestions' | 'transcript')}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+                    COPILOT PANEL
+                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
                   </div>
-                )}
-                {suggestions.map((s) => (
-                  <div key={s.id} className="rounded-xl p-4"
-                    style={{
-                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
-                    }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
+                  <TabsList>
+                    <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+                    <TabsTrigger value="transcript">Transcript</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="suggestions" className="mt-0">
+                  <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
+                    {suggestions.length === 0 && (
+                      <div className="rounded-xl p-4 text-sm flex items-start gap-2"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                        <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
+                        Suggestions will show up here from the live conversation. You can also use the quick actions above any time you need an answer or a question.
+                      </div>
+                    )}
+                    {suggestions.map((s) => (
+                      <div key={s.id} className="rounded-xl p-4"
+                        style={{
+                          background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
+                          border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
+                        }}>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                            style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
+                          <button
+                            onClick={() => copySuggestion(s.content)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
+                            style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
+                          >
+                            <Copy className="w-3 h-3" /> Copy
+                          </button>
+                        </div>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </TabsContent>
+
+                <TabsContent value="transcript" className="mt-0">
+                  <div className="rounded-xl p-4 text-sm max-h-[28rem] overflow-y-auto" style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}>
+                    {transcript.length === 0 ? (
+                      <span style={{ color: 'var(--text-2)' }}>No live transcript yet.</span>
+                    ) : (
+                      <div className="space-y-3">
+                        {transcript.map((t) => (
+                          <div key={`mirror-${t.id}`}>
+                            <div className="text-xs font-semibold mb-1" style={{ color: t.color }}>{t.speaker} · {t.time}</div>
+                            <div className="text-sm leading-relaxed">{t.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </>
           ) : (
             <>
