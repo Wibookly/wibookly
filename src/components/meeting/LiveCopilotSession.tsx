@@ -170,6 +170,111 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript.length]);
 
+  // --- In-browser microphone capture via Web Speech API ---
+  const pushHeardLine = async (text: string) => {
+    const sid = sessionIdRef.current;
+    const uid = userIdRef.current;
+    if (!sid || !uid) return;
+    const clean = text.trim();
+    if (!clean) return;
+    // de-dupe rapid duplicates
+    const now = Date.now();
+    if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
+    lastInsertRef.current = { text: clean, at: now };
+
+    await supabase.from('meeting_transcripts').insert({
+      session_id: sid,
+      user_id: uid,
+      speaker: 'You',
+      text: clean,
+      spoken_at: new Date().toISOString(),
+    });
+
+    // fire suggestion in the background
+    try {
+      const recent = [...transcript.slice(-5), { speaker: 'You', text: clean }]
+        .map((l) => `${l.speaker}: ${l.text}`).join('\n');
+      supabase.functions.invoke('meeting-copilot-suggestion', {
+        body: { sessionId: sid, recentTranscript: recent },
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  };
+
+  const startListening = () => {
+    setMicError(null);
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
+      toast.error('This browser does not support live speech recognition. Try Chrome.');
+      return;
+    }
+    if (!sessionId) {
+      toast.info('Session is still starting — try again in a second.');
+      return;
+    }
+
+    try {
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+
+      rec.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const r = event.results[i];
+          if (r.isFinal) {
+            const txt = r[0]?.transcript || '';
+            if (txt.trim()) pushHeardLine(txt);
+          }
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+          setMicError('Microphone blocked. Allow microphone access in your browser settings.');
+          shouldListenRef.current = false;
+          setListening(false);
+        } else if (e?.error === 'no-speech' || e?.error === 'aborted') {
+          // benign — onend will restart
+        } else {
+          console.warn('SpeechRecognition error', e?.error);
+        }
+      };
+
+      rec.onend = () => {
+        if (shouldListenRef.current) {
+          try { rec.start(); } catch { /* will retry */ }
+        } else {
+          setListening(false);
+        }
+      };
+
+      shouldListenRef.current = true;
+      recognitionRef.current = rec;
+      rec.start();
+      setListening(true);
+      toast.success('Listening — speak normally. Your voice is being transcribed live.');
+    } catch (e: any) {
+      console.error(e);
+      setMicError(e?.message || 'Could not start microphone.');
+    }
+  };
+
+  const stopListening = () => {
+    shouldListenRef.current = false;
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    setListening(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    };
+  }, []);
+
+
+
   const addLine = async () => {
     if (!draft.trim() || !sessionId || !user) return;
     const now = new Date();
