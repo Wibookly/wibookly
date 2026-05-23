@@ -235,8 +235,10 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         filter: `session_id=eq.${sessionId}`,
       }, (payload) => {
         const r = payload.new as RealtimeTranscriptRow;
+        let inserted = false;
         setTranscript((cur) => {
           if (cur.some((l) => l.id === r.id)) return cur;
+          inserted = true;
           const d = new Date(r.spoken_at || r.created_at);
           const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
           const color = r.speaker === 'You'
@@ -244,6 +246,17 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
             : SPEAKER_COLORS[Math.abs(hashCode(String(r.speaker || 'Other'))) % SPEAKER_COLORS.length];
           return [...cur, { id: r.id, speaker: r.speaker || 'Other', text: r.text, time, color }];
         });
+
+        // Proactive: when someone other than "You" speaks (especially a question),
+        // automatically pull the best answer/next move so the user doesn't have to click.
+        if (inserted && r.speaker && r.speaker !== 'You' && !proactiveBusyRef.current) {
+          const txt = (r.text || '').trim();
+          const isQuestion = /\?\s*$/.test(txt) || /\b(what|why|how|when|where|who|which|can you|could you|would you|do you|did you|are you|is there|should)\b/i.test(txt);
+          const intent: CopilotPromptMode = isQuestion ? 'answer' : 'say';
+          proactiveBusyRef.current = true;
+          setTimeout(() => { proactiveBusyRef.current = false; }, 9000);
+          void requestFocusedSuggestion(intent, { silent: true });
+        }
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'meeting_suggestions',
