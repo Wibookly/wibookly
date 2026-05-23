@@ -536,11 +536,11 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }, isFinal ? 250 : 1200);
   };
 
-  const releaseMicCheck = () => {
+  const releaseMicCheck = useCallback(() => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
     stopAudioMeters();
-  };
+  }, []);
 
   const runMicCheck = async () => {
     setMicCheckBusy(true);
@@ -568,15 +568,16 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       await startAudioMeters(stream);
       setMicCheckMessage('Microphone and speaker check passed. Watch the bars move while you talk, then start listening.');
       toast.success('Microphone and speaker check passed.');
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as { name?: string; message?: string };
       setMicReady(false);
-      const message = e?.name === 'NotAllowedError'
+      const message = err?.name === 'NotAllowedError'
         ? 'Microphone access was denied. Allow it in the browser prompt or site settings, then test again.'
-        : e?.name === 'NotFoundError'
+        : err?.name === 'NotFoundError'
           ? 'No microphone was detected on this device.'
-          : e?.name === 'NotReadableError'
+          : err?.name === 'NotReadableError'
             ? 'The microphone is busy in another app or browser tab.'
-            : (e?.message || 'Could not access the microphone.');
+            : (err?.message || 'Could not access the microphone.');
       setMicError(message);
       toast.error(message);
     } finally {
