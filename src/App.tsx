@@ -23,6 +23,7 @@ import NotFound from "./pages/NotFound";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
+import MeetingSessionDetail from "./pages/MeetingSessionDetail";
 import ExtensionAuth from "./pages/ExtensionAuth";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
