@@ -957,18 +957,29 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
               {sessionId ? 'Session live' : 'Starting session...'}
             </div>
           </div>
+          {listening && heardPreview && (
+            <div className="mb-2 rounded-lg px-3 py-2 text-xs flex items-start gap-2 animate-pulse"
+              style={{
+                background: 'color-mix(in srgb, var(--c-purple) 14%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
+                color: 'var(--text-2)',
+              }}>
+              <Mic className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
+              <span><span style={{ color: 'var(--text-2)' }}>Hearing now: </span><span style={{ color: 'var(--text-1)' }}>{heardPreview}</span></span>
+            </div>
+          )}
           <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-            {transcript.length === 0 && (
-              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                Click <strong style={{ color: 'var(--text-1)' }}>Test mic</strong>, then <strong style={{ color: 'var(--text-1)' }}>Start listening</strong> to confirm this page hears you before the meeting begins. For other participants' audio, also start capture in the InboxIQ Chrome extension on the meeting tab.
-              </div>
-            )}
             {micError && (
               <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444', border: '1px solid color-mix(in srgb, #EF4444 30%, transparent)' }}>
                 {micError}
               </div>
             )}
-            {transcript.map((t) => (
+            {transcript.length === 0 && (
+              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                Click <strong style={{ color: 'var(--text-1)' }}>Test mic</strong>, then <strong style={{ color: 'var(--text-1)' }}>Start listening</strong> to confirm this page hears you before the meeting begins. For other participants' audio, also start capture in the InboxIQ Chrome extension on the meeting tab.
+              </div>
+            )}
+            {[...transcript].reverse().map((t) => (
               <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
@@ -979,6 +990,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
             ))}
             <div ref={transcriptEndRef} />
           </div>
+
 
           {!summary && (
             <div className="mt-3 flex gap-2">
