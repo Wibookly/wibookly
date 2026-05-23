@@ -1014,74 +1014,114 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             desc: 'Get the best next statement to move the meeting forward.',
             Icon: MessageSquareQuote,
           },
-        ].map(({ key, title, desc, Icon }) => (
-          <button
-            key={key}
-            onClick={() => requestFocusedSuggestion(key)}
-            disabled={!sessionId || !suggestionContext.trim() || !!promptBusy || !!summary}
-            className="rounded-xl p-4 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--c-purple) 16%, transparent)' }}>
-                {promptBusy === key ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--c-purple)' }} /> : <Icon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />}
+        ].map(({ key, title, desc, Icon }) => {
+          const active = focusMode === key;
+          return (
+            <button
+              key={key}
+              onClick={() => { setFocusMode(key); void requestFocusedSuggestion(key); }}
+              disabled={!sessionId || !!promptBusy || !!summary}
+              className="rounded-xl p-4 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: active
+                  ? 'color-mix(in srgb, var(--c-purple) 14%, var(--surface-2))'
+                  : 'var(--surface-2)',
+                border: active
+                  ? '1px solid color-mix(in srgb, var(--c-purple) 55%, var(--border))'
+                  : '1px solid var(--border)',
+                boxShadow: active ? '0 0 0 3px color-mix(in srgb, var(--c-purple) 18%, transparent)' : 'none',
+              }}
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--c-purple) 16%, transparent)' }}>
+                  {promptBusy === key ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--c-purple)' }} /> : <Icon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />}
+                </div>
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{title}</div>
               </div>
-              <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{title}</div>
-            </div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</div>
-          </button>
-        ))}
+              <div className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</div>
+            </button>
+          );
+        })}
       </div>
 
       {!summary ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* WHAT TO ASK */}
-          <div className="rounded-2xl p-4"
-            style={{ background: 'color-mix(in srgb, var(--c-purple) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--c-purple) 25%, var(--border))' }}>
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
-                <div className="text-overline" style={{ color: 'var(--text-2)' }}>WHAT TO ASK</div>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion('ask')} disabled={!sessionId || !!promptBusy}>
-                {promptBusy === 'ask' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              </Button>
-            </div>
-            <div className="space-y-2.5 max-h-[24rem] overflow-y-auto pr-1">
-              {latestSuggestions.filter((s) => (s.kind || '').toLowerCase() === 'ask').length === 0 && (
-                <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
-                  Listening for moments to ask a sharp follow-up. The Copilot will surface them here automatically.
+        <div className="grid grid-cols-1 gap-4">
+          {/* Single Copilot panel driven by the top button selection */}
+          {(() => {
+            const meta: Record<CopilotPromptMode, { label: string; Icon: typeof Reply; accent: string; filter: (kind: string) => boolean; empty: string }> = {
+              answer: {
+                label: 'SUGGESTED ANSWER',
+                Icon: Reply,
+                accent: 'var(--c-green)',
+                filter: (k) => ['answer','say','fact'].includes(k),
+                empty: 'Click “I need an answer” to get the strongest answer you can give right now.',
+              },
+              ask: {
+                label: 'SUGGESTED QUESTION',
+                Icon: HelpCircle,
+                accent: 'var(--c-purple)',
+                filter: (k) => k === 'ask',
+                empty: 'Click “What should I ask?” to pull a smart next question from the latest context.',
+              },
+              say: {
+                label: 'WHAT TO SAY NEXT',
+                Icon: MessageSquareQuote,
+                accent: 'var(--c-cyan)',
+                filter: (k) => ['say','answer','fact'].includes(k),
+                empty: 'Click “What should I say?” to get the best next statement to move the meeting forward.',
+              },
+            };
+            const idle = !focusMode;
+            const cfg = focusMode ? meta[focusMode] : null;
+            const items = cfg
+              ? latestSuggestions.filter((s) => cfg.filter((s.kind || '').toLowerCase()))
+              : [];
+            const accent = cfg?.accent ?? 'var(--c-purple)';
+            return (
+              <div className="rounded-2xl p-4"
+                style={{
+                  background: `color-mix(in srgb, ${accent} 6%, var(--surface-2))`,
+                  border: `1px solid color-mix(in srgb, ${accent} 25%, var(--border))`,
+                  minHeight: '14rem',
+                }}>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {cfg ? <cfg.Icon className="w-4 h-4" style={{ color: accent }} /> : <Sparkles className="w-4 h-4" style={{ color: 'var(--text-2)' }} />}
+                    <div className="text-overline" style={{ color: 'var(--text-2)' }}>
+                      {cfg ? cfg.label : 'PICK A COPILOT ACTION ABOVE'}
+                    </div>
+                  </div>
+                  {focusMode && (
+                    <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion(focusMode)} disabled={!sessionId || !!promptBusy}>
+                      {promptBusy === focusMode ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                      Regenerate
+                    </Button>
+                  )}
                 </div>
-              )}
-              {latestSuggestions.filter((s) => (s.kind || '').toLowerCase() === 'ask').map((s) => (
-                <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent="var(--c-purple)" />
-              ))}
-            </div>
-          </div>
+                <div className="space-y-2.5 max-h-[26rem] overflow-y-auto pr-1">
+                  {idle && (
+                    <div className="rounded-xl p-4 text-xs text-center" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                      The Copilot is listening in the background. Tap one of the three actions above whenever you need help — the answer, question, or talking point will appear here.
+                    </div>
+                  )}
+                  {!idle && promptBusy === focusMode && items.length === 0 && (
+                    <div className="rounded-xl p-4 text-xs flex items-center gap-2" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating the best response from the latest context…
+                    </div>
+                  )}
+                  {!idle && promptBusy !== focusMode && items.length === 0 && cfg && (
+                    <div className="rounded-xl p-4 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                      {cfg.empty}
+                    </div>
+                  )}
+                  {items.map((s) => (
+                    <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent={accent} />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
-          {/* WHAT TO ANSWER */}
-          <div className="rounded-2xl p-4"
-            style={{ background: 'color-mix(in srgb, var(--c-green) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--c-green) 25%, var(--border))' }}>
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Reply className="w-4 h-4" style={{ color: 'var(--c-green)' }} />
-                <div className="text-overline" style={{ color: 'var(--text-2)' }}>WHAT TO ANSWER</div>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion('answer')} disabled={!sessionId || !!promptBusy}>
-                {promptBusy === 'answer' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              </Button>
-            </div>
-            <div className="space-y-2.5 max-h-[24rem] overflow-y-auto pr-1">
-              {latestSuggestions.filter((s) => ['answer','say','fact'].includes((s.kind || '').toLowerCase())).length === 0 && (
-                <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
-                  When someone asks you a question, the suggested answer pops in here. The Copilot is listening silently.
-                </div>
-              )}
-              {latestSuggestions.filter((s) => ['answer','say','fact'].includes((s.kind || '').toLowerCase())).map((s) => (
-                <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent="var(--c-green)" />
-              ))}
-            </div>
-          </div>
 
           {/* Transcript drawer trigger */}
           <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
