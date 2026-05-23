@@ -203,6 +203,7 @@ export default function MeetingCopilot() {
           period: isLive ? 'LIVE' : period,
           platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
           attendees: m.attendeeCount,
+          attendeeNames: Array.isArray(m.attendeeNames) ? m.attendeeNames : [],
           duration: isLive ? 'In progress' : `${m.durationMin} min`,
           isLive,
           joinUrl: m.joinUrl || null,
