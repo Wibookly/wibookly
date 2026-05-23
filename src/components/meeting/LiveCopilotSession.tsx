@@ -13,6 +13,10 @@ interface Props {
   };
   onClose: () => void;
   autoStart?: boolean;
+  /** Optional scheduled duration in minutes — drives the live countdown. */
+  durationMinutes?: number;
+  /** Optional fixed start time (ISO); defaults to when the session row is created. */
+  scheduledStartIso?: string;
 }
 
 
