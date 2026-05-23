@@ -75,11 +75,13 @@ Deno.serve(async (req) => {
           ? 'Prioritize the strongest next statement the user should say right now, grounded in the latest transcript lines. Return at least one suggestion of type "say" when possible.'
           : 'Balance the output between what to say, what to ask, and what to answer next, always grounded in the transcript.';
 
+    const maxSuggestions = intent ? 1 : 3;
+
     const systemPrompt = `You are a real-time silent meeting copilot for the following user:
 ${identityBlock}
 ${extraCtx ? `\nExtra meeting-specific context:\n${extraCtx}\n` : ''}
 You are listening to their meeting: "${session?.meeting_title || 'a meeting'}".
-Generate 1-3 helpful suggestions based on the most recent conversation.
+Generate ${intent ? 'exactly 1' : '1-3'} helpful suggestion${intent ? '' : 's'} based on the most recent conversation.
 Ground every suggestion in the transcript you were given.
 Do not invent company facts, timelines, roadmaps, technical constraints, or role-specific details that were not explicitly stated.
 If context is thin, give a safe clarifying question or a brief bridging statement instead of guessing.
@@ -99,6 +101,7 @@ Rules:
 - Prefer one excellent suggestion over several generic ones.
 - If the latest transcript line is itself the user's note or prompt, infer the likely need but still avoid fabrication.
 - Never say the user has reviewed something, has roadmap constraints, or has security requirements unless the transcript explicitly says so.
+- When a Focus value is provided, return only one suggestion matching that focus.
 
 Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": "..." }] }`;
 
@@ -144,6 +147,18 @@ Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": 
       const parsed = JSON.parse(aiData.choices[0].message.content);
       suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
     } catch { /* ignore */ }
+
+    const normalizedSuggestions = suggestions
+      .filter((s) => s && typeof s.content === 'string' && s.content.trim())
+      .map((s) => ({
+        type: String(s.type || intent || 'say').toLowerCase(),
+        content: String(s.content || '').trim().slice(0, 2000),
+      }))
+      .filter((s) => ['say', 'ask', 'fact', 'answer'].includes(s.type));
+
+    suggestions = normalizedSuggestions
+      .filter((s) => !intent || s.type === intent || (intent === 'say' && s.type === 'answer') || (intent === 'answer' && s.type === 'say'))
+      .slice(0, maxSuggestions);
 
     if (suggestions.length) {
       const rows = suggestions.map((s) => ({

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -68,9 +68,47 @@ interface MeetingSummary {
   keyDecisions?: string[];
   actionItems?: Array<string | SummaryActionItem>;
   draftEmail?: string;
+  followup_email?: {
+    subject?: string;
+    body_html?: string;
+    body_text?: string;
+  };
 }
 
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
+
+type BrowserSpeechRecognitionEvent = {
+  resultIndex: number;
+  results: ArrayLike<{
+    isFinal?: boolean;
+    0?: { transcript?: string };
+  }>;
+};
+
+type BrowserSpeechRecognitionErrorEvent = {
+  error?: string;
+  message?: string;
+  name?: string;
+};
+
+type BrowserSpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognitionInstance;
+
+type WindowWithSpeechRecognition = Window & typeof globalThis & {
+  SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+};
 
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
@@ -86,7 +124,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [focusedSuggestions, setFocusedSuggestions] = useState<Partial<Record<CopilotPromptMode, Suggestion>>>({});
+  const [autoDraftFollowup, setAutoDraftFollowup] = useState(true);
 
   // In-browser mic listening (works without the Chrome extension)
   const [listening, setListening] = useState(false);
@@ -103,8 +142,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
-  const proactiveBusyRef = useRef(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
@@ -118,9 +156,31 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const previewTimerRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number>(0);
   const watchdogRef = useRef<number | null>(null);
+  const transcriptFlushTimerRef = useRef<number | null>(null);
+  const transcriptBufferRef = useRef('');
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('meeting_copilot_settings')
+        .select('auto_draft_followup')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!cancelled && data) {
+        setAutoDraftFollowup(data.auto_draft_followup ?? true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const transcriptContext = useMemo(
     () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
@@ -130,7 +190,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     () => transcriptContext.trim() || draft.trim(),
     [draft, transcriptContext],
   );
-  const latestSuggestions = useMemo(() => suggestions.slice(0, 6), [suggestions]);
   const micBars = useMemo(
     () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
       const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
@@ -241,10 +300,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         filter: `session_id=eq.${sessionId}`,
       }, (payload) => {
         const r = payload.new as RealtimeTranscriptRow;
-        let inserted = false;
         setTranscript((cur) => {
           if (cur.some((l) => l.id === r.id)) return cur;
-          inserted = true;
           const d = new Date(r.spoken_at || r.created_at);
           const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
           const color = r.speaker === 'You'
@@ -252,17 +309,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             : SPEAKER_COLORS[Math.abs(hashCode(String(r.speaker || 'Other'))) % SPEAKER_COLORS.length];
           return [...cur, { id: r.id, speaker: r.speaker || 'Other', text: r.text, time, color }];
         });
-
-        // Proactive: when someone other than "You" speaks (especially a question),
-        // automatically pull the best answer/next move so the user doesn't have to click.
-        if (inserted && r.speaker && r.speaker !== 'You' && !proactiveBusyRef.current) {
-          const txt = (r.text || '').trim();
-          const isQuestion = /\?\s*$/.test(txt) || /\b(what|why|how|when|where|who|which|can you|could you|would you|do you|did you|are you|is there|should)\b/i.test(txt);
-          const intent: CopilotPromptMode = isQuestion ? 'answer' : 'say';
-          proactiveBusyRef.current = true;
-          setTimeout(() => { proactiveBusyRef.current = false; }, 9000);
-          void requestFocusedSuggestion(intent, { silent: true });
-        }
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'meeting_suggestions',
@@ -460,11 +506,41 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     } catch { /* ignore */ }
   };
 
-  const releaseMicCheck = () => {
+  const clearTranscriptFlushTimer = () => {
+    if (transcriptFlushTimerRef.current) {
+      window.clearTimeout(transcriptFlushTimerRef.current);
+      transcriptFlushTimerRef.current = null;
+    }
+  };
+
+  const flushTranscriptBuffer = async (forceText?: string) => {
+    const candidate = (forceText ?? transcriptBufferRef.current).replace(/\s+/g, ' ').trim();
+    clearTranscriptFlushTimer();
+    if (!candidate) return;
+    transcriptBufferRef.current = '';
+    await pushHeardLine(candidate);
+  };
+
+  const queueTranscriptChunk = (text: string, isFinal = false) => {
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+
+    transcriptBufferRef.current = normalized;
+    setHeardPreview(normalized);
+    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
+
+    clearTranscriptFlushTimer();
+    transcriptFlushTimerRef.current = window.setTimeout(() => {
+      void flushTranscriptBuffer();
+    }, isFinal ? 250 : 1200);
+  };
+
+  const releaseMicCheck = useCallback(() => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
     stopAudioMeters();
-  };
+  }, []);
 
   const runMicCheck = async () => {
     setMicCheckBusy(true);
@@ -492,15 +568,16 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       await startAudioMeters(stream);
       setMicCheckMessage('Microphone and speaker check passed. Watch the bars move while you talk, then start listening.');
       toast.success('Microphone and speaker check passed.');
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as { name?: string; message?: string };
       setMicReady(false);
-      const message = e?.name === 'NotAllowedError'
+      const message = err?.name === 'NotAllowedError'
         ? 'Microphone access was denied. Allow it in the browser prompt or site settings, then test again.'
-        : e?.name === 'NotFoundError'
+        : err?.name === 'NotFoundError'
           ? 'No microphone was detected on this device.'
-          : e?.name === 'NotReadableError'
+          : err?.name === 'NotReadableError'
             ? 'The microphone is busy in another app or browser tab.'
-            : (e?.message || 'Could not access the microphone.');
+            : (err?.message || 'Could not access the microphone.');
       setMicError(message);
       toast.error(message);
     } finally {
@@ -510,7 +587,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const startListening = async () => {
     setMicError(null);
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as WindowWithSpeechRecognition;
+    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!SR) {
       setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
       toast.error('This browser does not support live speech recognition. Try Chrome.');
@@ -537,22 +615,17 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         rec.interimResults = true;
         rec.lang = 'en-US';
 
-        rec.onresult = (event: any) => {
+        rec.onresult = (event: BrowserSpeechRecognitionEvent) => {
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const r = event.results[i];
             const txt = (r[0]?.transcript || '').trim();
             if (!txt) continue;
             lastSpeechAtRef.current = Date.now();
-            setHeardPreview(txt);
-            if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
-            previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
-            if (r.isFinal) {
-              void pushHeardLine(txt);
-            }
+            queueTranscriptChunk(txt, Boolean(r.isFinal));
           }
         };
 
-        rec.onerror = (e: any) => {
+        rec.onerror = (e: BrowserSpeechRecognitionErrorEvent) => {
           const err = e?.error;
           if (err === 'not-allowed' || err === 'service-not-allowed') {
             setMicError('Microphone blocked. Allow microphone access in your browser settings.');
@@ -570,6 +643,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
 
         rec.onend = () => {
+          void flushTranscriptBuffer();
           if (!shouldListenRef.current) {
             setListening(false);
             return;
@@ -624,14 +698,16 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }, 5000);
 
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setMicError(e?.message || 'Could not start microphone.');
+      const err = e as { message?: string };
+      setMicError(err?.message || 'Could not start microphone.');
     }
   };
 
   const stopListening = () => {
     shouldListenRef.current = false;
+    void flushTranscriptBuffer();
     if (watchdogRef.current) {
       window.clearInterval(watchdogRef.current);
       watchdogRef.current = null;
@@ -659,6 +735,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         window.clearInterval(watchdogRef.current);
         watchdogRef.current = null;
       }
+      clearTranscriptFlushTimer();
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
       recognitionRef.current = null;
@@ -668,7 +745,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }
       releaseMicCheck();
     };
-  }, []);
+  }, [releaseMicCheck]);
 
 
   // Auto-start listening when the user opened this session via "Join" (a real
@@ -741,7 +818,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         body: { sessionId },
       });
       if (error) throw error;
-      setSummary((data ?? null) as MeetingSummary | null);
+      setSummary((data
+        ? {
+            ...(data as MeetingSummary),
+            draftEmail: (data as MeetingSummary).followup_email?.body_text
+              || (data as MeetingSummary).followup_email?.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              || (data as MeetingSummary).draftEmail,
+          }
+        : null) as MeetingSummary | null);
       toast.success('Session ended — summary ready');
     } catch (e: unknown) {
       console.error(e);
@@ -786,8 +870,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         return;
       }
 
+      const best = mapped[0];
+      if (best) {
+        setFocusedSuggestions((cur) => ({ ...cur, [mode]: best }));
+      }
+
       setSuggestions((cur) => {
-        const next = [...mapped, ...cur].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
+        const filtered = cur.filter((item) => (item.kind || '').toLowerCase() !== mode);
+        const next = [...mapped, ...filtered].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
         return next.slice(0, 8);
       });
     } catch (e) {
@@ -1073,8 +1163,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             };
             const idle = !focusMode;
             const cfg = focusMode ? meta[focusMode] : null;
-            const items = cfg
-              ? latestSuggestions.filter((s) => cfg.filter((s.kind || '').toLowerCase()))
+            const single = focusMode ? focusedSuggestions[focusMode] : null;
+            const items = cfg && single && cfg.filter((single.kind || '').toLowerCase())
+              ? [single]
               : [];
             const accent = cfg?.accent ?? 'var(--c-purple)';
             return (

@@ -34,13 +34,35 @@ Deno.serve(async (req) => {
     if (!session) {
       return new Response(JSON.stringify({ error: 'session_not_found' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+    const { data: settings } = await sb
+      .from('meeting_copilot_settings')
+      .select('auto_draft_followup')
+      .eq('user_id', user.id)
+      .maybeSingle();
     const { data: transcripts } = await sb
       .from('meeting_transcripts')
-      .select('speaker, text')
+      .select('speaker, text, spoken_at')
       .eq('session_id', sessionId)
       .order('spoken_at');
 
-    const fullText = (transcripts || []).map((t: any) => `${t.speaker || 'Speaker'}: ${t.text}`).join('\n').slice(0, 30000);
+    const groupedTranscript = (transcripts || []).reduce((acc: Array<{ speaker: string; text: string; spoken_at: string | null }>, row: any) => {
+      const speaker = String(row.speaker || 'Speaker').trim() || 'Speaker';
+      const text = String(row.text || '').replace(/\s+/g, ' ').trim();
+      if (!text) return acc;
+      const last = acc[acc.length - 1];
+      if (last && last.speaker === speaker) {
+        last.text = `${last.text} ${text}`.replace(/\s+/g, ' ').trim();
+        last.spoken_at = row.spoken_at || last.spoken_at;
+      } else {
+        acc.push({ speaker, text, spoken_at: row.spoken_at || null });
+      }
+      return acc;
+    }, []);
+
+    const attendeeList = Array.isArray(session.attendees)
+      ? session.attendees.map((entry: unknown) => String(entry)).filter(Boolean)
+      : [];
+    const fullText = groupedTranscript.map((t) => `${t.speaker}: ${t.text}`).join('\n').slice(0, 30000);
     if (!fullText.trim()) {
       return new Response(JSON.stringify({ error: 'no_transcript' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -73,15 +95,20 @@ Deno.serve(async (req) => {
 
     const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
 {
-  "summary": "2-3 sentence overall summary",
-  "key_decisions": ["..."],
-  "action_items": [{ "description": "...", "assigned_to": "name or null", "due_date": "YYYY-MM-DD or null" }],
-  "followup_email": { "subject": "...", "body_html": "<p>...</p>" }
+  "summary": "Executive summary in 2 short paragraphs with clear spacing between paragraphs",
+  "key_decisions": ["at least 3 detailed bullets when possible"],
+  "action_items": [{ "description": "specific action with enough context", "assigned_to": "name or null", "due_date": "YYYY-MM-DD or null" }],
+  "followup_email": { "subject": "...", "body_html": "<div>...</div>", "body_text": "plain text version" }
 }
 
 The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
+The email must include these sections in this order with professional spacing: Executive Summary, Key Decisions, Action Items, Next Steps.
+Use semantic HTML with paragraphs, headings, unordered lists, and list items. Do not collapse everything into one block.
+Action items must be concrete, not generic. Key decisions should capture nuance and rationale when available.
+If participants are identifiable from the transcript, preserve their names in the action items and narrative.
 
 Meeting title: ${session.meeting_title}
+Attendees: ${attendeeList.length ? attendeeList.join(', ') : 'Unknown'}
 Transcript:
 ${fullText}`;
 
@@ -108,6 +135,8 @@ ${fullText}`;
     let parsed: any = {};
     try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
 
+    await sb.from('meeting_action_items').delete().eq('session_id', sessionId);
+
     const actionItems = Array.isArray(parsed.action_items) ? parsed.action_items : [];
     if (actionItems.length) {
       await sb.from('meeting_action_items').insert(
@@ -121,19 +150,25 @@ ${fullText}`;
       );
     }
 
+    const followupHtml = typeof parsed.followup_email?.body_html === 'string'
+      ? parsed.followup_email.body_html
+      : typeof parsed.followup_email?.body_text === 'string'
+        ? parsed.followup_email.body_text.split(/\n{2,}/).map((block: string) => `<p>${block.replace(/\n/g, '<br />')}</p>`).join('')
+        : null;
+
     await sb.from('meeting_sessions').update({
       status: 'completed',
       ended_at: session.ended_at || new Date().toISOString(),
       summary: typeof parsed.summary === 'string' ? parsed.summary : null,
       key_decisions: Array.isArray(parsed.key_decisions) ? parsed.key_decisions : [],
       followup_subject: parsed.followup_email?.subject || null,
-      followup_body_html: parsed.followup_email?.body_html || null,
+      followup_body_html: followupHtml,
       summary_generated_at: new Date().toISOString(),
     }).eq('id', sessionId);
 
     // Optionally create an Outlook draft (review before sending — never auto-send)
     let draftCreated = false;
-    if (createDraft && parsed.followup_email && Array.isArray(session.attendees) && session.attendees.length) {
+    if ((createDraft || settings?.auto_draft_followup) && parsed.followup_email) {
       const token = await getValidAccessToken(user.id, 'outlook');
       if (token) {
         const draftRes = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
@@ -141,8 +176,8 @@ ${fullText}`;
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subject: parsed.followup_email.subject || `Follow-up: ${session.meeting_title}`,
-            body: { contentType: 'HTML', content: parsed.followup_email.body_html || '' },
-            toRecipients: session.attendees.map((email: string) => ({ emailAddress: { address: email } })),
+            body: { contentType: 'HTML', content: followupHtml || '' },
+            toRecipients: [{ emailAddress: { address: user.email || '' } }].filter((recipient) => recipient.emailAddress.address),
           }),
         });
         draftCreated = draftRes.ok;
