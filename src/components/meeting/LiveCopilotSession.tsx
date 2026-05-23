@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff, Volume2, Waves, AudioLines } from 'lucide-react';
 
 interface Props {
   meeting: {
@@ -53,6 +53,8 @@ interface SuggestionResponse {
   text?: string;
 }
 
+type ReadyState = 'preflight' | 'ready' | 'listening';
+
 interface SummaryActionItem {
   title?: string;
   task?: string;
@@ -69,6 +71,7 @@ interface MeetingSummary {
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
 
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
+const MIC_VISUAL_BARS = 20;
 
 export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const { user } = useAuth();
@@ -80,7 +83,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
-  const [activeTab, setActiveTab] = useState<'suggestions' | 'transcript'>('suggestions');
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -90,6 +92,11 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [micReady, setMicReady] = useState(false);
   const [micCheckBusy, setMicCheckBusy] = useState(false);
   const [micCheckMessage, setMicCheckMessage] = useState<string | null>(null);
+  const [readyState, setReadyState] = useState<ReadyState>('preflight');
+  const [autoJoin, setAutoJoin] = useState(true);
+  const [micLevel, setMicLevel] = useState(0);
+  const [speakerLevel, setSpeakerLevel] = useState(0);
+  const [heardPreview, setHeardPreview] = useState<string | null>(null);
   const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -98,6 +105,11 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const userIdRef = useRef<string | null>(null);
   const lastInsertRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const extensionPollRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserFrameRef = useRef<number | null>(null);
+  const micAnalyserRef = useRef<AnalyserNode | null>(null);
+  const speakerAnalyserRef = useRef<AnalyserNode | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
@@ -109,6 +121,22 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const suggestionContext = useMemo(
     () => transcriptContext.trim() || draft.trim(),
     [draft, transcriptContext],
+  );
+  const latestSuggestions = useMemo(() => suggestions.slice(0, 6), [suggestions]);
+  const micBars = useMemo(
+    () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
+      const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
+      const weight = 1 - distance / ((MIC_VISUAL_BARS - 1) / 2);
+      return Math.max(0.18, micLevel * (0.45 + weight * 0.9));
+    }),
+    [micLevel],
+  );
+  const speakerBars = useMemo(
+    () => Array.from({ length: 12 }, (_, index) => {
+      const phase = (index % 4) / 3;
+      return Math.max(0.14, speakerLevel * (0.5 + phase));
+    }),
+    [speakerLevel],
   );
 
   // Create session on mount
@@ -300,6 +328,88 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (listening) {
+      setReadyState('listening');
+      return;
+    }
+    if (micReady || extensionCaptureState === 'active' || extensionCaptureState === 'available') {
+      setReadyState('ready');
+      return;
+    }
+    setReadyState('preflight');
+  }, [extensionCaptureState, listening, micReady]);
+
+  const stopAudioMeters = () => {
+    if (analyserFrameRef.current !== null) {
+      cancelAnimationFrame(analyserFrameRef.current);
+      analyserFrameRef.current = null;
+    }
+    try {
+      audioContextRef.current?.close();
+    } catch {
+      // ignore
+    }
+    audioContextRef.current = null;
+    micAnalyserRef.current = null;
+    speakerAnalyserRef.current = null;
+    setMicLevel(0);
+    setSpeakerLevel(0);
+  };
+
+  const sampleAnalyserLevel = (analyser: AnalyserNode | null) => {
+    if (!analyser) return 0;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / Math.max(1, data.length);
+    return Math.min(1, average / 128);
+  };
+
+  const startAudioMeters = async (stream: MediaStream) => {
+    stopAudioMeters();
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const context = new AudioCtx();
+    audioContextRef.current = context;
+    const micSource = context.createMediaStreamSource(stream);
+    const micAnalyser = context.createAnalyser();
+    micAnalyser.fftSize = 256;
+    micSource.connect(micAnalyser);
+    micAnalyserRef.current = micAnalyser;
+
+    const speakerAnalyser = context.createAnalyser();
+    speakerAnalyser.fftSize = 256;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 220;
+    gain.gain.value = 0.0001;
+    oscillator.connect(gain);
+    gain.connect(speakerAnalyser);
+    gain.connect(context.destination);
+    oscillator.start();
+    speakerAnalyserRef.current = speakerAnalyser;
+
+    const animate = () => {
+      setMicLevel(sampleAnalyserLevel(micAnalyserRef.current));
+      setSpeakerLevel((current) => {
+        const next = sampleAnalyserLevel(speakerAnalyserRef.current);
+        return next > 0.02 ? next : Math.max(0.08, current * 0.85);
+      });
+      analyserFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+    window.setTimeout(() => {
+      try {
+        oscillator.stop();
+      } catch {
+        // ignore
+      }
+    }, 900);
+  };
+
   // --- In-browser microphone capture via Web Speech API ---
   const pushHeardLine = async (text: string) => {
     const sid = sessionIdRef.current;
@@ -333,6 +443,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const releaseMicCheck = () => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
+    stopAudioMeters();
   };
 
   const runMicCheck = async () => {
@@ -358,9 +469,9 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       micStreamRef.current = stream;
       setMicReady(true);
-      setMicCheckMessage('Microphone detected and permission granted. You can start listening now.');
-      toast.success('Microphone detected. You can start listening now.');
-      window.setTimeout(() => releaseMicCheck(), 900);
+      await startAudioMeters(stream);
+      setMicCheckMessage('Microphone and speaker check passed. Watch the bars move while you talk, then start listening.');
+      toast.success('Microphone and speaker check passed.');
     } catch (e: any) {
       setMicReady(false);
       const message = e?.name === 'NotAllowedError'
@@ -394,18 +505,27 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       await runMicCheck();
     }
 
+    if (!micStreamRef.current) {
+      setMicError('Test the microphone first so InboxIQ can confirm your device is ready.');
+      return;
+    }
+
     try {
       const rec = new SR();
       rec.continuous = true;
-      rec.interimResults = false;
+      rec.interimResults = true;
       rec.lang = 'en-US';
 
       rec.onresult = (event: any) => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
+          const txt = (r[0]?.transcript || '').trim();
+          if (!txt) continue;
+          setHeardPreview(txt);
+          if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+          previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
           if (r.isFinal) {
-            const txt = r[0]?.transcript || '';
-            if (txt.trim()) pushHeardLine(txt);
+            void pushHeardLine(txt);
           }
         }
       };
@@ -434,7 +554,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
-      setActiveTab('transcript');
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
     } catch (e: any) {
       console.error(e);
@@ -446,12 +565,17 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     shouldListenRef.current = false;
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     setListening(false);
+    setHeardPreview(null);
   };
 
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      if (previewTimerRef.current) {
+        window.clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
       releaseMicCheck();
     };
   }, []);
@@ -473,7 +597,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       time,
       color,
     };
-    setActiveTab('transcript');
     setDraft('');
 
     // Persist
@@ -496,9 +619,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         body: { sessionId, recentTranscript: recent },
       });
       if (error) throw error;
-      if (data?.suggestions?.length) {
-        setActiveTab('suggestions');
-      }
     } catch (e: unknown) {
       console.error('suggestion error', e);
     } finally {
@@ -525,8 +645,8 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   };
 
   const requestFocusedSuggestion = async (mode: CopilotPromptMode) => {
-    if (!sessionId || !suggestionContext.trim()) {
-      toast.info('Say something, test the mic, or type a transcript line first so Copilot has context.');
+    if (!sessionId) {
+      toast.info('Session is still starting — try again in a second.');
       return;
     }
 
@@ -541,7 +661,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-suggestion', {
         body: {
           sessionId,
-            recentTranscript: suggestionContext,
+          recentTranscript: suggestionContext.trim() || `Meeting title: ${meeting.title}`,
           intent: mode,
         },
       });
@@ -565,8 +685,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           return next.slice(0, 8);
         });
       }
-
-      setActiveTab('suggestions');
     } catch (e) {
       console.error('focused suggestion error', e);
       toast.error(`Could not generate a ${promptLabels[mode]} right now.`);
@@ -633,53 +751,144 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       </div>
 
       <div className="mb-4 rounded-xl p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Mic setup</div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
-              Test the mic here before joining the meeting. This confirms permission and device access so Copilot can listen.
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Audio setup</div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{
+                  background: readyState === 'listening'
+                    ? 'color-mix(in srgb, var(--c-green) 18%, transparent)'
+                    : readyState === 'ready'
+                      ? 'color-mix(in srgb, var(--c-cyan) 18%, transparent)'
+                      : 'color-mix(in srgb, var(--c-orange) 18%, transparent)',
+                  color: readyState === 'listening' ? 'var(--c-green)' : readyState === 'ready' ? 'var(--c-cyan)' : 'var(--c-orange)',
+                }}>
+                {readyState === 'listening' ? 'Listening live' : readyState === 'ready' ? 'Ready to join' : 'Run checks first'}
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{
+                  background: extensionCaptureState === 'active'
+                    ? 'color-mix(in srgb, var(--c-green) 16%, transparent)'
+                    : extensionCaptureState === 'missing' || extensionCaptureState === 'error'
+                      ? 'color-mix(in srgb, var(--c-orange) 14%, transparent)'
+                      : 'color-mix(in srgb, var(--c-cyan) 14%, transparent)',
+                  color: extensionCaptureState === 'active'
+                    ? 'var(--c-green)'
+                    : extensionCaptureState === 'missing' || extensionCaptureState === 'error'
+                      ? 'var(--c-orange)'
+                      : 'var(--c-cyan)',
+                }}>
+                {extensionCaptureState === 'active'
+                  ? 'Extension capturing tab audio'
+                  : extensionCaptureState === 'missing'
+                    ? 'Extension not detected'
+                    : extensionCaptureState === 'error'
+                      ? 'Extension check failed'
+                      : extensionCaptureState === 'checking'
+                        ? 'Checking extension'
+                        : 'Extension connected'}
+              </span>
+            </div>
+            <div className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              Test your microphone and speaker here first. When the bars move, your device is ready. To hear everyone else in the meeting, keep the extension capturing the meeting tab.
             </div>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={runMicCheck} disabled={micCheckBusy || !!summary}>
-              {micCheckBusy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
-              Test mic
+              {micCheckBusy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <AudioLines className="w-3.5 h-3.5 mr-1.5" />}
+              Test mic & speaker
             </Button>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                background: micReady
-                  ? 'color-mix(in srgb, var(--c-green) 16%, transparent)'
-                  : 'color-mix(in srgb, var(--c-orange) 14%, transparent)',
-                color: micReady ? 'var(--c-green)' : 'var(--c-orange)',
-              }}>
-              {micReady ? 'Mic ready' : 'Mic not tested'}
-            </span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                background: extensionCaptureState === 'active'
-                  ? 'color-mix(in srgb, var(--c-green) 16%, transparent)'
-                  : 'color-mix(in srgb, var(--c-cyan) 14%, transparent)',
-                color: extensionCaptureState === 'active' ? 'var(--c-green)' : 'var(--c-cyan)',
-              }}>
-              {extensionCaptureState === 'active'
-                ? 'Tab audio live'
-                : extensionCaptureState === 'missing'
-                  ? 'Extension not detected'
-                  : extensionCaptureState === 'error'
-                    ? 'Extension check failed'
-                    : extensionCaptureState === 'checking'
-                      ? 'Checking extension'
-                      : 'Extension ready'}
-            </span>
+            {!summary && (
+              listening ? (
+                <Button size="sm" variant="outline" onClick={stopListening}
+                  style={{ borderColor: '#EF4444', color: '#EF4444' }}>
+                  <MicOff className="w-3.5 h-3.5 mr-1.5" />
+                  Stop listening
+                </Button>
+              ) : (
+                <Button size="sm" onClick={startListening} disabled={!sessionId || micCheckBusy || readyState === 'preflight'}
+                  style={{ background: 'linear-gradient(135deg,#A855F7,#06B6D4)', color: '#fff' }}>
+                  <Mic className="w-3.5 h-3.5 mr-1.5" />
+                  Start listening
+                </Button>
+              )
+            )}
           </div>
         </div>
-        {micCheckMessage && (
-          <div className="mt-3 text-xs" style={{ color: 'var(--c-green)' }}>{micCheckMessage}</div>
-        )}
-        <div className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
-          {extensionCaptureState === 'active'
-            ? 'Meeting tab audio is actively streaming from the extension.'
-            : 'Your microphone test only verifies your own voice. To hear everyone in the meeting, start capture from the InboxIQ browser extension on the meeting tab.'}
+
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[1.25fr_1fr]">
+          <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-2)' }}>
+                <Waves className="w-3.5 h-3.5" /> Mic activity
+              </div>
+              <span className="text-[11px]" style={{ color: micReady ? 'var(--c-green)' : 'var(--text-2)' }}>{micReady ? 'Mic detected' : 'Waiting for mic test'}</span>
+            </div>
+            <div className="flex h-16 items-end gap-1">
+              {micBars.map((value, index) => (
+                <div
+                  key={`mic-bar-${index}`}
+                  className="flex-1 rounded-full transition-all duration-100"
+                  style={{
+                    minHeight: 8,
+                    height: `${Math.max(10, value * 100)}%`,
+                    background: value > 0.75 ? '#22C55E' : value > 0.45 ? '#06B6D4' : 'color-mix(in srgb, var(--c-purple) 50%, transparent)',
+                  }}
+                />
+              ))}
+            </div>
+            {heardPreview && (
+              <div className="mt-2 text-xs" style={{ color: 'var(--text-2)' }}>
+                Heard: <span style={{ color: 'var(--text-1)' }}>{heardPreview}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-2)' }}>
+                <Volume2 className="w-3.5 h-3.5" /> Speaker test
+              </div>
+              <span className="text-[11px]" style={{ color: speakerLevel > 0.08 ? 'var(--c-cyan)' : 'var(--text-2)' }}>{speakerLevel > 0.08 ? 'Tone playing' : 'Run audio test'}</span>
+            </div>
+            <div className="flex h-16 items-end gap-1.5">
+              {speakerBars.map((value, index) => (
+                <div
+                  key={`speaker-bar-${index}`}
+                  className="flex-1 rounded-full transition-all duration-100"
+                  style={{
+                    minHeight: 8,
+                    height: `${Math.max(10, value * 100)}%`,
+                    background: value > 0.65 ? '#06B6D4' : 'color-mix(in srgb, var(--c-cyan) 40%, transparent)',
+                  }}
+                />
+              ))}
+            </div>
+            <div className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              {extensionCaptureState === 'active'
+                ? 'Meeting tab audio is already streaming from the extension.'
+                : 'If the extension is installed, open the meeting tab and start capture there so Copilot can hear the whole room.'}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+            style={{ background: 'color-mix(in srgb, var(--c-green) 12%, transparent)', color: 'var(--c-green)' }}>
+            <BadgeCheck className="w-3.5 h-3.5" />
+            {sessionId ? 'Session live' : 'Starting session...'}
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={autoJoin} onCheckedChange={setAutoJoin} disabled={!!summary} />
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              Auto-join is on by default for this meeting.
+            </div>
+          </div>
+          {micCheckMessage && (
+            <div className="text-xs" style={{ color: 'var(--c-green)' }}>{micCheckMessage}</div>
+          )}
         </div>
       </div>
 
@@ -794,67 +1003,45 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         <div>
           {!summary ? (
             <>
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'suggestions' | 'transcript')}>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-                    COPILOT PANEL
-                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                  </div>
-                  <TabsList>
-                    <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-                    <TabsTrigger value="transcript">Transcript</TabsTrigger>
-                  </TabsList>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+                  COPILOT PANEL
+                  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
                 </div>
+                <span className="text-xs" style={{ color: 'var(--text-2)' }}>
+                  {latestSuggestions.length} suggestion{latestSuggestions.length === 1 ? '' : 's'} ready
+                </span>
+              </div>
 
-                <TabsContent value="suggestions" className="mt-0">
-                  <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-                    {suggestions.length === 0 && (
-                      <div className="rounded-xl p-4 text-sm flex items-start gap-2"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                        <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
-                        Suggestions will show up here from the live conversation. You can also use the quick actions above any time you need an answer or a question.
-                      </div>
-                    )}
-                    {suggestions.map((s) => (
-                      <div key={s.id} className="rounded-xl p-4"
-                        style={{
-                          background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                          border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
-                        }}>
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                            style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                          <button
-                            onClick={() => copySuggestion(s.content)}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
-                            style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
-                          >
-                            <Copy className="w-3 h-3" /> Copy
-                          </button>
-                        </div>
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
-                      </div>
-                    ))}
+              <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
+                {latestSuggestions.length === 0 && (
+                  <div className="rounded-xl p-4 text-sm flex items-start gap-2"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                    <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
+                    Suggestions will show up here from the live conversation. You can use the quick actions above at any time, even before anyone speaks.
                   </div>
-                </TabsContent>
-
-                <TabsContent value="transcript" className="mt-0">
-                  <div className="rounded-xl p-4 text-sm max-h-[28rem] overflow-y-auto" style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}>
-                    {transcript.length === 0 ? (
-                      <span style={{ color: 'var(--text-2)' }}>No live transcript yet.</span>
-                    ) : (
-                      <div className="space-y-3">
-                        {transcript.map((t) => (
-                          <div key={`mirror-${t.id}`}>
-                            <div className="text-xs font-semibold mb-1" style={{ color: t.color }}>{t.speaker} · {t.time}</div>
-                            <div className="text-sm leading-relaxed">{t.text}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                )}
+                {latestSuggestions.map((s) => (
+                  <div key={s.id} className="rounded-xl p-4"
+                    style={{
+                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
+                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
+                    }}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
+                      <button
+                        onClick={() => copySuggestion(s.content)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
+                        style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
                   </div>
-                </TabsContent>
-              </Tabs>
+                ))}
+              </div>
             </>
           ) : (
             <>

@@ -23,11 +23,15 @@ serve(async (req) => {
 
     let appUrl = getAppUrl();
     let stateData: any = {};
+    let returnPath = '/integrations';
 
     if (stateParam) {
       try {
         stateData = JSON.parse(atob(stateParam));
         appUrl = resolveAppUrl(stateData.appOrigin);
+        if (typeof stateData.returnTo === 'string' && stateData.returnTo.startsWith('/')) {
+          returnPath = stateData.returnTo;
+        }
       } catch {}
     }
 
@@ -455,7 +459,7 @@ serve(async (req) => {
       type: 'magiclink',
       email,
       options: {
-        redirectTo: `${appUrl}/integrations`,
+        redirectTo: `${appUrl}${returnPath}`,
       },
     });
 
