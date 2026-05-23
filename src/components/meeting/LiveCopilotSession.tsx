@@ -597,7 +597,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       time,
       color,
     };
-    setActiveTab('transcript');
     setDraft('');
 
     // Persist
@@ -1004,67 +1003,45 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         <div>
           {!summary ? (
             <>
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'suggestions' | 'transcript')}>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-                    COPILOT PANEL
-                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                  </div>
-                  <TabsList>
-                    <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-                    <TabsTrigger value="transcript">Transcript</TabsTrigger>
-                  </TabsList>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+                  COPILOT PANEL
+                  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
                 </div>
+                <span className="text-xs" style={{ color: 'var(--text-2)' }}>
+                  {latestSuggestions.length} suggestion{latestSuggestions.length === 1 ? '' : 's'} ready
+                </span>
+              </div>
 
-                <TabsContent value="suggestions" className="mt-0">
-                  <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-                    {suggestions.length === 0 && (
-                      <div className="rounded-xl p-4 text-sm flex items-start gap-2"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                        <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
-                        Suggestions will show up here from the live conversation. You can also use the quick actions above any time you need an answer or a question.
-                      </div>
-                    )}
-                    {suggestions.map((s) => (
-                      <div key={s.id} className="rounded-xl p-4"
-                        style={{
-                          background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                          border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
-                        }}>
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                            style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                          <button
-                            onClick={() => copySuggestion(s.content)}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
-                            style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
-                          >
-                            <Copy className="w-3 h-3" /> Copy
-                          </button>
-                        </div>
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
-                      </div>
-                    ))}
+              <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
+                {latestSuggestions.length === 0 && (
+                  <div className="rounded-xl p-4 text-sm flex items-start gap-2"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
+                    <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
+                    Suggestions will show up here from the live conversation. You can use the quick actions above at any time, even before anyone speaks.
                   </div>
-                </TabsContent>
-
-                <TabsContent value="transcript" className="mt-0">
-                  <div className="rounded-xl p-4 text-sm max-h-[28rem] overflow-y-auto" style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}>
-                    {transcript.length === 0 ? (
-                      <span style={{ color: 'var(--text-2)' }}>No live transcript yet.</span>
-                    ) : (
-                      <div className="space-y-3">
-                        {transcript.map((t) => (
-                          <div key={`mirror-${t.id}`}>
-                            <div className="text-xs font-semibold mb-1" style={{ color: t.color }}>{t.speaker} · {t.time}</div>
-                            <div className="text-sm leading-relaxed">{t.text}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                )}
+                {latestSuggestions.map((s) => (
+                  <div key={s.id} className="rounded-xl p-4"
+                    style={{
+                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
+                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
+                    }}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
+                      <button
+                        onClick={() => copySuggestion(s.content)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
+                        style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
                   </div>
-                </TabsContent>
-              </Tabs>
+                ))}
+              </div>
             </>
           ) : (
             <>
