@@ -123,7 +123,19 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [draft, setDraft] = useState('');
-  const [speaker, setSpeaker] = useState('Other');
+  const [speaker, setSpeaker] = useState('You');
+  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(['You']);
+  const speakerRef = useRef('You');
+  useEffect(() => { speakerRef.current = speaker; }, [speaker]);
+  const pickSpeaker = useCallback((name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setSpeaker(clean);
+    setRecentSpeakers((cur) => {
+      const next = [clean, ...cur.filter((s) => s.toLowerCase() !== clean.toLowerCase())];
+      return next.slice(0, 6);
+    });
+  }, []);
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
