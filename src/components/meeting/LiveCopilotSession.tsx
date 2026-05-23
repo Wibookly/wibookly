@@ -12,7 +12,9 @@ interface Props {
     title: string;
   };
   onClose: () => void;
+  autoStart?: boolean;
 }
+
 
 interface TranscriptLine {
   id: string;
@@ -73,7 +75,7 @@ type CopilotPromptMode = 'answer' | 'ask' | 'say';
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
-export default function LiveCopilotSession({ meeting, onClose }: Props) {
+export default function LiveCopilotSession({ meeting, onClose, autoStart = false }: Props) {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
@@ -578,14 +580,26 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const stopListening = () => {
     shouldListenRef.current = false;
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
+    recognitionRef.current = null;
     setListening(false);
     setHeardPreview(null);
+    // Fully release the microphone tracks so the browser indicator goes away.
+    releaseMicCheck();
+    setMicReady(false);
+  };
+
+  const handleClose = () => {
+    stopListening();
+    onClose();
   };
 
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
+      recognitionRef.current = null;
       if (previewTimerRef.current) {
         window.clearTimeout(previewTimerRef.current);
         previewTimerRef.current = null;
@@ -593,6 +607,19 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       releaseMicCheck();
     };
   }, []);
+
+  // Auto-start listening when the user opened this session via "Join" (a real
+  // user gesture). getUserMedia still works for a brief window after the click
+  // because the gesture context is preserved across the parent's setState.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    if (!sessionId || !user) return;
+    autoStartedRef.current = true;
+    void startListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, sessionId, user]);
+
 
 
 
@@ -642,6 +669,9 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
 
   const endSession = async () => {
     if (!sessionId) return;
+    // Release the microphone the moment the user ends the meeting so the
+    // browser tab indicator disappears immediately.
+    stopListening();
     setEnding(true);
     try {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-summary', {
@@ -752,7 +782,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           </span>
 
           {summary ? (
-            <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
+            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
           ) : (
             <Button size="sm" variant="outline" onClick={endSession} disabled={ending}>
               {ending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Square className="w-3.5 h-3.5 mr-1.5" />}
