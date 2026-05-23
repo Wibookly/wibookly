@@ -825,8 +825,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         return;
       }
 
+      const best = mapped[0];
+      if (best) {
+        setFocusedSuggestions((cur) => ({ ...cur, [mode]: best }));
+      }
+
       setSuggestions((cur) => {
-        const next = [...mapped, ...cur].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
+        const filtered = cur.filter((item) => (item.kind || '').toLowerCase() !== mode);
+        const next = [...mapped, ...filtered].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
         return next.slice(0, 8);
       });
     } catch (e) {
@@ -1112,8 +1118,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             };
             const idle = !focusMode;
             const cfg = focusMode ? meta[focusMode] : null;
-            const items = cfg
-              ? latestSuggestions.filter((s) => cfg.filter((s.kind || '').toLowerCase()))
+            const single = focusMode ? focusedSuggestions[focusMode] : null;
+            const items = cfg && single && cfg.filter((single.kind || '').toLowerCase())
+              ? [single]
               : [];
             const accent = cfg?.accent ?? 'var(--c-purple)';
             return (
