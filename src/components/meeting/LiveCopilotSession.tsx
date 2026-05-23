@@ -12,7 +12,9 @@ interface Props {
     title: string;
   };
   onClose: () => void;
+  autoStart?: boolean;
 }
+
 
 interface TranscriptLine {
   id: string;
