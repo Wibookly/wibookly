@@ -121,7 +121,7 @@ export default function MeetingCopilot() {
     })();
   }, [user, openSession]);
 
-  // Load copilot settings (profile is handled by <ProfileContextCard />)
+  // Load copilot settings
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -132,9 +132,26 @@ export default function MeetingCopilot() {
         show_live_suggestions: s.show_live_suggestions,
         auto_draft_followup: s.auto_draft_followup,
         suggestion_style: s.suggestion_style as SuggestionStyle,
+        notify_scheduled: (s as any).notify_scheduled ?? true,
+        notify_detected: (s as any).notify_detected ?? true,
+        microphone_device_id: (s as any).microphone_device_id ?? null,
+        shortcuts: { ...DEFAULT_SHORTCUTS, ...((s as any).shortcuts || {}) },
       });
     })();
   }, [user]);
+
+  // Enumerate microphones (label only available after a getUserMedia grant)
+  useEffect(() => {
+    const list = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setMicDevices(devices.filter((d) => d.kind === 'audioinput'));
+      } catch { /* ignore */ }
+    };
+    void list();
+    navigator.mediaDevices?.addEventListener?.('devicechange', list);
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', list);
+  }, []);
 
   const loadUpcomingMeetings = useCallback(async () => {
     if (!user) return;
