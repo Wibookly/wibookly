@@ -13,11 +13,26 @@ interface Transcript { id: string; speaker: string; text: string; spoken_at: str
 interface ActionItem { id: string; description: string; assigned_to: string | null; completed: boolean; }
 interface Suggestion { id: string; content: string; suggestion_type: string | null; }
 
+const groupTranscript = (items: Transcript[]) => items.reduce<Transcript[]>((acc, item) => {
+  const speaker = item.speaker || 'Speaker';
+  const text = item.text.replace(/\s+/g, ' ').trim();
+  if (!text) return acc;
+  const last = acc[acc.length - 1];
+  if (last && last.speaker === speaker) {
+    last.text = `${last.text} ${text}`.replace(/\s+/g, ' ').trim();
+    last.spoken_at = item.spoken_at;
+    return acc;
+  }
+  acc.push({ ...item, speaker, text });
+  return acc;
+}, []);
+
 export default function SessionDetailDialog({ sessionId, title, onClose }: Props) {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [tab, setTab] = useState<'actions' | 'transcript' | 'suggestions'>('actions');
+  const groupedTranscript = groupTranscript(transcripts);
 
   useEffect(() => {
     (async () => {
@@ -97,8 +112,8 @@ export default function SessionDetailDialog({ sessionId, title, onClose }: Props
 
           {tab === 'transcript' && (
             <div className="space-y-3">
-              {transcripts.length === 0 && <Empty>No transcript saved for this session.</Empty>}
-              {transcripts.map((t) => (
+              {groupedTranscript.length === 0 && <Empty>No transcript saved for this session.</Empty>}
+              {groupedTranscript.map((t) => (
                 <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-semibold" style={{ color: 'var(--c-purple)' }}>● {t.speaker}</span>
