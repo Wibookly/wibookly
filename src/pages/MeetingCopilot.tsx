@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, Calendar, Clock, Users, CheckCircle, Mic, Play,
   Headphones, ExternalLink, Settings as SettingsIcon, Zap,
-  MessageSquare, Target,
+  MessageSquare, Target, FileText, Download, Mail,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
