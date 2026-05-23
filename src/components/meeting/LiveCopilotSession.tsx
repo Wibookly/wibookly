@@ -654,6 +654,10 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
+      if (watchdogRef.current) {
+        window.clearInterval(watchdogRef.current);
+        watchdogRef.current = null;
+      }
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
       try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
       recognitionRef.current = null;
@@ -664,6 +668,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       releaseMicCheck();
     };
   }, []);
+
 
   // Auto-start listening when the user opened this session via "Join" (a real
   // user gesture). getUserMedia still works for a brief window after the click
