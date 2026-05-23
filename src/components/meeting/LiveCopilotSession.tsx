@@ -129,14 +129,15 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
       const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
       const weight = 1 - distance / ((MIC_VISUAL_BARS - 1) / 2);
-      return Math.max(0.18, micLevel * (0.45 + weight * 0.9));
+      const amplified = Math.min(1, micLevel * 2.4);
+      return Math.max(0.04, amplified * (0.35 + weight * 1.1));
     }),
     [micLevel],
   );
   const speakerBars = useMemo(
     () => Array.from({ length: 12 }, (_, index) => {
       const phase = (index % 4) / 3;
-      return Math.max(0.14, speakerLevel * (0.5 + phase));
+      return Math.max(0.06, speakerLevel * (0.5 + phase));
     }),
     [speakerLevel],
   );
