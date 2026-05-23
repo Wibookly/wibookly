@@ -527,17 +527,18 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
     lastInsertRef.current = { text: clean, at: now };
 
+    const currentSpeaker = (speakerRef.current || 'You').trim() || 'You';
     await supabase.from('meeting_transcripts').insert({
       session_id: sid,
       user_id: uid,
-      speaker: 'You',
+      speaker: currentSpeaker,
       text: clean,
       spoken_at: new Date().toISOString(),
     });
 
     // fire suggestion in the background
     try {
-      const recent = [...transcript.slice(-5), { speaker: 'You', text: clean }]
+      const recent = [...transcript.slice(-5), { speaker: currentSpeaker, text: clean }]
         .map((l) => `${l.speaker}: ${l.text}`).join('\n');
       supabase.functions.invoke('meeting-copilot-suggestion', {
         body: { sessionId: sid, recentTranscript: recent },
