@@ -24,6 +24,7 @@ import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";
+import MeetingPrep from "./pages/MeetingPrep";
 import ExtensionAuth from "./pages/ExtensionAuth";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
@@ -88,6 +89,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/meeting-copilot" element={<MeetingCopilot />} />
+                  <Route path="/meeting-copilot/prep/:id" element={<MeetingPrep />} />
                   <Route path="/meeting-copilot/sessions/:id" element={<MeetingSessionDetail />} />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
