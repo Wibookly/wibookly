@@ -44,7 +44,7 @@ export default function MeetingCopilot() {
   const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const liveRefreshTimerRef = useRef<number | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
-    auto_join_all: false,
+    auto_join_all: true,
     show_live_suggestions: true,
     auto_draft_followup: true,
     suggestion_style: 'concise',
@@ -105,7 +105,7 @@ export default function MeetingCopilot() {
       const { data: s } = await supabase
         .from('meeting_copilot_settings').select('*').eq('user_id', user.id).maybeSingle();
       if (s) setSettings({
-        auto_join_all: s.auto_join_all,
+        auto_join_all: s.auto_join_all ?? true,
         show_live_suggestions: s.show_live_suggestions,
         auto_draft_followup: s.auto_draft_followup,
         suggestion_style: s.suggestion_style as SuggestionStyle,
