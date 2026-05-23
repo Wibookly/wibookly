@@ -68,6 +68,11 @@ interface MeetingSummary {
   keyDecisions?: string[];
   actionItems?: Array<string | SummaryActionItem>;
   draftEmail?: string;
+  followup_email?: {
+    subject?: string;
+    body_html?: string;
+    body_text?: string;
+  };
 }
 
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
@@ -777,7 +782,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         body: { sessionId },
       });
       if (error) throw error;
-      setSummary((data ?? null) as MeetingSummary | null);
+      setSummary((data
+        ? {
+            ...(data as MeetingSummary),
+            draftEmail: (data as MeetingSummary).followup_email?.body_text
+              || (data as MeetingSummary).followup_email?.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              || (data as MeetingSummary).draftEmail,
+          }
+        : null) as MeetingSummary | null);
       toast.success('Session ended — summary ready');
     } catch (e: unknown) {
       console.error(e);
