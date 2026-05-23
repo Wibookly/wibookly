@@ -72,6 +72,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       chrome.runtime.sendMessage({ target: "offscreen", type: "OFFSCREEN_STOP" });
       await chrome.storage.local.set({ iq_capture: { active: false } });
       sendResponse({ ok: true });
+    } else if (msg?.type === "IQ_GET_CAPTURE_STATE") {
+      const { iq_capture } = await chrome.storage.local.get("iq_capture");
+      sendResponse({ ok: true, active: !!iq_capture?.active, sessionId: iq_capture?.sessionId || null });
     }
   })();
   return true; // async
