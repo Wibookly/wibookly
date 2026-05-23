@@ -3659,6 +3659,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_feature_usage_summary: {
+        Args: {
+          _feature_keys: string[]
+          _organization_id: string
+          _user_id: string
+        }
+        Returns: {
+          enabled: boolean
+          feature_key: string
+          is_unlimited: boolean
+          limit_count: number
+          limit_term: string
+          model: string
+          remaining_count: number
+          used_count: number
+          user_daily_cap: number
+          user_daily_spent: number
+          user_monthly_cap: number
+          user_monthly_spent: number
+        }[]
+      }
       get_my_connections: {
         Args: never
         Returns: {
