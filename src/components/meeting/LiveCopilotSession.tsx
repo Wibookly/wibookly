@@ -1404,14 +1404,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 })()}
               </div>
               <div className="mt-3 flex gap-2">
-                <select
+                <input
                   value={speaker}
                   onChange={(e) => setSpeaker(e.target.value)}
-                  className="rounded-lg px-2 py-2 text-xs"
+                  onBlur={(e) => pickSpeaker(e.target.value)}
+                  placeholder="Speaker"
+                  className="w-28 rounded-lg px-2 py-2 text-xs"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-                >
-                  <option>You</option><option>Other</option><option>Speaker 2</option><option>Speaker 3</option>
-                </select>
+                />
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
