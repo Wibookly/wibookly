@@ -21,16 +21,16 @@ async function transcribeBlob(blob) {
       apikey: cfg.supabaseAnonKey,
       Authorization: `Bearer ${cfg.token}`,
     },
-    body: JSON.stringify({ audio: b64 }),
+    body: JSON.stringify({ audio: b64, mime_type: blob.type || recorder?.mimeType || "audio/webm" }),
   });
-  if (!res.ok) throw new Error(`transcribe ${res.status}`);
   const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.error) throw new Error(data?.error || `transcribe ${res.status}`);
   return (data.text || data.transcript || "").trim();
 }
 
 async function ingestLine(text) {
   if (!text) return;
-  await fetch(`${cfg.supabaseUrl}/functions/v1/meeting-copilot-ingest`, {
+  const res = await fetch(`${cfg.supabaseUrl}/functions/v1/meeting-copilot-ingest`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -43,6 +43,8 @@ async function ingestLine(text) {
       requestSuggestion: true,
     }),
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.error) throw new Error(data?.error || `ingest ${res.status}`);
 }
 
 async function flushChunk() {
@@ -62,7 +64,9 @@ async function start(streamId, includeMic = false) {
     audio: {
       mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId },
     },
-    video: false,
+    video: {
+      mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId },
+    },
   });
 
   inputStreams = [tabStream];
@@ -93,7 +97,9 @@ async function start(streamId, includeMic = false) {
 
   mediaStream = destination.stream;
 
-  recorder = new MediaRecorder(mediaStream, { mimeType: "audio/webm;codecs=opus" });
+  const preferredMimeTypes = ["audio/webm;codecs=opus", "audio/webm", "video/webm;codecs=vp8,opus", "video/webm"];
+  const recorderMime = preferredMimeTypes.find((type) => MediaRecorder.isTypeSupported(type)) || "audio/webm";
+  recorder = new MediaRecorder(mediaStream, { mimeType: recorderMime });
   recorder.ondataavailable = (e) => { if (e.data.size) buffer.push(e.data); };
   recorder.start(1000);
 
