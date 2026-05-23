@@ -406,10 +406,31 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           </h3>
         </div>
         <div className="flex items-center gap-2">
+          {!summary && (
+            listening ? (
+              <Button size="sm" variant="outline" onClick={stopListening}
+                style={{ borderColor: '#EF4444', color: '#EF4444' }}>
+                <MicOff className="w-3.5 h-3.5 mr-1.5" />
+                Stop listening
+              </Button>
+            ) : (
+              <Button size="sm" onClick={startListening} disabled={!sessionId}
+                style={{ background: 'linear-gradient(135deg,#A855F7,#06B6D4)', color: '#fff' }}>
+                <Mic className="w-3.5 h-3.5 mr-1.5" />
+                Start listening
+              </Button>
+            )
+          )}
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>
-            ● LIVE
+            style={{
+              background: listening
+                ? 'color-mix(in srgb, #22C55E 18%, transparent)'
+                : 'color-mix(in srgb, #EF4444 18%, transparent)',
+              color: listening ? '#22C55E' : '#EF4444',
+            }}>
+            ● {listening ? 'MIC ON' : 'LIVE'}
           </span>
+
           {summary ? (
             <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
           ) : (
