@@ -211,6 +211,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     [speakerLevel],
   );
 
+  // Track meeting start time for elapsed / remaining clock.
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(() => {
+    if (scheduledStartIso) {
+      const t = Date.parse(scheduledStartIso);
+      return Number.isFinite(t) ? t : null;
+    }
+    return null;
+  });
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // Create session on mount
   useEffect(() => {
     if (!user) return;
@@ -218,7 +232,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     (async () => {
       const { data: existing } = await supabase
         .from('meeting_sessions')
-        .select('id')
+        .select('id, started_at')
         .eq('user_id', user.id)
         .eq('meeting_external_id', meeting.id)
         .eq('status', 'active')
@@ -227,10 +241,17 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         .maybeSingle();
 
       if (existing?.id) {
-        if (!cancelled) setSessionId(existing.id);
+        if (!cancelled) {
+          setSessionId(existing.id);
+          if (existing.started_at) {
+            const t = Date.parse(existing.started_at as string);
+            if (Number.isFinite(t)) setStartedAtMs(t);
+          }
+        }
         return;
       }
 
+      const startIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('meeting_sessions')
         .insert({
@@ -238,9 +259,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           meeting_external_id: meeting.id,
           meeting_title: meeting.title,
           status: 'active',
-          started_at: new Date().toISOString(),
+          started_at: startIso,
         })
-        .select('id')
+        .select('id, started_at')
         .single();
       if (error) {
         toast.error('Could not start Copilot session');
@@ -248,6 +269,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }
       if (cancelled) return;
       setSessionId(data.id);
+      const t = Date.parse((data.started_at as string) || startIso);
+      if (Number.isFinite(t)) setStartedAtMs(t);
     })();
     return () => { cancelled = true; };
   }, [user, meeting.id, meeting.title]);
