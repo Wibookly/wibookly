@@ -200,9 +200,9 @@ export default function MeetingSessionDetail() {
 
   return (
     <div className="page-shell">
-      <div className="page-shell-content space-y-6 print:space-y-4">
+      <div className="page-shell-sticky space-y-4 print:hidden">
         {/* Header */}
-        <div className="flex items-center justify-between print:hidden">
+        <div className="flex items-center justify-between">
           <button onClick={() => navigate('/meeting-copilot')}
             className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-2)' }}>
             <ArrowLeft className="w-4 h-4" /> Back to Meeting Copilot
@@ -217,24 +217,26 @@ export default function MeetingSessionDetail() {
           </div>
         </div>
 
-        {/* Hero */}
-        <div className="rounded-2xl p-8 shadow-glow relative overflow-hidden"
+        {/* Hero (compact, sticky) */}
+        <div className="rounded-2xl px-6 py-4 shadow-glow relative overflow-hidden"
           style={{ background: 'var(--grad-feature)', color: '#FFFFFF' }}>
-          <div className="flex items-center gap-2 mb-3 text-overline" style={{ opacity: 0.85 }}>
-            <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#22C55E', boxShadow: '0 0 8px #22C55E' }} />
+          <div className="flex items-center gap-2 mb-1 text-overline" style={{ opacity: 0.85, fontSize: 10 }}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
             MEETING RECAP · {session.status?.toUpperCase()}
           </div>
-          <h1 className="text-h2 mb-3" style={{ color: '#FFFFFF' }}>{session.meeting_title || 'Untitled meeting'}</h1>
-          <div className="flex flex-wrap gap-4 text-sm" style={{ opacity: 0.92 }}>
-            <span className="inline-flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {fmtDate(session.started_at)}</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4" /> {fmtDuration(session.duration_seconds)}</span>
+          <h1 className="text-h4 mb-1.5 truncate" style={{ color: '#FFFFFF' }}>{session.meeting_title || 'Untitled meeting'}</h1>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ opacity: 0.92 }}>
+            <span className="inline-flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {fmtDate(session.started_at)}</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {fmtDuration(session.duration_seconds)}</span>
             {attendeeList.length > 0 && (
-              <span className="inline-flex items-center gap-1.5"><Users className="w-4 h-4" /> {attendeeList.length} attendee{attendeeList.length === 1 ? '' : 's'}</span>
+              <span className="inline-flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> {attendeeList.length} attendee{attendeeList.length === 1 ? '' : 's'}</span>
             )}
-            {session.platform && <span className="inline-flex items-center gap-1.5 uppercase tracking-wide text-xs">{session.platform}</span>}
+            {session.platform && <span className="inline-flex items-center gap-1.5 uppercase tracking-wide">{session.platform}</span>}
           </div>
         </div>
+      </div>
 
+      <div className="page-shell-content space-y-6 print:space-y-4">
         {/* Summary */}
         <Section icon={<Sparkles className="w-4 h-4" />} title="Executive Summary" accent="var(--c-purple)">
           {session.summary ? (

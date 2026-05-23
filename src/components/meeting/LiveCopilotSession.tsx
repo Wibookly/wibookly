@@ -13,6 +13,10 @@ interface Props {
   };
   onClose: () => void;
   autoStart?: boolean;
+  /** Optional scheduled duration in minutes — drives the live countdown. */
+  durationMinutes?: number;
+  /** Optional fixed start time (ISO); defaults to when the session row is created. */
+  scheduledStartIso?: string;
 }
 
 
@@ -113,7 +117,7 @@ type WindowWithSpeechRecognition = Window & typeof globalThis & {
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
-export default function LiveCopilotSession({ meeting, onClose, autoStart = false }: Props) {
+export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso }: Props) {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
@@ -207,6 +211,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     [speakerLevel],
   );
 
+  // Track meeting start time for elapsed / remaining clock.
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(() => {
+    if (scheduledStartIso) {
+      const t = Date.parse(scheduledStartIso);
+      return Number.isFinite(t) ? t : null;
+    }
+    return null;
+  });
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // Create session on mount
   useEffect(() => {
     if (!user) return;
@@ -214,7 +232,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     (async () => {
       const { data: existing } = await supabase
         .from('meeting_sessions')
-        .select('id')
+        .select('id, started_at')
         .eq('user_id', user.id)
         .eq('meeting_external_id', meeting.id)
         .eq('status', 'active')
@@ -223,10 +241,17 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         .maybeSingle();
 
       if (existing?.id) {
-        if (!cancelled) setSessionId(existing.id);
+        if (!cancelled) {
+          setSessionId(existing.id);
+          if (existing.started_at) {
+            const t = Date.parse(existing.started_at as string);
+            if (Number.isFinite(t)) setStartedAtMs(t);
+          }
+        }
         return;
       }
 
+      const startIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('meeting_sessions')
         .insert({
@@ -234,9 +259,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           meeting_external_id: meeting.id,
           meeting_title: meeting.title,
           status: 'active',
-          started_at: new Date().toISOString(),
+          started_at: startIso,
         })
-        .select('id')
+        .select('id, started_at')
         .single();
       if (error) {
         toast.error('Could not start Copilot session');
@@ -244,6 +269,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }
       if (cancelled) return;
       setSessionId(data.id);
+      const t = Date.parse((data.started_at as string) || startIso);
+      if (Number.isFinite(t)) setStartedAtMs(t);
     })();
     return () => { cancelled = true; };
   }, [user, meeting.id, meeting.title]);
@@ -897,17 +924,60 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }
   };
 
+  // Live clock derivations
+  const elapsedSec = startedAtMs ? Math.max(0, Math.floor((nowMs - startedAtMs) / 1000)) : 0;
+  const totalSec = durationMinutes && durationMinutes > 0 ? durationMinutes * 60 : null;
+  const remainingSec = totalSec !== null ? Math.max(0, totalSec - elapsedSec) : null;
+  const fmtClock = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+    return `${m}:${String(ss).padStart(2, '0')}`;
+  };
+  const overtime = totalSec !== null && elapsedSec > totalSec;
+
   return (
     <div className="rounded-2xl p-6"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="inline-block w-2 h-2 rounded-full animate-pulse"
             style={{ background: '#EF4444', boxShadow: '0 0 8px #EF4444' }} />
-          <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>
+          <h3 className="text-h5 truncate" style={{ color: 'var(--text-1)' }}>
             Live Copilot — {meeting.title}
           </h3>
         </div>
+
+        {/* Meeting timer */}
+        {startedAtMs && (
+          <div className="flex items-center gap-2 rounded-xl px-3 py-1.5"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-2)' }}>
+              Elapsed
+            </span>
+            <span className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-1)' }}>
+              {fmtClock(elapsedSec)}
+            </span>
+            {remainingSec !== null && (
+              <>
+                <span className="mx-1 opacity-40">·</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-2)' }}>
+                  {overtime ? 'Over' : 'Left'}
+                </span>
+                <span
+                  className="font-mono text-sm font-bold tabular-nums"
+                  style={{
+                    color: overtime ? '#EF4444' : remainingSec <= 300 ? '#F59E0B' : '#22C55E',
+                  }}
+                >
+                  {fmtClock(overtime ? elapsedSec - (totalSec || 0) : remainingSec)}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           {!summary && (
             listening ? (

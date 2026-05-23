@@ -77,7 +77,7 @@ export default function MeetingCopilot() {
     { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
-  const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
+  const [openSession, setOpenSession] = useState<{ id: string; title: string; durationMinutes?: number } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
@@ -238,7 +238,9 @@ export default function MeetingCopilot() {
   const handleOpenSession = (meeting: UpcomingMeeting) => {
     // Live meeting → open Copilot inline (anchor + scroll).
     if (meeting.isLive) {
-      setOpenSession({ id: meeting.id, title: meeting.title });
+      const m = /(\d+)/.exec(meeting.duration);
+      const durationMinutes = m ? parseInt(m[1], 10) : undefined;
+      setOpenSession({ id: meeting.id, title: meeting.title, durationMinutes });
       window.requestAnimationFrame(() => {
         setTimeout(() => {
           liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -249,6 +251,18 @@ export default function MeetingCopilot() {
     }
     // Upcoming meeting → navigate to dedicated prep page.
     navigate(`/meeting-copilot/prep/${encodeURIComponent(meeting.id)}`, { state: { title: meeting.title } });
+  };
+
+  const startPracticeSession = (durationMinutes = 30) => {
+    const id = `practice-${Date.now()}`;
+    const title = `Practice Session — ${durationMinutes} min`;
+    setOpenSession({ id, title, durationMinutes });
+    window.requestAnimationFrame(() => {
+      setTimeout(() => {
+        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
+    toast.success(`Practice session started — ${durationMinutes} min timer running`);
   };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
@@ -555,7 +569,18 @@ export default function MeetingCopilot() {
               </div>
               <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Upcoming Meetings</h3>
             </div>
-            <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => startPracticeSession(30)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg,#A855F7,#06B6D4)', color: '#fff' }}
+                title="Open a no-calendar practice meeting to test the Copilot end-to-end"
+              >
+                <Play className="w-3.5 h-3.5" />
+                Start practice session
+              </button>
+              <a className="text-sm font-medium" style={{ color: 'var(--c-cyan)' }} href="/integrations?tab=settings">View calendar →</a>
+            </div>
           </div>
           {/* Honest status banner — replaces silent mock fallback */}
           {calendarStatus.state === 'loading' && (
@@ -674,7 +699,12 @@ export default function MeetingCopilot() {
 
       <div ref={liveSessionAnchorRef}>
         {openSession && (
-          <LiveCopilotSession meeting={openSession} autoStart onClose={() => setOpenSession(null)} />
+          <LiveCopilotSession
+            meeting={{ id: openSession.id, title: openSession.title }}
+            durationMinutes={openSession.durationMinutes}
+            autoStart
+            onClose={() => setOpenSession(null)}
+          />
         )}
       </div>
 
