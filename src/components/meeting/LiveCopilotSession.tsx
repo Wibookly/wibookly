@@ -3,9 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff, Volume2, Waves, PlugZap, AudioLines } from 'lucide-react';
+import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff, Volume2, Waves, AudioLines } from 'lucide-react';
 
 interface Props {
   meeting: {
@@ -72,7 +71,6 @@ interface MeetingSummary {
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
 
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
-const EXTENSION_CHECK_INTERVAL_MS = 4000;
 const MIC_VISUAL_BARS = 20;
 
 export default function LiveCopilotSession({ meeting, onClose }: Props) {
@@ -85,7 +83,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
-  const [activeTab, setActiveTab] = useState<'suggestions' | 'transcript'>('suggestions');
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -125,10 +122,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     () => transcriptContext.trim() || draft.trim(),
     [draft, transcriptContext],
   );
-  const latestSuggestions = useMemo(
-    () => suggestions.filter((item) => item.kind === activeTab || activeTab === 'suggestions').slice(0, 6),
-    [activeTab, suggestions],
-  );
+  const latestSuggestions = useMemo(() => suggestions.slice(0, 6), [suggestions]);
   const micBars = useMemo(
     () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
       const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
