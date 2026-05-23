@@ -24,6 +24,7 @@ import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";
+import MeetingSessions from "./pages/MeetingSessions";
 import MeetingPrep from "./pages/MeetingPrep";
 import ExtensionAuth from "./pages/ExtensionAuth";
 
