@@ -238,7 +238,9 @@ export default function MeetingCopilot() {
   const handleOpenSession = (meeting: UpcomingMeeting) => {
     // Live meeting → open Copilot inline (anchor + scroll).
     if (meeting.isLive) {
-      setOpenSession({ id: meeting.id, title: meeting.title });
+      const m = /(\d+)/.exec(meeting.duration);
+      const durationMinutes = m ? parseInt(m[1], 10) : undefined;
+      setOpenSession({ id: meeting.id, title: meeting.title, durationMinutes });
       window.requestAnimationFrame(() => {
         setTimeout(() => {
           liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -249,6 +251,18 @@ export default function MeetingCopilot() {
     }
     // Upcoming meeting → navigate to dedicated prep page.
     navigate(`/meeting-copilot/prep/${encodeURIComponent(meeting.id)}`, { state: { title: meeting.title } });
+  };
+
+  const startPracticeSession = (durationMinutes = 30) => {
+    const id = `practice-${Date.now()}`;
+    const title = `Practice Session — ${durationMinutes} min`;
+    setOpenSession({ id, title, durationMinutes });
+    window.requestAnimationFrame(() => {
+      setTimeout(() => {
+        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
+    toast.success(`Practice session started — ${durationMinutes} min timer running`);
   };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
