@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,39 @@ interface MeetingSummary {
 
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
 
+type BrowserSpeechRecognitionEvent = {
+  resultIndex: number;
+  results: ArrayLike<{
+    isFinal?: boolean;
+    0?: { transcript?: string };
+  }>;
+};
+
+type BrowserSpeechRecognitionErrorEvent = {
+  error?: string;
+  message?: string;
+  name?: string;
+};
+
+type BrowserSpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognitionInstance;
+
+type WindowWithSpeechRecognition = Window & typeof globalThis & {
+  SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+};
+
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
@@ -109,7 +142,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
