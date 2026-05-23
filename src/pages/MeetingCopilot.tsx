@@ -42,6 +42,7 @@ type UpcomingMeeting = {
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const liveRefreshTimerRef = useRef<number | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
