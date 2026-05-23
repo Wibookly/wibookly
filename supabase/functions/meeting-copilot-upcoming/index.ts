@@ -85,6 +85,9 @@ Deno.serve(async (req) => {
         isLive,
         attendeeCount: ev.attendees?.length || 0,
         attendees: (ev.attendees || []).map((a: any) => a.emailAddress?.address).filter(Boolean),
+        attendeeNames: (ev.attendees || [])
+          .map((a: any) => a.emailAddress?.name || a.emailAddress?.address)
+          .filter(Boolean),
         joinUrl: ev.onlineMeeting?.joinUrl || null,
         platform: detectPlatform(ev.onlineMeeting?.joinUrl),
         durationMin: minutes,
