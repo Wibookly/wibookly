@@ -259,12 +259,18 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
           return;
         }
 
+        const runtime = w.chrome?.runtime;
+        if (!runtime?.sendMessage) {
+          setExtensionCaptureState('missing');
+          return;
+        }
+
         await new Promise<void>((resolve, reject) => {
-          w.chrome!.runtime!.sendMessage(
+          runtime.sendMessage(
             extensionId,
             { type: 'IQ_GET_CAPTURE_STATE' },
             (response: unknown) => {
-              const lastError = chrome.runtime?.lastError;
+              const lastError = runtime.lastError;
               if (lastError) {
                 reject(new Error(lastError.message));
                 return;
