@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const sessionId: string = body.sessionId;
     const recentTranscript: string = (body.recentTranscript || '').slice(0, 8000);
+    const intent = (body.intent || '').toString().trim().toLowerCase();
 
     if (!sessionId || !recentTranscript.trim()) {
       return new Response(JSON.stringify({ suggestions: [] }), {
@@ -66,6 +67,14 @@ Deno.serve(async (req) => {
     const identityBlock = identityLines.length ? identityLines.join('\n') : 'A professional in a business meeting.';
     const extraCtx = (aiProfile?.custom_context as string | undefined)?.trim();
 
+    const intentGuidance = intent === 'answer'
+      ? 'Prioritize direct, confident answers the user can say immediately if they were just asked something important. Return at least one suggestion of type "answer" when possible.'
+      : intent === 'ask'
+        ? 'Prioritize sharp follow-up questions that help the user advance the conversation. Return at least one suggestion of type "ask" when possible.'
+        : intent === 'say'
+          ? 'Prioritize the strongest next statement the user should say to move the meeting forward. Return at least one suggestion of type "say" when possible.'
+          : 'Balance the output between what to say, what to ask, and what to answer next.';
+
     const systemPrompt = `You are a real-time silent meeting copilot for the following user:
 ${identityBlock}
 ${extraCtx ? `\nExtra meeting-specific context:\n${extraCtx}\n` : ''}
@@ -79,6 +88,7 @@ Each suggestion has a type:
 - "answer": if someone asked them a question, what they should answer
 
 Style: ${styleGuide[style]}
+Focus: ${intentGuidance}
 
 Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": "..." }] }`;
 
@@ -126,14 +136,27 @@ Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": 
     } catch { /* ignore */ }
 
     if (suggestions.length) {
-      await sb.from('meeting_suggestions').insert(
-        suggestions.map((s) => ({
+      const rows = suggestions.map((s) => ({
           session_id: sessionId,
           user_id: user.id,
           suggestion_type: s.type,
           content: String(s.content || '').slice(0, 2000),
-        }))
-      );
+        }));
+
+      const { data: inserted } = await sb
+        .from('meeting_suggestions')
+        .insert(rows)
+        .select('id, suggestion_type, content');
+
+      const persisted = inserted?.map((row) => ({
+        id: row.id,
+        type: row.suggestion_type,
+        content: row.content,
+      })) ?? [];
+
+      return new Response(JSON.stringify({ suggestions: persisted.length ? persisted : suggestions }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ suggestions }), {
