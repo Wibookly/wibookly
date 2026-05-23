@@ -35,6 +35,7 @@ type UpcomingMeeting = {
   attendees: number;
   duration: string;
   isLive: boolean;
+  joinUrl?: string | null;
 };
 
 // ---------- PAGE ----------
@@ -163,6 +164,7 @@ export default function MeetingCopilot() {
           attendees: m.attendeeCount,
           duration: isLive ? 'In progress' : `${m.durationMin} min`,
           isLive,
+          joinUrl: m.joinUrl || null,
         };
       });
       const prefs: Record<string, boolean> = {};
@@ -192,6 +194,9 @@ export default function MeetingCopilot() {
   }, [user, loadUpcomingMeetings]);
 
   const handleOpenSession = (meeting: UpcomingMeeting) => {
+    if (!meeting.isLive && meeting.joinUrl) {
+      window.open(meeting.joinUrl, '_blank', 'noopener,noreferrer');
+    }
     setOpenSession({ id: meeting.id, title: meeting.title });
     if (!meeting.isLive) {
       void loadUpcomingMeetings();
