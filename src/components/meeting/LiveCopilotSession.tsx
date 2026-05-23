@@ -484,6 +484,36 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     } catch { /* ignore */ }
   };
 
+  const clearTranscriptFlushTimer = () => {
+    if (transcriptFlushTimerRef.current) {
+      window.clearTimeout(transcriptFlushTimerRef.current);
+      transcriptFlushTimerRef.current = null;
+    }
+  };
+
+  const flushTranscriptBuffer = async (forceText?: string) => {
+    const candidate = (forceText ?? transcriptBufferRef.current).replace(/\s+/g, ' ').trim();
+    clearTranscriptFlushTimer();
+    if (!candidate) return;
+    transcriptBufferRef.current = '';
+    await pushHeardLine(candidate);
+  };
+
+  const queueTranscriptChunk = (text: string, isFinal = false) => {
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+
+    transcriptBufferRef.current = normalized;
+    setHeardPreview(normalized);
+    if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = window.setTimeout(() => setHeardPreview(null), 1800);
+
+    clearTranscriptFlushTimer();
+    transcriptFlushTimerRef.current = window.setTimeout(() => {
+      void flushTranscriptBuffer();
+    }, isFinal ? 250 : 1200);
+  };
+
   const releaseMicCheck = () => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
