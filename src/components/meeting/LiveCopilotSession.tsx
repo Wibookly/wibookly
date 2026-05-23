@@ -782,7 +782,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           </span>
 
           {summary ? (
-            <Button size="sm" variant="outline" onClick={onClose}>Close</Button>
+            <Button size="sm" variant="outline" onClick={handleClose}>Close</Button>
           ) : (
             <Button size="sm" variant="outline" onClick={endSession} disabled={ending}>
               {ending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Square className="w-3.5 h-3.5 mr-1.5" />}
