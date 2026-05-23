@@ -1,33 +1,85 @@
-## No Reply Tracker — lifecycle, stop alias & layout cleanup
+# Meeting Copilot Redesign Plan
 
-### What you asked for
+Major restructure of `/meeting-copilot` and the live session view based on your feedback.
 
-1. **Hard cap on reminders.** Default = 3. After the 3rd missed nudge with no reply, the tracker stops automatically — no more drafts, no more reminder emails. The email stays in the **No Reply Tracker** category so you can still see it and act manually.
-2. **Manual stop via BCC.** Send a new email on the same thread (or any time) with BCC `stop@yourdomain.com` (we'll also accept `0@yourdomain.com`). InboxIQ cancels all open trackers for that conversation, moves the original message out of the "Follow-up" Outlook folder back to the **Inbox**, and removes the **No Reply Tracker** label so its normal category takes over again.
-3. **Manual re-trigger.** Sending a fresh BCC like `2@yourdomain.com` on a new email in the same thread re-arms the tracker with a new due date and resets the reminder counter to zero.
-4. **Clearer page copy.** Rewrite the master-toggle description so the full lifecycle (BCC → due date → label → draft → up to N nudges → auto-stop / manual stop) is spelled out in one place. Add a dedicated "Lifecycle & how to stop" card under Step 2.
-5. **Inbox audit clarification.** Keep the manual range picker (useful for one-off back-fills), but remove the redundant **Run scan now** button at the bottom of the page — the background scan already runs every 15 min and the daily 24-hour audit covers the routine case. Also auto-trigger one quiet scan when the page is opened, so the data is fresh without a button click.
+## 1. Main page (`src/pages/MeetingCopilot.tsx`)
 
-### How it will work (technical)
+**Remove**
+- The red-bordered "What Meeting Copilot knows about you" profile card. Replace with a single small line:
+  *"Using your profile from My Profile & Signature →"* (link to Settings).
 
-- **DB migration**
-  - Add `cancellation_alias` (text) and `cancelled_at` (timestamptz) to `follow_up_trackers`.
-  - Add `stop_aliases` to `follow_up_settings` (text[], default `{stop,0}`) so we can extend without code changes.
-  - New RPC `cancel_trackers_for_conversation(connection_id, conversation_id, alias)` used by the cron.
+**Copilot Behavior card — make collapsible**
+- Wrap in `<Collapsible>` (shadcn), collapsed by default with a one-line summary chip ("Auto-join ON · Conversational · Auto-draft ON").
+- Keep all 3 toggles + suggestion-style picker inside.
+- Under **Auto-draft follow-up**, add helper text:
+  *"Drafts are saved to your `0. AI Draft` follow-up category in Outlook for review before sending."*
+- Add a new sub-section **Notifications** (like the Cluely screenshot):
+  - Scheduled meetings (1 min before)
+  - Auto-detected meetings
+- Add a new sub-section **Audio Settings**:
+  - Microphone source dropdown
+  - "Test Microphone" button → opens a compact inline panel with a live waveform (Web Audio API analyser, animated bars like ChatGPT voice mode)
+  - Same for Speaker test (tone + bars)
+- Add a new sub-section **Shortcuts**:
+  - List of keyboard shortcuts ("Ask a question", "Quick answer", "End session")
+  - Each editable (input to rebind), stored in `meeting_copilot_settings`.
 
-- **Edge function `cron-follow-ups`**
-  - During the Sent-Items scan, in addition to parsing `N@domain` as a trigger, parse `stop@domain` and `0@domain` as **cancel signals**. For any matching message with a `conversationId`, cancel all `pending`/`drafted`/`missed` trackers for that conversation: set `status='cancelled'`, move the original message from the "Follow-up" folder back to Inbox, and clear the **No Reply Tracker** label on that message in Outlook.
-  - `processMissedReminders` already respects `reminder_max_count`; we'll also mark the tracker `status='exhausted'` once `reminder_count >= reminder_max_count` so the UI can show it clearly and the row stops being re-evaluated.
+**Per-meeting tone override**
+- On each Upcoming Meeting row add a small dropdown: tone = Concise / Conversational / Strategic (defaults to global setting). Stored in `meeting_copilot_preferences`.
 
-- **UI `FollowUpReminderSettings.tsx`**
-  - Rewrite Step 1 description to summarize the lifecycle in plain English and call out the two ways to stop (auto after N nudges, or BCC `stop@domain`).
-  - Add a small "Lifecycle & how to stop" info card under Step 2 with the exact BCC examples (`stop@domain`, `0@domain`) and a copy-to-clipboard chip.
-  - Remove the bottom row containing the **Run scan now** button and the duplicate "Background scan runs every 15 min…" caption (we'll keep one concise version inside the master-toggle card).
-  - On mount, fire one silent `cron-follow-ups` invocation (no toast) so the dashboard is always up to date when opened.
-  - Keep the **Inbox audit** card as-is — it's the right tool for ad-hoc back-fills over custom date ranges.
+## 2. Upcoming Meetings → Pre-meeting prep
 
-### Files touched
+When user clicks a meeting card, navigate to **new page** `/meeting-copilot/prep/:meetingId`:
+- Header: meeting subject, time, attendees
+- AI-generated **Prep Brief** (new edge function `meeting-copilot-prep`):
+  - Pulls meeting subject + body + any attached files (via Graph `/me/events/{id}?$expand=attachments`)
+  - Pulls related prior emails with same attendees
+  - Generates: context summary, **questions you should ask**, **likely questions you'll be asked + suggested answers**, talking points
+- "Join meeting" button (launches live session with prep loaded as context)
 
-- `supabase/migrations/<new>.sql` — schema + RPC
-- `supabase/functions/cron-follow-ups/index.ts` — stop-alias handling + exhausted status
-- `src/components/follow-up/FollowUpReminderSettings.tsx` — copy rewrite, new lifecycle card, remove bottom button, auto-refresh on mount
+## 3. Live session redesign (`LiveCopilotSession.tsx`)
+
+Remove the visible live transcript from the main area (still captured silently). New layout:
+
+```text
+┌────────────────────────────────────────────────────┐
+│  Prep summary (from step 2) — collapsible top bar  │
+├──────────────────────┬─────────────────────────────┤
+│  WHAT TO ASK         │  WHAT TO ANSWER             │
+│  (AI-detected        │  (AI-detected when someone  │
+│   opportunities to   │   asks YOU a question —     │
+│   ask smart Qs)      │   pops with suggested reply)│
+└──────────────────────┴─────────────────────────────┘
+   [ tiny mic indicator + End session ]
+```
+
+- Use `google/gemini-3-flash-preview` with intent routing already in `meeting-copilot-suggestion`.
+- When the AI detects a direct question to the user (heuristic: question mark + 2nd-person + recent silence), it pushes an "answer" suggestion into the right column with a subtle pulse.
+- Transcript still accessible via a small "View transcript" drawer button (not in main view).
+
+## 4. Database (small migration)
+
+- Add `shortcuts jsonb`, `notify_scheduled bool`, `notify_detected bool`, `microphone_device_id text` to `meeting_copilot_settings`.
+- Add `tone_override text` to `meeting_copilot_preferences`.
+
+## 5. Files
+
+**Edit**
+- `src/pages/MeetingCopilot.tsx` — remove profile card, collapsible behavior, notifications, audio, shortcuts, per-meeting tone, navigate to prep on click.
+- `src/components/meeting/LiveCopilotSession.tsx` — two-column "Ask / Answer" layout, hide transcript, ChatGPT-style mic waveform.
+- `supabase/functions/meeting-copilot-suggestion/index.ts` — better answer-detection heuristic.
+
+**Create**
+- `src/pages/MeetingPrep.tsx` + route
+- `src/components/meeting/AudioTestPanel.tsx` (waveform + bars)
+- `src/components/meeting/ShortcutsEditor.tsx`
+- `supabase/functions/meeting-copilot-prep/index.ts`
+- Migration for new columns.
+
+## Notes / open questions
+
+- Drafts category: I'll use your existing `0. AI Draft` category convention (per project memory).
+- Shortcuts will only fire while the live session window is focused (browser limitation — no global OS hotkeys without a desktop app).
+- Speaker test will play a short test tone since browsers don't expose live speaker output levels.
+
+Approve and I'll build it.

@@ -101,6 +101,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [heardPreview, setHeardPreview] = useState<string | null>(null);
   const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const proactiveBusyRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -970,175 +971,184 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* TRANSCRIPT */}
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
-              <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
-                <Radio className="w-3.5 h-3.5" />
-                {transcript.length === 0 ? 'Waiting for microphone or extension transcript lines.' : `${transcript.length} live line${transcript.length === 1 ? '' : 's'} captured.`}
+      {!summary ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* WHAT TO ASK */}
+          <div className="rounded-2xl p-4"
+            style={{ background: 'color-mix(in srgb, var(--c-purple) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--c-purple) 25%, var(--border))' }}>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
+                <div className="text-overline" style={{ color: 'var(--text-2)' }}>WHAT TO ASK</div>
               </div>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ background: 'color-mix(in srgb, var(--c-green) 12%, transparent)', color: 'var(--c-green)' }}>
-              <BadgeCheck className="w-3.5 h-3.5" />
-              {sessionId ? 'Session live' : 'Starting session...'}
-            </div>
-          </div>
-          {listening && heardPreview && (
-            <div className="mb-2 rounded-lg px-3 py-2 text-xs flex items-start gap-2 animate-pulse"
-              style={{
-                background: 'color-mix(in srgb, var(--c-purple) 14%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
-                color: 'var(--text-2)',
-              }}>
-              <Mic className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
-              <span><span style={{ color: 'var(--text-2)' }}>Hearing now: </span><span style={{ color: 'var(--text-1)' }}>{heardPreview}</span></span>
-            </div>
-          )}
-          <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-            {micError && (
-              <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444', border: '1px solid color-mix(in srgb, #EF4444 30%, transparent)' }}>
-                {micError}
-              </div>
-            )}
-            {transcript.length === 0 && (
-              <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                Click <strong style={{ color: 'var(--text-1)' }}>Test mic</strong>, then <strong style={{ color: 'var(--text-1)' }}>Start listening</strong> to confirm this page hears you before the meeting begins. For other participants' audio, also start capture in the InboxIQ Chrome extension on the meeting tab.
-              </div>
-            )}
-            {[...transcript].reverse().map((t) => (
-              <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
-                  <span className="text-xs" style={{ color: 'var(--text-2)' }}>{t.time}</span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
-              </div>
-            ))}
-            <div ref={transcriptEndRef} />
-          </div>
-
-
-          {!summary && (
-            <div className="mt-3 flex gap-2">
-              <select
-                value={speaker}
-                onChange={(e) => setSpeaker(e.target.value)}
-                className="rounded-xl px-2 py-2 text-sm"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-              >
-                <option>You</option>
-                <option>Other</option>
-                <option>Speaker 2</option>
-                <option>Speaker 3</option>
-              </select>
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addLine(); }}
-                placeholder="Add a line to the transcript…"
-                className="flex-1 rounded-xl px-3 py-2 text-sm"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-              />
-              <Button size="sm" onClick={addLine} disabled={!draft.trim() || !sessionId}>
-                <Send className="w-3.5 h-3.5" />
+              <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion('ask')} disabled={!sessionId || !!promptBusy}>
+                {promptBusy === 'ask' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               </Button>
             </div>
-          )}
-        </div>
-
-        {/* SUGGESTIONS / SUMMARY */}
-        <div>
-          {!summary ? (
-            <>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-overline flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-                  COPILOT PANEL
-                  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+            <div className="space-y-2.5 max-h-[24rem] overflow-y-auto pr-1">
+              {latestSuggestions.filter((s) => (s.kind || '').toLowerCase() === 'ask').length === 0 && (
+                <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                  Listening for moments to ask a sharp follow-up. The Copilot will surface them here automatically.
                 </div>
-                <span className="text-xs" style={{ color: 'var(--text-2)' }}>
-                  {latestSuggestions.length} suggestion{latestSuggestions.length === 1 ? '' : 's'} ready
-                </span>
-              </div>
+              )}
+              {latestSuggestions.filter((s) => (s.kind || '').toLowerCase() === 'ask').map((s) => (
+                <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent="var(--c-purple)" />
+              ))}
+            </div>
+          </div>
 
-              <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-                {latestSuggestions.length === 0 && (
-                  <div className="rounded-xl p-4 text-sm flex items-start gap-2"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}>
-                    <Sparkles className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--c-purple)' }} />
-                    Suggestions will show up here from the live conversation. You can use the quick actions above at any time, even before anyone speaks.
+          {/* WHAT TO ANSWER */}
+          <div className="rounded-2xl p-4"
+            style={{ background: 'color-mix(in srgb, var(--c-green) 6%, var(--surface-2))', border: '1px solid color-mix(in srgb, var(--c-green) 25%, var(--border))' }}>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Reply className="w-4 h-4" style={{ color: 'var(--c-green)' }} />
+                <div className="text-overline" style={{ color: 'var(--text-2)' }}>WHAT TO ANSWER</div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion('answer')} disabled={!sessionId || !!promptBusy}>
+                {promptBusy === 'answer' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
+            <div className="space-y-2.5 max-h-[24rem] overflow-y-auto pr-1">
+              {latestSuggestions.filter((s) => ['answer','say','fact'].includes((s.kind || '').toLowerCase())).length === 0 && (
+                <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                  When someone asks you a question, the suggested answer pops in here. The Copilot is listening silently.
+                </div>
+              )}
+              {latestSuggestions.filter((s) => ['answer','say','fact'].includes((s.kind || '').toLowerCase())).map((s) => (
+                <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent="var(--c-green)" />
+              ))}
+            </div>
+          </div>
+
+          {/* Transcript drawer trigger */}
+          <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
+            <button onClick={() => setTranscriptOpen((v) => !v)}
+              className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+              {transcriptOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {transcriptOpen ? 'Hide live transcript' : `Show live transcript (${transcript.length})`}
+            </button>
+            {listening && heardPreview && (
+              <div className="text-xs truncate max-w-md" style={{ color: 'var(--text-2)' }}>
+                <span style={{ color: 'var(--c-purple)' }}>● Hearing:</span> {heardPreview}
+              </div>
+            )}
+          </div>
+
+          {transcriptOpen && (
+            <div className="md:col-span-2 rounded-2xl p-4"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <div className="mb-3 flex items-center gap-2">
+                <Radio className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
+                <div className="text-overline" style={{ color: 'var(--text-2)' }}>LIVE TRANSCRIPT</div>
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {micError && (
+                  <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444' }}>{micError}</div>
+                )}
+                {transcript.length === 0 && (
+                  <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
+                    Waiting for transcript lines…
                   </div>
                 )}
-                {latestSuggestions.map((s) => (
-                  <div key={s.id} className="rounded-xl p-4"
-                    style={{
-                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-purple) 18%, transparent), color-mix(in srgb, var(--c-cyan) 12%, transparent))',
-                      border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)',
-                    }}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                        style={{ background: 'var(--c-purple)', color: '#FFFFFF' }}>{s.label}</span>
-                      <button
-                        onClick={() => copySuggestion(s.content)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
-                        style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}
-                      >
-                        <Copy className="w-3 h-3" /> Copy
-                      </button>
+                {[...transcript].reverse().map((t) => (
+                  <div key={t.id} className="rounded-lg p-2.5" style={{ background: 'var(--surface)' }}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[11px] font-semibold" style={{ color: t.color }}>● {t.speaker}</span>
+                      <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>{t.time}</span>
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
                   </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <>
-              <div className="text-overline mb-3 flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-                <FileText className="w-3 h-3" /> MEETING SUMMARY
+              <div className="mt-3 flex gap-2">
+                <select
+                  value={speaker}
+                  onChange={(e) => setSpeaker(e.target.value)}
+                  className="rounded-lg px-2 py-2 text-xs"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+                >
+                  <option>You</option><option>Other</option><option>Speaker 2</option><option>Speaker 3</option>
+                </select>
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addLine(); }}
+                  placeholder="Type a line manually…"
+                  className="flex-1 rounded-lg px-3 py-2 text-xs"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+                />
+                <Button size="sm" onClick={addLine} disabled={!draft.trim() || !sessionId}>
+                  <Send className="w-3.5 h-3.5" />
+                </Button>
               </div>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                {summary.summary && (
-                  <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>OVERVIEW</div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{summary.summary}</p>
-                  </div>
-                )}
-                {Array.isArray(summary.keyDecisions) && summary.keyDecisions.length > 0 && (
-                  <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>KEY DECISIONS</div>
-                    <ul className="text-sm space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-1)' }}>
-                      {summary.keyDecisions.map((d: string, i: number) => <li key={i}>{d}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(summary.actionItems) && summary.actionItems.length > 0 && (
-                  <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>ACTION ITEMS</div>
-                    <ul className="text-sm space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-1)' }}>
-                      {summary.actionItems.map((a: string | SummaryActionItem, i: number) => (
-                        <li key={i}>{typeof a === 'string' ? a : `${a.title || a.task}${a.owner ? ` — ${a.owner}` : ''}`}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {summary.draftEmail && (
-                  <div className="rounded-xl p-4"
-                    style={{
-                      background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-cyan) 14%, transparent), color-mix(in srgb, var(--c-purple) 10%, transparent))',
-                      border: '1px solid color-mix(in srgb, var(--c-cyan) 30%, transparent)',
-                    }}>
-                    <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>FOLLOW-UP DRAFT</div>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-1)' }}>{summary.draftEmail}</p>
-                  </div>
-                )}
-              </div>
-            </>
+            </div>
           )}
         </div>
+      ) : (
+        <div>
+          <div className="text-overline mb-3 flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+            <FileText className="w-3 h-3" /> MEETING SUMMARY
+          </div>
+          <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+            {summary.summary && (
+              <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>OVERVIEW</div>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{summary.summary}</p>
+              </div>
+            )}
+            {Array.isArray(summary.keyDecisions) && summary.keyDecisions.length > 0 && (
+              <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>KEY DECISIONS</div>
+                <ul className="text-sm space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-1)' }}>
+                  {summary.keyDecisions.map((d: string, i: number) => <li key={i}>{d}</li>)}
+                </ul>
+              </div>
+            )}
+            {Array.isArray(summary.actionItems) && summary.actionItems.length > 0 && (
+              <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>ACTION ITEMS</div>
+                <ul className="text-sm space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-1)' }}>
+                  {summary.actionItems.map((a: string | SummaryActionItem, i: number) => (
+                    <li key={i}>{typeof a === 'string' ? a : `${a.title || a.task}${a.owner ? ` — ${a.owner}` : ''}`}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {summary.draftEmail && (
+              <div className="rounded-xl p-4"
+                style={{
+                  background: 'linear-gradient(135deg, color-mix(in srgb, var(--c-cyan) 14%, transparent), color-mix(in srgb, var(--c-purple) 10%, transparent))',
+                  border: '1px solid color-mix(in srgb, var(--c-cyan) 30%, transparent)',
+                }}>
+                <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>FOLLOW-UP DRAFT</div>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-1)' }}>{summary.draftEmail}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SuggestionCard({ s, onCopy, accent }: { s: { id: string; label: string; content: string }; onCopy: () => void; accent: string }) {
+  return (
+    <div className="rounded-xl p-3"
+      style={{
+        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 14%, transparent), color-mix(in srgb, ${accent} 4%, transparent))`,
+        border: `1px solid color-mix(in srgb, ${accent} 28%, transparent)`,
+      }}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+          style={{ background: accent, color: '#fff' }}>{s.label}</span>
+        <button onClick={onCopy} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]"
+          style={{ background: 'color-mix(in srgb, var(--background) 75%, transparent)', color: 'var(--text-1)' }}>
+          <Copy className="w-3 h-3" /> Copy
+        </button>
       </div>
+      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.content}</p>
     </div>
   );
 }

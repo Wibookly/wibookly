@@ -1,17 +1,20 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, Calendar, Clock, Users, CheckCircle, Mic, Play,
   Headphones, ExternalLink, Settings as SettingsIcon, Zap,
-  MessageSquare, Target,
+  MessageSquare, Target, FileText, Download, Mail, ChevronDown, ChevronUp,
+  Bell, Volume2, Keyboard, User as UserIcon,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
 import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
-import { ProfileContextCard } from '@/components/app/ProfileContextCard';
+import { Link } from 'react-router-dom';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
@@ -20,7 +23,18 @@ interface CopilotSettings {
   show_live_suggestions: boolean;
   auto_draft_followup: boolean;
   suggestion_style: SuggestionStyle;
+  notify_scheduled: boolean;
+  notify_detected: boolean;
+  microphone_device_id: string | null;
+  shortcuts: Record<string, string>;
 }
+
+const DEFAULT_SHORTCUTS: Record<string, string> = {
+  ask: 'Ctrl+Shift+A',
+  answer: 'Ctrl+Shift+R',
+  say: 'Ctrl+Shift+S',
+  end: 'Ctrl+Shift+E',
+};
 
 // Note: per-user identity (role, responsibilities, communication style) is
 // now centralized in `user_profiles` and rendered by <ProfileContextCard />.
@@ -41,6 +55,7 @@ type UpcomingMeeting = {
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const liveRefreshTimerRef = useRef<number | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
@@ -48,7 +63,13 @@ export default function MeetingCopilot() {
     show_live_suggestions: true,
     auto_draft_followup: true,
     suggestion_style: 'concise',
+    notify_scheduled: true,
+    notify_detected: true,
+    microphone_device_id: null,
+    shortcuts: DEFAULT_SHORTCUTS,
   });
+  const [behaviorOpen, setBehaviorOpen] = useState(false);
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [perMeeting, setPerMeeting] = useState<Record<string, boolean>>({});
   const [upcoming, setUpcoming] = useState<UpcomingMeeting[]>([]);
   const [calendarStatus, setCalendarStatus] = useState<
@@ -56,7 +77,7 @@ export default function MeetingCopilot() {
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
-  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
+  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
   // Load recent (completed) sessions
@@ -65,18 +86,18 @@ export default function MeetingCopilot() {
     (async () => {
       const { data: sessions } = await supabase
         .from('meeting_sessions')
-        .select('id, meeting_title, started_at, ended_at, duration_seconds')
+        .select('id, meeting_title, started_at, ended_at, duration_seconds, summary, followup_subject')
         .eq('user_id', user.id)
         .in('status', ['completed', 'ended'])
         .order('started_at', { ascending: false })
         .limit(8);
-      if (!sessions?.length) return;
+      if (!sessions?.length) { setRecent([]); return; }
       const ids = sessions.map((s) => s.id);
       const { data: items } = await supabase
         .from('meeting_action_items')
         .select('session_id')
         .in('session_id', ids);
-      const counts = (items || []).reduce<Record<string, number>>((acc, r: any) => {
+      const counts = (items || []).reduce<Record<string, number>>((acc, r: { session_id: string }) => {
         acc[r.session_id] = (acc[r.session_id] || 0) + 1; return acc;
       }, {});
       setRecent(sessions.map((s) => {
@@ -93,12 +114,14 @@ export default function MeetingCopilot() {
           when,
           duration: mins ? `${mins} min` : '—',
           actions: counts[s.id] || 0,
+          summary: (s.summary as string | null) || null,
+          hasFollowup: !!s.followup_subject,
         };
       }));
     })();
   }, [user, openSession]);
 
-  // Load copilot settings (profile is handled by <ProfileContextCard />)
+  // Load copilot settings
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -109,9 +132,26 @@ export default function MeetingCopilot() {
         show_live_suggestions: s.show_live_suggestions,
         auto_draft_followup: s.auto_draft_followup,
         suggestion_style: s.suggestion_style as SuggestionStyle,
+        notify_scheduled: (s as any).notify_scheduled ?? true,
+        notify_detected: (s as any).notify_detected ?? true,
+        microphone_device_id: (s as any).microphone_device_id ?? null,
+        shortcuts: { ...DEFAULT_SHORTCUTS, ...((s as any).shortcuts || {}) },
       });
     })();
   }, [user]);
+
+  // Enumerate microphones (label only available after a getUserMedia grant)
+  useEffect(() => {
+    const list = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setMicDevices(devices.filter((d) => d.kind === 'audioinput'));
+      } catch { /* ignore */ }
+    };
+    void list();
+    navigator.mediaDevices?.addEventListener?.('devicechange', list);
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', list);
+  }, []);
 
   const loadUpcomingMeetings = useCallback(async () => {
     if (!user) return;
@@ -194,21 +234,19 @@ export default function MeetingCopilot() {
   }, [user, loadUpcomingMeetings]);
 
   const handleOpenSession = (meeting: UpcomingMeeting) => {
-    if (!meeting.isLive && meeting.joinUrl) {
-      window.open(meeting.joinUrl, '_blank', 'noopener,noreferrer');
+    // Live meeting → open Copilot inline (anchor + scroll).
+    if (meeting.isLive) {
+      setOpenSession({ id: meeting.id, title: meeting.title });
+      window.requestAnimationFrame(() => {
+        setTimeout(() => {
+          liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+      });
+      toast.success(`Copilot opened for ${meeting.title}`);
+      return;
     }
-    setOpenSession({ id: meeting.id, title: meeting.title });
-    if (!meeting.isLive) {
-      void loadUpcomingMeetings();
-    }
-    window.requestAnimationFrame(() => {
-      setTimeout(() => {
-        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 60);
-    });
-    toast.success(meeting.isLive
-      ? `Copilot opened for ${meeting.title}`
-      : `Copilot is ready for ${meeting.title}. Test your mic before the meeting starts.`);
+    // Upcoming meeting → navigate to dedicated prep page.
+    navigate(`/meeting-copilot/prep/${encodeURIComponent(meeting.id)}`, { state: { title: meeting.title } });
   };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
@@ -351,52 +389,159 @@ export default function MeetingCopilot() {
         ))}
       </div>
 
-      {/* AI PROFILE — centralized from Settings → Profile */}
-      <ProfileContextCard surface="meeting_copilot" />
+      {/* PROFILE LINK — replaces the old large profile card. The Copilot reads
+          everything from Settings → My Profile & Signature. */}
+      <div className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 text-sm"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: 'color-mix(in srgb, var(--c-purple) 14%, transparent)' }}>
+          <UserIcon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
+        </div>
+        <span>
+          Copilot uses your profile, role, and tone from{' '}
+          <Link to="/settings" className="font-semibold underline" style={{ color: 'var(--c-purple)' }}>
+            My Profile &amp; Signature
+          </Link>{' '}
+          — plus each meeting's subject, body, attachments and prior emails.
+        </span>
+      </div>
 
-      {/* COPILOT BEHAVIOR */}
-      <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-2 mb-5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--c-purple) 18%, transparent)' }}>
+      {/* COPILOT BEHAVIOR — collapsible */}
+      <div className="rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          onClick={() => setBehaviorOpen((v) => !v)}
+          className="w-full flex items-center gap-3 p-5 text-left"
+          aria-expanded={behaviorOpen}
+        >
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--c-purple) 18%, transparent)' }}>
             <SettingsIcon className="w-4 h-4" style={{ color: 'var(--c-purple)' }} />
           </div>
-          <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Copilot Behavior</h3>
-        </div>
-
-        <ToggleRow
-          title="Auto-join all my meetings"
-          desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
-          checked={settings.auto_join_all}
-          onChange={(v) => updateSettings({ auto_join_all: v })}
-        />
-        <ToggleRow
-          title="Live suggestions during the call"
-          desc='Show "what to say" and "follow-up questions" in real time. No audio is ever stored.'
-          checked={settings.show_live_suggestions}
-          onChange={(v) => updateSettings({ show_live_suggestions: v })}
-        />
-        <ToggleRow
-          title="Auto-draft follow-up email after each call"
-          desc="Generate a summary and action items, push as a draft into Outlook (review before sending)."
-          checked={settings.auto_draft_followup}
-          onChange={(v) => updateSettings({ auto_draft_followup: v })}
-        />
-
-        <div className="pt-5 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-          <div className="mb-3">
-            <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Suggestion style</div>
-            <div className="text-caption" style={{ color: 'var(--text-2)' }}>How the Copilot phrases live suggestions</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Copilot Behavior</h3>
+            <div className="text-caption mt-0.5" style={{ color: 'var(--text-2)' }}>
+              Auto-join {settings.auto_join_all ? 'ON' : 'OFF'} · {settings.suggestion_style[0].toUpperCase() + settings.suggestion_style.slice(1)} · Auto-draft {settings.auto_draft_followup ? 'ON' : 'OFF'} · Notifications {settings.notify_scheduled || settings.notify_detected ? 'ON' : 'OFF'}
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <StyleCard Icon={Zap} title="Concise" desc="Short bullet points. Best for quick reference during fast conversations."
-              active={settings.suggestion_style === 'concise'} onClick={() => updateSettings({ suggestion_style: 'concise' })} />
-            <StyleCard Icon={MessageSquare} title="Conversational" desc="Full sentences ready to say. Best for tough discussions and sales calls."
-              active={settings.suggestion_style === 'conversational'} onClick={() => updateSettings({ suggestion_style: 'conversational' })} />
-            <StyleCard Icon={Target} title="Strategic" desc="Surfaces angles, risks, opportunities. Best for executive meetings."
-              active={settings.suggestion_style === 'strategic'} onClick={() => updateSettings({ suggestion_style: 'strategic' })} />
+          {behaviorOpen ? <ChevronUp className="w-5 h-5" style={{ color: 'var(--text-2)' }} /> : <ChevronDown className="w-5 h-5" style={{ color: 'var(--text-2)' }} />}
+        </button>
+
+        {behaviorOpen && (
+          <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--border)' }}>
+            <ToggleRow
+              title="Auto-join all my meetings"
+              desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
+              checked={settings.auto_join_all}
+              onChange={(v) => updateSettings({ auto_join_all: v })}
+            />
+            <ToggleRow
+              title="Live suggestions during the call"
+              desc='Show "what to say" and "follow-up questions" in real time. No audio is ever stored.'
+              checked={settings.show_live_suggestions}
+              onChange={(v) => updateSettings({ show_live_suggestions: v })}
+            />
+            <ToggleRow
+              title="Auto-draft follow-up email after each call"
+              desc="Generate a summary and action items, then save them as a draft in your inbox under the 0. AI Draft follow-up category in Outlook — always review before sending."
+              checked={settings.auto_draft_followup}
+              onChange={(v) => updateSettings({ auto_draft_followup: v })}
+            />
+
+            {/* Suggestion style */}
+            <div className="pt-5 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="mb-3">
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Suggestion style</div>
+                <div className="text-caption" style={{ color: 'var(--text-2)' }}>Default tone for live suggestions. Override per meeting below.</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <StyleCard Icon={Zap} title="Concise" desc="Short bullet points. Best for quick reference during fast conversations."
+                  active={settings.suggestion_style === 'concise'} onClick={() => updateSettings({ suggestion_style: 'concise' })} />
+                <StyleCard Icon={MessageSquare} title="Conversational" desc="Full sentences ready to say. Best for tough discussions and sales calls."
+                  active={settings.suggestion_style === 'conversational'} onClick={() => updateSettings({ suggestion_style: 'conversational' })} />
+                <StyleCard Icon={Target} title="Strategic" desc="Surfaces angles, risks, opportunities. Best for executive meetings."
+                  active={settings.suggestion_style === 'strategic'} onClick={() => updateSettings({ suggestion_style: 'strategic' })} />
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Bell className="w-4 h-4" style={{ color: 'var(--c-cyan)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Notifications</div>
+              </div>
+              <ToggleRow
+                title="Scheduled meetings"
+                desc="Show a heads-up 1 minute before each meeting based on your calendar."
+                checked={settings.notify_scheduled}
+                onChange={(v) => updateSettings({ notify_scheduled: v })}
+              />
+              <ToggleRow
+                title="Auto-detected meetings"
+                desc="Notify me when a call is detected (Teams, Zoom, Meet) that's not on my calendar."
+                checked={settings.notify_detected}
+                onChange={(v) => updateSettings({ notify_detected: v })}
+              />
+            </div>
+
+            {/* Audio settings */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 className="w-4 h-4" style={{ color: 'var(--c-green)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Audio settings</div>
+              </div>
+              <div className="text-caption mb-3" style={{ color: 'var(--text-2)' }}>
+                Pick which microphone Copilot should use. The live mic test (with waveform) is built into the meeting window itself — open any meeting and expand "Audio setup".
+              </div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-2)' }}>Microphone source</label>
+              <select
+                value={settings.microphone_device_id || ''}
+                onChange={(e) => updateSettings({ microphone_device_id: e.target.value || null })}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+              >
+                <option value="">System default</option>
+                {micDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Microphone ${d.deviceId.slice(0, 6)}`}
+                  </option>
+                ))}
+              </select>
+              {micDevices.every((d) => !d.label) && (
+                <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-2)' }}>
+                  Device names appear after you grant microphone access once.
+                </div>
+              )}
+            </div>
+
+            {/* Shortcuts */}
+            <div className="pt-5 mt-5 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Keyboard className="w-4 h-4" style={{ color: 'var(--c-orange)' }} />
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Shortcuts</div>
+              </div>
+              <div className="text-caption mb-3" style={{ color: 'var(--text-2)' }}>
+                Fire Copilot actions during a live session without touching the mouse. Active only while the meeting window is focused.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(['answer','ask','say','end'] as const).map((key) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <label className="text-xs font-semibold w-24 shrink-0" style={{ color: 'var(--text-2)' }}>
+                      {key === 'answer' ? 'Quick answer' : key === 'ask' ? 'What to ask' : key === 'say' ? 'What to say' : 'End session'}
+                    </label>
+                    <Input
+                      value={settings.shortcuts[key] || ''}
+                      onChange={(e) => updateSettings({ shortcuts: { ...settings.shortcuts, [key]: e.target.value } })}
+                      placeholder="Ctrl+Shift+A"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
 
       {/* UPCOMING + RECENT */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -479,22 +624,47 @@ export default function MeetingCopilot() {
               </div>
             )}
             {recent.map((s) => (
-              <button key={s.id} onClick={() => setViewSession({ id: s.id, title: s.title })}
-                className="w-full text-left rounded-xl p-4 flex items-center gap-3 transition-colors hover:opacity-90"
+              <div key={s.id}
+                className="rounded-xl p-4 transition-colors"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
-                  <CheckCircle className="w-4 h-4 text-white" />
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
+                    {s.summary && (
+                      <p className="text-xs leading-relaxed line-clamp-2 mb-3" style={{ color: 'var(--text-2)' }}>{s.summary}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] px-2 py-0.5 rounded-md"
+                        style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
+                        {s.actions} action{s.actions === 1 ? '' : 's'}
+                      </span>
+                      {s.hasFollowup && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1"
+                          style={{ background: 'color-mix(in srgb, var(--c-orange) 14%, transparent)', color: 'var(--c-orange)' }}>
+                          <Mail className="w-3 h-3" /> Follow-up
+                        </span>
+                      )}
+                      <div className="ml-auto flex gap-1.5">
+                        <button onClick={() => setViewSession({ id: s.id, title: s.title })}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-medium hover:opacity-80"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}>
+                          <FileText className="w-3 h-3" /> Quick view
+                        </button>
+                        <button onClick={() => navigate(`/meeting-copilot/sessions/${s.id}`)}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-semibold hover:opacity-90"
+                          style={{ background: 'var(--c-purple)', color: '#fff' }}>
+                          <ExternalLink className="w-3 h-3" /> Open recap
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
-                </div>
-                <div className="text-xs px-2 py-1 rounded-md shrink-0"
-                  style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
-                  {s.actions} actions
-                </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
