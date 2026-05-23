@@ -234,21 +234,19 @@ export default function MeetingCopilot() {
   }, [user, loadUpcomingMeetings]);
 
   const handleOpenSession = (meeting: UpcomingMeeting) => {
-    if (!meeting.isLive && meeting.joinUrl) {
-      window.open(meeting.joinUrl, '_blank', 'noopener,noreferrer');
+    // Live meeting → open Copilot inline (anchor + scroll).
+    if (meeting.isLive) {
+      setOpenSession({ id: meeting.id, title: meeting.title });
+      window.requestAnimationFrame(() => {
+        setTimeout(() => {
+          liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+      });
+      toast.success(`Copilot opened for ${meeting.title}`);
+      return;
     }
-    setOpenSession({ id: meeting.id, title: meeting.title });
-    if (!meeting.isLive) {
-      void loadUpcomingMeetings();
-    }
-    window.requestAnimationFrame(() => {
-      setTimeout(() => {
-        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 60);
-    });
-    toast.success(meeting.isLive
-      ? `Copilot opened for ${meeting.title}`
-      : `Copilot is ready for ${meeting.title}. Test your mic before the meeting starts.`);
+    // Upcoming meeting → navigate to dedicated prep page.
+    navigate(`/meeting-copilot/prep/${encodeURIComponent(meeting.id)}`, { state: { title: meeting.title } });
   };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
