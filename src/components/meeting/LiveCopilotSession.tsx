@@ -29,6 +29,43 @@ interface Suggestion {
   kind?: string;
 }
 
+interface RealtimeTranscriptRow {
+  id: string;
+  speaker: string | null;
+  text: string;
+  spoken_at: string | null;
+  created_at: string | null;
+}
+
+interface RealtimeSuggestionRow {
+  id: string;
+  suggestion_type: string | null;
+  type?: string | null;
+  content: string | null;
+  text?: string | null;
+}
+
+interface SuggestionResponse {
+  id?: string;
+  type?: string;
+  kind?: string;
+  content?: string;
+  text?: string;
+}
+
+interface SummaryActionItem {
+  title?: string;
+  task?: string;
+  owner?: string;
+}
+
+interface MeetingSummary {
+  summary?: string;
+  keyDecisions?: string[];
+  actionItems?: Array<string | SummaryActionItem>;
+  draftEmail?: string;
+}
+
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
 
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
@@ -42,7 +79,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [speaker, setSpeaker] = useState('Other');
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
-  const [summary, setSummary] = useState<any>(null);
+  const [summary, setSummary] = useState<MeetingSummary | null>(null);
   const [activeTab, setActiveTab] = useState<'suggestions' | 'transcript'>('suggestions');
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -87,7 +124,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         event: 'INSERT', schema: 'public', table: 'meeting_transcripts',
         filter: `session_id=eq.${sessionId}`,
       }, (payload) => {
-        const r: any = payload.new;
+        const r = payload.new as RealtimeTranscriptRow;
         setTranscript((cur) => {
           if (cur.some((l) => l.id === r.id)) return cur;
           const d = new Date(r.spoken_at || r.created_at);
@@ -102,7 +139,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         event: 'INSERT', schema: 'public', table: 'meeting_suggestions',
         filter: `session_id=eq.${sessionId}`,
       }, (payload) => {
-        const r: any = payload.new;
+        const r = payload.new as RealtimeSuggestionRow;
         setSuggestions((cur) => {
           if (cur.some((s) => s.id === r.id)) return cur;
           return [{
@@ -177,9 +214,9 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         body: { sessionId },
       });
       if (error) throw error;
-      setSummary(data);
+      setSummary((data ?? null) as MeetingSummary | null);
       toast.success('Session ended — summary ready');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       toast.error('Could not generate summary');
     } finally {
@@ -210,7 +247,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       });
       if (error) throw error;
 
-      const mapped: Suggestion[] = (data?.suggestions || []).map((s: any) => ({
+      const mapped: Suggestion[] = ((data?.suggestions || []) as SuggestionResponse[]).map((s) => ({
         id: String(s.id || ''),
         label: (s.type || mode).toUpperCase(),
         content: s.content || s.text || '',
