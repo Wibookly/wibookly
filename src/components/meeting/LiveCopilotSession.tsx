@@ -496,7 +496,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
                   <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)' }}>
                     <div className="text-overline mb-1.5" style={{ color: 'var(--text-2)' }}>ACTION ITEMS</div>
                     <ul className="text-sm space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-1)' }}>
-                      {summary.actionItems.map((a: any, i: number) => (
+                      {summary.actionItems.map((a: string | SummaryActionItem, i: number) => (
                         <li key={i}>{typeof a === 'string' ? a : `${a.title || a.task}${a.owner ? ` — ${a.owner}` : ''}`}</li>
                       ))}
                     </ul>
