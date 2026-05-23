@@ -84,6 +84,18 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
+  // In-browser mic listening (works without the Chrome extension)
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const shouldListenRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  const lastInsertRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
+
   const transcriptContext = useMemo(
     () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
     [transcript],
