@@ -43,12 +43,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const requestedTimezone = typeof body?.timezone === 'string' && body.timezone.trim()
+      ? body.timezone.trim()
+      : 'UTC';
+
     const start = new Date().toISOString();
     const end = new Date(Date.now() + 7 * 86400000).toISOString();
     const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=id,subject,start,end,attendees,onlineMeeting,location&$orderby=start/dateTime&$top=25`;
 
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' },
+      headers: { Authorization: `Bearer ${token}`, Prefer: `outlook.timezone="${requestedTimezone}"` },
     });
 
     if (!res.ok) {
@@ -68,8 +73,8 @@ Deno.serve(async (req) => {
 
     const now = Date.now();
     const meetings = (data.value || []).map((ev: any) => {
-      const startMs = new Date(ev.start.dateTime + 'Z').getTime();
-      const endMs = new Date(ev.end.dateTime + 'Z').getTime();
+      const startMs = new Date(ev.start.dateTime).getTime();
+      const endMs = new Date(ev.end.dateTime).getTime();
       const isLive = now >= startMs && now <= endMs;
       const minutes = Math.round((endMs - startMs) / 60000);
       return {
