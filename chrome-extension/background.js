@@ -12,6 +12,26 @@ async function ensureOffscreen() {
   });
 }
 
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
+  (async () => {
+    if (msg?.type !== "EXT_SET_SESSION" || !msg?.session?.access_token) {
+      return sendResponse({ ok: false, reason: "invalid_message" });
+    }
+
+    try {
+      await chrome.storage.local.set({
+        iq_token: msg.session.access_token,
+        iq_session: msg.session,
+      });
+      sendResponse({ ok: true });
+    } catch (e) {
+      sendResponse({ ok: false, reason: e?.message || "storage_failed" });
+    }
+  })();
+
+  return true;
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     if (msg?.type === "IQ_START_CAPTURE") {
