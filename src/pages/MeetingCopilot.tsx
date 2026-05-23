@@ -47,6 +47,7 @@ type UpcomingMeeting = {
   period: string;
   platform: 'teams' | 'zoom' | 'meet';
   attendees: number;
+  attendeeNames: string[];
   duration: string;
   isLive: boolean;
   joinUrl?: string | null;
