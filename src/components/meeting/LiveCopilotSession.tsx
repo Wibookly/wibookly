@@ -86,6 +86,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
+  const [focusedSuggestions, setFocusedSuggestions] = useState<Partial<Record<CopilotPromptMode, Suggestion>>>({});
+  const [autoDraftFollowup, setAutoDraftFollowup] = useState(true);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   // In-browser mic listening (works without the Chrome extension)
@@ -118,9 +120,31 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const previewTimerRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number>(0);
   const watchdogRef = useRef<number | null>(null);
+  const transcriptFlushTimerRef = useRef<number | null>(null);
+  const transcriptBufferRef = useRef('');
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('meeting_copilot_settings')
+        .select('auto_draft_followup')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!cancelled && data) {
+        setAutoDraftFollowup(data.auto_draft_followup ?? true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const transcriptContext = useMemo(
     () => transcript.slice(-10).map((line) => `${line.speaker}: ${line.text}`).join('\n'),
