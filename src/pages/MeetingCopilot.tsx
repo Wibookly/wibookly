@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, Calendar, Clock, Users, CheckCircle, Mic, Play,
   Headphones, ExternalLink, Settings as SettingsIcon, Zap,
-  MessageSquare, Target,
+  MessageSquare, Target, FileText, Download, Mail,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ type UpcomingMeeting = {
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const liveRefreshTimerRef = useRef<number | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
@@ -56,7 +58,7 @@ export default function MeetingCopilot() {
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{ id: string; title: string } | null>(null);
-  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number }>>([]);
+  const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
   // Load recent (completed) sessions
@@ -65,18 +67,18 @@ export default function MeetingCopilot() {
     (async () => {
       const { data: sessions } = await supabase
         .from('meeting_sessions')
-        .select('id, meeting_title, started_at, ended_at, duration_seconds')
+        .select('id, meeting_title, started_at, ended_at, duration_seconds, summary, followup_subject')
         .eq('user_id', user.id)
         .in('status', ['completed', 'ended'])
         .order('started_at', { ascending: false })
         .limit(8);
-      if (!sessions?.length) return;
+      if (!sessions?.length) { setRecent([]); return; }
       const ids = sessions.map((s) => s.id);
       const { data: items } = await supabase
         .from('meeting_action_items')
         .select('session_id')
         .in('session_id', ids);
-      const counts = (items || []).reduce<Record<string, number>>((acc, r: any) => {
+      const counts = (items || []).reduce<Record<string, number>>((acc, r: { session_id: string }) => {
         acc[r.session_id] = (acc[r.session_id] || 0) + 1; return acc;
       }, {});
       setRecent(sessions.map((s) => {
@@ -93,6 +95,8 @@ export default function MeetingCopilot() {
           when,
           duration: mins ? `${mins} min` : '—',
           actions: counts[s.id] || 0,
+          summary: (s.summary as string | null) || null,
+          hasFollowup: !!s.followup_subject,
         };
       }));
     })();
@@ -479,22 +483,47 @@ export default function MeetingCopilot() {
               </div>
             )}
             {recent.map((s) => (
-              <button key={s.id} onClick={() => setViewSession({ id: s.id, title: s.title })}
-                className="w-full text-left rounded-xl p-4 flex items-center gap-3 transition-colors hover:opacity-90"
+              <div key={s.id}
+                className="rounded-xl p-4 transition-colors"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
-                  <CheckCircle className="w-4 h-4 text-white" />
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #22C55E, #06B6D4)' }}>
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
+                    {s.summary && (
+                      <p className="text-xs leading-relaxed line-clamp-2 mb-3" style={{ color: 'var(--text-2)' }}>{s.summary}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] px-2 py-0.5 rounded-md"
+                        style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
+                        {s.actions} action{s.actions === 1 ? '' : 's'}
+                      </span>
+                      {s.hasFollowup && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md inline-flex items-center gap-1"
+                          style={{ background: 'color-mix(in srgb, var(--c-orange) 14%, transparent)', color: 'var(--c-orange)' }}>
+                          <Mail className="w-3 h-3" /> Follow-up
+                        </span>
+                      )}
+                      <div className="ml-auto flex gap-1.5">
+                        <button onClick={() => setViewSession({ id: s.id, title: s.title })}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-medium hover:opacity-80"
+                          style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}>
+                          <FileText className="w-3 h-3" /> Quick view
+                        </button>
+                        <button onClick={() => navigate(`/meeting-copilot/sessions/${s.id}`)}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md font-semibold hover:opacity-90"
+                          style={{ background: 'var(--c-purple)', color: '#fff' }}>
+                          <ExternalLink className="w-3 h-3" /> Open recap
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.title}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-2)' }}>{s.when} · {s.duration}</div>
-                </div>
-                <div className="text-xs px-2 py-1 rounded-md shrink-0"
-                  style={{ background: 'color-mix(in srgb, var(--c-green) 14%, transparent)', color: 'var(--c-green)' }}>
-                  {s.actions} actions
-                </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
