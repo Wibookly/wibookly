@@ -115,6 +115,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
   const speakerAnalyserRef = useRef<AnalyserNode | null>(null);
   const previewTimerRef = useRef<number | null>(null);
+  const lastSpeechAtRef = useRef<number>(0);
+  const watchdogRef = useRef<number | null>(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
