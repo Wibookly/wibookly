@@ -656,8 +656,8 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   };
 
   const requestFocusedSuggestion = async (mode: CopilotPromptMode) => {
-    if (!sessionId || !suggestionContext.trim()) {
-      toast.info('Say something, test the mic, or type a transcript line first so Copilot has context.');
+    if (!sessionId) {
+      toast.info('Session is still starting — try again in a second.');
       return;
     }
 
@@ -672,7 +672,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-suggestion', {
         body: {
           sessionId,
-            recentTranscript: suggestionContext,
+          recentTranscript: suggestionContext.trim() || `Meeting title: ${meeting.title}`,
           intent: mode,
         },
       });
