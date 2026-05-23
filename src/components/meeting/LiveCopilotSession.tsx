@@ -90,12 +90,14 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [micReady, setMicReady] = useState(false);
   const [micCheckBusy, setMicCheckBusy] = useState(false);
   const [micCheckMessage, setMicCheckMessage] = useState<string | null>(null);
+  const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
   const lastInsertRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+  const extensionPollRef = useRef<number | null>(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
@@ -234,6 +236,62 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript.length]);
+
+  useEffect(() => {
+    const checkExtensionCapture = async () => {
+      try {
+        const w = window as Window & {
+          chrome?: {
+            runtime?: {
+              sendMessage?: (id: string, message: unknown, callback?: (response: unknown) => void) => void;
+            };
+          };
+        };
+
+        if (!w.chrome?.runtime?.sendMessage) {
+          setExtensionCaptureState('missing');
+          return;
+        }
+
+        const extensionId = new URLSearchParams(window.location.search).get('ext_id') || null;
+        if (!extensionId) {
+          setExtensionCaptureState((current) => (current === 'active' ? current : 'available'));
+          return;
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          w.chrome!.runtime!.sendMessage(
+            extensionId,
+            { type: 'IQ_GET_CAPTURE_STATE' },
+            (response: unknown) => {
+              const lastError = chrome.runtime?.lastError;
+              if (lastError) {
+                reject(new Error(lastError.message));
+                return;
+              }
+              const payload = response as { active?: boolean } | undefined;
+              setExtensionCaptureState(payload?.active ? 'active' : 'available');
+              resolve();
+            },
+          );
+        });
+      } catch {
+        setExtensionCaptureState('error');
+      }
+    };
+
+    void checkExtensionCapture();
+    extensionPollRef.current = window.setInterval(() => {
+      void checkExtensionCapture();
+    }, 4000);
+
+    return () => {
+      if (extensionPollRef.current) {
+        window.clearInterval(extensionPollRef.current);
+        extensionPollRef.current = null;
+      }
+    };
+  }, []);
 
   // --- In-browser microphone capture via Web Speech API ---
   const pushHeardLine = async (text: string) => {
@@ -589,11 +647,33 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
               }}>
               {micReady ? 'Mic ready' : 'Mic not tested'}
             </span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{
+                background: extensionCaptureState === 'active'
+                  ? 'color-mix(in srgb, var(--c-green) 16%, transparent)'
+                  : 'color-mix(in srgb, var(--c-cyan) 14%, transparent)',
+                color: extensionCaptureState === 'active' ? 'var(--c-green)' : 'var(--c-cyan)',
+              }}>
+              {extensionCaptureState === 'active'
+                ? 'Tab audio live'
+                : extensionCaptureState === 'missing'
+                  ? 'Extension not detected'
+                  : extensionCaptureState === 'error'
+                    ? 'Extension check failed'
+                    : extensionCaptureState === 'checking'
+                      ? 'Checking extension'
+                      : 'Extension ready'}
+            </span>
           </div>
         </div>
         {micCheckMessage && (
           <div className="mt-3 text-xs" style={{ color: 'var(--c-green)' }}>{micCheckMessage}</div>
         )}
+        <div className="mt-3 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          {extensionCaptureState === 'active'
+            ? 'Meeting tab audio is actively streaming from the extension.'
+            : 'Your microphone test only verifies your own voice. To hear everyone in the meeting, start capture from the InboxIQ browser extension on the meeting tab.'}
+        </div>
       </div>
 
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
