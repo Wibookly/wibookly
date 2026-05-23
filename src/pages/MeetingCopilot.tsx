@@ -326,39 +326,39 @@ export default function MeetingCopilot() {
   return (
     <div className="page-shell">
       <div className="page-shell-sticky">
-      <div className="relative overflow-hidden rounded-2xl p-8 shadow-glow"
+      <div className="relative overflow-hidden rounded-2xl p-5 shadow-glow"
         style={{ background: 'var(--grad-feature)', color: '#FFFFFF' }}>
-        <div aria-hidden className="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.55) 0%, transparent 70%)', filter: 'blur(50px)' }} />
-        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-3 text-overline" style={{ opacity: 0.85 }}>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#22C55E', boxShadow: '0 0 8px #22C55E' }} />
+        <div aria-hidden className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.45) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="flex items-center gap-2 mb-1.5 text-overline" style={{ opacity: 0.85 }}>
+              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
               MEETING COPILOT · ACTIVE
             </div>
-            <h1 className="text-h2 mb-3" style={{ color: '#FFFFFF' }}>
-              Your AI meeting partner. <span style={{ color: '#A7F3D0' }}>Live and invisible.</span>
+            <h1 className="text-h4 mb-1" style={{ color: '#FFFFFF' }}>
+              Your AI meeting partner. <span style={{ color: '#A7F3D0' }}>Live & invisible.</span>
             </h1>
-            <p className="text-body-2 leading-relaxed" style={{ opacity: 0.92 }}>
-              InboxIQ listens to your meetings in real time, transcribes the conversation, and feeds you what to say next — without any bot joining the call. Other attendees never know it's there.
+            <p className="text-xs leading-relaxed" style={{ opacity: 0.88 }}>
+              Real-time transcription, suggestions, and action items — no bot joins your call.
             </p>
           </div>
-          <div className="flex flex-col gap-3 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             <button onClick={() => setPrivacyOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-transform hover:scale-[1.02]"
               style={{ background: '#FFFFFF', color: '#5B21B6' }}>
-              <Zap className="w-4 h-4" /> Try with next meeting
+              <Zap className="w-3.5 h-3.5" /> Try with next meeting
             </button>
             <button onClick={openEdgeStore}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-transform hover:scale-[1.02]"
-              style={{ background: '#0078D4', color: '#FFFFFF', boxShadow: '0 6px 24px -8px rgba(0,120,212,0.6)' }}>
-              <ExternalLink className="w-4 h-4" /> Add to Microsoft Edge
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-transform hover:scale-[1.02]"
+              style={{ background: '#0078D4', color: '#FFFFFF', boxShadow: '0 4px 16px -6px rgba(0,120,212,0.6)' }}>
+              <ExternalLink className="w-3.5 h-3.5" /> Add to Edge
             </button>
             <button onClick={() => downloadExtension('edge')}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-medium border"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border"
               style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.25)', color: '#FFFFFF' }}
               title="For testing before the Edge Add-ons listing goes live">
-              Sideload for testing (.zip)
+              Sideload (.zip)
             </button>
           </div>
         </div>
