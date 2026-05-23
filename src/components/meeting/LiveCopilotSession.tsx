@@ -243,6 +243,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
         const w = window as Window & {
           chrome?: {
             runtime?: {
+              lastError?: { message?: string };
               sendMessage?: (id: string, message: unknown, callback?: (response: unknown) => void) => void;
             };
           };
