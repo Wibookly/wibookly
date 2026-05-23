@@ -2316,6 +2316,7 @@ export type Database = {
           created_at: string
           id: string
           meeting_external_id: string
+          tone_override: string | null
           user_id: string
         }
         Insert: {
@@ -2323,6 +2324,7 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_external_id: string
+          tone_override?: string | null
           user_id: string
         }
         Update: {
@@ -2330,6 +2332,7 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_external_id?: string
+          tone_override?: string | null
           user_id?: string
         }
         Relationships: []
@@ -2340,7 +2343,11 @@ export type Database = {
           auto_join_all: boolean
           created_at: string
           id: string
+          microphone_device_id: string | null
+          notify_detected: boolean
+          notify_scheduled: boolean
           save_transcripts: boolean
+          shortcuts: Json
           show_live_suggestions: boolean
           suggestion_style: string
           transcript_retention_days: number
@@ -2352,7 +2359,11 @@ export type Database = {
           auto_join_all?: boolean
           created_at?: string
           id?: string
+          microphone_device_id?: string | null
+          notify_detected?: boolean
+          notify_scheduled?: boolean
           save_transcripts?: boolean
+          shortcuts?: Json
           show_live_suggestions?: boolean
           suggestion_style?: string
           transcript_retention_days?: number
@@ -2364,7 +2375,11 @@ export type Database = {
           auto_join_all?: boolean
           created_at?: string
           id?: string
+          microphone_device_id?: string | null
+          notify_detected?: boolean
+          notify_scheduled?: boolean
           save_transcripts?: boolean
+          shortcuts?: Json
           show_live_suggestions?: boolean
           suggestion_style?: string
           transcript_retention_days?: number
