@@ -125,6 +125,25 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     () => transcriptContext.trim() || draft.trim(),
     [draft, transcriptContext],
   );
+  const latestSuggestions = useMemo(
+    () => suggestions.filter((item) => item.kind === activeTab || activeTab === 'suggestions').slice(0, 6),
+    [activeTab, suggestions],
+  );
+  const micBars = useMemo(
+    () => Array.from({ length: MIC_VISUAL_BARS }, (_, index) => {
+      const distance = Math.abs(index - (MIC_VISUAL_BARS - 1) / 2);
+      const weight = 1 - distance / ((MIC_VISUAL_BARS - 1) / 2);
+      return Math.max(0.18, micLevel * (0.45 + weight * 0.9));
+    }),
+    [micLevel],
+  );
+  const speakerBars = useMemo(
+    () => Array.from({ length: 12 }, (_, index) => {
+      const phase = (index % 4) / 3;
+      return Math.max(0.14, speakerLevel * (0.5 + phase));
+    }),
+    [speakerLevel],
+  );
 
   // Create session on mount
   useEffect(() => {
