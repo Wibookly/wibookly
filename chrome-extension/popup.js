@@ -72,7 +72,7 @@ async function refreshState() {
   $("stop").disabled = !active;
   $("status").textContent = active
     ? `Capturing • ${iq_capture.meetingTitle || "session"}`
-    : "Idle";
+    : "Ready to capture meeting audio";
 }
 
 $("open-app").addEventListener("click", () => {
