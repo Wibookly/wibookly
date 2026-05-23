@@ -57,8 +57,9 @@ export default function Auth() {
     setEmailError('');
     setSsoLoading(true);
     try {
+      const returnTo = searchParams.get('return_to');
       const response = await supabase.functions.invoke('microsoft-sso-init', {
-        body: { email },
+        body: { email, returnTo },
       });
 
       if (response.error) throw new Error(response.error.message);
