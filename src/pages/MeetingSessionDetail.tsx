@@ -38,6 +38,33 @@ const fmtDuration = (secs: number | null) => {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 };
 
+const stripHtmlToText = (html: string) => html
+  .replace(/<\/(p|div|h1|h2|h3|h4|h5|h6|li|ul|ol)>/gi, '\n')
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/<li>/gi, '• ')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&amp;/g, '&')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+
+const groupTranscript = (items: Transcript[]) => {
+  return items.reduce<Array<Transcript & { count: number }>>((acc, item) => {
+    const speaker = item.speaker || 'Speaker';
+    const text = item.text.replace(/\s+/g, ' ').trim();
+    if (!text) return acc;
+    const last = acc[acc.length - 1];
+    if (last && last.speaker === speaker) {
+      last.text = `${last.text} ${text}`.replace(/\s+/g, ' ').trim();
+      last.spoken_at = item.spoken_at;
+      last.count += 1;
+      return acc;
+    }
+    acc.push({ ...item, speaker, text, count: 1 });
+    return acc;
+  }, []);
+};
+
 export default function MeetingSessionDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -76,6 +103,8 @@ export default function MeetingSessionDetail() {
     const a = session?.attendees;
     return Array.isArray(a) ? (a as unknown[]).map((x) => String(x)) : [];
   }, [session]);
+
+  const groupedTranscript = useMemo(() => groupTranscript(transcripts), [transcripts]);
 
   const toggleAction = async (aid: string, next: boolean) => {
     setActions((cur) => cur.map((x) => x.id === aid ? { ...x, completed: next } : x));
@@ -125,13 +154,13 @@ export default function MeetingSessionDetail() {
       if (session.followup_subject) lines.push(`**Subject:** ${session.followup_subject}`);
       if (session.followup_body_html) {
         lines.push('');
-        lines.push(session.followup_body_html.replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n'));
+        lines.push(stripHtmlToText(session.followup_body_html));
       }
       lines.push('');
     }
     if (transcripts.length) {
       lines.push('## Full Transcript');
-      transcripts.forEach((t) => lines.push(`- **${t.speaker || 'Speaker'}:** ${t.text}`));
+      groupedTranscript.forEach((t) => lines.push(`- **${t.speaker || 'Speaker'}:** ${t.text}`));
       lines.push('');
     }
     return lines.join('\n');
@@ -273,9 +302,9 @@ export default function MeetingSessionDetail() {
 
         {/* Transcript */}
         <Section icon={<FileText className="w-4 h-4" />} title={`Full Transcript (${transcripts.length})`} accent="var(--c-purple)">
-          {transcripts.length ? (
+          {groupedTranscript.length ? (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-              {transcripts.map((t) => (
+              {groupedTranscript.map((t) => (
                 <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--surface-2)' }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-semibold" style={{ color: 'var(--c-purple)' }}>● {t.speaker || 'Speaker'}</span>
