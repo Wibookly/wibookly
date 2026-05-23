@@ -76,8 +76,8 @@ export default function SessionDetailDialog({ sessionId, title, onClose }: Props
             { id: 'actions', label: `Action Items (${actions.length})`, Icon: CheckCircle },
             { id: 'transcript', label: `Transcript (${transcripts.length})`, Icon: FileText },
             { id: 'suggestions', label: `Suggestions (${suggestions.length})`, Icon: Sparkles },
-          ].map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id as any)}
+          ].map((t: { id: 'actions' | 'transcript' | 'suggestions'; label: string; Icon: typeof CheckCircle }) => (
+            <button key={t.id} onClick={() => setTab(t.id)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
               style={{
                 background: tab === t.id ? 'color-mix(in srgb, var(--c-purple) 14%, transparent)' : 'transparent',
