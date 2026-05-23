@@ -502,7 +502,7 @@ export default function MeetingCopilot() {
 
       <div ref={liveSessionAnchorRef}>
         {openSession && (
-          <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
+          <LiveCopilotSession meeting={openSession} autoStart onClose={() => setOpenSession(null)} />
         )}
       </div>
 
