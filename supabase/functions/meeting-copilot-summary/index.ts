@@ -124,6 +124,11 @@ ${fullText}`;
     await sb.from('meeting_sessions').update({
       status: 'completed',
       ended_at: session.ended_at || new Date().toISOString(),
+      summary: typeof parsed.summary === 'string' ? parsed.summary : null,
+      key_decisions: Array.isArray(parsed.key_decisions) ? parsed.key_decisions : [],
+      followup_subject: parsed.followup_email?.subject || null,
+      followup_body_html: parsed.followup_email?.body_html || null,
+      summary_generated_at: new Date().toISOString(),
     }).eq('id', sessionId);
 
     // Optionally create an Outlook draft (review before sending — never auto-send)
