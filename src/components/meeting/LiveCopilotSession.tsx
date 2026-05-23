@@ -1297,6 +1297,42 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           })()}
 
 
+          {/* Speaking now selector — always visible so the live transcript can attribute lines */}
+          <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>SPEAKING NOW</span>
+            <input
+              value={speaker}
+              onChange={(e) => setSpeaker(e.target.value)}
+              onBlur={(e) => pickSpeaker(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pickSpeaker((e.target as HTMLInputElement).value); } }}
+              placeholder="Type the speaker's name (e.g. Ali, Nikki)…"
+              className="flex-1 min-w-[180px] rounded-lg px-3 py-1.5 text-xs"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {recentSpeakers.map((name) => {
+                const active = name.toLowerCase() === speaker.trim().toLowerCase();
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => pickSpeaker(name)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: active ? 'var(--c-purple)' : 'var(--surface)',
+                      color: active ? '#fff' : 'var(--text-1)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >{name}</button>
+                );
+              })}
+            </div>
+            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+              Tip: change this whenever a different person starts talking.
+            </span>
+          </div>
+
           {/* Transcript drawer trigger */}
           <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
             <button onClick={() => setTranscriptOpen((v) => !v)}
@@ -1308,7 +1344,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             {listening && (
               <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-2)' }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--c-purple)' }} />
-                Listening…
+                Listening as <strong style={{ color: 'var(--text-1)' }}>{speaker || 'You'}</strong>…
               </span>
             )}
           </div>
