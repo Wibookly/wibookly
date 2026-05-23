@@ -24,7 +24,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, inviteToken } = await req.json();
+    const { email, inviteToken, returnTo } = await req.json();
     
     if (!email) {
       return new Response(
@@ -129,6 +129,7 @@ serve(async (req) => {
       appOrigin: req.headers.get('origin') || undefined,
       inviteToken: inviteToken || undefined,
       tenantId: tenantId || undefined,
+      returnTo: typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : undefined,
     }));
 
     const params = new URLSearchParams({
