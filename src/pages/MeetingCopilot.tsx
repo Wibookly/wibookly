@@ -136,8 +136,8 @@ export default function MeetingCopilot() {
         setCalendarStatus({ state: 'connected', count: list.length });
         if (list.length === 0) { setUpcoming([]); return; }
         const fmt = (date: Date) => {
-          let h = d.getHours();
-          const m = d.getMinutes();
+          let h = date.getHours();
+          const m = date.getMinutes();
           const period = h >= 12 ? 'PM' : 'AM';
           h = h % 12 || 12;
           return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
