@@ -11,6 +11,12 @@
     "https://*.webex.com/*",
     "https://inboxiq.energyforward.com/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://inboxiq.energyforward.com/*",
+      "https://*.lovable.app/*"
+    ]
+  },
   "action": {
     "default_title": "InboxIQ Meeting Copilot",
     "default_popup": "popup.html",
