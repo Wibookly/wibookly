@@ -75,7 +75,7 @@ type CopilotPromptMode = 'answer' | 'ask' | 'say';
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
-export default function LiveCopilotSession({ meeting, onClose }: Props) {
+export default function LiveCopilotSession({ meeting, onClose, autoStart = false }: Props) {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
