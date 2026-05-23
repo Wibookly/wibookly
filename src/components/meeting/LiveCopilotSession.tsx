@@ -199,7 +199,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       if (data?.suggestions?.length) {
         setActiveTab('suggestions');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('suggestion error', e);
     } finally {
       setBusy(false);
