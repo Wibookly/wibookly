@@ -5,14 +5,16 @@ import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, Calendar, Clock, Users, CheckCircle, Mic, Play,
   Headphones, ExternalLink, Settings as SettingsIcon, Zap,
-  MessageSquare, Target, FileText, Download, Mail,
+  MessageSquare, Target, FileText, Download, Mail, ChevronDown, ChevronUp,
+  Bell, Volume2, Keyboard, User as UserIcon,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
 import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
-import { ProfileContextCard } from '@/components/app/ProfileContextCard';
+import { Link } from 'react-router-dom';
 
 type SuggestionStyle = 'concise' | 'conversational' | 'strategic';
 
@@ -21,7 +23,18 @@ interface CopilotSettings {
   show_live_suggestions: boolean;
   auto_draft_followup: boolean;
   suggestion_style: SuggestionStyle;
+  notify_scheduled: boolean;
+  notify_detected: boolean;
+  microphone_device_id: string | null;
+  shortcuts: Record<string, string>;
 }
+
+const DEFAULT_SHORTCUTS: Record<string, string> = {
+  ask: 'Ctrl+Shift+A',
+  answer: 'Ctrl+Shift+R',
+  say: 'Ctrl+Shift+S',
+  end: 'Ctrl+Shift+E',
+};
 
 // Note: per-user identity (role, responsibilities, communication style) is
 // now centralized in `user_profiles` and rendered by <ProfileContextCard />.
