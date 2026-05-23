@@ -88,6 +88,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/meeting-copilot" element={<MeetingCopilot />} />
+                  <Route path="/meeting-copilot/sessions/:id" element={<MeetingSessionDetail />} />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
