@@ -334,6 +334,88 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (listening) {
+      setReadyState('listening');
+      return;
+    }
+    if (micReady || extensionCaptureState === 'active' || extensionCaptureState === 'available') {
+      setReadyState('ready');
+      return;
+    }
+    setReadyState('preflight');
+  }, [extensionCaptureState, listening, micReady]);
+
+  const stopAudioMeters = () => {
+    if (analyserFrameRef.current !== null) {
+      cancelAnimationFrame(analyserFrameRef.current);
+      analyserFrameRef.current = null;
+    }
+    try {
+      audioContextRef.current?.close();
+    } catch {
+      // ignore
+    }
+    audioContextRef.current = null;
+    micAnalyserRef.current = null;
+    speakerAnalyserRef.current = null;
+    setMicLevel(0);
+    setSpeakerLevel(0);
+  };
+
+  const sampleAnalyserLevel = (analyser: AnalyserNode | null) => {
+    if (!analyser) return 0;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / Math.max(1, data.length);
+    return Math.min(1, average / 128);
+  };
+
+  const startAudioMeters = async (stream: MediaStream) => {
+    stopAudioMeters();
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const context = new AudioCtx();
+    audioContextRef.current = context;
+    const micSource = context.createMediaStreamSource(stream);
+    const micAnalyser = context.createAnalyser();
+    micAnalyser.fftSize = 256;
+    micSource.connect(micAnalyser);
+    micAnalyserRef.current = micAnalyser;
+
+    const speakerAnalyser = context.createAnalyser();
+    speakerAnalyser.fftSize = 256;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 220;
+    gain.gain.value = 0.0001;
+    oscillator.connect(gain);
+    gain.connect(speakerAnalyser);
+    gain.connect(context.destination);
+    oscillator.start();
+    speakerAnalyserRef.current = speakerAnalyser;
+
+    const animate = () => {
+      setMicLevel(sampleAnalyserLevel(micAnalyserRef.current));
+      setSpeakerLevel((current) => {
+        const next = sampleAnalyserLevel(speakerAnalyserRef.current);
+        return next > 0.02 ? next : Math.max(0.08, current * 0.85);
+      });
+      analyserFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+    window.setTimeout(() => {
+      try {
+        oscillator.stop();
+      } catch {
+        // ignore
+      }
+    }, 900);
+  };
+
   // --- In-browser microphone capture via Web Speech API ---
   const pushHeardLine = async (text: string) => {
     const sid = sessionIdRef.current;
