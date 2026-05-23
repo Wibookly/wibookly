@@ -431,10 +431,10 @@ export default function MeetingCopilot() {
                 No upcoming meetings to show. Once your calendar has events in the next 7 days they'll appear here automatically.
               </div>
             )}
-            {upcoming.map((m) => (
+              {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
                 onToggle={(v) => toggleMeeting(m.id, v)}
-                onOpen={() => setOpenSession({ id: m.id, title: m.title })} />
+                onOpen={() => handleOpenSession(m)} />
             ))}
           </div>
         </div>
@@ -477,9 +477,11 @@ export default function MeetingCopilot() {
         </div>
       </div>
 
-      {openSession && (
-        <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
-      )}
+      <div ref={liveSessionAnchorRef}>
+        {openSession && (
+          <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
+        )}
+      </div>
 
       {viewSession && (
         <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
