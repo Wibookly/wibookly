@@ -669,6 +669,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const endSession = async () => {
     if (!sessionId) return;
+    // Release the microphone the moment the user ends the meeting so the
+    // browser tab indicator disappears immediately.
+    stopListening();
     setEnding(true);
     try {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-summary', {
