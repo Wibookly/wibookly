@@ -92,7 +92,7 @@ export default function MeetingSessionDetail() {
     setLoading(false);
   };
 
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id, user]);
+  useEffect(() => { void load(); }, [id, user]);
 
   const decisions: string[] = useMemo(() => {
     const k = session?.key_decisions;
