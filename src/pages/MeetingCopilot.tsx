@@ -617,7 +617,7 @@ export default function MeetingCopilot() {
               </div>
               <h3 className="text-h5" style={{ color: 'var(--text-1)' }}>Recent Sessions</h3>
             </div>
-            <a className="text-sm font-medium" style={{ color: 'var(--c-green)' }} href="#">View all →</a>
+            <button onClick={() => navigate('/meeting-copilot/sessions')} className="text-sm font-medium" style={{ color: 'var(--c-green)', background: 'none', border: 'none', cursor: 'pointer' }}>View all →</button>
           </div>
           <div className="space-y-3">
             {recent.length === 0 && (
