@@ -265,7 +265,54 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     } catch { /* ignore */ }
   };
 
-  const startListening = () => {
+  const releaseMicCheck = () => {
+    try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
+    micStreamRef.current = null;
+  };
+
+  const runMicCheck = async () => {
+    setMicCheckBusy(true);
+    setMicError(null);
+    setMicCheckMessage(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('This browser cannot test the microphone. Use Chrome, Edge, or Brave.');
+      }
+      try {
+        if (navigator.permissions?.query) {
+          const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          if (status.state === 'denied') {
+            throw new Error('Microphone access is blocked. Re-enable it in your browser site settings, then test again.');
+          }
+        }
+      } catch {
+        // ignore unsupported permissions API
+      }
+
+      releaseMicCheck();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      micStreamRef.current = stream;
+      setMicReady(true);
+      setMicCheckMessage('Microphone detected and permission granted. You can start listening now.');
+      toast.success('Microphone detected. You can start listening now.');
+      window.setTimeout(() => releaseMicCheck(), 900);
+    } catch (e: any) {
+      setMicReady(false);
+      const message = e?.name === 'NotAllowedError'
+        ? 'Microphone access was denied. Allow it in the browser prompt or site settings, then test again.'
+        : e?.name === 'NotFoundError'
+          ? 'No microphone was detected on this device.'
+          : e?.name === 'NotReadableError'
+            ? 'The microphone is busy in another app or browser tab.'
+            : (e?.message || 'Could not access the microphone.');
+      setMicError(message);
+      toast.error(message);
+    } finally {
+      setMicCheckBusy(false);
+    }
+  };
+
+  const startListening = async () => {
     setMicError(null);
     const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
@@ -276,6 +323,10 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     if (!sessionId) {
       toast.info('Session is still starting — try again in a second.');
       return;
+    }
+
+    if (!micReady) {
+      await runMicCheck();
     }
 
     try {
@@ -318,6 +369,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
+      setActiveTab('transcript');
       toast.success('Listening — speak normally. Your voice is being transcribed live.');
     } catch (e: any) {
       console.error(e);
@@ -335,6 +387,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
     return () => {
       shouldListenRef.current = false;
       try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      releaseMicCheck();
     };
   }, []);
 
@@ -407,8 +460,8 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   };
 
   const requestFocusedSuggestion = async (mode: CopilotPromptMode) => {
-    if (!sessionId || !transcriptContext.trim()) {
-      toast.info('Let the transcript build first, then ask for a guided answer or question.');
+    if (!sessionId || !suggestionContext.trim()) {
+      toast.info('Say something, test the mic, or type a transcript line first so Copilot has context.');
       return;
     }
 
@@ -423,7 +476,7 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke('meeting-copilot-suggestion', {
         body: {
           sessionId,
-          recentTranscript: transcriptContext,
+            recentTranscript: suggestionContext,
           intent: mode,
         },
       });
@@ -439,6 +492,13 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
       if (mapped.length === 0) {
         toast.info(`No ${promptLabels[mode]} available yet from the current conversation.`);
         return;
+      }
+
+      if (mapped.length > 0) {
+        setSuggestions((cur) => {
+          const next = [...mapped, ...cur].filter((item, index, arr) => index === arr.findIndex((x) => x.id === item.id || (x.label === item.label && x.content === item.content)));
+          return next.slice(0, 8);
+        });
       }
 
       setActiveTab('suggestions');
