@@ -91,6 +91,7 @@ const App = () => (
                   } />
                   <Route path="/meeting-copilot" element={<MeetingCopilot />} />
                   <Route path="/meeting-copilot/prep/:id" element={<MeetingPrep />} />
+                  <Route path="/meeting-copilot/sessions" element={<MeetingSessions />} />
                   <Route path="/meeting-copilot/sessions/:id" element={<MeetingSessionDetail />} />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
