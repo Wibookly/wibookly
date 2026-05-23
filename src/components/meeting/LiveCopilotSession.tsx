@@ -123,7 +123,19 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [draft, setDraft] = useState('');
-  const [speaker, setSpeaker] = useState('Other');
+  const [speaker, setSpeaker] = useState('You');
+  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(['You']);
+  const speakerRef = useRef('You');
+  useEffect(() => { speakerRef.current = speaker; }, [speaker]);
+  const pickSpeaker = useCallback((name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setSpeaker(clean);
+    setRecentSpeakers((cur) => {
+      const next = [clean, ...cur.filter((s) => s.toLowerCase() !== clean.toLowerCase())];
+      return next.slice(0, 6);
+    });
+  }, []);
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
@@ -515,17 +527,18 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
     lastInsertRef.current = { text: clean, at: now };
 
+    const currentSpeaker = (speakerRef.current || 'You').trim() || 'You';
     await supabase.from('meeting_transcripts').insert({
       session_id: sid,
       user_id: uid,
-      speaker: 'You',
+      speaker: currentSpeaker,
       text: clean,
       spoken_at: new Date().toISOString(),
     });
 
     // fire suggestion in the background
     try {
-      const recent = [...transcript.slice(-5), { speaker: 'You', text: clean }]
+      const recent = [...transcript.slice(-5), { speaker: currentSpeaker, text: clean }]
         .map((l) => `${l.speaker}: ${l.text}`).join('\n');
       supabase.functions.invoke('meeting-copilot-suggestion', {
         body: { sessionId: sid, recentTranscript: recent },
@@ -1284,6 +1297,42 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           })()}
 
 
+          {/* Speaking now selector — always visible so the live transcript can attribute lines */}
+          <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>SPEAKING NOW</span>
+            <input
+              value={speaker}
+              onChange={(e) => setSpeaker(e.target.value)}
+              onBlur={(e) => pickSpeaker(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pickSpeaker((e.target as HTMLInputElement).value); } }}
+              placeholder="Type the speaker's name (e.g. Ali, Nikki)…"
+              className="flex-1 min-w-[180px] rounded-lg px-3 py-1.5 text-xs"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {recentSpeakers.map((name) => {
+                const active = name.toLowerCase() === speaker.trim().toLowerCase();
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => pickSpeaker(name)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: active ? 'var(--c-purple)' : 'var(--surface)',
+                      color: active ? '#fff' : 'var(--text-1)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >{name}</button>
+                );
+              })}
+            </div>
+            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+              Tip: change this whenever a different person starts talking.
+            </span>
+          </div>
+
           {/* Transcript drawer trigger */}
           <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
             <button onClick={() => setTranscriptOpen((v) => !v)}
@@ -1295,7 +1344,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             {listening && (
               <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-2)' }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--c-purple)' }} />
-                Listening…
+                Listening as <strong style={{ color: 'var(--text-1)' }}>{speaker || 'You'}</strong>…
               </span>
             )}
           </div>
@@ -1355,14 +1404,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 })()}
               </div>
               <div className="mt-3 flex gap-2">
-                <select
+                <input
                   value={speaker}
                   onChange={(e) => setSpeaker(e.target.value)}
-                  className="rounded-lg px-2 py-2 text-xs"
+                  onBlur={(e) => pickSpeaker(e.target.value)}
+                  placeholder="Speaker"
+                  className="w-28 rounded-lg px-2 py-2 text-xs"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-                >
-                  <option>You</option><option>Other</option><option>Speaker 2</option><option>Speaker 3</option>
-                </select>
+                />
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
