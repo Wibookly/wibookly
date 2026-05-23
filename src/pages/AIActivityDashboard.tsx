@@ -326,6 +326,11 @@ export default function AIActivityDashboard() {
             ))}
           </div>
 
+          {/* Plan Usage & Limits — per-feature quota tiles */}
+          <FeatureUsageGrid />
+
+
+
 
           {/* Category Breakdown */}
           <Card className="mb-8">
