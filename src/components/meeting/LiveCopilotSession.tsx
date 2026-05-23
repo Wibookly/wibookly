@@ -72,6 +72,8 @@ interface MeetingSummary {
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
 
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
+const EXTENSION_CHECK_INTERVAL_MS = 4000;
+const MIC_VISUAL_BARS = 20;
 
 export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const { user } = useAuth();
@@ -93,6 +95,11 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const [micReady, setMicReady] = useState(false);
   const [micCheckBusy, setMicCheckBusy] = useState(false);
   const [micCheckMessage, setMicCheckMessage] = useState<string | null>(null);
+  const [readyState, setReadyState] = useState<ReadyState>('preflight');
+  const [autoJoin, setAutoJoin] = useState(true);
+  const [micLevel, setMicLevel] = useState(0);
+  const [speakerLevel, setSpeakerLevel] = useState(0);
+  const [heardPreview, setHeardPreview] = useState<string | null>(null);
   const [extensionCaptureState, setExtensionCaptureState] = useState<'checking' | 'available' | 'missing' | 'active' | 'error'>('checking');
   const recognitionRef = useRef<any>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -101,6 +108,11 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   const userIdRef = useRef<string | null>(null);
   const lastInsertRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const extensionPollRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserFrameRef = useRef<number | null>(null);
+  const micAnalyserRef = useRef<AnalyserNode | null>(null);
+  const speakerAnalyserRef = useRef<AnalyserNode | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
