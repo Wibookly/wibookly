@@ -238,6 +238,12 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
   }, [transcript.length]);
 
   useEffect(() => {
+    const extensionId = localStorage.getItem('inboxiq_extension_id');
+    if (!extensionId) {
+      setExtensionCaptureState('missing');
+      return;
+    }
+
     const checkExtensionCapture = async () => {
       try {
         const w = window as Window & {
@@ -251,12 +257,6 @@ export default function LiveCopilotSession({ meeting, onClose }: Props) {
 
         if (!w.chrome?.runtime?.sendMessage) {
           setExtensionCaptureState('missing');
-          return;
-        }
-
-        const extensionId = new URLSearchParams(window.location.search).get('ext_id') || null;
-        if (!extensionId) {
-          setExtensionCaptureState((current) => (current === 'active' ? current : 'available'));
           return;
         }
 
