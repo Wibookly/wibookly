@@ -23,6 +23,7 @@ import NotFound from "./pages/NotFound";
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
+import ExtensionAuth from "./pages/ExtensionAuth";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
 import AcceptInvitation from "./pages/AcceptInvitation";
@@ -86,6 +87,7 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/meeting-copilot" element={<MeetingCopilot />} />
+                  <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
                 </Route>
