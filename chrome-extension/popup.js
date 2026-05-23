@@ -32,6 +32,11 @@ async function loadSessions() {
   const res = await api(
     "/rest/v1/meeting_sessions?status=eq.active&order=started_at.desc&limit=10&select=id,meeting_title,started_at",
   );
+  if (!res.ok) {
+    $("status").textContent = `Couldn’t load sessions (${res.status}). Open InboxIQ and sign in again.`;
+    $("start").disabled = true;
+    return;
+  }
   const data = res.ok ? await res.json() : [];
   const sel = $("session");
   sel.innerHTML = "";
@@ -52,6 +57,12 @@ async function loadSessions() {
   }
 }
 
+async function openHandshakePage() {
+  const url = new URL(`${INBOXIQ_CONFIG.appUrl}/extension-auth`);
+  url.searchParams.set("ext_id", chrome.runtime.id);
+  await chrome.tabs.create({ url: url.toString() });
+}
+
 async function refreshState() {
   const { iq_capture } = await chrome.storage.local.get("iq_capture");
   const active = !!iq_capture?.active;
@@ -61,11 +72,16 @@ async function refreshState() {
   $("stop").disabled = !active;
   $("status").textContent = active
     ? `Capturing • ${iq_capture.meetingTitle || "session"}`
-    : "Idle";
+    : "Ready to capture meeting audio";
 }
 
 $("open-app").addEventListener("click", () => {
   chrome.tabs.create({ url: INBOXIQ_CONFIG.appUrl + "/meeting-copilot" });
+});
+
+$("connect-extension")?.addEventListener("click", async () => {
+  $("status").textContent = "Opening InboxIQ sign-in…";
+  await openHandshakePage();
 });
 
 $("start").addEventListener("click", async () => {
@@ -95,7 +111,7 @@ $("stop").addEventListener("click", () => {
 // On open: try to pull the InboxIQ session token from the app tab.
 (async () => {
   const tabs = await chrome.tabs.query({
-    url: [`${INBOXIQ_CONFIG.appUrl}/*`, "https://*.lovable.app/*"],
+    url: [`${INBOXIQ_CONFIG.appUrl}/*`, "https://*.lovable.app/*", "https://*.lovableproject.com/*"],
   });
   if (tabs[0]) {
     try {

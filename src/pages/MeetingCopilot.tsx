@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
@@ -35,11 +35,14 @@ type UpcomingMeeting = {
   attendees: number;
   duration: string;
   isLive: boolean;
+  joinUrl?: string | null;
 };
 
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
   const { user } = useAuth();
+  const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
+  const liveRefreshTimerRef = useRef<number | null>(null);
   const [settings, setSettings] = useState<CopilotSettings>({
     auto_join_all: false,
     show_live_suggestions: true,
@@ -110,58 +113,103 @@ export default function MeetingCopilot() {
     })();
   }, [user]);
 
+  const loadUpcomingMeetings = useCallback(async () => {
+    if (!user) return;
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', {
+        body: { timezone },
+      });
+      if (error) {
+        setCalendarStatus({ state: 'error', detail: error.message || 'Calendar request failed' });
+        return;
+      }
+      if (data?.error === 'no_outlook_connection') {
+        setCalendarStatus({ state: 'not_connected' });
+        setUpcoming([]);
+        return;
+      }
+      if (data?.error) {
+        setCalendarStatus({ state: 'error', detail: data.detail || data.error });
+        return;
+      }
+      const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
+      setCalendarStatus({ state: 'connected', count: list.length });
+      if (list.length === 0) { setUpcoming([]); return; }
+      const fmt = (date: Date) => {
+        let h = date.getHours();
+        const m = date.getMinutes();
+        const period = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
+      };
+      const parseMeetingDate = (iso: string) => {
+        if (!iso) return new Date('');
+        if (iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso)) return new Date(iso);
+        return new Date(iso);
+      };
+      const mapped = list.map((m: any) => {
+        const startDate = parseMeetingDate(m.startTime);
+        const endDate = parseMeetingDate(m.endTime);
+        const isLive = Number.isFinite(startDate.getTime()) && Number.isFinite(endDate.getTime())
+          ? Date.now() >= startDate.getTime() && Date.now() <= endDate.getTime()
+          : !!m.isLive;
+        const { timeLabel, period } = fmt(startDate);
+        return {
+          id: m.id,
+          title: m.title,
+          timeLabel: isLive ? 'Now' : timeLabel,
+          period: isLive ? 'LIVE' : period,
+          platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
+          attendees: m.attendeeCount,
+          duration: isLive ? 'In progress' : `${m.durationMin} min`,
+          isLive,
+          joinUrl: m.joinUrl || null,
+        };
+      });
+      const prefs: Record<string, boolean> = {};
+      list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
+      setUpcoming(mapped);
+      setPerMeeting(prefs);
+    } catch (e) {
+      setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
+    }
+  }, [user]);
+
   // Load upcoming meetings from Microsoft Graph
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('meeting-copilot-upcoming', { body: {} });
-        if (error) {
-          setCalendarStatus({ state: 'error', detail: error.message || 'Calendar request failed' });
-          return;
-        }
-        if (data?.error === 'no_outlook_connection') {
-          setCalendarStatus({ state: 'not_connected' });
-          return;
-        }
-        if (data?.error) {
-          setCalendarStatus({ state: 'error', detail: data.detail || data.error });
-          return;
-        }
-        const list: any[] = Array.isArray(data?.meetings) ? data.meetings : [];
-        setCalendarStatus({ state: 'connected', count: list.length });
-        if (list.length === 0) { setUpcoming([]); return; }
-        const fmt = (iso: string) => {
-          const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
-          let h = d.getHours();
-          const m = d.getMinutes();
-          const period = h >= 12 ? 'PM' : 'AM';
-          h = h % 12 || 12;
-          return { timeLabel: `${h}:${String(m).padStart(2, '0')}`, period };
-        };
-        const mapped = list.map((m: any) => {
-          const { timeLabel, period } = fmt(m.startTime);
-          return {
-            id: m.id,
-            title: m.title,
-            timeLabel: m.isLive ? 'Now' : timeLabel,
-            period: m.isLive ? 'LIVE' : period,
-            platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
-            attendees: m.attendeeCount,
-            duration: m.isLive ? 'In progress' : `${m.durationMin} min`,
-            isLive: m.isLive,
-          };
-        });
-        const prefs: Record<string, boolean> = {};
-        list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
-        setUpcoming(mapped);
-        setPerMeeting(prefs);
-        
-      } catch (e) {
-        setCalendarStatus({ state: 'error', detail: e instanceof Error ? e.message : 'Unknown error' });
+    loadUpcomingMeetings();
+    if (liveRefreshTimerRef.current) window.clearInterval(liveRefreshTimerRef.current);
+    liveRefreshTimerRef.current = window.setInterval(() => {
+      loadUpcomingMeetings();
+    }, 30000);
+
+    return () => {
+      if (liveRefreshTimerRef.current) {
+        window.clearInterval(liveRefreshTimerRef.current);
+        liveRefreshTimerRef.current = null;
       }
-    })();
-  }, [user]);
+    };
+  }, [user, loadUpcomingMeetings]);
+
+  const handleOpenSession = (meeting: UpcomingMeeting) => {
+    if (!meeting.isLive && meeting.joinUrl) {
+      window.open(meeting.joinUrl, '_blank', 'noopener,noreferrer');
+    }
+    setOpenSession({ id: meeting.id, title: meeting.title });
+    if (!meeting.isLive) {
+      void loadUpcomingMeetings();
+    }
+    window.requestAnimationFrame(() => {
+      setTimeout(() => {
+        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
+    toast.success(meeting.isLive
+      ? `Copilot opened for ${meeting.title}`
+      : `Copilot is ready for ${meeting.title}. Test your mic before the meeting starts.`);
+  };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
   const EDGE_STORE_URL: string | null = null; // e.g. 'https://microsoftedge.microsoft.com/addons/detail/<id>'
@@ -406,10 +454,10 @@ export default function MeetingCopilot() {
                 No upcoming meetings to show. Once your calendar has events in the next 7 days they'll appear here automatically.
               </div>
             )}
-            {upcoming.map((m) => (
+              {upcoming.map((m) => (
               <MeetingCard key={m.id} meeting={m} enabled={perMeeting[m.id] ?? true}
                 onToggle={(v) => toggleMeeting(m.id, v)}
-                onOpen={() => setOpenSession({ id: m.id, title: m.title })} />
+                onOpen={() => handleOpenSession(m)} />
             ))}
           </div>
         </div>
@@ -452,9 +500,11 @@ export default function MeetingCopilot() {
         </div>
       </div>
 
-      {openSession && (
-        <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
-      )}
+      <div ref={liveSessionAnchorRef}>
+        {openSession && (
+          <LiveCopilotSession meeting={openSession} onClose={() => setOpenSession(null)} />
+        )}
+      </div>
 
       {viewSession && (
         <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />

@@ -100,6 +100,7 @@ export default function ExtensionAuth() {
           );
         });
 
+        localStorage.setItem("inboxiq_extension_id", extId);
         sessionStorage.removeItem(SS_KEY);
         setStatus("done");
         // Auto-close the tab after 1.5s

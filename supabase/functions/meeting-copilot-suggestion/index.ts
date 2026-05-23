@@ -68,18 +68,22 @@ Deno.serve(async (req) => {
     const extraCtx = (aiProfile?.custom_context as string | undefined)?.trim();
 
     const intentGuidance = intent === 'answer'
-      ? 'Prioritize direct, confident answers the user can say immediately if they were just asked something important. Return at least one suggestion of type "answer" when possible.'
+      ? 'Prioritize a direct answer the user can say immediately. Base it on the latest concrete question or statement in the transcript. Return at least one suggestion of type "answer" when possible.'
       : intent === 'ask'
-        ? 'Prioritize sharp follow-up questions that help the user advance the conversation. Return at least one suggestion of type "ask" when possible.'
+        ? 'Prioritize one sharp follow-up question grounded in the last few transcript lines. Return at least one suggestion of type "ask" when possible.'
         : intent === 'say'
-          ? 'Prioritize the strongest next statement the user should say to move the meeting forward. Return at least one suggestion of type "say" when possible.'
-          : 'Balance the output between what to say, what to ask, and what to answer next.';
+          ? 'Prioritize the strongest next statement the user should say right now, grounded in the latest transcript lines. Return at least one suggestion of type "say" when possible.'
+          : 'Balance the output between what to say, what to ask, and what to answer next, always grounded in the transcript.';
 
     const systemPrompt = `You are a real-time silent meeting copilot for the following user:
 ${identityBlock}
 ${extraCtx ? `\nExtra meeting-specific context:\n${extraCtx}\n` : ''}
 You are listening to their meeting: "${session?.meeting_title || 'a meeting'}".
 Generate 1-3 helpful suggestions based on the most recent conversation.
+Ground every suggestion in the transcript you were given.
+Do not invent company facts, timelines, roadmaps, technical constraints, or role-specific details that were not explicitly stated.
+If context is thin, give a safe clarifying question or a brief bridging statement instead of guessing.
+Heavily weight the final 3 transcript lines over older context.
 
 Each suggestion has a type:
 - "say": something the user should say next
@@ -89,6 +93,12 @@ Each suggestion has a type:
 
 Style: ${styleGuide[style]}
 Focus: ${intentGuidance}
+
+Rules:
+- Keep each suggestion under 220 characters unless absolutely necessary.
+- Prefer one excellent suggestion over several generic ones.
+- If the latest transcript line is itself the user's note or prompt, infer the likely need but still avoid fabrication.
+- Never say the user has reviewed something, has roadmap constraints, or has security requirements unless the transcript explicitly says so.
 
 Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": "..." }] }`;
 

@@ -40,6 +40,7 @@ select, button {
 }
 .row { display: flex; gap: 8px; margin-bottom: 12px; }
 .row button { flex: 1; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
 button.primary {
   background: linear-gradient(135deg, #6D28D9, #EC4899);
   border: none; font-weight: 600; cursor: pointer;
