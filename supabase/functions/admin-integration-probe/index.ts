@@ -239,6 +239,45 @@ Deno.serve(async (req) => {
           message: resp.ok ? "cron-follow-ups triggered" : `HTTP ${resp.status}` };
         break;
       }
+      case "meeting_copilot_prep": {
+        // Lightweight reachability probe — call the function with a deliberately
+        // bogus meetingId so it short-circuits without invoking AI but still
+        // proves the function is deployed & responding.
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/meeting-copilot-prep`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+          body: JSON.stringify({ meetingId: "__probe__" }),
+        });
+        const j = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (j?.error === "no_outlook_connection" || j?.error === "event_not_found" || !!j?.prep);
+        result = { ok, latency_ms: Date.now() - start,
+          message: ok ? "meeting-copilot-prep responding" : (j?.error || `HTTP ${resp.status}`) };
+        break;
+      }
+      case "meeting_copilot_suggestion": {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/meeting-copilot-suggestion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+          body: JSON.stringify({ sessionId: "__probe__", intent: "say", transcript: "ping" }),
+        });
+        const j = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (j?.error === undefined || ["session_not_found", "no_transcript", "ai_unavailable"].includes(j?.error));
+        result = { ok, latency_ms: Date.now() - start,
+          message: ok ? "meeting-copilot-suggestion responding" : (j?.error || `HTTP ${resp.status}`) };
+        break;
+      }
+      case "meeting_copilot_summary": {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/meeting-copilot-summary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: ANON_KEY },
+          body: JSON.stringify({ sessionId: "__probe__" }),
+        });
+        const j = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (j?.error === "session_not_found" || !!j?.summary);
+        result = { ok, latency_ms: Date.now() - start,
+          message: ok ? "meeting-copilot-summary responding" : (j?.error || `HTTP ${resp.status}`) };
+        break;
+      }
       default:
         result = { ok: false, latency_ms: 0, message: `Unknown service: ${body.service}` };
     }
