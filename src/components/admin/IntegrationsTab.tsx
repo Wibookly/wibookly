@@ -13,6 +13,7 @@ import {
   Bot, Brain, MessageSquare, Sparkles, RefreshCw, Activity,
   CheckCircle2, AlertTriangle, Loader2, Play, Workflow, Inbox, BellRing,
   ExternalLink, ShieldCheck, Key, Cable, Server, Cpu, Mic, FileText, ListChecks,
+  LifeBuoy,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
