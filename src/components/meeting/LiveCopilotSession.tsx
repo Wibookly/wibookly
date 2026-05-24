@@ -882,9 +882,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             draftEmail: (data as MeetingSummary).followup_email?.body_text
               || (data as MeetingSummary).followup_email?.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
               || (data as MeetingSummary).draftEmail,
+            recapEmailStatus: (data as any).recapEmailStatus,
+            recapEmailSentAt: (data as any).recapEmailSentAt,
           }
         : null) as MeetingSummary | null);
-      toast.success('Session ended — summary ready');
+      const status = (data as any)?.recapEmailStatus;
+      if (status === 'sent') toast.success('Recap emailed to you with the full transcript attached');
+      else if (status === 'failed') toast.warning('Summary ready — but emailing the recap failed. Check your Outlook connection.');
+      else toast.success('Session ended — summary ready');
     } catch (e: unknown) {
       console.error(e);
       toast.error('Could not generate summary');
