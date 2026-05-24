@@ -50,6 +50,7 @@ type UpcomingMeeting = {
   duration: string;
   isLive: boolean;
   joinUrl?: string | null;
+  startMs?: number;
 };
 
 // ---------- PAGE ----------
@@ -206,6 +207,7 @@ export default function MeetingCopilot() {
           duration: isLive ? 'In progress' : `${m.durationMin} min`,
           isLive,
           joinUrl: m.joinUrl || null,
+          startMs: Number.isFinite(startDate.getTime()) ? startDate.getTime() : undefined,
         };
       });
       const prefs: Record<string, boolean> = {};
@@ -233,6 +235,48 @@ export default function MeetingCopilot() {
       }
     };
   }, [user, loadUpcomingMeetings]);
+
+  // Browser heads-up notifications: 1 min before each scheduled meeting.
+  useEffect(() => {
+    if (!settings.notify_scheduled) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (Notification.permission !== 'granted') return;
+
+    const firedKey = 'inboxiq_meeting_heads_up_fired';
+    let fired: Record<string, number> = {};
+    try { fired = JSON.parse(sessionStorage.getItem(firedKey) || '{}'); } catch { /* ignore */ }
+
+    const timers: number[] = [];
+    upcoming.forEach((m) => {
+      if (!m.startMs || m.isLive) return;
+      const delay = m.startMs - 60_000 - Date.now();
+      if (delay < -5_000 || delay > 24 * 60 * 60 * 1000) return;
+      if (fired[m.id] === m.startMs) return;
+      const t = window.setTimeout(() => {
+        try {
+          const n = new Notification('Meeting in 1 minute', {
+            body: `${m.title} — ${m.timeLabel} ${m.period}`,
+            tag: `meeting-${m.id}`,
+            icon: '/favicon.ico',
+          });
+          n.onclick = () => {
+            window.focus();
+            if (m.joinUrl) window.open(m.joinUrl, '_blank');
+            else navigate(`/meeting-copilot/prep/${encodeURIComponent(m.id)}`, { state: { title: m.title } });
+            n.close();
+          };
+          fired[m.id] = m.startMs!;
+          sessionStorage.setItem(firedKey, JSON.stringify(fired));
+        } catch { /* ignore */ }
+      }, Math.max(0, delay));
+      timers.push(t);
+    });
+    return () => { timers.forEach((t) => window.clearTimeout(t)); };
+  }, [upcoming, settings.notify_scheduled, navigate]);
+
 
   const handleOpenSession = (meeting: UpcomingMeeting) => {
     // Live meeting → navigate to its own dedicated wide page.
@@ -335,8 +379,9 @@ export default function MeetingCopilot() {
   }, [user, upcoming.length, openSession, recent.length]);
 
   return (
-    <div className="page-shell">
-      <div className="page-shell-sticky">
+    <div className="min-h-full w-full mx-auto p-4 lg:p-6" style={{ maxWidth: '110rem' }}>
+      <div className="sticky top-0 z-20 pb-6" style={{ background: 'var(--bg)' }}>
+
       <div className="relative overflow-hidden rounded-2xl p-5 shadow-glow"
         style={{ background: 'var(--grad-feature)', color: '#FFFFFF' }}>
         <div aria-hidden className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none"
@@ -376,7 +421,7 @@ export default function MeetingCopilot() {
       </div>
       </div>
 
-      <div className="page-shell-content space-y-6">
+      <div className="relative z-10 pt-2 space-y-6">
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[

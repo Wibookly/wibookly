@@ -6,8 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, CheckCircle, FileText, ExternalLink, Mail, Search, Calendar, Clock, Users,
+  ChevronDown, ChevronUp, Sparkles,
 } from 'lucide-react';
-import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
+
+
+interface ExpandedData {
+  transcripts: { id: string; speaker: string; text: string; spoken_at: string }[];
+  actions: { id: string; description: string; assigned_to: string | null; completed: boolean }[];
+  suggestions: { id: string; content: string; suggestion_type: string | null }[];
+  loading: boolean;
+}
+
+
 
 interface SessionRow {
   id: string;
@@ -27,7 +37,41 @@ export default function MeetingSessions() {
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
+  
+  const [expanded, setExpanded] = useState<Record<string, ExpandedData | undefined>>({});
+
+  const toggleExpand = async (id: string) => {
+    setExpanded((cur) => {
+      if (cur[id]) { const { [id]: _, ...rest } = cur; return rest; }
+      return { ...cur, [id]: { transcripts: [], actions: [], suggestions: [], loading: true } };
+    });
+    // If we just opened, fetch data.
+    const isOpening = !expanded[id];
+    if (!isOpening) return;
+    const [{ data: t }, { data: a }, { data: s }] = await Promise.all([
+      supabase.from('meeting_transcripts').select('id, speaker, text, spoken_at').eq('session_id', id).order('spoken_at', { ascending: true }),
+      supabase.from('meeting_action_items').select('id, description, assigned_to, completed').eq('session_id', id).order('created_at', { ascending: true }),
+      supabase.from('meeting_suggestions').select('id, content, suggestion_type').eq('session_id', id).order('generated_at', { ascending: true }),
+    ]);
+    setExpanded((cur) => ({
+      ...cur,
+      [id]: {
+        transcripts: (t || []) as ExpandedData['transcripts'],
+        actions: (a || []) as ExpandedData['actions'],
+        suggestions: (s || []) as ExpandedData['suggestions'],
+        loading: false,
+      },
+    }));
+  };
+
+  const toggleAction = async (sessionId: string, actionId: string, next: boolean) => {
+    setExpanded((cur) => {
+      const e = cur[sessionId]; if (!e) return cur;
+      return { ...cur, [sessionId]: { ...e, actions: e.actions.map((x) => x.id === actionId ? { ...x, completed: next } : x) } };
+    });
+    await supabase.from('meeting_action_items').update({ completed: next }).eq('id', actionId);
+  };
+
 
   useEffect(() => {
     if (!user) return;
@@ -153,29 +197,101 @@ export default function MeetingSessions() {
                       </span>
                     )}
                     <div className="ml-auto flex gap-1.5">
-                      <button onClick={() => setViewSession({ id: s.id, title: s.title })}
-                        title="Open a compact preview of the summary and action items"
+                      <button onClick={() => navigate(`/meeting-copilot/sessions/${s.id}`)}
+                        title="Open the full meeting recap on its own page"
                         className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md font-medium hover:opacity-80"
                         style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}>
-                        <FileText className="w-3 h-3" /> Quick view
+                        <ExternalLink className="w-3 h-3" /> Full page
                       </button>
-                      <button onClick={() => navigate(`/meeting-copilot/sessions/${s.id}`)}
-                        title="Open the full meeting recap: transcript, decisions, action items, follow-up draft"
+                      <button onClick={() => toggleExpand(s.id)}
+                        title="Expand the recap inline: summary, action items, transcript & suggestions"
                         className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md font-semibold text-white hover:opacity-90"
                         style={{ background: 'var(--c-purple)' }}>
-                        <ExternalLink className="w-3 h-3" /> Open recap
+                        {expanded[s.id] ? <><ChevronUp className="w-3 h-3" /> Collapse</> : <><ChevronDown className="w-3 h-3" /> Expand recap</>}
                       </button>
                     </div>
                   </div>
+
+                  {expanded[s.id] && (
+                    <div className="mt-4 rounded-xl p-4 space-y-4"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      {expanded[s.id]!.loading && (
+                        <div className="text-xs" style={{ color: 'var(--text-2)' }}>Loading recap…</div>
+                      )}
+                      {!expanded[s.id]!.loading && (
+                        <>
+                          {s.summary && (
+                            <div>
+                              <div className="text-overline mb-1" style={{ color: 'var(--c-purple)' }}>SUMMARY</div>
+                              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-1)' }}>{s.summary}</p>
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-overline mb-2 inline-flex items-center gap-1" style={{ color: 'var(--c-green)' }}>
+                              <CheckCircle className="w-3 h-3" /> ACTION ITEMS ({expanded[s.id]!.actions.length})
+                            </div>
+                            {expanded[s.id]!.actions.length === 0 && (
+                              <div className="text-xs" style={{ color: 'var(--text-2)' }}>No action items captured.</div>
+                            )}
+                            <div className="space-y-1.5">
+                              {expanded[s.id]!.actions.map((a) => (
+                                <label key={a.id} className="flex items-start gap-2 text-xs cursor-pointer">
+                                  <input type="checkbox" checked={a.completed} className="mt-0.5"
+                                    onChange={(e) => toggleAction(s.id, a.id, e.target.checked)} />
+                                  <span style={{ color: 'var(--text-1)', textDecoration: a.completed ? 'line-through' : 'none' }}>
+                                    {a.description}
+                                    {a.assigned_to && <span style={{ color: 'var(--text-2)' }}> — {a.assigned_to}</span>}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-overline mb-2 inline-flex items-center gap-1" style={{ color: 'var(--c-cyan)' }}>
+                              <FileText className="w-3 h-3" /> TRANSCRIPT ({expanded[s.id]!.transcripts.length})
+                            </div>
+                            {expanded[s.id]!.transcripts.length === 0 && (
+                              <div className="text-xs" style={{ color: 'var(--text-2)' }}>No transcript saved.</div>
+                            )}
+                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                              {expanded[s.id]!.transcripts.map((t) => (
+                                <div key={t.id} className="rounded-lg p-2" style={{ background: 'var(--surface)' }}>
+                                  <div className="text-[11px] font-semibold mb-0.5" style={{ color: 'var(--c-purple)' }}>● {t.speaker || 'Speaker'}</div>
+                                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-1)' }}>{t.text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {expanded[s.id]!.suggestions.length > 0 && (
+                            <div>
+                              <div className="text-overline mb-2 inline-flex items-center gap-1" style={{ color: 'var(--c-purple)' }}>
+                                <Sparkles className="w-3 h-3" /> COPILOT SUGGESTIONS ({expanded[s.id]!.suggestions.length})
+                              </div>
+                              <div className="space-y-1.5">
+                                {expanded[s.id]!.suggestions.map((sg) => (
+                                  <div key={sg.id} className="text-xs rounded-lg p-2" style={{ background: 'var(--surface)', color: 'var(--text-1)' }}>
+                                    {sg.suggestion_type && (
+                                      <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ background: 'var(--c-purple)', color: '#fff' }}>
+                                        {sg.suggestion_type.toUpperCase()}
+                                      </span>
+                                    )}
+                                    {sg.content}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {viewSession && (
-          <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
-        )}
+
       </div>
     </div>
   );
