@@ -698,13 +698,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const startListening = async () => {
     setMicError(null);
-    const speechWindow = window as WindowWithSpeechRecognition;
-    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-    if (!SR) {
-      setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
-      toast.error('This browser does not support live speech recognition. Try Chrome.');
-      return;
-    }
     if (!sessionId) {
       toast.info('Session is still starting — try again in a second.');
       return;
@@ -713,78 +706,16 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (!micReady) {
       await runMicCheck();
     }
-
     if (!micStreamRef.current) {
       setMicError('Test the microphone first so InboxIQ can confirm your device is ready.');
       return;
     }
 
     try {
-      const buildRecognition = () => {
-        const rec = new SR();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.lang = 'en-US';
-
-        rec.onresult = (event: BrowserSpeechRecognitionEvent) => {
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const r = event.results[i];
-            const txt = (r[0]?.transcript || '').trim();
-            if (!txt) continue;
-            lastSpeechAtRef.current = Date.now();
-            queueTranscriptChunk(txt, Boolean(r.isFinal));
-          }
-        };
-
-        rec.onerror = (e: BrowserSpeechRecognitionErrorEvent) => {
-          const err = e?.error;
-          if (err === 'not-allowed' || err === 'service-not-allowed') {
-            setMicError('Microphone blocked. Allow microphone access in your browser settings.');
-            shouldListenRef.current = false;
-            setListening(false);
-          } else if (err === 'audio-capture') {
-            setMicError('Microphone disconnected. Click Start listening to reconnect.');
-            shouldListenRef.current = false;
-            setListening(false);
-          } else if (err === 'no-speech' || err === 'aborted' || err === 'network') {
-            // benign — onend will restart, watchdog will recover network
-          } else {
-            console.warn('SpeechRecognition error', err);
-          }
-        };
-
-        rec.onend = () => {
-          void flushTranscriptBuffer();
-          if (!shouldListenRef.current) {
-            setListening(false);
-            return;
-          }
-          // Restart; if it throws (InvalidStateError), rebuild fresh.
-          try {
-            rec.start();
-          } catch {
-            try {
-              const fresh = buildRecognition();
-              recognitionRef.current = fresh;
-              fresh.start();
-            } catch (err) {
-              console.warn('SpeechRecognition restart failed', err);
-              shouldListenRef.current = false;
-              setListening(false);
-              setMicError('Live transcription stopped unexpectedly. Click Start listening to resume.');
-            }
-          }
-        };
-
-        return rec;
-      };
-
-      const rec = buildRecognition();
       shouldListenRef.current = true;
-      recognitionRef.current = rec;
-      lastSpeechAtRef.current = Date.now();
-      rec.start();
+      await deepgram.start(micStreamRef.current);
       setListening(true);
+      lastSpeechAtRef.current = Date.now();
 
       // If mic track ends (device unplugged, OS revoke), stop cleanly.
       const track = micStreamRef.current?.getAudioTracks?.()[0];
@@ -797,18 +728,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
       }
 
-      // Watchdog: if no speech AND no transcription for 25s while listening, rebuild.
-      if (watchdogRef.current) window.clearInterval(watchdogRef.current);
-      watchdogRef.current = window.setInterval(() => {
-        if (!shouldListenRef.current) return;
-        const silentMs = Date.now() - lastSpeechAtRef.current;
-        if (silentMs > 25000) {
-          lastSpeechAtRef.current = Date.now();
-          try { recognitionRef.current?.stop(); } catch { /* onend will rebuild */ }
-        }
-      }, 5000);
-
-      toast.success('Listening — speak normally. Your voice is being transcribed live.');
+      toast.success('Listening with speaker detection — Deepgram Nova-3.');
     } catch (e: unknown) {
       console.error(e);
       const err = e as { message?: string };
@@ -818,20 +738,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const stopListening = () => {
     shouldListenRef.current = false;
-    void flushTranscriptBuffer();
     if (watchdogRef.current) {
       window.clearInterval(watchdogRef.current);
       watchdogRef.current = null;
     }
-    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
-    try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
-    recognitionRef.current = null;
+    deepgram.stop();
     setListening(false);
     setHeardPreview(null);
+    setInterimLine(null);
+    if (interimTimerRef.current) { window.clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
     // Fully release the microphone tracks so the browser indicator goes away.
     releaseMicCheck();
     setMicReady(false);
   };
+
 
 
   const handleClose = () => {
