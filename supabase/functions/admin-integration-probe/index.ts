@@ -21,7 +21,8 @@ const SUPER_ADMIN_EMAIL = "arahimi@energyforward.com";
 type Service =
   | "mail" | "calendar" | "onedrive" | "sharepoint" | "teams"
   | "llm_gateway" | "embeddings" | "agent_orchestrator" | "chat_agent"
-  | "ingest_emails" | "process_ai_emails" | "follow_ups" | "m365_sync";
+  | "ingest_emails" | "process_ai_emails" | "follow_ups" | "m365_sync"
+  | "meeting_copilot_prep" | "meeting_copilot_suggestion" | "meeting_copilot_summary";
 
 interface ProbeResult {
   ok: boolean;
