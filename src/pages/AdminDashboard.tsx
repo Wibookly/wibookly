@@ -34,7 +34,7 @@ import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-rea
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
-import IntegrationsTab from '@/components/admin/IntegrationsTab';
+import IntegrationsTab from '@/components/admin/integrations/IntegrationsTab';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
