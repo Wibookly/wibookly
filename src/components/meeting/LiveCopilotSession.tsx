@@ -1313,6 +1313,34 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           })()}
 
 
+          {/* Attendees manager — feeds the SPEAKING NOW chips so the live transcript can attribute lines per person. */}
+          <div className="rounded-2xl p-3 flex flex-wrap items-center gap-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
+            <input
+              defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
+              onBlur={(e) => {
+                const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
+                const seen = new Set<string>();
+                const merged: string[] = [];
+                for (const n of [...names, 'You']) {
+                  const k = n.toLowerCase();
+                  if (seen.has(k)) continue;
+                  seen.add(k);
+                  merged.push(n);
+                }
+                setRecentSpeakers(merged.slice(0, 6));
+                if (names[0]) setSpeaker(names[0]);
+              }}
+              placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
+              className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+            />
+            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+              Press Tab to save — names appear as quick-pick chips below.
+            </span>
+          </div>
+
           {/* Speaking now selector — always visible so the live transcript can attribute lines */}
           <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
