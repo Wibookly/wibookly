@@ -1914,6 +1914,66 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_health: {
+        Row: {
+          id: string
+          integration_key: string
+          last_checked_at: string
+          latency_ms: number | null
+          message: string | null
+          metadata: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          integration_key: string
+          last_checked_at?: string
+          latency_ms?: number | null
+          message?: string | null
+          metadata?: Json
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          integration_key?: string
+          last_checked_at?: string
+          latency_ms?: number | null
+          message?: string | null
+          metadata?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integration_settings: {
+        Row: {
+          id: string
+          integration_key: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          integration_key: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          integration_key?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           completed_at: string | null
@@ -3111,6 +3171,27 @@ export type Database = {
           id?: string
           metadata?: Json | null
           reason?: string
+        }
+        Relationships: []
+      }
+      system_flags: {
+        Row: {
+          flag_key: string
+          flag_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          flag_key: string
+          flag_value: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          flag_key?: string
+          flag_value?: Json
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
