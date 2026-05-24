@@ -292,9 +292,6 @@ export default function MeetingSessions() {
         </div>
 
 
-        {viewSession && (
-          <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
-        )}
       </div>
     </div>
   );
