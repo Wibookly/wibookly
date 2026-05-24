@@ -2401,6 +2401,8 @@ export type Database = {
           meeting_external_id: string | null
           meeting_title: string
           platform: string | null
+          recap_email_sent_at: string | null
+          recap_email_status: string | null
           started_at: string
           status: string
           summary: string | null
@@ -2419,6 +2421,8 @@ export type Database = {
           meeting_external_id?: string | null
           meeting_title: string
           platform?: string | null
+          recap_email_sent_at?: string | null
+          recap_email_status?: string | null
           started_at?: string
           status?: string
           summary?: string | null
@@ -2437,6 +2441,8 @@ export type Database = {
           meeting_external_id?: string | null
           meeting_title?: string
           platform?: string | null
+          recap_email_sent_at?: string | null
+          recap_email_status?: string | null
           started_at?: string
           status?: string
           summary?: string | null

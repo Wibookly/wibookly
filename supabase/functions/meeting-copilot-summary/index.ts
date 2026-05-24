@@ -184,7 +184,98 @@ ${fullText}`;
       }
     }
 
-    return new Response(JSON.stringify({ ...parsed, draftCreated }), {
+    // Auto-send the FULL recap (summary + decisions + actions + transcript) to the user's own inbox,
+    // with the full transcript attached as an .html document so they have a permanent copy.
+    let recapEmailStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
+    let recapEmailSentAt: string | null = null;
+    if (user.email) {
+      try {
+        const token = await getValidAccessToken(user.id, 'outlook');
+        if (token) {
+          const actionItemsHtml = actionItems.length
+            ? `<ul>${actionItems.map((a: any) => {
+                const desc = String(a.description || '').replace(/[<>]/g, '');
+                const who = a.assigned_to ? ` <em>— ${String(a.assigned_to).replace(/[<>]/g, '')}</em>` : '';
+                const due = a.due_date ? ` <strong>(due ${a.due_date})</strong>` : '';
+                return `<li>${desc}${who}${due}</li>`;
+              }).join('')}</ul>`
+            : '<p style="color:#666">No action items captured.</p>';
+          const decisionsHtml = (Array.isArray(parsed.key_decisions) && parsed.key_decisions.length)
+            ? `<ul>${parsed.key_decisions.map((d: string) => `<li>${String(d).replace(/[<>]/g, '')}</li>`).join('')}</ul>`
+            : '<p style="color:#666">No key decisions captured.</p>';
+          const summaryHtml = typeof parsed.summary === 'string'
+            ? parsed.summary.split(/\n{2,}/).map((p) => `<p>${p.replace(/[<>]/g, '').replace(/\n/g, '<br/>')}</p>`).join('')
+            : '<p style="color:#666">No summary generated.</p>';
+          const meetingDate = new Date(session.started_at || Date.now()).toLocaleString();
+          const recapHtml = `
+            <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:0 auto;color:#111">
+              <h1 style="font-size:22px;margin:0 0 4px">${String(session.meeting_title).replace(/[<>]/g, '')}</h1>
+              <p style="color:#666;margin:0 0 24px;font-size:13px">Meeting recap · ${meetingDate}</p>
+              <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px">Executive Summary</h2>
+              ${summaryHtml}
+              <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:24px">Key Decisions</h2>
+              ${decisionsHtml}
+              <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:24px">Action Items</h2>
+              ${actionItemsHtml}
+              <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:24px">Suggested Follow-up Email</h2>
+              ${followupHtml || '<p style="color:#666">No follow-up draft generated.</p>'}
+              <p style="color:#999;font-size:12px;margin-top:32px">Full transcript is attached as an HTML document.</p>
+            </div>
+          `;
+
+          // Build transcript attachment
+          const transcriptDoc = `<!doctype html><html><head><meta charset="utf-8"><title>Transcript — ${String(session.meeting_title).replace(/[<>]/g, '')}</title>
+            <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:780px;margin:24px auto;color:#111;padding:0 16px}
+            .line{margin:0 0 12px;padding:8px 12px;border-radius:8px;background:#f6f7f9}
+            .who{font-weight:600;color:#5b21b6;font-size:12px;margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+            .txt{font-size:14px;line-height:1.5}</style></head><body>
+            <h1>${String(session.meeting_title).replace(/[<>]/g, '')}</h1>
+            <p style="color:#666">${meetingDate} · ${groupedTranscript.length} segments</p>
+            ${groupedTranscript.map((t) => `<div class="line"><div class="who">${String(t.speaker).replace(/[<>]/g, '')}</div><div class="txt">${String(t.text).replace(/[<>]/g, '')}</div></div>`).join('')}
+            </body></html>`;
+          const contentBytes = btoa(unescape(encodeURIComponent(transcriptDoc)));
+          const safeName = String(session.meeting_title || 'meeting').replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 60);
+
+          const sendRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: {
+                subject: `📝 Meeting recap: ${session.meeting_title}`,
+                body: { contentType: 'HTML', content: recapHtml },
+                toRecipients: [{ emailAddress: { address: user.email } }],
+                attachments: [{
+                  '@odata.type': '#microsoft.graph.fileAttachment',
+                  name: `transcript-${safeName}.html`,
+                  contentType: 'text/html',
+                  contentBytes,
+                }],
+              },
+              saveToSentItems: true,
+            }),
+          });
+          if (sendRes.ok) {
+            recapEmailStatus = 'sent';
+            recapEmailSentAt = new Date().toISOString();
+          } else {
+            recapEmailStatus = 'failed';
+            console.error('recap send failed', sendRes.status, await sendRes.text().catch(() => ''));
+          }
+        } else {
+          recapEmailStatus = 'failed';
+        }
+      } catch (e) {
+        console.error('recap email error', e);
+        recapEmailStatus = 'failed';
+      }
+    }
+
+    await sb.from('meeting_sessions').update({
+      recap_email_status: recapEmailStatus,
+      recap_email_sent_at: recapEmailSentAt,
+    }).eq('id', sessionId);
+
+    return new Response(JSON.stringify({ ...parsed, draftCreated, recapEmailStatus, recapEmailSentAt }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e: any) {

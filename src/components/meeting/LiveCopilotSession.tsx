@@ -17,6 +17,8 @@ interface Props {
   durationMinutes?: number;
   /** Optional fixed start time (ISO); defaults to when the session row is created. */
   scheduledStartIso?: string;
+  /** Optional attendee names — pre-populates the speaker chips so the transcript can label lines. */
+  initialAttendees?: string[];
 }
 
 
@@ -77,6 +79,8 @@ interface MeetingSummary {
     body_html?: string;
     body_text?: string;
   };
+  recapEmailStatus?: 'sent' | 'failed' | 'skipped';
+  recapEmailSentAt?: string | null;
 }
 
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
@@ -117,15 +121,29 @@ type WindowWithSpeechRecognition = Window & typeof globalThis & {
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
-export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso }: Props) {
+export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso, initialAttendees }: Props) {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [draft, setDraft] = useState('');
-  const [speaker, setSpeaker] = useState('You');
-  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(['You']);
-  const speakerRef = useRef('You');
+  const initialSpeaker = (initialAttendees && initialAttendees[0]) || 'You';
+  const initialChips = useMemo(() => {
+    const names = (initialAttendees || []).map((n) => n.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const n of [...names, 'You']) {
+      const key = n.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(n);
+    }
+    return unique.slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [speaker, setSpeaker] = useState(initialSpeaker);
+  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(initialChips);
+  const speakerRef = useRef(initialSpeaker);
   useEffect(() => { speakerRef.current = speaker; }, [speaker]);
   const pickSpeaker = useCallback((name: string) => {
     const clean = name.trim();
@@ -864,9 +882,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             draftEmail: (data as MeetingSummary).followup_email?.body_text
               || (data as MeetingSummary).followup_email?.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
               || (data as MeetingSummary).draftEmail,
+            recapEmailStatus: (data as any).recapEmailStatus,
+            recapEmailSentAt: (data as any).recapEmailSentAt,
           }
         : null) as MeetingSummary | null);
-      toast.success('Session ended — summary ready');
+      const status = (data as any)?.recapEmailStatus;
+      if (status === 'sent') toast.success('Recap emailed to you with the full transcript attached');
+      else if (status === 'failed') toast.warning('Summary ready — but emailing the recap failed. Check your Outlook connection.');
+      else toast.success('Session ended — summary ready');
     } catch (e: unknown) {
       console.error(e);
       toast.error('Could not generate summary');
@@ -1297,6 +1320,34 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           })()}
 
 
+          {/* Attendees manager — feeds the SPEAKING NOW chips so the live transcript can attribute lines per person. */}
+          <div className="rounded-2xl p-3 flex flex-wrap items-center gap-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
+            <input
+              defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
+              onBlur={(e) => {
+                const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
+                const seen = new Set<string>();
+                const merged: string[] = [];
+                for (const n of [...names, 'You']) {
+                  const k = n.toLowerCase();
+                  if (seen.has(k)) continue;
+                  seen.add(k);
+                  merged.push(n);
+                }
+                setRecentSpeakers(merged.slice(0, 6));
+                if (names[0]) setSpeaker(names[0]);
+              }}
+              placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
+              className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+            />
+            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+              Press Tab to save — names appear as quick-pick chips below.
+            </span>
+          </div>
+
           {/* Speaking now selector — always visible so the live transcript can attribute lines */}
           <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
@@ -1429,8 +1480,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         </div>
       ) : (
         <div>
-          <div className="text-overline mb-3 flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-            <FileText className="w-3 h-3" /> MEETING SUMMARY
+          <div className="text-overline mb-3 flex items-center justify-between gap-2" style={{ color: 'var(--text-2)' }}>
+            <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> MEETING SUMMARY</span>
+            {summary.recapEmailStatus === 'sent' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'color-mix(in srgb, #22C55E 18%, transparent)', color: '#22C55E' }}>
+                <Send className="w-3 h-3" /> Sent to your email
+              </span>
+            )}
+            {summary.recapEmailStatus === 'failed' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>
+                Email send failed — check Outlook connection
+              </span>
+            )}
           </div>
           <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
             {summary.summary && (
