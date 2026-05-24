@@ -236,17 +236,17 @@ export default function MeetingCopilot() {
   }, [user, loadUpcomingMeetings]);
 
   const handleOpenSession = (meeting: UpcomingMeeting) => {
-    // Live meeting → open Copilot inline (anchor + scroll).
+    // Live meeting → navigate to its own dedicated wide page.
     if (meeting.isLive) {
       const m = /(\d+)/.exec(meeting.duration);
       const durationMinutes = m ? parseInt(m[1], 10) : undefined;
-      setOpenSession({ id: meeting.id, title: meeting.title, durationMinutes });
-      window.requestAnimationFrame(() => {
-        setTimeout(() => {
-          liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 60);
+      navigate(`/meeting-copilot/live/${encodeURIComponent(meeting.id)}`, {
+        state: {
+          title: meeting.title,
+          durationMinutes,
+          attendees: meeting.attendeeNames,
+        },
       });
-      toast.success(`Copilot opened for ${meeting.title}`);
       return;
     }
     // Upcoming meeting → navigate to dedicated prep page.
@@ -256,13 +256,9 @@ export default function MeetingCopilot() {
   const startPracticeSession = (durationMinutes = 30) => {
     const id = `practice-${Date.now()}`;
     const title = `Practice Session — ${durationMinutes} min`;
-    setOpenSession({ id, title, durationMinutes });
-    window.requestAnimationFrame(() => {
-      setTimeout(() => {
-        liveSessionAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 60);
+    navigate(`/meeting-copilot/live/${encodeURIComponent(id)}`, {
+      state: { title, durationMinutes },
     });
-    toast.success(`Practice session started — ${durationMinutes} min timer running`);
   };
 
   // Set this once the extension is approved on the Microsoft Edge Add-ons store.
@@ -697,16 +693,7 @@ export default function MeetingCopilot() {
         </div>
       </div>
 
-      <div ref={liveSessionAnchorRef}>
-        {openSession && (
-          <LiveCopilotSession
-            meeting={{ id: openSession.id, title: openSession.title }}
-            durationMinutes={openSession.durationMinutes}
-            autoStart
-            onClose={() => setOpenSession(null)}
-          />
-        )}
-      </div>
+      <div ref={liveSessionAnchorRef} />
 
       {viewSession && (
         <SessionDetailDialog sessionId={viewSession.id} title={viewSession.title} onClose={() => setViewSession(null)} />
