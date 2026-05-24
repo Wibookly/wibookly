@@ -2,6 +2,7 @@
 // Called by the Chrome extension overlay every ~10-15 seconds.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { logMeetingAI } from '../_shared/log-meeting-ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
