@@ -1041,7 +1041,7 @@ export default function Categories() {
 
   if (!activeConnection) {
     return (
-      <div className="min-h-full p-4 lg:p-6 max-w-7xl mx-auto w-full">
+      <div className="min-h-full p-4 lg:p-6 mx-auto w-full" style={{ maxWidth: '110rem' }}>
         <div className="w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Mail className="w-12 h-12 text-muted-foreground mb-4" />
