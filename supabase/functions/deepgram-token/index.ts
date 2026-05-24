@@ -33,8 +33,9 @@ Deno.serve(async (req) => {
 
     const DEEPGRAM_API_KEY = Deno.env.get('DEEPGRAM_API_KEY');
     if (!DEEPGRAM_API_KEY) {
+      // Return 200 with error so supabase-js exposes the body to the client.
       return new Response(JSON.stringify({ error: 'deepgram_not_configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -52,8 +53,8 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const t = await res.text();
       console.error('[deepgram-token] grant failed', res.status, t);
-      return new Response(JSON.stringify({ error: 'grant_failed', detail: t }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'grant_failed', status: res.status, detail: t.slice(0, 300) }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
