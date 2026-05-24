@@ -96,7 +96,22 @@ Deno.serve(async (req) => {
       ? `ABOUT ME (write the follow-up email in this person's voice — match their role, seniority, and communication style):\n${aboutLines.join('\n')}\n\n`
       : '';
 
-    const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
+    let parsed: any = {};
+
+    if (!hasSubstance) {
+      // No real conversation captured — DO NOT invent content from the user's
+      // profile. Return an honest empty recap.
+      const segCount = groupedTranscript.length;
+      parsed = {
+        summary: segCount === 0
+          ? 'No conversation was captured during this session. There is nothing to summarize.'
+          : `Only ${segCount} short transcript ${segCount === 1 ? 'fragment was' : 'fragments were'} captured (~${wordCount} words). There is not enough substance to generate a meaningful summary.`,
+        key_decisions: [],
+        action_items: [],
+        followup_email: null,
+      };
+    } else {
+      const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
 {
   "summary": "Executive summary in 2 short paragraphs with clear spacing between paragraphs",
   "key_decisions": ["at least 3 detailed bullets when possible"],
@@ -104,39 +119,43 @@ Deno.serve(async (req) => {
   "followup_email": { "subject": "...", "body_html": "<div>...</div>", "body_text": "plain text version" }
 }
 
-The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
-The email must include these sections in this order with professional spacing: Executive Summary, Key Decisions, Action Items, Next Steps.
-Use semantic HTML with paragraphs, headings, unordered lists, and list items. Do not collapse everything into one block.
-Action items must be concrete, not generic. Key decisions should capture nuance and rationale when available.
-If participants are identifiable from the transcript, preserve their names in the action items and narrative.
+STRICT RULES:
+- Use ONLY information that is explicitly present in the transcript below. Do NOT invent topics, decisions, action items, or names that are not in the transcript.
+- If the transcript does not contain enough information for a field, return an empty string or empty array for that field. NEVER fabricate content.
+- Do NOT use the ABOUT ME profile to generate topics or decisions — it only describes the writing voice for the follow-up email.
+- The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
+- The email must include these sections in this order with professional spacing: Executive Summary, Key Decisions, Action Items, Next Steps.
+- Use semantic HTML with paragraphs, headings, unordered lists, and list items.
+- Action items must be concrete and grounded in the transcript.
+- Preserve participant names exactly as they appear in the transcript.
 
 Meeting title: ${session.meeting_title}
 Attendees: ${attendeeList.length ? attendeeList.join(', ') : 'Unknown'}
 Transcript:
 ${fullText}`;
 
-    const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: 'You are a precise meeting summarizer. Output valid JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+      const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-3-flash-preview',
+          messages: [
+            { role: 'system', content: 'You are a precise meeting summarizer. Only use information explicitly in the transcript. Never invent content. Output valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+          max_tokens: 2000,
+        }),
+      });
 
-    if (aiRes.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (aiRes.status === 402) return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (!aiRes.ok) return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!aiRes.ok) return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const aiData = await aiRes.json();
-    let parsed: any = {};
-    try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
+      const aiData = await aiRes.json();
+      try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
+    }
 
     await sb.from('meeting_action_items').delete().eq('session_id', sessionId);
 
