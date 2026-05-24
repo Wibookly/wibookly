@@ -272,21 +272,22 @@ export default function AIDailyBrief() {
               p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
             }; background: #f9f9f9;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong>${p.title}</strong>
+                <strong>${esc(p.title)}</strong>
                 <span style="padding: 2px 8px; border-radius: 4px; font-size: 12px; background: ${
                   p.urgency === 'high' ? '#fee2e2' : 
                   p.urgency === 'medium' ? '#fef3c7' : '#d1fae5'
                 }; color: ${
                   p.urgency === 'high' ? priorityColors.high : 
                   p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                };">${p.urgency.toUpperCase()}</span>
+                };">${esc(String(p.urgency).toUpperCase())}</span>
               </div>
-              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${p.description}</p>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(p.description)}</p>
             </div>
           `).join('') : '<p style="color: #999;">No priorities for today</p>'}
         </section>
       `;
     }
+
 
     if (type === 'all' || type === 'calendar') {
       content += `
