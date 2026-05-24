@@ -107,17 +107,26 @@ const SERVICES: ServiceDef[] = [
   /* ---- Connectors / indexing ---- */
   { id: 'indexing', section: 'connectors', name: 'Document Indexing', description: 'OneDrive / SharePoint / mail attachment extraction & embedding.',
     icon: Activity, testable: false, settings: 'indexing' },
+
+  /* ---- Meeting Copilot ---- */
+  { id: 'meeting_copilot_prep', section: 'meeting_copilot', name: 'Meeting Prep', description: 'Pre-meeting AI brief: context, questions to ask, talking points.',
+    icon: FileText, aiAction: 'meeting_copilot_prep', functionName: 'meeting-copilot-prep', testable: true },
+  { id: 'meeting_copilot_suggestion', section: 'meeting_copilot', name: 'Live Suggestions', description: 'Real-time "what to say / ask / answer" during the meeting.',
+    icon: Mic, aiAction: 'meeting_copilot_suggestion', functionName: 'meeting-copilot-suggestion', testable: true },
+  { id: 'meeting_copilot_summary', section: 'meeting_copilot', name: 'Recap & Email', description: 'Post-meeting summary, decisions, action items, follow-up email.',
+    icon: ListChecks, aiAction: 'meeting_copilot_summary', functionName: 'meeting-copilot-summary', testable: true },
 ];
 
 const SECTION_META: Record<Section, { title: string; description: string; icon: typeof Mail }> = {
-  m365:       { title: 'Microsoft 365',        description: 'Graph surfaces & tenant access',         icon: Building2 },
-  agents:     { title: 'AI Agents',            description: 'Email, Teams, Chat & orchestrator',     icon: Bot },
-  ai:         { title: 'AI Infrastructure',    description: 'LLM gateway, embeddings, providers',    icon: Cpu },
-  jobs:       { title: 'Background Jobs',      description: 'Scheduled crons & manual triggers',     icon: Server },
-  connectors: { title: 'Connectors & Indexing', description: 'Document extraction pipelines',         icon: Cable },
+  m365:            { title: 'Microsoft 365',         description: 'Graph surfaces & tenant access',         icon: Building2 },
+  agents:          { title: 'AI Agents',             description: 'Email, Teams, Chat & orchestrator',     icon: Bot },
+  ai:              { title: 'AI Infrastructure',     description: 'LLM gateway, embeddings, providers',    icon: Cpu },
+  jobs:            { title: 'Background Jobs',       description: 'Scheduled crons & manual triggers',     icon: Server },
+  connectors:      { title: 'Connectors & Indexing', description: 'Document extraction pipelines',         icon: Cable },
+  meeting_copilot: { title: 'Meeting Copilot',       description: 'Prep · live suggestions · recap',       icon: Mic },
 };
 
-const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'jobs', 'connectors'];
+const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'meeting_copilot', 'jobs', 'connectors'];
 
 /* ============================ Types ============================ */
 
