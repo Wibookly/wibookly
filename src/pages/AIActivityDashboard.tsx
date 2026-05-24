@@ -301,15 +301,42 @@ export default function AIActivityDashboard() {
         </div>
       ) : (
         <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {/* Email AI activity */}
+          <div className="mb-3 flex items-center gap-2">
+            <MailIcon className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Email AI</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI', Icon: FileText, color: 'text-blue-500' },
-              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Automatically sent replies', Icon: Send, color: 'text-orange-500' },
-              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'AI-scheduled appointments', Icon: CalendarCheck, color: 'text-purple-500' },
-              { title: 'Total AI-Processed', value: stats.totalEmails, sub: 'All AI-handled emails', Icon: MailIcon, color: 'text-primary' },
-              { title: 'AI Chats', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'}`, Icon: MessageSquare, color: 'text-green-500' },
-              { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Meetings assisted', Icon: Video, color: 'text-pink-500' },
+              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI for your review', Icon: FileText, color: 'text-blue-500' },
+              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Replies sent automatically by AI', Icon: Send, color: 'text-orange-500' },
+              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'Calendar events booked from emails', Icon: CalendarCheck, color: 'text-purple-500' },
+              { title: 'Total AI-Processed Emails', value: stats.totalEmails, sub: 'All inbound emails handled by AI', Icon: MailIcon, color: 'text-primary' },
+            ].map(({ title, value, sub, Icon, color }) => (
+              <Card key={title} className="h-full">
+                <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
+                  <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
+                    {title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
+                  <p className="text-xs text-muted-foreground mt-2 min-h-[2rem] line-clamp-2">{sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Conversational & meeting AI */}
+          <div className="mb-3 flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-green-500" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Chat & Meetings</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
+            {[
+              { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'} with InboxIQ`, Icon: MessageSquare, color: 'text-green-500' },
+              { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Live meetings transcribed & summarized', Icon: Video, color: 'text-pink-500' },
             ].map(({ title, value, sub, Icon, color }) => (
               <Card key={title} className="h-full">
                 <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">

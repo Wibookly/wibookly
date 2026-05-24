@@ -921,20 +921,26 @@ Deno.serve(async (req) => {
     });
 
     // Post-call accounting (user_daily_spend + org_agent_budget + ai_usage_logs)
-    try {
-      await recordSpend(admin, {
-        userId: user.id,
-        organizationId: organization_id || '',
-        groupId: gate.group_id,
-        feature: featureKey,
-        provider: detectProvider(routedModel),
-        model: routedModel,
-        tokensIn: totalTokensIn,
-        tokensOut: totalTokensOut,
-        metadata: { conversation_id, agent: body.agent },
-      });
-    } catch (e) {
-      console.error('agent-orchestrator recordSpend error', e);
+    // Skip for the admin "qa" integration probe — these are health checks, not
+    // real user activity, and we don't want them polluting the AI Usage tab
+    // or counting against quotas.
+    const isAdminProbe = body.agent === 'qa';
+    if (!isAdminProbe) {
+      try {
+        await recordSpend(admin, {
+          userId: user.id,
+          organizationId: organization_id || '',
+          groupId: gate.group_id,
+          feature: featureKey,
+          provider: detectProvider(routedModel),
+          model: routedModel,
+          tokensIn: totalTokensIn,
+          tokensOut: totalTokensOut,
+          metadata: { conversation_id, agent: body.agent },
+        });
+      } catch (e) {
+        console.error('agent-orchestrator recordSpend error', e);
+      }
     }
 
     return new Response(
