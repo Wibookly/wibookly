@@ -78,10 +78,21 @@ export function useDeepgramTranscription({ onInterim, onFinalUtterance, onError 
   const start = useCallback(async (existingStream?: MediaStream | null) => {
     stoppingRef.current = false;
     try {
-      // 1) Mint a short-lived token from our edge function.
+      // 1) Mint a short-lived token from our edge function. When the function
+      //    returns a non-2xx response, supabase-js wraps it as a generic
+      //    "Edge Function returned a non-2xx status code" — pull the real
+      //    error code out of the body so the UI can show something useful.
       const { data, error } = await supabase.functions.invoke('deepgram-token', { body: {} });
-      if (error) throw new Error(error.message || 'token_error');
-      const token: string | undefined = data?.access_token;
+      if (error) {
+        const detail = (data as { error?: string } | null)?.error;
+        const friendly = detail === 'deepgram_not_configured'
+          ? 'Live transcription is not configured (DEEPGRAM_API_KEY missing). Add the key in Lovable Cloud → Secrets.'
+          : detail === 'grant_failed'
+            ? 'Deepgram rejected the request — the API key may be invalid or out of credit.'
+            : (detail || error.message || 'Could not start live transcription');
+        throw new Error(friendly);
+      }
+      const token: string | undefined = (data as { access_token?: string } | null)?.access_token;
       if (!token) throw new Error('No Deepgram token returned');
 
       // 2) Get the microphone (reuse a stream from the existing mic check if provided).
