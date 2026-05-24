@@ -127,7 +127,7 @@ const SECTION_META: Record<Section, { title: string; description: string; icon: 
   meeting_copilot: { title: 'Meeting Copilot',       description: 'Prep · live suggestions · recap',       icon: Mic },
 };
 
-const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'meeting_copilot', 'jobs', 'connectors'];
+const SECTION_ORDER: Section[] = ['m365', 'agents', 'meeting_copilot', 'ai', 'jobs', 'connectors'];
 
 /* ============================ Types ============================ */
 
