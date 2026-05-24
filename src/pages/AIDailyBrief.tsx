@@ -194,6 +194,17 @@ export default function AIDailyBrief() {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
 
+    // Escape any user/AI-derived strings before interpolating into HTML
+    const esc = (v: unknown): string => {
+      if (v === null || v === undefined) return '';
+      return String(v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
     const today = new Date().toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -209,6 +220,7 @@ export default function AIDailyBrief() {
                        type === 'priorities' ? 'Priorities' : 'Daily Brief';
 
     let content = '';
+
 
     const header = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 3px solid #0ea5e9;">
