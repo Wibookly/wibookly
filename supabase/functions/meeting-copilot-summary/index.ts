@@ -63,9 +63,12 @@ Deno.serve(async (req) => {
       ? session.attendees.map((entry: unknown) => String(entry)).filter(Boolean)
       : [];
     const fullText = groupedTranscript.map((t) => `${t.speaker}: ${t.text}`).join('\n').slice(0, 30000);
-    if (!fullText.trim()) {
-      return new Response(JSON.stringify({ error: 'no_transcript' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+
+    // Decide whether there is enough substance to summarize. Empty / trivial
+    // sessions (e.g. test runs with one word) must NOT trigger AI hallucination
+    // that invents content from the user's profile.
+    const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+    const hasSubstance = groupedTranscript.length >= 2 && wordCount >= 20;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
