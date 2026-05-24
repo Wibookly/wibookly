@@ -956,6 +956,7 @@ function AuditPanel({ svc }: { svc: ServiceDef }) {
 
   return (
     <div className="space-y-6">
+      <RecoveryAuditTable serviceId={svc.id} />
       {svc.apiName && (
         <LogTable
           title="Recent Graph API calls"
