@@ -1037,12 +1037,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           )}
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
             style={{
-              background: listening
-                ? 'color-mix(in srgb, #22C55E 18%, transparent)'
-                : 'color-mix(in srgb, #EF4444 18%, transparent)',
-              color: listening ? '#22C55E' : '#EF4444',
+              background: summary
+                ? 'color-mix(in srgb, #6B7280 18%, transparent)'
+                : listening
+                  ? 'color-mix(in srgb, #22C55E 18%, transparent)'
+                  : 'color-mix(in srgb, #EF4444 18%, transparent)',
+              color: summary ? '#6B7280' : listening ? '#22C55E' : '#EF4444',
             }}>
-            ● {listening ? 'MIC ON' : 'LIVE'}
+            ● {summary ? 'ENDED' : listening ? 'MIC ON' : 'LIVE'}
           </span>
 
           {summary ? (
