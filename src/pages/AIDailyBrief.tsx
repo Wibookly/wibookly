@@ -334,21 +334,21 @@ export default function AIDailyBrief() {
                     p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
                   }; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${p.title}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${p.description}</div>
+                    <div style="font-weight: 600; font-size: 15px;">${esc(p.title)}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${esc(p.description)}</div>
                   </div>
                   <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: ${
                     p.urgency === 'high' ? priorityColors.high : 
                     p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                  }; color: white;">${p.urgency}</span>
+                  }; color: white;">${esc(p.urgency)}</span>
                 </div>
               `).join('') || ''}
               ${brief.emailHighlights?.slice(0, 10).map(e => `
                 <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: #f8fafc; border-left: 4px solid #0ea5e9;">
                   <span style="width: 18px; height: 18px; border: 2px solid #0ea5e9; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${e.action}: ${e.subject}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${e.from}</div>
+                    <div style="font-weight: 600; font-size: 15px;">${esc(e.action)}: ${esc(e.subject)}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${esc(e.from)}</div>
                   </div>
                 </div>
               `).join('') || ''}
