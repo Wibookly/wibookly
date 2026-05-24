@@ -6,8 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, CheckCircle, FileText, ExternalLink, Mail, Search, Calendar, Clock, Users,
+  ChevronDown, ChevronUp, Sparkles,
 } from 'lucide-react';
 import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
+
+interface ExpandedData {
+  transcripts: { id: string; speaker: string; text: string; spoken_at: string }[];
+  actions: { id: string; description: string; assigned_to: string | null; completed: boolean }[];
+  suggestions: { id: string; content: string; suggestion_type: string | null }[];
+  loading: boolean;
+}
+
+
 
 interface SessionRow {
   id: string;
