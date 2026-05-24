@@ -37,7 +37,7 @@ export default function MeetingSessions() {
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
+  
   const [expanded, setExpanded] = useState<Record<string, ExpandedData | undefined>>({});
 
   const toggleExpand = async (id: string) => {
