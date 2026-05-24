@@ -1359,16 +1359,75 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             )}
           </div>
 
-          {/* Speaking now selector — always visible so the live transcript can attribute lines */}
+          {/* Detected speakers — auto-populated by Deepgram diarization.
+              Rename "Speaker N" to a real name; the rename retroactively
+              updates lines already attributed to that speaker. */}
+          <div className="md:col-span-2 rounded-2xl p-3"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-3.5 h-3.5" style={{ color: 'var(--c-purple)' }} />
+              <span className="text-overline" style={{ color: 'var(--text-2)' }}>DETECTED SPEAKERS</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                Auto-separated by voice — rename to real names.
+              </span>
+            </div>
+            {detectedSpeakers.length === 0 ? (
+              <div className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                {listening ? 'Listening — speaker labels will appear after the first few sentences.' : 'Start listening to detect speakers.'}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {detectedSpeakers.map((id) => {
+                  const color = SPEAKER_COLORS[id % SPEAKER_COLORS.length];
+                  const current = speakerNames[id] ?? '';
+                  return (
+                    <div key={`spk-${id}`} className="flex items-center gap-1.5 rounded-full pl-1.5 pr-2 py-1"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+                      <span className="text-[11px] font-semibold" style={{ color }}>S{id + 1}</span>
+                      <Pencil className="w-3 h-3 opacity-50" />
+                      <input
+                        value={current}
+                        onChange={(e) => setSpeakerNames((cur) => ({ ...cur, [id]: e.target.value }))}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v) {
+                            const prevLabel = `Speaker ${id + 1}`;
+                            const oldLabel = (speakerNamesRef.current[id] && speakerNamesRef.current[id] !== v)
+                              ? speakerNamesRef.current[id]
+                              : prevLabel;
+                            setTranscript((cur) => cur.map((l) => l.speaker === oldLabel ? { ...l, speaker: v } : l));
+                          }
+                        }}
+                        placeholder={`Speaker ${id + 1}`}
+                        className="bg-transparent text-[11px] outline-none w-24"
+                        style={{ color: 'var(--text-1)' }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {interimLine && (
+              <div className="mt-2 text-[11px] italic" style={{ color: 'var(--text-2)' }}>
+                <span style={{ color: 'var(--c-purple)' }}>
+                  {interimLine.speakerId !== null ? speakerLabelFor(interimLine.speakerId) : 'Listening'}:
+                </span>{' '}
+                {interimLine.text}…
+              </div>
+            )}
+          </div>
+
+          {/* Speaker name used for manually typed lines only. */}
           <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span className="text-overline" style={{ color: 'var(--text-2)' }}>SPEAKING NOW</span>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>TYPED-LINE SPEAKER</span>
             <input
               value={speaker}
               onChange={(e) => setSpeaker(e.target.value)}
               onBlur={(e) => pickSpeaker(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pickSpeaker((e.target as HTMLInputElement).value); } }}
-              placeholder="Type the speaker's name (e.g. Ali, Nikki)…"
+              placeholder="Name used for manually typed lines (default: You)"
               className="flex-1 min-w-[180px] rounded-lg px-3 py-1.5 text-xs"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
             />
@@ -1390,10 +1449,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 );
               })}
             </div>
-            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
-              Tip: change this whenever a different person starts talking.
-            </span>
           </div>
+
 
           {/* Transcript drawer trigger */}
           <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
