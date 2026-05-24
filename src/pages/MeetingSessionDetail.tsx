@@ -297,7 +297,7 @@ export default function MeetingSessionDetail() {
               {session.followup_body_html && (
                 <div className="rounded-xl p-4 prose prose-sm max-w-none"
                   style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}
-                  dangerouslySetInnerHTML={{ __html: session.followup_body_html }} />
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(session.followup_body_html, { ADD_ATTR: ['target'] }) }} />
               )}
             </div>
           ) : <Empty>No follow-up email drafted.</Empty>}
