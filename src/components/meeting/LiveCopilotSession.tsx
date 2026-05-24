@@ -549,8 +549,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }, 900);
   };
 
-  // --- In-browser microphone capture via Web Speech API ---
-  const pushHeardLine = async (text: string) => {
+  // --- Persist a heard / typed line. `overrideSpeaker` is used by Deepgram
+  // diarization so each line gets its detected speaker, not the manual one.
+  const pushHeardLine = async (text: string, overrideSpeaker?: string) => {
     const sid = sessionIdRef.current;
     const uid = userIdRef.current;
     if (!sid || !uid) return;
@@ -561,7 +562,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
     lastInsertRef.current = { text: clean, at: now };
 
-    const currentSpeaker = (speakerRef.current || 'You').trim() || 'You';
+    const currentSpeaker = (overrideSpeaker ?? speakerRef.current ?? 'You').trim() || 'You';
     await supabase.from('meeting_transcripts').insert({
       session_id: sid,
       user_id: uid,
@@ -579,6 +580,42 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }).catch(() => {});
     } catch { /* ignore */ }
   };
+
+  // Map a diarized speaker id to a display name. Defaults to "Speaker N".
+  const speakerLabelFor = useCallback((id: number) => {
+    const named = speakerNamesRef.current[id];
+    if (named && named.trim()) return named.trim();
+    return `Speaker ${id + 1}`;
+  }, []);
+
+  // Deepgram emits one of these for every committed utterance, already
+  // grouped by speaker (so two people interrupting each other yield two lines).
+  const handleDiarizedUtterance = useCallback((u: DiarizedUtterance) => {
+    setDetectedSpeakers((cur) => (cur.includes(u.speakerId) ? cur : [...cur, u.speakerId].sort((a, b) => a - b)));
+    setInterimLine(null);
+    if (interimTimerRef.current) { window.clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
+    void pushHeardLine(u.text, speakerLabelFor(u.speakerId));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakerLabelFor]);
+
+  const handleInterim = useCallback((text: string, speakerId: number | null) => {
+    setInterimLine({ text, speakerId });
+    setHeardPreview(text);
+    if (interimTimerRef.current) window.clearTimeout(interimTimerRef.current);
+    interimTimerRef.current = window.setTimeout(() => setInterimLine(null), 2500);
+  }, []);
+
+  const handleDeepgramError = useCallback((msg: string) => {
+    setMicError(msg);
+    toast.error(msg);
+  }, []);
+
+  const deepgram = useDeepgramTranscription({
+    onFinalUtterance: handleDiarizedUtterance,
+    onInterim: handleInterim,
+    onError: handleDeepgramError,
+  });
+
 
   const clearTranscriptFlushTimer = () => {
     if (transcriptFlushTimerRef.current) {
