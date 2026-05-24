@@ -578,18 +578,30 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
                   </div>
                 </div>
               </div>
-              {active.testable && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={testingId === active.id}
-                  onClick={() => runTest(active)}
-                  className="shrink-0"
-                >
-                  {testingId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  <span className="ml-1.5">Run test</span>
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {active.testable && (snap.status === 'failed' || snap.status === 'degraded') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={recoveringId === active.id}
+                    onClick={() => manualRecover(active)}
+                  >
+                    {recoveringId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LifeBuoy className="h-3.5 w-3.5" />}
+                    <span className="ml-1.5">Recover now</span>
+                  </Button>
+                )}
+                {active.testable && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    disabled={testingId === active.id}
+                    onClick={() => runTest(active)}
+                  >
+                    {testingId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                    <span className="ml-1.5">Run test</span>
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
         </Card>
