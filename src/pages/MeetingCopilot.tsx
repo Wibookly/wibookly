@@ -12,7 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import LiveCopilotSession from '@/components/meeting/LiveCopilotSession';
 import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
 import { Link } from 'react-router-dom';
 
@@ -77,7 +76,7 @@ export default function MeetingCopilot() {
     { state: 'loading' } | { state: 'connected'; count: number } | { state: 'not_connected' } | { state: 'error'; detail: string }
   >({ state: 'loading' });
   const [privacyOpen, setPrivacyOpen] = useState(false);
-  const [openSession, setOpenSession] = useState<{ id: string; title: string; durationMinutes?: number } | null>(null);
+  const [openSession] = useState<{ id: string; title: string; durationMinutes?: number } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; title: string; when: string; duration: string; actions: number; summary: string | null; hasFollowup: boolean }>>([]);
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
 
