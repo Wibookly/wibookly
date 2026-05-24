@@ -25,9 +25,10 @@ export function AuditTable({ source, title }: { source: NonNullable<SubService['
           setRows([]);
           return;
         }
+        const client = supabase as any;
         if (source.kind === 'm365_api_health') {
-          let q = supabase.from('m365_api_health').select('*').order('checked_at', { ascending: false }).limit(20);
-          if (source.endpoint) q = q.ilike('endpoint', `%${source.endpoint}%`);
+          const base = client.from('m365_api_health').select('*').order('checked_at', { ascending: false }).limit(20);
+          const q = source.endpoint ? base.ilike('endpoint', `%${source.endpoint}%`) : base;
           const { data } = await q;
           setRows((data ?? []).map((r: any) => ({
             when: r.checked_at ?? r.created_at,
@@ -37,8 +38,8 @@ export function AuditTable({ source, title }: { source: NonNullable<SubService['
             latency: r.latency_ms != null ? `${r.latency_ms}ms` : undefined,
           })));
         } else if (source.kind === 'llm_call_logs') {
-          let q = supabase.from('llm_call_logs').select('*').order('created_at', { ascending: false }).limit(20);
-          if (source.provider) q = q.eq('provider', source.provider);
+          const base = client.from('llm_call_logs').select('*').order('created_at', { ascending: false }).limit(20);
+          const q = source.provider ? base.eq('provider', source.provider) : base;
           const { data } = await q;
           setRows((data ?? []).map((r: any) => ({
             when: r.created_at,
@@ -48,7 +49,7 @@ export function AuditTable({ source, title }: { source: NonNullable<SubService['
             latency: r.latency_ms != null ? `${r.latency_ms}ms` : undefined,
           })));
         } else if (source.kind === 'connect_attempts') {
-          const { data } = await supabase.from('connect_attempts').select('*').order('created_at', { ascending: false }).limit(20);
+          const { data } = await client.from('connect_attempts').select('*').order('created_at', { ascending: false }).limit(20);
           setRows((data ?? []).map((r: any) => ({
             when: r.created_at,
             status: (r.success ? 'healthy' : 'failed') as NodeStatus,
@@ -56,7 +57,7 @@ export function AuditTable({ source, title }: { source: NonNullable<SubService['
             caller: r.error ?? '',
           })));
         } else if (source.kind === 'email_send_log') {
-          const { data } = await supabase.from('email_send_log').select('*').order('created_at', { ascending: false }).limit(20);
+          const { data } = await client.from('email_send_log').select('*').order('created_at', { ascending: false }).limit(20);
           setRows((data ?? []).map((r: any) => ({
             when: r.created_at,
             status: (r.status === 'sent' ? 'healthy' : r.status === 'failed' ? 'failed' : 'warning') as NodeStatus,
@@ -64,8 +65,8 @@ export function AuditTable({ source, title }: { source: NonNullable<SubService['
             caller: r.to_email ?? '',
           })));
         } else if (source.kind === 'ai_activity_logs') {
-          let q = supabase.from('ai_activity_logs').select('*').order('created_at', { ascending: false }).limit(20);
-          if (source.feature) q = q.eq('feature', source.feature);
+          const base = client.from('ai_activity_logs').select('*').order('created_at', { ascending: false }).limit(20);
+          const q = source.feature ? base.eq('feature', source.feature) : base;
           const { data } = await q;
           setRows((data ?? []).map((r: any) => ({
             when: r.created_at,
