@@ -13,6 +13,7 @@ import {
   Bot, Brain, MessageSquare, Sparkles, RefreshCw, Activity,
   CheckCircle2, AlertTriangle, Loader2, Play, Workflow, Inbox, BellRing,
   ExternalLink, ShieldCheck, Key, Cable, Server, Cpu, Mic, FileText, ListChecks,
+  LifeBuoy,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -99,7 +100,7 @@ const SERVICES: ServiceDef[] = [
     icon: RefreshCw, syncSource: 'onedrive', functionName: 'm365-sync-all', testable: true, settings: 'job_schedule' },
   { id: 'ingest_emails', section: 'jobs', name: 'Email Ingest', description: 'Pulls recent mail into email_messages for retrieval.',
     icon: Inbox, jobType: 'email_ingest', functionName: 'cron-ingest-emails', testable: true, settings: 'job_schedule' },
-  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Processor', description: 'Categorization + AI drafts on new inbound mail.',
+  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Cron (scheduled trigger)', description: 'Scheduled pg_cron trigger that runs the AI Email Agent across all connections.',
     icon: Workflow, jobType: 'ai_email_processing', functionName: 'process-ai-emails', testable: true, settings: 'job_schedule' },
   { id: 'follow_ups', section: 'jobs', name: 'Follow-Up Reminders', description: 'BCC-triggered auto-reminders for sent mail.',
     icon: BellRing, jobType: 'follow_up_audit', functionName: 'cron-follow-ups', testable: true, settings: 'follow_ups' },
@@ -126,7 +127,7 @@ const SECTION_META: Record<Section, { title: string; description: string; icon: 
   meeting_copilot: { title: 'Meeting Copilot',       description: 'Prep · live suggestions · recap',       icon: Mic },
 };
 
-const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'meeting_copilot', 'jobs', 'connectors'];
+const SECTION_ORDER: Section[] = ['m365', 'agents', 'meeting_copilot', 'ai', 'jobs', 'connectors'];
 
 /* ============================ Types ============================ */
 
@@ -146,6 +147,36 @@ interface JobRow { id: string; job_type: string; status: string; error_message: 
 interface UsageRow { action: string; status: string; provider: string; model: string; latency_ms: number | null; error_message: string | null; created_at: string; }
 
 interface SecretStatus { name: string; configured: boolean }
+
+interface RecoveryAttempt {
+  service_id: ServiceId;
+  service_name: string;
+  at: number;
+  trigger: 'auto-monitor' | 'manual';
+  action: string;
+  ok: boolean;
+  message: string;
+}
+
+const RECOVERY_LS_KEY = 'admin.integrations.recoveryLog';
+const MAX_RECOVERY_LOG = 100;
+
+function loadRecoveryLog(): RecoveryAttempt[] {
+  try {
+    const raw = localStorage.getItem(RECOVERY_LS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function appendRecovery(entry: RecoveryAttempt) {
+  try {
+    const next = [entry, ...loadRecoveryLog()].slice(0, MAX_RECOVERY_LOG);
+    localStorage.setItem(RECOVERY_LS_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('admin:recovery-log-updated'));
+  } catch { /* */ }
+}
 
 /* ============================ Helpers ============================ */
 
@@ -322,6 +353,68 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
     }
   };
 
+  /* ---- Recovery: re-invoke the underlying function/cron when a probe fails. ---- */
+  const [recoveringId, setRecoveringId] = useState<ServiceId | null>(null);
+
+  const runRecovery = async (
+    svc: ServiceDef,
+    trigger: 'auto-monitor' | 'manual',
+  ): Promise<boolean> => {
+    if (!session?.access_token) return false;
+    const supaUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+    let action = 're-probe';
+    let ok = false;
+    let message = '';
+    try {
+      // Strategy: re-invoke the function that backs this service, then re-probe.
+      if (svc.functionName) {
+        action = `re-invoke ${svc.functionName}`;
+        const { data, error } = await supabase.functions.invoke(svc.functionName, {
+          body: { triggered_by: 'admin_recovery', service: svc.id },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) {
+          message = error.message;
+        } else {
+          message = typeof data === 'object' ? JSON.stringify(data).slice(0, 160) : String(data).slice(0, 160);
+        }
+      }
+      // Always re-probe after the recovery attempt.
+      if (svc.testable) {
+        const probeOk = await runTest(svc, { silent: true });
+        ok = probeOk;
+        if (!message) message = probeOk ? 'Re-probe healthy.' : 'Re-probe still failing.';
+        else message += probeOk ? ' · Re-probe healthy.' : ' · Re-probe still failing.';
+      } else {
+        ok = true;
+        message = message || 'Function re-invoked.';
+      }
+    } catch (e: any) {
+      ok = false;
+      message = e.message || 'Recovery failed.';
+    }
+    appendRecovery({
+      service_id: svc.id, service_name: svc.name, at: Date.now(),
+      trigger, action, ok, message,
+    });
+    return ok;
+  };
+
+  const manualRecover = async (svc: ServiceDef) => {
+    setRecoveringId(svc.id);
+    try {
+      const ok = await runRecovery(svc, 'manual');
+      toast({
+        title: ok ? `${svc.name}: recovered` : `${svc.name}: still failing`,
+        description: ok ? 'Service responded healthy after recovery.' : 'Recovery attempted but the service is still failing — check Audit tab.',
+        variant: ok ? 'default' : 'destructive',
+      });
+      await load();
+    } finally {
+      setRecoveringId(null);
+    }
+  };
+
   /* ---- Auto-monitor: periodically re-test every testable service and
      auto-retry failures once to confirm a real outage. ---- */
   const [autoMonitor, setAutoMonitor] = useState<boolean>(() => {
@@ -344,10 +437,16 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
         if (cancelled) return;
         const ok = await runTest(svc, { silent: true });
         if (!ok) {
-          // retry once before alerting to avoid flapping
+          // retry once before recovering, to avoid flapping
           await new Promise((r) => setTimeout(r, 1500));
           const retryOk = await runTest(svc, { silent: true });
-          if (!retryOk) alerts.push({ id: svc.id, name: svc.name, message: 'Health probe failed twice in a row.', at: Date.now() });
+          if (!retryOk) {
+            // Auto-recovery: re-invoke the underlying function then re-probe.
+            const recovered = await runRecovery(svc, 'auto-monitor');
+            if (!recovered) {
+              alerts.push({ id: svc.id, name: svc.name, message: 'Probe failed twice; auto-recovery did not restore the service.', at: Date.now() });
+            }
+          }
         }
       }
       if (!cancelled) {
@@ -356,7 +455,7 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
         await load();
         if (alerts.length) {
           toast({
-            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} unhealthy`,
+            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} still unhealthy after recovery`,
             description: alerts.map((a) => a.name).join(', '),
             variant: 'destructive',
           });
@@ -479,18 +578,30 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
                   </div>
                 </div>
               </div>
-              {active.testable && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={testingId === active.id}
-                  onClick={() => runTest(active)}
-                  className="shrink-0"
-                >
-                  {testingId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  <span className="ml-1.5">Run test</span>
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {active.testable && (snap.status === 'failed' || snap.status === 'degraded') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={recoveringId === active.id}
+                    onClick={() => manualRecover(active)}
+                  >
+                    {recoveringId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LifeBuoy className="h-3.5 w-3.5" />}
+                    <span className="ml-1.5">Recover now</span>
+                  </Button>
+                )}
+                {active.testable && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    disabled={testingId === active.id}
+                    onClick={() => runTest(active)}
+                  >
+                    {testingId === active.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                    <span className="ml-1.5">Run test</span>
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
         </Card>
@@ -845,6 +956,7 @@ function AuditPanel({ svc }: { svc: ServiceDef }) {
 
   return (
     <div className="space-y-6">
+      <RecoveryAuditTable serviceId={svc.id} />
       {svc.apiName && (
         <LogTable
           title="Recent Graph API calls"
@@ -939,6 +1051,71 @@ function LogTable<R>({
                     {columns.map((c) => (
                       <td key={c.head} className="px-3 py-2 align-top whitespace-nowrap">{c.cell(r)}</td>
                     ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ============================ Recovery audit ============================ */
+
+function RecoveryAuditTable({ serviceId }: { serviceId: ServiceId }) {
+  const [log, setLog] = useState<RecoveryAttempt[]>(() => loadRecoveryLog());
+
+  useEffect(() => {
+    const refresh = () => setLog(loadRecoveryLog());
+    window.addEventListener('admin:recovery-log-updated', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('admin:recovery-log-updated', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const rows = log.filter((r) => r.service_id === serviceId).slice(0, 25);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <LifeBuoy className="h-4 w-4" /> Recovery attempts
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Automatic (auto-monitor) and manual recovery runs for this service.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No recovery attempts recorded.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="px-3 py-2 whitespace-nowrap">When</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Trigger</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Action</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Outcome</th>
+                  <th className="px-3 py-2">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="px-3 py-2 whitespace-nowrap">{new Date(r.at).toLocaleString()}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <Badge variant={r.trigger === 'auto-monitor' ? 'secondary' : 'outline'} className="text-xs">
+                        {r.trigger}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{r.action}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{statusBadge(r.ok ? 'healthy' : 'failed')}</td>
+                    <td className="px-3 py-2 text-xs break-words">{r.message}</td>
                   </tr>
                 ))}
               </tbody>
