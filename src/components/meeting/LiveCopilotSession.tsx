@@ -17,6 +17,8 @@ interface Props {
   durationMinutes?: number;
   /** Optional fixed start time (ISO); defaults to when the session row is created. */
   scheduledStartIso?: string;
+  /** Optional attendee names — pre-populates the speaker chips so the transcript can label lines. */
+  initialAttendees?: string[];
 }
 
 
@@ -117,15 +119,29 @@ type WindowWithSpeechRecognition = Window & typeof globalThis & {
 const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
-export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso }: Props) {
+export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso, initialAttendees }: Props) {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [draft, setDraft] = useState('');
-  const [speaker, setSpeaker] = useState('You');
-  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(['You']);
-  const speakerRef = useRef('You');
+  const initialSpeaker = (initialAttendees && initialAttendees[0]) || 'You';
+  const initialChips = useMemo(() => {
+    const names = (initialAttendees || []).map((n) => n.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const n of [...names, 'You']) {
+      const key = n.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(n);
+    }
+    return unique.slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [speaker, setSpeaker] = useState(initialSpeaker);
+  const [recentSpeakers, setRecentSpeakers] = useState<string[]>(initialChips);
+  const speakerRef = useRef(initialSpeaker);
   useEffect(() => { speakerRef.current = speaker; }, [speaker]);
   const pickSpeaker = useCallback((name: string) => {
     const clean = name.trim();
