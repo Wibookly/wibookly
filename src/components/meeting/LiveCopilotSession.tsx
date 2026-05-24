@@ -1388,21 +1388,30 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                       <Pencil className="w-3 h-3 opacity-50" />
                       <input
                         value={current}
+                        data-prev={current || `Speaker ${id + 1}`}
+                        onFocus={(e) => { e.currentTarget.dataset.prev = current || `Speaker ${id + 1}`; }}
                         onChange={(e) => setSpeakerNames((cur) => ({ ...cur, [id]: e.target.value }))}
                         onBlur={(e) => {
                           const v = e.target.value.trim();
-                          if (v) {
-                            const prevLabel = `Speaker ${id + 1}`;
-                            const oldLabel = (speakerNamesRef.current[id] && speakerNamesRef.current[id] !== v)
-                              ? speakerNamesRef.current[id]
-                              : prevLabel;
-                            setTranscript((cur) => cur.map((l) => l.speaker === oldLabel ? { ...l, speaker: v } : l));
+                          const oldLabel = e.currentTarget.dataset.prev || `Speaker ${id + 1}`;
+                          if (!v || v === oldLabel) return;
+                          // Update local UI immediately…
+                          setTranscript((cur) => cur.map((l) => l.speaker === oldLabel ? { ...l, speaker: v } : l));
+                          // …and persist so the recap/summary uses the real name.
+                          const sid = sessionIdRef.current;
+                          if (sid) {
+                            supabase.from('meeting_transcripts')
+                              .update({ speaker: v })
+                              .eq('session_id', sid)
+                              .eq('speaker', oldLabel)
+                              .then(({ error }) => { if (error) console.warn('rename speaker failed', error); });
                           }
                         }}
                         placeholder={`Speaker ${id + 1}`}
                         className="bg-transparent text-[11px] outline-none w-24"
                         style={{ color: 'var(--text-1)' }}
                       />
+
                     </div>
                   );
                 })}
