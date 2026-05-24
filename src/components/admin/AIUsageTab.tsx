@@ -47,6 +47,9 @@ const FEATURES: Array<{ value: string; label: string }> = [
   { value: 'powerpoints', label: 'PowerPoints' },
   { value: 'excel', label: 'Excel files' },
   { value: 'file_review', label: 'File review' },
+  { value: 'meeting_copilot_prep', label: 'Meeting Copilot · Prep' },
+  { value: 'meeting_copilot_suggestion', label: 'Meeting Copilot · Live Suggestions' },
+  { value: 'meeting_copilot_summary', label: 'Meeting Copilot · Recap' },
 ];
 
 const featureLabel = (k: string) => FEATURES.find((f) => f.value === k)?.label ?? k;

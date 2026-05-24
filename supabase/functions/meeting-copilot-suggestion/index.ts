@@ -2,6 +2,7 @@
 // Called by the Chrome extension overlay every ~10-15 seconds.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { logMeetingAI } from '../_shared/log-meeting-ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,6 +114,7 @@ Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": 
       });
     }
 
+    const aiStart = Date.now();
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -130,18 +132,23 @@ Output JSON only: { "suggestions": [{ "type": "say|ask|fact|answer", "content": 
         max_tokens: 500,
       }),
     });
+    const aiLatency = Date.now() - aiStart;
 
     if (aiRes.status === 429) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_suggestion', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: 'rate_limited', metadata: { sessionId, intent } });
       return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     if (aiRes.status === 402) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_suggestion', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: 'credits_exhausted', metadata: { sessionId, intent } });
       return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     if (!aiRes.ok) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_suggestion', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: `http_${aiRes.status}`, metadata: { sessionId, intent } });
       return new Response(JSON.stringify({ error: 'ai_error', suggestions: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const aiData = await aiRes.json();
+    await logMeetingAI({ userId: user.id, action: 'meeting_copilot_suggestion', model: 'google/gemini-3-flash-preview', usage: aiData?.usage, latencyMs: aiLatency, metadata: { sessionId, intent } });
     let suggestions: any[] = [];
     try {
       const parsed = JSON.parse(aiData.choices[0].message.content);

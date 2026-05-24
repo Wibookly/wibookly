@@ -3,6 +3,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getValidAccessToken } from '../_shared/oauth-tokens.ts';
+import { logMeetingAI } from '../_shared/log-meeting-ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,6 +128,7 @@ Output strict JSON ONLY:
   "risks": ["..."]
 }`;
 
+    const aiStart = Date.now();
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
@@ -141,12 +143,23 @@ Output strict JSON ONLY:
         max_tokens: 1800,
       }),
     });
+    const aiLatency = Date.now() - aiStart;
 
-    if (aiRes.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (aiRes.status === 402) return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (!aiRes.ok) return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (aiRes.status === 429) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_prep', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: 'rate_limited', metadata: { meetingId } });
+      return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (aiRes.status === 402) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_prep', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: 'credits_exhausted', metadata: { meetingId } });
+      return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!aiRes.ok) {
+      await logMeetingAI({ userId: user.id, action: 'meeting_copilot_prep', model: 'google/gemini-3-flash-preview', latencyMs: aiLatency, status: 'error', errorMessage: `http_${aiRes.status}`, metadata: { meetingId } });
+      return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     const aiData = await aiRes.json();
+    await logMeetingAI({ userId: user.id, action: 'meeting_copilot_prep', model: 'google/gemini-3-flash-preview', usage: aiData?.usage, latencyMs: aiLatency, metadata: { meetingId } });
     let parsed: any = {};
     try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
 

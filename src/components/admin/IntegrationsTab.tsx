@@ -12,8 +12,10 @@ import {
   Mail, Calendar as CalendarIcon, FolderOpen, Building2, Users as TeamsIcon,
   Bot, Brain, MessageSquare, Sparkles, RefreshCw, Activity,
   CheckCircle2, AlertTriangle, Loader2, Play, Workflow, Inbox, BellRing,
-  ExternalLink, ShieldCheck, Key, Cable, Server, Cpu,
+  ExternalLink, ShieldCheck, Key, Cable, Server, Cpu, Mic, FileText, ListChecks,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import M365IndexingPanel from './M365IndexingPanel';
 import AzurePermissionsCheck from './AzurePermissionsCheck';
@@ -27,9 +29,10 @@ type ServiceId =
   | 'email_agent' | 'teams_bot' | 'chat_agent' | 'agent_orchestrator'
   | 'llm_gateway' | 'embeddings'
   | 'm365_sync' | 'ingest_emails' | 'process_ai_emails' | 'follow_ups'
-  | 'indexing';
+  | 'indexing'
+  | 'meeting_copilot_prep' | 'meeting_copilot_suggestion' | 'meeting_copilot_summary';
 
-type Section = 'm365' | 'agents' | 'ai' | 'jobs' | 'connectors';
+type Section = 'm365' | 'agents' | 'ai' | 'jobs' | 'connectors' | 'meeting_copilot';
 
 interface ServiceDef {
   id: ServiceId;
@@ -104,17 +107,26 @@ const SERVICES: ServiceDef[] = [
   /* ---- Connectors / indexing ---- */
   { id: 'indexing', section: 'connectors', name: 'Document Indexing', description: 'OneDrive / SharePoint / mail attachment extraction & embedding.',
     icon: Activity, testable: false, settings: 'indexing' },
+
+  /* ---- Meeting Copilot ---- */
+  { id: 'meeting_copilot_prep', section: 'meeting_copilot', name: 'Meeting Prep', description: 'Pre-meeting AI brief: context, questions to ask, talking points.',
+    icon: FileText, aiAction: 'meeting_copilot_prep', functionName: 'meeting-copilot-prep', testable: true },
+  { id: 'meeting_copilot_suggestion', section: 'meeting_copilot', name: 'Live Suggestions', description: 'Real-time "what to say / ask / answer" during the meeting.',
+    icon: Mic, aiAction: 'meeting_copilot_suggestion', functionName: 'meeting-copilot-suggestion', testable: true },
+  { id: 'meeting_copilot_summary', section: 'meeting_copilot', name: 'Recap & Email', description: 'Post-meeting summary, decisions, action items, follow-up email.',
+    icon: ListChecks, aiAction: 'meeting_copilot_summary', functionName: 'meeting-copilot-summary', testable: true },
 ];
 
 const SECTION_META: Record<Section, { title: string; description: string; icon: typeof Mail }> = {
-  m365:       { title: 'Microsoft 365',        description: 'Graph surfaces & tenant access',         icon: Building2 },
-  agents:     { title: 'AI Agents',            description: 'Email, Teams, Chat & orchestrator',     icon: Bot },
-  ai:         { title: 'AI Infrastructure',    description: 'LLM gateway, embeddings, providers',    icon: Cpu },
-  jobs:       { title: 'Background Jobs',      description: 'Scheduled crons & manual triggers',     icon: Server },
-  connectors: { title: 'Connectors & Indexing', description: 'Document extraction pipelines',         icon: Cable },
+  m365:            { title: 'Microsoft 365',         description: 'Graph surfaces & tenant access',         icon: Building2 },
+  agents:          { title: 'AI Agents',             description: 'Email, Teams, Chat & orchestrator',     icon: Bot },
+  ai:              { title: 'AI Infrastructure',     description: 'LLM gateway, embeddings, providers',    icon: Cpu },
+  jobs:            { title: 'Background Jobs',       description: 'Scheduled crons & manual triggers',     icon: Server },
+  connectors:      { title: 'Connectors & Indexing', description: 'Document extraction pipelines',         icon: Cable },
+  meeting_copilot: { title: 'Meeting Copilot',       description: 'Prep · live suggestions · recap',       icon: Mic },
 };
 
-const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'jobs', 'connectors'];
+const SECTION_ORDER: Section[] = ['m365', 'agents', 'ai', 'meeting_copilot', 'jobs', 'connectors'];
 
 /* ============================ Types ============================ */
 
@@ -223,7 +235,7 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
       // AI usage
       const usageRows = (usageRes.data ?? []) as UsageRow[];
       const latestAi = usageRows[0];
-      for (const svc of SERVICES.filter((s) => s.section === 'ai' || s.section === 'agents')) {
+      for (const svc of SERVICES.filter((s) => s.section === 'ai' || s.section === 'agents' || s.section === 'meeting_copilot')) {
         const row = svc.aiAction
           ? usageRows.find((r) => r.action === svc.aiAction)
           : latestAi;
@@ -283,9 +295,9 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const runTest = async (svc: ServiceDef) => {
-    if (!session?.access_token) return;
-    setTestingId(svc.id);
+  const runTest = async (svc: ServiceDef, opts?: { silent?: boolean }): Promise<boolean> => {
+    if (!session?.access_token) return false;
+    if (!opts?.silent) setTestingId(svc.id);
     try {
       const { data, error } = await supabase.functions.invoke('admin-integration-probe', {
         body: { service: svc.id },
@@ -293,18 +305,69 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
       });
       if (error) throw new Error(error.message);
       const ok = !!data?.ok;
-      toast({
-        title: ok ? `${svc.name}: OK` : `${svc.name}: failed`,
-        description: `${data?.message ?? ''}${data?.latency_ms ? ` · ${data.latency_ms}ms` : ''}`,
-        variant: ok ? 'default' : 'destructive',
-      });
-      await load();
+      if (!opts?.silent) {
+        toast({
+          title: ok ? `${svc.name}: OK` : `${svc.name}: failed`,
+          description: `${data?.message ?? ''}${data?.latency_ms ? ` · ${data.latency_ms}ms` : ''}`,
+          variant: ok ? 'default' : 'destructive',
+        });
+        await load();
+      }
+      return ok;
     } catch (e: any) {
-      toast({ title: `${svc.name}: failed`, description: e.message, variant: 'destructive' });
+      if (!opts?.silent) toast({ title: `${svc.name}: failed`, description: e.message, variant: 'destructive' });
+      return false;
     } finally {
-      setTestingId(null);
+      if (!opts?.silent) setTestingId(null);
     }
   };
+
+  /* ---- Auto-monitor: periodically re-test every testable service and
+     auto-retry failures once to confirm a real outage. ---- */
+  const [autoMonitor, setAutoMonitor] = useState<boolean>(() => {
+    try { return localStorage.getItem('admin.integrations.autoMonitor') === '1'; } catch { return false; }
+  });
+  const [lastMonitorRun, setLastMonitorRun] = useState<number | null>(null);
+  const [monitorAlerts, setMonitorAlerts] = useState<Array<{ id: ServiceId; name: string; message: string; at: number }>>([]);
+
+  useEffect(() => {
+    try { localStorage.setItem('admin.integrations.autoMonitor', autoMonitor ? '1' : '0'); } catch { /* */ }
+  }, [autoMonitor]);
+
+  useEffect(() => {
+    if (!autoMonitor || !session?.access_token) return;
+    let cancelled = false;
+    const tick = async () => {
+      const testable = SERVICES.filter((s) => s.testable);
+      const alerts: Array<{ id: ServiceId; name: string; message: string; at: number }> = [];
+      for (const svc of testable) {
+        if (cancelled) return;
+        const ok = await runTest(svc, { silent: true });
+        if (!ok) {
+          // retry once before alerting to avoid flapping
+          await new Promise((r) => setTimeout(r, 1500));
+          const retryOk = await runTest(svc, { silent: true });
+          if (!retryOk) alerts.push({ id: svc.id, name: svc.name, message: 'Health probe failed twice in a row.', at: Date.now() });
+        }
+      }
+      if (!cancelled) {
+        setMonitorAlerts(alerts);
+        setLastMonitorRun(Date.now());
+        await load();
+        if (alerts.length) {
+          toast({
+            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} unhealthy`,
+            description: alerts.map((a) => a.name).join(', '),
+            variant: 'destructive',
+          });
+        }
+      }
+    };
+    void tick();
+    const id = setInterval(tick, 5 * 60 * 1000); // every 5 minutes
+    return () => { cancelled = true; clearInterval(id); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMonitor, session?.access_token]);
 
   if (loading) {
     return (
@@ -323,6 +386,25 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
         <div>
           <h2 className="text-base font-semibold">Integrations</h2>
           <p className="text-xs text-muted-foreground">All services, settings & audit in one place.</p>
+        </div>
+        <div className="rounded-md border bg-card/40 px-3 py-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="auto-monitor" className="text-xs font-medium cursor-pointer">
+              Always-on auto-monitor
+            </Label>
+            <Switch id="auto-monitor" checked={autoMonitor} onCheckedChange={setAutoMonitor} />
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Re-tests every integration every 5 min and auto-retries failures once before alerting.
+          </p>
+          {autoMonitor && (
+            <p className="text-[11px] text-muted-foreground">
+              Last run: {lastMonitorRun ? timeAgo(new Date(lastMonitorRun).toISOString()) : '—'}
+              {monitorAlerts.length > 0 && (
+                <span className="ml-1 text-destructive">· {monitorAlerts.length} unhealthy</span>
+              )}
+            </p>
+          )}
         </div>
         <ScrollArea className="lg:h-[calc(100vh-220px)] pr-2">
           <nav className="space-y-5">
