@@ -38,6 +38,40 @@ export default function MeetingSessions() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewSession, setViewSession] = useState<{ id: string; title: string } | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, ExpandedData | undefined>>({});
+
+  const toggleExpand = async (id: string) => {
+    setExpanded((cur) => {
+      if (cur[id]) { const { [id]: _, ...rest } = cur; return rest; }
+      return { ...cur, [id]: { transcripts: [], actions: [], suggestions: [], loading: true } };
+    });
+    // If we just opened, fetch data.
+    const isOpening = !expanded[id];
+    if (!isOpening) return;
+    const [{ data: t }, { data: a }, { data: s }] = await Promise.all([
+      supabase.from('meeting_transcripts').select('id, speaker, text, spoken_at').eq('session_id', id).order('spoken_at', { ascending: true }),
+      supabase.from('meeting_action_items').select('id, description, assigned_to, completed').eq('session_id', id).order('created_at', { ascending: true }),
+      supabase.from('meeting_suggestions').select('id, content, suggestion_type').eq('session_id', id).order('generated_at', { ascending: true }),
+    ]);
+    setExpanded((cur) => ({
+      ...cur,
+      [id]: {
+        transcripts: (t || []) as ExpandedData['transcripts'],
+        actions: (a || []) as ExpandedData['actions'],
+        suggestions: (s || []) as ExpandedData['suggestions'],
+        loading: false,
+      },
+    }));
+  };
+
+  const toggleAction = async (sessionId: string, actionId: string, next: boolean) => {
+    setExpanded((cur) => {
+      const e = cur[sessionId]; if (!e) return cur;
+      return { ...cur, [sessionId]: { ...e, actions: e.actions.map((x) => x.id === actionId ? { ...x, completed: next } : x) } };
+    });
+    await supabase.from('meeting_action_items').update({ completed: next }).eq('id', actionId);
+  };
+
 
   useEffect(() => {
     if (!user) return;
