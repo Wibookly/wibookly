@@ -100,7 +100,7 @@ const SERVICES: ServiceDef[] = [
     icon: RefreshCw, syncSource: 'onedrive', functionName: 'm365-sync-all', testable: true, settings: 'job_schedule' },
   { id: 'ingest_emails', section: 'jobs', name: 'Email Ingest', description: 'Pulls recent mail into email_messages for retrieval.',
     icon: Inbox, jobType: 'email_ingest', functionName: 'cron-ingest-emails', testable: true, settings: 'job_schedule' },
-  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Processor', description: 'Categorization + AI drafts on new inbound mail.',
+  { id: 'process_ai_emails', section: 'jobs', name: 'AI Email Cron (scheduled trigger)', description: 'Scheduled pg_cron trigger that runs the AI Email Agent across all connections.',
     icon: Workflow, jobType: 'ai_email_processing', functionName: 'process-ai-emails', testable: true, settings: 'job_schedule' },
   { id: 'follow_ups', section: 'jobs', name: 'Follow-Up Reminders', description: 'BCC-triggered auto-reminders for sent mail.',
     icon: BellRing, jobType: 'follow_up_audit', functionName: 'cron-follow-ups', testable: true, settings: 'follow_ups' },
