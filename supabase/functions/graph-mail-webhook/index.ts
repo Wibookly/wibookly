@@ -480,6 +480,12 @@ async function processNotification(n: GraphNotification) {
     console.warn('No agent_settings found for subscription', n.subscriptionId);
     return;
   }
+  // Verify Microsoft Graph clientState matches the value we set when creating the subscription.
+  // This stops attackers who guess a subscriptionId from triggering processing/budget RPCs.
+  if (!n.clientState || n.clientState !== settings.organization_id) {
+    console.warn('clientState mismatch — rejecting notification for', n.subscriptionId);
+    return;
+  }
   if (!settings.email_agent_enabled) return;
   if (!settings.shared_mailbox_user_id || !settings.teams_tenant_id) {
     console.warn('Missing mailbox user id or tenant id');
