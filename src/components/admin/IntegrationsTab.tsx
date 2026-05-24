@@ -148,6 +148,36 @@ interface UsageRow { action: string; status: string; provider: string; model: st
 
 interface SecretStatus { name: string; configured: boolean }
 
+interface RecoveryAttempt {
+  service_id: ServiceId;
+  service_name: string;
+  at: number;
+  trigger: 'auto-monitor' | 'manual';
+  action: string;
+  ok: boolean;
+  message: string;
+}
+
+const RECOVERY_LS_KEY = 'admin.integrations.recoveryLog';
+const MAX_RECOVERY_LOG = 100;
+
+function loadRecoveryLog(): RecoveryAttempt[] {
+  try {
+    const raw = localStorage.getItem(RECOVERY_LS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function appendRecovery(entry: RecoveryAttempt) {
+  try {
+    const next = [entry, ...loadRecoveryLog()].slice(0, MAX_RECOVERY_LOG);
+    localStorage.setItem(RECOVERY_LS_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('admin:recovery-log-updated'));
+  } catch { /* */ }
+}
+
 /* ============================ Helpers ============================ */
 
 function timeAgo(iso: string | null): string {
