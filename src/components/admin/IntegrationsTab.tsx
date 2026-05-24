@@ -12,8 +12,10 @@ import {
   Mail, Calendar as CalendarIcon, FolderOpen, Building2, Users as TeamsIcon,
   Bot, Brain, MessageSquare, Sparkles, RefreshCw, Activity,
   CheckCircle2, AlertTriangle, Loader2, Play, Workflow, Inbox, BellRing,
-  ExternalLink, ShieldCheck, Key, Cable, Server, Cpu,
+  ExternalLink, ShieldCheck, Key, Cable, Server, Cpu, Mic, FileText, ListChecks,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import M365IndexingPanel from './M365IndexingPanel';
 import AzurePermissionsCheck from './AzurePermissionsCheck';
