@@ -353,6 +353,68 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
     }
   };
 
+  /* ---- Recovery: re-invoke the underlying function/cron when a probe fails. ---- */
+  const [recoveringId, setRecoveringId] = useState<ServiceId | null>(null);
+
+  const runRecovery = async (
+    svc: ServiceDef,
+    trigger: 'auto-monitor' | 'manual',
+  ): Promise<boolean> => {
+    if (!session?.access_token) return false;
+    const supaUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+    let action = 're-probe';
+    let ok = false;
+    let message = '';
+    try {
+      // Strategy: re-invoke the function that backs this service, then re-probe.
+      if (svc.functionName) {
+        action = `re-invoke ${svc.functionName}`;
+        const { data, error } = await supabase.functions.invoke(svc.functionName, {
+          body: { triggered_by: 'admin_recovery', service: svc.id },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) {
+          message = error.message;
+        } else {
+          message = typeof data === 'object' ? JSON.stringify(data).slice(0, 160) : String(data).slice(0, 160);
+        }
+      }
+      // Always re-probe after the recovery attempt.
+      if (svc.testable) {
+        const probeOk = await runTest(svc, { silent: true });
+        ok = probeOk;
+        if (!message) message = probeOk ? 'Re-probe healthy.' : 'Re-probe still failing.';
+        else message += probeOk ? ' · Re-probe healthy.' : ' · Re-probe still failing.';
+      } else {
+        ok = true;
+        message = message || 'Function re-invoked.';
+      }
+    } catch (e: any) {
+      ok = false;
+      message = e.message || 'Recovery failed.';
+    }
+    appendRecovery({
+      service_id: svc.id, service_name: svc.name, at: Date.now(),
+      trigger, action, ok, message,
+    });
+    return ok;
+  };
+
+  const manualRecover = async (svc: ServiceDef) => {
+    setRecoveringId(svc.id);
+    try {
+      const ok = await runRecovery(svc, 'manual');
+      toast({
+        title: ok ? `${svc.name}: recovered` : `${svc.name}: still failing`,
+        description: ok ? 'Service responded healthy after recovery.' : 'Recovery attempted but the service is still failing — check Audit tab.',
+        variant: ok ? 'default' : 'destructive',
+      });
+      await load();
+    } finally {
+      setRecoveringId(null);
+    }
+  };
+
   /* ---- Auto-monitor: periodically re-test every testable service and
      auto-retry failures once to confirm a real outage. ---- */
   const [autoMonitor, setAutoMonitor] = useState<boolean>(() => {
