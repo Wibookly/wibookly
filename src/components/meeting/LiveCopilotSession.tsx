@@ -79,6 +79,8 @@ interface MeetingSummary {
     body_html?: string;
     body_text?: string;
   };
+  recapEmailStatus?: 'sent' | 'failed' | 'skipped';
+  recapEmailSentAt?: string | null;
 }
 
 type CopilotPromptMode = 'answer' | 'ask' | 'say';
@@ -1473,8 +1475,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         </div>
       ) : (
         <div>
-          <div className="text-overline mb-3 flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
-            <FileText className="w-3 h-3" /> MEETING SUMMARY
+          <div className="text-overline mb-3 flex items-center justify-between gap-2" style={{ color: 'var(--text-2)' }}>
+            <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> MEETING SUMMARY</span>
+            {summary.recapEmailStatus === 'sent' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'color-mix(in srgb, #22C55E 18%, transparent)', color: '#22C55E' }}>
+                <Send className="w-3 h-3" /> Sent to your email
+              </span>
+            )}
+            {summary.recapEmailStatus === 'failed' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'color-mix(in srgb, #EF4444 18%, transparent)', color: '#EF4444' }}>
+                Email send failed — check Outlook connection
+              </span>
+            )}
           </div>
           <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
             {summary.summary && (
