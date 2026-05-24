@@ -29,9 +29,10 @@ type ServiceId =
   | 'email_agent' | 'teams_bot' | 'chat_agent' | 'agent_orchestrator'
   | 'llm_gateway' | 'embeddings'
   | 'm365_sync' | 'ingest_emails' | 'process_ai_emails' | 'follow_ups'
-  | 'indexing';
+  | 'indexing'
+  | 'meeting_copilot_prep' | 'meeting_copilot_suggestion' | 'meeting_copilot_summary';
 
-type Section = 'm365' | 'agents' | 'ai' | 'jobs' | 'connectors';
+type Section = 'm365' | 'agents' | 'ai' | 'jobs' | 'connectors' | 'meeting_copilot';
 
 interface ServiceDef {
   id: ServiceId;
