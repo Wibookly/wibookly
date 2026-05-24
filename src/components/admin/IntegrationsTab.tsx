@@ -1061,3 +1061,68 @@ function LogTable<R>({
     </Card>
   );
 }
+
+/* ============================ Recovery audit ============================ */
+
+function RecoveryAuditTable({ serviceId }: { serviceId: ServiceId }) {
+  const [log, setLog] = useState<RecoveryAttempt[]>(() => loadRecoveryLog());
+
+  useEffect(() => {
+    const refresh = () => setLog(loadRecoveryLog());
+    window.addEventListener('admin:recovery-log-updated', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('admin:recovery-log-updated', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const rows = log.filter((r) => r.service_id === serviceId).slice(0, 25);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <LifeBuoy className="h-4 w-4" /> Recovery attempts
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Automatic (auto-monitor) and manual recovery runs for this service.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No recovery attempts recorded.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="px-3 py-2 whitespace-nowrap">When</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Trigger</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Action</th>
+                  <th className="px-3 py-2 whitespace-nowrap">Outcome</th>
+                  <th className="px-3 py-2">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="px-3 py-2 whitespace-nowrap">{new Date(r.at).toLocaleString()}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <Badge variant={r.trigger === 'auto-monitor' ? 'secondary' : 'outline'} className="text-xs">
+                        {r.trigger}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{r.action}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{statusBadge(r.ok ? 'healthy' : 'failed')}</td>
+                    <td className="px-3 py-2 text-xs break-words">{r.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
