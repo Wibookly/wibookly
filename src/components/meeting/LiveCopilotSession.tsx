@@ -158,7 +158,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
-  const [focusedSuggestions, setFocusedSuggestions] = useState<Partial<Record<CopilotPromptMode, Suggestion>>>({});
+  const [focusedSuggestions, setFocusedSuggestions] = useState<Record<CopilotPromptMode, Suggestion[]>>({ answer: [], ask: [], say: [] });
   const [autoDraftFollowup, setAutoDraftFollowup] = useState(true);
 
   // In-browser mic listening (works without the Chrome extension)
@@ -935,7 +935,12 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
       const best = mapped[0];
       if (best) {
-        setFocusedSuggestions((cur) => ({ ...cur, [mode]: best }));
+        setFocusedSuggestions((cur) => {
+          const prev = cur[mode] || [];
+          // Avoid duplicate consecutive content
+          if (prev.length && prev[0].content === best.content) return cur;
+          return { ...cur, [mode]: [best, ...prev].slice(0, 10) };
+        });
       }
 
       setSuggestions((cur) => {
@@ -1032,12 +1037,14 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
           )}
           <span className="text-xs font-bold px-2.5 py-1 rounded-full"
             style={{
-              background: listening
-                ? 'color-mix(in srgb, #22C55E 18%, transparent)'
-                : 'color-mix(in srgb, #EF4444 18%, transparent)',
-              color: listening ? '#22C55E' : '#EF4444',
+              background: summary
+                ? 'color-mix(in srgb, #6B7280 18%, transparent)'
+                : listening
+                  ? 'color-mix(in srgb, #22C55E 18%, transparent)'
+                  : 'color-mix(in srgb, #EF4444 18%, transparent)',
+              color: summary ? '#6B7280' : listening ? '#22C55E' : '#EF4444',
             }}>
-            ● {listening ? 'MIC ON' : 'LIVE'}
+            ● {summary ? 'ENDED' : listening ? 'MIC ON' : 'LIVE'}
           </span>
 
           {summary ? (
@@ -1269,9 +1276,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             };
             const idle = !focusMode;
             const cfg = focusMode ? meta[focusMode] : null;
-            const single = focusMode ? focusedSuggestions[focusMode] : null;
-            const items = cfg && single && cfg.filter((single.kind || '').toLowerCase())
-              ? [single]
+            const history = focusMode ? (focusedSuggestions[focusMode] || []) : [];
+            const items = cfg
+              ? history.filter((s) => cfg.filter((s.kind || '').toLowerCase()))
               : [];
             const accent = cfg?.accent ?? 'var(--c-purple)';
             return (
@@ -1285,17 +1292,24 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                   <div className="flex items-center gap-2">
                     {cfg ? <cfg.Icon className="w-4 h-4" style={{ color: accent }} /> : <Sparkles className="w-4 h-4" style={{ color: 'var(--text-2)' }} />}
                     <div className="text-overline" style={{ color: 'var(--text-2)' }}>
-                      {cfg ? cfg.label : 'PICK A COPILOT ACTION ABOVE'}
+                      {cfg ? `${cfg.label}${items.length > 1 ? ` · ${items.length} saved` : ''}` : 'PICK A COPILOT ACTION ABOVE'}
                     </div>
                   </div>
-                  {focusMode && (
-                    <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion(focusMode)} disabled={!sessionId || !!promptBusy}>
-                      {promptBusy === focusMode ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                      Regenerate
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {focusMode && items.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => setFocusedSuggestions((cur) => ({ ...cur, [focusMode]: [] }))}>
+                        Clear
+                      </Button>
+                    )}
+                    {focusMode && (
+                      <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion(focusMode)} disabled={!sessionId || !!promptBusy}>
+                        {promptBusy === focusMode ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                        {items.length > 0 ? 'Get another' : 'Regenerate'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2.5 max-h-[26rem] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[36rem] overflow-y-auto pr-1">
                   {idle && (
                     <div className="rounded-xl p-4 text-xs text-center" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
                       The Copilot is listening in the background. Tap one of the three actions above whenever you need help — the answer, question, or talking point will appear here.
@@ -1311,8 +1325,15 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                       {cfg.empty}
                     </div>
                   )}
-                  {items.map((s) => (
-                    <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent={accent} />
+                  {items.map((s, idx) => (
+                    <div key={s.id || idx} style={{ opacity: idx === 0 ? 1 : 0.85 }}>
+                      {idx > 0 && (
+                        <div className="text-[10px] uppercase tracking-wider mb-1 px-1" style={{ color: 'var(--text-2)' }}>
+                          Previous #{items.length - idx}
+                        </div>
+                      )}
+                      <SuggestionCard s={s} onCopy={() => copySuggestion(s.content)} accent={accent} />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1321,31 +1342,48 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
 
           {/* Attendees manager — feeds the SPEAKING NOW chips so the live transcript can attribute lines per person. */}
-          <div className="rounded-2xl p-3 flex flex-wrap items-center gap-2"
+          <div className="rounded-2xl p-3"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
-            <input
-              defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
-              onBlur={(e) => {
-                const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
-                const seen = new Set<string>();
-                const merged: string[] = [];
-                for (const n of [...names, 'You']) {
-                  const k = n.toLowerCase();
-                  if (seen.has(k)) continue;
-                  seen.add(k);
-                  merged.push(n);
-                }
-                setRecentSpeakers(merged.slice(0, 6));
-                if (names[0]) setSpeaker(names[0]);
-              }}
-              placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
-              className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-            />
-            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
-              Press Tab to save — names appear as quick-pick chips below.
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
+              <input
+                defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
+                onBlur={(e) => {
+                  const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
+                  const seen = new Set<string>();
+                  const merged: string[] = [];
+                  for (const n of [...names, 'You']) {
+                    const k = n.toLowerCase();
+                    if (seen.has(k)) continue;
+                    seen.add(k);
+                    merged.push(n);
+                  }
+                  setRecentSpeakers(merged.slice(0, 6));
+                  if (names[0]) setSpeaker(names[0]);
+                }}
+                placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
+                className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+              />
+              <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                Press Tab to save.
+              </span>
+            </div>
+            {recentSpeakers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {recentSpeakers.map((name) => (
+                  <span key={`att-${name}`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: name.toLowerCase() === 'you' ? 'color-mix(in srgb, var(--c-purple) 16%, transparent)' : 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-1)',
+                    }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: name.toLowerCase() === 'you' ? 'var(--c-purple)' : SPEAKER_COLORS[Math.abs(hashCode(name)) % SPEAKER_COLORS.length] }} />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Speaking now selector — always visible so the live transcript can attribute lines */}
@@ -1410,7 +1448,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[60vh] min-h-[20rem] overflow-y-auto pr-1">
                 {micError && (
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444' }}>{micError}</div>
                 )}

@@ -63,9 +63,12 @@ Deno.serve(async (req) => {
       ? session.attendees.map((entry: unknown) => String(entry)).filter(Boolean)
       : [];
     const fullText = groupedTranscript.map((t) => `${t.speaker}: ${t.text}`).join('\n').slice(0, 30000);
-    if (!fullText.trim()) {
-      return new Response(JSON.stringify({ error: 'no_transcript' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+
+    // Decide whether there is enough substance to summarize. Empty / trivial
+    // sessions (e.g. test runs with one word) must NOT trigger AI hallucination
+    // that invents content from the user's profile.
+    const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+    const hasSubstance = groupedTranscript.length >= 2 && wordCount >= 20;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -93,7 +96,22 @@ Deno.serve(async (req) => {
       ? `ABOUT ME (write the follow-up email in this person's voice — match their role, seniority, and communication style):\n${aboutLines.join('\n')}\n\n`
       : '';
 
-    const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
+    let parsed: any = {};
+
+    if (!hasSubstance) {
+      // No real conversation captured — DO NOT invent content from the user's
+      // profile. Return an honest empty recap.
+      const segCount = groupedTranscript.length;
+      parsed = {
+        summary: segCount === 0
+          ? 'No conversation was captured during this session. There is nothing to summarize.'
+          : `Only ${segCount} short transcript ${segCount === 1 ? 'fragment was' : 'fragments were'} captured (~${wordCount} words). There is not enough substance to generate a meaningful summary.`,
+        key_decisions: [],
+        action_items: [],
+        followup_email: null,
+      };
+    } else {
+      const prompt = `${aboutBlock}Analyze this meeting transcript and output JSON ONLY with this exact shape:
 {
   "summary": "Executive summary in 2 short paragraphs with clear spacing between paragraphs",
   "key_decisions": ["at least 3 detailed bullets when possible"],
@@ -101,39 +119,43 @@ Deno.serve(async (req) => {
   "followup_email": { "subject": "...", "body_html": "<div>...</div>", "body_text": "plain text version" }
 }
 
-The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
-The email must include these sections in this order with professional spacing: Executive Summary, Key Decisions, Action Items, Next Steps.
-Use semantic HTML with paragraphs, headings, unordered lists, and list items. Do not collapse everything into one block.
-Action items must be concrete, not generic. Key decisions should capture nuance and rationale when available.
-If participants are identifiable from the transcript, preserve their names in the action items and narrative.
+STRICT RULES:
+- Use ONLY information that is explicitly present in the transcript below. Do NOT invent topics, decisions, action items, or names that are not in the transcript.
+- If the transcript does not contain enough information for a field, return an empty string or empty array for that field. NEVER fabricate content.
+- Do NOT use the ABOUT ME profile to generate topics or decisions — it only describes the writing voice for the follow-up email.
+- The followup_email must be written from ${p.full_name || 'the user'}'s perspective and match the ABOUT ME profile above. Do not include a signature block — one is added separately.
+- The email must include these sections in this order with professional spacing: Executive Summary, Key Decisions, Action Items, Next Steps.
+- Use semantic HTML with paragraphs, headings, unordered lists, and list items.
+- Action items must be concrete and grounded in the transcript.
+- Preserve participant names exactly as they appear in the transcript.
 
 Meeting title: ${session.meeting_title}
 Attendees: ${attendeeList.length ? attendeeList.join(', ') : 'Unknown'}
 Transcript:
 ${fullText}`;
 
-    const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: 'You are a precise meeting summarizer. Output valid JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+      const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-3-flash-preview',
+          messages: [
+            { role: 'system', content: 'You are a precise meeting summarizer. Only use information explicitly in the transcript. Never invent content. Output valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+          max_tokens: 2000,
+        }),
+      });
 
-    if (aiRes.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (aiRes.status === 402) return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (!aiRes.ok) return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ error: 'credits_exhausted' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!aiRes.ok) return new Response(JSON.stringify({ error: 'ai_error' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const aiData = await aiRes.json();
-    let parsed: any = {};
-    try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
+      const aiData = await aiRes.json();
+      try { parsed = JSON.parse(aiData.choices[0].message.content); } catch { /* */ }
+    }
 
     await sb.from('meeting_action_items').delete().eq('session_id', sessionId);
 
@@ -219,37 +241,23 @@ ${fullText}`;
               ${actionItemsHtml}
               <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:24px">Suggested Follow-up Email</h2>
               ${followupHtml || '<p style="color:#666">No follow-up draft generated.</p>'}
-              <p style="color:#999;font-size:12px;margin-top:32px">Full transcript is attached as an HTML document.</p>
+              <h2 style="font-size:16px;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:24px">Full Transcript</h2>
+              ${groupedTranscript.length === 0
+                ? '<p style="color:#666">No transcript captured.</p>'
+                : groupedTranscript.map((t) => `<div style="margin:0 0 10px;padding:8px 12px;border-radius:8px;background:#f6f7f9"><div style="font-weight:600;color:#5b21b6;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">${String(t.speaker).replace(/[<>]/g, '')}</div><div style="font-size:13px;line-height:1.5">${String(t.text).replace(/[<>]/g, '')}</div></div>`).join('')}
+              <p style="color:#999;font-size:12px;margin-top:32px">Generated by InboxIQ Meeting Copilot.</p>
             </div>
           `;
 
-          // Build transcript attachment
-          const transcriptDoc = `<!doctype html><html><head><meta charset="utf-8"><title>Transcript — ${String(session.meeting_title).replace(/[<>]/g, '')}</title>
-            <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:780px;margin:24px auto;color:#111;padding:0 16px}
-            .line{margin:0 0 12px;padding:8px 12px;border-radius:8px;background:#f6f7f9}
-            .who{font-weight:600;color:#5b21b6;font-size:12px;margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
-            .txt{font-size:14px;line-height:1.5}</style></head><body>
-            <h1>${String(session.meeting_title).replace(/[<>]/g, '')}</h1>
-            <p style="color:#666">${meetingDate} · ${groupedTranscript.length} segments</p>
-            ${groupedTranscript.map((t) => `<div class="line"><div class="who">${String(t.speaker).replace(/[<>]/g, '')}</div><div class="txt">${String(t.text).replace(/[<>]/g, '')}</div></div>`).join('')}
-            </body></html>`;
-          const contentBytes = btoa(unescape(encodeURIComponent(transcriptDoc)));
-          const safeName = String(session.meeting_title || 'meeting').replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 60);
-
+          const subjectPrefix = hasSubstance ? '📝 Meeting recap' : '📝 Meeting recap (no content captured)';
           const sendRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: {
-                subject: `📝 Meeting recap: ${session.meeting_title}`,
+                subject: `${subjectPrefix}: ${session.meeting_title}`,
                 body: { contentType: 'HTML', content: recapHtml },
                 toRecipients: [{ emailAddress: { address: user.email } }],
-                attachments: [{
-                  '@odata.type': '#microsoft.graph.fileAttachment',
-                  name: `transcript-${safeName}.html`,
-                  contentType: 'text/html',
-                  contentBytes,
-                }],
               },
               saveToSentItems: true,
             }),

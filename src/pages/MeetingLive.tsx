@@ -37,8 +37,8 @@ export default function MeetingLive() {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-shell-sticky">
+    <div className="min-h-full w-full mx-auto p-4 lg:p-6" style={{ maxWidth: '110rem' }}>
+      <div className="sticky top-0 z-20 pb-6" style={{ background: 'var(--bg)' }}>
         <div className="rounded-2xl p-4 flex items-center justify-between gap-3"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3 min-w-0">
@@ -59,7 +59,7 @@ export default function MeetingLive() {
         </div>
       </div>
 
-      <div className="page-shell-content">
+      <div className="relative z-10 pt-2">
         <LiveCopilotSession
           meeting={{ id: meetingId, title }}
           durationMinutes={state.durationMinutes}
