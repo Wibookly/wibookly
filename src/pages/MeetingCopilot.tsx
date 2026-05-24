@@ -210,14 +210,6 @@ export default function MeetingCopilot() {
           startMs: Number.isFinite(startDate.getTime()) ? startDate.getTime() : undefined,
         };
       });
-          platform: (['teams','zoom','meet'].includes(m.platform) ? m.platform : 'teams') as 'teams' | 'zoom' | 'meet',
-          attendees: m.attendeeCount,
-          attendeeNames: Array.isArray(m.attendeeNames) ? m.attendeeNames : [],
-          duration: isLive ? 'In progress' : `${m.durationMin} min`,
-          isLive,
-          joinUrl: m.joinUrl || null,
-        };
-      });
       const prefs: Record<string, boolean> = {};
       list.forEach((m: any) => { prefs[m.id] = m.copilotEnabled !== false; });
       setUpcoming(mapped);
