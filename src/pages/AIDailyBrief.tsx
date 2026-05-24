@@ -362,7 +362,7 @@ export default function AIDailyBrief() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${appName} - ${printTitle}</title>
+          <title>${esc(appName)} - ${esc(printTitle)}</title>
           <style>
             * { box-sizing: border-box; }
             body { 
