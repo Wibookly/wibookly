@@ -1274,9 +1274,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             };
             const idle = !focusMode;
             const cfg = focusMode ? meta[focusMode] : null;
-            const single = focusMode ? focusedSuggestions[focusMode] : null;
-            const items = cfg && single && cfg.filter((single.kind || '').toLowerCase())
-              ? [single]
+            const history = focusMode ? (focusedSuggestions[focusMode] || []) : [];
+            const items = cfg
+              ? history.filter((s) => cfg.filter((s.kind || '').toLowerCase()))
               : [];
             const accent = cfg?.accent ?? 'var(--c-purple)';
             return (
@@ -1290,17 +1290,24 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                   <div className="flex items-center gap-2">
                     {cfg ? <cfg.Icon className="w-4 h-4" style={{ color: accent }} /> : <Sparkles className="w-4 h-4" style={{ color: 'var(--text-2)' }} />}
                     <div className="text-overline" style={{ color: 'var(--text-2)' }}>
-                      {cfg ? cfg.label : 'PICK A COPILOT ACTION ABOVE'}
+                      {cfg ? `${cfg.label}${items.length > 1 ? ` · ${items.length} saved` : ''}` : 'PICK A COPILOT ACTION ABOVE'}
                     </div>
                   </div>
-                  {focusMode && (
-                    <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion(focusMode)} disabled={!sessionId || !!promptBusy}>
-                      {promptBusy === focusMode ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                      Regenerate
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {focusMode && items.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => setFocusedSuggestions((cur) => ({ ...cur, [focusMode]: [] }))}>
+                        Clear
+                      </Button>
+                    )}
+                    {focusMode && (
+                      <Button size="sm" variant="outline" onClick={() => requestFocusedSuggestion(focusMode)} disabled={!sessionId || !!promptBusy}>
+                        {promptBusy === focusMode ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                        {items.length > 0 ? 'Get another' : 'Regenerate'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2.5 max-h-[26rem] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[36rem] overflow-y-auto pr-1">
                   {idle && (
                     <div className="rounded-xl p-4 text-xs text-center" style={{ background: 'var(--surface)', color: 'var(--text-2)' }}>
                       The Copilot is listening in the background. Tap one of the three actions above whenever you need help — the answer, question, or talking point will appear here.
@@ -1316,8 +1323,15 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                       {cfg.empty}
                     </div>
                   )}
-                  {items.map((s) => (
-                    <SuggestionCard key={s.id} s={s} onCopy={() => copySuggestion(s.content)} accent={accent} />
+                  {items.map((s, idx) => (
+                    <div key={s.id || idx} style={{ opacity: idx === 0 ? 1 : 0.85 }}>
+                      {idx > 0 && (
+                        <div className="text-[10px] uppercase tracking-wider mb-1 px-1" style={{ color: 'var(--text-2)' }}>
+                          Previous #{items.length - idx}
+                        </div>
+                      )}
+                      <SuggestionCard s={s} onCopy={() => copySuggestion(s.content)} accent={accent} />
+                    </div>
                   ))}
                 </div>
               </div>
