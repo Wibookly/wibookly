@@ -194,6 +194,17 @@ export default function AIDailyBrief() {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
 
+    // Escape any user/AI-derived strings before interpolating into HTML
+    const esc = (v: unknown): string => {
+      if (v === null || v === undefined) return '';
+      return String(v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
     const today = new Date().toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -210,13 +221,14 @@ export default function AIDailyBrief() {
 
     let content = '';
 
+
     const header = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 3px solid #0ea5e9;">
         <div>
-          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${printTitle}</h1>
-          ${fullName ? `<p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #0f172a;">${fullName}</p>` : ''}
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${email}</p>
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${today}</p>
+          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${esc(printTitle)}</h1>
+          ${fullName ? `<p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #0f172a;">${esc(fullName)}</p>` : ''}
+          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(email)}</p>
+          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(today)}</p>
         </div>
         <div style="text-align: right;">
           <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" style="height: 120px; width: auto; display: block; margin-left: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
@@ -231,20 +243,20 @@ export default function AIDailyBrief() {
         <section class="brief-section">
         <h2>AI Analysis — What to do first</h2>
         <div style="margin-bottom: 16px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe;">
-          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${ai.headline}</p>` : ''}
+          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${esc(ai.headline)}</p>` : ''}
           ${(ai.whatToDoFirst || []).length ? `<ol style="margin:0;padding-left:0;list-style:none">
             ${ai.whatToDoFirst.map((it: any, i: number) => `
               <li style="display:flex;gap:12px;padding:10px 12px;margin:6px 0;background:#fff;border-radius:8px;border:1px solid #e0e7ff">
-                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${it.step ?? i + 1}</div>
+                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${esc(it.step ?? i + 1)}</div>
                 <div style="flex:1">
-                  <div style="font-weight:600;color:#0f172a;font-size:14px">${it.action || ''}</div>
-                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${it.why}</div>` : ''}
-                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${it.estimatedMinutes} min</div>` : ''}
+                  <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(it.action || '')}</div>
+                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${esc(it.why)}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
                 </div>
               </li>`).join('')}
           </ol>` : ''}
-          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${r}</li>`).join('')}</ul></div>` : ''}
-          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${w}</li>`).join('')}</ul></div>` : ''}
+          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
+          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
         </div>
         </section>
       `;
@@ -260,21 +272,22 @@ export default function AIDailyBrief() {
               p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
             }; background: #f9f9f9;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong>${p.title}</strong>
+                <strong>${esc(p.title)}</strong>
                 <span style="padding: 2px 8px; border-radius: 4px; font-size: 12px; background: ${
                   p.urgency === 'high' ? '#fee2e2' : 
                   p.urgency === 'medium' ? '#fef3c7' : '#d1fae5'
                 }; color: ${
                   p.urgency === 'high' ? priorityColors.high : 
                   p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                };">${p.urgency.toUpperCase()}</span>
+                };">${esc(String(p.urgency).toUpperCase())}</span>
               </div>
-              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${p.description}</p>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(p.description)}</p>
             </div>
           `).join('') : '<p style="color: #999;">No priorities for today</p>'}
         </section>
       `;
     }
+
 
     if (type === 'all' || type === 'calendar') {
       content += `
@@ -290,10 +303,10 @@ export default function AIDailyBrief() {
             });
             return booked.length ? booked.map(s => `
             <div class="priority-item" style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
-              <span style="width: 80px; font-family: monospace; color: #666;">${s.time}</span>
+              <span style="width: 80px; font-family: monospace; color: #666;">${esc(s.time)}</span>
               <div style="flex: 1;">
-                <strong>${s.title}</strong>
-                ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${s.description}</p>` : ''}
+                <strong>${esc(s.title)}</strong>
+                ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(s.description)}</p>` : ''}
               </div>
             </div>
           `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
@@ -321,21 +334,21 @@ export default function AIDailyBrief() {
                     p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
                   }; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${p.title}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${p.description}</div>
+                    <div style="font-weight: 600; font-size: 15px;">${esc(p.title)}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${esc(p.description)}</div>
                   </div>
                   <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: ${
                     p.urgency === 'high' ? priorityColors.high : 
                     p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                  }; color: white;">${p.urgency}</span>
+                  }; color: white;">${esc(p.urgency)}</span>
                 </div>
               `).join('') || ''}
               ${brief.emailHighlights?.slice(0, 10).map(e => `
                 <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: #f8fafc; border-left: 4px solid #0ea5e9;">
                   <span style="width: 18px; height: 18px; border: 2px solid #0ea5e9; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
                   <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${e.action}: ${e.subject}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${e.from}</div>
+                    <div style="font-weight: 600; font-size: 15px;">${esc(e.action)}: ${esc(e.subject)}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${esc(e.from)}</div>
                   </div>
                 </div>
               `).join('') || ''}
@@ -349,7 +362,7 @@ export default function AIDailyBrief() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${appName} - ${printTitle}</title>
+          <title>${esc(appName)} - ${esc(printTitle)}</title>
           <style>
             * { box-sizing: border-box; }
             body { 

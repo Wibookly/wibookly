@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
@@ -296,7 +297,7 @@ export default function MeetingSessionDetail() {
               {session.followup_body_html && (
                 <div className="rounded-xl p-4 prose prose-sm max-w-none"
                   style={{ background: 'var(--surface-2)', color: 'var(--text-1)' }}
-                  dangerouslySetInnerHTML={{ __html: session.followup_body_html }} />
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(session.followup_body_html, { ADD_ATTR: ['target'] }) }} />
               )}
             </div>
           ) : <Empty>No follow-up email drafted.</Empty>}
