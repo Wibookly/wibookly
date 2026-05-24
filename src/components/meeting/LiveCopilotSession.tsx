@@ -1431,7 +1431,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[60vh] min-h-[20rem] overflow-y-auto pr-1">
                 {micError && (
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'color-mix(in srgb, #EF4444 12%, transparent)', color: '#EF4444' }}>{micError}</div>
                 )}
