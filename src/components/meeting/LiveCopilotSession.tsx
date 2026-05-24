@@ -1342,31 +1342,48 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
 
           {/* Attendees manager — feeds the SPEAKING NOW chips so the live transcript can attribute lines per person. */}
-          <div className="rounded-2xl p-3 flex flex-wrap items-center gap-2"
+          <div className="rounded-2xl p-3"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
-            <input
-              defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
-              onBlur={(e) => {
-                const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
-                const seen = new Set<string>();
-                const merged: string[] = [];
-                for (const n of [...names, 'You']) {
-                  const k = n.toLowerCase();
-                  if (seen.has(k)) continue;
-                  seen.add(k);
-                  merged.push(n);
-                }
-                setRecentSpeakers(merged.slice(0, 6));
-                if (names[0]) setSpeaker(names[0]);
-              }}
-              placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
-              className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-            />
-            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
-              Press Tab to save — names appear as quick-pick chips below.
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-overline" style={{ color: 'var(--text-2)' }}>ATTENDEES</span>
+              <input
+                defaultValue={recentSpeakers.filter((n) => n.toLowerCase() !== 'you').join(', ')}
+                onBlur={(e) => {
+                  const names = e.target.value.split(',').map((n) => n.trim()).filter(Boolean);
+                  const seen = new Set<string>();
+                  const merged: string[] = [];
+                  for (const n of [...names, 'You']) {
+                    const k = n.toLowerCase();
+                    if (seen.has(k)) continue;
+                    seen.add(k);
+                    merged.push(n);
+                  }
+                  setRecentSpeakers(merged.slice(0, 6));
+                  if (names[0]) setSpeaker(names[0]);
+                }}
+                placeholder="Add attendee names separated by commas (e.g. Ali, Nikki, Sara)"
+                className="flex-1 min-w-[220px] rounded-lg px-3 py-1.5 text-xs"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
+              />
+              <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                Press Tab to save.
+              </span>
+            </div>
+            {recentSpeakers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {recentSpeakers.map((name) => (
+                  <span key={`att-${name}`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: name.toLowerCase() === 'you' ? 'color-mix(in srgb, var(--c-purple) 16%, transparent)' : 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-1)',
+                    }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: name.toLowerCase() === 'you' ? 'var(--c-purple)' : SPEAKER_COLORS[Math.abs(hashCode(name)) % SPEAKER_COLORS.length] }} />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Speaking now selector — always visible so the live transcript can attribute lines */}
