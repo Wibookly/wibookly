@@ -236,6 +236,48 @@ export default function MeetingCopilot() {
     };
   }, [user, loadUpcomingMeetings]);
 
+  // Browser heads-up notifications: 1 min before each scheduled meeting.
+  useEffect(() => {
+    if (!settings.notify_scheduled) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (Notification.permission !== 'granted') return;
+
+    const firedKey = 'inboxiq_meeting_heads_up_fired';
+    let fired: Record<string, number> = {};
+    try { fired = JSON.parse(sessionStorage.getItem(firedKey) || '{}'); } catch { /* ignore */ }
+
+    const timers: number[] = [];
+    upcoming.forEach((m) => {
+      if (!m.startMs || m.isLive) return;
+      const delay = m.startMs - 60_000 - Date.now();
+      if (delay < -5_000 || delay > 24 * 60 * 60 * 1000) return;
+      if (fired[m.id] === m.startMs) return;
+      const t = window.setTimeout(() => {
+        try {
+          const n = new Notification('Meeting in 1 minute', {
+            body: `${m.title} — ${m.timeLabel} ${m.period}`,
+            tag: `meeting-${m.id}`,
+            icon: '/favicon.ico',
+          });
+          n.onclick = () => {
+            window.focus();
+            if (m.joinUrl) window.open(m.joinUrl, '_blank');
+            else navigate(`/meeting-copilot/prep/${encodeURIComponent(m.id)}`, { state: { title: m.title } });
+            n.close();
+          };
+          fired[m.id] = m.startMs!;
+          sessionStorage.setItem(firedKey, JSON.stringify(fired));
+        } catch { /* ignore */ }
+      }, Math.max(0, delay));
+      timers.push(t);
+    });
+    return () => { timers.forEach((t) => window.clearTimeout(t)); };
+  }, [upcoming, settings.notify_scheduled, navigate]);
+
+
   const handleOpenSession = (meeting: UpcomingMeeting) => {
     // Live meeting → navigate to its own dedicated wide page.
     if (meeting.isLive) {
