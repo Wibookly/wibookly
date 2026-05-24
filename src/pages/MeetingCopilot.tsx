@@ -335,8 +335,9 @@ export default function MeetingCopilot() {
   }, [user, upcoming.length, openSession, recent.length]);
 
   return (
-    <div className="page-shell">
-      <div className="page-shell-sticky">
+    <div className="min-h-full w-full mx-auto p-4 lg:p-6" style={{ maxWidth: '110rem' }}>
+      <div className="sticky top-0 z-20 pb-6" style={{ background: 'var(--bg)' }}>
+
       <div className="relative overflow-hidden rounded-2xl p-5 shadow-glow"
         style={{ background: 'var(--grad-feature)', color: '#FFFFFF' }}>
         <div aria-hidden className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none"
