@@ -303,10 +303,10 @@ export default function AIDailyBrief() {
             });
             return booked.length ? booked.map(s => `
             <div class="priority-item" style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
-              <span style="width: 80px; font-family: monospace; color: #666;">${s.time}</span>
+              <span style="width: 80px; font-family: monospace; color: #666;">${esc(s.time)}</span>
               <div style="flex: 1;">
-                <strong>${s.title}</strong>
-                ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${s.description}</p>` : ''}
+                <strong>${esc(s.title)}</strong>
+                ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(s.description)}</p>` : ''}
               </div>
             </div>
           `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
