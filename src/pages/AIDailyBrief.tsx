@@ -243,20 +243,20 @@ export default function AIDailyBrief() {
         <section class="brief-section">
         <h2>AI Analysis — What to do first</h2>
         <div style="margin-bottom: 16px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe;">
-          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${ai.headline}</p>` : ''}
+          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${esc(ai.headline)}</p>` : ''}
           ${(ai.whatToDoFirst || []).length ? `<ol style="margin:0;padding-left:0;list-style:none">
             ${ai.whatToDoFirst.map((it: any, i: number) => `
               <li style="display:flex;gap:12px;padding:10px 12px;margin:6px 0;background:#fff;border-radius:8px;border:1px solid #e0e7ff">
-                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${it.step ?? i + 1}</div>
+                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${esc(it.step ?? i + 1)}</div>
                 <div style="flex:1">
-                  <div style="font-weight:600;color:#0f172a;font-size:14px">${it.action || ''}</div>
-                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${it.why}</div>` : ''}
-                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${it.estimatedMinutes} min</div>` : ''}
+                  <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(it.action || '')}</div>
+                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${esc(it.why)}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
                 </div>
               </li>`).join('')}
           </ol>` : ''}
-          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${r}</li>`).join('')}</ul></div>` : ''}
-          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${w}</li>`).join('')}</ul></div>` : ''}
+          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
+          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
         </div>
         </section>
       `;
