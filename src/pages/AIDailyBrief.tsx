@@ -225,10 +225,10 @@ export default function AIDailyBrief() {
     const header = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 3px solid #0ea5e9;">
         <div>
-          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${printTitle}</h1>
-          ${fullName ? `<p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #0f172a;">${fullName}</p>` : ''}
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${email}</p>
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${today}</p>
+          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${esc(printTitle)}</h1>
+          ${fullName ? `<p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #0f172a;">${esc(fullName)}</p>` : ''}
+          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(email)}</p>
+          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(today)}</p>
         </div>
         <div style="text-align: right;">
           <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" style="height: 120px; width: auto; display: block; margin-left: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
