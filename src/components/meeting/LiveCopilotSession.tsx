@@ -178,6 +178,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
+
+  // Diarization: maps Deepgram speaker id (0,1,2,...) → display name.
+  // Defaults to "Speaker N" until the user renames it. Pre-seed from attendees.
+  const [speakerNames, setSpeakerNames] = useState<Record<number, string>>(() => {
+    const seed: Record<number, string> = {};
+    (initialAttendees || []).forEach((name, i) => { if (name?.trim()) seed[i] = name.trim(); });
+    return seed;
+  });
+  const speakerNamesRef = useRef(speakerNames);
+  useEffect(() => { speakerNamesRef.current = speakerNames; }, [speakerNames]);
+  const [detectedSpeakers, setDetectedSpeakers] = useState<number[]>([]);
+  const [interimLine, setInterimLine] = useState<{ text: string; speakerId: number | null } | null>(null);
+  const interimTimerRef = useRef<number | null>(null);
+
   const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
