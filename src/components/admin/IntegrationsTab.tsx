@@ -387,6 +387,25 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
           <h2 className="text-base font-semibold">Integrations</h2>
           <p className="text-xs text-muted-foreground">All services, settings & audit in one place.</p>
         </div>
+        <div className="rounded-md border bg-card/40 px-3 py-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="auto-monitor" className="text-xs font-medium cursor-pointer">
+              Always-on auto-monitor
+            </Label>
+            <Switch id="auto-monitor" checked={autoMonitor} onCheckedChange={setAutoMonitor} />
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Re-tests every integration every 5 min and auto-retries failures once before alerting.
+          </p>
+          {autoMonitor && (
+            <p className="text-[11px] text-muted-foreground">
+              Last run: {lastMonitorRun ? timeAgo(new Date(lastMonitorRun).toISOString()) : '—'}
+              {monitorAlerts.length > 0 && (
+                <span className="ml-1 text-destructive">· {monitorAlerts.length} unhealthy</span>
+              )}
+            </p>
+          )}
+        </div>
         <ScrollArea className="lg:h-[calc(100vh-220px)] pr-2">
           <nav className="space-y-5">
             {SECTION_ORDER.map((section) => {
