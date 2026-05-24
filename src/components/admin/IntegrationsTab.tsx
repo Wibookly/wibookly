@@ -295,9 +295,9 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const runTest = async (svc: ServiceDef) => {
-    if (!session?.access_token) return;
-    setTestingId(svc.id);
+  const runTest = async (svc: ServiceDef, opts?: { silent?: boolean }): Promise<boolean> => {
+    if (!session?.access_token) return false;
+    if (!opts?.silent) setTestingId(svc.id);
     try {
       const { data, error } = await supabase.functions.invoke('admin-integration-probe', {
         body: { service: svc.id },
@@ -305,18 +305,69 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
       });
       if (error) throw new Error(error.message);
       const ok = !!data?.ok;
-      toast({
-        title: ok ? `${svc.name}: OK` : `${svc.name}: failed`,
-        description: `${data?.message ?? ''}${data?.latency_ms ? ` · ${data.latency_ms}ms` : ''}`,
-        variant: ok ? 'default' : 'destructive',
-      });
-      await load();
+      if (!opts?.silent) {
+        toast({
+          title: ok ? `${svc.name}: OK` : `${svc.name}: failed`,
+          description: `${data?.message ?? ''}${data?.latency_ms ? ` · ${data.latency_ms}ms` : ''}`,
+          variant: ok ? 'default' : 'destructive',
+        });
+        await load();
+      }
+      return ok;
     } catch (e: any) {
-      toast({ title: `${svc.name}: failed`, description: e.message, variant: 'destructive' });
+      if (!opts?.silent) toast({ title: `${svc.name}: failed`, description: e.message, variant: 'destructive' });
+      return false;
     } finally {
-      setTestingId(null);
+      if (!opts?.silent) setTestingId(null);
     }
   };
+
+  /* ---- Auto-monitor: periodically re-test every testable service and
+     auto-retry failures once to confirm a real outage. ---- */
+  const [autoMonitor, setAutoMonitor] = useState<boolean>(() => {
+    try { return localStorage.getItem('admin.integrations.autoMonitor') === '1'; } catch { return false; }
+  });
+  const [lastMonitorRun, setLastMonitorRun] = useState<number | null>(null);
+  const [monitorAlerts, setMonitorAlerts] = useState<Array<{ id: ServiceId; name: string; message: string; at: number }>>([]);
+
+  useEffect(() => {
+    try { localStorage.setItem('admin.integrations.autoMonitor', autoMonitor ? '1' : '0'); } catch { /* */ }
+  }, [autoMonitor]);
+
+  useEffect(() => {
+    if (!autoMonitor || !session?.access_token) return;
+    let cancelled = false;
+    const tick = async () => {
+      const testable = SERVICES.filter((s) => s.testable);
+      const alerts: Array<{ id: ServiceId; name: string; message: string; at: number }> = [];
+      for (const svc of testable) {
+        if (cancelled) return;
+        const ok = await runTest(svc, { silent: true });
+        if (!ok) {
+          // retry once before alerting to avoid flapping
+          await new Promise((r) => setTimeout(r, 1500));
+          const retryOk = await runTest(svc, { silent: true });
+          if (!retryOk) alerts.push({ id: svc.id, name: svc.name, message: 'Health probe failed twice in a row.', at: Date.now() });
+        }
+      }
+      if (!cancelled) {
+        setMonitorAlerts(alerts);
+        setLastMonitorRun(Date.now());
+        await load();
+        if (alerts.length) {
+          toast({
+            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} unhealthy`,
+            description: alerts.map((a) => a.name).join(', '),
+            variant: 'destructive',
+          });
+        }
+      }
+    };
+    void tick();
+    const id = setInterval(tick, 5 * 60 * 1000); // every 5 minutes
+    return () => { cancelled = true; clearInterval(id); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMonitor, session?.access_token]);
 
   if (loading) {
     return (
