@@ -3,6 +3,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getValidAccessToken } from '../_shared/oauth-tokens.ts';
+import { logMeetingAI } from '../_shared/log-meeting-ai.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
