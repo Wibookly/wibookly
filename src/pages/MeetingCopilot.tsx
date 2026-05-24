@@ -50,6 +50,7 @@ type UpcomingMeeting = {
   duration: string;
   isLive: boolean;
   joinUrl?: string | null;
+  startMs?: number;
 };
 
 // ---------- PAGE ----------
