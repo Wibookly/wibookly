@@ -8,7 +8,7 @@ import {
   ArrowLeft, CheckCircle, FileText, ExternalLink, Mail, Search, Calendar, Clock, Users,
   ChevronDown, ChevronUp, Sparkles,
 } from 'lucide-react';
-import SessionDetailDialog from '@/components/meeting/SessionDetailDialog';
+
 
 interface ExpandedData {
   transcripts: { id: string; speaker: string; text: string; spoken_at: string }[];
