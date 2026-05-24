@@ -4,7 +4,9 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff, Volume2, Waves, AudioLines, ChevronDown, ChevronUp } from 'lucide-react';
+import { Square, Send, Sparkles, Loader2, FileText, MessageSquareQuote, HelpCircle, Reply, Copy, Radio, BadgeCheck, Mic, MicOff, Volume2, Waves, AudioLines, ChevronDown, ChevronUp, Users, Pencil } from 'lucide-react';
+import { useDeepgramTranscription, type DiarizedUtterance } from '@/hooks/useDeepgramTranscription';
+
 
 interface Props {
   meeting: {
@@ -176,6 +178,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
+
+  // Diarization: maps Deepgram speaker id (0,1,2,...) → display name.
+  // Defaults to "Speaker N" until the user renames it. Pre-seed from attendees.
+  const [speakerNames, setSpeakerNames] = useState<Record<number, string>>(() => {
+    const seed: Record<number, string> = {};
+    (initialAttendees || []).forEach((name, i) => { if (name?.trim()) seed[i] = name.trim(); });
+    return seed;
+  });
+  const speakerNamesRef = useRef(speakerNames);
+  useEffect(() => { speakerNamesRef.current = speakerNames; }, [speakerNames]);
+  const [detectedSpeakers, setDetectedSpeakers] = useState<number[]>([]);
+  const [interimLine, setInterimLine] = useState<{ text: string; speakerId: number | null } | null>(null);
+  const interimTimerRef = useRef<number | null>(null);
+
   const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const shouldListenRef = useRef(false);
@@ -533,8 +549,9 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }, 900);
   };
 
-  // --- In-browser microphone capture via Web Speech API ---
-  const pushHeardLine = async (text: string) => {
+  // --- Persist a heard / typed line. `overrideSpeaker` is used by Deepgram
+  // diarization so each line gets its detected speaker, not the manual one.
+  const pushHeardLine = async (text: string, overrideSpeaker?: string) => {
     const sid = sessionIdRef.current;
     const uid = userIdRef.current;
     if (!sid || !uid) return;
@@ -545,7 +562,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (clean === lastInsertRef.current.text && now - lastInsertRef.current.at < 4000) return;
     lastInsertRef.current = { text: clean, at: now };
 
-    const currentSpeaker = (speakerRef.current || 'You').trim() || 'You';
+    const currentSpeaker = (overrideSpeaker ?? speakerRef.current ?? 'You').trim() || 'You';
     await supabase.from('meeting_transcripts').insert({
       session_id: sid,
       user_id: uid,
@@ -563,6 +580,42 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       }).catch(() => {});
     } catch { /* ignore */ }
   };
+
+  // Map a diarized speaker id to a display name. Defaults to "Speaker N".
+  const speakerLabelFor = useCallback((id: number) => {
+    const named = speakerNamesRef.current[id];
+    if (named && named.trim()) return named.trim();
+    return `Speaker ${id + 1}`;
+  }, []);
+
+  // Deepgram emits one of these for every committed utterance, already
+  // grouped by speaker (so two people interrupting each other yield two lines).
+  const handleDiarizedUtterance = useCallback((u: DiarizedUtterance) => {
+    setDetectedSpeakers((cur) => (cur.includes(u.speakerId) ? cur : [...cur, u.speakerId].sort((a, b) => a - b)));
+    setInterimLine(null);
+    if (interimTimerRef.current) { window.clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
+    void pushHeardLine(u.text, speakerLabelFor(u.speakerId));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakerLabelFor]);
+
+  const handleInterim = useCallback((text: string, speakerId: number | null) => {
+    setInterimLine({ text, speakerId });
+    setHeardPreview(text);
+    if (interimTimerRef.current) window.clearTimeout(interimTimerRef.current);
+    interimTimerRef.current = window.setTimeout(() => setInterimLine(null), 2500);
+  }, []);
+
+  const handleDeepgramError = useCallback((msg: string) => {
+    setMicError(msg);
+    toast.error(msg);
+  }, []);
+
+  const deepgram = useDeepgramTranscription({
+    onFinalUtterance: handleDiarizedUtterance,
+    onInterim: handleInterim,
+    onError: handleDeepgramError,
+  });
+
 
   const clearTranscriptFlushTimer = () => {
     if (transcriptFlushTimerRef.current) {
@@ -645,13 +698,6 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const startListening = async () => {
     setMicError(null);
-    const speechWindow = window as WindowWithSpeechRecognition;
-    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-    if (!SR) {
-      setMicError('Live mic transcription needs Chrome, Edge, or Brave. Use the extension for tab audio.');
-      toast.error('This browser does not support live speech recognition. Try Chrome.');
-      return;
-    }
     if (!sessionId) {
       toast.info('Session is still starting — try again in a second.');
       return;
@@ -660,78 +706,16 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     if (!micReady) {
       await runMicCheck();
     }
-
     if (!micStreamRef.current) {
       setMicError('Test the microphone first so InboxIQ can confirm your device is ready.');
       return;
     }
 
     try {
-      const buildRecognition = () => {
-        const rec = new SR();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.lang = 'en-US';
-
-        rec.onresult = (event: BrowserSpeechRecognitionEvent) => {
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const r = event.results[i];
-            const txt = (r[0]?.transcript || '').trim();
-            if (!txt) continue;
-            lastSpeechAtRef.current = Date.now();
-            queueTranscriptChunk(txt, Boolean(r.isFinal));
-          }
-        };
-
-        rec.onerror = (e: BrowserSpeechRecognitionErrorEvent) => {
-          const err = e?.error;
-          if (err === 'not-allowed' || err === 'service-not-allowed') {
-            setMicError('Microphone blocked. Allow microphone access in your browser settings.');
-            shouldListenRef.current = false;
-            setListening(false);
-          } else if (err === 'audio-capture') {
-            setMicError('Microphone disconnected. Click Start listening to reconnect.');
-            shouldListenRef.current = false;
-            setListening(false);
-          } else if (err === 'no-speech' || err === 'aborted' || err === 'network') {
-            // benign — onend will restart, watchdog will recover network
-          } else {
-            console.warn('SpeechRecognition error', err);
-          }
-        };
-
-        rec.onend = () => {
-          void flushTranscriptBuffer();
-          if (!shouldListenRef.current) {
-            setListening(false);
-            return;
-          }
-          // Restart; if it throws (InvalidStateError), rebuild fresh.
-          try {
-            rec.start();
-          } catch {
-            try {
-              const fresh = buildRecognition();
-              recognitionRef.current = fresh;
-              fresh.start();
-            } catch (err) {
-              console.warn('SpeechRecognition restart failed', err);
-              shouldListenRef.current = false;
-              setListening(false);
-              setMicError('Live transcription stopped unexpectedly. Click Start listening to resume.');
-            }
-          }
-        };
-
-        return rec;
-      };
-
-      const rec = buildRecognition();
       shouldListenRef.current = true;
-      recognitionRef.current = rec;
-      lastSpeechAtRef.current = Date.now();
-      rec.start();
+      await deepgram.start(micStreamRef.current);
       setListening(true);
+      lastSpeechAtRef.current = Date.now();
 
       // If mic track ends (device unplugged, OS revoke), stop cleanly.
       const track = micStreamRef.current?.getAudioTracks?.()[0];
@@ -744,18 +728,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
       }
 
-      // Watchdog: if no speech AND no transcription for 25s while listening, rebuild.
-      if (watchdogRef.current) window.clearInterval(watchdogRef.current);
-      watchdogRef.current = window.setInterval(() => {
-        if (!shouldListenRef.current) return;
-        const silentMs = Date.now() - lastSpeechAtRef.current;
-        if (silentMs > 25000) {
-          lastSpeechAtRef.current = Date.now();
-          try { recognitionRef.current?.stop(); } catch { /* onend will rebuild */ }
-        }
-      }, 5000);
-
-      toast.success('Listening — speak normally. Your voice is being transcribed live.');
+      toast.success('Listening with speaker detection — Deepgram Nova-3.');
     } catch (e: unknown) {
       console.error(e);
       const err = e as { message?: string };
@@ -765,20 +738,20 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
   const stopListening = () => {
     shouldListenRef.current = false;
-    void flushTranscriptBuffer();
     if (watchdogRef.current) {
       window.clearInterval(watchdogRef.current);
       watchdogRef.current = null;
     }
-    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
-    try { recognitionRef.current?.abort?.(); } catch { /* ignore */ }
-    recognitionRef.current = null;
+    deepgram.stop();
     setListening(false);
     setHeardPreview(null);
+    setInterimLine(null);
+    if (interimTimerRef.current) { window.clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
     // Fully release the microphone tracks so the browser indicator goes away.
     releaseMicCheck();
     setMicReady(false);
   };
+
 
 
   const handleClose = () => {
@@ -1386,16 +1359,84 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
             )}
           </div>
 
-          {/* Speaking now selector — always visible so the live transcript can attribute lines */}
+          {/* Detected speakers — auto-populated by Deepgram diarization.
+              Rename "Speaker N" to a real name; the rename retroactively
+              updates lines already attributed to that speaker. */}
+          <div className="md:col-span-2 rounded-2xl p-3"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-3.5 h-3.5" style={{ color: 'var(--c-purple)' }} />
+              <span className="text-overline" style={{ color: 'var(--text-2)' }}>DETECTED SPEAKERS</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                Auto-separated by voice — rename to real names.
+              </span>
+            </div>
+            {detectedSpeakers.length === 0 ? (
+              <div className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+                {listening ? 'Listening — speaker labels will appear after the first few sentences.' : 'Start listening to detect speakers.'}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {detectedSpeakers.map((id) => {
+                  const color = SPEAKER_COLORS[id % SPEAKER_COLORS.length];
+                  const current = speakerNames[id] ?? '';
+                  return (
+                    <div key={`spk-${id}`} className="flex items-center gap-1.5 rounded-full pl-1.5 pr-2 py-1"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+                      <span className="text-[11px] font-semibold" style={{ color }}>S{id + 1}</span>
+                      <Pencil className="w-3 h-3 opacity-50" />
+                      <input
+                        value={current}
+                        data-prev={current || `Speaker ${id + 1}`}
+                        onFocus={(e) => { e.currentTarget.dataset.prev = current || `Speaker ${id + 1}`; }}
+                        onChange={(e) => setSpeakerNames((cur) => ({ ...cur, [id]: e.target.value }))}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          const oldLabel = e.currentTarget.dataset.prev || `Speaker ${id + 1}`;
+                          if (!v || v === oldLabel) return;
+                          // Update local UI immediately…
+                          setTranscript((cur) => cur.map((l) => l.speaker === oldLabel ? { ...l, speaker: v } : l));
+                          // …and persist so the recap/summary uses the real name.
+                          const sid = sessionIdRef.current;
+                          if (sid) {
+                            supabase.from('meeting_transcripts')
+                              .update({ speaker: v })
+                              .eq('session_id', sid)
+                              .eq('speaker', oldLabel)
+                              .then(({ error }) => { if (error) console.warn('rename speaker failed', error); });
+                          }
+                        }}
+                        placeholder={`Speaker ${id + 1}`}
+                        className="bg-transparent text-[11px] outline-none w-24"
+                        style={{ color: 'var(--text-1)' }}
+                      />
+
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {interimLine && (
+              <div className="mt-2 text-[11px] italic" style={{ color: 'var(--text-2)' }}>
+                <span style={{ color: 'var(--c-purple)' }}>
+                  {interimLine.speakerId !== null ? speakerLabelFor(interimLine.speakerId) : 'Listening'}:
+                </span>{' '}
+                {interimLine.text}…
+              </div>
+            )}
+          </div>
+
+          {/* Speaker name used for manually typed lines only. */}
           <div className="md:col-span-2 rounded-2xl p-3 flex flex-wrap items-center gap-2"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span className="text-overline" style={{ color: 'var(--text-2)' }}>SPEAKING NOW</span>
+            <span className="text-overline" style={{ color: 'var(--text-2)' }}>TYPED-LINE SPEAKER</span>
             <input
               value={speaker}
               onChange={(e) => setSpeaker(e.target.value)}
               onBlur={(e) => pickSpeaker(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); pickSpeaker((e.target as HTMLInputElement).value); } }}
-              placeholder="Type the speaker's name (e.g. Ali, Nikki)…"
+              placeholder="Name used for manually typed lines (default: You)"
               className="flex-1 min-w-[180px] rounded-lg px-3 py-1.5 text-xs"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
             />
@@ -1417,10 +1458,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
                 );
               })}
             </div>
-            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>
-              Tip: change this whenever a different person starts talking.
-            </span>
           </div>
+
 
           {/* Transcript drawer trigger */}
           <div className="md:col-span-2 flex items-center justify-between gap-3 mt-1">
