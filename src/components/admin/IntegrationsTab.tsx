@@ -437,10 +437,16 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
         if (cancelled) return;
         const ok = await runTest(svc, { silent: true });
         if (!ok) {
-          // retry once before alerting to avoid flapping
+          // retry once before recovering, to avoid flapping
           await new Promise((r) => setTimeout(r, 1500));
           const retryOk = await runTest(svc, { silent: true });
-          if (!retryOk) alerts.push({ id: svc.id, name: svc.name, message: 'Health probe failed twice in a row.', at: Date.now() });
+          if (!retryOk) {
+            // Auto-recovery: re-invoke the underlying function then re-probe.
+            const recovered = await runRecovery(svc, 'auto-monitor');
+            if (!recovered) {
+              alerts.push({ id: svc.id, name: svc.name, message: 'Probe failed twice; auto-recovery did not restore the service.', at: Date.now() });
+            }
+          }
         }
       }
       if (!cancelled) {
@@ -449,7 +455,7 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
         await load();
         if (alerts.length) {
           toast({
-            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} unhealthy`,
+            title: `Auto-monitor: ${alerts.length} service${alerts.length === 1 ? '' : 's'} still unhealthy after recovery`,
             description: alerts.map((a) => a.name).join(', '),
             variant: 'destructive',
           });
