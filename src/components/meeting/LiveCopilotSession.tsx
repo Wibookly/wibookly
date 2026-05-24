@@ -935,7 +935,12 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
       const best = mapped[0];
       if (best) {
-        setFocusedSuggestions((cur) => ({ ...cur, [mode]: best }));
+        setFocusedSuggestions((cur) => {
+          const prev = cur[mode] || [];
+          // Avoid duplicate consecutive content
+          if (prev.length && prev[0].content === best.content) return cur;
+          return { ...cur, [mode]: [best, ...prev].slice(0, 10) };
+        });
       }
 
       setSuggestions((cur) => {
