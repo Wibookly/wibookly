@@ -235,7 +235,7 @@ export default function IntegrationsTab({ adminInvoke, organizationId }: Props) 
       // AI usage
       const usageRows = (usageRes.data ?? []) as UsageRow[];
       const latestAi = usageRows[0];
-      for (const svc of SERVICES.filter((s) => s.section === 'ai' || s.section === 'agents')) {
+      for (const svc of SERVICES.filter((s) => s.section === 'ai' || s.section === 'agents' || s.section === 'meeting_copilot')) {
         const row = svc.aiAction
           ? usageRows.find((r) => r.action === svc.aiAction)
           : latestAi;
