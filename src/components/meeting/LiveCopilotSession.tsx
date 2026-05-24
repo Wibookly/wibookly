@@ -158,7 +158,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState<MeetingSummary | null>(null);
   const [promptBusy, setPromptBusy] = useState<CopilotPromptMode | null>(null);
-  const [focusedSuggestions, setFocusedSuggestions] = useState<Partial<Record<CopilotPromptMode, Suggestion>>>({});
+  const [focusedSuggestions, setFocusedSuggestions] = useState<Record<CopilotPromptMode, Suggestion[]>>({ answer: [], ask: [], say: [] });
   const [autoDraftFollowup, setAutoDraftFollowup] = useState(true);
 
   // In-browser mic listening (works without the Chrome extension)
