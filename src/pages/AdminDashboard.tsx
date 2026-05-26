@@ -668,6 +668,10 @@ export default function AdminDashboard() {
           />
         </TabsContent>
 
+        <TabsContent value="alerts" className="space-y-6">
+          <AlertNotificationsPanel />
+        </TabsContent>
+
         <TabsContent value="groups" className="space-y-6">
           <PlansTab />
         </TabsContent>
