@@ -84,6 +84,8 @@ const microsoft: Provider = {
   description:
     'One Azure App Registration provides Microsoft SSO, per-user OAuth, tenant admin consent, and Graph access to Mail, Calendar, OneDrive, SharePoint, and Teams.',
   meta: 'Azure tenant: energyforward.onmicrosoft.com · App: InboxIQ · Multi-tenant',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own (Azure App Registration)',
   credentials: [
     { label: 'Azure client ID', secret: 'MICROSOFT_CLIENT_ID' },
     { label: 'Azure client secret', secret: 'MICROSOFT_CLIENT_SECRET' },
@@ -137,6 +139,8 @@ const google: Provider = {
   subtitle: 'OAuth configured; production API callers not yet implemented.',
   description: 'Google OAuth client for future Gmail / Calendar / Drive integration. No production callers in the codebase yet — sub-services are stubs.',
   meta: 'Stub provider · no Gmail/Calendar/Drive call sites in edge functions',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own (Google Cloud OAuth client)',
   credentials: [
     { label: 'Google client ID', secret: 'GOOGLE_CLIENT_ID' },
     { label: 'Google client secret', secret: 'GOOGLE_CLIENT_SECRET' },
@@ -160,6 +164,8 @@ const llmGateway: Provider = {
   subtitle: 'Internal router for chat/agent calls.',
   description: 'Internal Edge Function that routes chat and agent traffic to OpenAI or Anthropic based on feature configuration. Holds no credentials of its own.',
   meta: 'Function: llm-gateway · uses OPENAI_API_KEY and ANTHROPIC_API_KEY',
+  tier: 'free',
+  tierLabel: 'Internal router (no key of its own)',
   credentials: [],
   isRouter: true,
   subs: [],
@@ -172,6 +178,8 @@ const openai: Provider = {
   subtitle: 'Chat, embeddings, and Whisper.',
   description: 'Provides chat models (GPT-4o / GPT-5), embeddings, and Whisper speech-to-text under a single API key.',
   meta: 'Account billed via OpenAI · key OPENAI_API_KEY',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own API key (billed by OpenAI)',
   credentials: [{ label: 'OpenAI API key', secret: 'OPENAI_API_KEY' }],
   consoleUrl: { label: 'Open OpenAI dashboard', url: 'https://platform.openai.com/' },
   subs: [
@@ -188,6 +196,8 @@ const anthropic: Provider = {
   subtitle: 'Claude models.',
   description: 'Claude 3.5 and Sonnet 4.5 for high-quality reasoning and tool use.',
   meta: 'Account billed via Anthropic · key ANTHROPIC_API_KEY',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own API key (billed by Anthropic)',
   credentials: [{ label: 'Anthropic API key', secret: 'ANTHROPIC_API_KEY' }],
   consoleUrl: { label: 'Open Anthropic console', url: 'https://console.anthropic.com/' },
   subs: [
@@ -202,6 +212,8 @@ const lovableAI: Provider = {
   subtitle: 'Gemini Flash and other models without per-key billing.',
   description: 'Lovable AI Gateway provides access to Gemini Flash models for transactional features (categorization, daily brief).',
   meta: 'Key LOVABLE_API_KEY · billed via Lovable',
+  tier: 'lovable',
+  tierLabel: 'Included with Lovable (no extra key needed)',
   credentials: [{ label: 'Lovable API key', secret: 'LOVABLE_API_KEY' }],
   subs: [
     { id: 'lovable-gemini', name: 'Gemini Flash', icon: 'Sparkles', description: 'gemini-3-flash-preview and friends.', settingsKind: 'generic', auditSource: { kind: 'llm_call_logs', provider: 'lovable' }, calledBy: ['ai-daily-brief', 'clean-email', 'sync-categories'] },
@@ -215,6 +227,8 @@ const deepgram: Provider = {
   subtitle: 'Live diarized streaming STT.',
   description: 'Nova-3 streaming transcription for Meeting Copilot live captions and speaker diarization.',
   meta: 'Key DEEPGRAM_API_KEY · pay-per-minute',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own API key (pay-per-minute via Deepgram)',
   credentials: [{ label: 'Deepgram API key', secret: 'DEEPGRAM_API_KEY' }],
   consoleUrl: { label: 'Open Deepgram console', url: 'https://console.deepgram.com/' },
   subs: [
@@ -231,6 +245,8 @@ const supabasePlat: Provider = {
   subtitle: 'Auth, Postgres, Storage, Realtime, cron, queue.',
   description: 'Managed Postgres + Auth + Storage + Realtime, accessed via the auto-generated client and Edge Functions.',
   meta: 'Project: jbzctydskdpzrejvpwpn · Lovable Cloud',
+  tier: 'platform',
+  tierLabel: 'Lovable Cloud platform (managed)',
   credentials: [],
   isRouter: true,
   subs: [
@@ -249,6 +265,8 @@ const lovableEmail: Provider = {
   subtitle: 'Outbound transactional email.',
   description: 'Sends transactional email (invites, alerts, daily brief) through the Lovable send URL.',
   meta: 'Endpoint LOVABLE_SEND_URL',
+  tier: 'lovable',
+  tierLabel: 'Included with Lovable (transactional email)',
   credentials: [{ label: 'Lovable send URL', secret: 'LOVABLE_SEND_URL' }],
   subs: [
     { id: 'lovable-email-tx', name: 'Transactional sends', icon: 'Mail', description: 'send-transactional-email function.', settingsKind: 'generic', auditSource: { kind: 'email_send_log' }, calledBy: ['send-transactional-email', 'send-daily-brief'] },
