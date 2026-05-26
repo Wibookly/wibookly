@@ -204,12 +204,10 @@ Deno.serve(async (req) => {
     if (!userData?.user) return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    // Admin check (super admin OR has_role admin)
+    // Platform-level operation: probes consume live API credentials.
+    // Restricted to super admin only.
     const isSuper = (userData.user.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
-    if (!isSuper) {
-      const { data: r } = await admin.rpc("has_role", { _user_id: userData.user.id, _role: "admin" });
-      if (!r) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!isSuper) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json().catch(() => ({}));
     // Accept new-style { integration_key } and legacy { service }

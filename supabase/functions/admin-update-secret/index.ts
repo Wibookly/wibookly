@@ -32,12 +32,10 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     if (!userData?.user) return json({ error: "Invalid token" }, 401);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    // Platform-level operation: restricted to super admin only.
+    // Org admins must NOT be able to rotate global project secrets.
     const isSuper = (userData.user.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
-    if (!isSuper) {
-      const { data: r } = await admin.rpc("has_role", { _user_id: userData.user.id, _role: "admin" });
-      if (!r) return json({ error: "Forbidden" }, 403);
-    }
+    if (!isSuper) return json({ ok: false, message: "Forbidden" }, 403);
 
     const { secret_name, secret_value } = await req.json();
     if (typeof secret_name !== "string" || typeof secret_value !== "string" || !secret_value) {

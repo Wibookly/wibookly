@@ -38,12 +38,10 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     if (!userData?.user) return json({ ok: false, message: "Invalid token" }, 401);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    // Platform-level operation: restricted to super admin only.
+    // Actions like kill-switch / queue drain are system-wide, not per-org.
     const isSuper = (userData.user.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
-    if (!isSuper) {
-      const { data: r } = await admin.rpc("has_role", { _user_id: userData.user.id, _role: "admin" });
-      if (!r) return json({ ok: false, message: "Forbidden" }, 403);
-    }
+    if (!isSuper) return json({ ok: false, message: "Forbidden" }, 403);
 
     const { integration_key, action, params } = await req.json();
     if (!ALLOWED_ACTIONS.has(action)) return json({ ok: false, message: `Unknown action ${action}` }, 400);
