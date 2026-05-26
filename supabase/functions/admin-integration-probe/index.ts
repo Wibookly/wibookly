@@ -182,6 +182,14 @@ Deno.serve(async (req) => {
 
     const result = await probe(key, admin, userData.user.id);
 
+    // Fetch previous status for transition detection
+    const { data: prev } = await admin
+      .from("integration_health")
+      .select("status")
+      .eq("integration_key", key)
+      .maybeSingle();
+    const prevStatus = prev?.status as Status | undefined;
+
     await admin.from("integration_health").upsert({
       integration_key: key,
       status: result.status,
@@ -190,6 +198,31 @@ Deno.serve(async (req) => {
       last_checked_at: new Date().toISOString(),
       metadata: result.metadata ?? {},
     }, { onConflict: "integration_key" });
+
+    // Fire alert email when transitioning into a non-healthy state
+    const transitioned =
+      (result.status === "failed" || result.status === "warning") &&
+      prevStatus !== result.status;
+    if (transitioned) {
+      try {
+        await admin.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "integration-alert",
+            recipientEmail: "arahimi@energyforward.com",
+            idempotencyKey: `integration-alert-${key}-${result.status}-${Date.now()}`,
+            templateData: {
+              integrationKey: key,
+              integrationName: key,
+              status: result.status,
+              message: result.message,
+              detectedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error("[admin-integration-probe] alert email failed:", (e as Error).message);
+      }
+    }
 
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
