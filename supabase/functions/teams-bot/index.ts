@@ -486,13 +486,43 @@ function describeAttachments(attachments?: TeamsAttachment[]): string | null {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // ---- Smoke-test endpoint (no Bot Framework required) ----
+  // ---- Smoke-test endpoint: gated behind super-admin Supabase JWT ----
   const url = new URL(req.url);
   if (url.pathname.endsWith('/test-simulation')) {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (!authHeader.toLowerCase().startsWith('bearer ')) {
+      return new Response(JSON.stringify({ ok: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    try {
+      const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData } = await userClient.auth.getUser();
+      const email = (userData?.user?.email || '').toLowerCase();
+      if (email !== SUPER_ADMIN_EMAIL) {
+        return new Response(JSON.stringify({ ok: false, error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } catch {
+      return new Response(JSON.stringify({ ok: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     return await runSmokeTest(req);
   }
 
   if (req.method !== 'POST') return new Response('ok', { status: 200 });
+
+  // ---- Verify request is genuinely from the Bot Framework ----
+  const validBotJwt = await verifyBotFrameworkRequest(req);
+  if (!validBotJwt) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   let activity: TeamsActivity;
   try { activity = await req.json(); } catch { return new Response('bad request', { status: 400 }); }
