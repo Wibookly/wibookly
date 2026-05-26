@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Icon } from './shared/Icon';
 import { StatusPill } from './shared/StatusPill';
 import { AuditTable } from './shared/AuditTable';
