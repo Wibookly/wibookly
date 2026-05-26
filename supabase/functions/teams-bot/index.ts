@@ -6,6 +6,7 @@
 // so each user only ever sees their own data.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import * as jose from 'https://esm.sh/jose@5.9.6';
 import {
   resolveTeamsUser,
   TOOL_DEFINITIONS,
@@ -20,11 +21,51 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!;
 const BOT_APP_ID = Deno.env.get('TEAMS_BOT_APP_ID');
 const BOT_APP_PASSWORD = Deno.env.get('TEAMS_BOT_APP_PASSWORD');
+const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+/* ---------------- Bot Framework JWT verification ----------------
+ * Every legitimate Teams activity is signed by the Bot Framework with a JWT
+ * issued by https://api.botframework.com. We verify the signature against
+ * the public JWKS and validate issuer + audience (our bot's app id).
+ */
+const BOT_FRAMEWORK_OPENID =
+  'https://login.botframework.com/v1/.well-known/openidconfiguration';
+let cachedJwks: ReturnType<typeof jose.createRemoteJWKSet> | null = null;
+let cachedJwksUri: string | null = null;
+async function getBotFrameworkJwks() {
+  if (cachedJwks) return cachedJwks;
+  const cfg = await fetch(BOT_FRAMEWORK_OPENID).then((r) => r.json());
+  cachedJwksUri = cfg.jwks_uri;
+  cachedJwks = jose.createRemoteJWKSet(new URL(cfg.jwks_uri));
+  return cachedJwks;
+}
+
+async function verifyBotFrameworkRequest(req: Request): Promise<boolean> {
+  try {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (!authHeader.toLowerCase().startsWith('bearer ')) return false;
+    const token = authHeader.slice(7).trim();
+    if (!BOT_APP_ID) {
+      console.error('TEAMS_BOT_APP_ID not configured — rejecting bot request');
+      return false;
+    }
+    const jwks = await getBotFrameworkJwks();
+    await jose.jwtVerify(token, jwks, {
+      issuer: 'https://api.botframework.com',
+      audience: BOT_APP_ID,
+    });
+    return true;
+  } catch (e) {
+    console.warn('Bot Framework JWT verification failed', (e as Error).message);
+    return false;
+  }
+}
 
 interface TeamsAttachment {
   contentType?: string;
