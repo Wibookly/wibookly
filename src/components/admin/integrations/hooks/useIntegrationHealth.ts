@@ -54,3 +54,17 @@ export function useIntegrationHealth() {
 export function statusOf(rows: Record<string, HealthRow>, key: string): NodeStatus {
   return rows[key]?.status ?? 'idle';
 }
+
+// Worst-of aggregation: failed > warning > healthy > idle
+const RANK: Record<NodeStatus, number> = { failed: 3, warning: 2, healthy: 1, idle: 0 };
+export function aggregateStatus(
+  rows: Record<string, HealthRow>,
+  keys: string[],
+): NodeStatus {
+  let best: NodeStatus = 'idle';
+  for (const k of keys) {
+    const s = rows[k]?.status ?? 'idle';
+    if (RANK[s] > RANK[best]) best = s;
+  }
+  return best;
+}
