@@ -150,9 +150,45 @@ async function probe(key: string, admin: any, userId: string): Promise<Result> {
       } catch (e) { return { status: "failed", latency_ms: Date.now() - start, message: (e as Error).message }; }
     }
 
+    case "twilio":
+    case "twilio-sms": {
+      const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
+      const tok = Deno.env.get("TWILIO_AUTH_TOKEN");
+      const from = Deno.env.get("TWILIO_FROM_NUMBER");
+      const missing = [!sid && "TWILIO_ACCOUNT_SID", !tok && "TWILIO_AUTH_TOKEN", !from && "TWILIO_FROM_NUMBER"].filter(Boolean);
+      if (missing.length) return { status: "failed", latency_ms: 0, message: `Missing: ${missing.join(", ")}` };
+      const start = Date.now();
+      try {
+        const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, {
+          headers: { Authorization: `Basic ${btoa(`${sid}:${tok}`)}` },
+        });
+        return { status: r.ok ? "healthy" : "failed", latency_ms: Date.now() - start, message: `HTTP ${r.status}` };
+      } catch (e) { return { status: "failed", latency_ms: Date.now() - start, message: (e as Error).message }; }
+    }
+
     default:
       return { status: "idle", latency_ms: 0, message: `No probe defined for ${key}` };
   }
+}
+
+// Send SMS via Twilio REST API
+async function sendSms(to: string, body: string): Promise<{ ok: boolean; message: string }> {
+  const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const tok = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const from = Deno.env.get("TWILIO_FROM_NUMBER");
+  if (!sid || !tok || !from) return { ok: false, message: "Twilio not configured" };
+  try {
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${tok}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: to, From: from, Body: body.slice(0, 1500) }),
+    });
+    const text = await r.text();
+    return { ok: r.ok, message: r.ok ? "sent" : `HTTP ${r.status}: ${text.slice(0, 200)}` };
+  } catch (e) { return { ok: false, message: (e as Error).message }; }
 }
 
 Deno.serve(async (req) => {
@@ -199,28 +235,52 @@ Deno.serve(async (req) => {
       metadata: result.metadata ?? {},
     }, { onConflict: "integration_key" });
 
-    // Fire alert email when transitioning into a non-healthy state
+    // Fire alert email/SMS when transitioning into a non-healthy state
     const transitioned =
       (result.status === "failed" || result.status === "warning") &&
       prevStatus !== result.status;
     if (transitioned) {
       try {
-        await admin.functions.invoke("send-transactional-email", {
-          body: {
-            templateName: "integration-alert",
-            recipientEmail: "arahimi@energyforward.com",
-            idempotencyKey: `integration-alert-${key}-${result.status}-${Date.now()}`,
-            templateData: {
-              integrationKey: key,
-              integrationName: key,
-              status: result.status,
-              message: result.message,
-              detectedAt: new Date().toISOString(),
-            },
-          },
-        });
+        const sev = result.status; // 'failed' | 'warning'
+        const { data: recipients } = await admin
+          .from("alert_recipients")
+          .select("email,phone,email_enabled,sms_enabled,min_severity,is_active")
+          .eq("is_active", true);
+        const { data: smsCfg } = await admin
+          .from("sms_provider_config")
+          .select("enabled")
+          .maybeSingle();
+        const smsEnabledGlobally = !!smsCfg?.enabled;
+
+        const passesSeverity = (min: string) =>
+          sev === "failed" || (sev === "warning" && min === "warning");
+
+        for (const r of recipients ?? []) {
+          if (!passesSeverity(r.min_severity)) continue;
+          if (r.email_enabled && r.email) {
+            try {
+              await admin.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "integration-alert",
+                  recipientEmail: r.email,
+                  idempotencyKey: `integration-alert-${key}-${sev}-${r.email}-${Date.now()}`,
+                  templateData: {
+                    integrationKey: key, integrationName: key,
+                    status: sev, message: result.message,
+                    detectedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) { console.error("[probe] email failed:", (e as Error).message); }
+          }
+          if (smsEnabledGlobally && r.sms_enabled && r.phone) {
+            const smsBody = `[InboxIQ] ${key} is ${sev.toUpperCase()}. ${result.message ?? ""}`.trim();
+            const out = await sendSms(r.phone, smsBody);
+            if (!out.ok) console.error("[probe] sms failed:", out.message);
+          }
+        }
       } catch (e) {
-        console.error("[admin-integration-probe] alert email failed:", (e as Error).message);
+        console.error("[admin-integration-probe] alert dispatch failed:", (e as Error).message);
       }
     }
 

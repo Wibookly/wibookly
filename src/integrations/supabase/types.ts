@@ -503,6 +503,45 @@ export type Database = {
           },
         ]
       }
+      alert_recipients: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_enabled: boolean
+          id: string
+          is_active: boolean
+          min_severity: string
+          name: string | null
+          phone: string | null
+          sms_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          min_severity?: string
+          name?: string | null
+          phone?: string | null
+          sms_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          min_severity?: string
+          name?: string | null
+          phone?: string | null
+          sms_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       allowed_domains: {
         Row: {
           created_at: string
@@ -3051,6 +3090,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sms_provider_config: {
+        Row: {
+          account_sid_hint: string | null
+          created_at: string
+          enabled: boolean
+          from_number: string | null
+          id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          account_sid_hint?: string | null
+          created_at?: string
+          enabled?: boolean
+          from_number?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          account_sid_hint?: string | null
+          created_at?: string
+          enabled?: boolean
+          from_number?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {

@@ -66,7 +66,7 @@ export type Feature = {
 };
 
 export type Group = {
-  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'features';
+  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'notifications' | 'features';
   label: string;
   /** Clickable group header (only AI for now) opens a hub view. */
   hubId?: string;
@@ -347,6 +347,31 @@ const features: Feature[] = [
   },
 ];
 
+/* -------------------- Notifications -------------------- */
+
+const twilio: Provider = {
+  id: 'twilio',
+  name: 'Twilio (SMS)',
+  icon: 'MessageSquare',
+  subtitle: 'SMS delivery for admin alert notifications.',
+  description:
+    'Twilio sends SMS alerts to admin recipients when an integration health probe flips to failed or warning. Enable, configure the From number, and add the recipient phone in Admin → Alerts.',
+  meta: 'Account billed via Twilio · keys TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own (Twilio account)',
+  credentials: [
+    { label: 'Twilio Account SID', secret: 'TWILIO_ACCOUNT_SID' },
+    { label: 'Twilio Auth Token', secret: 'TWILIO_AUTH_TOKEN' },
+    { label: 'From phone number (E.164)', secret: 'TWILIO_FROM_NUMBER' },
+  ],
+  consoleUrl: { label: 'Open Twilio Console', url: 'https://console.twilio.com/' },
+  subs: [
+    { id: 'twilio-sms', name: 'SMS alerts', icon: 'Send', description: 'Outbound SMS for integration health alerts.',
+      settingsKind: 'generic', auditSource: { kind: 'none', note: 'See Admin → Alerts for recipient list and last-send status.' },
+      calledBy: ['admin-integration-probe', 'admin-send-test-alert'] },
+  ],
+};
+
 /* -------------------- Groups -------------------- */
 
 export const GROUPS: Group[] = [
@@ -354,6 +379,7 @@ export const GROUPS: Group[] = [
   { id: 'google', label: 'Google', providers: [google] },
   { id: 'ai', label: 'AI', hubId: 'ai-hub', providers: [llmGateway, openai, anthropic, lovableAI, deepgram] },
   { id: 'platform', label: 'Platform', providers: [supabasePlat, lovableEmail] },
+  { id: 'notifications', label: 'Notifications', providers: [twilio] },
   { id: 'features', label: 'Features', features },
 ];
 
@@ -366,6 +392,7 @@ export const ALLOWED_SECRET_NAMES = [
   'TEAMS_BOT_APP_ID', 'TEAMS_BOT_APP_PASSWORD', 'TEAMS_BOT_TENANT_ID',
   'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
   'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'LOVABLE_API_KEY', 'LOVABLE_SEND_URL', 'DEEPGRAM_API_KEY',
+  'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
 ] as const;
 
 /** Lookup helpers */

@@ -35,6 +35,7 @@ import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
 import IntegrationsTab from '@/components/admin/integrations/IntegrationsTab';
+import AlertNotificationsPanel from '@/components/admin/AlertNotificationsPanel';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -629,6 +630,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
           <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2"><Activity className="w-4 h-4" /> Integrations</TabsTrigger>
+          <TabsTrigger value="alerts" className="gap-2"><BellRing className="w-4 h-4" /> Alerts</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="ai-usage" className="gap-2"><Activity className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
@@ -664,6 +666,10 @@ export default function AdminDashboard() {
             adminInvoke={adminInvoke}
             organizationId={profile?.organization_id ?? null}
           />
+        </TabsContent>
+
+        <TabsContent value="alerts" className="space-y-6">
+          <AlertNotificationsPanel />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-6">
