@@ -66,7 +66,7 @@ export type Feature = {
 };
 
 export type Group = {
-  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'features';
+  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'notifications' | 'features';
   label: string;
   /** Clickable group header (only AI for now) opens a hub view. */
   hubId?: string;
