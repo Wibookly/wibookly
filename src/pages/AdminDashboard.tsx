@@ -35,6 +35,7 @@ import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
 import IntegrationsTab from '@/components/admin/integrations/IntegrationsTab';
+import AlertNotificationsPanel from '@/components/admin/AlertNotificationsPanel';
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
