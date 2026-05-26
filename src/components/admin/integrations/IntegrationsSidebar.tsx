@@ -31,6 +31,11 @@ export function IntegrationsSidebar({
       <nav className="rounded-lg border bg-card overflow-hidden">
         {GROUPS.map((g) => {
           const isHubSelected = selected.type === 'hub' && selected.id === g.hubId;
+          const groupKeys: string[] = [
+            ...(g.providers ?? []).flatMap((p) => [p.id, ...p.subs.map((s) => s.id)]),
+            ...(g.features ?? []).map((f) => f.id),
+          ];
+          const groupStatus = aggregateStatus(rows, groupKeys);
           return (
             <div key={g.id} className="py-2">
               <button
@@ -38,12 +43,13 @@ export function IntegrationsSidebar({
                 disabled={!g.hubId}
                 onClick={() => g.hubId && onSelect({ type: 'hub', id: g.hubId })}
                 className={cn(
-                  'w-full text-left px-3 text-[10px] uppercase tracking-[0.08em] text-muted-foreground py-1',
+                  'w-full flex items-center gap-2 px-3 text-[10px] uppercase tracking-[0.08em] text-muted-foreground py-1',
                   g.hubId && 'hover:text-foreground cursor-pointer',
                   isHubSelected && 'text-foreground font-semibold',
                 )}
               >
-                {g.label}
+                <StatusDot status={groupStatus} />
+                <span>{g.label}</span>
               </button>
               <div>
                 {(g.providers ?? []).map((p) => {
