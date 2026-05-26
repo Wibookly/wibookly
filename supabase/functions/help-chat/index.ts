@@ -1,6 +1,7 @@
 // In-app help chatbot. Streams a Lovable AI response grounded in the
-// InboxIQ help articles. Public function (verify_jwt = false) — no PII
-// is touched, so we don't require an authenticated session.
+// InboxIQ help articles. Requires an authenticated Supabase session — the
+// help chat is only used from inside the signed-in app, so requiring auth
+// blocks anonymous LLM-credit abuse without any UX cost.
 //
 // Request body:
 //   {
@@ -11,11 +12,16 @@
 //     pageContext?: string  // current route / page label
 //   }
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -47,6 +53,27 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Require an authenticated Supabase session.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (!authHeader.toLowerCase().startsWith('bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(
+      authHeader.slice(7),
+    );
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       return new Response(

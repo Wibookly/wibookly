@@ -3481,7 +3481,6 @@ export type Database = {
           invited_by: string | null
           mode: string
           organization_id: string
-          temp_password: string | null
           token: string
           used_at: string | null
           user_id: string | null
@@ -3497,7 +3496,6 @@ export type Database = {
           invited_by?: string | null
           mode?: string
           organization_id: string
-          temp_password?: string | null
           token: string
           used_at?: string | null
           user_id?: string | null
@@ -3513,7 +3511,6 @@ export type Database = {
           invited_by?: string | null
           mode?: string
           organization_id?: string
-          temp_password?: string | null
           token?: string
           used_at?: string | null
           user_id?: string | null
