@@ -235,28 +235,52 @@ Deno.serve(async (req) => {
       metadata: result.metadata ?? {},
     }, { onConflict: "integration_key" });
 
-    // Fire alert email when transitioning into a non-healthy state
+    // Fire alert email/SMS when transitioning into a non-healthy state
     const transitioned =
       (result.status === "failed" || result.status === "warning") &&
       prevStatus !== result.status;
     if (transitioned) {
       try {
-        await admin.functions.invoke("send-transactional-email", {
-          body: {
-            templateName: "integration-alert",
-            recipientEmail: "arahimi@energyforward.com",
-            idempotencyKey: `integration-alert-${key}-${result.status}-${Date.now()}`,
-            templateData: {
-              integrationKey: key,
-              integrationName: key,
-              status: result.status,
-              message: result.message,
-              detectedAt: new Date().toISOString(),
-            },
-          },
-        });
+        const sev = result.status; // 'failed' | 'warning'
+        const { data: recipients } = await admin
+          .from("alert_recipients")
+          .select("email,phone,email_enabled,sms_enabled,min_severity,is_active")
+          .eq("is_active", true);
+        const { data: smsCfg } = await admin
+          .from("sms_provider_config")
+          .select("enabled")
+          .maybeSingle();
+        const smsEnabledGlobally = !!smsCfg?.enabled;
+
+        const passesSeverity = (min: string) =>
+          sev === "failed" || (sev === "warning" && min === "warning");
+
+        for (const r of recipients ?? []) {
+          if (!passesSeverity(r.min_severity)) continue;
+          if (r.email_enabled && r.email) {
+            try {
+              await admin.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "integration-alert",
+                  recipientEmail: r.email,
+                  idempotencyKey: `integration-alert-${key}-${sev}-${r.email}-${Date.now()}`,
+                  templateData: {
+                    integrationKey: key, integrationName: key,
+                    status: sev, message: result.message,
+                    detectedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) { console.error("[probe] email failed:", (e as Error).message); }
+          }
+          if (smsEnabledGlobally && r.sms_enabled && r.phone) {
+            const smsBody = `[InboxIQ] ${key} is ${sev.toUpperCase()}. ${result.message ?? ""}`.trim();
+            const out = await sendSms(r.phone, smsBody);
+            if (!out.ok) console.error("[probe] sms failed:", out.message);
+          }
+        }
       } catch (e) {
-        console.error("[admin-integration-probe] alert email failed:", (e as Error).message);
+        console.error("[admin-integration-probe] alert dispatch failed:", (e as Error).message);
       }
     }
 
