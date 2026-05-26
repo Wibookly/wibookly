@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { GROUPS } from './shared/inventory';
 import { StatusDot } from './shared/StatusDot';
 import { Icon } from './shared/Icon';
-import { useIntegrationHealth, statusOf } from './hooks/useIntegrationHealth';
+import { useIntegrationHealth, statusOf, aggregateStatus } from './hooks/useIntegrationHealth';
 import { IntegrationsMonitorCard } from './IntegrationsMonitorCard';
 
 export type SelectedNode =
