@@ -150,9 +150,45 @@ async function probe(key: string, admin: any, userId: string): Promise<Result> {
       } catch (e) { return { status: "failed", latency_ms: Date.now() - start, message: (e as Error).message }; }
     }
 
+    case "twilio":
+    case "twilio-sms": {
+      const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
+      const tok = Deno.env.get("TWILIO_AUTH_TOKEN");
+      const from = Deno.env.get("TWILIO_FROM_NUMBER");
+      const missing = [!sid && "TWILIO_ACCOUNT_SID", !tok && "TWILIO_AUTH_TOKEN", !from && "TWILIO_FROM_NUMBER"].filter(Boolean);
+      if (missing.length) return { status: "failed", latency_ms: 0, message: `Missing: ${missing.join(", ")}` };
+      const start = Date.now();
+      try {
+        const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, {
+          headers: { Authorization: `Basic ${btoa(`${sid}:${tok}`)}` },
+        });
+        return { status: r.ok ? "healthy" : "failed", latency_ms: Date.now() - start, message: `HTTP ${r.status}` };
+      } catch (e) { return { status: "failed", latency_ms: Date.now() - start, message: (e as Error).message }; }
+    }
+
     default:
       return { status: "idle", latency_ms: 0, message: `No probe defined for ${key}` };
   }
+}
+
+// Send SMS via Twilio REST API
+async function sendSms(to: string, body: string): Promise<{ ok: boolean; message: string }> {
+  const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const tok = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const from = Deno.env.get("TWILIO_FROM_NUMBER");
+  if (!sid || !tok || !from) return { ok: false, message: "Twilio not configured" };
+  try {
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${tok}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: to, From: from, Body: body.slice(0, 1500) }),
+    });
+    const text = await r.text();
+    return { ok: r.ok, message: r.ok ? "sent" : `HTTP ${r.status}: ${text.slice(0, 200)}` };
+  } catch (e) { return { ok: false, message: (e as Error).message }; }
 }
 
 Deno.serve(async (req) => {
