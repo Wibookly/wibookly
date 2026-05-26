@@ -28,6 +28,12 @@ export type SubService = {
   calledBy?: string[];
 };
 
+export type ProviderTier =
+  | 'free'           // No key needed (router/platform)
+  | 'lovable'        // Included with Lovable subscription
+  | 'byo'            // Bring-your-own external API key, billed by provider
+  | 'platform';      // Lovable Cloud platform — managed
+
 export type Provider = {
   id: string;
   name: string;
@@ -35,6 +41,10 @@ export type Provider = {
   subtitle: string;
   description: string;
   meta: string;
+  /** Billing/key model — shown in the AI hub key dictionary. */
+  tier: ProviderTier;
+  /** Short human label for the tier in the dictionary. */
+  tierLabel: string;
   credentials: Array<{ label: string; secret: string }>;
   extraCredentials?: { title: string; rows: Array<{ label: string; secret: string }> };
   scopes?: string[];
@@ -43,7 +53,6 @@ export type Provider = {
   isRouter?: boolean;
   /** Recovery / rotate console link. */
   consoleUrl?: { label: string; url: string };
-  /** Optional snapshot stats to render in Overview (label/value). Computed live elsewhere. */
 };
 
 export type Feature = {
