@@ -58,11 +58,17 @@ export function SubServiceDetail({ id, onSelect }: { id: string; onSelect: (n: S
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="audit">Audit & history</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <div className="rounded-md border border-blue-500/30 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 p-3 text-sm">
+            Credentials for this service live on its parent provider — {' '}
+            <button onClick={() => onSelect({ type: 'provider', id: provider.id })} className="underline font-medium">
+              open {provider.name}
+            </button>
+            {' '}to view or rotate keys. Update them once and every sub-service inherits the change.
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <Card><CardContent className="p-4 space-y-2">
               <h3 className="text-sm font-semibold">Live status</h3>
@@ -82,11 +88,12 @@ export function SubServiceDetail({ id, onSelect }: { id: string; onSelect: (n: S
                 <Icon name={provider.icon} className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{provider.name}</span>
               </div>
+              <p className="text-xs text-muted-foreground">{provider.tierLabel}</p>
               <button
                 onClick={() => onSelect({ type: 'provider', id: provider.id })}
                 className="text-xs text-primary hover:underline"
               >
-                Credentials managed at {provider.name} →
+                Manage credentials at {provider.name} →
               </button>
             </CardContent></Card>
           </div>
@@ -101,17 +108,6 @@ export function SubServiceDetail({ id, onSelect }: { id: string; onSelect: (n: S
               </div>
             </CardContent></Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <div className="rounded-md border border-blue-500/30 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 p-3 text-sm">
-            Credentials are managed at the {' '}
-            <button onClick={() => onSelect({ type: 'provider', id: provider.id })} className="underline font-medium">
-              {provider.name}
-            </button>
-            {' '} provider.
-          </div>
-          <SubSettings kind={sub.settingsKind ?? 'generic'} />
         </TabsContent>
 
         <TabsContent value="audit">
