@@ -88,6 +88,13 @@ Deno.serve(async (req) => {
     const grant = await tryGrant(DEEPGRAM_API_KEY);
     if (grant.ok) {
       const data = JSON.parse(grant.body);
+      if (!data?.access_token) {
+        console.error('[deepgram-token] grant returned without access_token', grant.body);
+        return new Response(JSON.stringify({
+          error: 'grant_failed',
+          detail: 'Deepgram grant response did not include an access token.',
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       return new Response(JSON.stringify({
         access_token: data.access_token,
         expires_in: data.expires_in ?? 60,
@@ -112,7 +119,7 @@ Deno.serve(async (req) => {
           error: 'deepgram_temp_key_failed',
           status: tmp.status,
           detail: tmp.body.slice(0, 300),
-          hint: 'DEEPGRAM_API_KEY needs "keys:write" (Admin scope) to mint temporary keys, or "Member" scope to use /auth/grant.',
+          hint: 'The current Deepgram key cannot create temporary streaming credentials. Replace DEEPGRAM_API_KEY with a Member-scoped key for /auth/grant, or an Admin key that includes keys:write.',
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       return new Response(JSON.stringify({

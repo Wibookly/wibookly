@@ -52,6 +52,23 @@ export function useDeepgramTranscription({ onInterim, onFinalUtterance, onError 
   const [connected, setConnected] = useState(false);
   const [listening, setListening] = useState(false);
 
+  const getFriendlyTokenError = useCallback((payload?: { error?: string; hint?: string; detail?: string } | null, fallback?: string) => {
+    const detail = payload?.error;
+    if (detail === 'deepgram_not_configured') {
+      return 'Live transcription is not configured because the Deepgram API key is missing in backend secrets.';
+    }
+    if (detail === 'grant_failed') {
+      return 'Deepgram rejected the API key for token minting. Replace it with a Member-scoped key, or an Admin key that can create temporary keys.';
+    }
+    if (detail === 'deepgram_project_lookup_failed') {
+      return payload?.hint || 'Deepgram could not read the project list with the configured API key. Use an Admin-scoped key.';
+    }
+    if (detail === 'deepgram_temp_key_failed') {
+      return payload?.hint || 'Deepgram could not create a temporary streaming key. The configured API key needs keys:write permission.';
+    }
+    return payload?.hint || payload?.detail || detail || fallback || 'Could not start live transcription';
+  }, []);
+
   const stop = useCallback(() => {
     stoppingRef.current = true;
     setListening(false);
@@ -83,17 +100,20 @@ export function useDeepgramTranscription({ onInterim, onFinalUtterance, onError 
       //    "Edge Function returned a non-2xx status code" — pull the real
       //    error code out of the body so the UI can show something useful.
       const { data, error } = await supabase.functions.invoke('deepgram-token', { body: {} });
+      const payload = (data as {
+        access_token?: string;
+        error?: string;
+        hint?: string;
+        detail?: string;
+      } | null);
       if (error) {
-        const detail = (data as { error?: string } | null)?.error;
-        const friendly = detail === 'deepgram_not_configured'
-          ? 'Live transcription is not configured (DEEPGRAM_API_KEY missing). Add the key in Lovable Cloud → Secrets.'
-          : detail === 'grant_failed'
-            ? 'Deepgram rejected the request — the API key may be invalid or out of credit.'
-            : (detail || error.message || 'Could not start live transcription');
-        throw new Error(friendly);
+        throw new Error(getFriendlyTokenError(payload, error.message));
       }
-      const token: string | undefined = (data as { access_token?: string } | null)?.access_token;
-      if (!token) throw new Error('No Deepgram token returned');
+      if (payload?.error) {
+        throw new Error(getFriendlyTokenError(payload));
+      }
+      const token: string | undefined = payload?.access_token;
+      if (!token) throw new Error(getFriendlyTokenError(payload, 'No Deepgram token returned'));
 
       // 2) Get the microphone (reuse a stream from the existing mic check if provided).
       const stream = existingStream && existingStream.getAudioTracks().length
@@ -232,7 +252,7 @@ export function useDeepgramTranscription({ onInterim, onFinalUtterance, onError 
       onError?.(msg);
       throw e;
     }
-  }, [onInterim, onFinalUtterance, onError, stop]);
+  }, [getFriendlyTokenError, onInterim, onFinalUtterance, onError, stop]);
 
   useEffect(() => () => stop(), [stop]);
 
