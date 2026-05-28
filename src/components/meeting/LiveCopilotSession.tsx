@@ -178,6 +178,13 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
+  // Audio source: 'mic' = local microphone only (captures the user + nearby speaker output).
+  // 'mic+tab' = also capture the shared browser tab's audio via getDisplayMedia and merge,
+  //             so remote participants in a web meeting (Meet/Teams/Zoom web) are transcribed too.
+  const [audioSource, setAudioSource] = useState<'mic' | 'mic+tab'>('mic');
+  const displayStreamRef = useRef<MediaStream | null>(null);
+  const mixContextRef = useRef<AudioContext | null>(null);
+  const mergedStreamRef = useRef<MediaStream | null>(null);
 
   // Diarization: maps Deepgram speaker id (0,1,2,...) → display name.
   // Defaults to "Speaker N" until the user renames it. Pre-seed from attendees.
