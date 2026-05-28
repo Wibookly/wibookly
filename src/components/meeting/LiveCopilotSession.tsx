@@ -774,7 +774,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
     try {
       shouldListenRef.current = true;
-      await deepgram.start(micStreamRef.current);
+      const captureStream = await buildMixedCaptureStream();
+      await deepgram.start(captureStream);
       setListening(true);
       lastSpeechAtRef.current = Date.now();
 
@@ -789,7 +790,11 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
       }
 
-      toast.success('Listening with speaker detection — Deepgram Nova-3.');
+      toast.success(
+        audioSource === 'mic+tab'
+          ? 'Listening to mic + tab audio — Deepgram Nova-3 with diarization.'
+          : 'Listening with speaker detection — Deepgram Nova-3.',
+      );
     } catch (e: unknown) {
       console.error(e);
       const err = e as { message?: string };
