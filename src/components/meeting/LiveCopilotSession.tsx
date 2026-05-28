@@ -654,11 +654,65 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }, isFinal ? 250 : 1200);
   };
 
+  const releaseDisplayCapture = useCallback(() => {
+    try { displayStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    displayStreamRef.current = null;
+    try { mixContextRef.current?.close(); } catch { /* ignore */ }
+    mixContextRef.current = null;
+    mergedStreamRef.current = null;
+  }, []);
+
   const releaseMicCheck = useCallback(() => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
     stopAudioMeters();
-  }, []);
+    releaseDisplayCapture();
+  }, [releaseDisplayCapture]);
+
+  // Capture the shared tab/window's audio and mix it with the local mic into one
+  // MediaStream Deepgram can transcribe. Returns null if the source is mic-only.
+  const buildMixedCaptureStream = useCallback(async (): Promise<MediaStream> => {
+    const mic = micStreamRef.current;
+    if (!mic) throw new Error('Microphone is not ready.');
+    if (audioSource === 'mic') return mic;
+
+    releaseDisplayCapture();
+    let display: MediaStream;
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({
+        video: true, // required by most browsers to enable the audio toggle
+        audio: true,
+      });
+    } catch {
+      throw new Error('Screen / tab sharing was cancelled. Re-share the meeting tab and tick “Share tab audio”.');
+    }
+    const audioTracks = display.getAudioTracks();
+    if (audioTracks.length === 0) {
+      display.getTracks().forEach((t) => t.stop());
+      throw new Error('No tab audio was shared. In the share dialog, pick the meeting tab and tick “Share tab audio”.');
+    }
+    // We only need the audio — drop the video tracks to keep the camera/screen indicator minimal.
+    display.getVideoTracks().forEach((t) => t.stop());
+    const tabAudio = new MediaStream(audioTracks);
+    displayStreamRef.current = tabAudio;
+
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const ctx: AudioContext = new AudioCtx();
+    mixContextRef.current = ctx;
+    const dest = ctx.createMediaStreamDestination();
+    try { ctx.createMediaStreamSource(mic).connect(dest); } catch { /* ignore */ }
+    try { ctx.createMediaStreamSource(tabAudio).connect(dest); } catch { /* ignore */ }
+    mergedStreamRef.current = dest.stream;
+
+    audioTracks[0].onended = () => {
+      if (shouldListenRef.current) {
+        toast.warning('Tab audio sharing stopped — switching back to microphone only.');
+        setAudioSource('mic');
+      }
+    };
+
+    return dest.stream;
+  }, [audioSource, releaseDisplayCapture]);
 
   const runMicCheck = async () => {
     setMicCheckBusy(true);
