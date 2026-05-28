@@ -1183,6 +1183,47 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         {/* Expandable test panel */}
         {audioSetupOpen && (
           <div className="px-3 pb-3 border-t" style={{ borderColor: 'var(--border)' }}>
+            {/* Audio source selector — mic only vs mic + tab audio (for capturing other meeting participants) */}
+            <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-2)' }}>
+                <AudioLines className="w-3.5 h-3.5" /> Audio source
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'mic' as const, label: 'Microphone only', desc: 'Captures just your voice and whatever your mic picks up from the room.' },
+                  { key: 'mic+tab' as const, label: 'Mic + shared tab audio', desc: 'Also transcribes the other participants — you’ll be asked to share the meeting tab with “Share tab audio” ticked.' },
+                ]).map(({ key, label, desc }) => {
+                  const active = audioSource === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        if (listening) {
+                          toast.info('Stop listening before switching audio sources.');
+                          return;
+                        }
+                        setAudioSource(key);
+                      }}
+                      className="flex-1 min-w-[220px] text-left rounded-lg px-3 py-2 transition-all"
+                      style={{
+                        background: active ? 'color-mix(in srgb, var(--c-purple) 14%, var(--surface))' : 'var(--surface)',
+                        border: active ? '1px solid color-mix(in srgb, var(--c-purple) 55%, var(--border))' : '1px solid var(--border)',
+                      }}
+                    >
+                      <div className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>{label}</div>
+                      <div className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {audioSource === 'mic+tab' && (
+                <div className="mt-2 text-[11px]" style={{ color: 'var(--text-2)' }}>
+                  Tip: when the browser asks, pick the <strong>Chrome Tab</strong> running the meeting and tick <strong>“Share tab audio”</strong>. Deepgram diarization will then list each remote speaker under <em>Detected Speakers</em>.
+                </div>
+              )}
+            </div>
+
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
                 <div className="mb-2 flex items-center justify-between gap-2">
