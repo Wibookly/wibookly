@@ -178,6 +178,13 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
   const [audioSetupOpen, setAudioSetupOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [focusMode, setFocusMode] = useState<CopilotPromptMode | null>(null);
+  // Audio source: 'mic' = local microphone only (captures the user + nearby speaker output).
+  // 'mic+tab' = also capture the shared browser tab's audio via getDisplayMedia and merge,
+  //             so remote participants in a web meeting (Meet/Teams/Zoom web) are transcribed too.
+  const [audioSource, setAudioSource] = useState<'mic' | 'mic+tab'>('mic');
+  const displayStreamRef = useRef<MediaStream | null>(null);
+  const mixContextRef = useRef<AudioContext | null>(null);
+  const mergedStreamRef = useRef<MediaStream | null>(null);
 
   // Diarization: maps Deepgram speaker id (0,1,2,...) → display name.
   // Defaults to "Speaker N" until the user renames it. Pre-seed from attendees.
@@ -647,11 +654,65 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
     }, isFinal ? 250 : 1200);
   };
 
+  const releaseDisplayCapture = useCallback(() => {
+    try { displayStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    displayStreamRef.current = null;
+    try { mixContextRef.current?.close(); } catch { /* ignore */ }
+    mixContextRef.current = null;
+    mergedStreamRef.current = null;
+  }, []);
+
   const releaseMicCheck = useCallback(() => {
     try { micStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
     micStreamRef.current = null;
     stopAudioMeters();
-  }, []);
+    releaseDisplayCapture();
+  }, [releaseDisplayCapture]);
+
+  // Capture the shared tab/window's audio and mix it with the local mic into one
+  // MediaStream Deepgram can transcribe. Returns null if the source is mic-only.
+  const buildMixedCaptureStream = useCallback(async (): Promise<MediaStream> => {
+    const mic = micStreamRef.current;
+    if (!mic) throw new Error('Microphone is not ready.');
+    if (audioSource === 'mic') return mic;
+
+    releaseDisplayCapture();
+    let display: MediaStream;
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({
+        video: true, // required by most browsers to enable the audio toggle
+        audio: true,
+      });
+    } catch {
+      throw new Error('Screen / tab sharing was cancelled. Re-share the meeting tab and tick “Share tab audio”.');
+    }
+    const audioTracks = display.getAudioTracks();
+    if (audioTracks.length === 0) {
+      display.getTracks().forEach((t) => t.stop());
+      throw new Error('No tab audio was shared. In the share dialog, pick the meeting tab and tick “Share tab audio”.');
+    }
+    // We only need the audio — drop the video tracks to keep the camera/screen indicator minimal.
+    display.getVideoTracks().forEach((t) => t.stop());
+    const tabAudio = new MediaStream(audioTracks);
+    displayStreamRef.current = tabAudio;
+
+    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const ctx: AudioContext = new AudioCtx();
+    mixContextRef.current = ctx;
+    const dest = ctx.createMediaStreamDestination();
+    try { ctx.createMediaStreamSource(mic).connect(dest); } catch { /* ignore */ }
+    try { ctx.createMediaStreamSource(tabAudio).connect(dest); } catch { /* ignore */ }
+    mergedStreamRef.current = dest.stream;
+
+    audioTracks[0].onended = () => {
+      if (shouldListenRef.current) {
+        toast.warning('Tab audio sharing stopped — switching back to microphone only.');
+        setAudioSource('mic');
+      }
+    };
+
+    return dest.stream;
+  }, [audioSource, releaseDisplayCapture]);
 
   const runMicCheck = async () => {
     setMicCheckBusy(true);
@@ -713,7 +774,8 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
 
     try {
       shouldListenRef.current = true;
-      await deepgram.start(micStreamRef.current);
+      const captureStream = await buildMixedCaptureStream();
+      await deepgram.start(captureStream);
       setListening(true);
       lastSpeechAtRef.current = Date.now();
 
@@ -728,7 +790,11 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         };
       }
 
-      toast.success('Listening with speaker detection — Deepgram Nova-3.');
+      toast.success(
+        audioSource === 'mic+tab'
+          ? 'Listening to mic + tab audio — Deepgram Nova-3 with diarization.'
+          : 'Listening with speaker detection — Deepgram Nova-3.',
+      );
     } catch (e: unknown) {
       console.error(e);
       const err = e as { message?: string };
@@ -1117,6 +1183,47 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         {/* Expandable test panel */}
         {audioSetupOpen && (
           <div className="px-3 pb-3 border-t" style={{ borderColor: 'var(--border)' }}>
+            {/* Audio source selector — mic only vs mic + tab audio (for capturing other meeting participants) */}
+            <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-2)' }}>
+                <AudioLines className="w-3.5 h-3.5" /> Audio source
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'mic' as const, label: 'Microphone only', desc: 'Captures just your voice and whatever your mic picks up from the room.' },
+                  { key: 'mic+tab' as const, label: 'Mic + shared tab audio', desc: 'Also transcribes the other participants — you’ll be asked to share the meeting tab with “Share tab audio” ticked.' },
+                ]).map(({ key, label, desc }) => {
+                  const active = audioSource === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        if (listening) {
+                          toast.info('Stop listening before switching audio sources.');
+                          return;
+                        }
+                        setAudioSource(key);
+                      }}
+                      className="flex-1 min-w-[220px] text-left rounded-lg px-3 py-2 transition-all"
+                      style={{
+                        background: active ? 'color-mix(in srgb, var(--c-purple) 14%, var(--surface))' : 'var(--surface)',
+                        border: active ? '1px solid color-mix(in srgb, var(--c-purple) 55%, var(--border))' : '1px solid var(--border)',
+                      }}
+                    >
+                      <div className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>{label}</div>
+                      <div className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {audioSource === 'mic+tab' && (
+                <div className="mt-2 text-[11px]" style={{ color: 'var(--text-2)' }}>
+                  Tip: when the browser asks, pick the <strong>Chrome Tab</strong> running the meeting and tick <strong>“Share tab audio”</strong>. Deepgram diarization will then list each remote speaker under <em>Detected Speakers</em>.
+                </div>
+              )}
+            </div>
+
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--background) 55%, transparent)' }}>
                 <div className="mb-2 flex items-center justify-between gap-2">
