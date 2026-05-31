@@ -74,22 +74,39 @@ const examplePrompts = [
   { icon: BarChart3, title: 'Analyze data', desc: 'trends in my recent activity' },
 ];
 
-const THEME_KEY = 'inboxiq-chat-theme';
+import { useTheme as useGlobalTheme } from '@/lib/theme';
 
+// Use the app-wide theme so the chat page stays in sync with the
+// global Dark Mode toggle (was previously using a separate key which
+// caused the page to flash to light mode on entry).
 function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem(THEME_KEY) as 'light' | 'dark' | null;
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  const { resolvedTheme, setTheme } = useGlobalTheme();
+  return {
+    theme: resolvedTheme,
+    toggle: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
+  };
+}
+
+// Ensure assistant text renders with breathing room: when the model returns
+// label-style lines separated by single newlines (e.g. "Title:\nBody\n..."),
+// promote them into separate markdown paragraphs/list items.
+function formatAssistantMarkdown(input: string): string {
+  if (!input) return input;
+  // Normalize line endings
+  let text = input.replace(/\r\n/g, '\n');
+  // Protect fenced code blocks from transformation
+  const codeBlocks: string[] = [];
+  text = text.replace(/```[\s\S]*?```/g, (m) => {
+    codeBlocks.push(m);
+    return `\u0000CODE${codeBlocks.length - 1}\u0000`;
   });
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
-  return { theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) };
+  // Convert lines that look like "Label: rest" into bolded paragraphs
+  text = text.replace(/^([A-Z][A-Za-z0-9 /&'-]{2,40}):\s+(?!\n)/gm, '**$1:** ');
+  // Turn single newlines between non-empty, non-list lines into blank lines
+  text = text.replace(/([^\n])\n(?=[^\n\-\*\d\s#>`])/g, '$1\n\n');
+  // Restore code blocks
+  text = text.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeBlocks[Number(i)]);
+  return text;
 }
 
 function dateBucket(dateStr: string): string {
@@ -1401,9 +1418,9 @@ function MessageBubble({
           {isUser ? (
             <div className="whitespace-pre-wrap break-words">{message.content}</div>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:bg-background [&_pre]:rounded-lg [&_pre]:p-3 [&_code]:text-xs">
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed [&_p]:my-3 [&_p]:leading-relaxed [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:leading-relaxed [&_h1]:mt-5 [&_h1]:mb-3 [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:mt-4 [&_h3]:mb-2 [&_hr]:my-4 [&_blockquote]:my-3 [&_pre]:bg-background [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_code]:text-xs [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-                {message.content}
+                {formatAssistantMarkdown(message.content)}
               </ReactMarkdown>
               {streaming && <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse align-middle ml-1" />}
             </div>
