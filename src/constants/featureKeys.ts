@@ -36,4 +36,6 @@ export const FEATURE_LIST: readonly FeatureMeta[] = [
   { key: FEATURE_KEYS.POWERPOINTS, label: 'PowerPoints', description: 'Generate PowerPoint decks' },
   { key: FEATURE_KEYS.EXCEL, label: 'Excel', description: 'Generate Excel spreadsheets' },
   { key: FEATURE_KEYS.FILE_READING, label: 'File Reading', description: 'Read and analyze uploaded files' },
+  { key: FEATURE_KEYS.EMAIL_INTELLIGENCE, label: 'Email Intelligence', description: 'Auto-categorize inbound email and configure category limits' },
+  { key: FEATURE_KEYS.MEETING_COPILOT, label: 'Meeting Copilot', description: 'Live meeting transcription, summary, and action items' },
 ] as const;
