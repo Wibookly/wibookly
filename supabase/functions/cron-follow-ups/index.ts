@@ -647,6 +647,19 @@ async function userHasFollowUpPermission(userId: string): Promise<boolean> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  // Auth gate: require service-role bearer or shared cron secret.
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? '';
+  const providedCronSecret = req.headers.get('x-cron-secret') ?? '';
+  const hasServiceRole = !!serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`;
+  const hasCronSecret = !!cronSecret && providedCronSecret === cronSecret;
+  if (!hasServiceRole && !hasCronSecret) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     // Lifecycle: pause trackers belonging to users who have lost the permission,
     // and resume any that were paused but now have it again.
