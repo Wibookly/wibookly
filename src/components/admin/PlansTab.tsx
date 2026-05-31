@@ -450,7 +450,7 @@ export default function PlansTab() {
   const adminDomain = profile?.email?.split('@')[1] || '';
 
   return (
-    <div style={ROOT_STYLE}>
+    <div style={rootStyle}>
       {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
