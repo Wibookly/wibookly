@@ -889,6 +889,7 @@ async function deleteOutlookFolder(
       s.replace(/\s*\(?\d+\)?\s*$/u, "").trim();
     const targetCore = stripPrefix(folderName);
     const targetCoreNoDup = stripDupSuffix(targetCore);
+    const targetHasDupSuffix = targetCoreNoDup !== targetCore;
 
     // Protected folders we must NEVER delete: ONLY the dedicated hyphenated
     // "Follow-up" tracker folder used by cron-follow-ups. The unprefixed
@@ -904,7 +905,13 @@ async function deleteOutlookFolder(
     const matches = (folders ?? [])
       .filter((f: { id: string; displayName: string }) => {
         const core = stripPrefix(f.displayName);
-        return core === targetCore || stripDupSuffix(core) === targetCoreNoDup;
+        const coreNoDup = stripDupSuffix(core);
+        const candidateHasDupSuffix = coreNoDup !== core;
+        return (
+          core === targetCore ||
+          (coreNoDup === targetCoreNoDup &&
+            (!targetHasDupSuffix || candidateHasDupSuffix))
+        );
       })
       .filter((f: { displayName: string }) => {
         const isPrefixed =
