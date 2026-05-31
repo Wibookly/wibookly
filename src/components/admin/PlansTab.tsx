@@ -175,7 +175,7 @@ interface ActiveUser {
   last_activity: string | null;
 }
 
-const ROOT_STYLE: React.CSSProperties = {
+const ROOT_STYLE_LIGHT: React.CSSProperties = {
   // Dense visual palette (scoped to this component only).
   ['--bg-primary' as any]: '#ffffff',
   ['--bg-secondary' as any]: '#f5f6f8',
@@ -195,6 +195,31 @@ const ROOT_STYLE: React.CSSProperties = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   color: 'var(--text-primary)',
 };
+
+const ROOT_STYLE_DARK: React.CSSProperties = {
+  ['--bg-primary' as any]: '#0f172a',
+  ['--bg-secondary' as any]: '#1e293b',
+  ['--bg-info' as any]: '#0c2a4a',
+  ['--bg-success' as any]: '#0f3a24',
+  ['--text-primary' as any]: '#f1f5f9',
+  ['--text-secondary' as any]: '#cbd5e1',
+  ['--text-tertiary' as any]: '#94a3b8',
+  ['--text-info' as any]: '#38bdf8',
+  ['--text-success' as any]: '#4ade80',
+  ['--text-warning' as any]: '#fbbf24',
+  ['--text-error' as any]: '#f87171',
+  ['--border-tertiary' as any]: '#334155',
+  ['--border-secondary' as any]: '#475569',
+  ['--radius-md' as any]: '8px',
+  ['--radius-lg' as any]: '12px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  color: 'var(--text-primary)',
+};
+
+function useRootStyle(): React.CSSProperties {
+  const { resolvedTheme } = useTheme();
+  return resolvedTheme === 'dark' ? ROOT_STYLE_DARK : ROOT_STYLE_LIGHT;
+}
 
 function dailyTasks(cfg: FeatureRow): number {
   if (!cfg.is_enabled) return 0;
