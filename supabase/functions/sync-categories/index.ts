@@ -844,27 +844,30 @@ async function deleteOutlookFolder(
     const hasEmojiPrefix = (s: string) =>
       /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
     const stripPrefix = (s: string) => normalizeManagedCategoryName(s);
+    // Also strip Outlook's duplicate-name suffix (e.g. "Follow Up1",
+    // "Follow Up 2", "Follow Up (3)") so we catch stray duplicates Outlook
+    // auto-creates when a folder briefly already existed.
+    const stripDupSuffix = (s: string) =>
+      s.replace(/\s*\(?\d+\)?\s*$/u, "").trim();
     const targetCore = stripPrefix(folderName);
+    const targetCoreNoDup = stripDupSuffix(targetCore);
 
-    // Protected folders we must NEVER delete: only the dedicated unprefixed
-    // "Follow-up" tracker folder used by cron-follow-ups. Managed category
-    // folders carry either a numeric prefix ("02: Follow Up") or an emoji
-    // dot prefix ("🟠 Follow Up") — both ARE deletable when the user
-    // disables the category. Only a folder with NO prefix at all is the
-    // tracker folder.
+    // Protected folders we must NEVER delete: ONLY the dedicated hyphenated
+    // "Follow-up" tracker folder used by cron-follow-ups. The unprefixed
+    // "Follow Up" / "No Reply Tracker" folders ARE managed category folders
+    // and MUST be deletable when the user disables them.
     const PROTECTED_UNPREFIXED = new Set([
       "follow-up",
-      "follow up",
-      "followup",
     ]);
 
-    // Match every folder whose normalized name equals our target.
-    // For each match, only skip the unprefixed tracker folder.
+    // Match every folder whose normalized name equals our target (or whose
+    // duplicate-suffix-stripped name equals it). For each match, only skip
+    // the unprefixed hyphenated tracker folder.
     const matches = (folders ?? [])
-      .filter(
-        (f: { id: string; displayName: string }) =>
-          stripPrefix(f.displayName) === targetCore,
-      )
+      .filter((f: { id: string; displayName: string }) => {
+        const core = stripPrefix(f.displayName);
+        return core === targetCore || stripDupSuffix(core) === targetCoreNoDup;
+      })
       .filter((f: { displayName: string }) => {
         const isPrefixed =
           hasNumericPrefix(f.displayName) || hasEmojiPrefix(f.displayName);
@@ -2214,6 +2217,8 @@ serve(async (req) => {
         const defaultCategoryNames = [
           "Urgent",
           "Follow Up",
+          "Follow Up1",
+          "No Reply Tracker",
           "Approvals",
           "Events",
           "Customers",
