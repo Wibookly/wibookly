@@ -30,12 +30,6 @@ export function usePlanLimits(): PlanLimits {
         return;
       }
       const isSuperAdmin = profile?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
-        if (!cancelled) {
-          setMaxCategories(0); // unlimited
-          setLoading(false);
-        }
-        return;
-      }
       try {
         const { data, error } = await supabase
           .from('user_group_memberships')
@@ -45,11 +39,12 @@ export function usePlanLimits(): PlanLimits {
         const values = (data ?? [])
           .map((row: any) => Number(row?.permission_groups?.max_categories ?? 0))
           .filter((n) => Number.isFinite(n) && n > 0);
-        const max = values.length > 0 ? Math.max(...values) : 10;
+        // Prefer the plan limit when assigned. Super admin with no plan stays unlimited.
+        const max = values.length > 0 ? Math.max(...values) : (isSuperAdmin ? 0 : 10);
         if (!cancelled) setMaxCategories(max);
       } catch (e) {
         console.error('usePlanLimits failed:', e);
-        if (!cancelled) setMaxCategories(10);
+        if (!cancelled) setMaxCategories(isSuperAdmin ? 0 : 10);
       } finally {
         if (!cancelled) setLoading(false);
       }
