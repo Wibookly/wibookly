@@ -2076,10 +2076,10 @@ serve(async (req) => {
         let deleted = 0;
         let failed = 0;
 
-        // Create labels/folders for enabled categories using the plain visible
-        // name plus the color dot. Number prefixes are legacy and must not be
-        // recreated because the user wants the mailbox folders shown without
-        // leading order numbers.
+        // Create labels/folders for enabled categories.
+        // Gmail uses the plain visible name plus the color dot.
+        // Outlook uses a fixed-width numeric prefix plus the color dot so the
+        // folder order stays identical across all mail clients.
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
@@ -2304,13 +2304,21 @@ serve(async (req) => {
           }
         }
 
-        // FINAL SWEEP — numbered legacy duplicates.
-        // Canonical folder names no longer include any numeric prefix, so any
-        // managed folder whose name starts with digits is stale and should be removed.
-        // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
-        // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
+        // FINAL SWEEP — remove stale ordered Outlook folders that are NOT one
+        // of this sync's desired canonical names. This cleans up leftovers from
+        // previous naming schemes without deleting the current cross-client
+        // ordered folders we just stabilized above.
         if (isOutlookProvider) {
           try {
+            const desiredFolderNames = new Set(
+              sortedEnabled.map((category, idx) =>
+                buildOutlookFolderDisplayName(
+                  category.name,
+                  category.color,
+                  idx + 1,
+                ),
+              ),
+            );
             const listRes = await fetch(
               "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
               { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -2321,7 +2329,7 @@ serve(async (req) => {
                 (f: { displayName: string }) =>
                   /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
                     f.displayName,
-                  ),
+                  ) && !desiredFolderNames.has(f.displayName),
               );
               for (const f of legacy as Array<{
                 id: string;
