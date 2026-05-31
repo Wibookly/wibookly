@@ -52,6 +52,7 @@ import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Tags } from 'lucide-react';
 import {
   Table,
