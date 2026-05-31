@@ -1257,6 +1257,41 @@ export default function Categories() {
         </div>
       )}
 
+      {/* AI Email Label Colors — applied to drafts/sent emails created by AI */}
+      <div className="mb-6 rounded-lg border border-border bg-card p-5">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex-1 min-w-[280px]">
+            <h2 className="text-lg font-semibold inline-flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              AI Email Label Colors
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Pick the colors used to tag emails the AI creates. The <strong>AI Draft</strong> color is
+              applied to drafts placed in your Drafts folder for review. The <strong>AI Auto-Reply</strong>{' '}
+              color is applied to replies the AI sends from your Sent folder. Same Outlook palette as your categories.
+            </p>
+          </div>
+          <div className="flex items-center gap-8">
+            <AiColorPickerField
+              label="AI Draft"
+              value={aiDraftColor}
+              onChange={(c) => {
+                setAiDraftColor(c);
+                saveAiLabelColors(c, aiSentColor);
+              }}
+            />
+            <AiColorPickerField
+              label="AI Auto-Reply"
+              value={aiSentColor}
+              onChange={(c) => {
+                setAiSentColor(c);
+                saveAiLabelColors(aiDraftColor, c);
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
         <Table>
