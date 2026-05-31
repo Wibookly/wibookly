@@ -276,8 +276,8 @@ export default function PlansTab() {
       setPlans(planRows);
       setDomains(((d.data || []) as DomainRow[]));
       setPricing((pr.data || []) as PricingRow[]);
-      if (planRows.length && !planRows.find(x => x.id === selectedPlanId)) {
-        setSelectedPlanId(planRows[0].id);
+      if (planRows.length) {
+        setSelectedPlanId(prev => (prev && planRows.find(x => x.id === prev) ? prev : planRows[0].id));
       }
       const ids = planRows.map(x => x.id);
       if (ids.length) {
