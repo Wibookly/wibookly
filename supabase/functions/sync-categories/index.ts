@@ -119,12 +119,25 @@ function nearestColorDot(hex: string): string {
 }
 
 function normalizeManagedCategoryName(value: string): string {
-  return String(value || "")
-    .replace(ZW_PREFIX_RE, "") // strip invisible sort-order prefix
-    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
-    .replace(/^\s*\d+\s*[:.\-]\s*/u, "")
-    .trim()
-    .toLowerCase();
+  let normalized = String(value || "").replace(ZW_PREFIX_RE, "").trim();
+
+  // Strip all leading ordering / decoration tokens regardless of whether the
+  // name starts with the emoji or the numeric prefix:
+  // - "🔴 Urgent"
+  // - "01. Urgent"
+  // - "01. 🔴 Urgent"
+  // - "⭐ 01: Urgent"
+  let changed = true;
+  while (changed) {
+    const next = normalized
+      .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
+      .replace(/^\s*\d+\s*[:.\-]\s*/u, "")
+      .trim();
+    changed = next !== normalized;
+    normalized = next;
+  }
+
+  return normalized.toLowerCase();
 }
 
 // AES-GCM decryption for tokens (server-side only)
