@@ -185,10 +185,20 @@ serve(async (req) => {
     tests.sharepoint = { status: sites.status, ok: sites.ok, response_ms: sites.ms, ...(sites.ok ? {} : { body: sites.body }) };
 
     const allOk = tests.me.ok && tests.mail.ok && tests.calendar.ok && tests.onedrive.ok && tests.sharepoint.ok;
+
+    // Decode JWT scope claims server-side; never return the raw access token.
+    let scopes: string[] = [];
+    try {
+      const payload = token.split('.')[1];
+      const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      const scp = json.scp || json.scope || '';
+      scopes = typeof scp === 'string' ? scp.split(/\s+/).filter(Boolean) : Array.isArray(scp) ? scp : [];
+    } catch { /* ignore */ }
+
     return new Response(JSON.stringify({
       ok: allOk,
       tests,
-      access_token: token, // client decodes scp claim for scope verification
+      scopes,
       connection_id: connectionId,
     }, null, 2), {
       headers: { ...cors, 'Content-Type': 'application/json' },
