@@ -497,7 +497,7 @@ export default function PlansTab() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 8, marginBottom: '1rem' }}>
         <KpiCard label="Active users" value={String(totalActive)} sub={`${discoveredCount} discovered in M365`} />
         <KpiCard label="Daily projected" value={fmtUSD(dailyOrgCost, 0)} sub="based on active" />
-        <KpiCard label="Monthly projected" value={fmtUSD(monthlyOrgCost, 0)} sub="22 business days" large />
+        <KpiCard label="Monthly projected" value={fmtUSD(monthlyOrgCost, 0)} sub="22 business days" />
         <KpiCard label="Avg / active user" value={fmtUSD(avgPerActiveUser, 0)} sub="per month" />
       </div>
 
