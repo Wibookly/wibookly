@@ -87,6 +87,28 @@ function useTheme() {
   };
 }
 
+// Ensure assistant text renders with breathing room: when the model returns
+// label-style lines separated by single newlines (e.g. "Title:\nBody\n..."),
+// promote them into separate markdown paragraphs/list items.
+function formatAssistantMarkdown(input: string): string {
+  if (!input) return input;
+  // Normalize line endings
+  let text = input.replace(/\r\n/g, '\n');
+  // Protect fenced code blocks from transformation
+  const codeBlocks: string[] = [];
+  text = text.replace(/```[\s\S]*?```/g, (m) => {
+    codeBlocks.push(m);
+    return `\u0000CODE${codeBlocks.length - 1}\u0000`;
+  });
+  // Convert lines that look like "Label: rest" into bolded paragraphs
+  text = text.replace(/^([A-Z][A-Za-z0-9 /&'-]{2,40}):\s+(?!\n)/gm, '**$1:** ');
+  // Turn single newlines between non-empty, non-list lines into blank lines
+  text = text.replace(/([^\n])\n(?=[^\n\-\*\d\s#>`])/g, '$1\n\n');
+  // Restore code blocks
+  text = text.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeBlocks[Number(i)]);
+  return text;
+}
+
 function dateBucket(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
