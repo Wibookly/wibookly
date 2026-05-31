@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useTheme } from '@/lib/theme';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Loader2, Plus, MoreHorizontal, Trash2, Copy, Globe, ChevronRight } from 'lucide-react';
@@ -174,7 +175,7 @@ interface ActiveUser {
   last_activity: string | null;
 }
 
-const ROOT_STYLE: React.CSSProperties = {
+const ROOT_STYLE_LIGHT: React.CSSProperties = {
   // Dense visual palette (scoped to this component only).
   ['--bg-primary' as any]: '#ffffff',
   ['--bg-secondary' as any]: '#f5f6f8',
@@ -194,6 +195,31 @@ const ROOT_STYLE: React.CSSProperties = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   color: 'var(--text-primary)',
 };
+
+const ROOT_STYLE_DARK: React.CSSProperties = {
+  ['--bg-primary' as any]: '#0f172a',
+  ['--bg-secondary' as any]: '#1e293b',
+  ['--bg-info' as any]: '#0c2a4a',
+  ['--bg-success' as any]: '#0f3a24',
+  ['--text-primary' as any]: '#f1f5f9',
+  ['--text-secondary' as any]: '#cbd5e1',
+  ['--text-tertiary' as any]: '#94a3b8',
+  ['--text-info' as any]: '#38bdf8',
+  ['--text-success' as any]: '#4ade80',
+  ['--text-warning' as any]: '#fbbf24',
+  ['--text-error' as any]: '#f87171',
+  ['--border-tertiary' as any]: '#334155',
+  ['--border-secondary' as any]: '#475569',
+  ['--radius-md' as any]: '8px',
+  ['--radius-lg' as any]: '12px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  color: 'var(--text-primary)',
+};
+
+function useRootStyle(): React.CSSProperties {
+  const { resolvedTheme } = useTheme();
+  return resolvedTheme === 'dark' ? ROOT_STYLE_DARK : ROOT_STYLE_LIGHT;
+}
 
 function dailyTasks(cfg: FeatureRow): number {
   if (!cfg.is_enabled) return 0;
@@ -244,6 +270,7 @@ function formatShortName(fullName: string | null | undefined, email: string): st
 
 export default function PlansTab() {
   const { profile, organization } = useAuth();
+  const rootStyle = useRootStyle();
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<FeatureRow[]>([]);
@@ -423,7 +450,7 @@ export default function PlansTab() {
   const adminDomain = profile?.email?.split('@')[1] || '';
 
   return (
-    <div style={ROOT_STYLE}>
+    <div style={rootStyle}>
       {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -431,7 +458,7 @@ export default function PlansTab() {
           <select
             value={viewDomain}
             onChange={(e) => setViewDomain(e.target.value)}
-            style={{ fontSize: 13, padding: '3px 8px', height: 28, border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+            style={{ fontSize: 13, padding: '3px 8px', height: 28, border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
           >
             <option value="admin">{adminDomain} (admin)</option>
             {domains.map(d => (
@@ -920,11 +947,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 const selectStyle: React.CSSProperties = {
   fontSize: 11, padding: '2px 4px', height: 26, border: '1px solid var(--border-secondary)',
-  borderRadius: 4, background: 'white', color: 'var(--text-primary)',
+  borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)',
 };
 const inputStyle: React.CSSProperties = {
   fontSize: 11, padding: '2px 4px', height: 26, border: '1px solid var(--border-secondary)',
-  borderRadius: 4, background: 'white', color: 'var(--text-primary)',
+  borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)',
 };
 
 function ColHeader({ children, align }: { children: React.ReactNode; align?: 'right' }) {
@@ -1076,7 +1103,7 @@ function FeatureSectionCard({
               type="number" min={0} max={10} value={maxCats}
               disabled={!parentOn}
               onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
-              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
             <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>of 10</span>
           </div>
