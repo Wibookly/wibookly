@@ -74,22 +74,17 @@ const examplePrompts = [
   { icon: BarChart3, title: 'Analyze data', desc: 'trends in my recent activity' },
 ];
 
-const THEME_KEY = 'inboxiq-chat-theme';
+import { useTheme as useGlobalTheme } from '@/lib/theme';
 
+// Use the app-wide theme so the chat page stays in sync with the
+// global Dark Mode toggle (was previously using a separate key which
+// caused the page to flash to light mode on entry).
 function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem(THEME_KEY) as 'light' | 'dark' | null;
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
-  return { theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) };
+  const { resolvedTheme, setTheme } = useGlobalTheme();
+  return {
+    theme: resolvedTheme,
+    toggle: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
+  };
 }
 
 function dateBucket(dateStr: string): string {
