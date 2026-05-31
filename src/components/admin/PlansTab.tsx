@@ -834,8 +834,18 @@ function PlanCard({
 
       {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '0.5px solid var(--border-tertiary)' }}>
-        <button onClick={reset} disabled={!dirty} style={btnStyle(false, !dirty)}>Reset</button>
-        <button onClick={() => setConfirmOpen(true)} disabled={!dirty} style={btnStyle(true, !dirty)}>Apply changes</button>
+        <span style={{
+          fontSize: 12,
+          color: saveStatus === 'saving' ? 'var(--text-info)' : saveStatus === 'saved' ? 'var(--text-success)' : 'var(--text-tertiary)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          minWidth: 80,
+          justifyContent: 'flex-end',
+        }}>
+          {saveStatus === 'saving' && <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />}
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : ''}
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button style={{ ...btnStyle(false, false), padding: '5px 8px' }}>
@@ -846,7 +856,7 @@ function PlanCard({
             <DropdownMenuItem onClick={() => setApplyOpen(true)}>
               <Globe className="w-4 h-4 mr-2" /> Apply to other domains…
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast.info('Duplicate plan: open the “New plan” dialog and pick this as a base.')}>
+            <DropdownMenuItem onClick={() => toast.info('Duplicate plan: open the "New plan" dialog and pick this as a base.')}
               <Copy className="w-4 h-4 mr-2" /> Duplicate plan…
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="text-destructive">
@@ -855,24 +865,6 @@ function PlanCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* Diff confirmation */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Apply changes to {plan.name}</DialogTitle>
-            <DialogDescription>
-              Changes apply immediately to {activeMembers} active member{activeMembers === 1 ? '' : 's'}.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button onClick={() => setConfirmOpen(false)} style={btnStyle(false, false)}>Cancel</button>
-            <button onClick={applyChanges} disabled={saving} style={btnStyle(true, saving)}>
-              {saving ? 'Applying…' : 'Apply changes'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Apply to other domains */}
       <ApplyToDomainsDialog
