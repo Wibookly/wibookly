@@ -396,9 +396,69 @@ export default function Categories() {
   const autoReplyLocked = !featureLoading && !hasFeature('ai_auto_reply');
   const enabledCount = categories.filter((c) => c.is_enabled).length;
   const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
-  
+
+  // AI label colors (persisted in ai_settings — also used by process-ai-emails to
+  // tag drafts/sent emails in Gmail/Outlook).
+  const [aiDraftColor, setAiDraftColor] = useState<string>('#9B59B6'); // Purple default
+  const [aiSentColor, setAiSentColor] = useState<string>('#16A085');  // Teal default
+  const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
+
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
+  const clampedRef = useRef(false);
+
+  // Auto-disable categories beyond the plan's max so enabledCount can never
+  // exceed maxCategories (e.g. plan = 3 of 10 → keep 3 active, disable the rest).
+  useEffect(() => {
+    if (loading || maxCategories <= 0 || clampedRef.current) return;
+    if (categories.length === 0) return;
+    const enabled = categories.filter((c) => c.is_enabled);
+    if (enabled.length <= maxCategories) {
+      clampedRef.current = true;
+      return;
+    }
+    const sortedEnabled = [...enabled].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const toDisableIds = new Set(sortedEnabled.slice(maxCategories).map((c) => c.id));
+    setCategories((prev) =>
+      prev.map((c) =>
+        toDisableIds.has(c.id)
+          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false }
+          : c,
+      ),
+    );
+    supabase
+      .from('categories')
+      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false })
+      .in('id', Array.from(toDisableIds))
+      .then(() => {});
+    clampedRef.current = true;
+  }, [loading, maxCategories, categories]);
+
+  const saveAiLabelColors = async (draft: string, sent: string) => {
+    if (!organization?.id || !activeConnection?.id) return;
+    try {
+      if (aiSettingsId) {
+        await supabase
+          .from('ai_settings')
+          .update({ ai_draft_label_color: draft, ai_sent_label_color: sent })
+          .eq('id', aiSettingsId);
+      } else {
+        const { data } = await supabase
+          .from('ai_settings')
+          .insert({
+            organization_id: organization.id,
+            connection_id: activeConnection.id,
+            ai_draft_label_color: draft,
+            ai_sent_label_color: sent,
+          })
+          .select('id')
+          .maybeSingle();
+        if (data?.id) setAiSettingsId(data.id);
+      }
+    } catch (e) {
+      console.error('Failed to save AI label colors', e);
+    }
+  };
 
   const getSyncFailureMessage = (data: any, fallback: string) => {
     const failedResult = data?.results?.find((result: any) => result?.failed > 0 || result?.error);
