@@ -22,40 +22,111 @@ import { Input } from '@/components/ui/input';
  * ------------------------------------------------------------------ */
 
 const FEATURE_LABELS: Record<string, string> = {
-  ai_draft: 'AI Draft',
-  ai_auto_reply: 'AI Auto-Reply',
   ai_chat: 'AI Chat',
-  daily_brief: 'Daily Brief',
-  activity_reports: 'Activity Reports',
-  email_agent: 'Email Agent',
-  teams_agent: 'Teams Agent',
-  follow_up_reminder: 'No-Reply Tracker',
-  documents: 'Documents (PDF/Word)',
+  documents: 'Documents (PDF / Word)',
   powerpoints: 'PowerPoints',
   excel: 'Excel files',
   file_review: 'File review',
+  email_intelligence: 'Email Intelligence',
+  ai_draft: 'AI Draft',
+  ai_auto_reply: 'AI Auto-Reply',
+  follow_up_reminder: 'No-Reply Tracker',
+  meeting_copilot: 'Meeting Copilot',
+  activity_reports: 'Reports',
+  daily_brief: 'My Daily Brief',
+  email_agent: 'Email Agent',
+  teams_agent: 'Teams Agent',
 };
 
-const FEATURE_ORDER = [
-  'ai_draft', 'ai_auto_reply', 'ai_chat', 'daily_brief', 'activity_reports',
-  'email_agent', 'teams_agent', 'follow_up_reminder', 'documents', 'powerpoints',
-  'excel', 'file_review',
+/**
+ * Feature catalog grouped into the 6 product sections the admin manages.
+ * The `parent` key gates its children: when the parent toggle is off, the
+ * child rows are visually disabled and excluded from cost totals.
+ *
+ * Section `meta` is an optional extra control rendered next to the section
+ * header (e.g. the 1–10 categories input for Email Intelligence).
+ */
+type SectionMeta = 'categories';
+interface FeatureSection {
+  title: string;
+  description?: string;
+  parent: string;
+  children: string[];
+  meta?: SectionMeta;
+}
+
+const FEATURE_SECTIONS: FeatureSection[] = [
+  {
+    title: 'AI Chat',
+    description: 'Enable the AI chat assistant. Sub-features control what file types it can produce or read.',
+    parent: 'ai_chat',
+    children: ['documents', 'powerpoints', 'excel', 'file_review'],
+  },
+  {
+    title: 'Email Intelligence',
+    description: 'Auto-categorize email, draft replies, and (optionally) send AI auto-replies.',
+    parent: 'email_intelligence',
+    children: ['ai_draft', 'ai_auto_reply'],
+    meta: 'categories',
+  },
+  {
+    title: 'No-Reply Tracker',
+    description: 'BCC-triggered follow-up reminders for unanswered emails.',
+    parent: 'follow_up_reminder',
+    children: [],
+  },
+  {
+    title: 'Meeting Copilot',
+    description: 'Live transcription, summary, and action items from meetings.',
+    parent: 'meeting_copilot',
+    children: [],
+  },
+  {
+    title: 'Reports',
+    description: 'AI activity reports and analytics dashboards.',
+    parent: 'activity_reports',
+    children: [],
+  },
+  {
+    title: 'My Daily Brief',
+    description: 'Scheduled daily email summarising priorities, calendar, and follow-ups.',
+    parent: 'daily_brief',
+    children: [],
+  },
+  {
+    title: 'Agents (advanced)',
+    description: 'Shared mailbox & Teams bot agents. Leave off unless your organization runs them.',
+    parent: 'email_agent',
+    children: ['teams_agent'],
+  },
 ];
 
+const FEATURE_ORDER: string[] = FEATURE_SECTIONS.flatMap(s => [s.parent, ...s.children]);
+
+/** Map each child key -> its parent key (for gating + cost math). */
+const CHILD_TO_PARENT: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  FEATURE_SECTIONS.forEach(s => s.children.forEach(c => { m[c] = s.parent; }));
+  return m;
+})();
+
 const ALLOWED_MODELS: Record<string, string[]> = {
-  ai_draft: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
-  ai_auto_reply: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
   ai_chat: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  daily_brief: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
-  activity_reports: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  email_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  teams_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  follow_up_reminder: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
   documents: ['claude-sonnet-4.5', 'gpt-4.1', 'llama-3.3-70b'],
   powerpoints: ['claude-sonnet-4.5', 'gpt-4.1', 'llama-3.3-70b'],
   excel: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
   file_review: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  email_intelligence: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  ai_draft: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  ai_auto_reply: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  follow_up_reminder: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  meeting_copilot: ['claude-sonnet-4.5', 'gpt-4.1', 'gpt-4.1-mini'],
+  activity_reports: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  daily_brief: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  email_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  teams_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
 };
+
 
 const MODEL_LABELS: Record<string, string> = {
   'gpt-4.1': 'GPT-4.1',
@@ -607,9 +678,19 @@ function PlanCard({
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
   };
 
+  /** A row is effectively on only when its own toggle AND its parent (if any) are on. */
+  const isRowEffectivelyOn = useCallback((r: FeatureRow): boolean => {
+    if (!r.is_enabled) return false;
+    const parentKey = CHILD_TO_PARENT[r.feature_key];
+    if (!parentKey) return true;
+    const parent = rows.find(x => x.feature_key === parentKey);
+    return !!parent?.is_enabled;
+  }, [rows]);
+
   const totals = useMemo(() => {
     let dailyTasksSum = 0, dailyCostSum = 0;
     rows.forEach(r => {
+      if (!isRowEffectivelyOn(r)) return;
       const dt = dailyTasks(r);
       dailyTasksSum += dt;
       const m = r.model_assignment || ALLOWED_MODELS[r.feature_key]?.[0] || '';
@@ -625,7 +706,8 @@ function PlanCard({
       monthlyCost: dailyCostSum * 22,
       groupMonthlyCost: dailyCostSum * 22 * activeMembers,
     };
-  }, [rows, dollarPerTask, activeMembers]);
+  }, [rows, dollarPerTask, activeMembers, isRowEffectivelyOn]);
+
 
   const dirty = useMemo(() => {
     if (Number(plan.max_categories || 0) !== Number(maxCats)) return true;
@@ -712,86 +794,30 @@ function PlanCard({
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{plan.description}</p>
       )}
 
-      {/* Categories quota */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, fontWeight: 500 }}>Email categories allowed</span>
-        <input
-          type="number" min={0} max={10} value={maxCats}
-          onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
-          style={{ width: 52, height: 28, fontSize: 12.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
-        />
-        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>of 10 · names live in Email Intelligence setup</span>
-      </div>
-
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px', gap: 5, padding: '4px 0', borderBottom: '0.5px solid var(--border-secondary)' }}>
-        <ColHeader>Feature</ColHeader>
-        <ColHeader>On</ColHeader>
-        <ColHeader>Term</ColHeader>
-        <ColHeader>Limit</ColHeader>
-        <ColHeader>Model</ColHeader>
-        <ColHeader align="right">$/task</ColHeader>
-        <ColHeader align="right">Cost</ColHeader>
-        <ColHeader>Rollover</ColHeader>
-      </div>
-
-      {/* Feature rows */}
-      {rows.map(r => {
-        const opts = ALLOWED_MODELS[r.feature_key] || [];
-        const model = r.model_assignment || opts[0] || '';
-        const perTask = dollarPerTask(r.feature_key, model);
-        const cost = perTask * (r.daily_limit || 0);
-        const disabled = !r.is_enabled;
-        return (
-          <div key={r.feature_key} style={{
-            display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
-            gap: 5, alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid var(--border-tertiary)', fontSize: 12.5,
-          }}>
-            <div style={{ fontWeight: 500, lineHeight: 1.3, opacity: disabled ? 0.45 : 1 }}>
-              {FEATURE_LABELS[r.feature_key] || r.feature_key}
-            </div>
-            <Toggle checked={r.is_enabled} onChange={(v) => updateRow(r.feature_key, { is_enabled: v })} />
-            <select
-              value={r.limit_term || 'daily'}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { limit_term: e.target.value as 'daily' | 'weekly' })}
-              style={selectStyle}
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-            <input
-              type="number" min={0} max={999} value={r.daily_limit || 0}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { daily_limit: Math.max(0, Math.min(999, parseInt(e.target.value) || 0)) })}
-              style={{ ...inputStyle, width: '100%' }}
+      {/* Grouped feature sections */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {FEATURE_SECTIONS.map(section => {
+          const parentRow = rows.find(r => r.feature_key === section.parent);
+          if (!parentRow) return null;
+          const parentOn = parentRow.is_enabled;
+          return (
+            <FeatureSectionCard
+              key={section.parent}
+              section={section}
+              parentRow={parentRow}
+              childRows={section.children
+                .map(k => rows.find(r => r.feature_key === k))
+                .filter((x): x is FeatureRow => !!x)}
+              parentOn={parentOn}
+              maxCats={maxCats}
+              setMaxCats={setMaxCats}
+              updateRow={updateRow}
+              dollarPerTask={dollarPerTask}
             />
-            <select
-              value={model}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { model_assignment: e.target.value })}
-              style={selectStyle}
-            >
-              {opts.map(o => <option key={o} value={o}>{MODEL_LABELS[o] || o}</option>)}
-            </select>
-            <div style={{ textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', opacity: disabled ? 0.45 : 1 }}>
-              ${perTask.toFixed(4)}
-            </div>
-            <div style={{ textAlign: 'right', fontWeight: 500, fontVariantNumeric: 'tabular-nums', opacity: disabled ? 0.45 : 1 }}>
-              ${cost.toFixed(2)}
-            </div>
-            <select
-              value={r.rollover || 'none'}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { rollover: e.target.value as 'none' | 'next_day' })}
-              style={selectStyle}
-            >
-              <option value="none">None</option>
-              <option value="next_day">Next day</option>
-            </select>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
 
       {/* Per-user totals grid */}
       <div style={{
@@ -947,6 +973,157 @@ function btnStyle(primary: boolean, disabled: boolean): React.CSSProperties {
     display: 'inline-flex', alignItems: 'center', gap: 6,
   };
 }
+
+// ---------- Feature section card (parent toggle gates children) ----------
+
+function FeatureSectionCard({
+  section, parentRow, childRows, parentOn, maxCats, setMaxCats, updateRow, dollarPerTask,
+}: {
+  section: FeatureSection;
+  parentRow: FeatureRow;
+  childRows: FeatureRow[];
+  parentOn: boolean;
+  maxCats: number;
+  setMaxCats: (n: number) => void;
+  updateRow: (key: string, patch: Partial<FeatureRow>) => void;
+  dollarPerTask: (f: string, m: string) => number;
+}) {
+  const renderRow = (r: FeatureRow, opts: { isChild: boolean; gated: boolean }) => {
+    const modelOpts = ALLOWED_MODELS[r.feature_key] || [];
+    const model = r.model_assignment || modelOpts[0] || '';
+    const perTask = dollarPerTask(r.feature_key, model);
+    const cost = perTask * (r.daily_limit || 0);
+    const effectivelyOff = !r.is_enabled || opts.gated;
+    const inputsDisabled = effectivelyOff;
+    return (
+      <div
+        key={r.feature_key}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
+          gap: 5, alignItems: 'center',
+          padding: '6px 0',
+          borderBottom: '0.5px solid var(--border-tertiary)',
+          fontSize: 12.5,
+          paddingLeft: opts.isChild ? 18 : 0,
+        }}
+      >
+        <div style={{ fontWeight: opts.isChild ? 400 : 500, lineHeight: 1.3, opacity: effectivelyOff ? 0.45 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {opts.isChild && <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>↳</span>}
+          {FEATURE_LABELS[r.feature_key] || r.feature_key}
+          {opts.gated && opts.isChild && (
+            <span style={{ fontSize: 9.5, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>(parent off)</span>
+          )}
+        </div>
+        <Toggle
+          checked={r.is_enabled}
+          onChange={(v) => updateRow(r.feature_key, { is_enabled: v })}
+        />
+        <select
+          value={r.limit_term || 'daily'}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { limit_term: e.target.value as 'daily' | 'weekly' })}
+          style={selectStyle}
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        <input
+          type="number" min={0} max={999} value={r.daily_limit || 0}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { daily_limit: Math.max(0, Math.min(999, parseInt(e.target.value) || 0)) })}
+          style={{ ...inputStyle, width: '100%' }}
+        />
+        <select
+          value={model}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { model_assignment: e.target.value })}
+          style={selectStyle}
+        >
+          {modelOpts.map(o => <option key={o} value={o}>{MODEL_LABELS[o] || o}</option>)}
+        </select>
+        <div style={{ textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', opacity: effectivelyOff ? 0.45 : 1 }}>
+          ${perTask.toFixed(4)}
+        </div>
+        <div style={{ textAlign: 'right', fontWeight: 500, fontVariantNumeric: 'tabular-nums', opacity: effectivelyOff ? 0.45 : 1 }}>
+          ${cost.toFixed(2)}
+        </div>
+        <select
+          value={r.rollover || 'none'}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { rollover: e.target.value as 'none' | 'next_day' })}
+          style={selectStyle}
+        >
+          <option value="none">None</option>
+          <option value="next_day">Next day</option>
+        </select>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      border: '0.5px solid var(--border-tertiary)',
+      borderRadius: 'var(--radius-md)',
+      background: parentOn ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+      padding: '10px 12px',
+    }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <Toggle
+          checked={parentOn}
+          onChange={(v) => updateRow(section.parent, { is_enabled: v })}
+        />
+        <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+          {section.title}
+        </h4>
+        {!parentOn && (
+          <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+            disabled
+          </span>
+        )}
+        {section.meta === 'categories' && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Categories:</span>
+            <input
+              type="number" min={0} max={10} value={maxCats}
+              disabled={!parentOn}
+              onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
+              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+            />
+            <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>of 10</span>
+          </div>
+        )}
+      </div>
+      {section.description && (
+        <p style={{ margin: '0 0 8px', fontSize: 11.5, color: 'var(--text-secondary)' }}>
+          {section.description}
+        </p>
+      )}
+
+      {/* Column header (only when section is on or has children to configure) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
+        gap: 5, padding: '2px 0',
+        borderBottom: '0.5px solid var(--border-secondary)',
+      }}>
+        <ColHeader>Feature</ColHeader>
+        <ColHeader>On</ColHeader>
+        <ColHeader>Term</ColHeader>
+        <ColHeader>Limit</ColHeader>
+        <ColHeader>Model</ColHeader>
+        <ColHeader align="right">$/task</ColHeader>
+        <ColHeader align="right">Cost</ColHeader>
+        <ColHeader>Rollover</ColHeader>
+      </div>
+
+      {renderRow(parentRow, { isChild: false, gated: false })}
+      {childRows.map(c => renderRow(c, { isChild: true, gated: !parentOn }))}
+    </div>
+  );
+}
+
 
 // ---------- User breakdown ----------
 
