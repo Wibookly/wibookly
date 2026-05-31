@@ -26,6 +26,8 @@ interface DiscoveredUser {
   email: string;
   display_name: string | null;
   job_title: string | null;
+  department: string | null;
+  office_location?: string | null;
   profile_photo_url?: string | null;
   is_licensed: boolean;
   account_enabled: boolean;
