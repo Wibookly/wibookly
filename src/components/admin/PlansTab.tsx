@@ -33,7 +33,7 @@ const FEATURE_LABELS: Record<string, string> = {
   ai_auto_reply: 'AI Auto-Reply',
   follow_up_reminder: 'No-Reply Tracker',
   meeting_copilot: 'Meeting Copilot',
-  activity_reports: 'Reports',
+  activity_reports: 'AI Activity',
   daily_brief: 'My Daily Brief',
   email_agent: 'Email Agent',
   teams_agent: 'Teams Agent',
