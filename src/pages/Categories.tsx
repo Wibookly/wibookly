@@ -274,16 +274,28 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </div>
         </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-active' : undefined}>
-        <Switch
-          checked={category.is_enabled}
-          onCheckedChange={(checked) => {
-            if (!checked && category.is_enabled) {
-              requestDisable(category);
-            } else {
-              updateCategory(category.id, 'is_enabled', checked);
-            }
-          }}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={category.is_enabled}
+                  disabled={!category.is_enabled && !!enableBlocked}
+                  onCheckedChange={(checked) => {
+                    if (!checked && category.is_enabled) {
+                      requestDisable(category);
+                    } else {
+                      updateCategory(category.id, 'is_enabled', checked);
+                    }
+                  }}
+                />
+              </span>
+            </TooltipTrigger>
+            {!category.is_enabled && enableBlocked && (
+              <TooltipContent>{enableBlockedReason || 'Category limit reached.'}</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-draft' : undefined}>
         <TooltipProvider>
