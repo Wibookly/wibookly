@@ -485,7 +485,7 @@ export default function Categories() {
     if (!organization?.id || !activeConnection?.id) return;
     setLoading(true);
 
-    const [categoriesRes, rulesRes] = await Promise.all([
+    const [categoriesRes, rulesRes, aiSettingsRes] = await Promise.all([
       supabase
         .from('categories')
         .select('*')
@@ -496,8 +496,20 @@ export default function Categories() {
         .from('rules')
         .select('*')
         .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id),
+      supabase
+        .from('ai_settings')
+        .select('id, ai_draft_label_color, ai_sent_label_color')
+        .eq('organization_id', organization.id)
         .eq('connection_id', activeConnection.id)
+        .maybeSingle(),
     ]);
+
+    if (aiSettingsRes?.data) {
+      setAiSettingsId((aiSettingsRes.data as any).id ?? null);
+      setAiDraftColor((aiSettingsRes.data as any).ai_draft_label_color || '#9B59B6');
+      setAiSentColor((aiSettingsRes.data as any).ai_sent_label_color || '#16A085');
+    }
 
     if (categoriesRes.error) {
       toast({
