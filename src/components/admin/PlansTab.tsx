@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Loader2, Plus, MoreHorizontal, Trash2, Copy, Globe, ChevronRight } from 'lucide-react';
@@ -664,18 +664,27 @@ function PlanCard({
 
   const [rows, setRows] = useState<FeatureRow[]>(initRows);
   const [maxCats, setMaxCats] = useState<number>(plan.max_categories || 0);
-  const [saving, setSaving] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [changeToken, setChangeToken] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const performSaveRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     setRows(initRows);
     setMaxCats(plan.max_categories || 0);
+    setChangeToken(0);
+    setSaveStatus('idle');
   }, [initRows, plan.id, plan.max_categories]);
 
   const updateRow = (key: string, patch: Partial<FeatureRow>) => {
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
+    setChangeToken(t => t + 1);
+  };
+
+  const setMaxCatsTracked = (n: number) => {
+    setMaxCats(n);
+    setChangeToken(t => t + 1);
   };
 
   /** A row is effectively on only when its own toggle AND its parent (if any) are on. */
@@ -708,31 +717,8 @@ function PlanCard({
     };
   }, [rows, dollarPerTask, activeMembers, isRowEffectivelyOn]);
 
-
-  const dirty = useMemo(() => {
-    if (Number(plan.max_categories || 0) !== Number(maxCats)) return true;
-    for (const r of rows) {
-      const orig = features.find(f => f.feature_key === r.feature_key);
-      if (!orig) {
-        if (r.is_enabled) return true;
-        continue;
-      }
-      if (orig.is_enabled !== r.is_enabled) return true;
-      if ((orig.daily_limit || 0) !== (r.daily_limit || 0)) return true;
-      if ((orig.model_assignment || '') !== (r.model_assignment || '')) return true;
-      if ((orig.limit_term || 'daily') !== (r.limit_term || 'daily')) return true;
-      if ((orig.rollover || 'none') !== (r.rollover || 'none')) return true;
-    }
-    return false;
-  }, [rows, features, plan.max_categories, maxCats]);
-
-  const reset = () => {
-    setRows(initRows);
-    setMaxCats(plan.max_categories || 0);
-  };
-
-  const applyChanges = async () => {
-    setSaving(true);
+  performSaveRef.current = async () => {
+    setSaveStatus('saving');
     try {
       const upsertRows = rows.map(r => ({
         group_id: plan.id,
@@ -755,13 +741,22 @@ function PlanCard({
         group_id: plan.id,
         details: { plan: plan.name } as any,
       });
-      toast.success('Plan updated');
-      setConfirmOpen(false);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(s => s === 'saved' ? 'idle' : s), 2000);
       onSaved();
     } catch (e: any) {
-      toast.error(e.message || 'Save failed');
-    } finally { setSaving(false); }
+      toast.error(e.message || 'Auto-save failed');
+      setSaveStatus('idle');
+    }
   };
+
+  useEffect(() => {
+    if (changeToken === 0) return;
+    const timer = setTimeout(() => {
+      performSaveRef.current();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [changeToken]);
 
   const scopeBadge = plan.domain_id || plan.scope_domain
     ? { kind: 'domain' as const, label: `Domain · ${domains.find(d => d.id === plan.domain_id)?.domain || plan.scope_domain}` }
@@ -810,7 +805,7 @@ function PlanCard({
                 .filter((x): x is FeatureRow => !!x)}
               parentOn={parentOn}
               maxCats={maxCats}
-              setMaxCats={setMaxCats}
+              setMaxCats={setMaxCatsTracked}
               updateRow={updateRow}
               dollarPerTask={dollarPerTask}
             />
