@@ -1555,6 +1555,240 @@ async function removeOutlookCategory(
   }
 }
 
+// =============================================================================
+// Shared Outlook helpers used to ensure AI-processed emails end up in the
+// correct colored category folder (matching sync-categories / sync-rules).
+// Keep these in sync with the equivalents in supabase/functions/sync-rules
+// and sync-categories.
+// =============================================================================
+const IQ_TAG_PREFIX = 'IQ: ';
+
+function isManagedOutlookCategoryName(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim();
+  if (
+    n.startsWith('IQ: ') ||
+    n.startsWith('★ IQ: ') ||
+    n.startsWith('InboxIQ: ') ||
+    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Wibookly: ') ||
+    n.startsWith('vBookly: ') ||
+    n.startsWith('Vbookly: ')
+  ) return true;
+  if (/^\d+\.\s*AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^AI\s+(Draft|Sent)\b/i.test(n)) return true;
+  if (/^\d{1,2}:\s/.test(n)) return true;
+  return false;
+}
+
+const OUTLOOK_PRESET_COLORS: Array<{ preset: string; hex: [number, number, number] }> = [
+  { preset: 'preset0',  hex: [0xE7, 0x4C, 0x3C] },
+  { preset: 'preset1',  hex: [0xE6, 0x7E, 0x22] },
+  { preset: 'preset2',  hex: [0xC1, 0x9A, 0x6B] },
+  { preset: 'preset3',  hex: [0xF1, 0xC4, 0x0F] },
+  { preset: 'preset4',  hex: [0x2E, 0xCC, 0x71] },
+  { preset: 'preset5',  hex: [0x16, 0xA0, 0x85] },
+  { preset: 'preset6',  hex: [0x95, 0xA5, 0xA6] },
+  { preset: 'preset7',  hex: [0x34, 0x98, 0xDB] },
+  { preset: 'preset8',  hex: [0x9B, 0x59, 0xB6] },
+  { preset: 'preset9',  hex: [0xE8, 0x4F, 0x9C] },
+  { preset: 'preset10', hex: [0x7F, 0x8C, 0x8D] },
+  { preset: 'preset11', hex: [0x2C, 0x3E, 0x50] },
+  { preset: 'preset12', hex: [0xBD, 0xC3, 0xC7] },
+  { preset: 'preset13', hex: [0x34, 0x49, 0x5E] },
+  { preset: 'preset14', hex: [0x00, 0x00, 0x00] },
+  { preset: 'preset15', hex: [0xC0, 0x39, 0x2B] },
+  { preset: 'preset16', hex: [0xD3, 0x54, 0x00] },
+  { preset: 'preset17', hex: [0x8B, 0x4F, 0x2F] },
+  { preset: 'preset18', hex: [0xB7, 0x95, 0x0B] },
+  { preset: 'preset19', hex: [0x27, 0xAE, 0x60] },
+  { preset: 'preset20', hex: [0x0E, 0x80, 0x68] },
+  { preset: 'preset21', hex: [0x6B, 0x6F, 0x39] },
+  { preset: 'preset22', hex: [0x21, 0x6F, 0xA8] },
+  { preset: 'preset23', hex: [0x71, 0x36, 0x8A] },
+  { preset: 'preset24', hex: [0xAD, 0x14, 0x57] },
+];
+
+function nearestOutlookPreset(hex: string): string {
+  const h = (hex || '').replace('#', '');
+  if (h.length !== 6) return 'preset7';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  let best = OUTLOOK_PRESET_COLORS[0]; let bestD = Infinity;
+  for (const p of OUTLOOK_PRESET_COLORS) {
+    const d = (r - p.hex[0]) ** 2 + (g - p.hex[1]) ** 2 + (b - p.hex[2]) ** 2;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best.preset;
+}
+
+async function ensureOutlookMasterCategory(
+  accessToken: string,
+  displayName: string,
+  hexColor: string
+): Promise<boolean> {
+  try {
+    const preset = nearestOutlookPreset(hexColor);
+    const listRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!listRes.ok) return false;
+    const { value } = await listRes.json();
+    const existing = (value || []).find(
+      (c: { displayName: string; id: string; color: string }) => c.displayName === displayName
+    );
+    if (existing) {
+      if (existing.color === preset) return true;
+      const patchRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/outlook/masterCategories/${existing.id}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ color: preset }),
+        }
+      );
+      return patchRes.ok;
+    }
+    const createRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me/outlook/masterCategories',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, color: preset }),
+      }
+    );
+    return createRes.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Replace any other InboxIQ-managed tags with the single new IQ category tag.
+async function tagOutlookMessageCategoryExclusive(
+  accessToken: string,
+  messageId: string,
+  categoryName: string
+): Promise<boolean> {
+  try {
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    let existing: string[] = [];
+    if (getRes.ok) {
+      const body = await getRes.json();
+      existing = Array.isArray(body.categories) ? body.categories : [];
+    }
+    const preserved = existing.filter((c) => !isManagedOutlookCategoryName(c));
+    const next = [...preserved, categoryName];
+    if (existing.length === next.length && existing.every((c, i) => c === next[i])) return true;
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: next }),
+      }
+    );
+    return patchRes.ok;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeOutlookFolderDisplayName(s: string): string {
+  return String(s || '')
+    .replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '')
+    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
+    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+    .trim()
+    .toLowerCase();
+}
+
+async function getOutlookFolderIdByName(
+  accessToken: string,
+  folderName: string
+): Promise<string | null> {
+  try {
+    const target = normalizeOutlookFolderDisplayName(folderName);
+    let url: string | null = 'https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName';
+    while (url) {
+      const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return null;
+      const data: { value?: { displayName: string; id: string }[]; '@odata.nextLink'?: string } = await res.json();
+      const exact = data.value?.find((f) => f.displayName === folderName);
+      if (exact?.id) return exact.id;
+      const fuzzy = data.value?.find((f) => normalizeOutlookFolderDisplayName(f.displayName) === target);
+      if (fuzzy?.id) return fuzzy.id;
+      url = data['@odata.nextLink'] ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function moveOutlookMessageToFolder(
+  accessToken: string,
+  messageId: string,
+  folderId: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}/move`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destinationId: folderId }),
+      }
+    );
+    if (!res.ok) {
+      console.warn('moveOutlookMessageToFolder failed:', res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const body = await res.json();
+    return body?.id ?? messageId;
+  } catch (err) {
+    console.warn('moveOutlookMessageToFolder error:', err);
+    return null;
+  }
+}
+
+// Apply colored IQ category chip to a message AND move it into the matching
+// category folder so the AI-processed email shows up in the category folder
+// in Outlook / Apple Mail / mobile clients (not just in Inbox).
+// Returns the (possibly new) message id after the move.
+async function applyOutlookCategoryAndMove(
+  accessToken: string,
+  messageId: string,
+  categoryName: string,
+  categoryColor: string
+): Promise<string> {
+  const dot = nearestColorDot(categoryColor || '#737373');
+  const folderDisplayName = `${dot} ${categoryName.trim()}`;
+  const iqTag = `${IQ_TAG_PREFIX}${categoryName.trim()}`;
+  try {
+    await ensureOutlookMasterCategory(accessToken, iqTag, categoryColor || '#6366f1');
+    await tagOutlookMessageCategoryExclusive(accessToken, messageId, iqTag);
+    const folderId = await getOutlookFolderIdByName(accessToken, folderDisplayName);
+    if (folderId) {
+      const movedId = await moveOutlookMessageToFolder(accessToken, messageId, folderId);
+      if (movedId && movedId !== messageId) {
+        // Re-apply the category tag on the moved message (move returns a new id).
+        await tagOutlookMessageCategoryExclusive(accessToken, movedId, iqTag);
+        return movedId;
+      }
+    } else {
+      console.warn(`Outlook folder not found for category "${folderDisplayName}" — message tagged but not moved.`);
+    }
+  } catch (err) {
+    console.warn('applyOutlookCategoryAndMove failed:', err);
+  }
+  return messageId;
+}
+
 // Generate AI draft for an email (body only, signature added separately).
 // Returns the generated text + usage so callers can log to ai_usage_logs.
 function escapeHtml(s: string): string {
@@ -2828,14 +3062,13 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: We intentionally do NOT apply numbered category
-              // mirrors ("02: Follow Up") or the "0. AI Draft" helper tag
-              // here. Outlook already shows the colored "IQ: <Category>"
-              // chip via sync-categories/sync-rules, and stacking extra
-              // helper chips on every email creates visual noise. The
-              // sync-categories sweep treats any leftover numbered/AI
-              // tags as managed and strips them on the next run.
-              void categoryLabelName; // referenced for clarity / future use
+              // Outlook: tag with colored IQ category chip AND move the
+              // email into the matching colored category folder so it shows
+              // up in Outlook desktop / Apple Mail / mobile inside the
+              // category folder (not just in Inbox).
+              const catColor = (category as { color?: string | null }).color || '#6366f1';
+              await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
+              void categoryLabelName;
               void aiDraftLabelName;
             }
             
@@ -2988,13 +3221,12 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: We intentionally do NOT apply numbered category
-              // mirrors ("02: Follow Up") or the "11. AI Sent" helper tag
-              // here. Outlook already shows the colored "IQ: <Category>"
-              // chip via sync-categories/sync-rules, and stacking extra
-              // helper chips on every email creates visual noise. The
-              // sync-categories sweep treats any leftover numbered/AI
-              // tags as managed and strips them on the next run.
+              // Outlook: tag with colored IQ category chip AND move the
+              // original (now-replied) email into the matching colored
+              // category folder so it lives under the right category in
+              // every mail client.
+              const catColor = (category as { color?: string | null }).color || '#6366f1';
+              await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
               void categoryLabelName;
               void aiSentLabelName;
             }
