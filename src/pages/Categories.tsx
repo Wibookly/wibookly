@@ -391,6 +391,9 @@ export default function Categories() {
   const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   const [toneCategory, setToneCategory] = useState<Category | null>(null);
   const { maxCategories } = usePlanLimits();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
+  const aiDraftLocked = !featureLoading && !hasFeature('ai_draft');
+  const autoReplyLocked = !featureLoading && !hasFeature('ai_auto_reply');
   const enabledCount = categories.filter((c) => c.is_enabled).length;
   const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
   
