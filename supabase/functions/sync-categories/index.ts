@@ -266,9 +266,43 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<{
 
 interface TokenData {
   provider: string;
+  connection_id: string | null;
   encrypted_access_token: string;
   encrypted_refresh_token: string | null;
   expires_at: string | null;
+}
+
+function normalizeMailboxProvider(provider: string | null | undefined): string {
+  const normalized = String(provider || "").trim().toLowerCase();
+  return normalized === "microsoft" ? "outlook" : normalized;
+}
+
+function pickTokenForConnection(
+  tokens: TokenData[],
+  connectionId: string,
+  provider: string,
+  providerConnectionCount: number,
+): TokenData | null {
+  const normalizedProvider = normalizeMailboxProvider(provider);
+
+  const exactMatch = tokens.find(
+    (token) =>
+      token.connection_id === connectionId &&
+      normalizeMailboxProvider(token.provider) === normalizedProvider,
+  );
+  if (exactMatch) return exactMatch;
+
+  if (providerConnectionCount === 1) {
+    return (
+      tokens.find(
+        (token) =>
+          !token.connection_id &&
+          normalizeMailboxProvider(token.provider) === normalizedProvider,
+      ) ?? null
+    );
+  }
+
+  return null;
 }
 
 // Get valid access token, refreshing if expired
@@ -348,8 +382,12 @@ async function getValidAccessToken(
     );
   }
 
+  const tokenRowFilter = tokenData.connection_id
+    ? `user_id=eq.${userId}&provider=eq.${tokenData.provider}&connection_id=eq.${tokenData.connection_id}`
+    : `user_id=eq.${userId}&provider=eq.${tokenData.provider}&connection_id=is.null`;
+
   const updateResponse = await fetch(
-    `${supabaseUrl}/rest/v1/oauth_token_vault?user_id=eq.${userId}&provider=eq.${tokenData.provider}`,
+    `${supabaseUrl}/rest/v1/oauth_token_vault?${tokenRowFilter}`,
     {
       method: "PATCH",
       headers: {
