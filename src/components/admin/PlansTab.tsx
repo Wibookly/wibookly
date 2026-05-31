@@ -1123,7 +1123,7 @@ function FeatureSectionCard({
               <button
                 type="button"
                 disabled={!parentOn || maxCats <= 0}
-                onClick={() => setMaxCats((v) => Math.max(0, v - 1))}
+                onClick={() => setMaxCats(Math.max(0, maxCats - 1))}
                 aria-label="Decrease categories"
                 style={{
                   width: 22, border: 'none', background: 'transparent',
@@ -1150,7 +1150,7 @@ function FeatureSectionCard({
               <button
                 type="button"
                 disabled={!parentOn || maxCats >= 10}
-                onClick={() => setMaxCats((v) => Math.min(10, v + 1))}
+                onClick={() => setMaxCats(Math.min(10, maxCats + 1))}
                 aria-label="Increase categories"
                 style={{
                   width: 22, border: 'none', background: 'transparent',
