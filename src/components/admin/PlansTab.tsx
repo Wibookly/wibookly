@@ -856,7 +856,7 @@ function PlanCard({
             <DropdownMenuItem onClick={() => setApplyOpen(true)}>
               <Globe className="w-4 h-4 mr-2" /> Apply to other domains…
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast.info('Duplicate plan: open the "New plan" dialog and pick this as a base.')}
+            <DropdownMenuItem onClick={() => toast.info('Duplicate plan: open the "New plan" dialog and pick this as a base.')}>
               <Copy className="w-4 h-4 mr-2" /> Duplicate plan…
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="text-destructive">
