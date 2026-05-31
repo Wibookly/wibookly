@@ -152,7 +152,10 @@ interface SortableRowProps {
   onConfigureTone: (category: Category) => void;
   enableBlocked?: boolean;
   enableBlockedReason?: string;
+  aiDraftLocked?: boolean;
+  autoReplyLocked?: boolean;
 }
+
 
 function formatSyncTime(syncTime: string | null): string {
   if (!syncTime) return 'Never synced';
