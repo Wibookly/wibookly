@@ -3033,27 +3033,38 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      serviceRoleKey
     );
 
     // Parse request body
     let categoryId: string | null = null;
-    let cronMode = false;
+    let cronRequested = false;
     try {
       const body = await req.json();
       categoryId = body?.category_id || null;
-      cronMode = body?.cron === true;
+      cronRequested = body?.cron === true;
     } catch {
-      // No body or invalid JSON - this is typical for cron calls
-      cronMode = true;
+      // No body / invalid JSON: treat as a cron-style call (still requires auth below)
+      cronRequested = true;
     }
 
-    // Detect if this is a cron call (anon key only, not a real user token)
-    const isAnonKeyOnly = authHeader === `Bearer ${anonKey}`;
-    const isCronCall = !authHeader || cronMode || isAnonKeyOnly;
+    // Cron mode requires a privileged caller (service-role bearer or matching
+    // x-cron-secret). The anon key or an unauthenticated request MUST NOT grant
+    // org-wide processing rights.
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const hasServiceRole = authHeader === `Bearer ${serviceRoleKey}`;
+    const hasCronSecret = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret;
+    const isCronCall = cronRequested && (hasServiceRole || hasCronSecret);
+
+    if (cronRequested && !isCronCall) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: cron mode requires service-role auth or x-cron-secret' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // CRON MODE: Process ALL connections with AI-enabled categories
     if (isCronCall) {

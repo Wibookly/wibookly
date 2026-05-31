@@ -100,10 +100,38 @@ async function getOldestConnectionId(userId: string): Promise<string | null> {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
   try {
+    // Require an authenticated caller. verify_jwt is false at the platform
+    // level, so we validate the bearer token in-function and ensure the
+    // userId in the body matches the caller's auth.uid().
+    const authHeader = req.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const authClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+      authHeader.replace('Bearer ', ''),
+    );
+    const callerId = claimsData?.claims?.sub as string | undefined;
+    if (claimsErr || !callerId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { userId, connectionId: connIdInput } = await req.json();
     if (!userId) {
       return new Response(JSON.stringify({ error: 'userId required' }), {
         status: 400, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+    if (userId !== callerId) {
+      return new Response(JSON.stringify({ error: 'Forbidden: can only test your own connection' }), {
+        status: 403, headers: { ...cors, 'Content-Type': 'application/json' },
       });
     }
 
@@ -157,10 +185,20 @@ serve(async (req) => {
     tests.sharepoint = { status: sites.status, ok: sites.ok, response_ms: sites.ms, ...(sites.ok ? {} : { body: sites.body }) };
 
     const allOk = tests.me.ok && tests.mail.ok && tests.calendar.ok && tests.onedrive.ok && tests.sharepoint.ok;
+
+    // Decode JWT scope claims server-side; never return the raw access token.
+    let scopes: string[] = [];
+    try {
+      const payload = token.split('.')[1];
+      const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      const scp = json.scp || json.scope || '';
+      scopes = typeof scp === 'string' ? scp.split(/\s+/).filter(Boolean) : Array.isArray(scp) ? scp : [];
+    } catch { /* ignore */ }
+
     return new Response(JSON.stringify({
       ok: allOk,
       tests,
-      access_token: token, // client decodes scp claim for scope verification
+      scopes,
       connection_id: connectionId,
     }, null, 2), {
       headers: { ...cors, 'Content-Type': 'application/json' },
