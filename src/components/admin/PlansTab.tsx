@@ -804,10 +804,10 @@ function PlanCard({
     ? { kind: 'domain' as const, label: `Domain · ${domains.find(d => d.id === plan.domain_id)?.domain || plan.scope_domain}` }
     : { kind: 'global' as const, label: 'Global · all domains' };
 
-  const dot = PLAN_DOTS[plan.name] || 'var(--text-info)';
+  const dot = planColor(plan.name);
 
   return (
-    <div style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)', borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: 14 }}>
+    <div style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)', borderTop: `3px solid ${dot}`, borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: 14, boxShadow: `0 1px 0 ${dot}10` }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
