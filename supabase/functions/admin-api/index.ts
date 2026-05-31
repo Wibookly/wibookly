@@ -982,7 +982,7 @@ serve(async (req) => {
         const { domain_id } = payload;
         let q = adminClient
           .from('discovered_tenant_users')
-          .select('id, domain_id, organization_id, ms_user_id, email, display_name, job_title, profile_photo_url, is_licensed, account_enabled, status, invited_user_id, invited_at, last_seen_at, updated_at')
+          .select('id, domain_id, organization_id, ms_user_id, email, display_name, job_title, department, office_location, profile_photo_url, is_licensed, account_enabled, status, invited_user_id, invited_at, last_seen_at, updated_at')
           .order('display_name', { ascending: true });
         if (domain_id) q = q.eq('domain_id', domain_id);
         const { data, error } = await q;
