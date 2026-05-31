@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useTheme } from '@/lib/theme';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Loader2, Plus, MoreHorizontal, Trash2, Copy, Globe, ChevronRight } from 'lucide-react';
