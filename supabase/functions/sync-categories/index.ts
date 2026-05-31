@@ -2217,6 +2217,8 @@ serve(async (req) => {
         const defaultCategoryNames = [
           "Urgent",
           "Follow Up",
+          "Follow Up1",
+          "No Reply Tracker",
           "Approvals",
           "Events",
           "Customers",
