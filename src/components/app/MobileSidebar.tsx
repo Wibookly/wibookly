@@ -64,9 +64,11 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
           <NavLink to="/integrations" onClick={handleNavClick} className={navItemClass('/integrations')}>
             <Link2 className="w-4 h-4" /> Email & Calendar
           </NavLink>
-          <NavLink to="/categories" onClick={handleNavClick} className={navItemClass('/categories')}>
-            <Tag className="w-4 h-4" /> Email Intelligence
-          </NavLink>
+          {(isSuperAdmin || hasFeature('email_intelligence')) && (
+            <NavLink to="/categories" onClick={handleNavClick} className={navItemClass('/categories')}>
+              <Tag className="w-4 h-4" /> Email Intelligence
+            </NavLink>
+          )}
 
           {/* AI Draft / Auto Reply settings now live inside Email Intelligence. */}
 

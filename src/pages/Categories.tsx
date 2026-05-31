@@ -51,6 +51,7 @@ import { categoryNameSchema, categoryColorSchema, validateField, validateRuleVal
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { Tags } from 'lucide-react';
 import {
   Table,
@@ -149,6 +150,8 @@ interface SortableRowProps {
   updateCategory: (id: string, field: keyof Category, value: any) => void;
   requestDisable: (category: Category) => void;
   onConfigureTone: (category: Category) => void;
+  enableBlocked?: boolean;
+  enableBlockedReason?: string;
 }
 
 function formatSyncTime(syncTime: string | null): string {
@@ -166,7 +169,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone, enableBlocked, enableBlockedReason }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -271,16 +274,28 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </div>
         </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-active' : undefined}>
-        <Switch
-          checked={category.is_enabled}
-          onCheckedChange={(checked) => {
-            if (!checked && category.is_enabled) {
-              requestDisable(category);
-            } else {
-              updateCategory(category.id, 'is_enabled', checked);
-            }
-          }}
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={category.is_enabled}
+                  disabled={!category.is_enabled && !!enableBlocked}
+                  onCheckedChange={(checked) => {
+                    if (!checked && category.is_enabled) {
+                      requestDisable(category);
+                    } else {
+                      updateCategory(category.id, 'is_enabled', checked);
+                    }
+                  }}
+                />
+              </span>
+            </TooltipTrigger>
+            {!category.is_enabled && enableBlocked && (
+              <TooltipContent>{enableBlockedReason || 'Category limit reached.'}</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-draft' : undefined}>
         <TooltipProvider>
@@ -367,6 +382,9 @@ export default function Categories() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   const [toneCategory, setToneCategory] = useState<Category | null>(null);
+  const { maxCategories } = usePlanLimits();
+  const enabledCount = categories.filter((c) => c.is_enabled).length;
+  const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
@@ -458,6 +476,19 @@ export default function Categories() {
 
   const updateCategory = (id: string, field: keyof Category, value: any) => {
     const category = categories.find(cat => cat.id === id);
+
+    // Enforce per-plan max enabled categories.
+    if (field === 'is_enabled' && value === true && category && !category.is_enabled) {
+      if (maxCategories > 0 && enabledCount >= maxCategories) {
+        toast({
+          title: `Category limit reached (${maxCategories})`,
+          description: `Your plan allows ${maxCategories} active categories. Turn one off before enabling another.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
 
     setCategories(prev =>
       prev.map(cat => {
@@ -1103,6 +1134,25 @@ export default function Categories() {
 
       <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
+      {/* Per-plan category limit banner */}
+      {maxCategories > 0 && (
+        <div
+          className={`mb-4 flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${
+            atCategoryLimit
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+              : 'border-border bg-muted/40 text-muted-foreground'
+          }`}
+        >
+          <span>
+            <strong className="text-foreground">{enabledCount}</strong> of{' '}
+            <strong className="text-foreground">{maxCategories}</strong> active categories used.
+            {atCategoryLimit
+              ? ' You\u2019ve reached your plan limit \u2014 turn one off to enable another.'
+              : ' Toggle Active to choose which categories are in use.'}
+          </span>
+        </div>
+      )}
+
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
         <Table>
@@ -1136,6 +1186,8 @@ export default function Categories() {
                     updateCategory={updateCategory}
                     requestDisable={setPendingDisableCategory}
                     onConfigureTone={(c) => setToneCategory(c)}
+                    enableBlocked={atCategoryLimit && !category.is_enabled}
+                    enableBlockedReason={`Plan limit: ${maxCategories} active categories. Turn one off to enable this one.`}
                   />
                 ))}
               </SortableContext>
