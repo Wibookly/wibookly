@@ -304,20 +304,22 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block">
+              <span className="inline-block" style={aiDraftLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={category.ai_draft_enabled}
+                  checked={!aiDraftLocked && category.ai_draft_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'ai_draft_enabled', checked);
                     if (checked && !category.ai_draft_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled}
+                  disabled={!category.is_enabled || aiDraftLocked}
                 />
               </span>
             </TooltipTrigger>
-            {!category.is_enabled && (
+            {aiDraftLocked ? (
+              <TooltipContent>AI Draft is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : !category.is_enabled ? (
               <TooltipContent>Turn on <b>Active</b> first to enable AI Draft.</TooltipContent>
-            )}
+            ) : null}
           </Tooltip>
         </TooltipProvider>
       </TableCell>
@@ -325,24 +327,26 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block">
+              <span className="inline-block" style={autoReplyLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={category.auto_reply_enabled}
+                  checked={!autoReplyLocked && category.auto_reply_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'auto_reply_enabled', checked);
                     if (checked && !category.auto_reply_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled || !category.ai_draft_enabled}
+                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked}
                 />
               </span>
             </TooltipTrigger>
-            {(!category.is_enabled || !category.ai_draft_enabled) && (
+            {autoReplyLocked ? (
+              <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
                   ? 'Turn on Active first, then enable AI Draft.'
                   : 'Turn on AI Draft first to enable Auto-Reply.'}
               </TooltipContent>
-            )}
+            ) : null}
           </Tooltip>
         </TooltipProvider>
       </TableCell>
