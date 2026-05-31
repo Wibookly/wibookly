@@ -174,7 +174,9 @@ export function MicrosoftStatusPanel() {
       setRows(next);
       setOverall(data?.ok ? 'pass' : 'fail');
       setLastRunAt(new Date());
-      if (typeof data?.access_token === 'string') {
+      if (Array.isArray(data?.scopes)) {
+        setGrantedScopes(data.scopes);
+      } else if (typeof data?.access_token === 'string') {
         setGrantedScopes(decodeJwtScopes(data.access_token));
       }
       await loadVaultAndHealth();
