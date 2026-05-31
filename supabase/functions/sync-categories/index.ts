@@ -131,7 +131,7 @@ function normalizeManagedCategoryName(value: string): string {
   while (changed) {
     const next = normalized
       .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
-      .replace(/^\s*\d+\s*[:.\-]\s*/u, "")
+      .replace(/^\s*\d+\s*[:.-]\s*/u, "")
       .trim();
     changed = next !== normalized;
     normalized = next;
@@ -874,7 +874,7 @@ async function deleteOutlookFolder(
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
     const hasNumericPrefix = (s: string) =>
-      /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+      /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(s);
     // Detect a leading emoji/colored-dot prefix (current label format "🟠 Name").
     const hasEmojiPrefix = (s: string) =>
       /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
