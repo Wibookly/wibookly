@@ -678,9 +678,19 @@ function PlanCard({
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
   };
 
+  /** A row is effectively on only when its own toggle AND its parent (if any) are on. */
+  const isRowEffectivelyOn = useCallback((r: FeatureRow): boolean => {
+    if (!r.is_enabled) return false;
+    const parentKey = CHILD_TO_PARENT[r.feature_key];
+    if (!parentKey) return true;
+    const parent = rows.find(x => x.feature_key === parentKey);
+    return !!parent?.is_enabled;
+  }, [rows]);
+
   const totals = useMemo(() => {
     let dailyTasksSum = 0, dailyCostSum = 0;
     rows.forEach(r => {
+      if (!isRowEffectivelyOn(r)) return;
       const dt = dailyTasks(r);
       dailyTasksSum += dt;
       const m = r.model_assignment || ALLOWED_MODELS[r.feature_key]?.[0] || '';
@@ -696,7 +706,8 @@ function PlanCard({
       monthlyCost: dailyCostSum * 22,
       groupMonthlyCost: dailyCostSum * 22 * activeMembers,
     };
-  }, [rows, dollarPerTask, activeMembers]);
+  }, [rows, dollarPerTask, activeMembers, isRowEffectivelyOn]);
+
 
   const dirty = useMemo(() => {
     if (Number(plan.max_categories || 0) !== Number(maxCats)) return true;
