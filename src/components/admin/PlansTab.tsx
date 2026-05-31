@@ -458,7 +458,7 @@ export default function PlansTab() {
           <select
             value={viewDomain}
             onChange={(e) => setViewDomain(e.target.value)}
-            style={{ fontSize: 13, padding: '3px 8px', height: 28, border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+            style={{ fontSize: 13, padding: '3px 8px', height: 28, border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
           >
             <option value="admin">{adminDomain} (admin)</option>
             {domains.map(d => (
@@ -947,11 +947,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 const selectStyle: React.CSSProperties = {
   fontSize: 11, padding: '2px 4px', height: 26, border: '1px solid var(--border-secondary)',
-  borderRadius: 4, background: 'white', color: 'var(--text-primary)',
+  borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)',
 };
 const inputStyle: React.CSSProperties = {
   fontSize: 11, padding: '2px 4px', height: 26, border: '1px solid var(--border-secondary)',
-  borderRadius: 4, background: 'white', color: 'var(--text-primary)',
+  borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)',
 };
 
 function ColHeader({ children, align }: { children: React.ReactNode; align?: 'right' }) {
@@ -1103,7 +1103,7 @@ function FeatureSectionCard({
               type="number" min={0} max={10} value={maxCats}
               disabled={!parentOn}
               onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
-              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
             <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>of 10</span>
           </div>
