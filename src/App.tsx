@@ -94,11 +94,31 @@ const App = () => (
                       <FollowUpReminder />
                     </FeatureRoute>
                   } />
-                  <Route path="/meeting-copilot" element={<MeetingCopilot />} />
-                  <Route path="/meeting-copilot/prep/:id" element={<MeetingPrep />} />
-                  <Route path="/meeting-copilot/live/:id" element={<MeetingLive />} />
-                  <Route path="/meeting-copilot/sessions" element={<MeetingSessions />} />
-                  <Route path="/meeting-copilot/sessions/:id" element={<MeetingSessionDetail />} />
+                  <Route path="/meeting-copilot" element={
+                    <FeatureRoute featureKeys={['meeting_copilot']}>
+                      <MeetingCopilot />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/meeting-copilot/prep/:id" element={
+                    <FeatureRoute featureKeys={['meeting_copilot']}>
+                      <MeetingPrep />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/meeting-copilot/live/:id" element={
+                    <FeatureRoute featureKeys={['meeting_copilot']}>
+                      <MeetingLive />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/meeting-copilot/sessions" element={
+                    <FeatureRoute featureKeys={['meeting_copilot']}>
+                      <MeetingSessions />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/meeting-copilot/sessions/:id" element={
+                    <FeatureRoute featureKeys={['meeting_copilot']}>
+                      <MeetingSessionDetail />
+                    </FeatureRoute>
+                  } />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
