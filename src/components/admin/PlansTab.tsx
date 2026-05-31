@@ -22,40 +22,111 @@ import { Input } from '@/components/ui/input';
  * ------------------------------------------------------------------ */
 
 const FEATURE_LABELS: Record<string, string> = {
-  ai_draft: 'AI Draft',
-  ai_auto_reply: 'AI Auto-Reply',
   ai_chat: 'AI Chat',
-  daily_brief: 'Daily Brief',
-  activity_reports: 'Activity Reports',
-  email_agent: 'Email Agent',
-  teams_agent: 'Teams Agent',
-  follow_up_reminder: 'No-Reply Tracker',
-  documents: 'Documents (PDF/Word)',
+  documents: 'Documents (PDF / Word)',
   powerpoints: 'PowerPoints',
   excel: 'Excel files',
   file_review: 'File review',
+  email_intelligence: 'Email Intelligence',
+  ai_draft: 'AI Draft',
+  ai_auto_reply: 'AI Auto-Reply',
+  follow_up_reminder: 'No-Reply Tracker',
+  meeting_copilot: 'Meeting Copilot',
+  activity_reports: 'Reports',
+  daily_brief: 'My Daily Brief',
+  email_agent: 'Email Agent',
+  teams_agent: 'Teams Agent',
 };
 
-const FEATURE_ORDER = [
-  'ai_draft', 'ai_auto_reply', 'ai_chat', 'daily_brief', 'activity_reports',
-  'email_agent', 'teams_agent', 'follow_up_reminder', 'documents', 'powerpoints',
-  'excel', 'file_review',
+/**
+ * Feature catalog grouped into the 6 product sections the admin manages.
+ * The `parent` key gates its children: when the parent toggle is off, the
+ * child rows are visually disabled and excluded from cost totals.
+ *
+ * Section `meta` is an optional extra control rendered next to the section
+ * header (e.g. the 1–10 categories input for Email Intelligence).
+ */
+type SectionMeta = 'categories';
+interface FeatureSection {
+  title: string;
+  description?: string;
+  parent: string;
+  children: string[];
+  meta?: SectionMeta;
+}
+
+const FEATURE_SECTIONS: FeatureSection[] = [
+  {
+    title: 'AI Chat',
+    description: 'Enable the AI chat assistant. Sub-features control what file types it can produce or read.',
+    parent: 'ai_chat',
+    children: ['documents', 'powerpoints', 'excel', 'file_review'],
+  },
+  {
+    title: 'Email Intelligence',
+    description: 'Auto-categorize email, draft replies, and (optionally) send AI auto-replies.',
+    parent: 'email_intelligence',
+    children: ['ai_draft', 'ai_auto_reply'],
+    meta: 'categories',
+  },
+  {
+    title: 'No-Reply Tracker',
+    description: 'BCC-triggered follow-up reminders for unanswered emails.',
+    parent: 'follow_up_reminder',
+    children: [],
+  },
+  {
+    title: 'Meeting Copilot',
+    description: 'Live transcription, summary, and action items from meetings.',
+    parent: 'meeting_copilot',
+    children: [],
+  },
+  {
+    title: 'Reports',
+    description: 'AI activity reports and analytics dashboards.',
+    parent: 'activity_reports',
+    children: [],
+  },
+  {
+    title: 'My Daily Brief',
+    description: 'Scheduled daily email summarising priorities, calendar, and follow-ups.',
+    parent: 'daily_brief',
+    children: [],
+  },
+  {
+    title: 'Agents (advanced)',
+    description: 'Shared mailbox & Teams bot agents. Leave off unless your organization runs them.',
+    parent: 'email_agent',
+    children: ['teams_agent'],
+  },
 ];
 
+const FEATURE_ORDER: string[] = FEATURE_SECTIONS.flatMap(s => [s.parent, ...s.children]);
+
+/** Map each child key -> its parent key (for gating + cost math). */
+const CHILD_TO_PARENT: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  FEATURE_SECTIONS.forEach(s => s.children.forEach(c => { m[c] = s.parent; }));
+  return m;
+})();
+
 const ALLOWED_MODELS: Record<string, string[]> = {
-  ai_draft: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
-  ai_auto_reply: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
   ai_chat: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  daily_brief: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
-  activity_reports: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  email_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  teams_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
-  follow_up_reminder: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
   documents: ['claude-sonnet-4.5', 'gpt-4.1', 'llama-3.3-70b'],
   powerpoints: ['claude-sonnet-4.5', 'gpt-4.1', 'llama-3.3-70b'],
   excel: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
   file_review: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  email_intelligence: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  ai_draft: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  ai_auto_reply: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  follow_up_reminder: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  meeting_copilot: ['claude-sonnet-4.5', 'gpt-4.1', 'gpt-4.1-mini'],
+  activity_reports: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  daily_brief: ['gpt-4.1-mini', 'gpt-4.1', 'phi-4'],
+  email_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
+  teams_agent: ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4.5'],
 };
+
 
 const MODEL_LABELS: Record<string, string> = {
   'gpt-4.1': 'GPT-4.1',
