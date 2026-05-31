@@ -932,12 +932,18 @@ async function getGmailLabelId(accessToken: string, labelName: string): Promise<
 // prefix so we can match an Outlook folder by its clean display name even
 // when sync-categories has prepended an invisible sort-order prefix.
 function normalizeFolderDisplayName(s: string): string {
-  return String(s || '')
-    .replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '')
-    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
-    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
-    .trim()
-    .toLowerCase();
+  let out = String(s || '').replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '');
+  // Repeatedly strip numeric prefixes (e.g. "01. ") and leading emoji/star
+  // glyphs in any order, since folders are named like "01. 🔴 Urgent" but
+  // lookups may pass "🔴 Urgent".
+  for (let i = 0; i < 4; i++) {
+    const before = out;
+    out = out
+      .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+      .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '');
+    if (out === before) break;
+  }
+  return out.trim().toLowerCase();
 }
 
 async function getOutlookFolderId(accessToken: string, folderName: string): Promise<string | null> {
