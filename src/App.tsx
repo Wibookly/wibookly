@@ -66,7 +66,11 @@ const App = () => (
                   <Route path="/chat/:id" element={<Chat />} />
                   <Route path="/integrations" element={<Integrations />} />
                   <Route path="/integration-setup" element={<IntegrationSetup />} />
-                  <Route path="/categories" element={<Categories />} />
+                  <Route path="/categories" element={
+                    <FeatureRoute featureKeys={['email_intelligence']}>
+                      <Categories />
+                    </FeatureRoute>
+                  } />
                   <Route path="/sync" element={<Sync />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/settings/help" element={<HelpAdmin />} />
