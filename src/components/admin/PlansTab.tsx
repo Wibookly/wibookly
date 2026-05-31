@@ -83,16 +83,10 @@ const FEATURE_SECTIONS: FeatureSection[] = [
     children: [],
   },
   {
-    title: 'Reports',
-    description: 'AI activity reports and analytics dashboards.',
+    title: 'AI Activity',
+    description: 'AI activity reports, analytics dashboards, and the scheduled daily brief email.',
     parent: 'activity_reports',
-    children: [],
-  },
-  {
-    title: 'My Daily Brief',
-    description: 'Scheduled daily email summarising priorities, calendar, and follow-ups.',
-    parent: 'daily_brief',
-    children: [],
+    children: ['daily_brief'],
   },
   {
     title: 'Agents (advanced)',
