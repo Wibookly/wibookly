@@ -33,14 +33,17 @@ const OUTLOOK_ORDER_WIDTH = 2;
 const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
 
 // Build a stable visible prefix string for the given 1-based sort position.
-// NOTE: Per product decision, we no longer prepend a visible numeric prefix
-// to Outlook folder display names. Order is tracked in the app database
-// (category position column) only. Outlook has no folder-ordering API, so
-// every client sorts the folder pane alphabetically — that is accepted.
-// The helper is kept so legacy normalization code paths still compile, but
-// it always returns an empty string for new folders.
-function visibleSortPrefix(_position: number): string {
-  return "";
+// Apple Mail, Outlook for Mac, and Outlook mobile sort the folder pane
+// alphabetically by displayName and ignore any custom order set in Outlook
+// Web. To force the InboxIQ category order to appear identically across
+// every mail client, we prepend a fixed-width two-digit numeric prefix
+// ("01. ", "02. ", ...) to each managed folder. Two digits sort correctly
+// up to 99 categories. The prefix is regenerated on every sync, so when
+// the user reorders categories in InboxIQ the folder names are renamed
+// to match the new positions.
+function visibleSortPrefix(position: number): string {
+  const n = Math.max(1, Math.min(99, Number(position) || 1));
+  return `${String(n).padStart(2, "0")}. `;
 }
 
 // Strip any leading zero-width / invisible chars from an Outlook folder
@@ -52,9 +55,9 @@ function stripInvisiblePrefix(name: string): string {
 function buildOutlookFolderDisplayName(
   name: string,
   color: string,
-  _position: number,
+  position: number,
 ): string {
-  return `${nearestColorDot(color)} ${name}`;
+  return `${visibleSortPrefix(position)}${nearestColorDot(color)} ${name}`;
 }
 
 // Returns true if the given Outlook category name was created/managed by
