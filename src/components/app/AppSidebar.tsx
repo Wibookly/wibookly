@@ -74,7 +74,7 @@ function NavSection({ title, accent, children, defaultOpen = true }: NavSectionP
         className="flex items-center justify-between w-full px-3 py-1.5 rounded-md transition-colors group"
         style={{
           color: accent,
-          fontSize: '9px',
+          fontSize: '11px',
           fontWeight: 700,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
