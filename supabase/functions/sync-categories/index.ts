@@ -2341,7 +2341,7 @@ serve(async (req) => {
               const { value: folders } = await listRes.json();
               const legacy = (folders ?? []).filter(
                 (f: { displayName: string }) =>
-                  /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                  /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(
                     f.displayName,
                   ) && !desiredFolderNames.has(f.displayName),
               );
@@ -2386,7 +2386,7 @@ serve(async (req) => {
             if (listRes.ok) {
               const { labels } = await listRes.json();
               const legacy = (labels ?? []).filter((l: { name: string }) =>
-                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(
                   l.name,
                 ),
               );
