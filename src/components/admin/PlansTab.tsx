@@ -1108,12 +1108,59 @@ function FeatureSectionCard({
         {section.meta === 'categories' && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Categories:</span>
-            <input
-              type="number" min={0} max={10} value={maxCats}
-              disabled={!parentOn}
-              onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
-              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-            />
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'stretch',
+                height: 26,
+                border: '1px solid var(--border-secondary)',
+                borderRadius: 6,
+                overflow: 'hidden',
+                background: 'var(--bg-primary)',
+                opacity: parentOn ? 1 : 0.5,
+              }}
+            >
+              <button
+                type="button"
+                disabled={!parentOn || maxCats <= 0}
+                onClick={() => setMaxCats(Math.max(0, maxCats - 1))}
+                aria-label="Decrease categories"
+                style={{
+                  width: 22, border: 'none', background: 'transparent',
+                  color: 'var(--text-primary)', cursor: parentOn && maxCats > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: 14, lineHeight: 1, padding: 0,
+                }}
+              >
+                −
+              </button>
+              <input
+                type="number" min={0} max={10} value={maxCats}
+                disabled={!parentOn}
+                onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
+                style={{
+                  width: 36, height: '100%', fontSize: 12, padding: '0 2px',
+                  border: 'none', borderLeft: '1px solid var(--border-secondary)',
+                  borderRight: '1px solid var(--border-secondary)',
+                  background: 'transparent', color: 'var(--text-primary)',
+                  textAlign: 'center',
+                  MozAppearance: 'textfield' as any,
+                }}
+                className="plan-cat-input"
+              />
+              <button
+                type="button"
+                disabled={!parentOn || maxCats >= 10}
+                onClick={() => setMaxCats(Math.min(10, maxCats + 1))}
+                aria-label="Increase categories"
+                style={{
+                  width: 22, border: 'none', background: 'transparent',
+                  color: 'var(--text-primary)', cursor: parentOn && maxCats < 10 ? 'pointer' : 'not-allowed',
+                  fontSize: 14, lineHeight: 1, padding: 0,
+                }}
+              >
+                +
+              </button>
+            </div>
             <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>of 10</span>
           </div>
         )}
