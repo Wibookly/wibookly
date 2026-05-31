@@ -1792,6 +1792,80 @@ async function applyOutlookCategoryAndMove(
   return messageId;
 }
 
+// Tag an Outlook message with BOTH the IQ category chip and an AI marker
+// chip (e.g. "IQ: AI Draft" / "IQ: AI Sent"), preserving any non-managed
+// user tags. Ensures both master categories exist with their preset colors
+// so the chips show up colored in Outlook / Apple Mail.
+async function tagOutlookMessageWithCategoryAndMarker(
+  accessToken: string,
+  messageId: string,
+  categoryName: string,
+  categoryColor: string,
+  markerLabel: string,
+  markerColor: string,
+): Promise<boolean> {
+  try {
+    const iqCategoryTag = `${IQ_TAG_PREFIX}${categoryName.trim()}`;
+    const iqMarkerTag = `${IQ_TAG_PREFIX}${markerLabel.trim()}`;
+    await ensureOutlookMasterCategory(accessToken, iqCategoryTag, categoryColor || '#6366f1');
+    await ensureOutlookMasterCategory(accessToken, iqMarkerTag, markerColor || '#3B82F6');
+
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=categories`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    let existing: string[] = [];
+    if (getRes.ok) {
+      const body = await getRes.json();
+      existing = Array.isArray(body.categories) ? body.categories : [];
+    }
+    const preserved = existing.filter((c) => !isManagedOutlookCategoryName(c));
+    const next = [...preserved, iqCategoryTag, iqMarkerTag];
+    if (existing.length === next.length && existing.every((c, i) => c === next[i])) return true;
+    const patchRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: next }),
+      },
+    );
+    return patchRes.ok;
+  } catch (err) {
+    console.warn('tagOutlookMessageWithCategoryAndMarker failed:', err);
+    return false;
+  }
+}
+
+// Find the most recent message in Sent Items for a given conversationId.
+// Used to locate the AI-sent reply created by POST /messages/{id}/reply
+// (which doesn't return the sent message id) so we can tag it.
+async function findOutlookSentMessageByConversation(
+  accessToken: string,
+  conversationId: string,
+): Promise<string | null> {
+  if (!conversationId) return null;
+  // Brief retry: Graph indexes the sent message asynchronously.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const safeId = conversationId.replace(/'/g, "''");
+      const url = `https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$filter=${
+        encodeURIComponent(`conversationId eq '${safeId}'`)
+      }&$orderby=${encodeURIComponent('sentDateTime desc')}&$top=1&$select=id`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (res.ok) {
+        const body = await res.json();
+        const id = body?.value?.[0]?.id;
+        if (id) return id as string;
+      }
+    } catch (err) {
+      console.warn('findOutlookSentMessageByConversation error:', err);
+    }
+    await new Promise((r) => setTimeout(r, 750 * (attempt + 1)));
+  }
+  return null;
+}
+
 // Generate AI draft for an email (body only, signature added separately).
 // Returns the generated text + usage so callers can log to ai_usage_logs.
 function escapeHtml(s: string): string {
@@ -3065,12 +3139,24 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: tag with colored IQ category chip AND move the
-              // email into the matching colored category folder so it shows
-              // up in Outlook desktop / Apple Mail / mobile inside the
-              // category folder (not just in Inbox).
+              // Outlook: tag the incoming email with colored IQ category chip
+              // AND move it into the matching colored category folder.
               const catColor = (category as { color?: string | null }).color || '#6366f1';
               await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
+              // Also tag the AI-generated draft sitting in the Drafts folder
+              // with both the category chip and an "IQ: AI Draft" chip so the
+              // user can see at a glance which drafts came from AI and which
+              // category they belong to.
+              if (draftId) {
+                await tagOutlookMessageWithCategoryAndMarker(
+                  accessToken,
+                  draftId,
+                  category.name,
+                  catColor,
+                  'AI Draft',
+                  aiDraftLabelColor,
+                );
+              }
               void categoryLabelName;
               void aiDraftLabelName;
             }
@@ -3224,12 +3310,28 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: tag with colored IQ category chip AND move the
-              // original (now-replied) email into the matching colored
-              // category folder so it lives under the right category in
-              // every mail client.
+              // Outlook: tag the original (now-replied) email with colored
+              // IQ category chip and move it into the category folder.
               const catColor = (category as { color?: string | null }).color || '#6366f1';
               await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
+              // Also tag the AI-sent reply in the Sent Items folder with
+              // both the category chip and an "IQ: AI Sent" chip. The Graph
+              // /reply endpoint doesn't return the sent message id, so we
+              // look it up by conversationId.
+              const convId = (emailDetails as { conversationId?: string }).conversationId || '';
+              const sentMsgId = await findOutlookSentMessageByConversation(accessToken, convId);
+              if (sentMsgId) {
+                await tagOutlookMessageWithCategoryAndMarker(
+                  accessToken,
+                  sentMsgId,
+                  category.name,
+                  catColor,
+                  'AI Sent',
+                  aiSentLabelColor,
+                );
+              } else {
+                console.warn(`Could not locate sent reply in Sent Items for conversation ${convId}`);
+              }
               void categoryLabelName;
               void aiSentLabelName;
             }
