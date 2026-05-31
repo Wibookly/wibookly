@@ -1199,6 +1199,8 @@ export default function Categories() {
                     onConfigureTone={(c) => setToneCategory(c)}
                     enableBlocked={atCategoryLimit && !category.is_enabled}
                     enableBlockedReason={`Plan limit: ${maxCategories} active categories. Turn one off to enable this one.`}
+                    aiDraftLocked={aiDraftLocked}
+                    autoReplyLocked={autoReplyLocked}
                   />
                 ))}
               </SortableContext>
