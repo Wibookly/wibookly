@@ -25,11 +25,14 @@ interface GraphUser {
   mail: string | null;
   displayName: string | null;
   jobTitle: string | null;
+  department: string | null;
+  officeLocation: string | null;
   accountEnabled: boolean;
   assignedLicenses: { skuId: string }[];
   assignedPlans?: AssignedPlan[];
   userType?: string | null;
 }
+
 
 // True if the user has an active Exchange Online (mailbox) service plan.
 // This filters out Teams-only / Power BI-only / etc. licenses that cannot
