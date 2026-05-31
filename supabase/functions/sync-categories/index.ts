@@ -33,10 +33,14 @@ const OUTLOOK_ORDER_WIDTH = 2;
 const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
 
 // Build a stable visible prefix string for the given 1-based sort position.
-// Fixed-width padding keeps lexicographic sort aligned with numeric sort.
-function visibleSortPrefix(position: number): string {
-  const n = Math.max(1, Math.floor(position || 1));
-  return `${String(n).padStart(OUTLOOK_ORDER_WIDTH, "0")}. `;
+// NOTE: Per product decision, we no longer prepend a visible numeric prefix
+// to Outlook folder display names. Order is tracked in the app database
+// (category position column) only. Outlook has no folder-ordering API, so
+// every client sorts the folder pane alphabetically — that is accepted.
+// The helper is kept so legacy normalization code paths still compile, but
+// it always returns an empty string for new folders.
+function visibleSortPrefix(_position: number): string {
+  return "";
 }
 
 // Strip any leading zero-width / invisible chars from an Outlook folder
@@ -48,9 +52,9 @@ function stripInvisiblePrefix(name: string): string {
 function buildOutlookFolderDisplayName(
   name: string,
   color: string,
-  position: number,
+  _position: number,
 ): string {
-  return `${visibleSortPrefix(position)}${nearestColorDot(color)} ${name}`;
+  return `${nearestColorDot(color)} ${name}`;
 }
 
 // Returns true if the given Outlook category name was created/managed by
