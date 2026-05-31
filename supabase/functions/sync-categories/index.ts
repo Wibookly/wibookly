@@ -2029,12 +2029,13 @@ serve(async (req) => {
     // Process each connected mailbox separately so category sync never leaks
     // across multiple Outlook accounts owned by the same user.
     for (const scopedConnection of scopedConnections) {
+      const providerCategories = allCategories.filter(
+        (category) => category.connection_id === scopedConnection.id,
+      );
+      const enabledCategories = providerCategories.filter((c) => c.is_enabled);
+      const disabledCategories = providerCategories.filter((c) => !c.is_enabled);
+
       try {
-        const providerCategories = allCategories.filter(
-          (category) => category.connection_id === scopedConnection.id,
-        );
-        const enabledCategories = providerCategories.filter((c) => c.is_enabled);
-        const disabledCategories = providerCategories.filter((c) => !c.is_enabled);
         const providerConnectionCount = scopedConnections.filter(
           (connection) =>
             normalizeMailboxProvider(connection.provider) ===
