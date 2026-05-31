@@ -13,60 +13,44 @@ const corsHeaders = {
 const IQ_TAG_PREFIX = "IQ: ";
 
 // ──────────────────────────────────────────────────────────────────────
-// Invisible sort-order prefix for Outlook folders.
+// Cross-client sort-order prefix for Outlook folders.
 //
-// Outlook sorts mail folders alphabetically by displayName and offers no
-// API to set a manual order. To force the folders to appear in the same
-// order as the app's category list, we prepend a short string of
-// zero-width Unicode characters whose codepoints sort in the desired
-// order. The prefix is invisible in every Outlook surface (Desktop, Web,
-// Mobile) but participates in the lexicographic sort.
+// Outlook exposes NO manual folder ordering API; every client sorts the
+// folder pane lexicographically by displayName. We previously used hidden
+// zero-width characters to influence that order, but some clients (notably
+// Apple Mail / some Mac surfaces / certain mobile clients) normalize or
+// ignore invisible characters, which makes the order drift.
 //
-// We use a base-N positional encoding (N = ZW_ALPHABET.length) so the
-// scheme scales beyond 10 categories without collisions.
+// To keep the order stable across Outlook Web, Desktop, Mac Mail, and other
+// IMAP/Graph-backed clients, we use a visible fixed-width numeric prefix.
+// This is the only robust cross-client ordering signal because every client
+// preserves and sorts the same visible displayName.
 // ──────────────────────────────────────────────────────────────────────
-const ZW_ALPHABET = [
-  "\u200B", // ZERO WIDTH SPACE
-  "\u200C", // ZERO WIDTH NON-JOINER
-  "\u200D", // ZERO WIDTH JOINER
-  "\u2060", // WORD JOINER
-  "\u2061", // FUNCTION APPLICATION
-  "\u2062", // INVISIBLE TIMES
-  "\u2063", // INVISIBLE SEPARATOR
-  "\u2064", // INVISIBLE PLUS
-  "\u2065", // (reserved, treated as invisible)
-  "\u2066", // LEFT-TO-RIGHT ISOLATE
-];
+const OUTLOOK_ORDER_WIDTH = 2;
 // Char-class matching every zero-width / invisible codepoint we may have
 // ever placed at the start of a managed folder/label name. Used to strip
 // the prefix when normalising names for dedup / lookup.
 const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
 
-// Build a stable invisible prefix string for the given 1-based sort
-// position. Always pads to 2 invisible chars so positions sort correctly
-// regardless of how many categories exist.
-function invisibleSortPrefix(position: number): string {
+// Build a stable visible prefix string for the given 1-based sort position.
+// Fixed-width padding keeps lexicographic sort aligned with numeric sort.
+function visibleSortPrefix(position: number): string {
   const n = Math.max(1, Math.floor(position || 1));
-  const base = ZW_ALPHABET.length;
-  // Convert to base-N digits (most-significant first), pad to width 2.
-  const digits: number[] = [];
-  let v = n - 1; // 0-indexed
-  if (v === 0) {
-    digits.push(0);
-  } else {
-    while (v > 0) {
-      digits.unshift(v % base);
-      v = Math.floor(v / base);
-    }
-  }
-  while (digits.length < 2) digits.unshift(0);
-  return digits.map((d) => ZW_ALPHABET[d]).join("");
+  return `${String(n).padStart(OUTLOOK_ORDER_WIDTH, "0")}. `;
 }
 
 // Strip any leading zero-width / invisible chars from an Outlook folder
 // or category displayName so we can match against the clean app name.
 function stripInvisiblePrefix(name: string): string {
   return String(name || "").replace(ZW_PREFIX_RE, "");
+}
+
+function buildOutlookFolderDisplayName(
+  name: string,
+  color: string,
+  position: number,
+): string {
+  return `${visibleSortPrefix(position)}${nearestColorDot(color)} ${name}`;
 }
 
 // Returns true if the given Outlook category name was created/managed by
