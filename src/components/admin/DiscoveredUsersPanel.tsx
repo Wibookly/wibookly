@@ -299,7 +299,8 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     return (
       u.email.toLowerCase().includes(s) ||
       (u.display_name || '').toLowerCase().includes(s) ||
-      (u.job_title || '').toLowerCase().includes(s)
+      (u.job_title || '').toLowerCase().includes(s) ||
+      (u.department || '').toLowerCase().includes(s)
     );
   });
 
