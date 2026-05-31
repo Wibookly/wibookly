@@ -269,6 +269,8 @@ interface TokenData {
   expires_at: string | null;
 }
 
+type SupabaseAdminClient = ReturnType<typeof createClient>;
+
 function normalizeMailboxProvider(provider: string | null | undefined): string {
   const normalized = String(provider || "").trim().toLowerCase();
   return normalized === "microsoft" ? "outlook" : normalized;
@@ -303,11 +305,10 @@ function pickTokenForConnection(
 }
 
 // Get valid access token, refreshing if expired
-// deno-lint-ignore no-explicit-any
 async function getValidAccessToken(
   tokenData: TokenData,
   encryptionKey: string,
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   userId: string,
 ): Promise<string | null> {
   const isExpired =
