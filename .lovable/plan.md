@@ -1,85 +1,120 @@
-# Meeting Copilot Redesign Plan
+## Goal
 
-Major restructure of `/meeting-copilot` and the live session view based on your feedback.
+Three connected pieces in the Admin Dashboard:
 
-## 1. Main page (`src/pages/MeetingCopilot.tsx`)
+1. **User Activity report** — admins see per-user AI usage with filters, charts, and export
+2. **Department data** — pull `department` from Microsoft 365 onto each user so reports can group by department
+3. **Multi-tier admin roles** — Super Admin (you), Org Admin, Department Admin — each scoped to what they can see
 
-**Remove**
-- The red-bordered "What Meeting Copilot knows about you" profile card. Replace with a single small line:
-  *"Using your profile from My Profile & Signature →"* (link to Settings).
+---
 
-**Copilot Behavior card — make collapsible**
-- Wrap in `<Collapsible>` (shadcn), collapsed by default with a one-line summary chip ("Auto-join ON · Conversational · Auto-draft ON").
-- Keep all 3 toggles + suggestion-style picker inside.
-- Under **Auto-draft follow-up**, add helper text:
-  *"Drafts are saved to your `0. AI Draft` follow-up category in Outlook for review before sending."*
-- Add a new sub-section **Notifications** (like the Cluely screenshot):
-  - Scheduled meetings (1 min before)
-  - Auto-detected meetings
-- Add a new sub-section **Audio Settings**:
-  - Microphone source dropdown
-  - "Test Microphone" button → opens a compact inline panel with a live waveform (Web Audio API analyser, animated bars like ChatGPT voice mode)
-  - Same for Speaker test (tone + bars)
-- Add a new sub-section **Shortcuts**:
-  - List of keyboard shortcuts ("Ask a question", "Quick answer", "End session")
-  - Each editable (input to rebind), stored in `meeting_copilot_settings`.
+## 1. Roles model
 
-**Per-meeting tone override**
-- On each Upcoming Meeting row add a small dropdown: tone = Concise / Conversational / Strategic (defaults to global setting). Stored in `meeting_copilot_preferences`.
+Add a new app-level role enum used across the admin UI:
 
-## 2. Upcoming Meetings → Pre-meeting prep
+- `super_admin` — `arahimi@energyforward.com` (existing bypass stays)
+- `org_admin` — full visibility across one organization (today's hardcoded "admin")
+- `dept_admin` — visibility restricted to one or more departments inside an org
+- `member` — regular user
 
-When user clicks a meeting card, navigate to **new page** `/meeting-copilot/prep/:meetingId`:
-- Header: meeting subject, time, attendees
-- AI-generated **Prep Brief** (new edge function `meeting-copilot-prep`):
-  - Pulls meeting subject + body + any attached files (via Graph `/me/events/{id}?$expand=attachments`)
-  - Pulls related prior emails with same attendees
-  - Generates: context summary, **questions you should ask**, **likely questions you'll be asked + suggested answers**, talking points
-- "Join meeting" button (launches live session with prep loaded as context)
+Database changes (migration, separate step for approval):
 
-## 3. Live session redesign (`LiveCopilotSession.tsx`)
+- Extend `app_role` enum with `org_admin`, `dept_admin` (keep `admin`, `member` as aliases for back-compat)
+- Add `user_roles.department` (text, nullable) so a `dept_admin` row can point to one department; allow multiple rows per user for users who admin multiple departments
+- Helper RPCs (SECURITY DEFINER):
+  - `is_org_admin(_user, _org)` 
+  - `is_dept_admin(_user, _org, _dept)`
+  - `admin_visible_user_ids(_user)` — returns the set of `user_id`s the caller may report on (super → all, org_admin → their org, dept_admin → their dept(s))
 
-Remove the visible live transcript from the main area (still captured silently). New layout:
+All new admin reporting RPCs gate on `admin_visible_user_ids` so a department admin can never read outside their scope.
+
+---
+
+## 2. Department sync from Microsoft 365
+
+- Add `user_profiles.department` (text, nullable) and `user_profiles.job_title_m365` (text, nullable) — kept separate from the user-edited `title`
+- Extend the existing M365 user discovery edge function to request `department,jobTitle,officeLocation` via Graph `/users?$select=...`
+- On every discovery / re-sync, upsert `department` onto `user_profiles` matched by email
+- Backfill: re-run discovery once after deploy so existing users get a department
+
+For users that never log in via M365 (e.g. Google accounts), the admin UI exposes a small inline editor on the Users tab to set department manually.
+
+---
+
+## 3. User Activity report (new Admin tab)
+
+New tab in `/admin` → **Activity**. Source of truth is the existing `ai_usage_logs` table (already tracks `user_id`, `action`, `tokens_in/out`, `cost_usd`, `created_at`, model, provider).
+
+UI layout:
 
 ```text
-┌────────────────────────────────────────────────────┐
-│  Prep summary (from step 2) — collapsible top bar  │
-├──────────────────────┬─────────────────────────────┤
-│  WHAT TO ASK         │  WHAT TO ANSWER             │
-│  (AI-detected        │  (AI-detected when someone  │
-│   opportunities to   │   asks YOU a question —     │
-│   ask smart Qs)      │   pops with suggested reply)│
-└──────────────────────┴─────────────────────────────┘
-   [ tiny mic indicator + End session ]
+┌──────────────────────────────────────────────────────────┐
+│ Filters: [Date range ▾]  [Department ▾]  [User ▾]  [Export CSV] │
+├──────────────────────────────────────────────────────────┤
+│  KPI strip: Active users · Total actions · Tokens · $   │
+├──────────────────────────────────────────────────────────┤
+│  Chart 1: Activity over time (stacked area by action)   │
+│  Chart 2: Top 10 users (bar)                            │
+│  Chart 3: Breakdown by feature (donut)                  │
+├──────────────────────────────────────────────────────────┤
+│  Per-user table:                                         │
+│   User · Dept · Drafts · Auto-replies · Chats · Briefs   │
+│   · Emails sent · Tokens · Cost · Last active            │
+└──────────────────────────────────────────────────────────┘
 ```
 
-- Use `google/gemini-3-flash-preview` with intent routing already in `meeting-copilot-suggestion`.
-- When the AI detects a direct question to the user (heuristic: question mark + 2nd-person + recent silence), it pushes an "answer" suggestion into the right column with a subtle pulse.
-- Transcript still accessible via a small "View transcript" drawer button (not in main view).
+Features tracked (mapped from `ai_usage_logs.action`):
+- `ai_draft` → AI drafts created
+- `ai_auto_reply` → auto-replies sent
+- `ai_chat` → chat messages
+- `daily_brief` → daily briefs generated
+- `email_agent`, `meeting_copilot`, `follow_up_reminder` → counted separately
 
-## 4. Database (small migration)
+Date filter presets: Today, 7 days, 14 days, 30 days, Custom range.
 
-- Add `shortcuts jsonb`, `notify_scheduled bool`, `notify_detected bool`, `microphone_device_id text` to `meeting_copilot_settings`.
-- Add `tone_override text` to `meeting_copilot_preferences`.
+Department filter is populated from distinct `user_profiles.department` values the caller can see.
 
-## 5. Files
+Export: server-side RPC returns CSV of the filtered, scoped rows so a dept admin's export only contains their department.
 
-**Edit**
-- `src/pages/MeetingCopilot.tsx` — remove profile card, collapsible behavior, notifications, audio, shortcuts, per-meeting tone, navigate to prep on click.
-- `src/components/meeting/LiveCopilotSession.tsx` — two-column "Ask / Answer" layout, hide transcript, ChatGPT-style mic waveform.
-- `supabase/functions/meeting-copilot-suggestion/index.ts` — better answer-detection heuristic.
+Charts: Recharts (already used in the project — `src/components/charts/`).
 
-**Create**
-- `src/pages/MeetingPrep.tsx` + route
-- `src/components/meeting/AudioTestPanel.tsx` (waveform + bars)
-- `src/components/meeting/ShortcutsEditor.tsx`
-- `supabase/functions/meeting-copilot-prep/index.ts`
-- Migration for new columns.
+---
 
-## Notes / open questions
+## 4. Role management UI
 
-- Drafts category: I'll use your existing `0. AI Draft` category convention (per project memory).
-- Shortcuts will only fire while the live session window is focused (browser limitation — no global OS hotkeys without a desktop app).
-- Speaker test will play a short test tone since browsers don't expose live speaker output levels.
+New section in `/admin` → **Roles**:
 
-Approve and I'll build it.
+- Table of all users in the org with current role(s) and department(s)
+- Inline assign: Org Admin / Dept Admin (+ department picker) / Member
+- Only `super_admin` can grant `org_admin`
+- `org_admin` can grant `dept_admin` within their org
+- Last-admin protection (already enforced by `check_last_admin_role` trigger) stays
+
+---
+
+## Technical notes
+
+- All new tables/columns get explicit `GRANT`s and RLS scoped to `auth.uid()` via the new helper RPCs
+- Reporting RPCs return aggregates only; never expose raw row data outside the caller's scope
+- Existing super-admin bypass (`is_super_admin`) is preserved everywhere
+- Charts use the existing Recharts setup; no new deps
+- CSV export is generated in an edge function so we don't pull large datasets into the browser
+
+---
+
+## Build order (separate PRs/turns)
+
+1. Migration: extend `app_role`, add `user_roles.department`, add `user_profiles.department`/`job_title_m365`, helper RPCs, reporting RPCs
+2. Edge function: extend M365 discovery to sync department, add `activity-report-export` for CSV
+3. Frontend: Admin → **Activity** tab (filters, KPIs, charts, table, export)
+4. Frontend: Admin → **Roles** tab (assign org/dept admin)
+5. Backfill department via one-shot re-discovery
+
+---
+
+## Questions before I start
+
+1. **Department source of truth** — should I overwrite `department` on every M365 re-sync, or only fill it in when blank (so admins can manually correct it)?
+2. **Dept Admin scope** — should a dept admin see *only* their department, or their department + any sub-departments / multiple departments they're assigned to? (Plan currently supports multiple.)
+3. **Export format** — CSV only, or also XLSX?
+4. **"Auto-sent" emails** — you mentioned tracking auto-sent emails. Per the project constraint *AI drafts must NOT auto-send*, the only auto-send path today is `ai_auto_reply`. Confirm that's what you want counted, or are you tracking something else (e.g. drafts the user later sent manually)?
