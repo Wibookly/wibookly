@@ -51,6 +51,7 @@ import { categoryNameSchema, categoryColorSchema, validateField, validateRuleVal
 import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { Tags } from 'lucide-react';
 import {
   Table,
