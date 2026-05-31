@@ -928,16 +928,8 @@ async function deleteOutlookFolder(
       return true;
     }
 
-    const canonicalVisibleName = stripInvisiblePrefix(String(folderName || ""));
-
     let allOk = true;
     for (const f of matches) {
-      const currentVisibleName = stripInvisiblePrefix(String(f.displayName || ""));
-      const isCanonicalFolder = currentVisibleName === canonicalVisibleName;
-      if (isCanonicalFolder) {
-        console.log(`Keeping canonical Outlook folder: ${f.displayName}`);
-        continue;
-      }
       // First move any remaining messages back to Inbox so the user doesn't lose mail
       try {
         await emptyOutlookFolderToInbox(accessToken, f.id, f.displayName);
