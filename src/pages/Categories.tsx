@@ -477,6 +477,19 @@ export default function Categories() {
   const updateCategory = (id: string, field: keyof Category, value: any) => {
     const category = categories.find(cat => cat.id === id);
 
+    // Enforce per-plan max enabled categories.
+    if (field === 'is_enabled' && value === true && category && !category.is_enabled) {
+      if (maxCategories > 0 && enabledCount >= maxCategories) {
+        toast({
+          title: `Category limit reached (${maxCategories})`,
+          description: `Your plan allows ${maxCategories} active categories. Turn one off before enabling another.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+
     setCategories(prev =>
       prev.map(cat => {
         if (cat.id !== id) return cat;
