@@ -1134,6 +1134,25 @@ export default function Categories() {
 
       <div className="page-shell-content w-full animate-fade-in bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
+      {/* Per-plan category limit banner */}
+      {maxCategories > 0 && (
+        <div
+          className={`mb-4 flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${
+            atCategoryLimit
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+              : 'border-border bg-muted/40 text-muted-foreground'
+          }`}
+        >
+          <span>
+            <strong className="text-foreground">{enabledCount}</strong> of{' '}
+            <strong className="text-foreground">{maxCategories}</strong> active categories used.
+            {atCategoryLimit
+              ? ' You\u2019ve reached your plan limit \u2014 turn one off to enable another.'
+              : ' Toggle Active to choose which categories are in use.'}
+          </span>
+        </div>
+      )}
+
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
         <Table>
