@@ -29,7 +29,7 @@ export function usePlanLimits(): PlanLimits {
         }
         return;
       }
-      if (profile?.email?.toLowerCase() === SUPER_ADMIN_EMAIL) {
+      const isSuperAdmin = profile?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
         if (!cancelled) {
           setMaxCategories(0); // unlimited
           setLoading(false);
