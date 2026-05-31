@@ -1758,9 +1758,9 @@ async function renameRenamedOutlookFolders(
     );
     if (!oldMatch) continue;
 
-    // Rename to the visible portion ("🟣 Project One"); the ordering pre-pass
-    // will add the invisible sort prefix on the next call. We use the visible
-    // name here so any ordering changes also get applied a moment later.
+    // Rename to the visible portion ("🟣 Project One"); the ordering pass
+    // will add the final numeric prefix on the same sync. We use the visible
+    // name here so rename detection still works even if the order changes.
     const dot = nearestColorDot(color);
     const renamedDisplay = `${dot} ${newName}`;
     const patchRes = await fetch(
@@ -2125,9 +2125,9 @@ serve(async (req) => {
           const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
           // Gmail: clean visible name only — Gmail does not auto-sort labels.
-          // Outlook: prepend an INVISIBLE zero-width prefix so the folder
-          // pane sorts in the same order as the app. The prefix is
-          // imperceptible in Outlook Desktop, Web (OWA), and Mobile.
+          // Outlook: prepend a fixed-width numeric prefix so every client
+          // (Outlook Web/Desktop/Mobile, Apple Mail, etc.) sorts folders in
+          // the same stable order as the app.
           const visibleName = `${dot} ${category.name}`;
           const outlookFolderName = buildOutlookFolderDisplayName(
             category.name,
