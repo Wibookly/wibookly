@@ -410,6 +410,18 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                         {u.email}
                         {u.job_title && <span> · {u.job_title}</span>}
                       </p>
+                      {(u.department || u.office_location) && (
+                        <p className="text-[11px] text-muted-foreground/80 truncate mt-0.5">
+                          {u.department && (
+                            <span className="inline-flex items-center gap-1">
+                              <UsersRound className="w-3 h-3" />
+                              {u.department}
+                            </span>
+                          )}
+                          {u.department && u.office_location && <span className="mx-1.5">·</span>}
+                          {u.office_location && <span>{u.office_location}</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
