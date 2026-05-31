@@ -137,12 +137,19 @@ const MODEL_LABELS: Record<string, string> = {
   'llama-3.3-70b': 'Llama 3.3-70B',
 };
 
-const PLAN_DOTS: Record<string, string> = {
-  Chat: 'var(--text-secondary)',
-  Standard: 'var(--text-info)',
-  'Power User': 'var(--text-success)',
-  Executive: 'var(--text-warning)',
+// Each plan gets a distinct color used for the top pill dot, the selected
+// pill tint, and the accent stripe on the plan card below.
+const PLAN_COLORS: Record<string, string> = {
+  Chat: '#64748b',         // slate
+  Standard: '#3b82f6',     // blue
+  'Power User': '#10b981', // emerald
+  Executive: '#f59e0b',    // amber
 };
+const DEFAULT_PLAN_COLOR = '#6366f1'; // indigo fallback for custom plans
+function planColor(name: string): string {
+  return PLAN_COLORS[name] || DEFAULT_PLAN_COLOR;
+}
+const PLAN_DOTS: Record<string, string> = PLAN_COLORS;
 
 interface Plan {
   id: string;
@@ -490,7 +497,7 @@ export default function PlansTab() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 8, marginBottom: '1rem' }}>
         <KpiCard label="Active users" value={String(totalActive)} sub={`${discoveredCount} discovered in M365`} />
         <KpiCard label="Daily projected" value={fmtUSD(dailyOrgCost, 0)} sub="based on active" />
-        <KpiCard label="Monthly projected" value={fmtUSD(monthlyOrgCost, 0)} sub="22 business days" large />
+        <KpiCard label="Monthly projected" value={fmtUSD(monthlyOrgCost, 0)} sub="22 business days" />
         <KpiCard label="Avg / active user" value={fmtUSD(avgPerActiveUser, 0)} sub="per month" />
       </div>
 
@@ -498,23 +505,31 @@ export default function PlansTab() {
       <div className="bg-card border border-border rounded-lg p-1.5 flex gap-2 flex-wrap mb-4">
         {visiblePlans.map(p => {
           const isSel = p.id === selectedPlanId;
-          const dotClass = ({
-            Chat: 'bg-ef-navy',
-            Standard: 'bg-ef-blue',
-            'Power User': 'bg-ef-sky',
-            Executive: 'bg-amber-600',
-          } as Record<string, string>)[p.name] || 'bg-ef-blue';
+          const color = planColor(p.name);
           return (
             <button
               key={p.id}
               onClick={() => setSelectedPlanId(p.id)}
-              className={
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm font-medium transition-all"
+              style={
                 isSel
-                  ? 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-foreground font-medium bg-gradient-to-br from-ef-blue/[0.14] to-card border border-ef-blue/30 shadow-sm'
-                  : 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all font-medium'
+                  ? {
+                      color: 'var(--foreground)',
+                      background: `linear-gradient(135deg, ${color}22, transparent)`,
+                      border: `1px solid ${color}80`,
+                      boxShadow: `0 1px 2px ${color}30`,
+                    }
+                  : {
+                      color: 'var(--muted-foreground)',
+                      background: 'transparent',
+                      border: '1px solid transparent',
+                    }
               }
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${dotClass} flex-shrink-0`} />
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: color, boxShadow: isSel ? `0 0 0 3px ${color}33` : undefined }}
+              />
               {p.name}
               <span className="font-mono text-[11.5px] text-muted-foreground">
                 {fmtUSD(p.price_per_user_mo, 0)}
@@ -789,10 +804,10 @@ function PlanCard({
     ? { kind: 'domain' as const, label: `Domain · ${domains.find(d => d.id === plan.domain_id)?.domain || plan.scope_domain}` }
     : { kind: 'global' as const, label: 'Global · all domains' };
 
-  const dot = PLAN_DOTS[plan.name] || 'var(--text-info)';
+  const dot = planColor(plan.name);
 
   return (
-    <div style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)', borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: 14 }}>
+    <div style={{ background: 'var(--bg-primary)', border: '0.5px solid var(--border-tertiary)', borderTop: `3px solid ${dot}`, borderRadius: 'var(--radius-lg)', padding: '14px 18px', marginBottom: 14, boxShadow: `0 1px 0 ${dot}10` }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
