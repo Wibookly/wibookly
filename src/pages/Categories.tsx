@@ -378,6 +378,65 @@ function sanitizeCategoryName(name: string): string {
     .trim();
 }
 
+function AiColorPickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  const swatchName =
+    OUTLOOK_PRESET_PALETTE.find((p) => p.hex.toUpperCase() === value?.toUpperCase())?.name ?? 'Custom';
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 hover:bg-muted transition-colors"
+            aria-label={`Pick ${label} color`}
+          >
+            <span
+              className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+              style={{ backgroundColor: value }}
+            />
+            <span className="text-sm">{swatchName}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3" align="start">
+          <div className="text-xs font-medium text-muted-foreground mb-2">Outlook category colors</div>
+          <div className="grid grid-cols-5 gap-2">
+            {OUTLOOK_PRESET_PALETTE.map((p) => {
+              const selected = value?.toUpperCase() === p.hex.toUpperCase();
+              return (
+                <button
+                  key={p.hex}
+                  type="button"
+                  title={p.name}
+                  onClick={() => onChange(p.hex)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${
+                    selected ? 'border-foreground scale-110' : 'border-white hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: p.hex }}
+                >
+                  {selected && <Check className="w-4 h-4 mx-auto text-white drop-shadow" />}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
+            Only these colors exist in Outlook. Picking one guarantees the folder color matches.
+          </p>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+
 export default function Categories() {
   const { organization } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
