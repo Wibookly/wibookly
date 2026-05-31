@@ -378,6 +378,65 @@ function sanitizeCategoryName(name: string): string {
     .trim();
 }
 
+function AiColorPickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  const swatchName =
+    OUTLOOK_PRESET_PALETTE.find((p) => p.hex.toUpperCase() === value?.toUpperCase())?.name ?? 'Custom';
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 hover:bg-muted transition-colors"
+            aria-label={`Pick ${label} color`}
+          >
+            <span
+              className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+              style={{ backgroundColor: value }}
+            />
+            <span className="text-sm">{swatchName}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3" align="start">
+          <div className="text-xs font-medium text-muted-foreground mb-2">Outlook category colors</div>
+          <div className="grid grid-cols-5 gap-2">
+            {OUTLOOK_PRESET_PALETTE.map((p) => {
+              const selected = value?.toUpperCase() === p.hex.toUpperCase();
+              return (
+                <button
+                  key={p.hex}
+                  type="button"
+                  title={p.name}
+                  onClick={() => onChange(p.hex)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${
+                    selected ? 'border-foreground scale-110' : 'border-white hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: p.hex }}
+                >
+                  {selected && <Check className="w-4 h-4 mx-auto text-white drop-shadow" />}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
+            Only these colors exist in Outlook. Picking one guarantees the folder color matches.
+          </p>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+
 export default function Categories() {
   const { organization } = useAuth();
   const { activeConnection, loading: emailLoading } = useActiveEmail();
@@ -396,9 +455,69 @@ export default function Categories() {
   const autoReplyLocked = !featureLoading && !hasFeature('ai_auto_reply');
   const enabledCount = categories.filter((c) => c.is_enabled).length;
   const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
-  
+
+  // AI label colors (persisted in ai_settings — also used by process-ai-emails to
+  // tag drafts/sent emails in Gmail/Outlook).
+  const [aiDraftColor, setAiDraftColor] = useState<string>('#9B59B6'); // Purple default
+  const [aiSentColor, setAiSentColor] = useState<string>('#16A085');  // Teal default
+  const [aiSettingsId, setAiSettingsId] = useState<string | null>(null);
+
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
+  const clampedRef = useRef(false);
+
+  // Auto-disable categories beyond the plan's max so enabledCount can never
+  // exceed maxCategories (e.g. plan = 3 of 10 → keep 3 active, disable the rest).
+  useEffect(() => {
+    if (loading || maxCategories <= 0 || clampedRef.current) return;
+    if (categories.length === 0) return;
+    const enabled = categories.filter((c) => c.is_enabled);
+    if (enabled.length <= maxCategories) {
+      clampedRef.current = true;
+      return;
+    }
+    const sortedEnabled = [...enabled].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const toDisableIds = new Set(sortedEnabled.slice(maxCategories).map((c) => c.id));
+    setCategories((prev) =>
+      prev.map((c) =>
+        toDisableIds.has(c.id)
+          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false }
+          : c,
+      ),
+    );
+    supabase
+      .from('categories')
+      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false })
+      .in('id', Array.from(toDisableIds))
+      .then(() => {});
+    clampedRef.current = true;
+  }, [loading, maxCategories, categories]);
+
+  const saveAiLabelColors = async (draft: string, sent: string) => {
+    if (!organization?.id || !activeConnection?.id) return;
+    try {
+      if (aiSettingsId) {
+        await supabase
+          .from('ai_settings')
+          .update({ ai_draft_label_color: draft, ai_sent_label_color: sent })
+          .eq('id', aiSettingsId);
+      } else {
+        const { data } = await supabase
+          .from('ai_settings')
+          .insert({
+            organization_id: organization.id,
+            connection_id: activeConnection.id,
+            ai_draft_label_color: draft,
+            ai_sent_label_color: sent,
+          })
+          .select('id')
+          .maybeSingle();
+        if (data?.id) setAiSettingsId(data.id);
+      }
+    } catch (e) {
+      console.error('Failed to save AI label colors', e);
+    }
+  };
 
   const getSyncFailureMessage = (data: any, fallback: string) => {
     const failedResult = data?.results?.find((result: any) => result?.failed > 0 || result?.error);
@@ -413,6 +532,7 @@ export default function Categories() {
   );
 
   useEffect(() => {
+    clampedRef.current = false;
     if (!organization?.id || !activeConnection?.id) {
       if (!emailLoading) setLoading(false);
       return;
@@ -424,7 +544,7 @@ export default function Categories() {
     if (!organization?.id || !activeConnection?.id) return;
     setLoading(true);
 
-    const [categoriesRes, rulesRes] = await Promise.all([
+    const [categoriesRes, rulesRes, aiSettingsRes] = await Promise.all([
       supabase
         .from('categories')
         .select('*')
@@ -435,8 +555,20 @@ export default function Categories() {
         .from('rules')
         .select('*')
         .eq('organization_id', organization.id)
+        .eq('connection_id', activeConnection.id),
+      supabase
+        .from('ai_settings')
+        .select('id, ai_draft_label_color, ai_sent_label_color')
+        .eq('organization_id', organization.id)
         .eq('connection_id', activeConnection.id)
+        .maybeSingle(),
     ]);
+
+    if (aiSettingsRes?.data) {
+      setAiSettingsId((aiSettingsRes.data as any).id ?? null);
+      setAiDraftColor((aiSettingsRes.data as any).ai_draft_label_color || '#9B59B6');
+      setAiSentColor((aiSettingsRes.data as any).ai_sent_label_color || '#16A085');
+    }
 
     if (categoriesRes.error) {
       toast({
@@ -1183,6 +1315,41 @@ export default function Categories() {
           </span>
         </div>
       )}
+
+      {/* AI Email Label Colors — applied to drafts/sent emails created by AI */}
+      <div className="mb-6 rounded-lg border border-border bg-card p-5">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex-1 min-w-[280px]">
+            <h2 className="text-lg font-semibold inline-flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              AI Email Label Colors
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Pick the colors used to tag emails the AI creates. The <strong>AI Draft</strong> color is
+              applied to drafts placed in your Drafts folder for review. The <strong>AI Auto-Reply</strong>{' '}
+              color is applied to replies the AI sends from your Sent folder. Same Outlook palette as your categories.
+            </p>
+          </div>
+          <div className="flex items-center gap-8">
+            <AiColorPickerField
+              label="AI Draft"
+              value={aiDraftColor}
+              onChange={(c) => {
+                setAiDraftColor(c);
+                saveAiLabelColors(c, aiSentColor);
+              }}
+            />
+            <AiColorPickerField
+              label="AI Auto-Reply"
+              value={aiSentColor}
+              onChange={(c) => {
+                setAiSentColor(c);
+                saveAiLabelColors(aiDraftColor, c);
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
