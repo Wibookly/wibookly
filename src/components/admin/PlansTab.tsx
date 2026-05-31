@@ -794,86 +794,30 @@ function PlanCard({
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{plan.description}</p>
       )}
 
-      {/* Categories quota */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, fontWeight: 500 }}>Email categories allowed</span>
-        <input
-          type="number" min={0} max={10} value={maxCats}
-          onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
-          style={{ width: 52, height: 28, fontSize: 12.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
-        />
-        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>of 10 · names live in Email Intelligence setup</span>
-      </div>
-
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px', gap: 5, padding: '4px 0', borderBottom: '0.5px solid var(--border-secondary)' }}>
-        <ColHeader>Feature</ColHeader>
-        <ColHeader>On</ColHeader>
-        <ColHeader>Term</ColHeader>
-        <ColHeader>Limit</ColHeader>
-        <ColHeader>Model</ColHeader>
-        <ColHeader align="right">$/task</ColHeader>
-        <ColHeader align="right">Cost</ColHeader>
-        <ColHeader>Rollover</ColHeader>
-      </div>
-
-      {/* Feature rows */}
-      {rows.map(r => {
-        const opts = ALLOWED_MODELS[r.feature_key] || [];
-        const model = r.model_assignment || opts[0] || '';
-        const perTask = dollarPerTask(r.feature_key, model);
-        const cost = perTask * (r.daily_limit || 0);
-        const disabled = !r.is_enabled;
-        return (
-          <div key={r.feature_key} style={{
-            display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
-            gap: 5, alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid var(--border-tertiary)', fontSize: 12.5,
-          }}>
-            <div style={{ fontWeight: 500, lineHeight: 1.3, opacity: disabled ? 0.45 : 1 }}>
-              {FEATURE_LABELS[r.feature_key] || r.feature_key}
-            </div>
-            <Toggle checked={r.is_enabled} onChange={(v) => updateRow(r.feature_key, { is_enabled: v })} />
-            <select
-              value={r.limit_term || 'daily'}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { limit_term: e.target.value as 'daily' | 'weekly' })}
-              style={selectStyle}
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-            <input
-              type="number" min={0} max={999} value={r.daily_limit || 0}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { daily_limit: Math.max(0, Math.min(999, parseInt(e.target.value) || 0)) })}
-              style={{ ...inputStyle, width: '100%' }}
+      {/* Grouped feature sections */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {FEATURE_SECTIONS.map(section => {
+          const parentRow = rows.find(r => r.feature_key === section.parent);
+          if (!parentRow) return null;
+          const parentOn = parentRow.is_enabled;
+          return (
+            <FeatureSectionCard
+              key={section.parent}
+              section={section}
+              parentRow={parentRow}
+              childRows={section.children
+                .map(k => rows.find(r => r.feature_key === k))
+                .filter((x): x is FeatureRow => !!x)}
+              parentOn={parentOn}
+              maxCats={maxCats}
+              setMaxCats={setMaxCats}
+              updateRow={updateRow}
+              dollarPerTask={dollarPerTask}
             />
-            <select
-              value={model}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { model_assignment: e.target.value })}
-              style={selectStyle}
-            >
-              {opts.map(o => <option key={o} value={o}>{MODEL_LABELS[o] || o}</option>)}
-            </select>
-            <div style={{ textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', opacity: disabled ? 0.45 : 1 }}>
-              ${perTask.toFixed(4)}
-            </div>
-            <div style={{ textAlign: 'right', fontWeight: 500, fontVariantNumeric: 'tabular-nums', opacity: disabled ? 0.45 : 1 }}>
-              ${cost.toFixed(2)}
-            </div>
-            <select
-              value={r.rollover || 'none'}
-              disabled={disabled}
-              onChange={(e) => updateRow(r.feature_key, { rollover: e.target.value as 'none' | 'next_day' })}
-              style={selectStyle}
-            >
-              <option value="none">None</option>
-              <option value="next_day">Next day</option>
-            </select>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
 
       {/* Per-user totals grid */}
       <div style={{
