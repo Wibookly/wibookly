@@ -1186,6 +1186,8 @@ export default function Categories() {
                     updateCategory={updateCategory}
                     requestDisable={setPendingDisableCategory}
                     onConfigureTone={(c) => setToneCategory(c)}
+                    enableBlocked={atCategoryLimit && !category.is_enabled}
+                    enableBlockedReason={`Plan limit: ${maxCategories} active categories. Turn one off to enable this one.`}
                   />
                 ))}
               </SortableContext>
