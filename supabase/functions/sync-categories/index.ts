@@ -1561,7 +1561,11 @@ async function enforceOutlookManagedFolderOrder(
 
   const desired = categories.map((category, idx) => ({
     ...category,
-    folderName: `${invisibleSortPrefix(idx + 1)}${nearestColorDot(category.color)} ${category.name}`,
+    folderName: buildOutlookFolderDisplayName(
+      category.name,
+      category.color,
+      idx + 1,
+    ),
     coreName: normalizeManagedCategoryName(category.name),
   }));
 
@@ -2125,8 +2129,11 @@ serve(async (req) => {
           // pane sorts in the same order as the app. The prefix is
           // imperceptible in Outlook Desktop, Web (OWA), and Mobile.
           const visibleName = `${dot} ${category.name}`;
-          const outlookSortPrefix = invisibleSortPrefix(idx + 1);
-          const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
+          const outlookFolderName = buildOutlookFolderDisplayName(
+            category.name,
+            category.color,
+            idx + 1,
+          );
           let success = false;
 
           if (normalizedProvider === "google") {
