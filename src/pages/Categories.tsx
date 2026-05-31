@@ -150,6 +150,8 @@ interface SortableRowProps {
   updateCategory: (id: string, field: keyof Category, value: any) => void;
   requestDisable: (category: Category) => void;
   onConfigureTone: (category: Category) => void;
+  enableBlocked?: boolean;
+  enableBlockedReason?: string;
 }
 
 function formatSyncTime(syncTime: string | null): string {
