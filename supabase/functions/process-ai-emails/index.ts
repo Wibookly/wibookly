@@ -1699,12 +1699,15 @@ async function tagOutlookMessageCategoryExclusive(
 }
 
 function normalizeOutlookFolderDisplayName(s: string): string {
-  return String(s || '')
-    .replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '')
-    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '')
-    .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
-    .trim()
-    .toLowerCase();
+  let out = String(s || '').replace(/^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u, '');
+  for (let i = 0; i < 4; i++) {
+    const before = out;
+    out = out
+      .replace(/^\s*\d+\s*[:.\-]\s*/u, '')
+      .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, '');
+    if (out === before) break;
+  }
+  return out.trim().toLowerCase();
 }
 
 async function getOutlookFolderIdByName(
