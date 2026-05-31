@@ -2024,12 +2024,46 @@ serve(async (req) => {
     }[] = [];
     const syncedCategoryIds: string[] = [];
 
-    // Process each connected provider
-    for (const tokenRecord of tokenDataList) {
+    const tokenRows = (tokenDataList ?? []) as TokenData[];
+
+    // Process each connected mailbox separately so category sync never leaks
+    // across multiple Outlook accounts owned by the same user.
+    for (const scopedConnection of scopedConnections) {
       try {
+        const providerCategories = allCategories.filter(
+          (category) => category.connection_id === scopedConnection.id,
+        );
+        const enabledCategories = providerCategories.filter((c) => c.is_enabled);
+        const disabledCategories = providerCategories.filter((c) => !c.is_enabled);
+        const providerConnectionCount = scopedConnections.filter(
+          (connection) =>
+            normalizeMailboxProvider(connection.provider) ===
+            normalizeMailboxProvider(scopedConnection.provider),
+        ).length;
+        const tokenRecord = pickTokenForConnection(
+          tokenRows,
+          scopedConnection.id,
+          scopedConnection.provider,
+          providerConnectionCount,
+        );
+
+        if (!tokenRecord) {
+          results.push({
+            provider: scopedConnection.provider,
+            created: 0,
+            deleted: 0,
+            failed: enabledCategories.length + disabledCategories.length,
+            error:
+              providerConnectionCount > 1
+                ? "Mailbox token is not linked to this connected account yet. Reconnect this mailbox, then run Re-sync All again."
+                : "Reconnect your mailbox, then run Re-sync All again.",
+          });
+          continue;
+        }
+
         // Get valid access token (will refresh if expired)
         const accessToken = await getValidAccessToken(
-          tokenRecord as TokenData,
+          tokenRecord,
           encryptionKey,
           supabaseAdmin,
           user.id,
@@ -2037,10 +2071,10 @@ serve(async (req) => {
 
         if (!accessToken) {
           console.error(
-            `Could not get valid access token for ${tokenRecord.provider}`,
+            `Could not get valid access token for ${scopedConnection.provider} (${scopedConnection.id})`,
           );
           results.push({
-            provider: tokenRecord.provider,
+            provider: scopedConnection.provider,
             created: 0,
             deleted: 0,
             failed: enabledCategories.length + disabledCategories.length,
@@ -2065,8 +2099,10 @@ serve(async (req) => {
         // categories with similar app-side colors don't collapse to the same
         // Outlook preset on iPhone/Web/Desktop. The map is keyed by the
         // managed-category display name ("IQ: <name>").
-        const outlookPresetMap = (tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook")
+        const normalizedProvider = normalizeMailboxProvider(scopedConnection.provider);
+        const isOutlookProvider = normalizedProvider === "outlook";
+
+        const outlookPresetMap = isOutlookProvider
           ? buildOutlookPresetMap(
             sortedEnabled.map((c: { name: string; color: string }) => ({
               name: `${IQ_TAG_PREFIX}${c.name}`,
@@ -2089,12 +2125,9 @@ serve(async (req) => {
             color: c.color as string,
           }));
         if (renames.length > 0) {
-          if (tokenRecord.provider === "google") {
+          if (normalizedProvider === "google") {
             await renameRenamedGmailLabels(accessToken, renames);
-          } else if (
-            tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook"
-          ) {
+          } else if (isOutlookProvider) {
             await renameRenamedOutlookFolders(accessToken, renames);
           }
         }
@@ -2111,16 +2144,13 @@ serve(async (req) => {
           const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
           let success = false;
 
-          if (tokenRecord.provider === "google") {
+          if (normalizedProvider === "google") {
             success = await createGmailLabel(
               accessToken,
               visibleName,
               category.color,
             );
-          } else if (
-            tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook"
-          ) {
+          } else if (isOutlookProvider) {
             success = await createOutlookFolder(accessToken, outlookFolderName);
             // Also create / refresh the colored Outlook Master Category and
             // retroactively tag every message inside the folder so the
@@ -2203,11 +2233,7 @@ serve(async (req) => {
           }
         }
 
-        if (
-          (tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook") &&
-          sortedEnabled.length > 0
-        ) {
+        if (isOutlookProvider && sortedEnabled.length > 0) {
           await enforceOutlookManagedFolderOrder(
             accessToken,
             sortedEnabled.map((category) => ({
@@ -2228,12 +2254,9 @@ serve(async (req) => {
           const labelName = `${dot} ${category.name}`;
           let success = false;
 
-          if (tokenRecord.provider === "google") {
+          if (normalizedProvider === "google") {
             success = await deleteGmailLabel(accessToken, labelName);
-          } else if (
-            tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook"
-          ) {
+          } else if (isOutlookProvider) {
             // Remove Outlook server-side rules first so they don't recreate the folder.
             await deleteOutlookRulesForLabel(accessToken, labelName);
             success = await deleteOutlookFolder(accessToken, labelName);
@@ -2248,12 +2271,9 @@ serve(async (req) => {
         // Delete old "04: Meetings" (renamed to Events) and any unnumbered "Meetings" labels
         const legacyLabelsToClean = ["04: Meetings", "Meetings", "4: Meetings"];
         for (const legacyLabel of legacyLabelsToClean) {
-          if (tokenRecord.provider === "google") {
+          if (normalizedProvider === "google") {
             await deleteGmailLabel(accessToken, legacyLabel);
-          } else if (
-            tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook"
-          ) {
+          } else if (isOutlookProvider) {
             await deleteOutlookFolder(accessToken, legacyLabel);
           }
         }
@@ -2279,20 +2299,15 @@ serve(async (req) => {
         // Skip names that match an enabled category for THIS connection so we don't
         // delete a folder we just created.
         const enabledNamesLower = new Set(
-          enabledCategories
-            .filter((c) => c.connection_id === undefined || true)
-            .map((c) => c.name.trim().toLowerCase()),
+          enabledCategories.map((c) => c.name.trim().toLowerCase()),
         );
         for (const baseName of defaultCategoryNames) {
           if (enabledNamesLower.has(baseName.toLowerCase())) continue;
           // deleteOutlookFolder / deleteGmailLabel already strip numeric prefixes
           // and remove every matching variant in one call.
-          if (tokenRecord.provider === "google") {
+          if (normalizedProvider === "google") {
             await deleteGmailLabel(accessToken, baseName);
-          } else if (
-            tokenRecord.provider === "microsoft" ||
-            tokenRecord.provider === "outlook"
-          ) {
+          } else if (isOutlookProvider) {
             await deleteOutlookFolder(accessToken, baseName);
           }
         }
@@ -2302,10 +2317,7 @@ serve(async (req) => {
         // managed folder whose name starts with digits is stale and should be removed.
         // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
         // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
-        if (
-          tokenRecord.provider === "microsoft" ||
-          tokenRecord.provider === "outlook"
-        ) {
+        if (isOutlookProvider) {
           try {
             const listRes = await fetch(
               "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
@@ -2349,7 +2361,7 @@ serve(async (req) => {
           } catch (e) {
             console.error("Single-digit sweep failed:", e);
           }
-        } else if (tokenRecord.provider === "google") {
+        } else if (normalizedProvider === "google") {
           try {
             const listRes = await fetch(
               "https://gmail.googleapis.com/gmail/v1/users/me/labels",
@@ -2380,10 +2392,7 @@ serve(async (req) => {
         // Without this, emails keep displaying duplicate chips like
         // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" alongside the new
         // short "IQ: Approvals" chip.
-        if (
-          tokenRecord.provider === "microsoft" ||
-          tokenRecord.provider === "outlook"
-        ) {
+        if (isOutlookProvider) {
           try {
             // 1) List every master category and pick out the legacy ones.
             const mcRes = await fetch(
@@ -2398,7 +2407,7 @@ serve(async (req) => {
               const { data: cats } = await supabaseAdmin
                 .from("categories")
                 .select("name")
-                .eq("connection_id", connectionId);
+                .eq("connection_id", scopedConnection.id);
               for (const c of (cats ?? []) as Array<{ name: string }>) {
                 currentValid.add(`${IQ_TAG_PREFIX}${c.name}`);
               }
@@ -2445,7 +2454,7 @@ serve(async (req) => {
               const { data: cats2 } = await supabaseAdmin
                 .from("categories")
                 .select("name")
-                .eq("connection_id", connectionId);
+                .eq("connection_id", scopedConnection.id);
               const catNames = new Map<string, string>(); // lower(name) -> "IQ: <Name>"
               for (const c of (cats2 ?? []) as Array<{ name: string }>) {
                 catNames.set(
@@ -2531,15 +2540,15 @@ serve(async (req) => {
         }
 
         results.push({
-          provider: tokenRecord.provider,
+          provider: scopedConnection.provider,
           created,
           deleted,
           failed,
         });
       } catch (error) {
-        console.error(`Failed to process ${tokenRecord.provider}:`, error);
+        console.error(`Failed to process ${scopedConnection.provider}:`, error);
         results.push({
-          provider: tokenRecord.provider,
+          provider: scopedConnection.provider,
           created: 0,
           deleted: 0,
           failed: enabledCategories.length + disabledCategories.length,
