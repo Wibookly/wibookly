@@ -249,10 +249,10 @@ export function AppSidebar() {
               </NavSection>
 
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat') || hasFeature('email_intelligence')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
-                  <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>
+                  {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>}
                   {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing} accent={accents.purple}>No Reply Tracker</NavItem>}
                 </NavSection>
               )}
@@ -261,13 +261,15 @@ export function AppSidebar() {
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
                 <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
                 {/* AI Draft / Auto Reply settings now live inside Email Intelligence (per-rule tone sheet). */}
-                <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
+                {(isSuperAdmin || hasFeature('meeting_copilot')) && (
+                  <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
+                )}
                 <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
               </NavSection>
 
-              {/* Reports */}
+              {/* AI Activity (formerly Reports) */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
-                <NavSection title="Reports" icon={BarChart3} accent={accents.green} defaultOpen>
+                <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
                   {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity</NavItem>}
                   {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.green}>My Daily Brief</NavItem>}
                 </NavSection>
