@@ -635,9 +635,12 @@ export default function AdminDashboard() {
           <TabsTrigger value="integrations" className="gap-2"><Activity className="w-4 h-4" /> Integrations</TabsTrigger>
           <TabsTrigger value="alerts" className="gap-2"><BellRing className="w-4 h-4" /> Alerts</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2"><BarChart3 className="w-4 h-4" /> Activity</TabsTrigger>
+          <TabsTrigger value="roles" className="gap-2"><ShieldCheck className="w-4 h-4" /> Roles</TabsTrigger>
           <TabsTrigger value="ai-usage" className="gap-2"><Activity className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="issues" className="space-y-6">
