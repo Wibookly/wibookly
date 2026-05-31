@@ -3139,12 +3139,24 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: tag with colored IQ category chip AND move the
-              // email into the matching colored category folder so it shows
-              // up in Outlook desktop / Apple Mail / mobile inside the
-              // category folder (not just in Inbox).
+              // Outlook: tag the incoming email with colored IQ category chip
+              // AND move it into the matching colored category folder.
               const catColor = (category as { color?: string | null }).color || '#6366f1';
               await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
+              // Also tag the AI-generated draft sitting in the Drafts folder
+              // with both the category chip and an "IQ: AI Draft" chip so the
+              // user can see at a glance which drafts came from AI and which
+              // category they belong to.
+              if (draftId) {
+                await tagOutlookMessageWithCategoryAndMarker(
+                  accessToken,
+                  draftId,
+                  category.name,
+                  catColor,
+                  'AI Draft',
+                  aiDraftLabelColor,
+                );
+              }
               void categoryLabelName;
               void aiDraftLabelName;
             }
