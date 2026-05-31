@@ -1177,6 +1177,7 @@ export type Database = {
         Row: {
           account_enabled: boolean
           created_at: string
+          department: string | null
           display_name: string | null
           domain_id: string
           email: string
@@ -1187,6 +1188,7 @@ export type Database = {
           job_title: string | null
           last_seen_at: string
           ms_user_id: string
+          office_location: string | null
           organization_id: string
           profile_photo_url: string | null
           status: string
@@ -1195,6 +1197,7 @@ export type Database = {
         Insert: {
           account_enabled?: boolean
           created_at?: string
+          department?: string | null
           display_name?: string | null
           domain_id: string
           email: string
@@ -1205,6 +1208,7 @@ export type Database = {
           job_title?: string | null
           last_seen_at?: string
           ms_user_id: string
+          office_location?: string | null
           organization_id: string
           profile_photo_url?: string | null
           status?: string
@@ -1213,6 +1217,7 @@ export type Database = {
         Update: {
           account_enabled?: boolean
           created_at?: string
+          department?: string | null
           display_name?: string | null
           domain_id?: string
           email?: string
@@ -1223,6 +1228,7 @@ export type Database = {
           job_title?: string | null
           last_seen_at?: string
           ms_user_id?: string
+          office_location?: string | null
           organization_id?: string
           profile_photo_url?: string | null
           status?: string
@@ -3587,11 +3593,13 @@ export type Database = {
           company: string | null
           created_at: string
           department: string | null
+          department_source: string | null
           domain_id: string | null
           email: string
           email_signature: string | null
           full_name: string | null
           id: string
+          job_title_m365: string | null
           microsoft_auto_connect: boolean
           mobile: string | null
           onboarding_completed_at: string | null
@@ -3615,11 +3623,13 @@ export type Database = {
           company?: string | null
           created_at?: string
           department?: string | null
+          department_source?: string | null
           domain_id?: string | null
           email: string
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          job_title_m365?: string | null
           microsoft_auto_connect?: boolean
           mobile?: string | null
           onboarding_completed_at?: string | null
@@ -3643,11 +3653,13 @@ export type Database = {
           company?: string | null
           created_at?: string
           department?: string | null
+          department_source?: string | null
           domain_id?: string | null
           email?: string
           email_signature?: string | null
           full_name?: string | null
           id?: string
+          job_title_m365?: string | null
           microsoft_auto_connect?: boolean
           mobile?: string | null
           onboarding_completed_at?: string | null
@@ -3686,6 +3698,7 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string
+          departments: string[]
           id: string
           organization_id: string
           role: Database["public"]["Enums"]["app_role"]
@@ -3693,6 +3706,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          departments?: string[]
           id?: string
           organization_id: string
           role?: Database["public"]["Enums"]["app_role"]
@@ -3700,6 +3714,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          departments?: string[]
           id?: string
           organization_id?: string
           role?: Database["public"]["Enums"]["app_role"]
@@ -3720,6 +3735,74 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_activity_report: {
+        Args: {
+          _department?: string
+          _end: string
+          _start: string
+          _user_id?: string
+        }
+        Returns: {
+          ai_drafts: number
+          auto_replies: number
+          chats: number
+          cost_usd: number
+          daily_briefs: number
+          department: string
+          email: string
+          email_agent: number
+          follow_up: number
+          full_name: string
+          last_active: string
+          meeting_copilot: number
+          tokens_in: number
+          tokens_out: number
+          total_actions: number
+          user_id: string
+        }[]
+      }
+      admin_activity_timeseries: {
+        Args: {
+          _department?: string
+          _end: string
+          _start: string
+          _user_id?: string
+        }
+        Returns: {
+          action: string
+          cost_usd: number
+          day: string
+          events: number
+        }[]
+      }
+      admin_list_org_users: {
+        Args: { _organization_id: string }
+        Returns: {
+          department: string
+          departments_admin: string[]
+          email: string
+          full_name: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
+      admin_visible_departments: {
+        Args: never
+        Returns: {
+          department: string
+          user_count: number
+        }[]
+      }
+      admin_visible_user_ids: {
+        Args: { _caller: string }
+        Returns: {
+          department: string
+          email: string
+          full_name: string
+          organization_id: string
+          user_id: string
+        }[]
+      }
       cache_get_response: {
         Args: { _hash: string }
         Returns: {
@@ -3979,7 +4062,19 @@ export type Database = {
         Returns: boolean
       }
       is_current_user_super_admin: { Args: never; Returns: boolean }
+      is_dept_admin: {
+        Args: {
+          _department: string
+          _organization_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_domain_allowed: { Args: { _email: string }; Returns: boolean }
+      is_org_admin: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
@@ -4121,7 +4216,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "member"
+      app_role: "admin" | "member" | "super_admin" | "org_admin" | "dept_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4249,7 +4344,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "member"],
+      app_role: ["admin", "member", "super_admin", "org_admin", "dept_admin"],
     },
   },
 } as const

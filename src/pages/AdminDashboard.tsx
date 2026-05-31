@@ -30,7 +30,10 @@ import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import PlansTab from '@/components/admin/PlansTab';
 import AIUsageTab from '@/components/admin/AIUsageTab';
-import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-react';
+import ActivityReportTab from '@/components/admin/ActivityReportTab';
+import RolesTab from '@/components/admin/RolesTab';
+import { Bot, Clock, MessageSquareWarning, BellRing, Activity, BarChart3 } from 'lucide-react';
+
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
@@ -632,9 +635,12 @@ export default function AdminDashboard() {
           <TabsTrigger value="integrations" className="gap-2"><Activity className="w-4 h-4" /> Integrations</TabsTrigger>
           <TabsTrigger value="alerts" className="gap-2"><BellRing className="w-4 h-4" /> Alerts</TabsTrigger>
           <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2"><BarChart3 className="w-4 h-4" /> Activity</TabsTrigger>
+          <TabsTrigger value="roles" className="gap-2"><ShieldCheck className="w-4 h-4" /> Roles</TabsTrigger>
           <TabsTrigger value="ai-usage" className="gap-2"><Activity className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="issues" className="space-y-6">
@@ -676,9 +682,18 @@ export default function AdminDashboard() {
           <PlansTab />
         </TabsContent>
 
+        <TabsContent value="activity" className="space-y-6">
+          <ActivityReportTab />
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-6">
+          <RolesTab />
+        </TabsContent>
+
         <TabsContent value="ai-usage" className="space-y-6">
           <AIUsageTab organizationId={profile?.organization_id ?? null} />
         </TabsContent>
+
 
         {/* SETTINGS TAB — contains nested sections */}
         <TabsContent value="settings" className="space-y-6">
