@@ -3310,12 +3310,28 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: tag with colored IQ category chip AND move the
-              // original (now-replied) email into the matching colored
-              // category folder so it lives under the right category in
-              // every mail client.
+              // Outlook: tag the original (now-replied) email with colored
+              // IQ category chip and move it into the category folder.
               const catColor = (category as { color?: string | null }).color || '#6366f1';
               await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
+              // Also tag the AI-sent reply in the Sent Items folder with
+              // both the category chip and an "IQ: AI Sent" chip. The Graph
+              // /reply endpoint doesn't return the sent message id, so we
+              // look it up by conversationId.
+              const convId = (emailDetails as { conversationId?: string }).conversationId || '';
+              const sentMsgId = await findOutlookSentMessageByConversation(accessToken, convId);
+              if (sentMsgId) {
+                await tagOutlookMessageWithCategoryAndMarker(
+                  accessToken,
+                  sentMsgId,
+                  category.name,
+                  catColor,
+                  'AI Sent',
+                  aiSentLabelColor,
+                );
+              } else {
+                console.warn(`Could not locate sent reply in Sent Items for conversation ${convId}`);
+              }
               void categoryLabelName;
               void aiSentLabelName;
             }
