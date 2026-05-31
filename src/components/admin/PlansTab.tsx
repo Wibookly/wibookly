@@ -974,6 +974,157 @@ function btnStyle(primary: boolean, disabled: boolean): React.CSSProperties {
   };
 }
 
+// ---------- Feature section card (parent toggle gates children) ----------
+
+function FeatureSectionCard({
+  section, parentRow, childRows, parentOn, maxCats, setMaxCats, updateRow, dollarPerTask,
+}: {
+  section: FeatureSection;
+  parentRow: FeatureRow;
+  childRows: FeatureRow[];
+  parentOn: boolean;
+  maxCats: number;
+  setMaxCats: (n: number) => void;
+  updateRow: (key: string, patch: Partial<FeatureRow>) => void;
+  dollarPerTask: (f: string, m: string) => number;
+}) {
+  const renderRow = (r: FeatureRow, opts: { isChild: boolean; gated: boolean }) => {
+    const modelOpts = ALLOWED_MODELS[r.feature_key] || [];
+    const model = r.model_assignment || modelOpts[0] || '';
+    const perTask = dollarPerTask(r.feature_key, model);
+    const cost = perTask * (r.daily_limit || 0);
+    const effectivelyOff = !r.is_enabled || opts.gated;
+    const inputsDisabled = effectivelyOff;
+    return (
+      <div
+        key={r.feature_key}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
+          gap: 5, alignItems: 'center',
+          padding: '6px 0',
+          borderBottom: '0.5px solid var(--border-tertiary)',
+          fontSize: 12.5,
+          paddingLeft: opts.isChild ? 18 : 0,
+        }}
+      >
+        <div style={{ fontWeight: opts.isChild ? 400 : 500, lineHeight: 1.3, opacity: effectivelyOff ? 0.45 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {opts.isChild && <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>↳</span>}
+          {FEATURE_LABELS[r.feature_key] || r.feature_key}
+          {opts.gated && opts.isChild && (
+            <span style={{ fontSize: 9.5, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>(parent off)</span>
+          )}
+        </div>
+        <Toggle
+          checked={r.is_enabled}
+          onChange={(v) => updateRow(r.feature_key, { is_enabled: v })}
+        />
+        <select
+          value={r.limit_term || 'daily'}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { limit_term: e.target.value as 'daily' | 'weekly' })}
+          style={selectStyle}
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        <input
+          type="number" min={0} max={999} value={r.daily_limit || 0}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { daily_limit: Math.max(0, Math.min(999, parseInt(e.target.value) || 0)) })}
+          style={{ ...inputStyle, width: '100%' }}
+        />
+        <select
+          value={model}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { model_assignment: e.target.value })}
+          style={selectStyle}
+        >
+          {modelOpts.map(o => <option key={o} value={o}>{MODEL_LABELS[o] || o}</option>)}
+        </select>
+        <div style={{ textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', opacity: effectivelyOff ? 0.45 : 1 }}>
+          ${perTask.toFixed(4)}
+        </div>
+        <div style={{ textAlign: 'right', fontWeight: 500, fontVariantNumeric: 'tabular-nums', opacity: effectivelyOff ? 0.45 : 1 }}>
+          ${cost.toFixed(2)}
+        </div>
+        <select
+          value={r.rollover || 'none'}
+          disabled={inputsDisabled}
+          onChange={(e) => updateRow(r.feature_key, { rollover: e.target.value as 'none' | 'next_day' })}
+          style={selectStyle}
+        >
+          <option value="none">None</option>
+          <option value="next_day">Next day</option>
+        </select>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      border: '0.5px solid var(--border-tertiary)',
+      borderRadius: 'var(--radius-md)',
+      background: parentOn ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+      padding: '10px 12px',
+    }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <Toggle
+          checked={parentOn}
+          onChange={(v) => updateRow(section.parent, { is_enabled: v })}
+        />
+        <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+          {section.title}
+        </h4>
+        {!parentOn && (
+          <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+            disabled
+          </span>
+        )}
+        {section.meta === 'categories' && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Categories:</span>
+            <input
+              type="number" min={0} max={10} value={maxCats}
+              disabled={!parentOn}
+              onChange={(e) => setMaxCats(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))}
+              style={{ width: 48, height: 24, fontSize: 11.5, padding: '2px 6px', border: '1px solid var(--border-secondary)', borderRadius: 4, background: 'white', color: 'var(--text-primary)' }}
+            />
+            <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>of 10</span>
+          </div>
+        )}
+      </div>
+      {section.description && (
+        <p style={{ margin: '0 0 8px', fontSize: 11.5, color: 'var(--text-secondary)' }}>
+          {section.description}
+        </p>
+      )}
+
+      {/* Column header (only when section is on or has children to configure) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1.2fr) 30px 60px 56px minmax(0,1fr) 48px 56px 70px',
+        gap: 5, padding: '2px 0',
+        borderBottom: '0.5px solid var(--border-secondary)',
+      }}>
+        <ColHeader>Feature</ColHeader>
+        <ColHeader>On</ColHeader>
+        <ColHeader>Term</ColHeader>
+        <ColHeader>Limit</ColHeader>
+        <ColHeader>Model</ColHeader>
+        <ColHeader align="right">$/task</ColHeader>
+        <ColHeader align="right">Cost</ColHeader>
+        <ColHeader>Rollover</ColHeader>
+      </div>
+
+      {renderRow(parentRow, { isChild: false, gated: false })}
+      {childRows.map(c => renderRow(c, { isChild: true, gated: !parentOn }))}
+    </div>
+  );
+}
+
+
 // ---------- User breakdown ----------
 
 function UserBreakdown({ users, planMonthlyCostPerUser }: { users: ActiveUser[]; planMonthlyCostPerUser: number }) {
