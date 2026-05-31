@@ -1924,13 +1924,13 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    let scopedConnectionIds: string[] = [];
+    let scopedConnections: Array<{ id: string; provider: string }> = [];
 
     if (connectionId) {
       const { data: requestedConnection, error: connectionError } =
         await supabaseAdmin
           .from("provider_connections")
-          .select("id")
+          .select("id, provider")
           .eq("id", connectionId)
           .eq("user_id", user.id)
           .eq("organization_id", profile.organization_id)
@@ -1947,12 +1947,12 @@ serve(async (req) => {
         );
       }
 
-      scopedConnectionIds = [requestedConnection.id];
+      scopedConnections = [requestedConnection];
     } else {
       const { data: userConnections, error: connectionsError } =
         await supabaseAdmin
           .from("provider_connections")
-          .select("id")
+          .select("id, provider")
           .eq("user_id", user.id)
           .eq("organization_id", profile.organization_id)
           .eq("is_connected", true);
@@ -1967,8 +1967,10 @@ serve(async (req) => {
         );
       }
 
-      scopedConnectionIds = userConnections.map((connection) => connection.id);
+      scopedConnections = userConnections;
     }
+
+    const scopedConnectionIds = scopedConnections.map((connection) => connection.id);
 
     // Get ALL categories for the selected connection(s)
     const { data: allCategories, error: catError } = await supabaseAdmin
@@ -1999,7 +2001,7 @@ serve(async (req) => {
     const { data: tokenDataList, error: tokenError } = await supabaseAdmin
       .from("oauth_token_vault")
       .select(
-        "provider, encrypted_access_token, encrypted_refresh_token, expires_at",
+        "provider, connection_id, encrypted_access_token, encrypted_refresh_token, expires_at",
       )
       .eq("user_id", user.id);
 
