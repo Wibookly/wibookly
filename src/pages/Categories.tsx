@@ -52,6 +52,7 @@ import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Tags } from 'lucide-react';
 import {
   Table,
@@ -152,7 +153,10 @@ interface SortableRowProps {
   onConfigureTone: (category: Category) => void;
   enableBlocked?: boolean;
   enableBlockedReason?: string;
+  aiDraftLocked?: boolean;
+  autoReplyLocked?: boolean;
 }
+
 
 function formatSyncTime(syncTime: string | null): string {
   if (!syncTime) return 'Never synced';
@@ -169,7 +173,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone, enableBlocked, enableBlockedReason }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone, enableBlocked, enableBlockedReason, aiDraftLocked, autoReplyLocked }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -301,20 +305,22 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block">
+              <span className="inline-block" style={aiDraftLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={category.ai_draft_enabled}
+                  checked={!aiDraftLocked && category.ai_draft_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'ai_draft_enabled', checked);
                     if (checked && !category.ai_draft_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled}
+                  disabled={!category.is_enabled || aiDraftLocked}
                 />
               </span>
             </TooltipTrigger>
-            {!category.is_enabled && (
+            {aiDraftLocked ? (
+              <TooltipContent>AI Draft is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : !category.is_enabled ? (
               <TooltipContent>Turn on <b>Active</b> first to enable AI Draft.</TooltipContent>
-            )}
+            ) : null}
           </Tooltip>
         </TooltipProvider>
       </TableCell>
@@ -322,24 +328,26 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block">
+              <span className="inline-block" style={autoReplyLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={category.auto_reply_enabled}
+                  checked={!autoReplyLocked && category.auto_reply_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'auto_reply_enabled', checked);
                     if (checked && !category.auto_reply_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled || !category.ai_draft_enabled}
+                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked}
                 />
               </span>
             </TooltipTrigger>
-            {(!category.is_enabled || !category.ai_draft_enabled) && (
+            {autoReplyLocked ? (
+              <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
                   ? 'Turn on Active first, then enable AI Draft.'
                   : 'Turn on AI Draft first to enable Auto-Reply.'}
               </TooltipContent>
-            )}
+            ) : null}
           </Tooltip>
         </TooltipProvider>
       </TableCell>
@@ -383,6 +391,9 @@ export default function Categories() {
   const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   const [toneCategory, setToneCategory] = useState<Category | null>(null);
   const { maxCategories } = usePlanLimits();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
+  const aiDraftLocked = !featureLoading && !hasFeature('ai_draft');
+  const autoReplyLocked = !featureLoading && !hasFeature('ai_auto_reply');
   const enabledCount = categories.filter((c) => c.is_enabled).length;
   const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
   
@@ -1188,6 +1199,8 @@ export default function Categories() {
                     onConfigureTone={(c) => setToneCategory(c)}
                     enableBlocked={atCategoryLimit && !category.is_enabled}
                     enableBlockedReason={`Plan limit: ${maxCategories} active categories. Turn one off to enable this one.`}
+                    aiDraftLocked={aiDraftLocked}
+                    autoReplyLocked={autoReplyLocked}
                   />
                 ))}
               </SortableContext>
