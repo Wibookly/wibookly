@@ -2120,9 +2120,9 @@ serve(async (req) => {
         // and would create a brand-new one, leaving a duplicate behind.
         const renames = sortedEnabled
           .filter(
-            (c: any) => c.last_synced_name && c.last_synced_name !== c.name,
+            (c) => c.last_synced_name && c.last_synced_name !== c.name,
           )
-          .map((c: any) => ({
+          .map((c) => ({
             oldName: c.last_synced_name as string,
             newName: c.name as string,
             color: c.color as string,
