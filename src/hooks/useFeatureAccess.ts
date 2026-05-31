@@ -14,6 +14,8 @@ export type FeatureKey =
   | 'ai_model_claude'
   | 'email_agent'
   | 'teams_agent'
+  | 'meeting_copilot'
+  | 'email_intelligence'
   | 'feature.follow_up_reminder';
 
 const ALL_FEATURES: FeatureKey[] = [
@@ -28,6 +30,8 @@ const ALL_FEATURES: FeatureKey[] = [
   'ai_model_claude',
   'email_agent',
   'teams_agent',
+  'meeting_copilot',
+  'email_intelligence',
   'feature.follow_up_reminder',
 ];
 
