@@ -382,6 +382,9 @@ export default function Categories() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [pendingDisableCategory, setPendingDisableCategory] = useState<Category | null>(null);
   const [toneCategory, setToneCategory] = useState<Category | null>(null);
+  const { maxCategories } = usePlanLimits();
+  const enabledCount = categories.filter((c) => c.is_enabled).length;
+  const atCategoryLimit = maxCategories > 0 && enabledCount >= maxCategories;
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
