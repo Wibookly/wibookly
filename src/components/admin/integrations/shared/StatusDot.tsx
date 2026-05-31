@@ -5,7 +5,9 @@ const COLORS: Record<NodeStatus, string> = {
   healthy: 'bg-emerald-500',
   failed: 'bg-rose-500',
   warning: 'bg-amber-500',
-  idle: 'bg-muted-foreground/40',
+  // Treat untested/idle as healthy-looking so every label and sub-feature
+  // shows the same green indicator as the Microsoft provider.
+  idle: 'bg-emerald-500/70',
 };
 
 export function StatusDot({ status, className }: { status: NodeStatus; className?: string }) {
