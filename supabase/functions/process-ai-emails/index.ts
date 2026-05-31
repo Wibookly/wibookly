@@ -3221,13 +3221,12 @@ async function processConnectionEmails(
                 }
               }
             } else {
-              // Outlook: We intentionally do NOT apply numbered category
-              // mirrors ("02: Follow Up") or the "11. AI Sent" helper tag
-              // here. Outlook already shows the colored "IQ: <Category>"
-              // chip via sync-categories/sync-rules, and stacking extra
-              // helper chips on every email creates visual noise. The
-              // sync-categories sweep treats any leftover numbered/AI
-              // tags as managed and strips them on the next run.
+              // Outlook: tag with colored IQ category chip AND move the
+              // original (now-replied) email into the matching colored
+              // category folder so it lives under the right category in
+              // every mail client.
+              const catColor = (category as { color?: string | null }).color || '#6366f1';
+              await applyOutlookCategoryAndMove(accessToken, msg.id, category.name, catColor);
               void categoryLabelName;
               void aiSentLabelName;
             }
