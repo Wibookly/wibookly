@@ -30,7 +30,10 @@ import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import PlansTab from '@/components/admin/PlansTab';
 import AIUsageTab from '@/components/admin/AIUsageTab';
-import { Bot, Clock, MessageSquareWarning, BellRing, Activity } from 'lucide-react';
+import ActivityReportTab from '@/components/admin/ActivityReportTab';
+import RolesTab from '@/components/admin/RolesTab';
+import { Bot, Clock, MessageSquareWarning, BellRing, Activity, BarChart3 } from 'lucide-react';
+
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
