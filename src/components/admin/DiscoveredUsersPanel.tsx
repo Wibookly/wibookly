@@ -26,6 +26,8 @@ interface DiscoveredUser {
   email: string;
   display_name: string | null;
   job_title: string | null;
+  department: string | null;
+  office_location?: string | null;
   profile_photo_url?: string | null;
   is_licensed: boolean;
   account_enabled: boolean;
@@ -297,7 +299,8 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
     return (
       u.email.toLowerCase().includes(s) ||
       (u.display_name || '').toLowerCase().includes(s) ||
-      (u.job_title || '').toLowerCase().includes(s)
+      (u.job_title || '').toLowerCase().includes(s) ||
+      (u.department || '').toLowerCase().includes(s)
     );
   });
 
@@ -361,7 +364,7 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search name, email, or job title..."
+            placeholder="Search name, email, job title, or department..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -407,6 +410,18 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                         {u.email}
                         {u.job_title && <span> · {u.job_title}</span>}
                       </p>
+                      {(u.department || u.office_location) && (
+                        <p className="text-[11px] text-muted-foreground/80 truncate mt-0.5">
+                          {u.department && (
+                            <span className="inline-flex items-center gap-1">
+                              <UsersRound className="w-3 h-3" />
+                              {u.department}
+                            </span>
+                          )}
+                          {u.department && u.office_location && <span className="mx-1.5">·</span>}
+                          {u.office_location && <span>{u.office_location}</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
