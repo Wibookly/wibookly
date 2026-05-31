@@ -505,23 +505,31 @@ export default function PlansTab() {
       <div className="bg-card border border-border rounded-lg p-1.5 flex gap-2 flex-wrap mb-4">
         {visiblePlans.map(p => {
           const isSel = p.id === selectedPlanId;
-          const dotClass = ({
-            Chat: 'bg-ef-navy',
-            Standard: 'bg-ef-blue',
-            'Power User': 'bg-ef-sky',
-            Executive: 'bg-amber-600',
-          } as Record<string, string>)[p.name] || 'bg-ef-blue';
+          const color = planColor(p.name);
           return (
             <button
               key={p.id}
               onClick={() => setSelectedPlanId(p.id)}
-              className={
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm font-medium transition-all"
+              style={
                 isSel
-                  ? 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-foreground font-medium bg-gradient-to-br from-ef-blue/[0.14] to-card border border-ef-blue/30 shadow-sm'
-                  : 'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground transition-all font-medium'
+                  ? {
+                      color: 'var(--foreground)',
+                      background: `linear-gradient(135deg, ${color}22, transparent)`,
+                      border: `1px solid ${color}80`,
+                      boxShadow: `0 1px 2px ${color}30`,
+                    }
+                  : {
+                      color: 'var(--muted-foreground)',
+                      background: 'transparent',
+                      border: '1px solid transparent',
+                    }
               }
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${dotClass} flex-shrink-0`} />
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: color, boxShadow: isSel ? `0 0 0 3px ${color}33` : undefined }}
+              />
               {p.name}
               <span className="font-mono text-[11.5px] text-muted-foreground">
                 {fmtUSD(p.price_per_user_mo, 0)}
