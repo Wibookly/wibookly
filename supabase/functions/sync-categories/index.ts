@@ -13,60 +13,44 @@ const corsHeaders = {
 const IQ_TAG_PREFIX = "IQ: ";
 
 // ──────────────────────────────────────────────────────────────────────
-// Invisible sort-order prefix for Outlook folders.
+// Cross-client sort-order prefix for Outlook folders.
 //
-// Outlook sorts mail folders alphabetically by displayName and offers no
-// API to set a manual order. To force the folders to appear in the same
-// order as the app's category list, we prepend a short string of
-// zero-width Unicode characters whose codepoints sort in the desired
-// order. The prefix is invisible in every Outlook surface (Desktop, Web,
-// Mobile) but participates in the lexicographic sort.
+// Outlook exposes NO manual folder ordering API; every client sorts the
+// folder pane lexicographically by displayName. We previously used hidden
+// zero-width characters to influence that order, but some clients (notably
+// Apple Mail / some Mac surfaces / certain mobile clients) normalize or
+// ignore invisible characters, which makes the order drift.
 //
-// We use a base-N positional encoding (N = ZW_ALPHABET.length) so the
-// scheme scales beyond 10 categories without collisions.
+// To keep the order stable across Outlook Web, Desktop, Mac Mail, and other
+// IMAP/Graph-backed clients, we use a visible fixed-width numeric prefix.
+// This is the only robust cross-client ordering signal because every client
+// preserves and sorts the same visible displayName.
 // ──────────────────────────────────────────────────────────────────────
-const ZW_ALPHABET = [
-  "\u200B", // ZERO WIDTH SPACE
-  "\u200C", // ZERO WIDTH NON-JOINER
-  "\u200D", // ZERO WIDTH JOINER
-  "\u2060", // WORD JOINER
-  "\u2061", // FUNCTION APPLICATION
-  "\u2062", // INVISIBLE TIMES
-  "\u2063", // INVISIBLE SEPARATOR
-  "\u2064", // INVISIBLE PLUS
-  "\u2065", // (reserved, treated as invisible)
-  "\u2066", // LEFT-TO-RIGHT ISOLATE
-];
+const OUTLOOK_ORDER_WIDTH = 2;
 // Char-class matching every zero-width / invisible codepoint we may have
 // ever placed at the start of a managed folder/label name. Used to strip
 // the prefix when normalising names for dedup / lookup.
 const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
 
-// Build a stable invisible prefix string for the given 1-based sort
-// position. Always pads to 2 invisible chars so positions sort correctly
-// regardless of how many categories exist.
-function invisibleSortPrefix(position: number): string {
+// Build a stable visible prefix string for the given 1-based sort position.
+// Fixed-width padding keeps lexicographic sort aligned with numeric sort.
+function visibleSortPrefix(position: number): string {
   const n = Math.max(1, Math.floor(position || 1));
-  const base = ZW_ALPHABET.length;
-  // Convert to base-N digits (most-significant first), pad to width 2.
-  const digits: number[] = [];
-  let v = n - 1; // 0-indexed
-  if (v === 0) {
-    digits.push(0);
-  } else {
-    while (v > 0) {
-      digits.unshift(v % base);
-      v = Math.floor(v / base);
-    }
-  }
-  while (digits.length < 2) digits.unshift(0);
-  return digits.map((d) => ZW_ALPHABET[d]).join("");
+  return `${String(n).padStart(OUTLOOK_ORDER_WIDTH, "0")}. `;
 }
 
 // Strip any leading zero-width / invisible chars from an Outlook folder
 // or category displayName so we can match against the clean app name.
 function stripInvisiblePrefix(name: string): string {
   return String(name || "").replace(ZW_PREFIX_RE, "");
+}
+
+function buildOutlookFolderDisplayName(
+  name: string,
+  color: string,
+  position: number,
+): string {
+  return `${visibleSortPrefix(position)}${nearestColorDot(color)} ${name}`;
 }
 
 // Returns true if the given Outlook category name was created/managed by
@@ -135,12 +119,25 @@ function nearestColorDot(hex: string): string {
 }
 
 function normalizeManagedCategoryName(value: string): string {
-  return String(value || "")
-    .replace(ZW_PREFIX_RE, "") // strip invisible sort-order prefix
-    .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
-    .replace(/^\s*\d+\s*[:.\-]\s*/u, "")
-    .trim()
-    .toLowerCase();
+  let normalized = String(value || "").replace(ZW_PREFIX_RE, "").trim();
+
+  // Strip all leading ordering / decoration tokens regardless of whether the
+  // name starts with the emoji or the numeric prefix:
+  // - "🔴 Urgent"
+  // - "01. Urgent"
+  // - "01. 🔴 Urgent"
+  // - "⭐ 01: Urgent"
+  let changed = true;
+  while (changed) {
+    const next = normalized
+      .replace(/^\s*(?:[⭐★]|\p{Extended_Pictographic})\s*/u, "")
+      .replace(/^\s*\d+\s*[:.-]\s*/u, "")
+      .trim();
+    changed = next !== normalized;
+    normalized = next;
+  }
+
+  return normalized.toLowerCase();
 }
 
 // AES-GCM decryption for tokens (server-side only)
@@ -272,6 +269,8 @@ interface TokenData {
   expires_at: string | null;
 }
 
+type SupabaseAdminClient = ReturnType<typeof createClient>;
+
 function normalizeMailboxProvider(provider: string | null | undefined): string {
   const normalized = String(provider || "").trim().toLowerCase();
   return normalized === "microsoft" ? "outlook" : normalized;
@@ -306,11 +305,10 @@ function pickTokenForConnection(
 }
 
 // Get valid access token, refreshing if expired
-// deno-lint-ignore no-explicit-any
 async function getValidAccessToken(
   tokenData: TokenData,
   encryptionKey: string,
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   userId: string,
 ): Promise<string | null> {
   const isExpired =
@@ -877,7 +875,7 @@ async function deleteOutlookFolder(
     // Strip optional leading favorite glyph (⭐ or ★) plus the numeric prefix
     // so dedup matches across legacy "01: Name" and current "⭐ 01: Name".
     const hasNumericPrefix = (s: string) =>
-      /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(s);
+      /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(s);
     // Detect a leading emoji/colored-dot prefix (current label format "🟠 Name").
     const hasEmojiPrefix = (s: string) =>
       /^\s*(?:[⭐★]|\p{Extended_Pictographic})\s+/u.test(s);
@@ -1577,12 +1575,17 @@ async function enforceOutlookManagedFolderOrder(
 
   const desired = categories.map((category, idx) => ({
     ...category,
-    folderName: `${invisibleSortPrefix(idx + 1)}${nearestColorDot(category.color)} ${category.name}`,
+    folderName: buildOutlookFolderDisplayName(
+      category.name,
+      category.color,
+      idx + 1,
+    ),
     coreName: normalizeManagedCategoryName(category.name),
   }));
 
   // Outlook already sorts folders alphabetically by displayName, so the
-  // invisible prefix on each managed folder is the true source of order.
+  // fixed-width numeric prefix on each managed folder is the true source of
+  // order across all clients.
   // Rebuilding folders through temporary "InboxIQ reorder ..." folders made
   // the sync path fragile and could leave visible leftovers if Outlook or
   // Graph lagged. Instead, we now do a non-destructive stabilization pass:
@@ -1770,9 +1773,9 @@ async function renameRenamedOutlookFolders(
     );
     if (!oldMatch) continue;
 
-    // Rename to the visible portion ("🟣 Project One"); the ordering pre-pass
-    // will add the invisible sort prefix on the next call. We use the visible
-    // name here so any ordering changes also get applied a moment later.
+    // Rename to the visible portion ("🟣 Project One"); the ordering pass
+    // will add the final numeric prefix on the same sync. We use the visible
+    // name here so rename detection still works even if the order changes.
     const dot = nearestColorDot(color);
     const renamedDisplay = `${dot} ${newName}`;
     const patchRes = await fetch(
@@ -2088,10 +2091,10 @@ serve(async (req) => {
         let deleted = 0;
         let failed = 0;
 
-        // Create labels/folders for enabled categories using the plain visible
-        // name plus the color dot. Number prefixes are legacy and must not be
-        // recreated because the user wants the mailbox folders shown without
-        // leading order numbers.
+        // Create labels/folders for enabled categories.
+        // Gmail uses the plain visible name plus the color dot.
+        // Outlook uses a fixed-width numeric prefix plus the color dot so the
+        // folder order stays identical across all mail clients.
         const sortedEnabled = [...enabledCategories].sort(
           (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
         );
@@ -2118,9 +2121,9 @@ serve(async (req) => {
         // and would create a brand-new one, leaving a duplicate behind.
         const renames = sortedEnabled
           .filter(
-            (c: any) => c.last_synced_name && c.last_synced_name !== c.name,
+            (c) => c.last_synced_name && c.last_synced_name !== c.name,
           )
-          .map((c: any) => ({
+          .map((c) => ({
             oldName: c.last_synced_name as string,
             newName: c.name as string,
             color: c.color as string,
@@ -2137,12 +2140,15 @@ serve(async (req) => {
           const category = sortedEnabled[idx];
           const dot = nearestColorDot(category.color);
           // Gmail: clean visible name only — Gmail does not auto-sort labels.
-          // Outlook: prepend an INVISIBLE zero-width prefix so the folder
-          // pane sorts in the same order as the app. The prefix is
-          // imperceptible in Outlook Desktop, Web (OWA), and Mobile.
+          // Outlook: prepend a fixed-width numeric prefix so every client
+          // (Outlook Web/Desktop/Mobile, Apple Mail, etc.) sorts folders in
+          // the same stable order as the app.
           const visibleName = `${dot} ${category.name}`;
-          const outlookSortPrefix = invisibleSortPrefix(idx + 1);
-          const outlookFolderName = `${outlookSortPrefix}${visibleName}`;
+          const outlookFolderName = buildOutlookFolderDisplayName(
+            category.name,
+            category.color,
+            idx + 1,
+          );
           let success = false;
 
           if (normalizedProvider === "google") {
@@ -2313,13 +2319,21 @@ serve(async (req) => {
           }
         }
 
-        // FINAL SWEEP — numbered legacy duplicates.
-        // Canonical folder names no longer include any numeric prefix, so any
-        // managed folder whose name starts with digits is stale and should be removed.
-        // Protects: the dedicated "Follow-up" folder (no numeric prefix) and well-known
-        // mailbox folders (Inbox, Drafts, etc. — they don't start with a digit anyway).
+        // FINAL SWEEP — remove stale ordered Outlook folders that are NOT one
+        // of this sync's desired canonical names. This cleans up leftovers from
+        // previous naming schemes without deleting the current cross-client
+        // ordered folders we just stabilized above.
         if (isOutlookProvider) {
           try {
+            const desiredFolderNames = new Set(
+              sortedEnabled.map((category, idx) =>
+                buildOutlookFolderDisplayName(
+                  category.name,
+                  category.color,
+                  idx + 1,
+                ),
+              ),
+            );
             const listRes = await fetch(
               "https://graph.microsoft.com/v1.0/me/mailFolders?$top=200&$select=id,displayName",
               { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -2328,9 +2342,9 @@ serve(async (req) => {
               const { value: folders } = await listRes.json();
               const legacy = (folders ?? []).filter(
                 (f: { displayName: string }) =>
-                  /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                  /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(
                     f.displayName,
-                  ),
+                  ) && !desiredFolderNames.has(f.displayName),
               );
               for (const f of legacy as Array<{
                 id: string;
@@ -2373,7 +2387,7 @@ serve(async (req) => {
             if (listRes.ok) {
               const { labels } = await listRes.json();
               const legacy = (labels ?? []).filter((l: { name: string }) =>
-                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.\-]/u.test(
+                /^\s*(?:[⭐★]|\p{Extended_Pictographic})?\s*\d+\s*[:.-]/u.test(
                   l.name,
                 ),
               );
