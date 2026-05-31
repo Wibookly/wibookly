@@ -682,9 +682,18 @@ export default function AdminDashboard() {
           <PlansTab />
         </TabsContent>
 
+        <TabsContent value="activity" className="space-y-6">
+          <ActivityReportTab />
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-6">
+          <RolesTab />
+        </TabsContent>
+
         <TabsContent value="ai-usage" className="space-y-6">
           <AIUsageTab organizationId={profile?.organization_id ?? null} />
         </TabsContent>
+
 
         {/* SETTINGS TAB — contains nested sections */}
         <TabsContent value="settings" className="space-y-6">
