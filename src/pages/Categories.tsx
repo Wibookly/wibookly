@@ -1111,6 +1111,25 @@ export default function Categories() {
           icon={<Tags className="w-5 h-5 text-white" strokeWidth={2} />}
           actions={
             <>
+              {maxCategories > 0 && (
+                <div
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    atCategoryLimit
+                      ? 'border-amber-300/60 bg-amber-400/20 text-amber-50'
+                      : 'border-white/25 bg-white/10 text-white'
+                  }`}
+                  title={
+                    atCategoryLimit
+                      ? `Plan limit reached: ${maxCategories} active categories. Turn one off to enable another.`
+                      : `Your plan allows ${maxCategories} active categories.`
+                  }
+                >
+                  <Tags className="w-3.5 h-3.5" />
+                  <span>
+                    Active: <strong>{enabledCount}</strong> of {maxCategories}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-sm text-white/90">
                 {saving ? (
                   <>
@@ -1124,6 +1143,7 @@ export default function Categories() {
                   </>
                 ) : null}
               </div>
+
               <Button
                 variant="secondary"
                 onClick={resyncAll}
