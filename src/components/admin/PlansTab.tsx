@@ -270,6 +270,7 @@ function formatShortName(fullName: string | null | undefined, email: string): st
 
 export default function PlansTab() {
   const { profile, organization } = useAuth();
+  const rootStyle = useRootStyle();
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<FeatureRow[]>([]);
