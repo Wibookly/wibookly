@@ -300,6 +300,8 @@ serve(async (req) => {
       email: (u.mail || u.userPrincipalName || '').toLowerCase(),
       display_name: u.displayName,
       job_title: u.jobTitle,
+      department: u.department,
+      office_location: u.officeLocation,
       profile_photo_url: photoByMsId.get(u.id) ?? null,
       is_licensed: true,
       account_enabled: u.accountEnabled,
@@ -323,21 +325,39 @@ serve(async (req) => {
         }
       }
 
-      // Propagate the freshly-fetched photo + display_name + job_title onto any
-      // user_profiles that already exist for these discovered accounts, so the
-      // app sidebar avatar and email signature pick up the M365 photo on next
-      // login without requiring the user to manually upload one.
+      // Propagate the freshly-fetched photo + display_name + job_title + department
+      // onto any user_profiles that already exist for these discovered accounts,
+      // so the app sidebar avatar, email signature, and admin reports pick up
+      // the M365 data on next login without manual setup.
+      // M365 is treated as the source of truth for department: we overwrite
+      // existing values only when they were sourced from m365 (or unset),
+      // so manual admin edits are preserved.
       for (const r of rows) {
+        // Always update photo/name/job title (cosmetic).
         await adminClient
           .from('user_profiles')
           .update({
             profile_photo_url: r.profile_photo_url,
             full_name: r.display_name ?? undefined,
             title: r.job_title ?? undefined,
+            job_title_m365: r.job_title ?? undefined,
           })
           .eq('email', r.email);
+
+        // Only sync department if not manually overridden.
+        if (r.department) {
+          await adminClient
+            .from('user_profiles')
+            .update({
+              department: r.department,
+              department_source: 'm365',
+            })
+            .eq('email', r.email)
+            .or('department_source.is.null,department_source.eq.m365');
+        }
       }
     }
+
 
     await adminClient
       .from('allowed_domains')
