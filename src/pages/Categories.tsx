@@ -473,6 +473,7 @@ export default function Categories() {
   );
 
   useEffect(() => {
+    clampedRef.current = false;
     if (!organization?.id || !activeConnection?.id) {
       if (!emailLoading) setLoading(false);
       return;
