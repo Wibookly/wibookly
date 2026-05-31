@@ -137,12 +137,19 @@ const MODEL_LABELS: Record<string, string> = {
   'llama-3.3-70b': 'Llama 3.3-70B',
 };
 
-const PLAN_DOTS: Record<string, string> = {
-  Chat: 'var(--text-secondary)',
-  Standard: 'var(--text-info)',
-  'Power User': 'var(--text-success)',
-  Executive: 'var(--text-warning)',
+// Each plan gets a distinct color used for the top pill dot, the selected
+// pill tint, and the accent stripe on the plan card below.
+const PLAN_COLORS: Record<string, string> = {
+  Chat: '#64748b',         // slate
+  Standard: '#3b82f6',     // blue
+  'Power User': '#10b981', // emerald
+  Executive: '#f59e0b',    // amber
 };
+const DEFAULT_PLAN_COLOR = '#6366f1'; // indigo fallback for custom plans
+function planColor(name: string): string {
+  return PLAN_COLORS[name] || DEFAULT_PLAN_COLOR;
+}
+const PLAN_DOTS: Record<string, string> = PLAN_COLORS;
 
 interface Plan {
   id: string;
