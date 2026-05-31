@@ -1570,7 +1570,8 @@ async function enforceOutlookManagedFolderOrder(
   }));
 
   // Outlook already sorts folders alphabetically by displayName, so the
-  // invisible prefix on each managed folder is the true source of order.
+  // fixed-width numeric prefix on each managed folder is the true source of
+  // order across all clients.
   // Rebuilding folders through temporary "InboxIQ reorder ..." folders made
   // the sync path fragile and could leave visible leftovers if Outlook or
   // Graph lagged. Instead, we now do a non-destructive stabilization pass:
