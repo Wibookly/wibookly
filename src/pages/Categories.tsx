@@ -169,7 +169,7 @@ function formatSyncTime(syncTime: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone }: SortableRowProps) {
+function SortableRow({ category, index, updateCategory, requestDisable, onConfigureTone, enableBlocked, enableBlockedReason }: SortableRowProps) {
   const {
     attributes,
     listeners,
