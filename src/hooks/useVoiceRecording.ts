@@ -178,5 +178,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
     isTranscribing,
     startRecording,
     stopRecording,
+    cancelRecording,
+    getAnalyser,
   };
 }
