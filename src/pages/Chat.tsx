@@ -133,23 +133,28 @@ function detectIntents(raw: string): { web: boolean; deep: boolean; loc: boolean
   const t = (raw || '').toLowerCase();
   if (!t.trim()) return { web: false, deep: false, loc: false };
 
-  const webKeywords = [
-    'latest', 'today', 'tonight', 'tomorrow', 'this week', 'this month', 'right now', 'currently',
-    'news', 'headline', 'breaking', 'price of', 'prices', 'cost of', 'how much is', 'stock', 'ticker',
-    'score', 'weather', 'forecast', 'release', 'released', 'announce', 'announced', 'update on',
-    'recent', 'trending', 'search the web', 'google', 'look up online', 'on the internet', 'who won',
-    // travel / booking / shopping
-    'flight', 'flights', 'airfare', 'airline', 'plane ticket', 'plane tickets', 'ticket', 'tickets',
-    'cheapest', 'best deal', 'deals on', 'hotel', 'hotels', 'airbnb', 'rental car', 'train ticket',
-    'lax', 'jfk', 'sfo', 'ord', 'dfw', 'lhr', 'cdg', 'fco', // airport codes
-    'from ', ' to ', 'round trip', 'one way', 'one-way',
-    'restaurant', 'menu', 'open now', 'hours of', 'showtimes', 'concert',
-    // public info
-    'who is', 'what is the', 'when is', 'where is', 'population of', 'capital of',
-    'exchange rate', 'currency', 'usd to', 'eur to',
+  // Web search is ON BY DEFAULT for any non-trivial message, and only suppressed
+  // when the request is clearly about the user's own mailbox, files, calendar,
+  // or internal app actions. The orchestrator's system prompt already prefers
+  // model knowledge first and only invokes a search tool when freshness or
+  // unknown facts demand it — so leaving this on costs nothing when not needed.
+  const personalScopeKeywords = [
+    'my inbox', 'my email', 'my emails', 'my mail', 'my mailbox',
+    'unread', 'reply to', 'draft a reply', 'forward to', 'archive ',
+    'my calendar', 'my meeting', 'my meetings', 'my schedule', 'my agenda',
+    'my onedrive', 'my drive', 'my files', 'my documents', 'my folder',
+    'my contacts', 'my notes', 'in my account', 'in my workspace',
+    'from john', 'from sarah', // proper-noun mentions usually map to inbox lookups
+    'summarize the email', 'summarise the email', 'this email', 'that email',
+    'mark as read', 'mark as unread', 'move to folder',
   ];
   const hasUrl = /\bhttps?:\/\/\S+/i.test(raw) || /\bwww\.\S+\.\S+/i.test(raw);
-  const web = hasUrl || webKeywords.some((k) => t.includes(k));
+  const isTrivial = t.length < 4 || /^(hi|hey|hello|thanks|thank you|ok|okay|cool|great|nice|lol|yes|no|yep|nope|sure|got it)[!.?\s]*$/i.test(t.trim());
+  const isPurelyPersonal = personalScopeKeywords.some((k) => t.includes(k))
+    && !/\b(latest|today|news|price|stock|weather|flight|hotel|search|google|wikipedia|web)\b/.test(t);
+  const web = hasUrl || (!isTrivial && !isPurelyPersonal);
+
+
 
 
   const deepKeywords = [
