@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AgentAvatar } from './AgentAvatar';
+import { Sparkles } from 'lucide-react';
 
 const PHASES = [
   'Reading your inbox',
@@ -9,8 +9,9 @@ const PHASES = [
 ];
 
 /**
- * AI thinking indicator. Shows the animated agent avatar (looping video)
- * alongside a rotating status message — used while the AI is generating.
+ * Compact text-only AI thinking indicator (Claude-style).
+ * Shows a small animated sparkle plus a shimmering rotating status line.
+ * No avatar image — keeps the chat surface light while streaming starts.
  */
 export function AIThinking({ label }: { label?: string }) {
   const [phase, setPhase] = useState(0);
@@ -22,21 +23,19 @@ export function AIThinking({ label }: { label?: string }) {
   }, [label]);
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border border-primary/20 shadow-sm">
-      <AgentAvatar active className="w-10 h-10 shrink-0" />
-      <div className="flex flex-col min-w-0">
-        <span className="text-sm font-medium text-foreground">
-          {label ?? PHASES[phase]}
-          <span className="ai-think-dots ml-0.5">
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
+    <div className="inline-flex items-center gap-2 py-1">
+      <Sparkles
+        className="h-3.5 w-3.5 text-primary animate-pulse"
+        aria-hidden="true"
+      />
+      <span className="ai-think-shimmer text-sm font-medium">
+        {label ?? PHASES[phase]}
+        <span className="ai-think-dots ml-0.5">
+          <span>.</span>
+          <span>.</span>
+          <span>.</span>
         </span>
-        <span className="text-[11px] text-muted-foreground tracking-wide uppercase">
-          AI is thinking
-        </span>
-      </div>
+      </span>
     </div>
   );
 }
