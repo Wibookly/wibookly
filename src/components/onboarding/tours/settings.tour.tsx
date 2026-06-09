@@ -3,45 +3,52 @@ import type { Step } from 'react-joyride';
 export const settingsTour: Step[] = [
   {
     target: 'body',
-    title: 'Profile & Signature',
+    title: 'Profile & Signature — your identity in InboxIQ',
     content:
-      'This is where your identity lives. Your name, title, photo, and signature are used by AI drafts, daily briefs, and meeting notes — so everything sounds like you.',
+      "Everything on this page powers how InboxIQ sounds and looks as you: AI email drafts, the Daily Brief, meeting notes, and follow-up reminders all pull from these fields. Take a minute here and every AI output gets noticeably more 'you'.",
     placement: 'center',
-    skipBeacon: true,
+    disableBeacon: true,
   },
   {
     target: 'body',
     title: 'Profile photo',
     content:
-      'Upload a headshot. It appears in your AI-generated email signatures and across InboxIQ. Photo takes priority over company logo in signatures.',
+      "Upload a square headshot (PNG/JPG, ideally 256×256+). It is shown in your AI-generated email signatures and across InboxIQ. If both a photo and a company logo exist, the photo wins for Personal accounts and the logo wins for Business accounts.",
     placement: 'center',
   },
   {
     target: 'body',
     title: 'Name, title, company',
     content:
-      'Fill in your full name, job title, and company. AI drafts will sign with these. For Business mode the title field is required so signatures stay professional.',
+      "Full name and email are required. For Business mode, Job Title is also required so signatures stay professional (e.g. 'Ali Rahimi — Director of Engineering, Energy Forward'). InboxIQ uses these in AI drafts: closing lines, introductions, and meeting notes.",
     placement: 'center',
   },
   {
     target: 'body',
     title: 'Email signature',
     content:
-      'Your stylized HTML signature is added to every AI-generated draft. Edit the text, colors, and links once — InboxIQ reuses it everywhere.',
+      "Your stylized HTML signature is appended to every AI-generated draft and reply. Edit text, colors, and links once here. The live preview shows how it will look in Outlook/Gmail. Personal mode = casual signature; Business mode = full corporate block with title, company, logo.",
     placement: 'center',
   },
   {
     target: 'body',
-    title: 'Personal vs Business',
+    title: 'Personal vs Business mode',
     content:
-      'Personal accounts get a casual signature. Business accounts get a full corporate signature with title, company, and logo. Switch the mode to see the preview.',
+      "Switch the toggle to flip between the two layouts. Personal is friendlier and shorter — good for personal Gmail. Business is fuller — good for client-facing work. Each connected mailbox can have its own mode (e.g. Personal for Gmail, Business for Microsoft 365).",
     placement: 'center',
   },
   {
     target: 'body',
     title: 'Save & sync',
     content:
-      'Changes save instantly and apply to all future drafts, briefs, and replies. Hit "Guide me through this page" anytime to replay this tour.',
+      "Changes save instantly to your profile and apply to all future AI drafts, daily briefs, and reply suggestions. There is no separate publish step.",
+    placement: 'center',
+  },
+  {
+    target: 'body',
+    title: "You're set 🎉",
+    content:
+      "Click 'Guide me through this page' anytime in the top bar to replay this tour.",
     placement: 'center',
   },
 ];
