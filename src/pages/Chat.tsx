@@ -990,13 +990,13 @@ export default function Chat() {
       <div
         key={c.id}
         className={cn(
-          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-colors hover:bg-muted/40',
+          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary hover:pl-3',
           opts.indent && 'ml-5',
           activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-l-emerald-500 pl-2'
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        <span className="flex-1 truncate">{titleText}</span>
+        <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
