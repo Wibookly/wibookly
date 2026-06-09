@@ -264,7 +264,9 @@ export function AppSidebar() {
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
                   <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
-                <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
+                {(isSuperAdmin || hasFeature('meeting_copilot')) && (
+                  <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
+                )}
               </NavSection>
 
               {/* AI Activity (formerly Reports) */}
