@@ -115,7 +115,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
             // This prevents killing the mic while the user is still thinking
             // (which made it look like the mic "doesn't work").
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              toast.info('Voice captured — converting it to text…');
+              toast.info('Voice captured — converting it to text…', { position: 'top-center', duration: 2500 });
               stopRecording();
               return;
             }
