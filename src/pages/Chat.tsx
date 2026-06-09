@@ -1328,17 +1328,34 @@ export default function Chat() {
                 </TooltipTrigger>
                 <TooltipContent>{deepMode ? 'Deep mode is on' : 'Use deeper multi-step reasoning'}</TooltipContent>
               </Tooltip>
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
-                disabled={isStreaming || limitReached}
-                rows={1}
-                className="flex-1 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
-                data-tour="chat-input"
-              />
+              <div className="relative flex-1 min-w-0">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
+                  disabled={isStreaming || limitReached}
+                  rows={1}
+                  className={cn(
+                    'w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2',
+                    isRecording && 'invisible',
+                  )}
+                  data-tour="chat-input"
+                />
+                {isRecording && (
+                  <div className="absolute inset-0 flex items-center gap-3 px-1">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-destructive/70 animate-ping" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                    </span>
+                    <VoiceWaveform getAnalyser={getAnalyser} active={isRecording} className="h-8 flex-1" />
+                    <span className="text-xs font-medium text-muted-foreground shrink-0 tabular-nums">
+                      Listening…
+                    </span>
+                  </div>
+                )}
+              </div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
