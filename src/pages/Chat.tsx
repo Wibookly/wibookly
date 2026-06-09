@@ -270,7 +270,7 @@ export default function Chat() {
     } catch { /* ignore */ }
   }, [refreshMicDevices]);
 
-  const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceRecording({
+  const { isRecording, isTranscribing, startRecording, stopRecording, cancelRecording, getAnalyser } = useVoiceRecording({
     onTranscription: (text) => {
       setInput((prev) => (prev ? `${prev} ${text}` : text).trim());
       // Refocus textarea so the user can immediately send / edit.
