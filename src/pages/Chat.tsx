@@ -1151,7 +1151,7 @@ export default function Chat() {
                           className="h-6 text-sm px-1 py-0 flex-1"
                         />
                       ) : (
-                        <span className="flex-1 truncate font-medium">{f.name}</span>
+                        <span className="flex-1 truncate font-medium group-hover:font-semibold transition-all">{f.name}</span>
                       )}
                       <span className="text-[10px] text-muted-foreground">{items.length}</span>
                       <DropdownMenu>
