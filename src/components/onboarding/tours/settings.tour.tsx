@@ -7,7 +7,7 @@ export const settingsTour: Step[] = [
     content:
       "Everything on this page powers how InboxIQ sounds and looks as you: AI email drafts, the Daily Brief, meeting notes, and follow-up reminders all pull from these fields. Take a minute here and every AI output gets noticeably more 'you'.",
     placement: 'center',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: 'body',

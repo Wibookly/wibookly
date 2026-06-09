@@ -7,7 +7,7 @@ export const aiChatTour: Step[] = [
     content:
       "Your AI workspace. Ask questions, search the web, draft documents (Word/PDF/Excel/PowerPoint), analyze your inbox, schedule meetings — all from one conversation. Chats live in the left sidebar and can be organized into folders.",
     placement: 'center',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="chat-new"]',

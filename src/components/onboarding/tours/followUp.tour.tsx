@@ -12,7 +12,7 @@ export const followUpTour: Step[] = [
     content:
       "InboxIQ watches outgoing emails you choose to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox, no extra inbox, and nothing is sent without your review.",
     placement: 'center',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '[data-tour="followup-toggle"]',

@@ -7,7 +7,7 @@ export const dailyBriefTour: Step[] = [
     content:
       "Overnight, InboxIQ reads your inbox, calendar, and follow-ups and writes a single concise briefing so you start the day knowing what matters. No more scrolling 200 unread emails before coffee.",
     placement: 'center',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: 'body',
