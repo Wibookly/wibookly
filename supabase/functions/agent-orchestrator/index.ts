@@ -199,6 +199,7 @@ Answer shape:
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
+- When the user asks you to create/write/draft/generate a document, policy, report, memo, plan, contract, letter, or brief, you MUST call the generate_document tool (don't just promise it). After the tool returns, share the OneDrive links (webUrl) in your reply so the user can open the file. Default format is "both" (DOCX + PDF).
 - Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
