@@ -981,8 +981,8 @@ export default function Chat() {
   const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
 
   const renderConvRow = (c: Conversation, opts: { indent?: boolean } = {}) => {
-    const days = daysUntilExpiry(c.created_at);
-    const expiring = days <= EXPIRY_WARN_DAYS;
+    // Base expiry on last activity (updated_at). Actively-used chats never expire.
+    const days = daysUntilExpiry(c.updated_at || c.created_at);
     const titleText = c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
       ? c.title
       : 'New chat';
@@ -990,21 +990,13 @@ export default function Chat() {
       <div
         key={c.id}
         className={cn(
-          'group flex items-center gap-2 px-2.5 py-2.5 my-0.5 rounded-md text-sm cursor-pointer transition-colors hover:bg-muted/60',
+          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-colors hover:bg-muted/40',
           opts.indent && 'ml-5',
-          activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-emerald-500 pl-2'
+          activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-l-emerald-500 pl-2'
         )}
         onClick={() => handleSelectConv(c.id)}
       >
         <span className="flex-1 truncate">{titleText}</span>
-        {expiring && (
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
-            title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
-          >
-            {days}d
-          </span>
-        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
