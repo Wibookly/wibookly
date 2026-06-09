@@ -755,6 +755,36 @@ export default function Chat() {
       // actually read file contents instead of just naming them.
       const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
+      // Auto-detect intents from the user's message and turn the matching
+      // capabilities ON just for this request, then OFF when the stream
+      // finishes (handled in the `finally` block). Manual toggles still
+      // override (OR'd in), so user-set state is never weakened.
+      const detected = autoMode ? detectIntents(text) : { web: false, deep: false, loc: false };
+      const effWeb = (canWebSearch && webSearch) || (canWebSearch && detected.web);
+      const effDeep = deepMode || detected.deep;
+      const effLoc = locationEnabled || detected.loc;
+      let effLocation = (locationEnabled && userLocation) ? userLocation : undefined;
+      if (!effLocation && detected.loc) {
+        // Just-in-time one-shot lookup so location flows through for this turn
+        // without permanently flipping the location toggle on.
+        const loc = await captureOneShotLocation();
+        if (loc) effLocation = loc;
+      }
+      const usedAuto = {
+        web: !webSearch && detected.web && canWebSearch,
+        deep: !deepMode && detected.deep,
+        loc: !locationEnabled && detected.loc,
+      };
+      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc)) {
+        const parts = [
+          usedAuto.web ? '🌐 Web' : null,
+          usedAuto.deep ? '🧠 Deep' : null,
+          usedAuto.loc ? '📍 Location' : null,
+        ].filter(Boolean).join(' · ');
+        toast.success(`Auto-enabled: ${parts}`, { duration: 2200, position: 'top-center' });
+        setAutoBadges(usedAuto);
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -770,9 +800,9 @@ export default function Chat() {
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
-          web_search: webSearch,
-          user_location: (locationEnabled && userLocation) ? userLocation : undefined,
-          deep: deepMode,
+          web_search: effWeb,
+          user_location: effLoc ? effLocation : undefined,
+          deep: effDeep,
         }),
       });
 
