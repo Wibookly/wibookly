@@ -1340,6 +1340,14 @@ export default function Chat() {
                 ))}
               </div>
             )}
+            {autoMode && (autoBadges.web || autoBadges.deep || autoBadges.loc) && (
+              <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-xs font-medium text-primary animate-pulse w-fit">
+                <span className="opacity-70">Auto-enabled:</span>
+                {autoBadges.web && <span>🌐 Web</span>}
+                {autoBadges.deep && <span>🧠 Deep</span>}
+                {autoBadges.loc && <span>📍 Location</span>}
+              </div>
+            )}
             <div className="relative flex items-end gap-2 border-2 border-[var(--border-strong)] hover:border-primary focus-within:border-primary rounded-2xl p-2 bg-[var(--surface-2)] focus-within:ring-2 focus-within:ring-ring transition-colors shadow-sm">
               <input
                 ref={fileInputRef}

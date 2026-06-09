@@ -154,15 +154,69 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_document",
-      description: "Generate a Word (.docx) and/or PDF document from markdown content and save it to the user's OneDrive under 'InboxIQ Chat'. Use this whenever the user asks you to create, write, draft, or generate a document — policy, report, memo, contract, letter, plan, brief, or any file they can download. The tool uploads the file(s) and returns OneDrive web links (webUrl). NEVER promise a document without calling this tool — call it, then share the returned links in your reply.",
+      description: "Generate a branded Word (.docx) and/or PDF document from markdown and save it to the user's OneDrive › InboxIQ Chat › Generated Documents. Uses the standard 'Executive Navy' template (Calibri headings, Georgia body, navy accents, page numbers). Use for policies, reports, memos, contracts, letters, plans, briefs, SOPs, proposals — anything prose-based. Returns OneDrive webUrls for the docx and pdf. NEVER promise a document without calling this tool.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Filename/title (no extension). Used as document heading too." },
-          content: { type: "string", description: "Full document body in markdown. Use #/##/### for headings, - for bullets, blank lines for paragraphs." },
+          title: { type: "string", description: "Filename/title (no extension). Also rendered as the cover heading." },
+          content: { type: "string", description: "Full document body in markdown. Use #/##/### for headings, - for bullets, 1. for numbered lists, **bold**, *italic*, blank lines for paragraphs." },
           format: { type: "string", enum: ["docx", "pdf", "both"], description: "Default 'both'." },
         },
         required: ["title", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_spreadsheet",
+      description: "Generate a branded Excel (.xlsx) workbook and save to OneDrive › InboxIQ Chat › Generated Documents. Use for budgets, plans, trackers, comparison tables, schedules, line-item breakdowns — anything tabular. Header row uses navy fill + white Calibri bold; alternating row shading; auto column widths; frozen header. Returns OneDrive webUrl.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Filename (no extension)." },
+          sheets: {
+            type: "array",
+            description: "One or more sheets. Each has columns + rows.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                columns: { type: "array", items: { type: "string" } },
+                rows: { type: "array", items: { type: "array", items: {} } },
+              },
+              required: ["columns", "rows"],
+            },
+          },
+        },
+        required: ["title", "sheets"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_presentation",
+      description: "Generate a branded PowerPoint (.pptx) deck and save to OneDrive › InboxIQ Chat › Generated Documents. Use for decks, pitches, briefings, training slides, status updates. Cover slide on navy background; content slides with navy title bar + Calibri 20pt bullets. Returns OneDrive webUrl.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          subtitle: { type: "string" },
+          slides: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                bullets: { type: "array", items: { type: "string" } },
+                body: { type: "string" },
+              },
+              required: ["title"],
+            },
+          },
+        },
+        required: ["title", "slides"],
       },
     },
   },
@@ -199,7 +253,17 @@ Answer shape:
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
-- When the user asks you to create/write/draft/generate a document, policy, report, memo, plan, contract, letter, or brief, you MUST call the generate_document tool (don't just promise it). After the tool returns, share the OneDrive links (webUrl) in your reply so the user can open the file. Default format is "both" (DOCX + PDF).
+- Document generation — pick the right tool by artifact type:
+  * Prose (policy / report / memo / contract / letter / plan / brief / SOP / proposal) → generate_document (format = "both").
+  * Tables / data / budgets / trackers / line items / comparisons → generate_spreadsheet.
+  * Decks / pitches / briefings / training slides → generate_presentation.
+  You MUST call the tool — never promise a file without calling it.
+- After the tool returns, ALWAYS include the returned webUrls as clickable markdown links in your reply, one per line, before any closing sentence. Examples:
+    📄 [Open Word document](DOCX_WEBURL)
+    📕 [Open PDF](PDF_WEBURL)
+    📊 [Open Excel workbook](XLSX_WEBURL)
+    🖼️ [Open PowerPoint deck](PPTX_WEBURL)
+  Replace the all-caps tokens with the actual webUrl from the tool result. Never paste raw OneDrive paths — always wrap them in markdown link syntax so they are clickable.
 - Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
@@ -565,6 +629,33 @@ async function executeTool(
       subfolder: "Generated Documents",
     });
     return res;
+  }
+  if (name === "generate_spreadsheet") {
+    const title = String(args.title || "").trim();
+    const sheets = Array.isArray(args.sheets) ? args.sheets : [];
+    if (!title || !sheets.length) return { error: "title and sheets required" };
+    const { generateSpreadsheet } = await import("../_shared/generate-spreadsheet.ts");
+    return await generateSpreadsheet({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      sheets,
+      subfolder: "Generated Documents",
+    });
+  }
+  if (name === "generate_presentation") {
+    const title = String(args.title || "").trim();
+    const slides = Array.isArray(args.slides) ? args.slides : [];
+    if (!title || !slides.length) return { error: "title and slides required" };
+    const { generatePresentation } = await import("../_shared/generate-presentation.ts");
+    return await generatePresentation({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      subtitle: args.subtitle ? String(args.subtitle) : undefined,
+      slides,
+      subfolder: "Generated Documents",
+    });
   }
   return { error: `Unknown tool: ${name}` };
 }
