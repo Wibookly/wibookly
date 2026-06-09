@@ -158,7 +158,7 @@ serve(async (req) => {
       // Use calendar-only scopes if requested
       const scope = calendarOnly
         ? 'openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite'
-        : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All';
+        : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Sites.Read.All';
 
       const tenantSegment = microsoftTenantId || 'common';
 
