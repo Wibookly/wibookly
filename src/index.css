@@ -307,6 +307,11 @@
 
   @keyframes ai-spin { to { transform: rotate(360deg); } }
   .ai-think-ring { animation: ai-spin 1.6s linear infinite; }
+  .ai-think-spin {
+    animation: ai-spin 2.4s linear infinite;
+    transform-origin: center;
+    filter: drop-shadow(0 0 6px hsl(var(--primary) / 0.45));
+  }
   @keyframes ai-dot {
     0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
     40% { opacity: 1; transform: translateY(-2px); }
