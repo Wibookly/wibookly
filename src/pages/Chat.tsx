@@ -601,26 +601,45 @@ export default function Chat() {
   const handleExport = async (
     conversationId: string | null,
     format: 'pdf' | 'xlsx',
+    destination: 'download' | 'onedrive' = 'download',
   ) => {
-    const key = `${conversationId || 'all'}-${format}`;
+    const key = `${conversationId || 'all'}-${format}-${destination}`;
     setExporting(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
+      if (destination === 'onedrive' && !activeConnection?.id) {
+        throw new Error('Connect a Microsoft 365 account first.');
+      }
       const { data, error } = await supabase.functions.invoke('export-chat', {
-        body: { conversation_id: conversationId, format },
+        body: {
+          conversation_id: conversationId,
+          format,
+          destination,
+          connection_id: destination === 'onedrive' ? activeConnection?.id : undefined,
+        },
       });
       if (error) throw error;
-      const file = data as { filename: string; mime_type: string; base64: string };
-      if (!file?.base64) throw new Error('Empty export');
-      downloadBase64File(file.filename, file.mime_type, file.base64);
-      toast.success(`Exported as ${format.toUpperCase()}`);
+      if (destination === 'onedrive') {
+        const res = data as { webUrl?: string; filename?: string; error?: string };
+        if (res?.error) throw new Error(res.error);
+        toast.success(
+          res?.webUrl ? `Saved to OneDrive › InboxIQ Chat › Exports` : 'Saved to OneDrive',
+          res?.webUrl ? { action: { label: 'Open', onClick: () => window.open(res.webUrl!, '_blank') } } : undefined,
+        );
+      } else {
+        const file = data as { filename: string; mime_type: string; base64: string };
+        if (!file?.base64) throw new Error('Empty export');
+        downloadBase64File(file.filename, file.mime_type, file.base64);
+        toast.success(`Downloaded ${format.toUpperCase()}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setExporting(null);
     }
   };
+
 
   // === Summarize current chat + continue in a fresh one ===
   const [summarizing, setSummarizing] = useState(false);
