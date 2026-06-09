@@ -236,6 +236,40 @@ export default function Chat() {
   useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
 
   // Voice input: hold-or-toggle mic → Whisper → append transcript to input.
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicId, setSelectedMicId] = useState<string | null>(() => {
+    try { return localStorage.getItem('inboxiq:mic-device-id'); } catch { return null; }
+  });
+  const refreshMicDevices = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const all = await navigator.mediaDevices.enumerateDevices();
+      setMicDevices(all.filter((d) => d.kind === 'audioinput'));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    refreshMicDevices();
+    const md = navigator.mediaDevices;
+    if (md?.addEventListener) {
+      const handler = () => refreshMicDevices();
+      md.addEventListener('devicechange', handler);
+      return () => md.removeEventListener('devicechange', handler);
+    }
+  }, [refreshMicDevices]);
+  const handleSelectMic = useCallback(async (id: string | null) => {
+    setSelectedMicId(id);
+    try {
+      if (id) localStorage.setItem('inboxiq:mic-device-id', id);
+      else localStorage.removeItem('inboxiq:mic-device-id');
+    } catch { /* ignore */ }
+    // After first permission grant, labels become available; refresh.
+    try {
+      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tmp.getTracks().forEach((t) => t.stop());
+      refreshMicDevices();
+    } catch { /* ignore */ }
+  }, [refreshMicDevices]);
+
   const { isRecording, isTranscribing, startRecording, stopRecording } = useVoiceRecording({
     onTranscription: (text) => {
       setInput((prev) => (prev ? `${prev} ${text}` : text).trim());
@@ -243,6 +277,7 @@ export default function Chat() {
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
     silenceTimeoutMs: 2000,
+    deviceId: selectedMicId,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
