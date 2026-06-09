@@ -125,6 +125,76 @@ function dateBucket(dateStr: string): string {
 const RETENTION_DAYS = 30;
 const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
 
+/**
+ * Detect which capabilities a message likely needs so we can auto-enable them
+ * just for that turn and switch them off after. Keyword-based heuristic.
+ */
+function detectIntents(raw: string): { web: boolean; deep: boolean; loc: boolean } {
+  const t = (raw || '').toLowerCase();
+  if (!t.trim()) return { web: false, deep: false, loc: false };
+
+  const webKeywords = [
+    'latest', 'today', 'tonight', 'tomorrow', 'this week', 'this month', 'right now', 'currently',
+    'news', 'headline', 'breaking', 'price of', 'stock', 'ticker', 'score', 'weather',
+    'release', 'released', 'announce', 'announced', 'update on', 'recent', 'trending',
+    'search the web', 'google', 'look up online', 'on the internet', 'who won',
+  ];
+  const hasUrl = /\bhttps?:\/\/\S+/i.test(raw) || /\bwww\.\S+\.\S+/i.test(raw);
+  const web = hasUrl || webKeywords.some((k) => t.includes(k));
+
+  const deepKeywords = [
+    'deep', 'thorough', 'in-depth', 'in depth', 'comprehensive', 'detailed analysis',
+    'step by step', 'step-by-step', 'multi-step', 'research', 'investigate',
+    'compare', 'comparison', 'pros and cons', 'trade-off', 'tradeoff',
+    'strategy', 'roadmap', 'plan for', 'business plan', 'analyze', 'analyse',
+    'evaluate', 'breakdown', 'break down', 'whitepaper', 'long answer', 'write a report',
+    'draft a document', 'draft a policy', 'create a policy', 'write a policy',
+    'generate a document', 'create a document', 'write a document',
+  ];
+  const isLong = raw.trim().length > 320 || (raw.match(/\?/g) || []).length >= 3;
+  const deep = isLong || deepKeywords.some((k) => t.includes(k));
+
+  const locKeywords = [
+    'near me', 'nearby', 'around me', 'closest', 'close to me', 'in my area',
+    'local ', 'restaurants', 'coffee shop', 'gas station', 'pharmacy',
+    'weather', 'forecast', 'traffic', 'commute', 'directions',
+    'my city', 'my town', 'my region',
+  ];
+  const loc = locKeywords.some((k) => t.includes(k));
+
+  return { web, deep, loc };
+}
+
+/** One-shot best-effort geolocation lookup (timezone + city if permitted). */
+async function captureOneShotLocation(): Promise<
+  { city?: string; region?: string; country?: string; timezone?: string } | null
+> {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return { timezone: tz };
+  return await new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+            { headers: { 'Accept-Language': 'en' } },
+          );
+          const j = await r.json();
+          const a = j.address || {};
+          resolve({
+            city: a.city || a.town || a.village || a.hamlet,
+            region: a.state || a.region,
+            country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+            timezone: tz,
+          });
+        } catch { resolve({ timezone: tz }); }
+      },
+      () => resolve({ timezone: tz }),
+      { timeout: 6000, maximumAge: 5 * 60 * 1000 },
+    );
+  });
+}
+
 function daysUntilExpiry(createdAt: string): number {
   const ageMs = Date.now() - new Date(createdAt).getTime();
   const ageDays = Math.floor(ageMs / 86400000);
