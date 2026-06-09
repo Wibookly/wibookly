@@ -1397,7 +1397,8 @@ export default function Chat() {
                       size="icon"
                       className={cn(
                         'h-9 w-9 shrink-0',
-                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                        autoBadges.web && 'ring-2 ring-primary/60 animate-pulse'
                       )}
                       disabled={isStreaming || limitReached}
                       onClick={() => {
