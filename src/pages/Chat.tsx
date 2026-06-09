@@ -1177,7 +1177,7 @@ export default function Chat() {
                   <div key={f.id}>
                     <div
                       className={cn(
-                        'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-accent',
+                        'group flex items-center gap-1.5 px-2.5 py-2 my-0.5 rounded-md text-sm cursor-pointer hover:bg-muted/60',
                       )}
                       onClick={() => !isRenaming && toggleFolder(f.id)}
                     >
