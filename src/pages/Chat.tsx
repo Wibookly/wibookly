@@ -1106,7 +1106,7 @@ export default function Chat() {
     <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-card border-r border-border flex flex-col transition-transform',
+        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
         <div className="p-3 border-b border-border flex items-center justify-between">
