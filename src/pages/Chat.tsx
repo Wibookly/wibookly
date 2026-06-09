@@ -1349,6 +1349,35 @@ export default function Chat() {
                 className="hidden"
                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
               />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={autoMode ? 'default' : 'ghost'}
+                    size="icon"
+                    className={cn(
+                      'h-9 w-9 shrink-0',
+                      autoMode && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                    )}
+                    disabled={isStreaming || limitReached}
+                    onClick={() => {
+                      setAutoMode((v) => {
+                        const next = !v;
+                        toast.success(next
+                          ? 'Auto mode ON — I’ll turn on web search, location, and deep reasoning when your request needs them'
+                          : 'Auto mode OFF — I’ll only use the toggles you set');
+                        return next;
+                      });
+                    }}
+                    title={autoMode
+                      ? 'Auto mode: ON — capabilities auto-enable per message'
+                      : 'Auto mode: OFF — manual toggles only'}
+                  >
+                    <Wand2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{autoMode ? 'Auto-detect: web, location & deep reasoning' : 'Auto-detect is off'}</TooltipContent>
+              </Tooltip>
               <Button
                 variant="ghost"
                 size="icon"
