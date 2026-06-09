@@ -131,7 +131,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       console.error('Error starting recording:', error);
       toast.error('Could not access microphone. Please check permissions.');
     }
-  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection]);
+  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection, deviceId]);
 
   const transcribeAudio = async (base64Audio: string) => {
     setIsTranscribing(true);
