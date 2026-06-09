@@ -115,11 +115,26 @@ function dateBucket(dateStr: string): string {
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if (sameDay) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  const fmtDate = (dt: Date) =>
+    dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const fmtMonth = (dt: Date) =>
+    dt.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  if (sameDay) return `Today · ${fmtDate(d)}`;
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday · ${fmtDate(d)}`;
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays < 7) return 'Previous 7 days';
-  return 'Older';
+  if (diffDays < 7) {
+    // Week-of label with start/end dates
+    const start = new Date(now); start.setDate(now.getDate() - 6);
+    return `This week · ${fmtDate(start)} – ${fmtDate(now)}`;
+  }
+  if (diffDays < 14) {
+    const start = new Date(now); start.setDate(now.getDate() - 13);
+    const end = new Date(now); end.setDate(now.getDate() - 7);
+    return `Last week · ${fmtDate(start)} – ${fmtDate(end)}`;
+  }
+  if (diffDays < 30) return `Earlier this month · ${fmtMonth(d)}`;
+  // Group by month/year for everything older
+  return fmtMonth(d);
 }
 
 const RETENTION_DAYS = 30;
