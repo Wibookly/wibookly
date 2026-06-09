@@ -277,7 +277,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </div>
 
           {/* Visual flow */}
-          <div className="grid md:grid-cols-4 gap-2">
+          <div data-tour="followup-flow" className="grid md:grid-cols-4 gap-2">
             <FlowStep
               n={1}
               title="BCC a number"
