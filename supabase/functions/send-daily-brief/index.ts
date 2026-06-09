@@ -93,6 +93,24 @@ function urgencyColor(u?: string): { bg: string; fg: string; border: string } {
   return { bg: "#f0fdf4", fg: "#047857", border: "#10b981" };
 }
 
+function hasMeaningfulBriefContent(brief: any): boolean {
+  if (!brief || typeof brief !== "object") return false;
+
+  const hasHeadline = typeof brief.greeting === "string" && brief.greeting.trim().length > 0;
+  const hasSummary = typeof brief.summary === "string" && brief.summary.trim().length > 0;
+  const hasLists = ["priorities", "schedule", "emailHighlights", "suggestions"].some(
+    (key) => Array.isArray(brief[key]) && brief[key].length > 0,
+  );
+  const ai = brief.aiAnalysis || {};
+  const hasAiAnalysis =
+    (typeof ai.headline === "string" && ai.headline.trim().length > 0) ||
+    (Array.isArray(ai.whatToDoFirst) && ai.whatToDoFirst.length > 0) ||
+    (Array.isArray(ai.risks) && ai.risks.length > 0) ||
+    (Array.isArray(ai.wins) && ai.wins.length > 0);
+
+  return hasHeadline || hasSummary || hasLists || hasAiAnalysis;
+}
+
 function renderBriefHtml(
   brief: any,
   brief_type: string,
@@ -829,6 +847,7 @@ serve(async (req) => {
 
       // Generate the brief by calling ai-daily-brief (service-to-service).
       let brief: any = {};
+      let briefError = "";
       try {
         const briefRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-daily-brief`, {
           method: "POST",
@@ -848,10 +867,22 @@ serve(async (req) => {
         if (briefRes.ok) {
           brief = await briefRes.json();
         } else {
-          console.warn("ai-daily-brief returned", briefRes.status);
+          briefError = await briefRes.text().catch(() => "");
+          console.warn("ai-daily-brief returned", briefRes.status, briefError.slice(0, 300));
         }
       } catch (e) {
+        briefError = e instanceof Error ? e.message : String(e);
         console.error("ai-daily-brief call failed", e);
+      }
+
+      if (!hasMeaningfulBriefContent(brief)) {
+        console.error("Skipping empty daily brief email", {
+          scheduleId: s.id,
+          recipient,
+          briefType: requestedBriefType || s.brief_type,
+          briefError,
+        });
+        continue;
       }
 
       // Token (cached per tenant).
