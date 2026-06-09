@@ -630,6 +630,33 @@ async function executeTool(
     });
     return res;
   }
+  if (name === "generate_spreadsheet") {
+    const title = String(args.title || "").trim();
+    const sheets = Array.isArray(args.sheets) ? args.sheets : [];
+    if (!title || !sheets.length) return { error: "title and sheets required" };
+    const { generateSpreadsheet } = await import("../_shared/generate-spreadsheet.ts");
+    return await generateSpreadsheet({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      sheets,
+      subfolder: "Generated Documents",
+    });
+  }
+  if (name === "generate_presentation") {
+    const title = String(args.title || "").trim();
+    const slides = Array.isArray(args.slides) ? args.slides : [];
+    if (!title || !slides.length) return { error: "title and slides required" };
+    const { generatePresentation } = await import("../_shared/generate-presentation.ts");
+    return await generatePresentation({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      subtitle: args.subtitle ? String(args.subtitle) : undefined,
+      slides,
+      subfolder: "Generated Documents",
+    });
+  }
   return { error: `Unknown tool: ${name}` };
 }
 
