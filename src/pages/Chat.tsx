@@ -1116,47 +1116,9 @@ export default function Chat() {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
-          {expiringSoon.length > 0 && (
-            <div className="mx-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
-              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold">
-                    {expiringSoon.length} chat{expiringSoon.length === 1 ? '' : 's'} expiring soon
-                  </div>
-                  <div className="opacity-80">
-                    Chats are deleted after {RETENTION_DAYS} days. Export to keep a copy.
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-pdf-download'}
-                  onClick={() => handleExport(null, 'pdf', 'download')}
-                >
-                  {exporting === 'all-pdf-download'
-                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    : <Download className="h-3 w-3 mr-1" />}
-                  All PDF
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-xlsx-download'}
-                  onClick={() => handleExport(null, 'xlsx', 'download')}
-                >
-                  {exporting === 'all-xlsx-download'
-                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    : <FileSpreadsheet className="h-3 w-3 mr-1" />}
-                  All Excel
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Inactivity banner removed — chats only expire after 30 days of no activity.
+              Users can export individual chats via the ⋮ menu (Download or Save to OneDrive). */}
+
           {/* Folders */}
           {folders.length > 0 && (
             <div className="space-y-0.5">
