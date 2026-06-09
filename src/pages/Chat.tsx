@@ -1446,6 +1446,8 @@ export default function Chat() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
+              {!isRecording && (
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
@@ -1455,6 +1457,7 @@ export default function Chat() {
               >
                 {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
+              )}
             </div>
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={usageColor}>
