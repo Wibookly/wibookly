@@ -1409,6 +1409,7 @@ export default function Chat() {
                   <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
                 </Tooltip>
               )}
+              {!isRecording && (
               <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
                 <Tooltip>
                   <TooltipTrigger asChild>
