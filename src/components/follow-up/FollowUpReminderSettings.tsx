@@ -307,7 +307,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </div>
 
           {/* Cancel + examples */}
-          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+          <div data-tour="followup-stop" className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
             <div className="font-medium text-foreground">Stop or restart anytime</div>
             <p className="text-xs text-muted-foreground">
               Reply on the thread with BCC{' '}
