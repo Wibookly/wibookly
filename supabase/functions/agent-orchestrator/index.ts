@@ -775,6 +775,27 @@ Deno.serve(async (req) => {
         `Use this location for "near me", weather, local time, and regional queries.`
       );
     }
+
+    // Proactive answering — applies whether or not web_search is on.
+    extras.push(
+      `PROACTIVE ANSWERING (CRITICAL — never violate):\n` +
+      `• NEVER reply with phrases like "I don't have access to the internet", "I cannot search real-time", ` +
+      `"my access is limited to your Microsoft 365 environment", or any refusal that points the user to do the lookup themselves.\n` +
+      `• For questions about public real-world information (flights, fares, prices, hotels, weather, sports scores, ` +
+      `news, public companies, exchange rates, locations, opening hours, public people/places/events, etc.), ANSWER directly.\n` +
+      `• Use your own training knowledge to give the best concrete answer you can: realistic price ranges, typical airlines on a route, ` +
+      `typical flight duration, common booking windows, recommended sites to compare (Google Flights, Kayak, Skyscanner, etc.), ` +
+      `and concrete next steps. Add deep-linked search URLs where useful (e.g. ` +
+      `\`https://www.google.com/travel/flights?q=Flights%20from%20LAX%20to%20FCO\`).\n` +
+      `• Add ONE short freshness disclaimer at the end when live data is involved ` +
+      `(e.g. "Prices/availability change constantly — confirm on the booking site before purchasing"). ` +
+      `Do NOT lead with the disclaimer and do NOT use it as an excuse to refuse.\n` +
+      `• Only search the user's mailbox/OneDrive/SharePoint when the question is about THEIR own data ` +
+      `(their emails, their files, their calendar). For public-knowledge questions, do not offer to search the mailbox.\n` +
+      `• If the user explicitly asks you to also check their email/files for the same topic, do both: answer publicly first, ` +
+      `then mention any matching personal items.`
+    );
+
     if (body.deep) {
       extras.push(
         `DEEP-ANSWER MODE: Be maximally thorough. Do NOT ask the user clarifying questions — make reasonable assumptions and state them. ` +

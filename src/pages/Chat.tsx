@@ -135,12 +135,22 @@ function detectIntents(raw: string): { web: boolean; deep: boolean; loc: boolean
 
   const webKeywords = [
     'latest', 'today', 'tonight', 'tomorrow', 'this week', 'this month', 'right now', 'currently',
-    'news', 'headline', 'breaking', 'price of', 'stock', 'ticker', 'score', 'weather',
-    'release', 'released', 'announce', 'announced', 'update on', 'recent', 'trending',
-    'search the web', 'google', 'look up online', 'on the internet', 'who won',
+    'news', 'headline', 'breaking', 'price of', 'prices', 'cost of', 'how much is', 'stock', 'ticker',
+    'score', 'weather', 'forecast', 'release', 'released', 'announce', 'announced', 'update on',
+    'recent', 'trending', 'search the web', 'google', 'look up online', 'on the internet', 'who won',
+    // travel / booking / shopping
+    'flight', 'flights', 'airfare', 'airline', 'plane ticket', 'plane tickets', 'ticket', 'tickets',
+    'cheapest', 'best deal', 'deals on', 'hotel', 'hotels', 'airbnb', 'rental car', 'train ticket',
+    'lax', 'jfk', 'sfo', 'ord', 'dfw', 'lhr', 'cdg', 'fco', // airport codes
+    'from ', ' to ', 'round trip', 'one way', 'one-way',
+    'restaurant', 'menu', 'open now', 'hours of', 'showtimes', 'concert',
+    // public info
+    'who is', 'what is the', 'when is', 'where is', 'population of', 'capital of',
+    'exchange rate', 'currency', 'usd to', 'eur to',
   ];
   const hasUrl = /\bhttps?:\/\/\S+/i.test(raw) || /\bwww\.\S+\.\S+/i.test(raw);
   const web = hasUrl || webKeywords.some((k) => t.includes(k));
+
 
   const deepKeywords = [
     'deep', 'thorough', 'in-depth', 'in depth', 'comprehensive', 'detailed analysis',
