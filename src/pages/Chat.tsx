@@ -990,9 +990,9 @@ export default function Chat() {
       <div
         key={c.id}
         className={cn(
-          'group flex items-center gap-2 px-2 py-2 rounded-md text-sm cursor-pointer hover:bg-accent',
+          'group flex items-center gap-2 px-2.5 py-2.5 my-0.5 rounded-md text-sm cursor-pointer transition-colors hover:bg-muted/60',
           opts.indent && 'ml-5',
-          activeId === c.id && 'bg-accent'
+          activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-emerald-500 pl-2'
         )}
         onClick={() => handleSelectConv(c.id)}
       >
@@ -1106,7 +1106,7 @@ export default function Chat() {
     <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-card border-r border-border flex flex-col transition-transform',
+        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
         <div className="p-3 border-b border-border flex items-center justify-between">
@@ -1177,7 +1177,7 @@ export default function Chat() {
                   <div key={f.id}>
                     <div
                       className={cn(
-                        'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-accent',
+                        'group flex items-center gap-1.5 px-2.5 py-2 my-0.5 rounded-md text-sm cursor-pointer hover:bg-muted/60',
                       )}
                       onClick={() => !isRenaming && toggleFolder(f.id)}
                     >
