@@ -16,9 +16,12 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceRafRef = useRef<number | null>(null);
   const lastVoiceAtRef = useRef<number>(0);
   const hasSpokenRef = useRef<boolean>(false);
+  const cancelledRef = useRef<boolean>(false);
+  const getAnalyser = useCallback(() => analyserRef.current, []);
 
   const cleanupSilenceDetection = useCallback(() => {
     if (silenceRafRef.current !== null) {
