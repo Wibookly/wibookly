@@ -94,25 +94,26 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       mediaRecorder.start();
       setIsRecording(true);
 
-      // --- Silence detection: auto-stop after N ms of no voice activity ---
-      if (silenceTimeoutMs > 0) {
-        try {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          const ctx: AudioContext = new AudioCtx();
-          audioContextRef.current = ctx;
-          const source = ctx.createMediaStreamSource(stream);
-          const analyser = ctx.createAnalyser();
-          analyser.fftSize = 2048;
-          source.connect(analyser);
-          const buf = new Uint8Array(analyser.fftSize);
+      // Always create an analyser so the UI can render a live waveform.
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx: AudioContext = new AudioCtx();
+        audioContextRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.6;
+        source.connect(analyser);
+        analyserRef.current = analyser;
 
+        if (silenceTimeoutMs > 0) {
+          const buf = new Uint8Array(analyser.fftSize);
           hasSpokenRef.current = false;
           lastVoiceAtRef.current = Date.now();
-          const VOICE_RMS_THRESHOLD = 0.015; // empirical — quiet room ≈ 0.003
+          const VOICE_RMS_THRESHOLD = 0.015;
 
           const tick = () => {
             analyser.getByteTimeDomainData(buf);
-            // RMS around 128 baseline
             let sumSq = 0;
             for (let i = 0; i < buf.length; i++) {
               const v = (buf[i] - 128) / 128;
@@ -124,21 +125,17 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
               lastVoiceAtRef.current = now;
               hasSpokenRef.current = true;
             }
-            // Only auto-stop AFTER the user has actually started speaking.
-            // This prevents killing the mic while the user is still thinking
-            // (which made it look like the mic "doesn't work").
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
               toast.info('Voice captured — converting it to text…', { position: 'top-center', duration: 2500 });
               stopRecording();
               return;
             }
-
             silenceRafRef.current = requestAnimationFrame(tick);
           };
           silenceRafRef.current = requestAnimationFrame(tick);
-        } catch (err) {
-          console.warn('Silence detection unavailable:', err);
         }
+      } catch (err) {
+        console.warn('Audio analyser unavailable:', err);
       }
     } catch (error) {
       console.error('Error starting recording:', error);
