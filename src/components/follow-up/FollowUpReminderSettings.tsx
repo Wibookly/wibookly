@@ -242,7 +242,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   return (
     <div className="space-y-6">
       {/* Master toggle */}
-      <Card className={compact ? 'border-primary/30' : ''}>
+      <Card data-tour="followup-master" className={compact ? 'border-primary/30' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
