@@ -263,6 +263,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               </CardDescription>
             </div>
             <Switch
+              data-tour="followup-toggle"
               checked={settings.is_enabled}
               disabled={saving}
               onCheckedChange={(v) => patch({ is_enabled: v })}
