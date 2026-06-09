@@ -183,6 +183,14 @@ export default function Chat() {
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  // Auto mode: detect intent from each message and turn web search / deep
+  // reasoning / location ON just for that turn, then back OFF when done.
+  const [autoMode, setAutoMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('inboxiq-chat-auto') !== '0';
+  });
+  const [autoBadges, setAutoBadges] = useState<{ web?: boolean; deep?: boolean; loc?: boolean }>({});
+  useEffect(() => { localStorage.setItem('inboxiq-chat-auto', autoMode ? '1' : '0'); }, [autoMode]);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
   useEffect(() => { localStorage.setItem('inboxiq-chat-location', locationEnabled ? '1' : '0'); }, [locationEnabled]);
 
