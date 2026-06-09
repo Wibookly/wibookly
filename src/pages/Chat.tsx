@@ -1366,6 +1366,42 @@ export default function Chat() {
                 </TooltipTrigger>
                 <TooltipContent>{isTranscribing ? 'Converting your speech to text' : isRecording ? 'Listening now — pause for 2 seconds to finish' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
               </Tooltip>
+              <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-6 shrink-0 -ml-1 px-0"
+                        aria-label="Choose microphone"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Choose microphone</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="max-w-[300px]">
+                  <DropdownMenuItem onClick={() => handleSelectMic(null)}>
+                    <Check className={cn('h-4 w-4 mr-2', selectedMicId ? 'opacity-0' : 'opacity-100')} />
+                    System default
+                  </DropdownMenuItem>
+                  {micDevices.length > 0 && <DropdownMenuSeparator />}
+                  {micDevices.map((d, i) => (
+                    <DropdownMenuItem key={d.deviceId || i} onClick={() => handleSelectMic(d.deviceId)}>
+                      <Check className={cn('h-4 w-4 mr-2', selectedMicId === d.deviceId ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{d.label || `Microphone ${i + 1}`}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  {micDevices.length === 0 && (
+                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                      Allow microphone access to list devices
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
