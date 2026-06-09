@@ -16,9 +16,12 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceRafRef = useRef<number | null>(null);
   const lastVoiceAtRef = useRef<number>(0);
   const hasSpokenRef = useRef<boolean>(false);
+  const cancelledRef = useRef<boolean>(false);
+  const getAnalyser = useCallback(() => analyserRef.current, []);
 
   const cleanupSilenceDetection = useCallback(() => {
     if (silenceRafRef.current !== null) {
@@ -29,6 +32,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       audioContextRef.current.close().catch(() => {/* ignore */});
       audioContextRef.current = null;
     }
+    analyserRef.current = null;
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -38,6 +42,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       setIsRecording(false);
     }
   }, [cleanupSilenceDetection]);
+
+  const cancelRecording = useCallback(() => {
+    cancelledRef.current = true;
+    stopRecording();
+  }, [stopRecording]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -64,11 +73,15 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
         const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
         stream.getTracks().forEach(track => track.stop());
 
+        if (cancelledRef.current) {
+          cancelledRef.current = false;
+          return;
+        }
+
         // Skip transcription only for truly empty recordings (no audio captured).
         if (audioBlob.size < 500) {
           return;
         }
-
 
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -81,25 +94,26 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       mediaRecorder.start();
       setIsRecording(true);
 
-      // --- Silence detection: auto-stop after N ms of no voice activity ---
-      if (silenceTimeoutMs > 0) {
-        try {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          const ctx: AudioContext = new AudioCtx();
-          audioContextRef.current = ctx;
-          const source = ctx.createMediaStreamSource(stream);
-          const analyser = ctx.createAnalyser();
-          analyser.fftSize = 2048;
-          source.connect(analyser);
-          const buf = new Uint8Array(analyser.fftSize);
+      // Always create an analyser so the UI can render a live waveform.
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx: AudioContext = new AudioCtx();
+        audioContextRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.6;
+        source.connect(analyser);
+        analyserRef.current = analyser;
 
+        if (silenceTimeoutMs > 0) {
+          const buf = new Uint8Array(analyser.fftSize);
           hasSpokenRef.current = false;
           lastVoiceAtRef.current = Date.now();
-          const VOICE_RMS_THRESHOLD = 0.015; // empirical — quiet room ≈ 0.003
+          const VOICE_RMS_THRESHOLD = 0.015;
 
           const tick = () => {
             analyser.getByteTimeDomainData(buf);
-            // RMS around 128 baseline
             let sumSq = 0;
             for (let i = 0; i < buf.length; i++) {
               const v = (buf[i] - 128) / 128;
@@ -111,21 +125,17 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
               lastVoiceAtRef.current = now;
               hasSpokenRef.current = true;
             }
-            // Only auto-stop AFTER the user has actually started speaking.
-            // This prevents killing the mic while the user is still thinking
-            // (which made it look like the mic "doesn't work").
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
               toast.info('Voice captured — converting it to text…', { position: 'top-center', duration: 2500 });
               stopRecording();
               return;
             }
-
             silenceRafRef.current = requestAnimationFrame(tick);
           };
           silenceRafRef.current = requestAnimationFrame(tick);
-        } catch (err) {
-          console.warn('Silence detection unavailable:', err);
         }
+      } catch (err) {
+        console.warn('Audio analyser unavailable:', err);
       }
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -168,5 +178,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
     isTranscribing,
     startRecording,
     stopRecording,
+    cancelRecording,
+    getAnalyser,
   };
 }
