@@ -1206,34 +1206,6 @@ export default function Chat() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      'relative h-9 w-9 shrink-0',
-                      isRecording && 'text-destructive',
-                    )}
-                    disabled={isStreaming || limitReached || isTranscribing}
-                    onClick={() => (isRecording ? stopRecording() : startRecording())}
-                    title={isRecording ? 'Listening… pause for 2 seconds to convert' : isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
-                    data-tour="chat-mic"
-                  >
-                    {isRecording && (
-                      <>
-                        <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
-                        <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
-                      </>
-                    )}
-                    {isTranscribing
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isTranscribing ? 'Converting your speech to text' : isRecording ? 'Listening now — pause for 2 seconds to finish' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
-              </Tooltip>
               {canWebSearch && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1331,6 +1303,34 @@ export default function Chat() {
                 className="flex-1 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
                 data-tour="chat-input"
               />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      'relative h-9 w-9 shrink-0',
+                      isRecording && 'text-destructive',
+                    )}
+                    disabled={isStreaming || limitReached || isTranscribing}
+                    onClick={() => (isRecording ? stopRecording() : startRecording())}
+                    title={isRecording ? 'Listening… pause for 2 seconds to convert' : isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
+                    data-tour="chat-mic"
+                  >
+                    {isRecording && (
+                      <>
+                        <span className="pointer-events-none absolute inset-0 rounded-md bg-destructive/15 animate-pulse" />
+                        <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-destructive/60 animate-ping" />
+                      </>
+                    )}
+                    {isTranscribing
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Mic className={cn('h-4 w-4 relative', isRecording && 'animate-pulse')} />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isTranscribing ? 'Converting your speech to text' : isRecording ? 'Listening now — pause for 2 seconds to finish' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
+              </Tooltip>
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
