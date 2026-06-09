@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
+import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
