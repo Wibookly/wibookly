@@ -1031,18 +1031,49 @@ export default function Chat() {
               </DropdownMenuPortal>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={exporting === `${c.id}-pdf`}
-              onClick={() => handleExport(c.id, 'pdf')}
-            >
-              <Download className="h-4 w-4 mr-2" /> Export as PDF
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={exporting === `${c.id}-xlsx`}
-              onClick={() => handleExport(c.id, 'xlsx')}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Download className="h-4 w-4 mr-2" /> Download to computer
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-download`}
+                    onClick={() => handleExport(c.id, 'pdf', 'download')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-download`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'download')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Cloud className="h-4 w-4 mr-2" /> Save to OneDrive
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-onedrive`}
+                    onClick={() => handleExport(c.id, 'pdf', 'onedrive')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-onedrive`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'onedrive')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
