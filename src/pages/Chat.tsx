@@ -990,13 +990,13 @@ export default function Chat() {
       <div
         key={c.id}
         className={cn(
-          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-colors hover:bg-muted/40',
+          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary hover:pl-3',
           opts.indent && 'ml-5',
           activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-l-emerald-500 pl-2'
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        <span className="flex-1 truncate">{titleText}</span>
+        <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -1131,7 +1131,7 @@ export default function Chat() {
                   <div key={f.id}>
                     <div
                       className={cn(
-                        'group flex items-center gap-1.5 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer hover:bg-muted/40',
+                        'group flex items-center gap-1.5 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary',
                       )}
                       onClick={() => !isRenaming && toggleFolder(f.id)}
                     >
@@ -1151,7 +1151,7 @@ export default function Chat() {
                           className="h-6 text-sm px-1 py-0 flex-1"
                         />
                       ) : (
-                        <span className="flex-1 truncate font-medium">{f.name}</span>
+                        <span className="flex-1 truncate font-medium group-hover:font-semibold transition-all">{f.name}</span>
                       )}
                       <span className="text-[10px] text-muted-foreground">{items.length}</span>
                       <DropdownMenu>
