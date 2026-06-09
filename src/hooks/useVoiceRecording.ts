@@ -41,7 +41,10 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioConstraints: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : {};
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
