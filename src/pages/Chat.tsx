@@ -1127,10 +1127,10 @@ export default function Chat() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-pdf'}
-                  onClick={() => handleExport(null, 'pdf')}
+                  disabled={exporting === 'all-pdf-download'}
+                  onClick={() => handleExport(null, 'pdf', 'download')}
                 >
-                  {exporting === 'all-pdf'
+                  {exporting === 'all-pdf-download'
                     ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     : <Download className="h-3 w-3 mr-1" />}
                   All PDF
@@ -1139,10 +1139,10 @@ export default function Chat() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-xlsx'}
-                  onClick={() => handleExport(null, 'xlsx')}
+                  disabled={exporting === 'all-xlsx-download'}
+                  onClick={() => handleExport(null, 'xlsx', 'download')}
                 >
-                  {exporting === 'all-xlsx'
+                  {exporting === 'all-xlsx-download'
                     ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     : <FileSpreadsheet className="h-3 w-3 mr-1" />}
                   All Excel
