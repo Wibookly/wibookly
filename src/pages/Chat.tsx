@@ -898,6 +898,9 @@ export default function Chat() {
       setIsStreaming(false);
       setStreamingText('');
       setStreamingCitations([]);
+      // Auto-enabled flags are per-turn only — clear the visual badges so the
+      // next message starts from the user's manual toggle state.
+      setAutoBadges({});
     }
   };
 
