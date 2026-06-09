@@ -6,9 +6,11 @@ interface UseVoiceRecordingOptions {
   onTranscription: (text: string) => void;
   /** Auto-stop after this many ms of silence. Defaults to 2000. Set to 0 to disable. */
   silenceTimeoutMs?: number;
+  /** Preferred audio input device id (from enumerateDevices). */
+  deviceId?: string | null;
 }
 
-export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: UseVoiceRecordingOptions) {
+export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, deviceId }: UseVoiceRecordingOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -39,7 +41,10 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: 
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioConstraints: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : {};
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
@@ -110,7 +115,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: 
             // This prevents killing the mic while the user is still thinking
             // (which made it look like the mic "doesn't work").
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              toast.info('Voice captured — converting it to text…');
+              toast.info('Voice captured — converting it to text…', { position: 'top-center', duration: 2500 });
               stopRecording();
               return;
             }
@@ -126,7 +131,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: 
       console.error('Error starting recording:', error);
       toast.error('Could not access microphone. Please check permissions.');
     }
-  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection]);
+  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection, deviceId]);
 
   const transcribeAudio = async (base64Audio: string) => {
     setIsTranscribing(true);
