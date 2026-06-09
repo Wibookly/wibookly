@@ -32,6 +32,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       audioContextRef.current.close().catch(() => {/* ignore */});
       audioContextRef.current = null;
     }
+    analyserRef.current = null;
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -41,6 +42,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       setIsRecording(false);
     }
   }, [cleanupSilenceDetection]);
+
+  const cancelRecording = useCallback(() => {
+    cancelledRef.current = true;
+    stopRecording();
+  }, [stopRecording]);
 
   const startRecording = useCallback(async () => {
     try {
