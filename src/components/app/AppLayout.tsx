@@ -87,7 +87,7 @@ export function AppLayout() {
         <OceanWaves />
         <AppHeader />
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-10">
-          <div className="min-h-full flex flex-col">
+          <div className="h-full min-h-full flex flex-col">
             <Outlet />
           </div>
         </main>
