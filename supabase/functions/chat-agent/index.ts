@@ -269,6 +269,72 @@ Deno.serve(async (req) => {
           citations: citations.length ? citations : null,
         });
 
+        // Mirror the full transcript to the user's OneDrive › "InboxIQ Chat".
+        // Best-effort: failure (missing scope, no token) must not break chat.
+        try {
+          const { data: convRow } = await admin
+            .from("chat_conversations")
+            .select("title")
+            .eq("id", conversation_id)
+            .maybeSingle();
+          const { data: msgs } = await admin
+            .from("chat_messages")
+            .select("role, content, created_at, citations")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", { ascending: true });
+
+          const baseName = (convRow?.title || "InboxIQ Chat").slice(0, 80);
+          const md =
+            `# ${baseName}\n\n` +
+            (msgs || [])
+              .map((m: any) => {
+                const who = m.role === "user" ? "**You**" : "**InboxIQ**";
+                const ts = m.created_at ? ` _(${new Date(m.created_at).toISOString()})_` : "";
+                return `### ${who}${ts}\n\n${m.content || ""}\n`;
+              })
+              .join("\n---\n\n");
+          const json = JSON.stringify(
+            { conversation_id, title: baseName, messages: msgs || [] },
+            null,
+            2,
+          );
+
+          const { saveToOneDrive } = await import("../_shared/onedrive-save.ts");
+          const [mdRes, jsonRes] = await Promise.all([
+            saveToOneDrive({
+              userId: user.id,
+              connectionId: connection_id,
+              baseName,
+              ext: "md",
+              content: md,
+              contentType: "text/markdown",
+              subfolder: conversation_id!,
+              overwrite: true,
+            }),
+            saveToOneDrive({
+              userId: user.id,
+              connectionId: connection_id,
+              baseName,
+              ext: "json",
+              content: json,
+              contentType: "application/json",
+              subfolder: conversation_id!,
+              overwrite: true,
+            }),
+          ]);
+          if (mdRes.ok || jsonRes.ok) {
+            send({
+              type: "onedrive",
+              md: mdRes.ok ? { path: mdRes.path, webUrl: mdRes.webUrl } : null,
+              json: jsonRes.ok ? { path: jsonRes.path, webUrl: jsonRes.webUrl } : null,
+            });
+          } else {
+            send({ type: "onedrive_error", message: mdRes.error || jsonRes.error || "OneDrive save failed" });
+          }
+        } catch (e) {
+          send({ type: "onedrive_error", message: (e as Error).message });
+        }
+
         send({ type: "done" });
         controller.close();
       } catch (e) {
