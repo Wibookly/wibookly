@@ -317,6 +317,26 @@
   }
   .ai-think-dots > span:nth-child(2) { animation-delay: 0.15s; }
   .ai-think-dots > span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes ai-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .ai-think-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted-foreground)) 0%,
+      hsl(var(--muted-foreground)) 35%,
+      hsl(var(--foreground)) 50%,
+      hsl(var(--muted-foreground)) 65%,
+      hsl(var(--muted-foreground)) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ai-shimmer 2.2s linear infinite;
+  }
 }
 
 /* Training mode — dashed glow on every instrumented control */
