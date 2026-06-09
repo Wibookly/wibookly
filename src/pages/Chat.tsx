@@ -9,7 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff,
+  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
@@ -125,6 +125,76 @@ function dateBucket(dateStr: string): string {
 const RETENTION_DAYS = 30;
 const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
 
+/**
+ * Detect which capabilities a message likely needs so we can auto-enable them
+ * just for that turn and switch them off after. Keyword-based heuristic.
+ */
+function detectIntents(raw: string): { web: boolean; deep: boolean; loc: boolean } {
+  const t = (raw || '').toLowerCase();
+  if (!t.trim()) return { web: false, deep: false, loc: false };
+
+  const webKeywords = [
+    'latest', 'today', 'tonight', 'tomorrow', 'this week', 'this month', 'right now', 'currently',
+    'news', 'headline', 'breaking', 'price of', 'stock', 'ticker', 'score', 'weather',
+    'release', 'released', 'announce', 'announced', 'update on', 'recent', 'trending',
+    'search the web', 'google', 'look up online', 'on the internet', 'who won',
+  ];
+  const hasUrl = /\bhttps?:\/\/\S+/i.test(raw) || /\bwww\.\S+\.\S+/i.test(raw);
+  const web = hasUrl || webKeywords.some((k) => t.includes(k));
+
+  const deepKeywords = [
+    'deep', 'thorough', 'in-depth', 'in depth', 'comprehensive', 'detailed analysis',
+    'step by step', 'step-by-step', 'multi-step', 'research', 'investigate',
+    'compare', 'comparison', 'pros and cons', 'trade-off', 'tradeoff',
+    'strategy', 'roadmap', 'plan for', 'business plan', 'analyze', 'analyse',
+    'evaluate', 'breakdown', 'break down', 'whitepaper', 'long answer', 'write a report',
+    'draft a document', 'draft a policy', 'create a policy', 'write a policy',
+    'generate a document', 'create a document', 'write a document',
+  ];
+  const isLong = raw.trim().length > 320 || (raw.match(/\?/g) || []).length >= 3;
+  const deep = isLong || deepKeywords.some((k) => t.includes(k));
+
+  const locKeywords = [
+    'near me', 'nearby', 'around me', 'closest', 'close to me', 'in my area',
+    'local ', 'restaurants', 'coffee shop', 'gas station', 'pharmacy',
+    'weather', 'forecast', 'traffic', 'commute', 'directions',
+    'my city', 'my town', 'my region',
+  ];
+  const loc = locKeywords.some((k) => t.includes(k));
+
+  return { web, deep, loc };
+}
+
+/** One-shot best-effort geolocation lookup (timezone + city if permitted). */
+async function captureOneShotLocation(): Promise<
+  { city?: string; region?: string; country?: string; timezone?: string } | null
+> {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return { timezone: tz };
+  return await new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=10`,
+            { headers: { 'Accept-Language': 'en' } },
+          );
+          const j = await r.json();
+          const a = j.address || {};
+          resolve({
+            city: a.city || a.town || a.village || a.hamlet,
+            region: a.state || a.region,
+            country: a.country_code ? String(a.country_code).toUpperCase() : a.country,
+            timezone: tz,
+          });
+        } catch { resolve({ timezone: tz }); }
+      },
+      () => resolve({ timezone: tz }),
+      { timeout: 6000, maximumAge: 5 * 60 * 1000 },
+    );
+  });
+}
+
 function daysUntilExpiry(createdAt: string): number {
   const ageMs = Date.now() - new Date(createdAt).getTime();
   const ageDays = Math.floor(ageMs / 86400000);
@@ -183,6 +253,14 @@ export default function Chat() {
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  // Auto mode: detect intent from each message and turn web search / deep
+  // reasoning / location ON just for that turn, then back OFF when done.
+  const [autoMode, setAutoMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('inboxiq-chat-auto') !== '0';
+  });
+  const [autoBadges, setAutoBadges] = useState<{ web?: boolean; deep?: boolean; loc?: boolean }>({});
+  useEffect(() => { localStorage.setItem('inboxiq-chat-auto', autoMode ? '1' : '0'); }, [autoMode]);
   useEffect(() => { localStorage.setItem('inboxiq-chat-deep', deepMode ? '1' : '0'); }, [deepMode]);
   useEffect(() => { localStorage.setItem('inboxiq-chat-location', locationEnabled ? '1' : '0'); }, [locationEnabled]);
 
@@ -677,6 +755,36 @@ export default function Chat() {
       // actually read file contents instead of just naming them.
       const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
+      // Auto-detect intents from the user's message and turn the matching
+      // capabilities ON just for this request, then OFF when the stream
+      // finishes (handled in the `finally` block). Manual toggles still
+      // override (OR'd in), so user-set state is never weakened.
+      const detected = autoMode ? detectIntents(text) : { web: false, deep: false, loc: false };
+      const effWeb = (canWebSearch && webSearch) || (canWebSearch && detected.web);
+      const effDeep = deepMode || detected.deep;
+      const effLoc = locationEnabled || detected.loc;
+      let effLocation = (locationEnabled && userLocation) ? userLocation : undefined;
+      if (!effLocation && detected.loc) {
+        // Just-in-time one-shot lookup so location flows through for this turn
+        // without permanently flipping the location toggle on.
+        const loc = await captureOneShotLocation();
+        if (loc) effLocation = loc;
+      }
+      const usedAuto = {
+        web: !webSearch && detected.web && canWebSearch,
+        deep: !deepMode && detected.deep,
+        loc: !locationEnabled && detected.loc,
+      };
+      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc)) {
+        const parts = [
+          usedAuto.web ? '🌐 Web' : null,
+          usedAuto.deep ? '🧠 Deep' : null,
+          usedAuto.loc ? '📍 Location' : null,
+        ].filter(Boolean).join(' · ');
+        toast.success(`Auto-enabled: ${parts}`, { duration: 2200, position: 'top-center' });
+        setAutoBadges(usedAuto);
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -692,9 +800,9 @@ export default function Chat() {
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
-          web_search: webSearch,
-          user_location: (locationEnabled && userLocation) ? userLocation : undefined,
-          deep: deepMode,
+          web_search: effWeb,
+          user_location: effLoc ? effLocation : undefined,
+          deep: effDeep,
         }),
       });
 
@@ -790,6 +898,9 @@ export default function Chat() {
       setIsStreaming(false);
       setStreamingText('');
       setStreamingCitations([]);
+      // Auto-enabled flags are per-turn only — clear the visual badges so the
+      // next message starts from the user's manual toggle state.
+      setAutoBadges({});
     }
   };
 
@@ -1238,6 +1349,35 @@ export default function Chat() {
                 className="hidden"
                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
               />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={autoMode ? 'default' : 'ghost'}
+                    size="icon"
+                    className={cn(
+                      'h-9 w-9 shrink-0',
+                      autoMode && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                    )}
+                    disabled={isStreaming || limitReached}
+                    onClick={() => {
+                      setAutoMode((v) => {
+                        const next = !v;
+                        toast.success(next
+                          ? 'Auto mode ON — I’ll turn on web search, location, and deep reasoning when your request needs them'
+                          : 'Auto mode OFF — I’ll only use the toggles you set');
+                        return next;
+                      });
+                    }}
+                    title={autoMode
+                      ? 'Auto mode: ON — capabilities auto-enable per message'
+                      : 'Auto mode: OFF — manual toggles only'}
+                  >
+                    <Wand2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{autoMode ? 'Auto-detect: web, location & deep reasoning' : 'Auto-detect is off'}</TooltipContent>
+              </Tooltip>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1257,7 +1397,8 @@ export default function Chat() {
                       size="icon"
                       className={cn(
                         'h-9 w-9 shrink-0',
-                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                        autoBadges.web && 'ring-2 ring-primary/60 animate-pulse'
                       )}
                       disabled={isStreaming || limitReached}
                       onClick={() => {
@@ -1284,7 +1425,8 @@ export default function Chat() {
                     size="icon"
                     className={cn(
                       'h-9 w-9 shrink-0 transition-colors',
-                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90'
+                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90',
+                      autoBadges.loc && 'ring-2 ring-accent/60 animate-pulse'
                     )}
                     disabled={isStreaming || limitReached}
                     onClick={() => {
@@ -1315,7 +1457,7 @@ export default function Chat() {
                     type="button"
                     variant={deepMode ? 'default' : 'ghost'}
                     size="icon"
-                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90', autoBadges.deep && 'ring-2 ring-primary/60 animate-pulse')}
                     disabled={isStreaming || limitReached}
                     onClick={() => {
                       setDeepMode((v) => {
