@@ -550,6 +550,21 @@ async function executeTool(
       status: "ready_for_review",
     };
   }
+  if (name === "generate_document") {
+    const title = String(args.title || "").trim();
+    const content = String(args.content || "").trim();
+    if (!title || !content) return { error: "title and content required" };
+    const { generateDocument } = await import("../_shared/generate-document.ts");
+    const res = await generateDocument({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      content,
+      format: (args.format as any) || "both",
+      subfolder: "Generated Documents",
+    });
+    return res;
+  }
   return { error: `Unknown tool: ${name}` };
 }
 
