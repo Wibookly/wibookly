@@ -1425,7 +1425,8 @@ export default function Chat() {
                     size="icon"
                     className={cn(
                       'h-9 w-9 shrink-0 transition-colors',
-                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90'
+                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90',
+                      autoBadges.loc && 'ring-2 ring-accent/60 animate-pulse'
                     )}
                     disabled={isStreaming || limitReached}
                     onClick={() => {
