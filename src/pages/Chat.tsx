@@ -981,8 +981,8 @@ export default function Chat() {
   const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
 
   const renderConvRow = (c: Conversation, opts: { indent?: boolean } = {}) => {
-    const days = daysUntilExpiry(c.created_at);
-    const expiring = days <= EXPIRY_WARN_DAYS;
+    // Base expiry on last activity (updated_at). Actively-used chats never expire.
+    const days = daysUntilExpiry(c.updated_at || c.created_at);
     const titleText = c.title && c.title.trim() && c.title.toLowerCase() !== 'user greeting'
       ? c.title
       : 'New chat';
@@ -990,21 +990,13 @@ export default function Chat() {
       <div
         key={c.id}
         className={cn(
-          'group flex items-center gap-2 px-2.5 py-2.5 my-0.5 rounded-md text-sm cursor-pointer transition-colors hover:bg-muted/60',
+          'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-colors hover:bg-muted/40',
           opts.indent && 'ml-5',
-          activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-emerald-500 pl-2'
+          activeId === c.id && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-l-2 border-l-emerald-500 pl-2'
         )}
         onClick={() => handleSelectConv(c.id)}
       >
         <span className="flex-1 truncate">{titleText}</span>
-        {expiring && (
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 whitespace-nowrap"
-            title={`Deletes in ${days} day${days === 1 ? '' : 's'}`}
-          >
-            {days}d
-          </span>
-        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -1124,47 +1116,9 @@ export default function Chat() {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
-          {expiringSoon.length > 0 && (
-            <div className="mx-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
-              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold">
-                    {expiringSoon.length} chat{expiringSoon.length === 1 ? '' : 's'} expiring soon
-                  </div>
-                  <div className="opacity-80">
-                    Chats are deleted after {RETENTION_DAYS} days. Export to keep a copy.
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-pdf-download'}
-                  onClick={() => handleExport(null, 'pdf', 'download')}
-                >
-                  {exporting === 'all-pdf-download'
-                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    : <Download className="h-3 w-3 mr-1" />}
-                  All PDF
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-xlsx-download'}
-                  onClick={() => handleExport(null, 'xlsx', 'download')}
-                >
-                  {exporting === 'all-xlsx-download'
-                    ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    : <FileSpreadsheet className="h-3 w-3 mr-1" />}
-                  All Excel
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Inactivity banner removed — chats only expire after 30 days of no activity.
+              Users can export individual chats via the ⋮ menu (Download or Save to OneDrive). */}
+
           {/* Folders */}
           {folders.length > 0 && (
             <div className="space-y-0.5">
@@ -1177,7 +1131,7 @@ export default function Chat() {
                   <div key={f.id}>
                     <div
                       className={cn(
-                        'group flex items-center gap-1.5 px-2.5 py-2 my-0.5 rounded-md text-sm cursor-pointer hover:bg-muted/60',
+                        'group flex items-center gap-1.5 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer hover:bg-muted/40',
                       )}
                       onClick={() => !isRenaming && toggleFolder(f.id)}
                     >

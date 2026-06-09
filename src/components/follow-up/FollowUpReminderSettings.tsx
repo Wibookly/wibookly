@@ -242,7 +242,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   return (
     <div className="space-y-6">
       {/* Master toggle */}
-      <Card className={compact ? 'border-primary/30' : ''}>
+      <Card data-tour="followup-master" className={compact ? 'border-primary/30' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -263,6 +263,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               </CardDescription>
             </div>
             <Switch
+              data-tour="followup-toggle"
               checked={settings.is_enabled}
               disabled={saving}
               onCheckedChange={(v) => patch({ is_enabled: v })}
@@ -276,7 +277,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </div>
 
           {/* Visual flow */}
-          <div className="grid md:grid-cols-4 gap-2">
+          <div data-tour="followup-flow" className="grid md:grid-cols-4 gap-2">
             <FlowStep
               n={1}
               title="BCC a number"
@@ -306,7 +307,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </div>
 
           {/* Cancel + examples */}
-          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+          <div data-tour="followup-stop" className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
             <div className="font-medium text-foreground">Stop or restart anytime</div>
             <p className="text-xs text-muted-foreground">
               Reply on the thread with BCC{' '}
