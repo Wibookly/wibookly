@@ -6,9 +6,11 @@ interface UseVoiceRecordingOptions {
   onTranscription: (text: string) => void;
   /** Auto-stop after this many ms of silence. Defaults to 2000. Set to 0 to disable. */
   silenceTimeoutMs?: number;
+  /** Preferred audio input device id (from enumerateDevices). */
+  deviceId?: string | null;
 }
 
-export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000 }: UseVoiceRecordingOptions) {
+export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, deviceId }: UseVoiceRecordingOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
