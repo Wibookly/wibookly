@@ -150,6 +150,22 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_document",
+      description: "Generate a Word (.docx) and/or PDF document from markdown content and save it to the user's OneDrive under 'InboxIQ Chat'. Use this whenever the user asks you to create, write, draft, or generate a document — policy, report, memo, contract, letter, plan, brief, or any file they can download. The tool uploads the file(s) and returns OneDrive web links (webUrl). NEVER promise a document without calling this tool — call it, then share the returned links in your reply.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Filename/title (no extension). Used as document heading too." },
+          content: { type: "string", description: "Full document body in markdown. Use #/##/### for headings, - for bullets, blank lines for paragraphs." },
+          format: { type: "string", enum: ["docx", "pdf", "both"], description: "Default 'both'." },
+        },
+        required: ["title", "content"],
+      },
+    },
+  },
 ];
 
 const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
