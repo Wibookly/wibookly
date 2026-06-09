@@ -733,6 +733,12 @@ export default function Chat() {
                 // finalize
               } else if (data.type === 'error') {
                 toast.error(data.message || 'Stream error');
+              } else if (data.type === 'onedrive') {
+                const path = data?.md?.path || data?.json?.path;
+                if (path) toast.success(`Saved to OneDrive › ${path}`, { duration: 4000 });
+              } else if (data.type === 'onedrive_error') {
+                // Surface quietly — most likely the user needs to reconnect M365 to grant Files.ReadWrite.
+                console.warn('OneDrive save failed:', data.message);
               }
             } catch {/* ignore */}
           }
