@@ -1457,7 +1457,7 @@ export default function Chat() {
                     type="button"
                     variant={deepMode ? 'default' : 'ghost'}
                     size="icon"
-                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90')}
+                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90', autoBadges.deep && 'ring-2 ring-primary/60 animate-pulse')}
                     disabled={isStreaming || limitReached}
                     onClick={() => {
                       setDeepMode((v) => {
