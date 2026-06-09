@@ -150,6 +150,22 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_document",
+      description: "Generate a Word (.docx) and/or PDF document from markdown content and save it to the user's OneDrive under 'InboxIQ Chat'. Use this whenever the user asks you to create, write, draft, or generate a document — policy, report, memo, contract, letter, plan, brief, or any file they can download. The tool uploads the file(s) and returns OneDrive web links (webUrl). NEVER promise a document without calling this tool — call it, then share the returned links in your reply.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Filename/title (no extension). Used as document heading too." },
+          content: { type: "string", description: "Full document body in markdown. Use #/##/### for headings, - for bullets, blank lines for paragraphs." },
+          format: { type: "string", enum: ["docx", "pdf", "both"], description: "Default 'both'." },
+        },
+        required: ["title", "content"],
+      },
+    },
+  },
 ];
 
 const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
@@ -183,6 +199,7 @@ Answer shape:
 
 Rules:
 - NEVER tell the user you "don't have access" to their email/files/calendar — you do, via tools. Call them.
+- When the user asks you to create/write/draft/generate a document, policy, report, memo, plan, contract, letter, or brief, you MUST call the generate_document tool (don't just promise it). After the tool returns, share the OneDrive links (webUrl) in your reply so the user can open the file. Default format is "both" (DOCX + PDF).
 - Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
@@ -533,6 +550,21 @@ async function executeTool(
       },
       status: "ready_for_review",
     };
+  }
+  if (name === "generate_document") {
+    const title = String(args.title || "").trim();
+    const content = String(args.content || "").trim();
+    if (!title || !content) return { error: "title and content required" };
+    const { generateDocument } = await import("../_shared/generate-document.ts");
+    const res = await generateDocument({
+      userId: ctx.user_id,
+      connectionId: ctx.connection_id,
+      title,
+      content,
+      format: (args.format as any) || "both",
+      subfolder: "Generated Documents",
+    });
+    return res;
   }
   return { error: `Unknown tool: ${name}` };
 }
