@@ -9,7 +9,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2,
+  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
@@ -601,26 +601,45 @@ export default function Chat() {
   const handleExport = async (
     conversationId: string | null,
     format: 'pdf' | 'xlsx',
+    destination: 'download' | 'onedrive' = 'download',
   ) => {
-    const key = `${conversationId || 'all'}-${format}`;
+    const key = `${conversationId || 'all'}-${format}-${destination}`;
     setExporting(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
+      if (destination === 'onedrive' && !activeConnection?.id) {
+        throw new Error('Connect a Microsoft 365 account first.');
+      }
       const { data, error } = await supabase.functions.invoke('export-chat', {
-        body: { conversation_id: conversationId, format },
+        body: {
+          conversation_id: conversationId,
+          format,
+          destination,
+          connection_id: destination === 'onedrive' ? activeConnection?.id : undefined,
+        },
       });
       if (error) throw error;
-      const file = data as { filename: string; mime_type: string; base64: string };
-      if (!file?.base64) throw new Error('Empty export');
-      downloadBase64File(file.filename, file.mime_type, file.base64);
-      toast.success(`Exported as ${format.toUpperCase()}`);
+      if (destination === 'onedrive') {
+        const res = data as { webUrl?: string; filename?: string; error?: string };
+        if (res?.error) throw new Error(res.error);
+        toast.success(
+          res?.webUrl ? `Saved to OneDrive › InboxIQ Chat › Exports` : 'Saved to OneDrive',
+          res?.webUrl ? { action: { label: 'Open', onClick: () => window.open(res.webUrl!, '_blank') } } : undefined,
+        );
+      } else {
+        const file = data as { filename: string; mime_type: string; base64: string };
+        if (!file?.base64) throw new Error('Empty export');
+        downloadBase64File(file.filename, file.mime_type, file.base64);
+        toast.success(`Downloaded ${format.toUpperCase()}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setExporting(null);
     }
   };
+
 
   // === Summarize current chat + continue in a fresh one ===
   const [summarizing, setSummarizing] = useState(false);
@@ -1012,18 +1031,49 @@ export default function Chat() {
               </DropdownMenuPortal>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={exporting === `${c.id}-pdf`}
-              onClick={() => handleExport(c.id, 'pdf')}
-            >
-              <Download className="h-4 w-4 mr-2" /> Export as PDF
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={exporting === `${c.id}-xlsx`}
-              onClick={() => handleExport(c.id, 'xlsx')}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" /> Export as Excel
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Download className="h-4 w-4 mr-2" /> Download to computer
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-download`}
+                    onClick={() => handleExport(c.id, 'pdf', 'download')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-download`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'download')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Cloud className="h-4 w-4 mr-2" /> Save to OneDrive
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-onedrive`}
+                    onClick={() => handleExport(c.id, 'pdf', 'onedrive')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-onedrive`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'onedrive')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -1077,10 +1127,10 @@ export default function Chat() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-pdf'}
-                  onClick={() => handleExport(null, 'pdf')}
+                  disabled={exporting === 'all-pdf-download'}
+                  onClick={() => handleExport(null, 'pdf', 'download')}
                 >
-                  {exporting === 'all-pdf'
+                  {exporting === 'all-pdf-download'
                     ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     : <Download className="h-3 w-3 mr-1" />}
                   All PDF
@@ -1089,10 +1139,10 @@ export default function Chat() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs flex-1"
-                  disabled={exporting === 'all-xlsx'}
-                  onClick={() => handleExport(null, 'xlsx')}
+                  disabled={exporting === 'all-xlsx-download'}
+                  onClick={() => handleExport(null, 'xlsx', 'download')}
                 >
-                  {exporting === 'all-xlsx'
+                  {exporting === 'all-xlsx-download'
                     ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     : <FileSpreadsheet className="h-3 w-3 mr-1" />}
                   All Excel
