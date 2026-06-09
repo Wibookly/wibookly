@@ -369,6 +369,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
+    const requestBody = await req.json().catch(() => ({}));
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
         status: 401,
@@ -381,18 +382,45 @@ serve(async (req) => {
     const encryptionKey = Deno.env.get("TOKEN_ENCRYPTION_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from token
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
+    const internalUserId = req.headers.get("x-internal-user-id") || requestBody?.userId || null;
+    const internalConnectionId = req.headers.get("x-internal-connection-id") || requestBody?.connectionId || null;
+    const isInternalCall =
+      token === supabaseKey &&
+      requestBody?.internal === true &&
+      typeof internalUserId === "string" &&
+      internalUserId.length > 0;
+
+    let effectiveUserId: string | null = null;
+    if (isInternalCall) {
+      effectiveUserId = internalUserId;
+    } else {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      effectiveUserId = user.id;
+    }
+
+    if (!effectiveUserId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { connectionId, briefType: briefTypeRaw } = await req.json();
+    const connectionId = requestBody?.connectionId || internalConnectionId;
+    if (!connectionId) {
+      return new Response(JSON.stringify({ error: "Connection ID is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { briefType: briefTypeRaw } = requestBody;
     const briefType: "morning" | "evening" =
       briefTypeRaw === "evening" ? "evening" : "morning";
     
@@ -401,7 +429,7 @@ serve(async (req) => {
       .from('provider_connections')
       .select('*')
       .eq('id', connectionId)
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .single();
     
     if (!connection) {
@@ -415,7 +443,7 @@ serve(async (req) => {
     const { data: tokenData } = await supabase
       .from('oauth_token_vault')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('provider', connection.provider)
       .single();
     
@@ -430,7 +458,7 @@ serve(async (req) => {
     const accessToken = await getValidAccessToken(
       tokenData as TokenData, 
       encryptionKey, 
-      user.id,
+      effectiveUserId,
       supabaseUrl,
       supabaseKey
     );
@@ -555,11 +583,11 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
     const { data: upRow } = await supabase
       .from('user_profiles')
       .select('organization_id')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .maybeSingle();
     const organizationId: string = upRow?.organization_id || '';
     const gate = await enforceLimitsBeforeLLM(supabase, {
-      userId: user.id,
+      userId: effectiveUserId,
       organizationId,
       feature: 'daily_brief',
       fallbackModel: 'google/gemini-2.5-flash',
@@ -615,7 +643,7 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
     try {
       const usage = aiResponse.usage || {};
       await recordSpend(supabase, {
-        userId: user.id,
+        userId: effectiveUserId,
         organizationId,
         groupId: gate.group_id,
         feature: 'daily_brief',
