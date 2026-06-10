@@ -7,6 +7,7 @@ import { getContextualArticles } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
   START_GUIDED_TOUR_EVENT,
+  OPEN_WELCOME_GUIDE_EVENT,
   type OpenHelpPanelDetail,
   type StartGuidedTourDetail,
 } from './events';
