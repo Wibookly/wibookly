@@ -165,7 +165,7 @@ export function useKokoroTTS() {
         return;
       }
 
-      const blob = new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: payload.mimeType || 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       urlRef.current = url;
       audio.src = url;
