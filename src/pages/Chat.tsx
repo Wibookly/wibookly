@@ -979,6 +979,61 @@ export default function Chat() {
     }
   };
 
+  // Re-ask the model with the user prompt that produced this assistant
+  // reply. Doesn't delete the old reply — appends a fresh attempt below it
+  // so the user can compare, like ChatGPT's "Regenerate".
+  const handleRegenerate = (assistantMessageId: string) => {
+    if (isStreaming) return;
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    if (idx < 0) return;
+    let priorUserText: string | null = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user' && messages[i].content?.trim()) {
+        priorUserText = messages[i].content;
+        break;
+      }
+    }
+    if (!priorUserText) {
+      toast.error("Couldn't find the original message to regenerate.");
+      return;
+    }
+    handleSend(priorUserText);
+  };
+
+  // Create a draft of the assistant reply in the user's own connected
+  // mailbox (Gmail or Outlook), addressed to themselves. We intentionally
+  // create a draft (not auto-send) so the user can review/edit and hit
+  // Send from their mail app.
+  const handleEmailToSelf = async (assistantMessage: Msg) => {
+    if (!activeConnection?.id || !activeConnection?.email) {
+      toast.error('Connect a mailbox first to email yourself.');
+      return;
+    }
+    const providerLabel = activeConnection.provider === 'google' ? 'Gmail'
+      : (activeConnection.provider === 'microsoft' || activeConnection.provider === 'outlook') ? 'Outlook'
+      : 'your mailbox';
+    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].slice(0, 80) || 'InboxIQ chat note';
+    const subject = `InboxIQ – ${subjectBase}`;
+    const toastId = toast.loading(`Creating draft in ${providerLabel}…`);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-draft-to-provider', {
+        body: {
+          connection_id: activeConnection.id,
+          subject,
+          body: assistantMessage.content || '',
+          to: [activeConnection.email],
+          is_html: false,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      toast.success(`Draft saved in ${providerLabel} → open to review and send`, { id: toastId });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Couldn't create draft in ${providerLabel}`, { id: toastId });
+    }
+  };
+
+
   const handleFiles = (list: FileList | null) => {
     if (!list) return;
     const accepted = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg',
