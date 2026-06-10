@@ -62,6 +62,18 @@ export function AppLayout() {
     return () => window.removeEventListener(RESTART_SETUP_WIZARD_EVENT, handler);
   }, []);
 
+  // Preload the in-browser Kokoro TTS model in the background once the user
+  // is signed in, so read-aloud is ready when they open a chat. Skip on
+  // data-saver connections; the worker will lazy-load on first click instead.
+  useEffect(() => {
+    if (!user?.id) return;
+    const saveData = (navigator as any).connection?.saveData === true;
+    if (saveData) return;
+    const idle = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
+    const run = () => ttsService.preload();
+    if (idle) idle(run); else setTimeout(run, 400);
+  }, [user?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -107,6 +119,7 @@ export function AppLayout() {
           /* Profile.onboarding_completed_at is updated inside the wizard. */
         }}
       />
+      <TtsPreloadIndicator />
       {/* Suppress unused-var warning for `profile` (kept for future personalization). */}
       <span className="hidden">{profile?.id ?? ''}</span>
     </div>
