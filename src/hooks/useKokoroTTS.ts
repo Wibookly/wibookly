@@ -75,6 +75,7 @@ export function setStoredVoice(v: KokoroVoiceId) {
 
 let ttsInstance: any | null = null;
 let ttsPromise: Promise<any> | null = null;
+let sharedAudioContext: AudioContext | null = null;
 const progressListeners = new Set<(pct: number) => void>();
 
 function emitProgress(pct: number) {
@@ -153,22 +154,49 @@ function pickBrowserVoice(voiceId: KokoroVoiceId) {
   }
 }
 
-function webSpeechFallback(text: string, voiceId: KokoroVoiceId, onEnd: () => void) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth) { onEnd(); return; }
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    const matchedVoice = pickBrowserVoice(voiceId);
-    if (matchedVoice) utterance.voice = matchedVoice;
-    utterance.onend = onEnd;
-    utterance.onerror = onEnd;
-    synth.speak(utterance);
-  } catch {
-    onEnd();
+function createWebSpeechSession(text: string, voiceId: KokoroVoiceId, onEnd: () => void) {
+  const synth = window.speechSynthesis;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.lang = getLanguageHints(voiceId)[0] || 'en-US';
+  const matchedVoice = pickBrowserVoice(voiceId);
+  if (matchedVoice) utterance.voice = matchedVoice;
+  utterance.onend = onEnd;
+  utterance.onerror = onEnd;
+
+  return {
+    start() {
+      try {
+        if (!synth) {
+          onEnd();
+          return false;
+        }
+        synth.cancel();
+        synth.speak(utterance);
+        return true;
+      } catch {
+        onEnd();
+        return false;
+      }
+    },
+    stop() {
+      try { synth?.cancel(); } catch { /* ignore */ }
+    },
+  };
+}
+
+async function ensureAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextCtor) return null;
+  if (!sharedAudioContext) {
+    sharedAudioContext = new AudioContextCtor();
   }
+  if (sharedAudioContext.state === 'suspended') {
+    await sharedAudioContext.resume();
+  }
+  return sharedAudioContext;
 }
 
 async function requestPersistentCache() {
@@ -182,7 +210,9 @@ async function requestPersistentCache() {
 }
 
 export function useKokoroTTS() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const fallbackStopRef = useRef<(() => void) | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
   const warmupNoticeShownRef = useRef(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(() => !ttsInstance && !!ttsPromise);
@@ -193,11 +223,15 @@ export function useKokoroTTS() {
 
   const stop = useCallback(() => {
     try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current = null;
+      if (fallbackTimerRef.current !== null) {
+        window.clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
       }
+      fallbackStopRef.current?.();
+      fallbackStopRef.current = null;
+      sourceRef.current?.stop();
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
       window.speechSynthesis?.cancel();
     } catch { /* ignore */ }
     setSpeakingId(null);
@@ -229,6 +263,11 @@ export function useKokoroTTS() {
     stop();
     setSpeakingId(id);
     const selectedVoice = getStoredVoice();
+    const fallbackSession = createWebSpeechSession(clean, selectedVoice, () => {
+      fallbackStopRef.current = null;
+      setSpeakingId((current) => (current === id ? null : current));
+    });
+    fallbackStopRef.current = fallbackSession.stop;
 
     if (!ttsInstance) {
       void preload();
@@ -239,33 +278,50 @@ export function useKokoroTTS() {
           duration: 2600,
         });
       }
-      webSpeechFallback(clean, selectedVoice, () => setSpeakingId(null));
+      fallbackSession.start();
       return;
     }
 
     try {
+      const audioContext = await ensureAudioContext();
+      let fallbackStarted = false;
+      fallbackTimerRef.current = window.setTimeout(() => {
+        fallbackTimerRef.current = null;
+        fallbackStarted = fallbackSession.start();
+      }, 450);
+
       const tts = await getTTS((pct) => setLoadProgress(pct));
       const audio = await tts.generate(clean, { voice: selectedVoice });
+      if (fallbackTimerRef.current !== null) {
+        window.clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+      if (fallbackStarted || !audioContext) {
+        return;
+      }
       const blob: Blob = typeof audio.toBlob === 'function'
         ? audio.toBlob()
         : new Blob([audio], { type: 'audio/wav' });
-      const url = URL.createObjectURL(blob);
-      const el = new Audio(url);
-      audioRef.current = el;
-      el.onended = () => {
-        URL.revokeObjectURL(url);
-        setSpeakingId(null);
-        audioRef.current = null;
+      const audioBuffer = await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      sourceRef.current = source;
+      source.onended = () => {
+        source.disconnect();
+        if (sourceRef.current === source) {
+          sourceRef.current = null;
+        }
+        setSpeakingId((current) => (current === id ? null : current));
       };
-      el.onerror = () => {
-        URL.revokeObjectURL(url);
-        setSpeakingId(null);
-        audioRef.current = null;
-      };
-      await el.play();
+      source.start(0);
     } catch (err) {
       console.warn('[kokoro] falling back to Web Speech:', err);
-      webSpeechFallback(clean, selectedVoice, () => setSpeakingId(null));
+      if (fallbackTimerRef.current !== null) {
+        window.clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+      fallbackSession.start();
     }
   }, [preload, stop]);
 
