@@ -1177,6 +1177,16 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
+        {streamingConvId === c.id && (
+          <span
+            className="relative flex h-2 w-2 shrink-0"
+            title="AI is working on this chat"
+            aria-label="AI is working on this chat"
+          >
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+          </span>
+        )}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
