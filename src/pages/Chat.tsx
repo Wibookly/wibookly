@@ -12,7 +12,7 @@ import {
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
+import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -292,18 +292,24 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress } = useKokoroTTS();
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
   }, []);
-  // Show a one-time toast while the Kokoro model is downloading.
+  // Warm up the Kokoro model in the background as soon as Chat mounts so
+  // the first click on a "play" button feels instant instead of waiting
+  // for an ~80MB download.
+  useEffect(() => { preloadTTS(); }, [preloadTTS]);
+  // Only show the download toast if the user actually clicks play before
+  // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
-    if (!ttsLoading) return;
-    const t = toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
+    if (!ttsLoading || !speakingId) return;
+    toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
     return () => { toast.dismiss('kokoro-loading'); };
-  }, [ttsLoading, ttsLoadProgress]);
+  }, [ttsLoading, ttsLoadProgress, speakingId]);
+
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
@@ -1360,12 +1366,12 @@ export default function Chat() {
           <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
-                <ChatCapacityMeter
-                  messages={messages}
-                  streamingText={streamingText}
+                <ChatCreditMeter
                   onSummarizeAndContinue={handleSummarizeAndContinue}
                   summarizing={summarizing}
+                  messageCount={messages.filter((m) => m.role !== 'system').length}
                 />
+
               </div>
             )}
 
