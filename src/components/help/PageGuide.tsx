@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, X, Compass, GraduationCap } from 'lucide-react';
+import { Sparkles, X, Compass, GraduationCap, Map } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTrainingMode } from './TrainingMode';
 import { useTour } from '@/components/onboarding/TourProvider';
@@ -8,6 +8,7 @@ import { getContextualArticles, type HelpArticle } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
   START_GUIDED_TOUR_EVENT,
+  OPEN_WELCOME_GUIDE_EVENT,
   type OpenHelpPanelDetail,
   type StartGuidedTourDetail,
 } from './events';
@@ -175,6 +176,16 @@ export function PageGuide() {
           className={cn('h-3.5 w-3.5', training && 'animate-pulse')}
         />
       </button>
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_WELCOME_GUIDE_EVENT))}
+        aria-label="Replay the app welcome tour"
+        title="Tour the whole app"
+        className="flex items-center justify-center px-2 transition border-l border-primary-foreground/20 hover:bg-primary/90"
+      >
+        <Map className="h-3.5 w-3.5" />
+      </button>
+
 
 
       <button
