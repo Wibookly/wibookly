@@ -1799,6 +1799,11 @@ function MessageBubble({
   speakingId,
   onSpeak,
   onStopSpeak,
+  onRegenerate,
+  onEmailToSelf,
+  mailboxLabel,
+  mailboxEmail,
+  isStreamingAny,
 }: {
   message: Msg;
   userInitial: string;
@@ -1806,13 +1811,20 @@ function MessageBubble({
   speakingId?: string | null;
   onSpeak?: (text: string, id: string) => void;
   onStopSpeak?: () => void;
+  onRegenerate?: (assistantMessageId: string) => void;
+  onEmailToSelf?: (assistantMessage: Msg) => void;
+  mailboxLabel?: string | null;
+  mailboxEmail?: string | null;
+  isStreamingAny?: boolean;
 }) {
   const isUser = message.role === 'user';
   const copy = () => {
     navigator.clipboard.writeText(message.content);
-    toast.success('Copied');
+    toast.success('Copied to clipboard');
   };
   const isSpeaking = speakingId === message.id;
+  const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
+  const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
 
   return (
     <div className="flex flex-col gap-1.5 group">
@@ -1850,15 +1862,41 @@ function MessageBubble({
           <CitationChips citations={message.citations} />
         )}
         {!isUser && !streaming && (
-          <div className="flex gap-1 items-center mt-1">
-            <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
+          <div className="flex flex-wrap gap-1 items-center mt-1">
+            <button
+              onClick={copy}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
+              title="Copy reply to clipboard"
+            >
               <Copy className="h-3.5 w-3.5" />
+              <span>Copy</span>
             </button>
+            {canRegenerate && (
+              <button
+                onClick={() => onRegenerate!(message.id)}
+                disabled={!!isStreamingAny}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ask the AI to answer again"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Regenerate</span>
+              </button>
+            )}
+            {canEmail && (
+              <button
+                onClick={() => onEmailToSelf!(message)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
+                title={`Create a draft in ${mailboxLabel} addressed to ${mailboxEmail}`}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span>Email to me{mailboxLabel ? ` (${mailboxLabel})` : ''}</span>
+              </button>
+            )}
             {onSpeak && (
               <button
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
                 className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
+                  'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
                   isSpeaking
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
@@ -1875,6 +1913,7 @@ function MessageBubble({
     </div>
   );
 }
+
 
 function citationIcon(sourceType?: string) {
   switch ((sourceType || '').toLowerCase()) {
