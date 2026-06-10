@@ -1010,7 +1010,7 @@ export default function Chat() {
       return;
     }
     const providerLabel = activeConnection.provider === 'google' ? 'Gmail'
-      : (activeConnection.provider === 'microsoft' || activeConnection.provider === 'outlook') ? 'Outlook'
+      : activeConnection.provider === 'outlook' ? 'Outlook'
       : 'your mailbox';
     const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].slice(0, 80) || 'InboxIQ chat note';
     const subject = `InboxIQ – ${subjectBase}`;
