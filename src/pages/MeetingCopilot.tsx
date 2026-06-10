@@ -463,7 +463,7 @@ export default function MeetingCopilot() {
       </div>
 
       {/* COPILOT BEHAVIOR — collapsible */}
-      <div className="rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div data-tour="mc-behavior" className="rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <button
           type="button"
           onClick={() => setBehaviorOpen((v) => !v)}
@@ -484,24 +484,28 @@ export default function MeetingCopilot() {
 
         {behaviorOpen && (
           <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--border)' }}>
-            <ToggleRow
-              title="Auto-join all my meetings"
-              desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
-              checked={settings.auto_join_all}
-              onChange={(v) => updateSettings({ auto_join_all: v })}
-            />
+            <div data-tour="mc-autojoin">
+              <ToggleRow
+                title="Auto-join all my meetings"
+                desc="Copilot listens to every calendar meeting automatically. You can still toggle individual meetings off."
+                checked={settings.auto_join_all}
+                onChange={(v) => updateSettings({ auto_join_all: v })}
+              />
+            </div>
             <ToggleRow
               title="Live suggestions during the call"
               desc='Show "what to say" and "follow-up questions" in real time. No audio is ever stored.'
               checked={settings.show_live_suggestions}
               onChange={(v) => updateSettings({ show_live_suggestions: v })}
             />
-            <ToggleRow
-              title="Auto-draft follow-up email after each call"
-              desc="Generate a summary and action items, then save them as a draft in your inbox under the 0. AI Draft follow-up category in Outlook — always review before sending."
-              checked={settings.auto_draft_followup}
-              onChange={(v) => updateSettings({ auto_draft_followup: v })}
-            />
+            <div data-tour="mc-autodraft">
+              <ToggleRow
+                title="Auto-draft follow-up email after each call"
+                desc="Generate a summary and action items, then save them as a draft in your inbox under the 0. AI Draft follow-up category in Outlook — always review before sending."
+                checked={settings.auto_draft_followup}
+                onChange={(v) => updateSettings({ auto_draft_followup: v })}
+              />
+            </div>
 
             {/* Suggestion style */}
             <div className="pt-5 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
@@ -509,7 +513,7 @@ export default function MeetingCopilot() {
                 <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Suggestion style</div>
                 <div className="text-caption" style={{ color: 'var(--text-2)' }}>Default tone for live suggestions. Override per meeting below.</div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div data-tour="mc-style" className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <StyleCard Icon={Zap} title="Concise" desc="Short bullet points. Best for quick reference during fast conversations."
                   active={settings.suggestion_style === 'concise'} onClick={() => updateSettings({ suggestion_style: 'concise' })} />
                 <StyleCard Icon={MessageSquare} title="Conversational" desc="Full sentences ready to say. Best for tough discussions and sales calls."
