@@ -1689,7 +1689,7 @@ export default function Chat() {
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || isStreaming || limitReached}
                 title={isStreaming ? 'InboxIQ is processing your request' : 'Send message'}
               >
