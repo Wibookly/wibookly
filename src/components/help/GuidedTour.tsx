@@ -196,24 +196,47 @@ export function GuidedTour() {
   /* ---------- compute card position ---------- */
 
   const cardStyle = useMemo<React.CSSProperties>(() => {
+    const width = Math.min(CARD_WIDTH, viewport.w - 32);
+    const estHeight = 240; // approximate card height incl. padding
     if (!rect) {
-      // Centered fallback.
       return {
-        left: Math.max(16, viewport.w / 2 - CARD_WIDTH / 2),
+        left: Math.max(16, viewport.w / 2 - width / 2),
         top: Math.max(16, viewport.h / 2 - 140),
-        width: Math.min(CARD_WIDTH, viewport.w - 32),
+        width,
       };
     }
-    const width = Math.min(CARD_WIDTH, viewport.w - 32);
-    // Prefer placing below; fall back to above; otherwise right; otherwise center.
-    const belowTop = rect.bottom + CARD_GAP;
-    const aboveTop = rect.top - CARD_GAP - 200; // approximate card height
-    let top = belowTop;
-    if (belowTop + 200 > viewport.h - 16 && aboveTop > 16) {
-      top = Math.max(16, rect.top - 220);
+
+    // Compute available space on each side of the spotlight.
+    const spaceBelow = viewport.h - rect.bottom - CARD_GAP - 16;
+    const spaceAbove = rect.top - CARD_GAP - 16;
+    const spaceRight = viewport.w - rect.right - CARD_GAP - 16;
+    const spaceLeft = rect.left - CARD_GAP - 16;
+
+    type Placement = { side: 'below' | 'above' | 'right' | 'left'; score: number };
+    const candidates: Placement[] = [
+      { side: 'right', score: spaceRight >= width ? 1000 + spaceRight : spaceRight },
+      { side: 'left', score: spaceLeft >= width ? 1000 + spaceLeft : spaceLeft },
+      { side: 'below', score: spaceBelow >= estHeight ? 1000 + spaceBelow : spaceBelow },
+      { side: 'above', score: spaceAbove >= estHeight ? 1000 + spaceAbove : spaceAbove },
+    ];
+    candidates.sort((a, b) => b.score - a.score);
+    const best = candidates[0].side;
+
+    let left = 16;
+    let top = 16;
+    if (best === 'right') {
+      left = Math.min(viewport.w - width - 16, rect.right + CARD_GAP);
+      top = Math.max(16, Math.min(viewport.h - estHeight - 16, rect.top + rect.height / 2 - estHeight / 2));
+    } else if (best === 'left') {
+      left = Math.max(16, rect.left - CARD_GAP - width);
+      top = Math.max(16, Math.min(viewport.h - estHeight - 16, rect.top + rect.height / 2 - estHeight / 2));
+    } else if (best === 'below') {
+      top = Math.min(viewport.h - estHeight - 16, rect.bottom + CARD_GAP);
+      left = Math.max(16, Math.min(viewport.w - width - 16, rect.left + rect.width / 2 - width / 2));
+    } else {
+      top = Math.max(16, rect.top - CARD_GAP - estHeight);
+      left = Math.max(16, Math.min(viewport.w - width - 16, rect.left + rect.width / 2 - width / 2));
     }
-    let left = rect.left + rect.width / 2 - width / 2;
-    left = Math.max(16, Math.min(left, viewport.w - width - 16));
     return { left, top, width };
   }, [rect, viewport]);
 
