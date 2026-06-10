@@ -432,8 +432,10 @@ export function WelcomeGuide() {
           {/* Footer */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/55">
             <p>
-              You can reopen this menu anytime from the floating guide pill in
-              the bottom-left corner.
+              You can reopen this menu anytime from{' '}
+              <strong className="text-white">User Guide</strong> in the sidebar
+              (bottom-left), or jump straight into a walkthrough with{' '}
+              <strong className="text-white">Tour This Page</strong>.
             </p>
             <button
               type="button"
