@@ -209,6 +209,17 @@ async function requestPersistentCache() {
   }
 }
 
+function createAudioBufferFromRawAudio(
+  audioContext: AudioContext,
+  rawAudio: { audio?: Float32Array; sampling_rate?: number },
+) {
+  if (!(rawAudio.audio instanceof Float32Array) || !rawAudio.audio.length) return null;
+  const sampleRate = Number(rawAudio.sampling_rate) || 24000;
+  const buffer = audioContext.createBuffer(1, rawAudio.audio.length, sampleRate);
+  buffer.copyToChannel(rawAudio.audio, 0, 0);
+  return buffer;
+}
+
 export function useKokoroTTS() {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const fallbackStopRef = useRef<(() => void) | null>(null);
@@ -306,10 +317,13 @@ export function useKokoroTTS() {
       // Studio voice is ready — make sure the safety-net browser voice
       // isn't queued or speaking, otherwise both would overlap.
       try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-      const blob: Blob = typeof audio.toBlob === 'function'
-        ? audio.toBlob()
-        : new Blob([audio], { type: 'audio/wav' });
-      const audioBuffer = await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
+      const audioBuffer = createAudioBufferFromRawAudio(audioContext, audio)
+        ?? await (async () => {
+          const blob: Blob = typeof audio.toBlob === 'function'
+            ? audio.toBlob()
+            : new Blob([audio], { type: 'audio/wav' });
+          return await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
+        })();
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
