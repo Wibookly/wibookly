@@ -1227,7 +1227,7 @@ export default function Chat() {
 
           {Object.entries(groupedConversations).map(([label, items]) => (
             <div key={label}>
-              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+              <div className="px-2 py-1.5 mt-2 text-[11px] font-semibold uppercase tracking-wider text-primary/80 border-b border-primary/20">{label}</div>
               {items.map((c) => renderConvRow(c))}
             </div>
           ))}
