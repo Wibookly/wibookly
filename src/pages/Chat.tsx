@@ -1366,12 +1366,12 @@ export default function Chat() {
           <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
-                <ChatCapacityMeter
-                  messages={messages}
-                  streamingText={streamingText}
+                <ChatCreditMeter
                   onSummarizeAndContinue={handleSummarizeAndContinue}
                   summarizing={summarizing}
+                  messageCount={messages.filter((m) => m.role !== 'system').length}
                 />
+
               </div>
             )}
 
