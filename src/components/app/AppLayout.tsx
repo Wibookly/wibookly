@@ -14,6 +14,7 @@ import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
 import { ttsService } from '@/lib/ttsService';
+import { getStoredVoice } from '@/hooks/useKokoroTTS';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
 
@@ -69,7 +70,7 @@ export function AppLayout() {
     const saveData = (navigator as any).connection?.saveData === true;
     if (saveData) return;
     const idle = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
-    const run = () => ttsService.preload();
+    const run = () => ttsService.preload(getStoredVoice());
     if (idle) idle(run); else setTimeout(run, 400);
   }, [user?.id]);
 
