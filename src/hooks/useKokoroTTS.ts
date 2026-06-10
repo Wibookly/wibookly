@@ -97,7 +97,7 @@ async function getTTS(onProgress?: (pct: number) => void) {
     }
     if (!ttsPromise) {
       ttsPromise = (async () => {
-        const { KokoroTTS } = await import('kokoro-js');
+        const { KokoroTTS } = await import('kokoro-js/dist/kokoro.web.js');
         const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
           dtype: 'q8',
           device: 'wasm',
@@ -346,6 +346,16 @@ export function useKokoroTTS() {
   const speak = useCallback(async (text: string, id: string) => {
     const clean = cleanForSpeech(text);
     if (!clean) return;
+
+    const AudioContextCtor = typeof window === 'undefined'
+      ? null
+      : window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (AudioContextCtor && (!sharedAudioContext || sharedAudioContext.state === 'closed')) {
+      sharedAudioContext = new AudioContextCtor();
+    }
+    if (sharedAudioContext?.state === 'suspended') {
+      void sharedAudioContext.resume();
+    }
 
     stop();
     const requestNonce = requestNonceRef.current;
