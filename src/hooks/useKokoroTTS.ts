@@ -229,6 +229,8 @@ function createAudioBufferFromRawAudio(
 export function useKokoroTTS() {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const fallbackStopRef = useRef<(() => void) | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const requestNonceRef = useRef(0);
   const warmupNoticeShownRef = useRef(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -238,6 +240,25 @@ export function useKokoroTTS() {
     catch { return 0; }
   });
 
+  const cleanupAudioElement = useCallback(() => {
+    try {
+      const el = audioElementRef.current;
+      if (el) {
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      audioElementRef.current = null;
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    }
+  }, []);
+
   const stop = useCallback(() => {
     requestNonceRef.current += 1;
     try {
@@ -246,10 +267,11 @@ export function useKokoroTTS() {
       sourceRef.current?.stop();
       sourceRef.current?.disconnect();
       sourceRef.current = null;
+      cleanupAudioElement();
       window.speechSynthesis?.cancel();
     } catch { /* ignore */ }
     setSpeakingId(null);
-  }, []);
+  }, [cleanupAudioElement]);
 
   useEffect(() => () => stop(), [stop]);
 
@@ -264,7 +286,7 @@ export function useKokoroTTS() {
       await getTTS((pct) => setLoadProgress(pct));
       setLoadProgress(100);
     } catch (err) {
-      console.warn('[kokoro] preload failed (instant browser voice will still work):', err);
+      console.warn('[kokoro] preload failed (browser voice can still be used):', err);
     } finally {
       setLoading(false);
     }
@@ -288,9 +310,52 @@ export function useKokoroTTS() {
     });
   }
 
+  const playWithAudioElement = useCallback(async (
+    rawAudio: { toBlob?: () => Blob },
+    id: string,
+    requestNonce: number,
+  ) => {
+    if (typeof rawAudio.toBlob !== 'function') {
+      throw new Error('Audio blob playback is unavailable');
+    }
+
+    cleanupAudioElement();
+    const url = URL.createObjectURL(rawAudio.toBlob());
+    const audioElement = new Audio(url);
+    audioElement.preload = 'auto';
+    audioElementRef.current = audioElement;
+    audioUrlRef.current = url;
+
+    const clear = (shouldResetSpeaking: boolean) => {
+      if (audioElementRef.current === audioElement) audioElementRef.current = null;
+      if (audioUrlRef.current === url) {
+        URL.revokeObjectURL(url);
+        audioUrlRef.current = null;
+      }
+      if (shouldResetSpeaking && requestNonce === requestNonceRef.current) {
+        setSpeakingId((current) => (current === id ? null : current));
+      }
+    };
+
+    audioElement.onended = () => clear(true);
+    audioElement.onerror = () => clear(true);
+
+    await audioElement.play();
+  }, [cleanupAudioElement]);
+
   const speak = useCallback(async (text: string, id: string) => {
     const clean = cleanForSpeech(text);
     if (!clean) return;
+
+    const AudioContextCtor = typeof window === 'undefined'
+      ? null
+      : window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (AudioContextCtor && (!sharedAudioContext || sharedAudioContext.state === 'closed')) {
+      sharedAudioContext = new AudioContextCtor();
+    }
+    if (sharedAudioContext?.state === 'suspended') {
+      void sharedAudioContext.resume();
+    }
 
     stop();
     const requestNonce = requestNonceRef.current;
@@ -303,28 +368,26 @@ export function useKokoroTTS() {
     });
     fallbackStopRef.current = fallbackSession.stop;
 
-    if (!ttsInstance) {
-      void preload();
-      if (!warmupNoticeShownRef.current) {
+    try {
+      setLoading(true);
+      await requestPersistentCache();
+
+      const audioContext = await ensureAudioContext();
+      if (audioContext) {
+        await unlockAudioOutput(audioContext);
+      }
+
+      if (!ttsInstance && !warmupNoticeShownRef.current) {
         warmupNoticeShownRef.current = true;
-        toast('Playing instantly while the studio voice finishes preparing.', {
+        toast('Preparing the selected voice. The first play can take a few seconds.', {
           id: 'kokoro-warmup',
           duration: 2600,
         });
       }
-      fallbackSession.start();
-      return;
-    }
-
-    try {
-      const audioContext = await ensureAudioContext();
-      if (!audioContext) {
-        fallbackSession.start();
-        return;
-      }
-      await unlockAudioOutput(audioContext);
 
       const tts = await getTTS((pct) => setLoadProgress(pct));
+      setLoadProgress(100);
+
       let audio;
       try {
         audio = await tts.generate(clean, { voice: selectedVoice });
@@ -334,38 +397,53 @@ export function useKokoroTTS() {
         setStoredVoice(safeVoice);
         audio = await tts.generate(clean, { voice: safeVoice });
       }
+
       if (requestNonce !== requestNonceRef.current) {
         return;
       }
+
       try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-      const audioBuffer = createAudioBufferFromRawAudio(audioContext, audio)
-        ?? await (async () => {
-          const blob: Blob = typeof audio.toBlob === 'function'
-            ? audio.toBlob()
-            : new Blob([audio], { type: 'audio/wav' });
-          return await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
-        })();
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      sourceRef.current = source;
-      source.onended = () => {
-        source.disconnect();
-        if (sourceRef.current === source) {
-          sourceRef.current = null;
+
+      if (audioContext) {
+        const audioBuffer = createAudioBufferFromRawAudio(audioContext, audio)
+          ?? await (async () => {
+            const blob: Blob = typeof audio.toBlob === 'function'
+              ? audio.toBlob()
+              : new Blob([audio], { type: 'audio/wav' });
+            return await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
+          })();
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        sourceRef.current = source;
+        source.onended = () => {
+          source.disconnect();
+          if (sourceRef.current === source) {
+            sourceRef.current = null;
+          }
+          setSpeakingId((current) => (current === id ? null : current));
+        };
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
         }
-        setSpeakingId((current) => (current === id ? null : current));
-      };
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
+        source.start(0);
+        return;
       }
-      source.start(0);
+
+      await playWithAudioElement(audio, id, requestNonce);
     } catch (err) {
       if (requestNonce !== requestNonceRef.current) return;
       console.warn('[tts] falling back to browser voice:', err);
-      fallbackSession.start();
+      const started = fallbackSession.start();
+      if (!started) {
+        setSpeakingId(null);
+        toast.error('Audio playback failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [preload, stop]);
+  }, [playWithAudioElement, stop]);
 
   return { speak, stop, speakingId, loading, loadProgress, preload };
 }

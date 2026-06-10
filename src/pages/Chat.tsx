@@ -555,7 +555,7 @@ export default function Chat() {
   // Auto-scroll only if user near bottom
   useEffect(() => {
     if (stickToBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: streamingText ? 'auto' : 'smooth' });
     }
   }, [messages, streamingText]);
 
@@ -850,7 +850,7 @@ export default function Chat() {
           usedAuto.deep ? '🧠 Deep' : null,
           usedAuto.loc ? '📍 Location' : null,
         ].filter(Boolean).join(' · ');
-        toast.success(`Auto-enabled: ${parts}`, { duration: 2200, position: 'top-center' });
+        toast.success(`Auto-enabled: ${parts}`, { duration: 2200 });
         setAutoBadges(usedAuto);
       }
 
@@ -900,8 +900,13 @@ export default function Chat() {
                   navigate(`/chat/${newConvId}`, { replace: true });
                 }
               } else if (data.type === 'token') {
-                assembled += data.content;
-                setStreamingText(assembled);
+                const chunk = typeof data.content === 'string' ? data.content : '';
+                if (!chunk) continue;
+                for (const char of chunk) {
+                  assembled += char;
+                  setStreamingText(assembled);
+                  await new Promise((resolve) => setTimeout(resolve, /[\n.!?]/.test(char) ? 18 : 9));
+                }
               } else if (data.type === 'citations') {
                 setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
               } else if (data.type === 'phase') {
@@ -914,12 +919,6 @@ export default function Chat() {
                 // finalize
               } else if (data.type === 'error') {
                 toast.error(data.message || 'Stream error');
-              } else if (data.type === 'onedrive') {
-                const path = data?.md?.path || data?.json?.path;
-                if (path) toast.success(`Saved to OneDrive › ${path}`, { duration: 4000 });
-              } else if (data.type === 'onedrive_error') {
-                // Surface quietly — most likely the user needs to reconnect M365 to grant Files.ReadWrite.
-                console.warn('OneDrive save failed:', data.message);
               }
             } catch {/* ignore */}
           }
