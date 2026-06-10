@@ -1129,6 +1129,11 @@ export default function Chat() {
       if (activeIdRef.current === info.convId) {
         setAutoBadges({});
       }
+      // Mark the conv as "recently replied" so the sidebar shows a dark-green
+      // dot until the user opens it again.
+      if (info.convId && !info.aborted) {
+        markRecent(info.convId);
+      }
     }
   };
 
