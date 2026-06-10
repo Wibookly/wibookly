@@ -896,12 +896,14 @@ export default function Chat() {
         let assembled = '';
         let newConvId: string | null = activeId;
         while (true) {
+          if (abortedRef.current) { try { reader.cancel(); } catch {} break; }
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const events = buffer.split('\n\n');
           buffer = events.pop() || '';
           for (const ev of events) {
+            if (abortedRef.current) break;
             const line = ev.split('\n').find((l) => l.startsWith('data: '));
             if (!line) continue;
             try {
@@ -915,10 +917,14 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                for (const char of chunk) {
-                  assembled += char;
+                // Faster typewriter: stream in small batches with a tiny delay
+                // so text appears smoothly but ~3x quicker than before.
+                const BATCH = 6;
+                for (let i = 0; i < chunk.length; i += BATCH) {
+                  if (abortedRef.current) break;
+                  assembled += chunk.slice(i, i + BATCH);
                   setStreamingText(assembled);
-                  await new Promise((resolve) => setTimeout(resolve, /[\n.!?]/.test(char) ? 18 : 9));
+                  await new Promise((resolve) => setTimeout(resolve, 4));
                 }
               } else if (data.type === 'citations') {
                 setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
