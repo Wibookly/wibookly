@@ -1950,19 +1950,17 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
               )}
-              {!isRecording && (
               <Button
                 size="icon"
                 variant={isStreaming ? 'destructive' : 'default'}
                 className="h-9 w-9 shrink-0"
                 onClick={() => (isStreaming ? handleStop() : handleSend())}
-                disabled={isStreaming ? false : (!input.trim() || limitReached)}
-                title={isStreaming ? 'Stop generating' : 'Send message'}
+                disabled={isStreaming ? false : (!input.trim() || limitReached || isRecording)}
+                title={isStreaming ? 'Stop generating' : (isRecording ? 'Stop the mic first, then send' : 'Send message')}
                 aria-label={isStreaming ? 'Stop generating' : 'Send message'}
               >
                 {isStreaming ? <Square className="h-4 w-4" fill="currentColor" /> : <Send className="h-4 w-4" />}
               </Button>
-              )}
             </div>
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={usageColor}>
