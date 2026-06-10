@@ -367,6 +367,58 @@ export const HELP_ARTICLES: HelpArticle[] = [
     routes: ['/integrations', '/admin'],
     keywords: ['email agent', 'shared mailbox', 'ask by email', 'delegated', 'sharepoint', 'onedrive', 'permissions'],
   },
+  {
+    id: 'reply-tracker',
+    title: 'My Reply Tracker — guided walkthrough',
+    category: 'ai-features',
+    summary: 'Track outgoing emails and get nudged when nobody replies.',
+    intro:
+      'The Reply Tracker watches outgoing emails you opt-in to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox and nothing is ever sent without your review.',
+    steps: [
+      { title: 'Open Reply Tracker', description: 'Use the sidebar → My Reply Tracker.', route: '/follow-up-reminder' },
+      { title: 'Turn the tracker ON', description: 'Flip this master switch to enable tracking on your active mailbox. When OFF, BCC triggers are ignored. The badge next to the title shows Active or Off.', target: '[data-tour="followup-toggle"]' },
+      { title: 'BCC a number to start tracking', description: 'Send your email normally and BCC 2@yourdomain.com, 3@yourdomain.com, etc. The NUMBER is the days to wait before nudging you. The exact address for your mailbox is shown right above this diagram.', target: '[data-tour="followup-flow"]' },
+      { title: 'Stop or restart a tracker', description: 'To cancel an active tracker, reply on the thread and BCC stop@yourdomain.com (or 0@yourdomain.com). To re-arm, send a fresh email with a numeric BCC.', target: '[data-tour="followup-stop"]' },
+    ],
+    outro:
+      'Use 2 days for urgent decisions, 3–5 for normal asks, 7 for low-priority. Up to 3 reminders per thread, then InboxIQ stops automatically so you never spam a recipient.',
+    routes: ['/follow-up-reminder'],
+    keywords: ['follow up', 'reply', 'nudge', 'tracker', 'bcc'],
+  },
+  {
+    id: 'meeting-copilot',
+    title: 'Meeting Copilot — guided walkthrough',
+    category: 'ai-features',
+    summary: 'Prep, transcribe and summarize every meeting — with full control over what auto-runs.',
+    intro:
+      'Meeting Copilot sits next to your calendar. It can prep you before a call, capture the conversation live, and write the follow-up — but every automation is a toggle so you stay in control.',
+    steps: [
+      { title: 'Open Meeting Copilot', description: 'Use the sidebar → Meeting Copilot.', route: '/meeting-copilot' },
+      { title: 'Expand Copilot Behavior', description: 'Click this card to open the global behavior toggles. The one-line summary at the top tells you exactly what is ON / OFF right now.', target: '[data-tour="mc-behavior"]' },
+      { title: 'Auto-join all your meetings', description: 'Turn this ON to have Copilot listen to every calendar meeting automatically. You can still toggle individual meetings off in the list below.', target: '[data-tour="mc-autojoin"]' },
+      { title: 'Auto-draft the follow-up email', description: 'When ON, Copilot generates a summary + action items and saves it as a draft under "0. AI Draft" after each call. Always review before sending — nothing is sent automatically.', target: '[data-tour="mc-autodraft"]' },
+      { title: 'Pick a suggestion style', description: 'Choose Concise, Conversational or Strategic. This is the default tone for the live "what to say" suggestions during calls — you can override it per meeting.', target: '[data-tour="mc-style"]' },
+    ],
+    routes: ['/meeting-copilot'],
+    keywords: ['meeting', 'copilot', 'transcribe', 'summary', 'auto-join'],
+  },
+  {
+    id: 'ai-activity',
+    title: 'AI Activity — guided walkthrough',
+    category: 'ai-features',
+    summary: 'A transparent log of everything the AI did for you.',
+    intro:
+      'This dashboard is your audit trail. Every draft written, auto-reply sent, event scheduled, chat message and meeting handled by AI is counted here so you always know what is going on.',
+    steps: [
+      { title: 'Open AI Activity', description: 'Use the sidebar → AI Activity.', route: '/ai-activity' },
+      { title: 'Email AI stats', description: 'Top row: AI drafts created, auto-replies sent, calendar events booked, and total emails processed. Each tile is a 30-day rolling number.', target: '[data-tour="aa-email-stats"]' },
+      { title: 'Chat & Meetings stats', description: 'Second row: how many AI Chat messages and conversations you have run, and how many meetings Copilot has handled.', target: '[data-tour="aa-chat-stats"]' },
+      { title: 'Activity by Category', description: 'Per-category breakdown of drafts vs auto-replies. Use this to spot which categories are pulling the most AI work.', target: '[data-tour="aa-category"]' },
+      { title: 'Export the report', description: 'Use this button to download a CSV of every AI action with timestamps — handy for compliance or sharing with your team.', target: '[data-tour="aa-export"]' },
+    ],
+    routes: ['/ai-activity'],
+    keywords: ['activity', 'audit', 'report', 'log', 'transparency'],
+  },
 ];
 
 /**
