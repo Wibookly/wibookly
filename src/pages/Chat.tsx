@@ -293,6 +293,17 @@ export default function Chat() {
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress } = useKokoroTTS();
+  const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
+    setTtsVoice(v);
+    setStoredVoice(v);
+  }, []);
+  // Show a one-time toast while the Kokoro model is downloading.
+  useEffect(() => {
+    if (!ttsLoading) return;
+    const t = toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
+    return () => { toast.dismiss('kokoro-loading'); };
+  }, [ttsLoading, ttsLoadProgress]);
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
