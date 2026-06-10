@@ -97,7 +97,7 @@ async function getTTS(onProgress?: (pct: number) => void) {
     }
     if (!ttsPromise) {
       ttsPromise = (async () => {
-        const { KokoroTTS } = await import('kokoro-js/dist/kokoro.web.js');
+        const { KokoroTTS } = await import('kokoro-js');
         const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
           dtype: 'q8',
           device: 'wasm',
