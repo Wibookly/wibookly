@@ -216,7 +216,7 @@ function createAudioBufferFromRawAudio(
   if (!(rawAudio.audio instanceof Float32Array) || !rawAudio.audio.length) return null;
   const sampleRate = Number(rawAudio.sampling_rate) || 24000;
   const buffer = audioContext.createBuffer(1, rawAudio.audio.length, sampleRate);
-  buffer.copyToChannel(rawAudio.audio, 0, 0);
+  buffer.copyToChannel(new Float32Array(rawAudio.audio), 0, 0);
   return buffer;
 }
 
