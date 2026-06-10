@@ -852,11 +852,21 @@ export default function Chat() {
 
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
-    if (!text || isStreaming || !user) return;
-    if (!override) setInput('');
-    if (override) {
-      // Regeneration: don't re-upload files, don't clear composer.
+    if (!text || !user) return;
+
+    // The conversation we're starting this stream for, captured at send time.
+    // May be null when the user is on the "New chat" screen.
+    const startingConvId = activeId;
+
+    // Block only if THIS chat already has an in-flight stream.
+    // A stream in a different chat does not prevent sending here — that's
+    // the whole point of parallel multi-chat streaming.
+    if (findStreamForConv(startingConvId)) {
+      toast.message('This chat is still answering — wait for it to finish or switch to another chat.');
+      return;
     }
+
+    if (!override) setInput('');
 
     stickToBottomRef.current = true;
 
@@ -867,18 +877,27 @@ export default function Chat() {
       created_at: new Date().toISOString(),
       attachments: files.length ? files.map((f) => f.name) : null,
     };
-    setMessages((prev) => [...prev, tempUserMsg]);
 
     const toUpload = files;
     setFiles([]);
-    setIsStreaming(true);
-    setStreamingConvId(activeId);
-    setStreamingText('');
-    setStreamingPhase('Thinking');
-    setStreamingCitations([]);
-    abortedRef.current = false;
-    const ac = new AbortController();
-    abortRef.current = ac;
+
+    const key =
+      typeof crypto !== 'undefined' && (crypto as any).randomUUID
+        ? (crypto as any).randomUUID()
+        : `s-${Date.now()}-${Math.random()}`;
+    const info: StreamInfo = {
+      key,
+      convId: startingConvId,
+      newChatEpoch: newChatEpochRef.current,
+      tempUserMsg,
+      text: '',
+      phase: 'Thinking',
+      citations: [],
+      abort: new AbortController(),
+      aborted: false,
+    };
+    streamsRef.current.set(key, info);
+    bumpStreams();
 
     try {
       const { urls: attachmentUrls, refs: attachmentRefs } = await uploadFiles(toUpload);
@@ -887,23 +906,14 @@ export default function Chat() {
       if (!token) throw new Error('Not authenticated');
 
       const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      // Route through chat-agent (SSE adapter around agent-orchestrator) so
-      // the AI has tool access to Outlook / OneDrive / SharePoint and can
-      // actually read file contents instead of just naming them.
       const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
-      // Auto-detect intents from the user's message and turn the matching
-      // capabilities ON just for this request, then OFF when the stream
-      // finishes (handled in the `finally` block). Manual toggles still
-      // override (OR'd in), so user-set state is never weakened.
       const detected = autoMode ? detectIntents(text) : { web: false, deep: false, loc: false };
       const effWeb = (canWebSearch && webSearch) || (canWebSearch && detected.web);
       const effDeep = deepMode || detected.deep;
       const effLoc = locationEnabled || detected.loc;
       let effLocation = (locationEnabled && userLocation) ? userLocation : undefined;
       if (!effLocation && detected.loc) {
-        // Just-in-time one-shot lookup so location flows through for this turn
-        // without permanently flipping the location toggle on.
         const loc = await captureOneShotLocation();
         if (loc) effLocation = loc;
       }
@@ -912,7 +922,8 @@ export default function Chat() {
         deep: !deepMode && detected.deep,
         loc: !locationEnabled && detected.loc,
       };
-      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc)) {
+      // Only flash the auto-badges if the user is still looking at this chat.
+      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc) && activeIdRef.current === startingConvId) {
         const parts = [
           usedAuto.web ? '🌐 Web' : null,
           usedAuto.deep ? '🧠 Deep' : null,
@@ -931,9 +942,9 @@ export default function Chat() {
         },
         body: JSON.stringify({
           message: text,
-          conversation_id: activeId,
+          conversation_id: startingConvId,
           connectionId: activeConnection?.id,
-          folder_id: activeId ? undefined : activeFolderId,
+          folder_id: startingConvId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
@@ -941,7 +952,7 @@ export default function Chat() {
           user_location: effLoc ? effLocation : undefined,
           deep: effDeep,
         }),
-        signal: ac.signal,
+        signal: info.abort.signal,
       });
 
       const ct = resp.headers.get('content-type') || '';
@@ -949,45 +960,49 @@ export default function Chat() {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let assembled = '';
-        let newConvId: string | null = activeId;
         while (true) {
-          if (abortedRef.current) { try { reader.cancel(); } catch {} break; }
+          if (info.aborted) { try { reader.cancel(); } catch {} break; }
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const events = buffer.split('\n\n');
           buffer = events.pop() || '';
           for (const ev of events) {
-            if (abortedRef.current) break;
+            if (info.aborted) break;
             const line = ev.split('\n').find((l) => l.startsWith('data: '));
             if (!line) continue;
             try {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'conversation') {
-                newConvId = data.conversation_id;
-                if (newConvId) setStreamingConvId(newConvId);
-                if (!activeId && newConvId) {
-                  setActiveId(newConvId);
-                  navigate(`/chat/${newConvId}`, { replace: true });
+                const newId = data.conversation_id as string | undefined;
+                if (newId && !info.convId) {
+                  info.convId = newId;
+                  // Only navigate if the user is still on the new-chat screen
+                  // that started this stream. If they've already moved on,
+                  // leave their navigation alone.
+                  if (activeIdRef.current == null) {
+                    setActiveId(newId);
+                    navigate(`/chat/${newId}`, { replace: true });
+                  }
+                  bumpStreams();
                 }
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                // Faster typewriter: stream in small batches with a tiny delay
-                // so text appears smoothly but ~3x quicker than before.
                 const BATCH = 6;
                 for (let i = 0; i < chunk.length; i += BATCH) {
-                  if (abortedRef.current) break;
-                  assembled += chunk.slice(i, i + BATCH);
-                  setStreamingText(assembled);
+                  if (info.aborted) break;
+                  info.text += chunk.slice(i, i + BATCH);
+                  bumpStreams();
                   await new Promise((resolve) => setTimeout(resolve, 4));
                 }
               } else if (data.type === 'citations') {
-                setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
+                info.citations = Array.isArray(data.citations) ? data.citations : [];
+                bumpStreams();
               } else if (data.type === 'phase') {
                 if (typeof data.label === 'string' && data.label.trim()) {
-                  setStreamingPhase(data.label.trim());
+                  info.phase = data.label.trim();
+                  bumpStreams();
                 }
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
@@ -999,19 +1014,24 @@ export default function Chat() {
             } catch {/* ignore */}
           }
         }
-        // Reload messages & conversations to capture saved rows
+        // Reload messages & conversations to capture saved rows.
         let lastAssistant: Msg | null = null;
-        if (newConvId) {
+        if (info.convId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
             .select('id, role, content, created_at, attachments, citations')
-            .eq('conversation_id', newConvId)
+            .eq('conversation_id', info.convId)
             .order('created_at', { ascending: true });
           const filtered = ((msgs as Msg[]) || []).filter((m) => m.role !== 'system');
-          setMessages(filtered);
+          // Only replace the visible message list if the user is currently
+          // viewing this chat. Otherwise the saved messages will load
+          // naturally when they navigate to it.
+          if (activeIdRef.current === info.convId) {
+            setMessages(filtered);
+          }
           lastAssistant = [...filtered].reverse().find((m) => m.role === 'assistant') || null;
         }
-        if (voiceOut && lastAssistant?.content) {
+        if (voiceOut && lastAssistant?.content && activeIdRef.current === info.convId) {
           speak(lastAssistant.content, lastAssistant.id);
         }
         loadConversations();
@@ -1023,18 +1043,23 @@ export default function Chat() {
         } else if (data.error) {
           toast.error(data.error);
         } else {
-          if (data.conversation_id && !activeId) {
-            setActiveId(data.conversation_id);
-            navigate(`/chat/${data.conversation_id}`, { replace: true });
+          if (data.conversation_id && !info.convId) {
+            info.convId = data.conversation_id;
+            if (activeIdRef.current == null) {
+              setActiveId(data.conversation_id);
+              navigate(`/chat/${data.conversation_id}`, { replace: true });
+            }
           }
-          const cid = data.conversation_id || activeId;
+          const cid = info.convId;
           if (cid) {
             const { data: msgs } = await supabase
               .from('chat_messages')
               .select('id, role, content, created_at, attachments, citations')
               .eq('conversation_id', cid)
               .order('created_at', { ascending: true });
-            setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+            if (activeIdRef.current === cid) {
+              setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+            }
           }
           loadConversations();
           loadUsage();
@@ -1042,28 +1067,27 @@ export default function Chat() {
       }
     } catch (e) {
       const name = (e as any)?.name;
-      if (name === 'AbortError' || abortedRef.current) {
+      if (name === 'AbortError' || info.aborted) {
         toast.message('Stopped');
       } else {
         toast.error(e instanceof Error ? e.message : 'Failed to send');
       }
     } finally {
-      abortRef.current = null;
-      abortedRef.current = false;
-      setIsStreaming(false);
-      setStreamingConvId(null);
-      setStreamingText('');
-      setStreamingCitations([]);
-      // Auto-enabled flags are per-turn only — clear the visual badges so the
-      // next message starts from the user's manual toggle state.
-      setAutoBadges({});
+      streamsRef.current.delete(key);
+      bumpStreams();
+      // Auto badges are per-turn — only clear them if the user is currently
+      // looking at the chat that just finished.
+      if (activeIdRef.current === info.convId) {
+        setAutoBadges({});
+      }
     }
   };
 
   const handleStop = () => {
-    if (!isStreaming) return;
-    abortedRef.current = true;
-    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    const s = activeStream;
+    if (!s) return;
+    s.aborted = true;
+    try { s.abort.abort(); } catch { /* ignore */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
