@@ -984,8 +984,15 @@ export default function Chat() {
         }
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to send');
+      const name = (e as any)?.name;
+      if (name === 'AbortError' || abortedRef.current) {
+        toast.message('Stopped');
+      } else {
+        toast.error(e instanceof Error ? e.message : 'Failed to send');
+      }
     } finally {
+      abortRef.current = null;
+      abortedRef.current = false;
       setIsStreaming(false);
       setStreamingText('');
       setStreamingCitations([]);
@@ -993,6 +1000,12 @@ export default function Chat() {
       // next message starts from the user's manual toggle state.
       setAutoBadges({});
     }
+  };
+
+  const handleStop = () => {
+    if (!isStreaming) return;
+    abortedRef.current = true;
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
