@@ -11,7 +11,7 @@ import {
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
-  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud,
+  Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
@@ -283,6 +283,8 @@ export default function Chat() {
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
   const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
   const [isStreaming, setIsStreaming] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const abortedRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
@@ -818,6 +820,9 @@ export default function Chat() {
     setStreamingText('');
     setStreamingPhase('Thinking');
     setStreamingCitations([]);
+    abortedRef.current = false;
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     try {
       const { urls: attachmentUrls, refs: attachmentRefs } = await uploadFiles(toUpload);
@@ -880,6 +885,7 @@ export default function Chat() {
           user_location: effLoc ? effLocation : undefined,
           deep: effDeep,
         }),
+        signal: ac.signal,
       });
 
       const ct = resp.headers.get('content-type') || '';
@@ -890,12 +896,14 @@ export default function Chat() {
         let assembled = '';
         let newConvId: string | null = activeId;
         while (true) {
+          if (abortedRef.current) { try { reader.cancel(); } catch {} break; }
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const events = buffer.split('\n\n');
           buffer = events.pop() || '';
           for (const ev of events) {
+            if (abortedRef.current) break;
             const line = ev.split('\n').find((l) => l.startsWith('data: '));
             if (!line) continue;
             try {
@@ -909,10 +917,14 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                for (const char of chunk) {
-                  assembled += char;
+                // Faster typewriter: stream in small batches with a tiny delay
+                // so text appears smoothly but ~3x quicker than before.
+                const BATCH = 6;
+                for (let i = 0; i < chunk.length; i += BATCH) {
+                  if (abortedRef.current) break;
+                  assembled += chunk.slice(i, i + BATCH);
                   setStreamingText(assembled);
-                  await new Promise((resolve) => setTimeout(resolve, /[\n.!?]/.test(char) ? 18 : 9));
+                  await new Promise((resolve) => setTimeout(resolve, 4));
                 }
               } else if (data.type === 'citations') {
                 setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
@@ -972,8 +984,15 @@ export default function Chat() {
         }
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to send');
+      const name = (e as any)?.name;
+      if (name === 'AbortError' || abortedRef.current) {
+        toast.message('Stopped');
+      } else {
+        toast.error(e instanceof Error ? e.message : 'Failed to send');
+      }
     } finally {
+      abortRef.current = null;
+      abortedRef.current = false;
       setIsStreaming(false);
       setStreamingText('');
       setStreamingCitations([]);
@@ -981,6 +1000,12 @@ export default function Chat() {
       // next message starts from the user's manual toggle state.
       setAutoBadges({});
     }
+  };
+
+  const handleStop = () => {
+    if (!isStreaming) return;
+    abortedRef.current = true;
+    try { abortRef.current?.abort(); } catch { /* ignore */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1805,12 +1830,14 @@ export default function Chat() {
               {!isRecording && (
               <Button
                 size="icon"
+                variant={isStreaming ? 'destructive' : 'default'}
                 className="h-9 w-9 shrink-0"
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming || limitReached}
-                title={isStreaming ? 'InboxIQ is processing your request' : 'Send message'}
+                onClick={() => (isStreaming ? handleStop() : handleSend())}
+                disabled={isStreaming ? false : (!input.trim() || limitReached)}
+                title={isStreaming ? 'Stop generating' : 'Send message'}
+                aria-label={isStreaming ? 'Stop generating' : 'Send message'}
               >
-                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isStreaming ? <Square className="h-4 w-4" fill="currentColor" /> : <Send className="h-4 w-4" />}
               </Button>
               )}
             </div>
