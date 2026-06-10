@@ -57,5 +57,3 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.extraction-regression-check]
     verify_jwt = false
-  [functions.kokoro-tts]
-    verify_jwt = false
