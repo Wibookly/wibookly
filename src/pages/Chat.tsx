@@ -1396,7 +1396,7 @@ export default function Chat() {
             </div>
           ) : (
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} />)}
+              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
               {isStreaming && (
                 streamingText ? (
                   <MessageBubble
