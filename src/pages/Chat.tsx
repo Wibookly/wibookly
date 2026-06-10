@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
+import { useKokoroTTS, KOKORO_VOICES, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 
 
 interface Conversation {
@@ -291,7 +292,18 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress } = useKokoroTTS();
+  const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
+    setTtsVoice(v);
+    setStoredVoice(v);
+  }, []);
+  // Show a one-time toast while the Kokoro model is downloading.
+  useEffect(() => {
+    if (!ttsLoading) return;
+    const t = toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
+    return () => { toast.dismiss('kokoro-loading'); };
+  }, [ttsLoading, ttsLoadProgress]);
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
@@ -333,25 +345,8 @@ export default function Chat() {
   }, [locationEnabled]);
 
 
-  const speak = useCallback((text: string, id: string) => {
-    try {
-      const synth = window.speechSynthesis;
-      if (!synth) { toast.error('Speech not supported in this browser'); return; }
-      synth.cancel();
-      const clean = text.replace(/```[\s\S]*?```/g, ' code block ').replace(/[#*_`>~]/g, '').slice(0, 4000);
-      const u = new SpeechSynthesisUtterance(clean);
-      u.rate = 1.0; u.pitch = 1.0;
-      u.onend = () => setSpeakingId(null);
-      u.onerror = () => setSpeakingId(null);
-      setSpeakingId(id);
-      synth.speak(u);
-    } catch { setSpeakingId(null); }
-  }, []);
-  const stopSpeak = useCallback(() => {
-    try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-    setSpeakingId(null);
-  }, []);
-  useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
+  // (TTS now provided by useKokoroTTS — free, in-browser Kokoro-82M.)
+
 
   // Voice input: hold-or-toggle mic → Whisper → append transcript to input.
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
@@ -1648,6 +1643,28 @@ export default function Chat() {
                       Allow microphone access to list devices
                     </DropdownMenuItem>
                   )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              )}
+              {!isRecording && (
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Choose AI voice">
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>AI voice (free, in-browser Kokoro TTS)</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="max-h-[320px] overflow-y-auto">
+                  {KOKORO_VOICES.map((v) => (
+                    <DropdownMenuItem key={v.id} onClick={() => handleSelectVoice(v.id)}>
+                      <Check className={cn('h-4 w-4 mr-2', ttsVoice === v.id ? 'opacity-100' : 'opacity-0')} />
+                      {v.label}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               )}
