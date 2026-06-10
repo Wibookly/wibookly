@@ -1255,7 +1255,7 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        {streamingConvId === c.id && (
+        {streamingConvIds.has(c.id) && (
           <span
             className="relative flex h-2 w-2 shrink-0"
             title="AI is working on this chat"
