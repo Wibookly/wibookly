@@ -21,6 +21,7 @@ interface Body {
   cc?: string[];
   bcc?: string[];
   is_html?: boolean;
+  mode?: "draft" | "send";
 }
 
 function escapeHtml(s: string) {
@@ -93,6 +94,67 @@ async function createOutlookDraft(
   if (!res.ok) throw new Error(`Outlook draft failed: ${res.status} ${await res.text()}`);
   const j = await res.json();
   return { id: j.id, webLink: j.webLink ?? null };
+}
+
+async function sendGmailMessage(
+  token: string,
+  args: { to: string[]; cc: string[]; bcc: string[]; subject: string; html: string },
+): Promise<{ id: string; label: string }> {
+  const headers = [
+    args.to.length ? `To: ${args.to.join(", ")}` : null,
+    args.cc.length ? `Cc: ${args.cc.join(", ")}` : null,
+    args.bcc.length ? `Bcc: ${args.bcc.join(", ")}` : null,
+    `Subject: ${args.subject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    args.html,
+  ].filter(Boolean).join("\r\n");
+
+  const raw = btoa(unescape(encodeURIComponent(headers)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+  const res = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw }),
+    },
+  );
+  if (!res.ok) throw new Error(`Gmail send failed: ${res.status} ${await res.text()}`);
+  const j = await res.json();
+  return { id: j.id, label: "sent" };
+}
+
+async function sendOutlookMessage(
+  token: string,
+  args: { to: string[]; cc: string[]; bcc: string[]; subject: string; html: string },
+): Promise<{ label: string }> {
+  const recipients = (list: string[]) =>
+    list.map((address) => ({ emailAddress: { address } }));
+  const res = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: {
+        subject: args.subject,
+        body: { contentType: "HTML", content: args.html },
+        toRecipients: recipients(args.to),
+        ccRecipients: recipients(args.cc),
+        bccRecipients: recipients(args.bcc),
+      },
+      saveToSentItems: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`Outlook send failed: ${res.status} ${await res.text()}`);
+  return { label: "sent" };
 }
 
 Deno.serve(async (req) => {
@@ -170,12 +232,17 @@ Deno.serve(async (req) => {
       html,
     };
 
-    const result = providerKey === "google"
-      ? await createGmailDraft(token, args)
-      : await createOutlookDraft(token, args);
+    const mode = body.mode === "send" ? "send" : "draft";
+    const result = mode === "send"
+      ? providerKey === "google"
+        ? await sendGmailMessage(token, args)
+        : await sendOutlookMessage(token, args)
+      : providerKey === "google"
+        ? await createGmailDraft(token, args)
+        : await createOutlookDraft(token, args);
 
     return new Response(
-      JSON.stringify({ success: true, provider: connection.provider, ...result }),
+      JSON.stringify({ success: true, provider: connection.provider, mode, ...result }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
