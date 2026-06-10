@@ -269,7 +269,7 @@ export function useKokoroTTS() {
     const el = new Audio(SILENT_WAV_DATA_URL);
     el.preload = 'auto';
     el.muted = true;
-    el.playsInline = true;
+    el.setAttribute('playsinline', 'true');
     try {
       await el.play();
     } catch {
@@ -298,7 +298,7 @@ export function useKokoroTTS() {
     const url = URL.createObjectURL(rawAudio.toBlob());
     const audioElement = new Audio(url);
     audioElement.preload = 'auto';
-    audioElement.playsInline = true;
+    audioElement.setAttribute('playsinline', 'true');
     audioElement.crossOrigin = 'anonymous';
     audioElementRef.current = audioElement;
     audioUrlRef.current = url;
