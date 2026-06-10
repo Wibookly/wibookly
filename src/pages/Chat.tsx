@@ -132,7 +132,15 @@ function dateBucket(dateStr: string): string {
     const end = new Date(now); end.setDate(now.getDate() - 7);
     return `Last week · ${fmtDate(start)} – ${fmtDate(end)}`;
   }
-  if (diffDays < 30) return `Earlier this month · ${fmtMonth(d)}`;
+  // Same calendar month as today → "This month"
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+    return `This month · ${fmtMonth(d)}`;
+  }
+  // Previous calendar month → "Last month"
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  if (d.getFullYear() === lastMonth.getFullYear() && d.getMonth() === lastMonth.getMonth()) {
+    return `Last month · ${fmtMonth(d)}`;
+  }
   // Group by month/year for everything older
   return fmtMonth(d);
 }
@@ -1219,7 +1227,7 @@ export default function Chat() {
 
           {Object.entries(groupedConversations).map(([label, items]) => (
             <div key={label}>
-              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+              <div className="px-2 py-1.5 mt-2 text-[11px] font-semibold uppercase tracking-wider text-primary/80 border-b border-primary/20">{label}</div>
               {items.map((c) => renderConvRow(c))}
             </div>
           ))}
