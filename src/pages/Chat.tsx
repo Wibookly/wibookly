@@ -894,6 +894,10 @@ export default function Chat() {
                 setStreamingText(assembled);
               } else if (data.type === 'citations') {
                 setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
+              } else if (data.type === 'phase') {
+                if (typeof data.label === 'string' && data.label.trim()) {
+                  setStreamingPhase(data.label.trim());
+                }
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
               } else if (data.type === 'done') {
