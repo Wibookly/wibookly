@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MessageSquare,
   Inbox,
@@ -12,6 +12,9 @@ import {
   ArrowRight,
   Sparkles,
   X,
+  BookOpen,
+  MapPin,
+  PlayCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,15 +23,17 @@ import {
   START_GUIDED_TOUR_EVENT,
   type StartGuidedTourDetail,
 } from '@/components/help/events';
+import { HELP_ARTICLES } from '@/config/help-content';
 
 /**
  * Full-screen premium dark-glass welcome guide.
  *
  * - Auto-opens once per user (localStorage `inboxiq_welcome_guide_seen`).
  * - Manual relaunch via `OPEN_WELCOME_GUIDE_EVENT`.
- * - Presents an overview paragraph + 7 section tiles. Clicking a tile
- *   navigates to that page and, if an article tour exists, automatically
- *   fires the spotlight tour so each control gets highlighted in turn.
+ * - Two menus:
+ *    1. "App overview" — the main menu of all sections.
+ *    2. "This page" — page-specific menu listing every guided tour
+ *       available on the user's current route.
  */
 
 const STORAGE_KEY = 'inboxiq_welcome_guide_seen_v1';
@@ -39,10 +44,8 @@ interface Section {
   tagline: string;
   description: string;
   route: string;
-  /** Help article id whose `steps[].target` will be spotlighted on arrival. */
   tourArticleId?: string;
   Icon: LucideIcon;
-  /** Tailwind gradient stops for the tile's glow. */
   accent: string;
 }
 
@@ -123,15 +126,18 @@ const SECTIONS: Section[] = [
   },
 ];
 
+type TabId = 'overview' | 'page';
+
 export function WelcomeGuide() {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<TabId>('overview');
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Auto-open once per browser/user on first authenticated landing.
   useEffect(() => {
     try {
       if (localStorage.getItem(STORAGE_KEY) !== '1') {
-        // Slight delay so the app shell renders first.
         const t = setTimeout(() => setOpen(true), 600);
         return () => clearTimeout(t);
       }
@@ -140,11 +146,17 @@ export function WelcomeGuide() {
     }
   }, []);
 
-  // Manual relaunch.
+  // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
-    const handler = () => setOpen(true);
-    window.addEventListener(OPEN_WELCOME_GUIDE_EVENT, handler);
-    return () => window.removeEventListener(OPEN_WELCOME_GUIDE_EVENT, handler);
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: TabId }>).detail;
+      if (detail?.tab) setTab(detail.tab);
+      else setTab('overview');
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_WELCOME_GUIDE_EVENT, handler as EventListener);
+    return () =>
+      window.removeEventListener(OPEN_WELCOME_GUIDE_EVENT, handler as EventListener);
   }, []);
 
   const close = () => {
@@ -160,8 +172,6 @@ export function WelcomeGuide() {
     close();
     navigate(section.route);
     if (section.tourArticleId) {
-      // Wait for the page to mount + targets to render, then start the
-      // spotlight tour that walks through every button on the page.
       setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent<StartGuidedTourDetail>(START_GUIDED_TOUR_EVENT, {
@@ -170,6 +180,25 @@ export function WelcomeGuide() {
         );
       }, 650);
     }
+  };
+
+  // Articles whose routes include the current path = "tours for this page".
+  const pageArticles = useMemo(() => {
+    const path = location.pathname;
+    return HELP_ARTICLES.filter(
+      (a) => a.routes?.includes(path) && (a.steps?.length ?? 0) > 0,
+    );
+  }, [location.pathname]);
+
+  const startTour = (articleId: string) => {
+    close();
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent<StartGuidedTourDetail>(START_GUIDED_TOUR_EVENT, {
+          detail: { articleId },
+        }),
+      );
+    }, 200);
   };
 
   if (!open) return null;
@@ -181,12 +210,10 @@ export function WelcomeGuide() {
       aria-modal="true"
       aria-label="Welcome to InboxIQ"
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-[#05070f]/85 backdrop-blur-xl"
         onClick={close}
       />
-      {/* Ambient gradient blobs */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none overflow-hidden"
@@ -196,10 +223,8 @@ export function WelcomeGuide() {
         <div className="absolute bottom-0 left-1/3 h-[400px] w-[400px] rounded-full bg-fuchsia-500/15 blur-[140px]" />
       </div>
 
-      {/* Content */}
       <div className="relative min-h-full px-4 py-10 sm:px-8 sm:py-14 flex justify-center">
         <div className="w-full max-w-6xl">
-          {/* Close */}
           <button
             type="button"
             onClick={close}
@@ -219,79 +244,169 @@ export function WelcomeGuide() {
               Your inbox, intelligently in control.
             </h1>
             <p className="mt-5 text-base sm:text-lg leading-relaxed text-white/70">
-              InboxIQ is your AI co-pilot for email, meetings, and follow-ups.
-              It connects to your Gmail or Outlook mailbox, organizes incoming
-              messages into categories you control, drafts replies in your own
-              voice, and gives you an executive morning brief — so you spend
-              minutes on email instead of hours. Pick any section below to see
-              exactly what it does and get a guided tour of every button.
+              Use the menu below to explore the entire app or to see every
+              guided tour available on the page you’re viewing right now.
             </p>
           </div>
 
-          {/* Section grid */}
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {SECTIONS.map((section, idx) => (
+          {/* Tab bar */}
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 backdrop-blur">
               <button
-                key={section.id}
                 type="button"
-                onClick={() => openSection(section)}
-                style={{ animationDelay: `${idx * 60}ms` }}
+                onClick={() => setTab('overview')}
                 className={cn(
-                  'group relative text-left rounded-2xl p-5 sm:p-6',
-                  'bg-white/[0.04] hover:bg-white/[0.07] backdrop-blur-xl',
-                  'border border-white/10 hover:border-white/20',
-                  'transition-all duration-300 hover:-translate-y-1',
-                  'shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]',
-                  'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500',
+                  'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition',
+                  tab === 'overview'
+                    ? 'bg-white/15 text-white shadow-sm'
+                    : 'text-white/60 hover:text-white',
                 )}
               >
-                {/* Accent glow */}
-                <div
-                  aria-hidden
+                <BookOpen className="h-3.5 w-3.5" />
+                App overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('page')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition',
+                  tab === 'page'
+                    ? 'bg-white/15 text-white shadow-sm'
+                    : 'text-white/60 hover:text-white',
+                )}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                This page
+                <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-white/80">
+                  {pageArticles.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {tab === 'overview' && (
+            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {SECTIONS.map((section, idx) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => openSection(section)}
+                  style={{ animationDelay: `${idx * 60}ms` }}
                   className={cn(
-                    'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none',
-                    'bg-gradient-to-br',
-                    section.accent,
+                    'group relative text-left rounded-2xl p-5 sm:p-6',
+                    'bg-white/[0.04] hover:bg-white/[0.07] backdrop-blur-xl',
+                    'border border-white/10 hover:border-white/20',
+                    'transition-all duration-300 hover:-translate-y-1',
+                    'shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]',
+                    'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500',
                   )}
-                  style={{ filter: 'blur(40px)' }}
-                />
-                <div className="relative">
-                  <div className="flex items-start justify-between gap-3">
-                    <div
+                >
+                  <div
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none',
+                      'bg-gradient-to-br',
+                      section.accent,
+                    )}
+                    style={{ filter: 'blur(40px)' }}
+                  />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-3">
+                      <div
+                        className={cn(
+                          'h-11 w-11 rounded-xl flex items-center justify-center',
+                          'bg-gradient-to-br border border-white/15',
+                          section.accent,
+                        )}
+                      >
+                        <section.Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 transition" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold text-white">
+                      {section.title}
+                    </h3>
+                    <p className="mt-0.5 text-xs uppercase tracking-wider text-indigo-200/70">
+                      {section.tagline}
+                    </p>
+                    <p className="mt-3 text-sm leading-relaxed text-white/65">
+                      {section.description}
+                    </p>
+                    <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-200/90 group-hover:text-white transition">
+                      {section.tourArticleId
+                        ? 'Take the guided tour'
+                        : 'Open this section'}
+                      <ArrowRight className="h-3 w-3" />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {tab === 'page' && (
+            <div className="mt-10">
+              <div className="mb-4 text-center text-xs text-white/55">
+                Guided tours available on{' '}
+                <code className="rounded bg-white/10 px-1.5 py-0.5 text-white/80">
+                  {location.pathname}
+                </code>
+              </div>
+              {pageArticles.length === 0 ? (
+                <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-8 text-center backdrop-blur">
+                  <MapPin className="mx-auto h-6 w-6 text-white/40" />
+                  <p className="mt-3 text-sm text-white/70">
+                    There aren’t any page-specific tours for this screen yet.
+                    Use <strong className="text-white">App overview</strong> to
+                    jump into a section that has a tour.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {pageArticles.map((a, idx) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => startTour(a.id)}
+                      style={{ animationDelay: `${idx * 50}ms` }}
                       className={cn(
-                        'h-11 w-11 rounded-xl flex items-center justify-center',
-                        'bg-gradient-to-br border border-white/15',
-                        section.accent,
+                        'group relative text-left rounded-2xl p-5',
+                        'bg-white/[0.04] hover:bg-white/[0.07] backdrop-blur-xl',
+                        'border border-white/10 hover:border-white/20',
+                        'transition-all duration-300 hover:-translate-y-0.5',
+                        'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500',
                       )}
                     >
-                      <section.Icon className="h-5 w-5 text-white" />
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 transition" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-white">
-                    {section.title}
-                  </h3>
-                  <p className="mt-0.5 text-xs uppercase tracking-wider text-indigo-200/70">
-                    {section.tagline}
-                  </p>
-                  <p className="mt-3 text-sm leading-relaxed text-white/65">
-                    {section.description}
-                  </p>
-                  <div className="mt-5 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-200/90 group-hover:text-white transition">
-                    {section.tourArticleId
-                      ? 'Take the guided tour'
-                      : 'Open this section'}
-                    <ArrowRight className="h-3 w-3" />
-                  </div>
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-500/40 to-violet-500/20 border border-white/15 flex items-center justify-center">
+                          <PlayCircle className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-white truncate">
+                            {a.title}
+                          </h3>
+                          <p className="mt-1 text-sm text-white/65 line-clamp-2">
+                            {a.summary}
+                          </p>
+                          <div className="mt-3 flex items-center gap-3 text-[11px] text-white/50">
+                            <span>{a.steps?.length ?? 0} steps</span>
+                            <span className="inline-flex items-center gap-1 text-indigo-200/90 group-hover:text-white transition">
+                              Start tour <ArrowRight className="h-3 w-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              </button>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/55">
             <p>
-              You can reopen this tour anytime from the floating guide pill in
+              You can reopen this menu anytime from the floating guide pill in
               the bottom-left corner.
             </p>
             <button
