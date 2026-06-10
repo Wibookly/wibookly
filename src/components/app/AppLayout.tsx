@@ -118,7 +118,7 @@ export function AppLayout() {
           /* Profile.onboarding_completed_at is updated inside the wizard. */
         }}
       />
-      <TtsPreloadIndicator />
+      
       {/* Suppress unused-var warning for `profile` (kept for future personalization). */}
       <span className="hidden">{profile?.id ?? ''}</span>
     </div>
