@@ -36,10 +36,12 @@ function ensureWorker(): Worker {
   if (worker) return worker;
   worker = new Worker(new URL('../workers/tts.worker.ts', import.meta.url), { type: 'module' });
   worker.onmessage = (event: MessageEvent) => {
-    const { type, state: s, id, blob, message } = event.data || {};
+    const { type, state: s, id, blob, message, progress } = event.data || {};
     if (type === 'status') {
       state.modelState = s;
       state.error = message || null;
+      if (typeof progress === 'number') state.progress = progress;
+      if (s === 'ready') state.progress = 100;
       if (s === 'error' && id && state.generatingId === id) {
         state.generatingId = null;
       }
