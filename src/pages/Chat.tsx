@@ -283,6 +283,7 @@ export default function Chat() {
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
   const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingConvId, setStreamingConvId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const abortedRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -817,6 +818,7 @@ export default function Chat() {
     const toUpload = files;
     setFiles([]);
     setIsStreaming(true);
+    setStreamingConvId(activeId);
     setStreamingText('');
     setStreamingPhase('Thinking');
     setStreamingCitations([]);
@@ -910,6 +912,7 @@ export default function Chat() {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'conversation') {
                 newConvId = data.conversation_id;
+                if (newConvId) setStreamingConvId(newConvId);
                 if (!activeId && newConvId) {
                   setActiveId(newConvId);
                   navigate(`/chat/${newConvId}`, { replace: true });
@@ -994,6 +997,7 @@ export default function Chat() {
       abortRef.current = null;
       abortedRef.current = false;
       setIsStreaming(false);
+      setStreamingConvId(null);
       setStreamingText('');
       setStreamingCitations([]);
       // Auto-enabled flags are per-turn only — clear the visual badges so the
@@ -1173,6 +1177,16 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
+        {streamingConvId === c.id && (
+          <span
+            className="relative flex h-2 w-2 shrink-0"
+            title="AI is working on this chat"
+            aria-label="AI is working on this chat"
+          >
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+          </span>
+        )}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
