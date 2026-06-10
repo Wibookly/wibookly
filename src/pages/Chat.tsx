@@ -279,13 +279,30 @@ export default function Chat() {
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  const [streamingText, setStreamingText] = useState('');
-  const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
-  const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingConvId, setStreamingConvId] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const abortedRef = useRef(false);
+  // ---- Per-conversation parallel streaming ----
+  // Each in-flight chat request lives in `streamsRef` keyed by a stable
+  // internal id. The map can contain multiple entries — one per chat that
+  // the AI is currently working on — so the user can send in chat B while
+  // chat A keeps streaming. `streamTick` is bumped to trigger renders when
+  // a stream mutates its text/phase/citations in place.
+  type StreamInfo = {
+    key: string;
+    convId: string | null;
+    newChatEpoch: number; // for resolving pending-null streams safely
+    tempUserMsg: Msg;
+    text: string;
+    phase: string;
+    citations: Citation[];
+    abort: AbortController;
+    aborted: boolean;
+  };
+  const streamsRef = useRef<Map<string, StreamInfo>>(new Map());
+  const [streamTick, setStreamTick] = useState(0);
+  const bumpStreams = useCallback(() => setStreamTick((n) => n + 1), []);
+  const activeIdRef = useRef<string | null>(params.id || null);
+  const newChatEpochRef = useRef(0);
+  // Per-conversation input drafts so typing in chat B doesn't leak into A.
+  const draftsRef = useRef<Map<string, string>>(new Map());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
