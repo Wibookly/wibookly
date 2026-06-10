@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * Free, in-browser TTS powered by Kokoro-82M ONNX via kokoro-js / transformers.js.
- * Model (~80 MB quantized) is downloaded once on first use and cached by the
- * browser. Falls back to the Web Speech API if Kokoro fails to load.
+ * The model is cached by the browser, but first-time warmup can still take a
+ * while, so playback falls back to the browser's native speech instantly while
+ * Kokoro finishes preparing in the background.
  */
 
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -23,40 +25,36 @@ export interface KokoroVoiceOption {
 }
 
 export const KOKORO_VOICES: KokoroVoiceOption[] = [
-  // English — United States
-  { id: 'af_bella',    label: 'Bella',    gender: 'female', language: 'English — United States' },
-  { id: 'af_heart',    label: 'Heart',    gender: 'female', language: 'English — United States' },
-  { id: 'af_nova',     label: 'Nova',     gender: 'female', language: 'English — United States' },
-  { id: 'af_sarah',    label: 'Sarah',    gender: 'female', language: 'English — United States' },
-  { id: 'af_nicole',   label: 'Nicole',   gender: 'female', language: 'English — United States' },
-  { id: 'am_adam',     label: 'Adam',     gender: 'male',   language: 'English — United States' },
-  { id: 'am_michael',  label: 'Michael',  gender: 'male',   language: 'English — United States' },
-  { id: 'am_onyx',     label: 'Onyx',     gender: 'male',   language: 'English — United States' },
-  { id: 'am_echo',     label: 'Echo',     gender: 'male',   language: 'English — United States' },
-  // English — United Kingdom
-  { id: 'bf_emma',     label: 'Emma',     gender: 'female', language: 'English — United Kingdom' },
+  { id: 'af_bella', label: 'Bella', gender: 'female', language: 'English — United States' },
+  { id: 'af_heart', label: 'Heart', gender: 'female', language: 'English — United States' },
+  { id: 'af_nova', label: 'Nova', gender: 'female', language: 'English — United States' },
+  { id: 'af_sarah', label: 'Sarah', gender: 'female', language: 'English — United States' },
+  { id: 'af_nicole', label: 'Nicole', gender: 'female', language: 'English — United States' },
+  { id: 'am_adam', label: 'Adam', gender: 'male', language: 'English — United States' },
+  { id: 'am_michael', label: 'Michael', gender: 'male', language: 'English — United States' },
+  { id: 'am_onyx', label: 'Onyx', gender: 'male', language: 'English — United States' },
+  { id: 'am_echo', label: 'Echo', gender: 'male', language: 'English — United States' },
+  { id: 'bf_emma', label: 'Emma', gender: 'female', language: 'English — United Kingdom' },
   { id: 'bf_isabella', label: 'Isabella', gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bf_alice',    label: 'Alice',    gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bm_george',   label: 'George',   gender: 'male',   language: 'English — United Kingdom' },
-  { id: 'bm_lewis',    label: 'Lewis',    gender: 'male',   language: 'English — United Kingdom' },
-  { id: 'bm_daniel',   label: 'Daniel',   gender: 'male',   language: 'English — United Kingdom' },
-  // Other languages (Kokoro v1 multilingual — falls back to browser voice if unavailable)
-  { id: 'jf_alpha',    label: 'Alpha',    gender: 'female', language: 'Japanese' },
-  { id: 'jm_kumo',     label: 'Kumo',     gender: 'male',   language: 'Japanese' },
-  { id: 'zf_xiaobei',  label: 'Xiaobei',  gender: 'female', language: 'Mandarin Chinese' },
-  { id: 'zm_yunjian',  label: 'Yunjian',  gender: 'male',   language: 'Mandarin Chinese' },
-  { id: 'ef_dora',     label: 'Dora',     gender: 'female', language: 'Spanish' },
-  { id: 'em_alex',     label: 'Alex',     gender: 'male',   language: 'Spanish' },
-  { id: 'ff_siwis',    label: 'Siwis',    gender: 'female', language: 'French' },
-  { id: 'hf_alpha',    label: 'Alpha',    gender: 'female', language: 'Hindi' },
-  { id: 'hm_omega',    label: 'Omega',    gender: 'male',   language: 'Hindi' },
-  { id: 'if_sara',     label: 'Sara',     gender: 'female', language: 'Italian' },
-  { id: 'im_nicola',   label: 'Nicola',   gender: 'male',   language: 'Italian' },
-  { id: 'pf_dora',     label: 'Dora',     gender: 'female', language: 'Portuguese (Brazil)' },
-  { id: 'pm_alex',     label: 'Alex',     gender: 'male',   language: 'Portuguese (Brazil)' },
+  { id: 'bf_alice', label: 'Alice', gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bm_george', label: 'George', gender: 'male', language: 'English — United Kingdom' },
+  { id: 'bm_lewis', label: 'Lewis', gender: 'male', language: 'English — United Kingdom' },
+  { id: 'bm_daniel', label: 'Daniel', gender: 'male', language: 'English — United Kingdom' },
+  { id: 'jf_alpha', label: 'Alpha', gender: 'female', language: 'Japanese' },
+  { id: 'jm_kumo', label: 'Kumo', gender: 'male', language: 'Japanese' },
+  { id: 'zf_xiaobei', label: 'Xiaobei', gender: 'female', language: 'Mandarin Chinese' },
+  { id: 'zm_yunjian', label: 'Yunjian', gender: 'male', language: 'Mandarin Chinese' },
+  { id: 'ef_dora', label: 'Dora', gender: 'female', language: 'Spanish' },
+  { id: 'em_alex', label: 'Alex', gender: 'male', language: 'Spanish' },
+  { id: 'ff_siwis', label: 'Siwis', gender: 'female', language: 'French' },
+  { id: 'hf_alpha', label: 'Alpha', gender: 'female', language: 'Hindi' },
+  { id: 'hm_omega', label: 'Omega', gender: 'male', language: 'Hindi' },
+  { id: 'if_sara', label: 'Sara', gender: 'female', language: 'Italian' },
+  { id: 'im_nicola', label: 'Nicola', gender: 'male', language: 'Italian' },
+  { id: 'pf_dora', label: 'Dora', gender: 'female', language: 'Portuguese (Brazil)' },
+  { id: 'pm_alex', label: 'Alex', gender: 'male', language: 'Portuguese (Brazil)' },
 ];
 
-// Grouped helper for nicer dropdowns: { 'English — US': [...], ... }
 export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
   KOKORO_VOICES.reduce((acc, v) => {
     (acc[v.language] ||= []).push(v);
@@ -64,32 +62,54 @@ export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
   }, {} as Record<string, KokoroVoiceOption[]>);
 
 const VOICE_KEY = 'inboxiq:kokoro-voice';
+const KOKORO_READY_KEY = 'inboxiq:kokoro-ready';
+
 export function getStoredVoice(): KokoroVoiceId {
   try { return (localStorage.getItem(VOICE_KEY) as KokoroVoiceId) || 'af_bella'; }
   catch { return 'af_bella'; }
 }
+
 export function setStoredVoice(v: KokoroVoiceId) {
   try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
 }
 
-// Lazy singleton — only one model instance per tab.
+let ttsInstance: any | null = null;
 let ttsPromise: Promise<any> | null = null;
+const progressListeners = new Set<(pct: number) => void>();
+
+function emitProgress(pct: number) {
+  progressListeners.forEach((cb) => cb(pct));
+}
+
 async function getTTS(onProgress?: (pct: number) => void) {
-  if (!ttsPromise) {
-    ttsPromise = (async () => {
-      const { KokoroTTS } = await import('kokoro-js');
-      return KokoroTTS.from_pretrained(MODEL_ID, {
-        dtype: 'q8',
-        device: 'wasm',
-        progress_callback: (p: any) => {
-          if (p?.status === 'progress' && typeof p.progress === 'number') {
-            onProgress?.(Math.round(p.progress));
-          }
-        },
-      });
-    })();
+  if (onProgress) progressListeners.add(onProgress);
+  try {
+    if (ttsInstance) {
+      onProgress?.(100);
+      return ttsInstance;
+    }
+    if (!ttsPromise) {
+      ttsPromise = (async () => {
+        const { KokoroTTS } = await import('kokoro-js');
+        const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
+          dtype: 'q8',
+          device: 'wasm',
+          progress_callback: (p: any) => {
+            if (p?.status === 'progress' && typeof p.progress === 'number') {
+              emitProgress(Math.round(p.progress));
+            }
+          },
+        });
+        ttsInstance = tts;
+        try { localStorage.setItem(KOKORO_READY_KEY, '1'); } catch { /* ignore */ }
+        emitProgress(100);
+        return tts;
+      })();
+    }
+    return await ttsPromise;
+  } finally {
+    if (onProgress) progressListeners.delete(onProgress);
   }
-  return ttsPromise;
 }
 
 function cleanForSpeech(text: string): string {
@@ -103,23 +123,73 @@ function cleanForSpeech(text: string): string {
     .slice(0, 4000);
 }
 
-function webSpeechFallback(text: string, onEnd: () => void) {
+function getLanguageHints(voiceId: KokoroVoiceId): string[] {
+  const voice = KOKORO_VOICES.find((item) => item.id === voiceId);
+  switch (voice?.language) {
+    case 'English — United States': return ['en-US', 'en'];
+    case 'English — United Kingdom': return ['en-GB', 'en'];
+    case 'Japanese': return ['ja-JP', 'ja'];
+    case 'Mandarin Chinese': return ['zh-CN', 'zh'];
+    case 'Spanish': return ['es-ES', 'es'];
+    case 'French': return ['fr-FR', 'fr'];
+    case 'Hindi': return ['hi-IN', 'hi'];
+    case 'Italian': return ['it-IT', 'it'];
+    case 'Portuguese (Brazil)': return ['pt-BR', 'pt'];
+    default: return ['en-US', 'en'];
+  }
+}
+
+function pickBrowserVoice(voiceId: KokoroVoiceId) {
+  try {
+    const voices = window.speechSynthesis?.getVoices?.() ?? [];
+    if (!voices.length) return null;
+    const hints = getLanguageHints(voiceId).map((hint) => hint.toLowerCase());
+    return voices.find((voice) => hints.some((hint) => voice.lang?.toLowerCase().startsWith(hint)))
+      ?? voices.find((voice) => voice.lang?.toLowerCase().startsWith(hints[0].slice(0, 2)))
+      ?? voices[0]
+      ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function webSpeechFallback(text: string, voiceId: KokoroVoiceId, onEnd: () => void) {
   try {
     const synth = window.speechSynthesis;
     if (!synth) { onEnd(); return; }
     synth.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1; u.pitch = 1;
-    u.onend = onEnd; u.onerror = onEnd;
-    synth.speak(u);
-  } catch { onEnd(); }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    const matchedVoice = pickBrowserVoice(voiceId);
+    if (matchedVoice) utterance.voice = matchedVoice;
+    utterance.onend = onEnd;
+    utterance.onerror = onEnd;
+    synth.speak(utterance);
+  } catch {
+    onEnd();
+  }
+}
+
+async function requestPersistentCache() {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      await navigator.storage.persist();
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function useKokoroTTS() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const warmupNoticeShownRef = useRef(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadProgress, setLoadProgress] = useState(0);
+  const [loading, setLoading] = useState<boolean>(() => !ttsInstance && !!ttsPromise);
+  const [loadProgress, setLoadProgress] = useState<number>(() => {
+    try { return localStorage.getItem(KOKORO_READY_KEY) ? 100 : 0; }
+    catch { return 0; }
+  });
 
   const stop = useCallback(() => {
     try {
@@ -135,48 +205,69 @@ export function useKokoroTTS() {
 
   useEffect(() => () => stop(), [stop]);
 
+  const preload = useCallback(async () => {
+    if (ttsInstance) {
+      setLoadProgress(100);
+      return;
+    }
+    try {
+      setLoading(true);
+      await requestPersistentCache();
+      await getTTS((pct) => setLoadProgress(pct));
+      setLoadProgress(100);
+    } catch (err) {
+      console.warn('[kokoro] preload failed (instant browser voice will still work):', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const speak = useCallback(async (text: string, id: string) => {
     const clean = cleanForSpeech(text);
     if (!clean) return;
+
     stop();
     setSpeakingId(id);
+    const selectedVoice = getStoredVoice();
+
+    if (!ttsInstance) {
+      void preload();
+      if (!warmupNoticeShownRef.current) {
+        warmupNoticeShownRef.current = true;
+        toast('Playing instantly while the studio voice finishes preparing.', {
+          id: 'kokoro-warmup',
+          duration: 2600,
+        });
+      }
+      webSpeechFallback(clean, selectedVoice, () => setSpeakingId(null));
+      return;
+    }
 
     try {
-      setLoading(true);
       const tts = await getTTS((pct) => setLoadProgress(pct));
-      setLoading(false);
-
-      const voice = getStoredVoice();
-      const audio = await tts.generate(clean, { voice });
-      // kokoro-js RawAudio → wav blob
+      const audio = await tts.generate(clean, { voice: selectedVoice });
       const blob: Blob = typeof audio.toBlob === 'function'
         ? audio.toBlob()
         : new Blob([audio], { type: 'audio/wav' });
       const url = URL.createObjectURL(blob);
       const el = new Audio(url);
       audioRef.current = el;
-      el.onended = () => { URL.revokeObjectURL(url); setSpeakingId(null); audioRef.current = null; };
-      el.onerror = () => { URL.revokeObjectURL(url); setSpeakingId(null); audioRef.current = null; };
+      el.onended = () => {
+        URL.revokeObjectURL(url);
+        setSpeakingId(null);
+        audioRef.current = null;
+      };
+      el.onerror = () => {
+        URL.revokeObjectURL(url);
+        setSpeakingId(null);
+        audioRef.current = null;
+      };
       await el.play();
     } catch (err) {
       console.warn('[kokoro] falling back to Web Speech:', err);
-      setLoading(false);
-      webSpeechFallback(clean, () => setSpeakingId(null));
+      webSpeechFallback(clean, selectedVoice, () => setSpeakingId(null));
     }
-  }, [stop]);
-
-  // Background preload — kick off the ~80MB model download as soon as the
-  // chat surface mounts so the first click on "play" feels instant.
-  const preload = useCallback(async () => {
-    try {
-      setLoading(true);
-      await getTTS((pct) => setLoadProgress(pct));
-    } catch (err) {
-      console.warn('[kokoro] preload failed (will fall back to Web Speech):', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [preload, stop]);
 
   return { speak, stop, speakingId, loading, loadProgress, preload };
 }
