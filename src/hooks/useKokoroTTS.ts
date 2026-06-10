@@ -165,5 +165,18 @@ export function useKokoroTTS() {
     }
   }, [stop]);
 
-  return { speak, stop, speakingId, loading, loadProgress };
+  // Background preload — kick off the ~80MB model download as soon as the
+  // chat surface mounts so the first click on "play" feels instant.
+  const preload = useCallback(async () => {
+    try {
+      setLoading(true);
+      await getTTS((pct) => setLoadProgress(pct));
+    } catch (err) {
+      console.warn('[kokoro] preload failed (will fall back to Web Speech):', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { speak, stop, speakingId, loading, loadProgress, preload };
 }
