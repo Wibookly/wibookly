@@ -333,25 +333,8 @@ export default function Chat() {
   }, [locationEnabled]);
 
 
-  const speak = useCallback((text: string, id: string) => {
-    try {
-      const synth = window.speechSynthesis;
-      if (!synth) { toast.error('Speech not supported in this browser'); return; }
-      synth.cancel();
-      const clean = text.replace(/```[\s\S]*?```/g, ' code block ').replace(/[#*_`>~]/g, '').slice(0, 4000);
-      const u = new SpeechSynthesisUtterance(clean);
-      u.rate = 1.0; u.pitch = 1.0;
-      u.onend = () => setSpeakingId(null);
-      u.onerror = () => setSpeakingId(null);
-      setSpeakingId(id);
-      synth.speak(u);
-    } catch { setSpeakingId(null); }
-  }, []);
-  const stopSpeak = useCallback(() => {
-    try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-    setSpeakingId(null);
-  }, []);
-  useEffect(() => () => { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }, []);
+  // (TTS now provided by useKokoroTTS — free, in-browser Kokoro-82M.)
+
 
   // Voice input: hold-or-toggle mic → Whisper → append transcript to input.
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
