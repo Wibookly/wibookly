@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "kokoro-js": path.resolve(__dirname, "./node_modules/kokoro-js/dist/kokoro.web.js"),
     },
   },
 }));
