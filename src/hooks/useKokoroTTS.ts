@@ -196,7 +196,7 @@ async function ensureAudioContext() {
   if (typeof window === 'undefined') return null;
   const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) return null;
-  if (!sharedAudioContext) {
+  if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
     sharedAudioContext = new AudioContextCtor();
   }
   if (sharedAudioContext.state === 'suspended') {
@@ -356,6 +356,9 @@ export function useKokoroTTS() {
         }
         setSpeakingId((current) => (current === id ? null : current));
       };
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       source.start(0);
     } catch (err) {
       if (requestNonce !== requestNonceRef.current) return;
