@@ -12,7 +12,7 @@ import {
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud,
 } from 'lucide-react';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { ChatCapacityMeter } from '@/components/chat/ChatCapacityMeter';
+import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
