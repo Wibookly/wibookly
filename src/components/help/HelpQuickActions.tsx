@@ -21,7 +21,11 @@ export function HelpQuickActions({ className, compact = false }: HelpQuickAction
   const location = useLocation();
   const { startTour, hasTourForCurrentPage } = useTour();
 
-  const openGuide = () => {
+  const openWelcome = () => {
+    window.dispatchEvent(new CustomEvent(OPEN_WELCOME_GUIDE_EVENT));
+  };
+
+  const openPageGuide = () => {
     if (hasTourForCurrentPage) {
       startTour();
       return;
