@@ -285,9 +285,12 @@ export function useKokoroTTS() {
     try {
       const el = audioElementRef.current;
       if (el) {
+        el.onended = null;
+        el.onerror = null;
         el.pause();
         el.removeAttribute('src');
         el.load();
+        el.remove();
       }
     } catch {
       /* ignore */
@@ -364,12 +367,20 @@ export function useKokoroTTS() {
       throw new Error('Audio blob playback is unavailable');
     }
 
+    const blob = rawAudio.toBlob();
+    if (!(blob instanceof Blob)) {
+      throw new Error('Generated audio blob is invalid');
+    }
+
     cleanupAudioElement();
-    const url = URL.createObjectURL(rawAudio.toBlob());
-    const audioElement = new Audio(url);
+    const url = URL.createObjectURL(blob);
+    const audioElement = document.createElement('audio');
+    audioElement.src = url;
     audioElement.preload = 'auto';
     audioElement.setAttribute('playsinline', 'true');
     audioElement.crossOrigin = 'anonymous';
+    audioElement.style.display = 'none';
+    document.body.appendChild(audioElement);
     audioElementRef.current = audioElement;
     audioUrlRef.current = url;
 
@@ -379,6 +390,7 @@ export function useKokoroTTS() {
         URL.revokeObjectURL(url);
         audioUrlRef.current = null;
       }
+      audioElement.remove();
       if (shouldResetSpeaking && requestNonce === requestNonceRef.current) {
         setSpeakingId((current) => (current === id ? null : current));
       }
@@ -388,25 +400,11 @@ export function useKokoroTTS() {
     audioElement.onerror = () => clear(true);
 
     try {
-      const started = new Promise<void>((resolve, reject) => {
-        const timeout = window.setTimeout(() => reject(new Error('Audio did not start in time')), 1800);
-        const markStarted = () => {
-          window.clearTimeout(timeout);
-          audioElement.removeEventListener('playing', markStarted);
-          audioElement.removeEventListener('timeupdate', handleTimeUpdate);
-          resolve();
-        };
-        const handleTimeUpdate = () => {
-          if (audioElement.currentTime > 0) {
-            markStarted();
-          }
-        };
-        audioElement.addEventListener('playing', markStarted, { once: true });
-        audioElement.addEventListener('timeupdate', handleTimeUpdate);
-      });
-
+      audioElement.load();
       await audioElement.play();
-      await started;
+      if (audioElement.paused) {
+        throw new Error('Audio remained paused after play()');
+      }
     } catch (error) {
       clear(false);
       throw error;
@@ -427,13 +425,48 @@ export function useKokoroTTS() {
       setSpeakingId((current) => (current === id ? null : current));
     });
     fallbackStopRef.current = fallbackSession.stop;
-
-    if (!supportsKokoroRuntime()) {
+    const startFallbackNow = () => {
       const started = fallbackSession.start();
       if (!started) {
         setSpeakingId(null);
         toast.error('Audio playback failed. Please try again.');
       }
+      return started;
+    };
+
+    if (!supportsKokoroRuntime()) {
+      startFallbackNow();
+      return;
+    }
+
+    if (!ttsInstance) {
+      if (!startFallbackNow()) return;
+
+      const unlockPromise = unlockAudioOutput();
+      setLoading(true);
+
+      if (!warmupNoticeShownRef.current) {
+        warmupNoticeShownRef.current = true;
+        toast('Preparing the selected voice. The first play can take a few seconds.', {
+          id: 'kokoro-warmup',
+          duration: 2600,
+        });
+      }
+
+      void (async () => {
+        try {
+          await requestPersistentCache();
+          await unlockPromise;
+          await getTTS((pct) => setLoadProgress(pct));
+          setLoadProgress(100);
+        } catch (err) {
+          if (requestNonce !== requestNonceRef.current) return;
+          console.warn('[kokoro] background warmup failed (browser voice still active):', err);
+        } finally {
+          setLoading(false);
+        }
+      })();
+
       return;
     }
 
@@ -473,11 +506,7 @@ export function useKokoroTTS() {
     } catch (err) {
       if (requestNonce !== requestNonceRef.current) return;
       console.warn('[tts] falling back to browser voice:', err);
-      const started = fallbackSession.start();
-      if (!started) {
-        setSpeakingId(null);
-        toast.error('Audio playback failed. Please try again.');
-      }
+      startFallbackNow();
     } finally {
       setLoading(false);
     }
