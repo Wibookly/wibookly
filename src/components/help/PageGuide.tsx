@@ -176,6 +176,16 @@ export function PageGuide() {
           className={cn('h-3.5 w-3.5', training && 'animate-pulse')}
         />
       </button>
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_WELCOME_GUIDE_EVENT))}
+        aria-label="Replay the app welcome tour"
+        title="Tour the whole app"
+        className="flex items-center justify-center px-2 transition border-l border-primary-foreground/20 hover:bg-primary/90"
+      >
+        <Map className="h-3.5 w-3.5" />
+      </button>
+
 
 
       <button
