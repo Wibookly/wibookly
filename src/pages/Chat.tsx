@@ -781,10 +781,14 @@ export default function Chat() {
     return { urls, refs };
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || isStreaming || !user) return;
-    setInput('');
+    if (!override) setInput('');
+    if (override) {
+      // Regeneration: don't re-upload files, don't clear composer.
+    }
+
     stickToBottomRef.current = true;
 
     const tempUserMsg: Msg = {
@@ -974,6 +978,61 @@ export default function Chat() {
       handleSend();
     }
   };
+
+  // Re-ask the model with the user prompt that produced this assistant
+  // reply. Doesn't delete the old reply — appends a fresh attempt below it
+  // so the user can compare, like ChatGPT's "Regenerate".
+  const handleRegenerate = (assistantMessageId: string) => {
+    if (isStreaming) return;
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    if (idx < 0) return;
+    let priorUserText: string | null = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user' && messages[i].content?.trim()) {
+        priorUserText = messages[i].content;
+        break;
+      }
+    }
+    if (!priorUserText) {
+      toast.error("Couldn't find the original message to regenerate.");
+      return;
+    }
+    handleSend(priorUserText);
+  };
+
+  // Create a draft of the assistant reply in the user's own connected
+  // mailbox (Gmail or Outlook), addressed to themselves. We intentionally
+  // create a draft (not auto-send) so the user can review/edit and hit
+  // Send from their mail app.
+  const handleEmailToSelf = async (assistantMessage: Msg) => {
+    if (!activeConnection?.id || !activeConnection?.email) {
+      toast.error('Connect a mailbox first to email yourself.');
+      return;
+    }
+    const providerLabel = activeConnection.provider === 'google' ? 'Gmail'
+      : activeConnection.provider === 'outlook' ? 'Outlook'
+      : 'your mailbox';
+    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].slice(0, 80) || 'InboxIQ chat note';
+    const subject = `InboxIQ – ${subjectBase}`;
+    const toastId = toast.loading(`Creating draft in ${providerLabel}…`);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-draft-to-provider', {
+        body: {
+          connection_id: activeConnection.id,
+          subject,
+          body: assistantMessage.content || '',
+          to: [activeConnection.email],
+          is_html: false,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+      toast.success(`Draft saved in ${providerLabel} → open to review and send`, { id: toastId });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Couldn't create draft in ${providerLabel}`, { id: toastId });
+    }
+  };
+
 
   const handleFiles = (list: FileList | null) => {
     if (!list) return;
@@ -1337,7 +1396,7 @@ export default function Chat() {
             </div>
           ) : (
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} />)}
+              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
               {isStreaming && (
                 streamingText ? (
                   <MessageBubble
@@ -1685,7 +1744,7 @@ export default function Chat() {
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || isStreaming || limitReached}
                 title={isStreaming ? 'InboxIQ is processing your request' : 'Send message'}
               >
@@ -1740,6 +1799,11 @@ function MessageBubble({
   speakingId,
   onSpeak,
   onStopSpeak,
+  onRegenerate,
+  onEmailToSelf,
+  mailboxLabel,
+  mailboxEmail,
+  isStreamingAny,
 }: {
   message: Msg;
   userInitial: string;
@@ -1747,13 +1811,20 @@ function MessageBubble({
   speakingId?: string | null;
   onSpeak?: (text: string, id: string) => void;
   onStopSpeak?: () => void;
+  onRegenerate?: (assistantMessageId: string) => void;
+  onEmailToSelf?: (assistantMessage: Msg) => void;
+  mailboxLabel?: string | null;
+  mailboxEmail?: string | null;
+  isStreamingAny?: boolean;
 }) {
   const isUser = message.role === 'user';
   const copy = () => {
     navigator.clipboard.writeText(message.content);
-    toast.success('Copied');
+    toast.success('Copied to clipboard');
   };
   const isSpeaking = speakingId === message.id;
+  const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
+  const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
 
   return (
     <div className="flex flex-col gap-1.5 group">
@@ -1791,15 +1862,41 @@ function MessageBubble({
           <CitationChips citations={message.citations} />
         )}
         {!isUser && !streaming && (
-          <div className="flex gap-1 items-center mt-1">
-            <button onClick={copy} className="p-1 hover:bg-accent rounded text-muted-foreground" title="Copy">
+          <div className="flex flex-wrap gap-1 items-center mt-1">
+            <button
+              onClick={copy}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
+              title="Copy reply to clipboard"
+            >
               <Copy className="h-3.5 w-3.5" />
+              <span>Copy</span>
             </button>
+            {canRegenerate && (
+              <button
+                onClick={() => onRegenerate!(message.id)}
+                disabled={!!isStreamingAny}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ask the AI to answer again"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Regenerate</span>
+              </button>
+            )}
+            {canEmail && (
+              <button
+                onClick={() => onEmailToSelf!(message)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
+                title={`Create a draft in ${mailboxLabel} addressed to ${mailboxEmail}`}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span>Email to me{mailboxLabel ? ` (${mailboxLabel})` : ''}</span>
+              </button>
+            )}
             {onSpeak && (
               <button
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
                 className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
+                  'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
                   isSpeaking
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
@@ -1816,6 +1913,7 @@ function MessageBubble({
     </div>
   );
 }
+
 
 function citationIcon(sourceType?: string) {
   switch ((sourceType || '').toLowerCase()) {
