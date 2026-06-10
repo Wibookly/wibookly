@@ -303,6 +303,30 @@ export default function Chat() {
   const newChatEpochRef = useRef(0);
   // Per-conversation input drafts so typing in chat B doesn't leak into A.
   const draftsRef = useRef<Map<string, string>>(new Map());
+  // Conversations the AI recently finished replying in but the user hasn't
+  // opened yet. Used to render a dark-green "unread reply" dot in the sidebar.
+  const [recentConvIds, setRecentConvIds] = useState<Set<string>>(new Set());
+  const markRecent = useCallback((convId: string) => {
+    setRecentConvIds((prev) => {
+      if (activeIdRef.current === convId) return prev;
+      const next = new Set(prev);
+      next.add(convId);
+      // Cap at the last 5 to avoid clutter.
+      if (next.size > 5) {
+        const first = next.values().next().value as string | undefined;
+        if (first) next.delete(first);
+      }
+      return next;
+    });
+  }, []);
+  const clearRecent = useCallback((convId: string) => {
+    setRecentConvIds((prev) => {
+      if (!prev.has(convId)) return prev;
+      const next = new Set(prev);
+      next.delete(convId);
+      return next;
+    });
+  }, []);
 
   // Look up the in-flight stream (if any) for a given conversation id.
   // When `convId` is null, returns the most recently started pending stream
@@ -719,6 +743,7 @@ export default function Chat() {
   const handleSelectConv = (id: string) => {
     setActiveId(id);
     setSidebarOpen(false);
+    clearRecent(id);
     const conv = conversations.find((c) => c.id === id);
     setActiveFolderId(conv?.folder_id ?? null);
     navigate(`/chat/${id}`);
@@ -1104,6 +1129,11 @@ export default function Chat() {
       if (activeIdRef.current === info.convId) {
         setAutoBadges({});
       }
+      // Mark the conv as "recently replied" so the sidebar shows a dark-green
+      // dot until the user opens it again.
+      if (info.convId && !info.aborted) {
+        markRecent(info.convId);
+      }
     }
   };
 
@@ -1279,16 +1309,24 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        {streamingConvIds.has(c.id) && (
+        {streamingConvIds.has(c.id) ? (
           <span
             className="relative flex h-2.5 w-2.5 shrink-0"
             title="AI is replying in this chat"
             aria-label="AI is replying in this chat"
           >
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-80" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-500/30" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-300 opacity-80" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-300 ring-2 ring-green-300/40" />
           </span>
-        )}
+        ) : recentConvIds.has(c.id) ? (
+          <span
+            className="relative flex h-2.5 w-2.5 shrink-0"
+            title="Recent AI reply — click to view"
+            aria-label="Recent AI reply"
+          >
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-700 ring-2 ring-green-700/30" />
+          </span>
+        ) : null}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1498,7 +1536,7 @@ export default function Chat() {
 
           {Object.entries(groupedConversations).map(([label, items]) => (
             <div key={label}>
-              <div className="px-2 py-1.5 mt-2 text-[11px] font-semibold uppercase tracking-wider text-primary/80 border-b border-primary/20">{label}</div>
+              <div className="mx-2 mt-3 mb-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-sm">{label}</div>
               {items.map((c) => renderConvRow(c))}
             </div>
           ))}
