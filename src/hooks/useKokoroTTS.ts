@@ -102,7 +102,7 @@ export function useKokoroTTS() {
 
   const speakingId = snap.playingId ?? snap.generatingId;
   const loading = snap.modelState === 'loading' || !!snap.generatingId;
-  const loadProgress = snap.modelState === 'ready' ? 100 : snap.modelState === 'loading' ? 50 : 0;
+  const loadProgress = snap.modelState === 'ready' ? 100 : snap.progress || 0;
 
   return { speak, stop, speakingId, loading, loadProgress, preload, modelState: snap.modelState };
 }
