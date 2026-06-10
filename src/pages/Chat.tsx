@@ -1777,7 +1777,7 @@ export default function Chat() {
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
-                  <TooltipContent>AI voice (free, in-browser Kokoro TTS)</TooltipContent>
+                  <TooltipContent>Choose voice</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end" className="max-h-[360px] w-64 overflow-y-auto">
                   {Object.entries(KOKORO_VOICES_BY_LANGUAGE).map(([lang, voices], idx) => (
