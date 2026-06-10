@@ -26,10 +26,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
           success:
             "group-[.toaster]:!bg-[hsl(var(--ef-green))] group-[.toaster]:!text-[hsl(var(--primary-foreground))] group-[.toaster]:!border-[hsl(var(--ef-green))]",
+          info:
+            "group-[.toaster]:!bg-primary group-[.toaster]:!text-primary-foreground group-[.toaster]:!border-primary group-[.toaster]:!opacity-100",
+          warning:
+            "group-[.toaster]:!bg-accent group-[.toaster]:!text-accent-foreground group-[.toaster]:!border-accent group-[.toaster]:!opacity-100",
           error:
             "group-[.toaster]:!bg-destructive group-[.toaster]:!text-destructive-foreground group-[.toaster]:!border-destructive",
           loading:
             "group-[.toaster]:!bg-primary group-[.toaster]:!text-primary-foreground group-[.toaster]:!border-primary group-[.toaster]:!opacity-100",
+          default:
+            "group-[.toaster]:!bg-card group-[.toaster]:!text-card-foreground group-[.toaster]:!border-border group-[.toaster]:!opacity-100",
         },
       }}
       {...props}
