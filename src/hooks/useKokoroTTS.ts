@@ -67,7 +67,10 @@ export function getStoredVoice(): KokoroVoiceId {
 }
 
 export function setStoredVoice(v: KokoroVoiceId) {
-  try { localStorage.setItem(VOICE_KEY, resolveVoiceId(v)); } catch { /* ignore */ }
+  const resolved = resolveVoiceId(v);
+  try { localStorage.setItem(VOICE_KEY, resolved); } catch { /* ignore */ }
+  // Pre-warm the new voice so the next play is instant.
+  try { ttsService.warm(resolved); } catch { /* ignore */ }
 }
 
 function cleanForSpeech(text: string): string {
