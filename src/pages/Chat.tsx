@@ -799,6 +799,7 @@ export default function Chat() {
     setFiles([]);
     setIsStreaming(true);
     setStreamingText('');
+    setStreamingPhase('Thinking');
     setStreamingCitations([]);
 
     try {
