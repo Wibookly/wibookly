@@ -273,6 +273,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
+  const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
