@@ -85,6 +85,9 @@ let ttsInstance: any | null = null;
 let ttsPromise: Promise<any> | null = null;
 const progressListeners = new Set<(pct: number) => void>();
 const SILENT_WAV_DATA_URL = 'data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const WEB_SPEECH_START_TIMEOUT_MS = 1400;
+const WEB_SPEECH_CHUNK_SIZE = 260;
+const WEB_SPEECH_KEEPALIVE_MS = 10000;
 
 function emitProgress(pct: number) {
   progressListeners.forEach((cb) => cb(pct));
@@ -190,6 +193,7 @@ function getLanguageHints(voiceId: KokoroVoiceId): string[] {
 
 function pickBrowserVoice(voiceId: KokoroVoiceId) {
   try {
+    window.speechSynthesis?.getVoices?.();
     const voices = window.speechSynthesis?.getVoices?.() ?? [];
     if (!voices.length) return null;
     const profile = getVoiceProfile(voiceId);
@@ -225,34 +229,144 @@ function pickBrowserVoice(voiceId: KokoroVoiceId) {
   }
 }
 
+function splitForBrowserSpeech(text: string) {
+  if (text.length <= WEB_SPEECH_CHUNK_SIZE) return [text];
+
+  const sentences = text.match(/[^.!?]+[.!?]?/g) ?? [text];
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    const next = `${current} ${sentence}`.trim();
+    if (!current || next.length <= WEB_SPEECH_CHUNK_SIZE) {
+      current = next;
+      continue;
+    }
+
+    chunks.push(current);
+    current = sentence.trim();
+  }
+
+  if (current) chunks.push(current);
+  return chunks.filter(Boolean);
+}
+
 function createWebSpeechSession(text: string, voiceId: KokoroVoiceId, onEnd: () => void) {
   const synth = window.speechSynthesis;
-  const utterance = new SpeechSynthesisUtterance(text);
+  const chunks = splitForBrowserSpeech(text);
   const tuning = getFallbackSpeechTuning(voiceId);
-  utterance.rate = tuning.rate;
-  utterance.pitch = tuning.pitch;
-  utterance.lang = getLanguageHints(voiceId)[0] || 'en-US';
   const matchedVoice = pickBrowserVoice(voiceId);
-  if (matchedVoice) utterance.voice = matchedVoice;
-  utterance.onend = onEnd;
-  utterance.onerror = onEnd;
+  const lang = getLanguageHints(voiceId)[0] || 'en-US';
+  let chunkIndex = 0;
+  let active = true;
+  let keepAliveTimer: number | null = null;
+  let startTimer: number | null = null;
+
+  const clearTimers = () => {
+    if (keepAliveTimer !== null) {
+      window.clearInterval(keepAliveTimer);
+      keepAliveTimer = null;
+    }
+    if (startTimer !== null) {
+      window.clearTimeout(startTimer);
+      startTimer = null;
+    }
+  };
+
+  const finish = () => {
+    if (!active) return;
+    active = false;
+    clearTimers();
+    onEnd();
+  };
+
+  const startKeepAlive = () => {
+    if (keepAliveTimer !== null) return;
+    keepAliveTimer = window.setInterval(() => {
+      try {
+        if (active && synth?.speaking) synth.resume();
+      } catch {
+        /* ignore */
+      }
+    }, WEB_SPEECH_KEEPALIVE_MS);
+  };
+
+  const speakChunk = (): boolean => {
+    const chunk = chunks[chunkIndex];
+    if (!chunk) {
+      finish();
+      return true;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    utterance.rate = tuning.rate;
+    utterance.pitch = tuning.pitch;
+    utterance.volume = 1;
+    utterance.lang = lang;
+    if (matchedVoice) utterance.voice = matchedVoice;
+
+    utterance.onstart = () => {
+      if (startTimer !== null) {
+        window.clearTimeout(startTimer);
+        startTimer = null;
+      }
+      startKeepAlive();
+    };
+
+    utterance.onend = () => {
+      if (!active) return;
+      clearTimers();
+      chunkIndex += 1;
+      if (chunkIndex >= chunks.length) {
+        finish();
+        return;
+      }
+      window.setTimeout(() => {
+        if (active) speakChunk();
+      }, 0);
+    };
+
+    utterance.onerror = () => {
+      finish();
+    };
+
+    try {
+      synth?.resume?.();
+      synth?.speak(utterance);
+      startTimer = window.setTimeout(() => {
+        if (!active) return;
+        try {
+          synth?.resume?.();
+        } catch {
+          /* ignore */
+        }
+      }, WEB_SPEECH_START_TIMEOUT_MS);
+      return true;
+    } catch {
+      finish();
+      return false;
+    }
+  };
 
   return {
     start() {
       try {
         if (!synth) {
-          onEnd();
+          finish();
           return false;
         }
+        synth.getVoices?.();
         synth.cancel();
-        synth.speak(utterance);
-        return true;
+        synth.resume?.();
+        return speakChunk();
       } catch {
-        onEnd();
+        finish();
         return false;
       }
     },
     stop() {
+      active = false;
+      clearTimers();
       try { synth?.cancel(); } catch { /* ignore */ }
     },
   };
