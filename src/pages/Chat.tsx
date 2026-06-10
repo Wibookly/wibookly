@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
