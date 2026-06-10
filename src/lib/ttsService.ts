@@ -109,18 +109,30 @@ export const ttsService = {
     return () => { listeners.delete(l); };
   },
   getState(): TtsState { return { ...state }; },
-  preload() {
-    if (preloadRequested) return;
+  preload(voice?: string) {
+    if (preloadRequested) {
+      // If a specific voice is requested after initial preload, warm it too.
+      if (voice && worker) {
+        try { worker.postMessage({ type: 'warm', voice }); } catch { /* ignore */ }
+      }
+      return;
+    }
     preloadRequested = true;
     try {
       const w = ensureWorker();
-      w.postMessage({ type: 'preload' });
+      w.postMessage({ type: 'preload', voice });
     } catch (e: any) {
       console.error('[tts] preload failed', e);
       state.modelState = 'error';
       state.error = String(e?.message ?? e);
       emit();
     }
+  },
+  warm(voice: string) {
+    try {
+      const w = ensureWorker();
+      w.postMessage({ type: 'warm', voice });
+    } catch { /* ignore */ }
   },
   speak(text: string, voice: string, id: string) {
     try {
