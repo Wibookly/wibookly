@@ -305,7 +305,7 @@ export default function Chat() {
   // Only show the download toast if the user actually clicks play before
   // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
-    if (!ttsLoading || !speakingId) return;
+    if (!ttsLoading || !speakingId || ttsLoadProgress >= 100) return;
     toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
     return () => { toast.dismiss('kokoro-loading'); };
   }, [ttsLoading, ttsLoadProgress, speakingId]);
@@ -1027,7 +1027,20 @@ export default function Chat() {
       });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-      toast.success(`Draft saved in ${providerLabel} → open to review and send`, { id: toastId });
+      const result = data as { webLink?: string | null } | null;
+      const draftsUrl = result?.webLink
+        ?? (activeConnection.provider === 'google'
+          ? 'https://mail.google.com/mail/u/0/#drafts'
+          : activeConnection.provider === 'outlook'
+            ? 'https://outlook.office.com/mail/drafts'
+            : null);
+      toast.success(`Saved to your ${providerLabel} Drafts folder for ${activeConnection.email}.`, {
+        id: toastId,
+        action: draftsUrl ? {
+          label: 'Open drafts',
+          onClick: () => window.open(draftsUrl, '_blank', 'noopener,noreferrer'),
+        } : undefined,
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : `Couldn't create draft in ${providerLabel}`, { id: toastId });
     }
