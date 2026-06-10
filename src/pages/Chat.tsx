@@ -1830,12 +1830,14 @@ export default function Chat() {
               {!isRecording && (
               <Button
                 size="icon"
+                variant={isStreaming ? 'destructive' : 'default'}
                 className="h-9 w-9 shrink-0"
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming || limitReached}
-                title={isStreaming ? 'InboxIQ is processing your request' : 'Send message'}
+                onClick={() => (isStreaming ? handleStop() : handleSend())}
+                disabled={isStreaming ? false : (!input.trim() || limitReached)}
+                title={isStreaming ? 'Stop generating' : 'Send message'}
+                aria-label={isStreaming ? 'Stop generating' : 'Send message'}
               >
-                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isStreaming ? <Square className="h-4 w-4" fill="currentColor" /> : <Send className="h-4 w-4" />}
               </Button>
               )}
             </div>
