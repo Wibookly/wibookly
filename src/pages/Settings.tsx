@@ -954,7 +954,7 @@ export default function Settings() {
                 Turn the signature on or off. Editable fields above + the options below build your final signature.
               </p>
             </div>
-            <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-card">
+            <div data-tour="settings-signature-toggle" className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-card">
               <Label htmlFor="signatureEnabled" className="text-sm font-medium">
                 Signature {signatureEnabled ? 'On' : 'Off'}
               </Label>
@@ -967,7 +967,7 @@ export default function Settings() {
           </div>
           <div className={`space-y-6 p-6 bg-card rounded-lg border border-border ${!signatureEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Signature Mode Toggle */}
-            <div className="flex items-center gap-4 pb-4 border-b border-border">
+            <div data-tour="settings-signature-mode" className="flex items-center gap-4 pb-4 border-b border-border">
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -1074,7 +1074,7 @@ export default function Settings() {
                 </div>
                 
                 {/* Profile Photo Upload */}
-                <div className="space-y-3 pt-4 border-t border-border">
+                <div data-tour="settings-photo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label className="inline-flex items-center gap-1">Profile Photo (Optional) <HelpTip id="profile.photo" /></Label>
                     <div className="flex items-center gap-2">
@@ -1171,7 +1171,7 @@ export default function Settings() {
                 </div>
                 
                 {/* Company Logo Upload */}
-                <div className="space-y-3 pt-4 border-t border-border">
+                <div data-tour="settings-logo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label>Company Logo (Optional)</Label>
                     <div className="flex items-center gap-2">
