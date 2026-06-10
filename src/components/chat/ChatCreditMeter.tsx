@@ -66,6 +66,19 @@ export function ChatCreditMeter({ onSummarizeAndContinue, summarizing, messageCo
 
   return (
     <div className="flex items-center gap-2 text-xs">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => { if (confirmSummarize()) onSummarizeAndContinue(); }}
+        disabled={summarizing || messageCount < 2}
+        className="h-7 px-2 gap-1 text-xs order-first"
+        title="Summarize this chat and continue in a fresh thread (asks for confirmation)"
+      >
+        {summarizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightCircle className="h-3 w-3" />}
+        New chat with summary
+      </Button>
+
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -146,19 +159,6 @@ export function ChatCreditMeter({ onSummarizeAndContinue, summarizing, messageCo
       <span className="hidden sm:inline text-muted-foreground tabular-nums">
         {messageCount} msg in this chat
       </span>
-
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onSummarizeAndContinue}
-        disabled={summarizing || messageCount < 2}
-        className="h-7 px-2 gap-1 text-xs"
-        title="Summarize this chat and continue in a fresh thread"
-      >
-        {summarizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRightCircle className="h-3 w-3" />}
-        New chat with summary
-      </Button>
     </div>
   );
 }
