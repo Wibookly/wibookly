@@ -13,6 +13,8 @@ import { AppHeader } from './AppHeader';
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
+import { TtsPreloadIndicator } from './TtsPreloadIndicator';
+import { ttsService } from '@/lib/ttsService';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
 
