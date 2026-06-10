@@ -54,7 +54,7 @@ export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
   }, {} as Record<string, KokoroVoiceOption[]>);
 
 const VOICE_KEY = 'inboxiq:kokoro-voice';
-const DEFAULT_VOICE_ID: KokoroVoiceId = 'af_heart';
+const DEFAULT_VOICE_ID: KokoroVoiceId = 'am_adam';
 const VALID = new Set(KOKORO_VOICES.map((v) => v.id));
 
 function resolveVoiceId(v: string | null | undefined): KokoroVoiceId {
