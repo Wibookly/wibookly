@@ -25,34 +25,34 @@ export interface KokoroVoiceOption {
 }
 
 export const KOKORO_VOICES: KokoroVoiceOption[] = [
-  { id: 'af_bella', label: 'Bella', gender: 'female', language: 'English — United States' },
   { id: 'af_heart', label: 'Heart', gender: 'female', language: 'English — United States' },
-  { id: 'af_nova', label: 'Nova', gender: 'female', language: 'English — United States' },
-  { id: 'af_sarah', label: 'Sarah', gender: 'female', language: 'English — United States' },
+  { id: 'af_alloy', label: 'Alloy', gender: 'female', language: 'English — United States' },
+  { id: 'af_aoede', label: 'Aoede', gender: 'female', language: 'English — United States' },
+  { id: 'af_bella', label: 'Bella', gender: 'female', language: 'English — United States' },
+  { id: 'af_jessica', label: 'Jessica', gender: 'female', language: 'English — United States' },
+  { id: 'af_kore', label: 'Kore', gender: 'female', language: 'English — United States' },
   { id: 'af_nicole', label: 'Nicole', gender: 'female', language: 'English — United States' },
+  { id: 'af_nova', label: 'Nova', gender: 'female', language: 'English — United States' },
+  { id: 'af_river', label: 'River', gender: 'female', language: 'English — United States' },
+  { id: 'af_sarah', label: 'Sarah', gender: 'female', language: 'English — United States' },
+  { id: 'af_sky', label: 'Sky', gender: 'female', language: 'English — United States' },
   { id: 'am_adam', label: 'Adam', gender: 'male', language: 'English — United States' },
+  { id: 'am_echo', label: 'Echo', gender: 'male', language: 'English — United States' },
+  { id: 'am_eric', label: 'Eric', gender: 'male', language: 'English — United States' },
+  { id: 'am_fenrir', label: 'Fenrir', gender: 'male', language: 'English — United States' },
+  { id: 'am_liam', label: 'Liam', gender: 'male', language: 'English — United States' },
   { id: 'am_michael', label: 'Michael', gender: 'male', language: 'English — United States' },
   { id: 'am_onyx', label: 'Onyx', gender: 'male', language: 'English — United States' },
-  { id: 'am_echo', label: 'Echo', gender: 'male', language: 'English — United States' },
+  { id: 'am_puck', label: 'Puck', gender: 'male', language: 'English — United States' },
+  { id: 'am_santa', label: 'Santa', gender: 'male', language: 'English — United States' },
+  { id: 'bf_alice', label: 'Alice', gender: 'female', language: 'English — United Kingdom' },
   { id: 'bf_emma', label: 'Emma', gender: 'female', language: 'English — United Kingdom' },
   { id: 'bf_isabella', label: 'Isabella', gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bf_alice', label: 'Alice', gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_lily', label: 'Lily', gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bm_daniel', label: 'Daniel', gender: 'male', language: 'English — United Kingdom' },
+  { id: 'bm_fable', label: 'Fable', gender: 'male', language: 'English — United Kingdom' },
   { id: 'bm_george', label: 'George', gender: 'male', language: 'English — United Kingdom' },
   { id: 'bm_lewis', label: 'Lewis', gender: 'male', language: 'English — United Kingdom' },
-  { id: 'bm_daniel', label: 'Daniel', gender: 'male', language: 'English — United Kingdom' },
-  { id: 'jf_alpha', label: 'Alpha', gender: 'female', language: 'Japanese' },
-  { id: 'jm_kumo', label: 'Kumo', gender: 'male', language: 'Japanese' },
-  { id: 'zf_xiaobei', label: 'Xiaobei', gender: 'female', language: 'Mandarin Chinese' },
-  { id: 'zm_yunjian', label: 'Yunjian', gender: 'male', language: 'Mandarin Chinese' },
-  { id: 'ef_dora', label: 'Dora', gender: 'female', language: 'Spanish' },
-  { id: 'em_alex', label: 'Alex', gender: 'male', language: 'Spanish' },
-  { id: 'ff_siwis', label: 'Siwis', gender: 'female', language: 'French' },
-  { id: 'hf_alpha', label: 'Alpha', gender: 'female', language: 'Hindi' },
-  { id: 'hm_omega', label: 'Omega', gender: 'male', language: 'Hindi' },
-  { id: 'if_sara', label: 'Sara', gender: 'female', language: 'Italian' },
-  { id: 'im_nicola', label: 'Nicola', gender: 'male', language: 'Italian' },
-  { id: 'pf_dora', label: 'Dora', gender: 'female', language: 'Portuguese (Brazil)' },
-  { id: 'pm_alex', label: 'Alex', gender: 'male', language: 'Portuguese (Brazil)' },
 ];
 
 export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
@@ -63,14 +63,20 @@ export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
 
 const VOICE_KEY = 'inboxiq:kokoro-voice';
 const KOKORO_READY_KEY = 'inboxiq:kokoro-ready';
+const DEFAULT_VOICE_ID: KokoroVoiceId = 'af_heart';
+const VALID_KOKORO_VOICE_IDS = new Set(KOKORO_VOICES.map((voice) => voice.id));
+
+function resolveVoiceId(voiceId: string | null | undefined): KokoroVoiceId {
+  return voiceId && VALID_KOKORO_VOICE_IDS.has(voiceId) ? voiceId : DEFAULT_VOICE_ID;
+}
 
 export function getStoredVoice(): KokoroVoiceId {
-  try { return (localStorage.getItem(VOICE_KEY) as KokoroVoiceId) || 'af_bella'; }
-  catch { return 'af_bella'; }
+  try { return resolveVoiceId(localStorage.getItem(VOICE_KEY)); }
+  catch { return DEFAULT_VOICE_ID; }
 }
 
 export function setStoredVoice(v: KokoroVoiceId) {
-  try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
+  try { localStorage.setItem(VOICE_KEY, resolveVoiceId(v)); } catch { /* ignore */ }
 }
 
 let ttsInstance: any | null = null;
@@ -273,7 +279,8 @@ export function useKokoroTTS() {
 
     stop();
     setSpeakingId(id);
-    const selectedVoice = getStoredVoice();
+    const selectedVoice = resolveVoiceId(getStoredVoice());
+    setStoredVoice(selectedVoice);
     const fallbackSession = createWebSpeechSession(clean, selectedVoice, () => {
       fallbackStopRef.current = null;
       setSpeakingId((current) => (current === id ? null : current));
@@ -306,7 +313,15 @@ export function useKokoroTTS() {
       }, 8000);
 
       const tts = await getTTS((pct) => setLoadProgress(pct));
-      const audio = await tts.generate(clean, { voice: selectedVoice });
+      let audio;
+      try {
+        audio = await tts.generate(clean, { voice: selectedVoice });
+      } catch (voiceError) {
+        if (selectedVoice === DEFAULT_VOICE_ID) throw voiceError;
+        const safeVoice = DEFAULT_VOICE_ID;
+        setStoredVoice(safeVoice);
+        audio = await tts.generate(clean, { voice: safeVoice });
+      }
       if (fallbackTimerRef.current !== null) {
         window.clearTimeout(fallbackTimerRef.current);
         fallbackTimerRef.current = null;
