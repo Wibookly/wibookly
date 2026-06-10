@@ -62,11 +62,21 @@ export function HelpQuickActions({ className, compact = false }: HelpQuickAction
       <Button
         type="button"
         variant="outline"
-        onClick={openGuide}
+        onClick={openWelcome}
         className={cn('w-full justify-start gap-2', compact && 'h-9 px-3 text-xs')}
       >
         <Compass className="w-4 h-4 text-primary" />
         <span>User Guide</span>
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={openPageGuide}
+        className={cn('w-full justify-start gap-2', compact && 'h-9 px-3 text-xs')}
+      >
+        <Compass className="w-4 h-4 text-primary" />
+        <span>Tour This Page</span>
       </Button>
 
       <Button
