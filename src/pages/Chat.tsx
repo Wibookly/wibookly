@@ -1645,6 +1645,7 @@ export default function Chat() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
               {!isRecording && (
               <DropdownMenu>
                 <Tooltip>
@@ -1667,6 +1668,7 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
               )}
+              {!isRecording && (
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
