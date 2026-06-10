@@ -1645,8 +1645,28 @@ export default function Chat() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              )}
               {!isRecording && (
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Choose AI voice">
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>AI voice (free, in-browser Kokoro TTS)</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="max-h-[320px] overflow-y-auto">
+                  {KOKORO_VOICES.map((v) => (
+                    <DropdownMenuItem key={v.id} onClick={() => handleSelectVoice(v.id)}>
+                      <Check className={cn('h-4 w-4 mr-2', ttsVoice === v.id ? 'opacity-100' : 'opacity-0')} />
+                      {v.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              )}
               <Button
                 size="icon"
                 className="h-9 w-9 shrink-0"
