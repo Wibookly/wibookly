@@ -279,13 +279,67 @@ export default function Chat() {
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  const [streamingText, setStreamingText] = useState('');
-  const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
-  const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingConvId, setStreamingConvId] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const abortedRef = useRef(false);
+  // ---- Per-conversation parallel streaming ----
+  // Each in-flight chat request lives in `streamsRef` keyed by a stable
+  // internal id. The map can contain multiple entries — one per chat that
+  // the AI is currently working on — so the user can send in chat B while
+  // chat A keeps streaming. `streamTick` is bumped to trigger renders when
+  // a stream mutates its text/phase/citations in place.
+  type StreamInfo = {
+    key: string;
+    convId: string | null;
+    newChatEpoch: number; // for resolving pending-null streams safely
+    tempUserMsg: Msg;
+    text: string;
+    phase: string;
+    citations: Citation[];
+    abort: AbortController;
+    aborted: boolean;
+  };
+  const streamsRef = useRef<Map<string, StreamInfo>>(new Map());
+  const [streamTick, setStreamTick] = useState(0);
+  const bumpStreams = useCallback(() => setStreamTick((n) => n + 1), []);
+  const activeIdRef = useRef<string | null>(params.id || null);
+  const newChatEpochRef = useRef(0);
+  // Per-conversation input drafts so typing in chat B doesn't leak into A.
+  const draftsRef = useRef<Map<string, string>>(new Map());
+
+  // Look up the in-flight stream (if any) for a given conversation id.
+  // When `convId` is null, returns the most recently started pending stream
+  // whose epoch matches the current "new chat" session — so clicking
+  // New Chat hides previously pending streams from this view.
+  const findStreamForConv = useCallback((convId: string | null): StreamInfo | null => {
+    if (convId == null) {
+      let candidate: StreamInfo | null = null;
+      for (const s of streamsRef.current.values()) {
+        if (s.convId == null && s.newChatEpoch === newChatEpochRef.current) candidate = s;
+      }
+      return candidate;
+    }
+    for (const s of streamsRef.current.values()) if (s.convId === convId) return s;
+    return null;
+  }, []);
+  // Derived values that everything else in the component reads from.
+  // We use `streamTick` purely as a render trigger; the actual data lives in
+  // `streamsRef` so multiple parallel streams can mutate independently.
+  const activeStream = useMemo(
+    () => findStreamForConv(activeId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId, streamTick, findStreamForConv]
+  );
+  const isStreaming = !!activeStream;
+  const streamingConvIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const v of streamsRef.current.values()) if (v.convId) s.add(v.convId);
+    return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamTick]);
+  // Backwards-compat aliases used across the render path. They're plain
+  // values derived from `activeStream` so we don't have to refactor every
+  // reference.
+  const streamingText = activeStream?.text ?? '';
+  const streamingCitations = activeStream?.citations ?? [];
+  const streamingPhase = activeStream?.phase ?? 'Thinking';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
@@ -628,6 +682,9 @@ export default function Chat() {
   }, [activeId, conversations, messages]);
 
   const handleNewChat = (folderId: string | null = null) => {
+    // Bump the new-chat epoch so any previously pending-null stream stops
+    // showing on this fresh blank screen.
+    newChatEpochRef.current += 1;
     setActiveId(null);
     setMessages([]);
     setInput('');
@@ -637,6 +694,27 @@ export default function Chat() {
     if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
     navigate('/chat');
   };
+
+  // Keep a ref to activeId for use inside async stream handlers.
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  // Per-chat input drafts: save current draft for old chat, load for new.
+  const prevActiveIdRef = useRef<string | null>(activeId);
+  useEffect(() => {
+    const prev = prevActiveIdRef.current;
+    const prevKey = prev ?? '__new__';
+    // Save the in-progress draft for the chat we're leaving.
+    setInput((current) => {
+      if (current) draftsRef.current.set(prevKey, current);
+      else draftsRef.current.delete(prevKey);
+      return current;
+    });
+    // Load the draft (if any) for the chat we're entering.
+    const newKey = activeId ?? '__new__';
+    const next = draftsRef.current.get(newKey) ?? '';
+    setInput(next);
+    prevActiveIdRef.current = activeId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   const handleSelectConv = (id: string) => {
     setActiveId(id);
@@ -798,11 +876,21 @@ export default function Chat() {
 
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
-    if (!text || isStreaming || !user) return;
-    if (!override) setInput('');
-    if (override) {
-      // Regeneration: don't re-upload files, don't clear composer.
+    if (!text || !user) return;
+
+    // The conversation we're starting this stream for, captured at send time.
+    // May be null when the user is on the "New chat" screen.
+    const startingConvId = activeId;
+
+    // Block only if THIS chat already has an in-flight stream.
+    // A stream in a different chat does not prevent sending here — that's
+    // the whole point of parallel multi-chat streaming.
+    if (findStreamForConv(startingConvId)) {
+      toast.message('This chat is still answering — wait for it to finish or switch to another chat.');
+      return;
     }
+
+    if (!override) setInput('');
 
     stickToBottomRef.current = true;
 
@@ -813,18 +901,27 @@ export default function Chat() {
       created_at: new Date().toISOString(),
       attachments: files.length ? files.map((f) => f.name) : null,
     };
-    setMessages((prev) => [...prev, tempUserMsg]);
 
     const toUpload = files;
     setFiles([]);
-    setIsStreaming(true);
-    setStreamingConvId(activeId);
-    setStreamingText('');
-    setStreamingPhase('Thinking');
-    setStreamingCitations([]);
-    abortedRef.current = false;
-    const ac = new AbortController();
-    abortRef.current = ac;
+
+    const key =
+      typeof crypto !== 'undefined' && (crypto as any).randomUUID
+        ? (crypto as any).randomUUID()
+        : `s-${Date.now()}-${Math.random()}`;
+    const info: StreamInfo = {
+      key,
+      convId: startingConvId,
+      newChatEpoch: newChatEpochRef.current,
+      tempUserMsg,
+      text: '',
+      phase: 'Thinking',
+      citations: [],
+      abort: new AbortController(),
+      aborted: false,
+    };
+    streamsRef.current.set(key, info);
+    bumpStreams();
 
     try {
       const { urls: attachmentUrls, refs: attachmentRefs } = await uploadFiles(toUpload);
@@ -833,23 +930,14 @@ export default function Chat() {
       if (!token) throw new Error('Not authenticated');
 
       const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      // Route through chat-agent (SSE adapter around agent-orchestrator) so
-      // the AI has tool access to Outlook / OneDrive / SharePoint and can
-      // actually read file contents instead of just naming them.
       const url = `https://${projectRef}.supabase.co/functions/v1/chat-agent`;
 
-      // Auto-detect intents from the user's message and turn the matching
-      // capabilities ON just for this request, then OFF when the stream
-      // finishes (handled in the `finally` block). Manual toggles still
-      // override (OR'd in), so user-set state is never weakened.
       const detected = autoMode ? detectIntents(text) : { web: false, deep: false, loc: false };
       const effWeb = (canWebSearch && webSearch) || (canWebSearch && detected.web);
       const effDeep = deepMode || detected.deep;
       const effLoc = locationEnabled || detected.loc;
       let effLocation = (locationEnabled && userLocation) ? userLocation : undefined;
       if (!effLocation && detected.loc) {
-        // Just-in-time one-shot lookup so location flows through for this turn
-        // without permanently flipping the location toggle on.
         const loc = await captureOneShotLocation();
         if (loc) effLocation = loc;
       }
@@ -858,7 +946,8 @@ export default function Chat() {
         deep: !deepMode && detected.deep,
         loc: !locationEnabled && detected.loc,
       };
-      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc)) {
+      // Only flash the auto-badges if the user is still looking at this chat.
+      if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc) && activeIdRef.current === startingConvId) {
         const parts = [
           usedAuto.web ? '🌐 Web' : null,
           usedAuto.deep ? '🧠 Deep' : null,
@@ -877,9 +966,9 @@ export default function Chat() {
         },
         body: JSON.stringify({
           message: text,
-          conversation_id: activeId,
+          conversation_id: startingConvId,
           connectionId: activeConnection?.id,
-          folder_id: activeId ? undefined : activeFolderId,
+          folder_id: startingConvId ? undefined : activeFolderId,
           attachments: attachmentUrls,
           attachment_refs: attachmentRefs,
           stream: true,
@@ -887,7 +976,7 @@ export default function Chat() {
           user_location: effLoc ? effLocation : undefined,
           deep: effDeep,
         }),
-        signal: ac.signal,
+        signal: info.abort.signal,
       });
 
       const ct = resp.headers.get('content-type') || '';
@@ -895,45 +984,49 @@ export default function Chat() {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let assembled = '';
-        let newConvId: string | null = activeId;
         while (true) {
-          if (abortedRef.current) { try { reader.cancel(); } catch {} break; }
+          if (info.aborted) { try { reader.cancel(); } catch {} break; }
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const events = buffer.split('\n\n');
           buffer = events.pop() || '';
           for (const ev of events) {
-            if (abortedRef.current) break;
+            if (info.aborted) break;
             const line = ev.split('\n').find((l) => l.startsWith('data: '));
             if (!line) continue;
             try {
               const data = JSON.parse(line.slice(6));
               if (data.type === 'conversation') {
-                newConvId = data.conversation_id;
-                if (newConvId) setStreamingConvId(newConvId);
-                if (!activeId && newConvId) {
-                  setActiveId(newConvId);
-                  navigate(`/chat/${newConvId}`, { replace: true });
+                const newId = data.conversation_id as string | undefined;
+                if (newId && !info.convId) {
+                  info.convId = newId;
+                  // Only navigate if the user is still on the new-chat screen
+                  // that started this stream. If they've already moved on,
+                  // leave their navigation alone.
+                  if (activeIdRef.current == null) {
+                    setActiveId(newId);
+                    navigate(`/chat/${newId}`, { replace: true });
+                  }
+                  bumpStreams();
                 }
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                // Faster typewriter: stream in small batches with a tiny delay
-                // so text appears smoothly but ~3x quicker than before.
                 const BATCH = 6;
                 for (let i = 0; i < chunk.length; i += BATCH) {
-                  if (abortedRef.current) break;
-                  assembled += chunk.slice(i, i + BATCH);
-                  setStreamingText(assembled);
+                  if (info.aborted) break;
+                  info.text += chunk.slice(i, i + BATCH);
+                  bumpStreams();
                   await new Promise((resolve) => setTimeout(resolve, 4));
                 }
               } else if (data.type === 'citations') {
-                setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
+                info.citations = Array.isArray(data.citations) ? data.citations : [];
+                bumpStreams();
               } else if (data.type === 'phase') {
                 if (typeof data.label === 'string' && data.label.trim()) {
-                  setStreamingPhase(data.label.trim());
+                  info.phase = data.label.trim();
+                  bumpStreams();
                 }
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
@@ -945,19 +1038,24 @@ export default function Chat() {
             } catch {/* ignore */}
           }
         }
-        // Reload messages & conversations to capture saved rows
+        // Reload messages & conversations to capture saved rows.
         let lastAssistant: Msg | null = null;
-        if (newConvId) {
+        if (info.convId) {
           const { data: msgs } = await supabase
             .from('chat_messages')
             .select('id, role, content, created_at, attachments, citations')
-            .eq('conversation_id', newConvId)
+            .eq('conversation_id', info.convId)
             .order('created_at', { ascending: true });
           const filtered = ((msgs as Msg[]) || []).filter((m) => m.role !== 'system');
-          setMessages(filtered);
+          // Only replace the visible message list if the user is currently
+          // viewing this chat. Otherwise the saved messages will load
+          // naturally when they navigate to it.
+          if (activeIdRef.current === info.convId) {
+            setMessages(filtered);
+          }
           lastAssistant = [...filtered].reverse().find((m) => m.role === 'assistant') || null;
         }
-        if (voiceOut && lastAssistant?.content) {
+        if (voiceOut && lastAssistant?.content && activeIdRef.current === info.convId) {
           speak(lastAssistant.content, lastAssistant.id);
         }
         loadConversations();
@@ -969,18 +1067,23 @@ export default function Chat() {
         } else if (data.error) {
           toast.error(data.error);
         } else {
-          if (data.conversation_id && !activeId) {
-            setActiveId(data.conversation_id);
-            navigate(`/chat/${data.conversation_id}`, { replace: true });
+          if (data.conversation_id && !info.convId) {
+            info.convId = data.conversation_id;
+            if (activeIdRef.current == null) {
+              setActiveId(data.conversation_id);
+              navigate(`/chat/${data.conversation_id}`, { replace: true });
+            }
           }
-          const cid = data.conversation_id || activeId;
+          const cid = info.convId;
           if (cid) {
             const { data: msgs } = await supabase
               .from('chat_messages')
               .select('id, role, content, created_at, attachments, citations')
               .eq('conversation_id', cid)
               .order('created_at', { ascending: true });
-            setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+            if (activeIdRef.current === cid) {
+              setMessages(((msgs as Msg[]) || []).filter((m) => m.role !== 'system'));
+            }
           }
           loadConversations();
           loadUsage();
@@ -988,28 +1091,27 @@ export default function Chat() {
       }
     } catch (e) {
       const name = (e as any)?.name;
-      if (name === 'AbortError' || abortedRef.current) {
+      if (name === 'AbortError' || info.aborted) {
         toast.message('Stopped');
       } else {
         toast.error(e instanceof Error ? e.message : 'Failed to send');
       }
     } finally {
-      abortRef.current = null;
-      abortedRef.current = false;
-      setIsStreaming(false);
-      setStreamingConvId(null);
-      setStreamingText('');
-      setStreamingCitations([]);
-      // Auto-enabled flags are per-turn only — clear the visual badges so the
-      // next message starts from the user's manual toggle state.
-      setAutoBadges({});
+      streamsRef.current.delete(key);
+      bumpStreams();
+      // Auto badges are per-turn — only clear them if the user is currently
+      // looking at the chat that just finished.
+      if (activeIdRef.current === info.convId) {
+        setAutoBadges({});
+      }
     }
   };
 
   const handleStop = () => {
-    if (!isStreaming) return;
-    abortedRef.current = true;
-    try { abortRef.current?.abort(); } catch { /* ignore */ }
+    const s = activeStream;
+    if (!s) return;
+    s.aborted = true;
+    try { s.abort.abort(); } catch { /* ignore */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1177,7 +1279,7 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        {streamingConvId === c.id && (
+        {streamingConvIds.has(c.id) && (
           <span
             className="relative flex h-2 w-2 shrink-0"
             title="AI is working on this chat"
@@ -1500,22 +1602,29 @@ export default function Chat() {
           ) : (
             <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
-              {isStreaming && (
-                streamingText ? (
+              {activeStream && (
+                <>
                   <MessageBubble
-                    message={{
-                      id: 'streaming',
-                      role: 'assistant',
-                      content: streamingText,
-                      created_at: new Date().toISOString(),
-                      citations: streamingCitations.length ? streamingCitations : null,
-                    }}
+                    message={activeStream.tempUserMsg}
                     userInitial={userInitial}
-                    streaming
+                    isStreamingAny={isStreaming}
                   />
-                ) : (
-                  <AIThinking label={streamingPhase} />
-                )
+                  {activeStream.text ? (
+                    <MessageBubble
+                      message={{
+                        id: 'streaming',
+                        role: 'assistant',
+                        content: activeStream.text,
+                        created_at: new Date().toISOString(),
+                        citations: activeStream.citations.length ? activeStream.citations : null,
+                      }}
+                      userInitial={userInitial}
+                      streaming
+                    />
+                  ) : (
+                    <AIThinking label={activeStream.phase} />
+                  )}
+                </>
               )}
 
               <div ref={messagesEndRef} />
