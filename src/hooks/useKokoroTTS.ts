@@ -81,8 +81,8 @@ export function setStoredVoice(v: KokoroVoiceId) {
 
 let ttsInstance: any | null = null;
 let ttsPromise: Promise<any> | null = null;
-let sharedAudioContext: AudioContext | null = null;
 const progressListeners = new Set<(pct: number) => void>();
+const SILENT_WAV_DATA_URL = 'data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 function emitProgress(pct: number) {
   progressListeners.forEach((cb) => cb(pct));
@@ -192,19 +192,6 @@ function createWebSpeechSession(text: string, voiceId: KokoroVoiceId, onEnd: () 
   };
 }
 
-async function ensureAudioContext() {
-  if (typeof window === 'undefined') return null;
-  const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextCtor) return null;
-  if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
-    sharedAudioContext = new AudioContextCtor();
-  }
-  if (sharedAudioContext.state === 'suspended') {
-    await sharedAudioContext.resume();
-  }
-  return sharedAudioContext;
-}
-
 async function requestPersistentCache() {
   try {
     if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
@@ -215,19 +202,7 @@ async function requestPersistentCache() {
   }
 }
 
-function createAudioBufferFromRawAudio(
-  audioContext: AudioContext,
-  rawAudio: { audio?: Float32Array; sampling_rate?: number },
-) {
-  if (!(rawAudio.audio instanceof Float32Array) || !rawAudio.audio.length) return null;
-  const sampleRate = Number(rawAudio.sampling_rate) || 24000;
-  const buffer = audioContext.createBuffer(1, rawAudio.audio.length, sampleRate);
-  buffer.copyToChannel(new Float32Array(rawAudio.audio), 0, 0);
-  return buffer;
-}
-
 export function useKokoroTTS() {
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const fallbackStopRef = useRef<(() => void) | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -264,9 +239,6 @@ export function useKokoroTTS() {
     try {
       fallbackStopRef.current?.();
       fallbackStopRef.current = null;
-      sourceRef.current?.stop();
-      sourceRef.current?.disconnect();
-      sourceRef.current = null;
       cleanupAudioElement();
       window.speechSynthesis?.cancel();
     } catch { /* ignore */ }
@@ -292,22 +264,25 @@ export function useKokoroTTS() {
     }
   }, []);
 
-  async function unlockAudioOutput(audioContext: AudioContext) {
-    const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate || 24000);
-    const source = audioContext.createBufferSource();
-    const gain = audioContext.createGain();
-    gain.gain.value = 0;
-    source.buffer = buffer;
-    source.connect(gain);
-    gain.connect(audioContext.destination);
-    source.start(0);
-    await new Promise<void>((resolve) => {
-      source.onended = () => {
-        source.disconnect();
-        gain.disconnect();
-        resolve();
-      };
-    });
+  async function unlockAudioOutput() {
+    if (typeof window === 'undefined') return;
+    const el = new Audio(SILENT_WAV_DATA_URL);
+    el.preload = 'auto';
+    el.muted = true;
+    el.playsInline = true;
+    try {
+      await el.play();
+    } catch {
+      /* ignore */
+    } finally {
+      try {
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   const playWithAudioElement = useCallback(async (
@@ -323,6 +298,8 @@ export function useKokoroTTS() {
     const url = URL.createObjectURL(rawAudio.toBlob());
     const audioElement = new Audio(url);
     audioElement.preload = 'auto';
+    audioElement.playsInline = true;
+    audioElement.crossOrigin = 'anonymous';
     audioElementRef.current = audioElement;
     audioUrlRef.current = url;
 
@@ -340,22 +317,17 @@ export function useKokoroTTS() {
     audioElement.onended = () => clear(true);
     audioElement.onerror = () => clear(true);
 
-    await audioElement.play();
+    try {
+      await audioElement.play();
+    } catch (error) {
+      clear(false);
+      throw error;
+    }
   }, [cleanupAudioElement]);
 
   const speak = useCallback(async (text: string, id: string) => {
     const clean = cleanForSpeech(text);
     if (!clean) return;
-
-    const AudioContextCtor = typeof window === 'undefined'
-      ? null
-      : window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (AudioContextCtor && (!sharedAudioContext || sharedAudioContext.state === 'closed')) {
-      sharedAudioContext = new AudioContextCtor();
-    }
-    if (sharedAudioContext?.state === 'suspended') {
-      void sharedAudioContext.resume();
-    }
 
     stop();
     const requestNonce = requestNonceRef.current;
@@ -371,11 +343,7 @@ export function useKokoroTTS() {
     try {
       setLoading(true);
       await requestPersistentCache();
-
-      const audioContext = await ensureAudioContext();
-      if (audioContext) {
-        await unlockAudioOutput(audioContext);
-      }
+      await unlockAudioOutput();
 
       if (!ttsInstance && !warmupNoticeShownRef.current) {
         warmupNoticeShownRef.current = true;
@@ -403,34 +371,6 @@ export function useKokoroTTS() {
       }
 
       try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-
-      if (audioContext) {
-        const audioBuffer = createAudioBufferFromRawAudio(audioContext, audio)
-          ?? await (async () => {
-            const blob: Blob = typeof audio.toBlob === 'function'
-              ? audio.toBlob()
-              : new Blob([audio], { type: 'audio/wav' });
-            return await audioContext.decodeAudioData((await blob.arrayBuffer()).slice(0));
-          })();
-
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        sourceRef.current = source;
-        source.onended = () => {
-          source.disconnect();
-          if (sourceRef.current === source) {
-            sourceRef.current = null;
-          }
-          setSpeakingId((current) => (current === id ? null : current));
-        };
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-        }
-        source.start(0);
-        return;
-      }
-
       await playWithAudioElement(audio, id, requestNonce);
     } catch (err) {
       if (requestNonce !== requestNonceRef.current) return;
