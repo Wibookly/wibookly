@@ -1281,12 +1281,12 @@ export default function Chat() {
       >
         {streamingConvIds.has(c.id) && (
           <span
-            className="relative flex h-2 w-2 shrink-0"
-            title="AI is working on this chat"
-            aria-label="AI is working on this chat"
+            className="relative flex h-2.5 w-2.5 shrink-0"
+            title="AI is replying in this chat"
+            aria-label="AI is replying in this chat"
           >
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-80" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-500/30" />
           </span>
         )}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
