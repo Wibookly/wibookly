@@ -781,10 +781,14 @@ export default function Chat() {
     return { urls, refs };
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || isStreaming || !user) return;
-    setInput('');
+    if (!override) setInput('');
+    if (override) {
+      // Regeneration: don't re-upload files, don't clear composer.
+    }
+
     stickToBottomRef.current = true;
 
     const tempUserMsg: Msg = {
