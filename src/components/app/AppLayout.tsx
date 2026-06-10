@@ -13,6 +13,7 @@ import { AppHeader } from './AppHeader';
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
+import { WelcomeGuide } from '@/components/onboarding/WelcomeGuide';
 import { ttsService } from '@/lib/ttsService';
 import { getStoredVoice } from '@/hooks/useKokoroTTS';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
