@@ -288,7 +288,7 @@ export default function AIActivityDashboard() {
             </div>
           )}
 
-          <Button onClick={exportReport} disabled={exporting} variant="outline">
+          <Button data-tour="aa-export" onClick={exportReport} disabled={exporting} variant="outline">
             {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Export Report
           </Button>
@@ -306,7 +306,7 @@ export default function AIActivityDashboard() {
             <MailIcon className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Email AI</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div data-tour="aa-email-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
               { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI for your review', Icon: FileText, color: 'text-blue-500' },
               { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Replies sent automatically by AI', Icon: Send, color: 'text-orange-500' },
@@ -333,7 +333,7 @@ export default function AIActivityDashboard() {
             <MessageSquare className="h-4 w-4 text-green-500" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Chat & Meetings</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
+          <div data-tour="aa-chat-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
             {[
               { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'} with InboxIQ`, Icon: MessageSquare, color: 'text-green-500' },
               { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Live meetings transcribed & summarized', Icon: Video, color: 'text-pink-500' },
@@ -360,7 +360,7 @@ export default function AIActivityDashboard() {
 
 
           {/* Category Breakdown */}
-          <Card className="mb-8">
+          <Card data-tour="aa-category" className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />

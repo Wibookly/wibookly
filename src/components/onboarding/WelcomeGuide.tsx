@@ -24,6 +24,7 @@ import {
   type StartGuidedTourDetail,
 } from '@/components/help/events';
 import { HELP_ARTICLES } from '@/config/help-content';
+import { useFeatureAccess, type FeatureKey } from '@/hooks/useFeatureAccess';
 
 /**
  * Full-screen premium dark-glass welcome guide.
@@ -47,6 +48,8 @@ interface Section {
   tourArticleId?: string;
   Icon: LucideIcon;
   accent: string;
+  /** Feature key required to surface this section. `null` = always shown. */
+  feature: FeatureKey | null;
 }
 
 const SECTIONS: Section[] = [
@@ -60,6 +63,7 @@ const SECTIONS: Section[] = [
     tourArticleId: 'ai-assistant',
     Icon: MessageSquare,
     accent: 'from-indigo-500/40 to-violet-500/20',
+    feature: 'ai_chat',
   },
   {
     id: 'email-intelligence',
@@ -71,6 +75,7 @@ const SECTIONS: Section[] = [
     tourArticleId: 'categories-overview',
     Icon: Inbox,
     accent: 'from-emerald-500/40 to-teal-500/20',
+    feature: 'email_intelligence',
   },
   {
     id: 'reply-tracker',
@@ -79,8 +84,10 @@ const SECTIONS: Section[] = [
     description:
       'See every thread you’re waiting on. InboxIQ surfaces unanswered conversations, suggests nudges, and helps you close the loop before it slips.',
     route: '/follow-up-reminder',
+    tourArticleId: 'reply-tracker',
     Icon: BellRing,
     accent: 'from-amber-500/40 to-orange-500/20',
+    feature: 'feature.follow_up_reminder',
   },
   {
     id: 'daily-brief',
@@ -92,6 +99,7 @@ const SECTIONS: Section[] = [
     tourArticleId: 'daily-brief',
     Icon: Sun,
     accent: 'from-yellow-400/40 to-amber-500/20',
+    feature: 'daily_brief',
   },
   {
     id: 'meeting-copilot',
@@ -100,8 +108,10 @@ const SECTIONS: Section[] = [
     description:
       'Pull context from emails and calendar before every meeting, capture the conversation live, and walk away with action items written for you.',
     route: '/meeting-copilot',
+    tourArticleId: 'meeting-copilot',
     Icon: Video,
     accent: 'from-sky-500/40 to-blue-500/20',
+    feature: 'meeting_copilot',
   },
   {
     id: 'ai-activity',
@@ -110,8 +120,10 @@ const SECTIONS: Section[] = [
     description:
       'A transparent log of every draft written, label applied, and message processed — with full traceability and one-click overrides.',
     route: '/ai-activity',
+    tourArticleId: 'ai-activity',
     Icon: Activity,
     accent: 'from-fuchsia-500/40 to-pink-500/20',
+    feature: 'reports',
   },
   {
     id: 'settings',
@@ -123,6 +135,7 @@ const SECTIONS: Section[] = [
     tourArticleId: 'profile-signature',
     Icon: UserCog,
     accent: 'from-slate-400/40 to-zinc-500/20',
+    feature: null,
   },
 ];
 
@@ -133,9 +146,22 @@ export function WelcomeGuide() {
   const [tab, setTab] = useState<TabId>('overview');
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasFeature, loading: featuresLoading } = useFeatureAccess();
+
+  // Only surface sections the user actually has permission to use.
+  const visibleSections = useMemo(
+    () =>
+      SECTIONS.filter(
+        (s) => s.feature === null || hasFeature(s.feature),
+      ),
+    [hasFeature],
+  );
 
   // Auto-open once per browser/user on first authenticated landing.
+  // Wait until features have loaded so we don't render the menu with the
+  // wrong set of sections.
   useEffect(() => {
+    if (featuresLoading) return;
     try {
       if (localStorage.getItem(STORAGE_KEY) !== '1') {
         const t = setTimeout(() => setOpen(true), 600);
@@ -144,7 +170,7 @@ export function WelcomeGuide() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [featuresLoading]);
 
   // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
@@ -286,7 +312,7 @@ export function WelcomeGuide() {
 
           {tab === 'overview' && (
             <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {SECTIONS.map((section, idx) => (
+              {visibleSections.map((section, idx) => (
                 <button
                   key={section.id}
                   type="button"

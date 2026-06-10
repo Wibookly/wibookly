@@ -184,17 +184,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'daily-brief',
-    title: 'AI Daily Brief',
+    title: 'AI Daily Brief — guided walkthrough',
     category: 'ai-features',
     summary: 'A morning summary of what landed in your inbox while you were away.',
+    intro:
+      'The Daily Brief is your one-screen morning standup. It pulls together your priorities, calendar, unanswered emails and AI activity so you start the day in control.',
     steps: [
-      { title: '1. Open AI Daily Brief', description: 'Use the sidebar → AI Daily Brief to read today’s summary on demand.' },
-      { title: '2. Schedule email delivery', description: 'Open Settings → Daily Brief Schedule and pick the days, time, and timezone.' },
-      { title: '3. Choose recipients', description: 'By default the brief goes to your connected email — you can add a different recipient in the same panel.' },
-      { title: '4. Print or share', description: 'On the Daily Brief page, use the print button to get a clean executive-report PDF.' },
+      { title: "Open today's brief", description: 'Use the sidebar → AI Daily Brief. This page always shows the freshest brief on demand.', route: '/ai-daily-brief' },
+      { title: 'Schedule email delivery', description: 'In the Daily Brief Schedule card, pick the days, time and timezone. Toggle Enable email delivery to start receiving it in your inbox.', target: '[data-tour="brief-schedule"]' },
+      { title: "Review Today's Priorities", description: "This card lists the exact items the AI flagged as high / medium / low priority. Click any item to jump to the source email.", target: '[data-tour="brief-priorities"]' },
+      { title: 'Print or share the brief', description: 'Use the Print button to generate a clean, InboxIQ-branded executive report you can save as PDF or email to an assistant.', target: '[data-tour="brief-print"]' },
+      { title: 'Check unanswered threads', description: 'The No Reply Tracker card pulls in everything you BCC-tracked. Hover an item to nudge or stop tracking.', target: '[data-tour="brief-noreply"]' },
     ],
-    routes: ['/ai-daily-brief', '/settings'],
-    keywords: ['summary', 'morning', 'digest', 'brief'],
+    routes: ['/ai-daily-brief'],
+    keywords: ['summary', 'morning', 'digest', 'brief', 'schedule'],
   },
   {
     id: 'ai-assistant',
@@ -227,31 +230,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'profile-signature',
-    title: 'Profile & email signature',
+    title: 'Profile & email signature — guided walkthrough',
     category: 'account-billing',
-    summary: 'Your name, title, and signature show up on every AI draft.',
+    summary: 'Your name, title, photo and signature show up on every AI draft.',
+    intro:
+      'Take a minute on this page and every AI draft, brief and reply automatically gets noticeably more "you". The live preview at the bottom shows exactly what recipients will see.',
     steps: [
-      { title: '1. Open Settings', description: 'Use the sidebar → Settings.' },
-      { title: '2. Fill in your profile', description: 'Add your full name, title (required for Business accounts), phone, and website.' },
-      { title: '3. Upload a photo or logo', description: 'Toggle which one to display in your signature. Profile photo takes priority over company logo.' },
-      { title: '4. Check the live preview', description: 'The preview at the bottom shows exactly what recipients will see. Changes save automatically.' },
+      { title: 'Open Settings', description: 'Use the sidebar → Settings to land on this page.', route: '/settings' },
+      { title: 'Upload your profile photo', description: 'Drop a square headshot here. Toggle "Show in signature" on to make it appear in every signature. Profile photo wins over company logo when both are on.', target: '[data-tour="settings-photo"]' },
+      { title: 'Upload your company logo', description: 'For Business accounts, drop your logo here. Toggle "Show in signature" on to display it. The logo appears when no profile photo is shown.', target: '[data-tour="settings-logo"]' },
+      { title: 'Turn the signature on or off', description: 'Use this switch to enable or disable the AI signature globally. When off, AI drafts go out without any signature appended.', target: '[data-tour="settings-signature-toggle"]' },
+      { title: 'Builder vs custom HTML', description: 'Use Signature Builder for guided editing, or paste your own HTML in Custom Signature mode for full control.', target: '[data-tour="settings-signature-mode"]' },
     ],
     routes: ['/settings'],
-    keywords: ['signature', 'name', 'title', 'photo', 'logo'],
-  },
-  {
-    id: 'profile-signature',
-    title: 'Profile & email signature',
-    category: 'account-billing',
-    summary: 'Your name, title, and signature show up on every AI draft.',
-    steps: [
-      { title: '1. Open Settings', description: 'Use the sidebar → Settings.' },
-      { title: '2. Fill in your profile', description: 'Add your full name, title (required for Business accounts), phone, and website.' },
-      { title: '3. Upload a photo or logo', description: 'Toggle which one to display in your signature. Profile photo takes priority over company logo.' },
-      { title: '4. Check the live preview', description: 'The preview at the bottom shows exactly what recipients will see. Changes save automatically.' },
-    ],
-    routes: ['/settings'],
-    keywords: ['signature', 'name', 'title', 'photo', 'logo'],
+    keywords: ['signature', 'name', 'title', 'photo', 'logo', 'profile'],
   },
 
   /* ============== ADMIN ============== */
@@ -375,6 +367,58 @@ export const HELP_ARTICLES: HelpArticle[] = [
     routes: ['/integrations', '/admin'],
     keywords: ['email agent', 'shared mailbox', 'ask by email', 'delegated', 'sharepoint', 'onedrive', 'permissions'],
   },
+  {
+    id: 'reply-tracker',
+    title: 'My Reply Tracker — guided walkthrough',
+    category: 'ai-features',
+    summary: 'Track outgoing emails and get nudged when nobody replies.',
+    intro:
+      'The Reply Tracker watches outgoing emails you opt-in to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox and nothing is ever sent without your review.',
+    steps: [
+      { title: 'Open Reply Tracker', description: 'Use the sidebar → My Reply Tracker.', route: '/follow-up-reminder' },
+      { title: 'Turn the tracker ON', description: 'Flip this master switch to enable tracking on your active mailbox. When OFF, BCC triggers are ignored. The badge next to the title shows Active or Off.', target: '[data-tour="followup-toggle"]' },
+      { title: 'BCC a number to start tracking', description: 'Send your email normally and BCC 2@yourdomain.com, 3@yourdomain.com, etc. The NUMBER is the days to wait before nudging you. The exact address for your mailbox is shown right above this diagram.', target: '[data-tour="followup-flow"]' },
+      { title: 'Stop or restart a tracker', description: 'To cancel an active tracker, reply on the thread and BCC stop@yourdomain.com (or 0@yourdomain.com). To re-arm, send a fresh email with a numeric BCC.', target: '[data-tour="followup-stop"]' },
+    ],
+    outro:
+      'Use 2 days for urgent decisions, 3–5 for normal asks, 7 for low-priority. Up to 3 reminders per thread, then InboxIQ stops automatically so you never spam a recipient.',
+    routes: ['/follow-up-reminder'],
+    keywords: ['follow up', 'reply', 'nudge', 'tracker', 'bcc'],
+  },
+  {
+    id: 'meeting-copilot',
+    title: 'Meeting Copilot — guided walkthrough',
+    category: 'ai-features',
+    summary: 'Prep, transcribe and summarize every meeting — with full control over what auto-runs.',
+    intro:
+      'Meeting Copilot sits next to your calendar. It can prep you before a call, capture the conversation live, and write the follow-up — but every automation is a toggle so you stay in control.',
+    steps: [
+      { title: 'Open Meeting Copilot', description: 'Use the sidebar → Meeting Copilot.', route: '/meeting-copilot' },
+      { title: 'Expand Copilot Behavior', description: 'Click this card to open the global behavior toggles. The one-line summary at the top tells you exactly what is ON / OFF right now.', target: '[data-tour="mc-behavior"]' },
+      { title: 'Auto-join all your meetings', description: 'Turn this ON to have Copilot listen to every calendar meeting automatically. You can still toggle individual meetings off in the list below.', target: '[data-tour="mc-autojoin"]' },
+      { title: 'Auto-draft the follow-up email', description: 'When ON, Copilot generates a summary + action items and saves it as a draft under "0. AI Draft" after each call. Always review before sending — nothing is sent automatically.', target: '[data-tour="mc-autodraft"]' },
+      { title: 'Pick a suggestion style', description: 'Choose Concise, Conversational or Strategic. This is the default tone for the live "what to say" suggestions during calls — you can override it per meeting.', target: '[data-tour="mc-style"]' },
+    ],
+    routes: ['/meeting-copilot'],
+    keywords: ['meeting', 'copilot', 'transcribe', 'summary', 'auto-join'],
+  },
+  {
+    id: 'ai-activity',
+    title: 'AI Activity — guided walkthrough',
+    category: 'ai-features',
+    summary: 'A transparent log of everything the AI did for you.',
+    intro:
+      'This dashboard is your audit trail. Every draft written, auto-reply sent, event scheduled, chat message and meeting handled by AI is counted here so you always know what is going on.',
+    steps: [
+      { title: 'Open AI Activity', description: 'Use the sidebar → AI Activity.', route: '/ai-activity' },
+      { title: 'Email AI stats', description: 'Top row: AI drafts created, auto-replies sent, calendar events booked, and total emails processed. Each tile is a 30-day rolling number.', target: '[data-tour="aa-email-stats"]' },
+      { title: 'Chat & Meetings stats', description: 'Second row: how many AI Chat messages and conversations you have run, and how many meetings Copilot has handled.', target: '[data-tour="aa-chat-stats"]' },
+      { title: 'Activity by Category', description: 'Per-category breakdown of drafts vs auto-replies. Use this to spot which categories are pulling the most AI work.', target: '[data-tour="aa-category"]' },
+      { title: 'Export the report', description: 'Use this button to download a CSV of every AI action with timestamps — handy for compliance or sharing with your team.', target: '[data-tour="aa-export"]' },
+    ],
+    routes: ['/ai-activity'],
+    keywords: ['activity', 'audit', 'report', 'log', 'transparency'],
+  },
 ];
 
 /**
@@ -391,8 +435,10 @@ export const ROUTE_HELP_MAP: Record<string, string[]> = {
   '/chat': ['ai-assistant'],
   '/ai-chat': ['ai-assistant'],
   '/ai-daily-brief': ['daily-brief'],
-  '/ai-activity': ['ai-drafts'],
-  '/settings': ['profile-signature', 'daily-brief'],
+  '/ai-activity': ['ai-activity'],
+  '/follow-up-reminder': ['reply-tracker'],
+  '/meeting-copilot': ['meeting-copilot'],
+  '/settings': ['profile-signature'],
   '/admin': ['admin-overview', 'admin-groups', 'admin-domains', 'admin-support-issues'],
 };
 

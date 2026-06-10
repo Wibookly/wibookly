@@ -561,7 +561,7 @@ export default function AIDailyBrief() {
       ) : brief ? (
         <div className="space-y-6">
           {/* SECTION 3 — Today's Priorities (executive top focus) */}
-          <Card className="border-0 shadow-lg overflow-hidden ring-1 ring-amber-200/60 dark:ring-amber-900/40">
+          <Card data-tour="brief-priorities" className="border-0 shadow-lg overflow-hidden ring-1 ring-amber-200/60 dark:ring-amber-900/40">
             <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
             <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
               <CardTitle className="text-lg flex items-center gap-3">
@@ -570,7 +570,7 @@ export default function AIDailyBrief() {
                 </span>
                 Today's Priorities
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handlePrint('todo')}>
+              <Button data-tour="brief-print" variant="ghost" size="sm" onClick={() => handlePrint('todo')}>
                 <Printer className="w-4 h-4 mr-1" />
                 To-Do List
               </Button>
@@ -804,7 +804,9 @@ export default function AIDailyBrief() {
           )}
 
           {/* Daily Brief Schedule */}
-          <DailyBriefSchedule />
+          <div data-tour="brief-schedule">
+            <DailyBriefSchedule />
+          </div>
 
           {/* Settings Section */}
           <Card>
@@ -936,7 +938,7 @@ function PendingFollowUpsSection({ connectionId }: { connectionId?: string }) {
   }
 
   return (
-    <Card className="mb-6 border-primary/30">
+    <Card data-tour="brief-noreply" className="mb-6 border-primary/30">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-md bg-primary/10 text-primary mt-0.5">
