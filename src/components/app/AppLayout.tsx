@@ -113,6 +113,7 @@ export function AppLayout() {
       
       <GuidedTour />
       <TrainingModeOverlay />
+      <WelcomeGuide />
       <SetupWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
