@@ -13,7 +13,6 @@ import { AppHeader } from './AppHeader';
 import { GuidedTour } from '@/components/help/GuidedTour';
 import { TrainingModeOverlay } from '@/components/help/TrainingMode';
 import { SetupWizard } from '@/components/onboarding/SetupWizard';
-import { TtsPreloadIndicator } from './TtsPreloadIndicator';
 import { ttsService } from '@/lib/ttsService';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
@@ -119,7 +118,7 @@ export function AppLayout() {
           /* Profile.onboarding_completed_at is updated inside the wizard. */
         }}
       />
-      <TtsPreloadIndicator />
+      
       {/* Suppress unused-var warning for `profile` (kept for future personalization). */}
       <span className="hidden">{profile?.id ?? ''}</span>
     </div>
