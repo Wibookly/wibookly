@@ -743,6 +743,7 @@ export default function Chat() {
   const handleSelectConv = (id: string) => {
     setActiveId(id);
     setSidebarOpen(false);
+    clearRecent(id);
     const conv = conversations.find((c) => c.id === id);
     setActiveFolderId(conv?.folder_id ?? null);
     navigate(`/chat/${id}`);
