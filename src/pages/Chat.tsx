@@ -303,6 +303,30 @@ export default function Chat() {
   const newChatEpochRef = useRef(0);
   // Per-conversation input drafts so typing in chat B doesn't leak into A.
   const draftsRef = useRef<Map<string, string>>(new Map());
+  // Conversations the AI recently finished replying in but the user hasn't
+  // opened yet. Used to render a dark-green "unread reply" dot in the sidebar.
+  const [recentConvIds, setRecentConvIds] = useState<Set<string>>(new Set());
+  const markRecent = useCallback((convId: string) => {
+    setRecentConvIds((prev) => {
+      if (activeIdRef.current === convId) return prev;
+      const next = new Set(prev);
+      next.add(convId);
+      // Cap at the last 5 to avoid clutter.
+      if (next.size > 5) {
+        const first = next.values().next().value as string | undefined;
+        if (first) next.delete(first);
+      }
+      return next;
+    });
+  }, []);
+  const clearRecent = useCallback((convId: string) => {
+    setRecentConvIds((prev) => {
+      if (!prev.has(convId)) return prev;
+      const next = new Set(prev);
+      next.delete(convId);
+      return next;
+    });
+  }, []);
 
   // Look up the in-flight stream (if any) for a given conversation id.
   // When `convId` is null, returns the most recently started pending stream
