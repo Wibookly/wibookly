@@ -7,6 +7,7 @@ import { getContextualArticles } from '@/config/help-content';
 import {
   OPEN_HELP_PANEL_EVENT,
   START_GUIDED_TOUR_EVENT,
+  OPEN_WELCOME_GUIDE_EVENT,
   type OpenHelpPanelDetail,
   type StartGuidedTourDetail,
 } from './events';
@@ -20,7 +21,11 @@ export function HelpQuickActions({ className, compact = false }: HelpQuickAction
   const location = useLocation();
   const { startTour, hasTourForCurrentPage } = useTour();
 
-  const openGuide = () => {
+  const openWelcome = () => {
+    window.dispatchEvent(new CustomEvent(OPEN_WELCOME_GUIDE_EVENT));
+  };
+
+  const openPageGuide = () => {
     if (hasTourForCurrentPage) {
       startTour();
       return;
@@ -57,11 +62,21 @@ export function HelpQuickActions({ className, compact = false }: HelpQuickAction
       <Button
         type="button"
         variant="outline"
-        onClick={openGuide}
+        onClick={openWelcome}
         className={cn('w-full justify-start gap-2', compact && 'h-9 px-3 text-xs')}
       >
         <Compass className="w-4 h-4 text-primary" />
         <span>User Guide</span>
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={openPageGuide}
+        className={cn('w-full justify-start gap-2', compact && 'h-9 px-3 text-xs')}
+      >
+        <Compass className="w-4 h-4 text-primary" />
+        <span>Tour This Page</span>
       </Button>
 
       <Button
