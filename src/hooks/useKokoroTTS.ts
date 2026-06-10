@@ -8,26 +8,60 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 
-// Stable, popular voices shipped with Kokoro v1.
-export type KokoroVoiceId =
-  | 'af_bella' | 'af_heart' | 'af_nova' | 'af_sarah'
-  | 'am_adam' | 'am_michael' | 'am_onyx'
-  | 'bf_emma' | 'bf_isabella'
-  | 'bm_george' | 'bm_lewis';
+// Voice IDs ship with the Kokoro v1.0 model. Prefix conventions:
+//   a = American English, b = British English,
+//   j = Japanese, z = Mandarin Chinese, e = Spanish,
+//   f = French, h = Hindi, i = Italian, p = Brazilian Portuguese
+//   f/m after the language letter = female/male
+export type KokoroVoiceId = string;
 
-export const KOKORO_VOICES: { id: KokoroVoiceId; label: string }[] = [
-  { id: 'af_bella',     label: 'Bella (US Female)' },
-  { id: 'af_heart',     label: 'Heart (US Female)' },
-  { id: 'af_nova',      label: 'Nova (US Female)' },
-  { id: 'af_sarah',     label: 'Sarah (US Female)' },
-  { id: 'am_adam',      label: 'Adam (US Male)' },
-  { id: 'am_michael',   label: 'Michael (US Male)' },
-  { id: 'am_onyx',      label: 'Onyx (US Male)' },
-  { id: 'bf_emma',      label: 'Emma (UK Female)' },
-  { id: 'bf_isabella',  label: 'Isabella (UK Female)' },
-  { id: 'bm_george',    label: 'George (UK Male)' },
-  { id: 'bm_lewis',     label: 'Lewis (UK Male)' },
+export interface KokoroVoiceOption {
+  id: KokoroVoiceId;
+  label: string;
+  gender: 'female' | 'male';
+  language: string; // human-readable group label
+}
+
+export const KOKORO_VOICES: KokoroVoiceOption[] = [
+  // English — United States
+  { id: 'af_bella',    label: 'Bella',    gender: 'female', language: 'English — United States' },
+  { id: 'af_heart',    label: 'Heart',    gender: 'female', language: 'English — United States' },
+  { id: 'af_nova',     label: 'Nova',     gender: 'female', language: 'English — United States' },
+  { id: 'af_sarah',    label: 'Sarah',    gender: 'female', language: 'English — United States' },
+  { id: 'af_nicole',   label: 'Nicole',   gender: 'female', language: 'English — United States' },
+  { id: 'am_adam',     label: 'Adam',     gender: 'male',   language: 'English — United States' },
+  { id: 'am_michael',  label: 'Michael',  gender: 'male',   language: 'English — United States' },
+  { id: 'am_onyx',     label: 'Onyx',     gender: 'male',   language: 'English — United States' },
+  { id: 'am_echo',     label: 'Echo',     gender: 'male',   language: 'English — United States' },
+  // English — United Kingdom
+  { id: 'bf_emma',     label: 'Emma',     gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_isabella', label: 'Isabella', gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_alice',    label: 'Alice',    gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bm_george',   label: 'George',   gender: 'male',   language: 'English — United Kingdom' },
+  { id: 'bm_lewis',    label: 'Lewis',    gender: 'male',   language: 'English — United Kingdom' },
+  { id: 'bm_daniel',   label: 'Daniel',   gender: 'male',   language: 'English — United Kingdom' },
+  // Other languages (Kokoro v1 multilingual — falls back to browser voice if unavailable)
+  { id: 'jf_alpha',    label: 'Alpha',    gender: 'female', language: 'Japanese' },
+  { id: 'jm_kumo',     label: 'Kumo',     gender: 'male',   language: 'Japanese' },
+  { id: 'zf_xiaobei',  label: 'Xiaobei',  gender: 'female', language: 'Mandarin Chinese' },
+  { id: 'zm_yunjian',  label: 'Yunjian',  gender: 'male',   language: 'Mandarin Chinese' },
+  { id: 'ef_dora',     label: 'Dora',     gender: 'female', language: 'Spanish' },
+  { id: 'em_alex',     label: 'Alex',     gender: 'male',   language: 'Spanish' },
+  { id: 'ff_siwis',    label: 'Siwis',    gender: 'female', language: 'French' },
+  { id: 'hf_alpha',    label: 'Alpha',    gender: 'female', language: 'Hindi' },
+  { id: 'hm_omega',    label: 'Omega',    gender: 'male',   language: 'Hindi' },
+  { id: 'if_sara',     label: 'Sara',     gender: 'female', language: 'Italian' },
+  { id: 'im_nicola',   label: 'Nicola',   gender: 'male',   language: 'Italian' },
+  { id: 'pf_dora',     label: 'Dora',     gender: 'female', language: 'Portuguese (Brazil)' },
+  { id: 'pm_alex',     label: 'Alex',     gender: 'male',   language: 'Portuguese (Brazil)' },
 ];
+
+// Grouped helper for nicer dropdowns: { 'English — US': [...], ... }
+export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
+  KOKORO_VOICES.reduce((acc, v) => {
+    (acc[v.language] ||= []).push(v);
+    return acc;
+  }, {} as Record<string, KokoroVoiceOption[]>);
 
 const VOICE_KEY = 'inboxiq:kokoro-voice';
 export function getStoredVoice(): KokoroVoiceId {
