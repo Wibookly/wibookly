@@ -1023,22 +1023,29 @@ export default function Chat() {
           body: assistantMessage.content || '',
           to: [activeConnection.email],
           is_html: false,
+          mode: 'send',
         },
       });
       if (error) throw error;
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-      const result = data as { webLink?: string | null } | null;
-      const draftsUrl = result?.webLink
-        ?? (activeConnection.provider === 'google'
-          ? 'https://mail.google.com/mail/u/0/#drafts'
+      const result = data as { mode?: 'draft' | 'send'; webLink?: string | null } | null;
+      const destinationUrl = result?.mode === 'draft'
+        ? (result?.webLink
+          ?? (activeConnection.provider === 'google'
+            ? 'https://mail.google.com/mail/u/0/#drafts'
+            : activeConnection.provider === 'outlook'
+              ? 'https://outlook.office.com/mail/drafts'
+              : null))
+        : (activeConnection.provider === 'google'
+          ? 'https://mail.google.com/mail/u/0/#sent'
           : activeConnection.provider === 'outlook'
-            ? 'https://outlook.office.com/mail/drafts'
+            ? 'https://outlook.office.com/mail/sentitems'
             : null);
-      toast.success(`Saved to your ${providerLabel} Drafts folder for ${activeConnection.email}.`, {
+      toast.success(`Sent to ${activeConnection.email} in ${providerLabel}.`, {
         id: toastId,
-        action: draftsUrl ? {
-          label: 'Open drafts',
-          onClick: () => window.open(draftsUrl, '_blank', 'noopener,noreferrer'),
+        action: destinationUrl ? {
+          label: result?.mode === 'draft' ? 'Open drafts' : 'Open sent',
+          onClick: () => window.open(destinationUrl, '_blank', 'noopener,noreferrer'),
         } : undefined,
       });
     } catch (e) {
