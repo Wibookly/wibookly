@@ -318,7 +318,25 @@ export function useKokoroTTS() {
     audioElement.onerror = () => clear(true);
 
     try {
+      const started = new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('Audio did not start in time')), 1800);
+        const markStarted = () => {
+          window.clearTimeout(timeout);
+          audioElement.removeEventListener('playing', markStarted);
+          audioElement.removeEventListener('timeupdate', handleTimeUpdate);
+          resolve();
+        };
+        const handleTimeUpdate = () => {
+          if (audioElement.currentTime > 0) {
+            markStarted();
+          }
+        };
+        audioElement.addEventListener('playing', markStarted, { once: true });
+        audioElement.addEventListener('timeupdate', handleTimeUpdate);
+      });
+
       await audioElement.play();
+      await started;
     } catch (error) {
       clear(false);
       throw error;
@@ -341,9 +359,10 @@ export function useKokoroTTS() {
     fallbackStopRef.current = fallbackSession.stop;
 
     try {
+      const unlockPromise = unlockAudioOutput();
       setLoading(true);
       await requestPersistentCache();
-      await unlockAudioOutput();
+      await unlockPromise;
 
       if (!ttsInstance && !warmupNoticeShownRef.current) {
         warmupNoticeShownRef.current = true;
