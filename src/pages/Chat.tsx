@@ -39,6 +39,11 @@ import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, KOKORO_VOICES_BY_LANGUAGE, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 
+const VOICE_PREVIEW_TEXT: Record<string, string> = {
+  'English — United States': 'Hello, this is your selected American English voice. You should hear a clear difference now.',
+  'English — United Kingdom': 'Hello, this is your selected British English voice. You should hear a distinct accent now.',
+};
+
 
 interface Conversation {
   id: string;
@@ -299,9 +304,11 @@ export default function Chat() {
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
-    // Play a short preview synchronously so users immediately hear the
-    // selected voice (addresses "I select a voice, nothing plays").
-    speak('Hi! This is a quick preview of my voice.', `voice-preview-${v}-${Date.now()}`);
+    const selectedGroup = Object.entries(KOKORO_VOICES_BY_LANGUAGE)
+      .find(([, voices]) => voices.some((voice) => voice.id === v));
+    const previewText = VOICE_PREVIEW_TEXT[selectedGroup?.[0] ?? '']
+      ?? 'Hello, this is your selected voice preview. It should sound different from the other options.';
+    speak(previewText, `voice-preview-${v}-${Date.now()}`);
   }, [speak]);
   // Warm up the Kokoro model in the background as soon as Chat mounts so
   // the first click on a "play" button feels instant instead of waiting
