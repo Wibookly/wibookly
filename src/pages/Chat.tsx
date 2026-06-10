@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
+import { useKokoroTTS, KOKORO_VOICES, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 
 
 interface Conversation {
