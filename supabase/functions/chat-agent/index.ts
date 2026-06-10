@@ -252,6 +252,8 @@ Deno.serve(async (req) => {
         const reply: string = orch.reply || "";
         const citations = Array.isArray(orch.citations) ? orch.citations : [];
 
+        send({ type: "phase", label: "Composing response" });
+
         // Chunk the reply so the existing typing-effect UX keeps working even
         // though the orchestrator is non-streaming. ~24 char chunks with a tiny
         // delay produces a smooth flow without dragging out long answers.
