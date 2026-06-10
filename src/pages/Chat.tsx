@@ -283,6 +283,8 @@ export default function Chat() {
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
   const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
   const [isStreaming, setIsStreaming] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const abortedRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
