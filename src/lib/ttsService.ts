@@ -23,6 +23,7 @@ const state: TtsState = {
   generatingId: null,
   playingId: null,
   error: null,
+  progress: 0,
 };
 
 const listeners = new Set<Listener>();
