@@ -1309,16 +1309,24 @@ export default function Chat() {
         )}
         onClick={() => handleSelectConv(c.id)}
       >
-        {streamingConvIds.has(c.id) && (
+        {streamingConvIds.has(c.id) ? (
           <span
             className="relative flex h-2.5 w-2.5 shrink-0"
             title="AI is replying in this chat"
             aria-label="AI is replying in this chat"
           >
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-80" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-500/30" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-300 opacity-80" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-300 ring-2 ring-green-300/40" />
           </span>
-        )}
+        ) : recentConvIds.has(c.id) ? (
+          <span
+            className="relative flex h-2.5 w-2.5 shrink-0"
+            title="Recent AI reply — click to view"
+            aria-label="Recent AI reply"
+          >
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-700 ring-2 ring-green-700/30" />
+          </span>
+        ) : null}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
