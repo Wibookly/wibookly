@@ -196,7 +196,7 @@ async function ensureAudioContext() {
   if (typeof window === 'undefined') return null;
   const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) return null;
-  if (!sharedAudioContext) {
+  if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
     sharedAudioContext = new AudioContextCtor();
   }
   if (sharedAudioContext.state === 'suspended') {
@@ -229,7 +229,7 @@ function createAudioBufferFromRawAudio(
 export function useKokoroTTS() {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const fallbackStopRef = useRef<(() => void) | null>(null);
-  const fallbackTimerRef = useRef<number | null>(null);
+  const requestNonceRef = useRef(0);
   const warmupNoticeShownRef = useRef(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(() => !ttsInstance && !!ttsPromise);
@@ -239,11 +239,8 @@ export function useKokoroTTS() {
   });
 
   const stop = useCallback(() => {
+    requestNonceRef.current += 1;
     try {
-      if (fallbackTimerRef.current !== null) {
-        window.clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
       fallbackStopRef.current?.();
       fallbackStopRef.current = null;
       sourceRef.current?.stop();
@@ -273,11 +270,30 @@ export function useKokoroTTS() {
     }
   }, []);
 
+  async function unlockAudioOutput(audioContext: AudioContext) {
+    const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate || 24000);
+    const source = audioContext.createBufferSource();
+    const gain = audioContext.createGain();
+    gain.gain.value = 0;
+    source.buffer = buffer;
+    source.connect(gain);
+    gain.connect(audioContext.destination);
+    source.start(0);
+    await new Promise<void>((resolve) => {
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        resolve();
+      };
+    });
+  }
+
   const speak = useCallback(async (text: string, id: string) => {
     const clean = cleanForSpeech(text);
     if (!clean) return;
 
     stop();
+    const requestNonce = requestNonceRef.current;
     setSpeakingId(id);
     const selectedVoice = resolveVoiceId(getStoredVoice());
     setStoredVoice(selectedVoice);
@@ -302,15 +318,11 @@ export function useKokoroTTS() {
 
     try {
       const audioContext = await ensureAudioContext();
-      // Safety net only: if studio generation truly stalls (>8s), fall back so
-      // the user still hears something. We do NOT race a short timer against
-      // generation, because that would always discard the chosen studio voice
-      // and play the browser default — making every voice sound identical.
-      let fallbackStarted = false;
-      fallbackTimerRef.current = window.setTimeout(() => {
-        fallbackTimerRef.current = null;
-        fallbackStarted = fallbackSession.start();
-      }, 8000);
+      if (!audioContext) {
+        fallbackSession.start();
+        return;
+      }
+      await unlockAudioOutput(audioContext);
 
       const tts = await getTTS((pct) => setLoadProgress(pct));
       let audio;
@@ -322,15 +334,9 @@ export function useKokoroTTS() {
         setStoredVoice(safeVoice);
         audio = await tts.generate(clean, { voice: safeVoice });
       }
-      if (fallbackTimerRef.current !== null) {
-        window.clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
-      if (fallbackStarted || !audioContext) {
+      if (requestNonce !== requestNonceRef.current) {
         return;
       }
-      // Studio voice is ready — make sure the safety-net browser voice
-      // isn't queued or speaking, otherwise both would overlap.
       try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
       const audioBuffer = createAudioBufferFromRawAudio(audioContext, audio)
         ?? await (async () => {
@@ -350,13 +356,13 @@ export function useKokoroTTS() {
         }
         setSpeakingId((current) => (current === id ? null : current));
       };
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       source.start(0);
     } catch (err) {
+      if (requestNonce !== requestNonceRef.current) return;
       console.warn('[tts] falling back to browser voice:', err);
-      if (fallbackTimerRef.current !== null) {
-        window.clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
       fallbackSession.start();
     }
   }, [preload, stop]);
