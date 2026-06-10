@@ -319,6 +319,27 @@ export default function Chat() {
     for (const s of streamsRef.current.values()) if (s.convId === convId) return s;
     return null;
   }, []);
+  // Derived values that everything else in the component reads from.
+  // We use `streamTick` purely as a render trigger; the actual data lives in
+  // `streamsRef` so multiple parallel streams can mutate independently.
+  const activeStream = useMemo(
+    () => findStreamForConv(activeId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId, streamTick, findStreamForConv]
+  );
+  const isStreaming = !!activeStream;
+  const streamingConvIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const v of streamsRef.current.values()) if (v.convId) s.add(v.convId);
+    return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamTick]);
+  // Backwards-compat aliases used across the render path. They're plain
+  // values derived from `activeStream` so we don't have to refactor every
+  // reference.
+  const streamingText = activeStream?.text ?? '';
+  const streamingCitations = activeStream?.citations ?? [];
+  const streamingPhase = activeStream?.phase ?? 'Thinking';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
