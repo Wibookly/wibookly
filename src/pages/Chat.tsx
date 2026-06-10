@@ -303,6 +303,22 @@ export default function Chat() {
   const newChatEpochRef = useRef(0);
   // Per-conversation input drafts so typing in chat B doesn't leak into A.
   const draftsRef = useRef<Map<string, string>>(new Map());
+
+  // Look up the in-flight stream (if any) for a given conversation id.
+  // When `convId` is null, returns the most recently started pending stream
+  // whose epoch matches the current "new chat" session — so clicking
+  // New Chat hides previously pending streams from this view.
+  const findStreamForConv = useCallback((convId: string | null): StreamInfo | null => {
+    if (convId == null) {
+      let candidate: StreamInfo | null = null;
+      for (const s of streamsRef.current.values()) {
+        if (s.convId == null && s.newChatEpoch === newChatEpochRef.current) candidate = s;
+      }
+      return candidate;
+    }
+    for (const s of streamsRef.current.values()) if (s.convId === convId) return s;
+    return null;
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
