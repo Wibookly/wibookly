@@ -158,7 +158,10 @@ export function WelcomeGuide() {
   );
 
   // Auto-open once per browser/user on first authenticated landing.
+  // Wait until features have loaded so we don't render the menu with the
+  // wrong set of sections.
   useEffect(() => {
+    if (featuresLoading) return;
     try {
       if (localStorage.getItem(STORAGE_KEY) !== '1') {
         const t = setTimeout(() => setOpen(true), 600);
@@ -167,7 +170,7 @@ export function WelcomeGuide() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [featuresLoading]);
 
   // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
