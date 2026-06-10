@@ -284,11 +284,15 @@ export function useKokoroTTS() {
 
     try {
       const audioContext = await ensureAudioContext();
+      // Safety net only: if studio generation truly stalls (>8s), fall back so
+      // the user still hears something. We do NOT race a short timer against
+      // generation, because that would always discard the chosen studio voice
+      // and play the browser default — making every voice sound identical.
       let fallbackStarted = false;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         fallbackStarted = fallbackSession.start();
-      }, 450);
+      }, 8000);
 
       const tts = await getTTS((pct) => setLoadProgress(pct));
       const audio = await tts.generate(clean, { voice: selectedVoice });
@@ -299,6 +303,9 @@ export function useKokoroTTS() {
       if (fallbackStarted || !audioContext) {
         return;
       }
+      // Studio voice is ready — make sure the safety-net browser voice
+      // isn't queued or speaking, otherwise both would overlap.
+      try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
       const blob: Blob = typeof audio.toBlob === 'function'
         ? audio.toBlob()
         : new Blob([audio], { type: 'audio/wav' });
@@ -316,7 +323,7 @@ export function useKokoroTTS() {
       };
       source.start(0);
     } catch (err) {
-      console.warn('[kokoro] falling back to Web Speech:', err);
+      console.warn('[tts] falling back to browser voice:', err);
       if (fallbackTimerRef.current !== null) {
         window.clearTimeout(fallbackTimerRef.current);
         fallbackTimerRef.current = null;
