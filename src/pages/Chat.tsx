@@ -291,7 +291,7 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress } = useKokoroTTS();
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
