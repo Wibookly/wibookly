@@ -292,18 +292,24 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress } = useKokoroTTS();
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
   }, []);
-  // Show a one-time toast while the Kokoro model is downloading.
+  // Warm up the Kokoro model in the background as soon as Chat mounts so
+  // the first click on a "play" button feels instant instead of waiting
+  // for an ~80MB download.
+  useEffect(() => { preloadTTS(); }, [preloadTTS]);
+  // Only show the download toast if the user actually clicks play before
+  // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
-    if (!ttsLoading) return;
-    const t = toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
+    if (!ttsLoading || !speakingId) return;
+    toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
     return () => { toast.dismiss('kokoro-loading'); };
-  }, [ttsLoading, ttsLoadProgress]);
+  }, [ttsLoading, ttsLoadProgress, speakingId]);
+
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
