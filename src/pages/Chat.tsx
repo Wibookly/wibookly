@@ -1281,12 +1281,12 @@ export default function Chat() {
       >
         {streamingConvIds.has(c.id) && (
           <span
-            className="relative flex h-2 w-2 shrink-0"
-            title="AI is working on this chat"
-            aria-label="AI is working on this chat"
+            className="relative flex h-2.5 w-2.5 shrink-0"
+            title="AI is replying in this chat"
+            aria-label="AI is replying in this chat"
           >
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-80" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-500/30" />
           </span>
         )}
         <span className="flex-1 truncate group-hover:font-semibold transition-all">{titleText}</span>
@@ -1810,25 +1810,23 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
+                  placeholder={limitReached ? 'Daily limit reached' : (isRecording ? 'Listening… your speech will be added to what you already typed' : 'Message InboxIQ...')}
                   disabled={isStreaming || limitReached}
                   rows={1}
                   className={cn(
                     'w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2',
-                    isRecording && 'invisible',
+                    isRecording && 'pr-[200px]',
                   )}
                   data-tour="chat-input"
                 />
                 {isRecording && (
-                  <div className="absolute inset-0 flex items-center gap-3 px-1">
-                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <div className="pointer-events-none absolute right-1 bottom-1 flex items-center gap-2 rounded-full bg-background/90 backdrop-blur px-2 py-1 border border-destructive/40 shadow-sm">
+                    <span className="relative flex h-2 w-2 shrink-0">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-destructive/70 animate-ping" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
                     </span>
-                    <VoiceWaveform getAnalyser={getAnalyser} active={isRecording} className="h-8 flex-1" />
-                    <span className="text-xs font-medium text-muted-foreground shrink-0 tabular-nums">
-                      Listening…
-                    </span>
+                    <VoiceWaveform getAnalyser={getAnalyser} active={isRecording} className="h-5 w-20" />
+                    <span className="text-[10px] font-medium text-muted-foreground shrink-0">Listening…</span>
                   </div>
                 )}
               </div>
@@ -1952,19 +1950,17 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
               )}
-              {!isRecording && (
               <Button
                 size="icon"
                 variant={isStreaming ? 'destructive' : 'default'}
                 className="h-9 w-9 shrink-0"
                 onClick={() => (isStreaming ? handleStop() : handleSend())}
-                disabled={isStreaming ? false : (!input.trim() || limitReached)}
-                title={isStreaming ? 'Stop generating' : 'Send message'}
+                disabled={isStreaming ? false : (!input.trim() || limitReached || isRecording)}
+                title={isStreaming ? 'Stop generating' : (isRecording ? 'Stop the mic first, then send' : 'Send message')}
                 aria-label={isStreaming ? 'Stop generating' : 'Send message'}
               >
                 {isStreaming ? <Square className="h-4 w-4" fill="currentColor" /> : <Send className="h-4 w-4" />}
               </Button>
-              )}
             </div>
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={usageColor}>
