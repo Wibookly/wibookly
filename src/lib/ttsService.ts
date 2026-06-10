@@ -10,6 +10,7 @@ export interface TtsState {
   generatingId: string | null;
   playingId: string | null;
   error: string | null;
+  progress: number;
 }
 
 let worker: Worker | null = null;
