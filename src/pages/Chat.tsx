@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import {
   Send, Plus, Trash2, Menu, X, Paperclip, Sun, Moon, Loader2,
   Copy, RefreshCw, Mail, FileText, Calendar, BarChart3, LogOut, Settings,
@@ -297,7 +299,10 @@ export default function Chat() {
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
-  }, []);
+    // Play a short preview synchronously so users immediately hear the
+    // selected voice (addresses "I select a voice, nothing plays").
+    speak('Hi! This is a quick preview of my voice.', `voice-preview-${v}-${Date.now()}`);
+  }, [speak]);
   // Warm up the Kokoro model in the background as soon as Chat mounts so
   // the first click on a "play" button feels instant instead of waiting
   // for an ~80MB download.
@@ -1012,17 +1017,48 @@ export default function Chat() {
     const providerLabel = activeConnection.provider === 'google' ? 'Gmail'
       : activeConnection.provider === 'outlook' ? 'Outlook'
       : 'your mailbox';
-    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].slice(0, 80) || 'InboxIQ chat note';
+    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 80) || 'InboxIQ chat note';
     const subject = `InboxIQ – ${subjectBase}`;
-    const toastId = toast.loading(`Creating draft in ${providerLabel}…`);
+    // Render the assistant's markdown reply into the same styled HTML the
+    // chat shows on-screen so the email arrives with bold headings, lists,
+    // code blocks, links, etc. — not as flat plain text.
+    const rawHtml = await marked.parse(assistantMessage.content || '', { gfm: true, breaks: true });
+    const safeHtml = DOMPurify.sanitize(rawHtml as string, { USE_PROFILES: { html: true } });
+    const styledHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#f6f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;line-height:1.55;">
+<div style="max-width:640px;margin:0 auto;padding:28px 16px;">
+  <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px 32px;box-shadow:0 2px 12px rgba(15,23,42,0.04);">
+    <div style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6366f1;margin-bottom:6px;">InboxIQ</div>
+    <div style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 18px 0;">${subjectBase.replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c] || c))}</div>
+    <div style="font-size:15px;color:#0f172a;">
+      <style>
+        .iq h1,.iq h2,.iq h3{color:#0f172a;font-weight:600;line-height:1.3;margin:18px 0 8px;}
+        .iq h1{font-size:20px;} .iq h2{font-size:17px;} .iq h3{font-size:15px;}
+        .iq p{margin:0 0 12px;} .iq ul,.iq ol{padding-left:20px;margin:0 0 12px;}
+        .iq li{margin:4px 0;} .iq strong{color:#0f172a;}
+        .iq a{color:#4f46e5;text-decoration:underline;}
+        .iq code{background:#f1f5f9;border-radius:4px;padding:1px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;}
+        .iq pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;}
+        .iq pre code{background:transparent;color:inherit;padding:0;}
+        .iq blockquote{border-left:3px solid #c7d2fe;margin:12px 0;padding:4px 14px;color:#475569;background:#f8fafc;border-radius:0 6px 6px 0;}
+        .iq table{border-collapse:collapse;width:100%;margin:12px 0;} .iq th,.iq td{border:1px solid #e5e7eb;padding:8px 10px;text-align:left;font-size:14px;}
+        .iq th{background:#f8fafc;}
+      </style>
+      <div class="iq">${safeHtml}</div>
+    </div>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0 14px;" />
+    <div style="font-size:12px;color:#64748b;">Sent from your InboxIQ chat to ${activeConnection.email}.</div>
+  </div>
+</div>
+</body></html>`;
+    const toastId = toast.loading(`Sending to ${providerLabel}…`);
     try {
       const { data, error } = await supabase.functions.invoke('push-draft-to-provider', {
         body: {
           connection_id: activeConnection.id,
           subject,
-          body: assistantMessage.content || '',
+          body: styledHtml,
           to: [activeConnection.email],
-          is_html: false,
+          is_html: true,
           mode: 'send',
         },
       });
