@@ -113,10 +113,20 @@ async function getTTS(onProgress?: (pct: number) => void) {
         return tts;
       })();
     }
-    return await ttsPromise;
+    try {
+      return await ttsPromise;
+    } catch (error) {
+      ttsPromise = null;
+      throw error;
+    }
   } finally {
     if (onProgress) progressListeners.delete(onProgress);
   }
+}
+
+function supportsKokoroRuntime() {
+  if (typeof window === 'undefined') return false;
+  return typeof SharedArrayBuffer !== 'undefined' && window.crossOriginIsolated === true;
 }
 
 function cleanForSpeech(text: string): string {
@@ -252,6 +262,10 @@ export function useKokoroTTS() {
       setLoadProgress(100);
       return;
     }
+    if (!supportsKokoroRuntime()) {
+      setLoadProgress(100);
+      return;
+    }
     try {
       setLoading(true);
       await requestPersistentCache();
@@ -357,6 +371,15 @@ export function useKokoroTTS() {
       setSpeakingId((current) => (current === id ? null : current));
     });
     fallbackStopRef.current = fallbackSession.stop;
+
+    if (!supportsKokoroRuntime()) {
+      const started = fallbackSession.start();
+      if (!started) {
+        setSpeakingId(null);
+        toast.error('Audio playback failed. Please try again.');
+      }
+      return;
+    }
 
     try {
       const unlockPromise = unlockAudioOutput();
