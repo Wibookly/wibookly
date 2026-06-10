@@ -1165,6 +1165,7 @@ export default function Chat() {
     return (
       <div
         key={c.id}
+        data-tour="chat-conv-row"
         className={cn(
           'group flex items-center gap-2 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary hover:pl-3',
           opts.indent && 'ml-5',
@@ -1176,6 +1177,7 @@ export default function Chat() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
+              data-tour="chat-conv-menu"
               className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
               onClick={(e) => e.stopPropagation()}
               title="More"
@@ -1287,7 +1289,7 @@ export default function Chat() {
           <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
             <Plus className="h-4 w-4" /> New chat
           </Button>
-          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground">
+          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground" data-tour="chat-new-folder">
             <FolderPlus className="h-3.5 w-3.5" /> New folder
           </Button>
         </div>
@@ -1951,8 +1953,9 @@ function MessageBubble({
           <CitationChips citations={message.citations} />
         )}
         {!isUser && !streaming && (
-          <div className="flex flex-wrap gap-1 items-center mt-1">
+          <div className="flex flex-wrap gap-1 items-center mt-1" data-tour="chat-msg-actions">
             <button
+              data-tour="chat-msg-copy"
               onClick={copy}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
               title="Copy reply to clipboard"
@@ -1962,6 +1965,7 @@ function MessageBubble({
             </button>
             {canRegenerate && (
               <button
+                data-tour="chat-msg-regenerate"
                 onClick={() => onRegenerate!(message.id)}
                 disabled={!!isStreamingAny}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1973,6 +1977,7 @@ function MessageBubble({
             )}
             {canEmail && (
               <button
+                data-tour="chat-msg-email"
                 onClick={() => onEmailToSelf!(message)}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
                 title={`Create a draft in ${mailboxLabel} addressed to ${mailboxEmail}`}
@@ -1983,6 +1988,7 @@ function MessageBubble({
             )}
             {onSpeak && (
               <button
+                data-tour="chat-msg-play"
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
                 className={cn(
                   'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
