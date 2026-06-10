@@ -184,17 +184,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'daily-brief',
-    title: 'AI Daily Brief',
+    title: 'AI Daily Brief — guided walkthrough',
     category: 'ai-features',
     summary: 'A morning summary of what landed in your inbox while you were away.',
+    intro:
+      'The Daily Brief is your one-screen morning standup. It pulls together your priorities, calendar, unanswered emails and AI activity so you start the day in control.',
     steps: [
-      { title: '1. Open AI Daily Brief', description: 'Use the sidebar → AI Daily Brief to read today’s summary on demand.' },
-      { title: '2. Schedule email delivery', description: 'Open Settings → Daily Brief Schedule and pick the days, time, and timezone.' },
-      { title: '3. Choose recipients', description: 'By default the brief goes to your connected email — you can add a different recipient in the same panel.' },
-      { title: '4. Print or share', description: 'On the Daily Brief page, use the print button to get a clean executive-report PDF.' },
+      { title: "Open today's brief", description: 'Use the sidebar → AI Daily Brief. This page always shows the freshest brief on demand.', route: '/ai-daily-brief' },
+      { title: 'Schedule email delivery', description: 'In the Daily Brief Schedule card, pick the days, time and timezone. Toggle Enable email delivery to start receiving it in your inbox.', target: '[data-tour="brief-schedule"]' },
+      { title: "Review Today's Priorities", description: "This card lists the exact items the AI flagged as high / medium / low priority. Click any item to jump to the source email.", target: '[data-tour="brief-priorities"]' },
+      { title: 'Print or share the brief', description: 'Use the Print button to generate a clean, InboxIQ-branded executive report you can save as PDF or email to an assistant.', target: '[data-tour="brief-print"]' },
+      { title: 'Check unanswered threads', description: 'The No Reply Tracker card pulls in everything you BCC-tracked. Hover an item to nudge or stop tracking.', target: '[data-tour="brief-noreply"]' },
     ],
-    routes: ['/ai-daily-brief', '/settings'],
-    keywords: ['summary', 'morning', 'digest', 'brief'],
+    routes: ['/ai-daily-brief'],
+    keywords: ['summary', 'morning', 'digest', 'brief', 'schedule'],
   },
   {
     id: 'ai-assistant',
@@ -227,31 +230,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'profile-signature',
-    title: 'Profile & email signature',
+    title: 'Profile & email signature — guided walkthrough',
     category: 'account-billing',
-    summary: 'Your name, title, and signature show up on every AI draft.',
+    summary: 'Your name, title, photo and signature show up on every AI draft.',
+    intro:
+      'Take a minute on this page and every AI draft, brief and reply automatically gets noticeably more "you". The live preview at the bottom shows exactly what recipients will see.',
     steps: [
-      { title: '1. Open Settings', description: 'Use the sidebar → Settings.' },
-      { title: '2. Fill in your profile', description: 'Add your full name, title (required for Business accounts), phone, and website.' },
-      { title: '3. Upload a photo or logo', description: 'Toggle which one to display in your signature. Profile photo takes priority over company logo.' },
-      { title: '4. Check the live preview', description: 'The preview at the bottom shows exactly what recipients will see. Changes save automatically.' },
+      { title: 'Open Settings', description: 'Use the sidebar → Settings to land on this page.', route: '/settings' },
+      { title: 'Upload your profile photo', description: 'Drop a square headshot here. Toggle "Show in signature" on to make it appear in every signature. Profile photo wins over company logo when both are on.', target: '[data-tour="settings-photo"]' },
+      { title: 'Upload your company logo', description: 'For Business accounts, drop your logo here. Toggle "Show in signature" on to display it. The logo appears when no profile photo is shown.', target: '[data-tour="settings-logo"]' },
+      { title: 'Turn the signature on or off', description: 'Use this switch to enable or disable the AI signature globally. When off, AI drafts go out without any signature appended.', target: '[data-tour="settings-signature-toggle"]' },
+      { title: 'Builder vs custom HTML', description: 'Use Signature Builder for guided editing, or paste your own HTML in Custom Signature mode for full control.', target: '[data-tour="settings-signature-mode"]' },
     ],
     routes: ['/settings'],
-    keywords: ['signature', 'name', 'title', 'photo', 'logo'],
-  },
-  {
-    id: 'profile-signature',
-    title: 'Profile & email signature',
-    category: 'account-billing',
-    summary: 'Your name, title, and signature show up on every AI draft.',
-    steps: [
-      { title: '1. Open Settings', description: 'Use the sidebar → Settings.' },
-      { title: '2. Fill in your profile', description: 'Add your full name, title (required for Business accounts), phone, and website.' },
-      { title: '3. Upload a photo or logo', description: 'Toggle which one to display in your signature. Profile photo takes priority over company logo.' },
-      { title: '4. Check the live preview', description: 'The preview at the bottom shows exactly what recipients will see. Changes save automatically.' },
-    ],
-    routes: ['/settings'],
-    keywords: ['signature', 'name', 'title', 'photo', 'logo'],
+    keywords: ['signature', 'name', 'title', 'photo', 'logo', 'profile'],
   },
 
   /* ============== ADMIN ============== */
@@ -391,8 +383,10 @@ export const ROUTE_HELP_MAP: Record<string, string[]> = {
   '/chat': ['ai-assistant'],
   '/ai-chat': ['ai-assistant'],
   '/ai-daily-brief': ['daily-brief'],
-  '/ai-activity': ['ai-drafts'],
-  '/settings': ['profile-signature', 'daily-brief'],
+  '/ai-activity': ['ai-activity'],
+  '/follow-up-reminder': ['reply-tracker'],
+  '/meeting-copilot': ['meeting-copilot'],
+  '/settings': ['profile-signature'],
   '/admin': ['admin-overview', 'admin-groups', 'admin-domains', 'admin-support-issues'],
 };
 
