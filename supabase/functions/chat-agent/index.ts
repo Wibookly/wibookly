@@ -151,13 +151,13 @@ Deno.serve(async (req) => {
 
       try {
         send({ type: "conversation", conversation_id });
+        send({ type: "phase", label: "Thinking" });
 
         // Extract text from uploaded attachments so the model can actually read them.
-        // Downloads via service role from the chat-attachments bucket, parses
-        // PDFs/DOCX/text, and injects truncated content into the user_message.
         let augmentedMessage = message;
         const refs = Array.isArray(body.attachment_refs) ? body.attachment_refs : [];
         if (refs.length) {
+          send({ type: "phase", label: `Reading ${refs.length} attached file${refs.length > 1 ? 's' : ''}` });
           const { extractAttachmentText } = await import("../_shared/extract-attachment-text.ts");
           const MAX_CHARS_PER_FILE = 40000;
           const blocks: string[] = [];
@@ -189,6 +189,16 @@ Deno.serve(async (req) => {
               `\n\n---\nUser message:\n${message}`;
           }
         }
+
+        // Announce the upcoming work so the UI can show a meaningful phase label.
+        if (body.deep) {
+          send({ type: "phase", label: "Researching deeply" });
+        } else if (body.web_search) {
+          send({ type: "phase", label: "Searching the web" });
+        } else {
+          send({ type: "phase", label: "Searching your workspace" });
+        }
+
 
         // Invoke the agent orchestrator (non-streaming). Pass the linked agent
         // conversation_id so its own tool-call history stays continuous across
@@ -241,6 +251,8 @@ Deno.serve(async (req) => {
 
         const reply: string = orch.reply || "";
         const citations = Array.isArray(orch.citations) ? orch.citations : [];
+
+        send({ type: "phase", label: "Composing response" });
 
         // Chunk the reply so the existing typing-effect UX keeps working even
         // though the orchestrator is non-streaming. ~24 char chunks with a tiny

@@ -273,6 +273,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [streamingText, setStreamingText] = useState('');
   const [streamingCitations, setStreamingCitations] = useState<Citation[]>([]);
+  const [streamingPhase, setStreamingPhase] = useState<string>('Thinking');
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -798,6 +799,7 @@ export default function Chat() {
     setFiles([]);
     setIsStreaming(true);
     setStreamingText('');
+    setStreamingPhase('Thinking');
     setStreamingCitations([]);
 
     try {
@@ -892,6 +894,10 @@ export default function Chat() {
                 setStreamingText(assembled);
               } else if (data.type === 'citations') {
                 setStreamingCitations(Array.isArray(data.citations) ? data.citations : []);
+              } else if (data.type === 'phase') {
+                if (typeof data.label === 'string' && data.label.trim()) {
+                  setStreamingPhase(data.label.trim());
+                }
               } else if (data.type === 'blocked') {
                 setBlocked({ open: true, reason: data.reason });
               } else if (data.type === 'done') {
@@ -1345,7 +1351,7 @@ export default function Chat() {
                     streaming
                   />
                 ) : (
-                  <AIThinking />
+                  <AIThinking label={streamingPhase} />
                 )
               )}
 
