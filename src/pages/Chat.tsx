@@ -820,6 +820,9 @@ export default function Chat() {
     setStreamingText('');
     setStreamingPhase('Thinking');
     setStreamingCitations([]);
+    abortedRef.current = false;
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     try {
       const { urls: attachmentUrls, refs: attachmentRefs } = await uploadFiles(toUpload);
