@@ -682,6 +682,9 @@ export default function Chat() {
   }, [activeId, conversations, messages]);
 
   const handleNewChat = (folderId: string | null = null) => {
+    // Bump the new-chat epoch so any previously pending-null stream stops
+    // showing on this fresh blank screen.
+    newChatEpochRef.current += 1;
     setActiveId(null);
     setMessages([]);
     setInput('');
@@ -691,6 +694,27 @@ export default function Chat() {
     if (folderId) setExpandedFolders((prev) => new Set(prev).add(folderId));
     navigate('/chat');
   };
+
+  // Keep a ref to activeId for use inside async stream handlers.
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  // Per-chat input drafts: save current draft for old chat, load for new.
+  const prevActiveIdRef = useRef<string | null>(activeId);
+  useEffect(() => {
+    const prev = prevActiveIdRef.current;
+    const prevKey = prev ?? '__new__';
+    // Save the in-progress draft for the chat we're leaving.
+    setInput((current) => {
+      if (current) draftsRef.current.set(prevKey, current);
+      else draftsRef.current.delete(prevKey);
+      return current;
+    });
+    // Load the draft (if any) for the chat we're entering.
+    const newKey = activeId ?? '__new__';
+    const next = draftsRef.current.get(newKey) ?? '';
+    setInput(next);
+    prevActiveIdRef.current = activeId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   const handleSelectConv = (id: string) => {
     setActiveId(id);
