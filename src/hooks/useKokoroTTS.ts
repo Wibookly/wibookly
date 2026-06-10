@@ -65,6 +65,8 @@ const VOICE_KEY = 'inboxiq:kokoro-voice';
 const KOKORO_READY_KEY = 'inboxiq:kokoro-ready';
 const DEFAULT_VOICE_ID: KokoroVoiceId = 'af_heart';
 const VALID_KOKORO_VOICE_IDS = new Set(KOKORO_VOICES.map((voice) => voice.id));
+const FEMALE_VOICE_HINTS = ['samantha', 'victoria', 'karen', 'ava', 'zira', 'aria', 'jenny', 'susan', 'serena', 'female'];
+const MALE_VOICE_HINTS = ['alex', 'daniel', 'fred', 'tom', 'david', 'guy', 'mark', 'male'];
 
 function resolveVoiceId(voiceId: string | null | undefined): KokoroVoiceId {
   return voiceId && VALID_KOKORO_VOICE_IDS.has(voiceId) ? voiceId : DEFAULT_VOICE_ID;
@@ -125,8 +127,33 @@ async function getTTS(onProgress?: (pct: number) => void) {
 }
 
 function supportsKokoroRuntime() {
-  if (typeof window === 'undefined') return false;
-  return typeof SharedArrayBuffer !== 'undefined' && window.crossOriginIsolated === true;
+  return typeof window !== 'undefined' && typeof Audio !== 'undefined';
+}
+
+function getVoiceProfile(voiceId: KokoroVoiceId) {
+  return KOKORO_VOICES.find((item) => item.id === voiceId) ?? KOKORO_VOICES[0];
+}
+
+function hashVoiceId(voiceId: KokoroVoiceId) {
+  let hash = 0;
+  for (let i = 0; i < voiceId.length; i += 1) {
+    hash = ((hash << 5) - hash + voiceId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function getFallbackSpeechTuning(voiceId: KokoroVoiceId) {
+  const profile = getVoiceProfile(voiceId);
+  const hash = hashVoiceId(voiceId);
+  const pitchOffset = ((hash % 7) - 3) * 0.045;
+  const rateOffset = (((Math.floor(hash / 7) % 5) - 2) * 0.025);
+  const basePitch = profile.gender === 'male' ? 0.9 : 1.08;
+  const ukRateOffset = profile.language === 'English — United Kingdom' ? -0.03 : 0;
+
+  return {
+    pitch: Math.max(0.7, Math.min(1.35, basePitch + pitchOffset)),
+    rate: Math.max(0.82, Math.min(1.12, 0.98 + rateOffset + ukRateOffset)),
+  };
 }
 
 function cleanForSpeech(text: string): string {
@@ -160,11 +187,34 @@ function pickBrowserVoice(voiceId: KokoroVoiceId) {
   try {
     const voices = window.speechSynthesis?.getVoices?.() ?? [];
     if (!voices.length) return null;
+    const profile = getVoiceProfile(voiceId);
     const hints = getLanguageHints(voiceId).map((hint) => hint.toLowerCase());
-    return voices.find((voice) => hints.some((hint) => voice.lang?.toLowerCase().startsWith(hint)))
-      ?? voices.find((voice) => voice.lang?.toLowerCase().startsWith(hints[0].slice(0, 2)))
-      ?? voices[0]
-      ?? null;
+    const label = profile.label.toLowerCase();
+    const preferredGenderHints = profile.gender === 'female' ? FEMALE_VOICE_HINTS : MALE_VOICE_HINTS;
+    const regionHints = profile.language === 'English — United Kingdom'
+      ? ['uk', 'british', 'england']
+      : ['us', 'american', 'united states'];
+
+    const ranked = voices
+      .map((voice) => {
+        const lang = voice.lang?.toLowerCase() ?? '';
+        const name = voice.name?.toLowerCase() ?? '';
+        let score = 0;
+
+        if (lang === hints[0]) score += 120;
+        else if (hints.some((hint) => lang.startsWith(hint))) score += 80;
+        else if (lang.startsWith(hints[0].slice(0, 2))) score += 45;
+
+        if (name.includes(label)) score += 60;
+        if (preferredGenderHints.some((hint) => name.includes(hint))) score += 35;
+        if (regionHints.some((hint) => name.includes(hint))) score += 20;
+        if (voice.default) score += 4;
+
+        return { voice, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    return ranked[0]?.score > 0 ? ranked[0].voice : voices[0] ?? null;
   } catch {
     return null;
   }
@@ -173,8 +223,9 @@ function pickBrowserVoice(voiceId: KokoroVoiceId) {
 function createWebSpeechSession(text: string, voiceId: KokoroVoiceId, onEnd: () => void) {
   const synth = window.speechSynthesis;
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1;
-  utterance.pitch = 1;
+  const tuning = getFallbackSpeechTuning(voiceId);
+  utterance.rate = tuning.rate;
+  utterance.pitch = tuning.pitch;
   utterance.lang = getLanguageHints(voiceId)[0] || 'en-US';
   const matchedVoice = pickBrowserVoice(voiceId);
   if (matchedVoice) utterance.voice = matchedVoice;
