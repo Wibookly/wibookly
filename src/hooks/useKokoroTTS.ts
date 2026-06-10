@@ -99,6 +99,11 @@ async function getTTS(onProgress?: (pct: number) => void) {
     }
     if (!ttsPromise) {
       ttsPromise = (async () => {
+        const { env } = await import('@huggingface/transformers');
+        if (env.backends?.onnx?.wasm) {
+          env.backends.onnx.wasm.numThreads = 1;
+          env.backends.onnx.wasm.proxy = false;
+        }
         const { KokoroTTS } = await import('kokoro-js');
         const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
           dtype: 'q8',
