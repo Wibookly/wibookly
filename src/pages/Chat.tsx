@@ -1351,7 +1351,7 @@ export default function Chat() {
                     streaming
                   />
                 ) : (
-                  <AIThinking />
+                  <AIThinking label={streamingPhase} />
                 )
               )}
 
