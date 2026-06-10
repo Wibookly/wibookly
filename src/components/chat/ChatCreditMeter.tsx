@@ -11,6 +11,13 @@ interface Props {
   messageCount: number;
 }
 
+function confirmSummarize(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.confirm(
+    'Start a NEW chat that begins with a summary of this conversation?\n\nThis will leave the current chat as-is and open a fresh thread.',
+  );
+}
+
 function nextDailyResetLabel(): string {
   // Quotas reset at local midnight.
   const now = new Date();
