@@ -885,6 +885,7 @@ export default function Chat() {
           user_location: effLoc ? effLocation : undefined,
           deep: effDeep,
         }),
+        signal: ac.signal,
       });
 
       const ct = resp.headers.get('content-type') || '';
