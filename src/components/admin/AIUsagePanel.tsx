@@ -29,7 +29,25 @@ interface UserMeta {
   email: string;
   full_name: string | null;
   department: string | null;
+  company: string | null;
+  domain_id: string | null;
+  groups: string[];
 }
+
+interface DomainMeta {
+  id: string;
+  domain: string;
+  organization_name: string | null;
+}
+
+type GroupDimension = 'department' | 'company' | 'domain' | 'group';
+
+const GROUP_DIMENSIONS: { value: GroupDimension; label: string }[] = [
+  { value: 'department', label: 'Department' },
+  { value: 'company',    label: 'Company' },
+  { value: 'domain',     label: 'Email domain' },
+  { value: 'group',      label: 'Permission group' },
+];
 
 const RANGES = [
   { value: '1', label: 'Last 24 hours' },
@@ -61,6 +79,8 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
   const [range, setRange] = useState('30');
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [users, setUsers] = useState<Record<string, UserMeta>>({});
+  const [domains, setDomains] = useState<Record<string, DomainMeta>>({});
+  const [groupBy, setGroupBy] = useState<GroupDimension>('department');
   const [liveSpend, setLiveSpend] = useState<ProviderSpend[] | null>(null);
   const [liveSpendLoading, setLiveSpendLoading] = useState(false);
 
@@ -69,7 +89,7 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
     setLoading(true);
     const since = new Date(Date.now() - parseInt(range) * 86400000).toISOString();
 
-    const [{ data: usage }, { data: profiles }] = await Promise.all([
+    const [{ data: usage }, { data: profiles }, { data: allowedDomains }, { data: memberships }] = await Promise.all([
       supabase
         .from('ai_usage_logs')
         .select('id,user_id,provider,model,action,prompt_tokens,completion_tokens,total_tokens,cost_usd,created_at')
@@ -79,13 +99,34 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         .limit(2000),
       supabase
         .from('user_profiles')
-        .select('user_id,email,full_name,department')
+        .select('user_id,email,full_name,department,company,domain_id')
+        .eq('organization_id', organizationId),
+      supabase
+        .from('allowed_domains')
+        .select('id,domain,organization_name'),
+      supabase
+        .from('user_group_memberships')
+        .select('user_id, permission_groups(name)')
         .eq('organization_id', organizationId),
     ]);
 
     setRows((usage as UsageRow[]) ?? []);
+
+    const domainMap: Record<string, DomainMeta> = {};
+    (allowedDomains ?? []).forEach((d: any) => { domainMap[d.id] = d as DomainMeta; });
+    setDomains(domainMap);
+
+    const groupsByUser: Record<string, string[]> = {};
+    (memberships ?? []).forEach((m: any) => {
+      const name = m.permission_groups?.name;
+      if (!name || !m.user_id) return;
+      (groupsByUser[m.user_id] ||= []).push(name);
+    });
+
     const userMap: Record<string, UserMeta> = {};
-    (profiles ?? []).forEach((p) => { userMap[p.user_id] = p as UserMeta; });
+    (profiles ?? []).forEach((p: any) => {
+      userMap[p.user_id] = { ...p, groups: groupsByUser[p.user_id] ?? [] } as UserMeta;
+    });
     setUsers(userMap);
     setLoading(false);
   }
@@ -277,6 +318,73 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
       rows: Array.from(map.values()).sort((a, b) => b.cost - a.cost),
     };
   }, [rows]);
+
+  // Resolve a usage row to one or more group buckets based on the chosen
+  // dimension. A row can land in multiple buckets when grouping by permission
+  // group (a user may belong to several groups); for every other dimension a
+  // row lands in exactly one bucket. Unknown values fall into "Unassigned".
+  function bucketsFor(r: UsageRow, dim: GroupDimension): string[] {
+    const meta = r.user_id ? users[r.user_id] : null;
+    if (!meta) return ['Unassigned'];
+    if (dim === 'department') return [meta.department?.trim() || 'Unassigned'];
+    if (dim === 'company')    return [meta.company?.trim() || 'Unassigned'];
+    if (dim === 'domain') {
+      const dom = meta.domain_id ? domains[meta.domain_id] : null;
+      const label = dom ? (dom.organization_name ? `${dom.organization_name} (${dom.domain})` : dom.domain) : null;
+      if (label) return [label];
+      const fromEmail = meta.email?.split('@')[1];
+      return [fromEmail || 'Unassigned'];
+    }
+    if (dim === 'group') {
+      return meta.groups.length > 0 ? meta.groups : ['Ungrouped'];
+    }
+    return ['Unassigned'];
+  }
+
+  // Cross-tab: chosen group × provider, with per-feature drilldown and a
+  // "Free" flag for any service that logged calls without any billable cost
+  // (e.g. Lovable AI Gateway calls priced at $0 for the current tier).
+  const groupBreakdown = useMemo(() => {
+    const providers = new Set<string>();
+    const map = new Map<string, {
+      group: string;
+      calls: number;
+      cost: number;
+      users: Set<string>;
+      perProvider: Record<string, { calls: number; cost: number; tokens: number; models: Set<string> }>;
+      perFeature: Record<string, { calls: number; cost: number }>;
+    }>();
+    rows.forEach((r) => {
+      providers.add(r.provider);
+      bucketsFor(r, groupBy).forEach((key) => {
+        const ex = map.get(key) ?? {
+          group: key, calls: 0, cost: 0,
+          users: new Set<string>(),
+          perProvider: {}, perFeature: {},
+        };
+        ex.calls += 1;
+        ex.cost += Number(r.cost_usd || 0);
+        if (r.user_id) ex.users.add(r.user_id);
+        const pp = ex.perProvider[r.provider] ?? { calls: 0, cost: 0, tokens: 0, models: new Set<string>() };
+        pp.calls += 1;
+        pp.cost += Number(r.cost_usd || 0);
+        pp.tokens += Number(r.total_tokens || 0);
+        if (r.model) pp.models.add(r.model);
+        ex.perProvider[r.provider] = pp;
+        const pf = ex.perFeature[r.action] ?? { calls: 0, cost: 0 };
+        pf.calls += 1;
+        pf.cost += Number(r.cost_usd || 0);
+        ex.perFeature[r.action] = pf;
+        map.set(key, ex);
+      });
+    });
+    return {
+      providers: Array.from(providers).sort(),
+      rows: Array.from(map.values()).sort((a, b) => b.cost - a.cost),
+    };
+  }, [rows, users, domains, groupBy]);
+
+
 
 
 
@@ -592,7 +700,104 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         </CardContent>
       </Card>
 
-
+      {/* Group cost breakdown — switchable dimension (department, company,
+          email domain, or permission group). Each row shows total spend plus
+          a per-vendor matrix with the dominant model and a "Free" badge for
+          any vendor that logged calls without billable cost. */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm">Cost breakdown by group</CardTitle>
+              <CardDescription>
+                Total AI spend per {GROUP_DIMENSIONS.find(d => d.value === groupBy)?.label.toLowerCase()} with per-vendor split.
+                Vendors that did not bill us in this period are marked <span className="font-medium">Free</span>.
+              </CardDescription>
+            </div>
+            <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupDimension)}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {GROUP_DIMENSIONS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>Group by {d.label.toLowerCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {groupBreakdown.rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No usage to group in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{GROUP_DIMENSIONS.find(d => d.value === groupBy)?.label}</TableHead>
+                    <TableHead className="text-right">Users</TableHead>
+                    <TableHead className="text-right">Calls</TableHead>
+                    {groupBreakdown.providers.map((p) => (
+                      <TableHead key={p} className="capitalize">{p.replace('_', ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-right">Top feature</TableHead>
+                    <TableHead className="text-right">Total cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupBreakdown.rows.map((r) => {
+                    const topFeature = Object.entries(r.perFeature).sort((a, b) => b[1].cost - a[1].cost)[0];
+                    return (
+                      <TableRow key={r.group}>
+                        <TableCell className="font-medium">{r.group}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.users.size}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.calls.toLocaleString()}</TableCell>
+                        {groupBreakdown.providers.map((p) => {
+                          const pp = r.perProvider[p];
+                          if (!pp) return <TableCell key={p} className="text-muted-foreground">—</TableCell>;
+                          const isFree = pp.cost === 0 && pp.calls > 0;
+                          return (
+                            <TableCell key={p}>
+                              {isFree ? (
+                                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                  Free · {pp.calls.toLocaleString()}
+                                </Badge>
+                              ) : (
+                                <>
+                                  <div className="text-sm font-medium tabular-nums">{fmtMoney(pp.cost)}</div>
+                                  <div className="text-[10px] text-muted-foreground tabular-nums">
+                                    {pp.calls.toLocaleString()} calls · {fmtTokens(pp.tokens)}
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Array.from(pp.models).slice(0, 2).map((m) => (
+                                  <Badge key={m} variant="outline" className="text-[9px]" title={m}>
+                                    {m.length > 20 ? `${m.slice(0, 20)}…` : m}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-right text-xs">
+                          {topFeature ? (
+                            <>
+                              <Badge variant="outline">{topFeature[0]}</Badge>
+                              <div className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                                {fmtMoney(topFeature[1].cost)}
+                              </div>
+                            </>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold">{fmtMoney(r.cost)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
 
       {/* Live provider spend (org-wide) */}
