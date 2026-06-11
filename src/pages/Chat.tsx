@@ -367,6 +367,14 @@ export default function Chat() {
   const streamingCitations = activeStream?.citations ?? [];
   const streamingPhase = activeStream?.phase ?? 'Thinking';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-sidebar-pinned') === '1';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('inboxiq-chat-sidebar-pinned', sidebarPinned ? '1' : '0'); } catch {}
+  }, [sidebarPinned]);
+  const sidebarVisible = sidebarPinned || sidebarOpen;
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
