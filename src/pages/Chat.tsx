@@ -1646,7 +1646,7 @@ export default function Chat() {
         </div>
 
         {/* Input area */}
-        <div className="bg-background -mt-6">
+        <div className="bg-background -mt-16">
           <div className="max-w-6xl mx-auto px-6 pt-0 pb-2 space-y-2.5">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
