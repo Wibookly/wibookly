@@ -382,7 +382,7 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS } = useKokoroTTS();
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
@@ -404,6 +404,13 @@ export default function Chat() {
     toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
     return () => { toast.dismiss('kokoro-loading'); };
   }, [ttsLoading, ttsLoadProgress, speakingId]);
+
+  // Surface TTS errors so the user knows why playback didn't start.
+  useEffect(() => {
+    if (ttsModelState === 'error' && ttsError) {
+      toast.error(`Voice playback failed: ${ttsError}`, { id: 'kokoro-error' });
+    }
+  }, [ttsModelState, ttsError]);
 
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
@@ -1040,12 +1047,12 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                const BATCH = 6;
+                const BATCH = 2;
                 for (let i = 0; i < chunk.length; i += BATCH) {
                   if (info.aborted) break;
                   info.text += chunk.slice(i, i + BATCH);
                   bumpStreams();
-                  await new Promise((resolve) => setTimeout(resolve, 4));
+                  await new Promise((resolve) => setTimeout(resolve, 18));
                 }
               } else if (data.type === 'citations') {
                 info.citations = Array.isArray(data.citations) ? data.citations : [];

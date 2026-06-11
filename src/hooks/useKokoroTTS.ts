@@ -104,5 +104,5 @@ export function useKokoroTTS() {
   const loading = snap.modelState === 'loading' || !!snap.generatingId;
   const loadProgress = snap.modelState === 'ready' ? 100 : snap.progress || 0;
 
-  return { speak, stop, speakingId, loading, loadProgress, preload, modelState: snap.modelState };
+  return { speak, stop, speakingId, loading, loadProgress, preload, modelState: snap.modelState, error: snap.error };
 }
