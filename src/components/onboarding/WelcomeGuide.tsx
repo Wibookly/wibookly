@@ -264,15 +264,59 @@ export function WelcomeGuide() {
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-indigo-200/80 backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
-              Welcome to InboxIQ
+              Welcome to InboxIQ — Quick Guide
             </div>
             <h1 className="mt-5 text-3xl sm:text-5xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent leading-tight">
-              Your inbox, intelligently in control.
+              Here’s everything InboxIQ does for you.
             </h1>
             <p className="mt-5 text-base sm:text-lg leading-relaxed text-white/70">
-              Use the menu below to explore the entire app or to see every
-              guided tour available on the page you’re viewing right now.
+              This is your one-stop onboarding tour. Below is the full map of
+              the platform — every section you have access to, what it does,
+              and a guided walkthrough you can launch with one click.
             </p>
+            <p className="mt-3 text-sm leading-relaxed text-white/55">
+              New here? Start with <strong className="text-white/80">AI Chat</strong>,
+              then set up <strong className="text-white/80">Email Intelligence</strong>{' '}
+              and your <strong className="text-white/80">Profile Settings</strong>.
+              You can reopen this guide any time from{' '}
+              <strong className="text-white/80">User Guide</strong> in the sidebar.
+            </p>
+          </div>
+
+          {/* Quick "how it works" strip */}
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
+            {[
+              {
+                step: '1',
+                title: 'Explore the sections',
+                body: 'Tap any card below to jump into that part of InboxIQ.',
+              },
+              {
+                step: '2',
+                title: 'Take the guided tour',
+                body: 'Each section opens with a step-by-step walkthrough of the UI.',
+              },
+              {
+                step: '3',
+                title: 'Reopen any time',
+                body: 'Use User Guide in the sidebar to bring this menu back.',
+              },
+            ].map((s) => (
+              <div
+                key={s.step}
+                className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur p-4 text-left"
+              >
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-indigo-200/80">
+                  <span className="h-5 w-5 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-[10px] text-white">
+                    {s.step}
+                  </span>
+                  {s.title}
+                </div>
+                <p className="mt-2 text-sm text-white/65 leading-relaxed">
+                  {s.body}
+                </p>
+              </div>
+            ))}
           </div>
 
           {/* Tab bar */}
