@@ -40,8 +40,18 @@ function emit() {
   for (const l of listeners) l({ ...state });
 }
 
+function configureAudioSession() {
+  // iOS Safari 17+: route Web Audio through the "playback" session so it
+  // plays even when the hardware silent (mute) switch is on.
+  try {
+    const session = (navigator as any).audioSession;
+    if (session && session.type !== 'playback') session.type = 'playback';
+  } catch { /* ignore */ }
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  configureAudioSession();
   if (audioCtx) return audioCtx;
   const Ctor: typeof AudioContext | undefined =
     (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -58,6 +68,14 @@ async function unlockAudio() {
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
+    // iOS: play a 1-sample silent buffer inside the gesture to fully unlock.
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch { /* ignore */ }
     console.log('[tts] audioCtx.state after resume:', ctx.state);
   } catch (e) {
     console.error('[tts] audioCtx.resume failed', e);
@@ -211,6 +229,14 @@ async function playBlob(blob: Blob, id: string) {
     if (ctx.state === 'suspended') {
       try { await ctx.resume(); } catch { /* ignore */ }
     }
+    // iOS Safari: if the context never reached "running" (e.g. resume was
+    // called outside a user gesture), Web Audio will play silently — use the
+    // <audio> element path instead, which is more reliable there.
+    if (ctx.state !== 'running') {
+      console.warn('[tts] AudioContext not running (%s) — using <audio> fallback', ctx.state);
+      playWithFallbackAudio(blob, id, meta);
+      return;
+    }
     const arrayBuf = await blob.arrayBuffer();
     const audioData: AudioBuffer = await new Promise((resolve, reject) => {
       // Use callback form for Safari compatibility
@@ -238,6 +264,16 @@ async function playBlob(blob: Blob, id: string) {
     };
     currentSource = source;
     source.start(0);
+    // Safety net: if the context got suspended right after start (iOS
+    // backgrounding / interruption), fall back so the user hears something.
+    window.setTimeout(() => {
+      if (currentSource === source && ctx.state !== 'running') {
+        console.warn('[tts] context suspended after start — falling back to <audio>');
+        try { source.stop(); } catch { /* ignore */ }
+        currentSource = null;
+        playWithFallbackAudio(blob, id, meta);
+      }
+    }, 300);
   } catch (err) {
     console.error('[tts] decodeAudioData/play failed, falling back to <audio>:', err);
     playWithFallbackAudio(blob, id, meta);
