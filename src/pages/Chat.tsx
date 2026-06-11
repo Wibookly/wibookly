@@ -1646,8 +1646,8 @@ export default function Chat() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border bg-background">
-          <div className="max-w-6xl mx-auto px-6 py-4 space-y-3">
+        <div className="bg-background">
+          <div className="max-w-6xl mx-auto px-6 pt-1 pb-3 space-y-3">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
                 <ChatCreditMeter

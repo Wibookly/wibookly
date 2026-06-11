@@ -113,21 +113,35 @@ export function AppLayout() {
       {/* Desktop Sidebar — auto-hide on Chat page when unpinned */}
       {autoHide ? (
         <>
-          {/* Hover trigger strip */}
-          <div
-            className="hidden lg:block fixed left-0 top-0 h-screen w-3 z-30"
-            onMouseEnter={() => setSidebarHover(true)}
-          />
+          {/* Click-to-open edge trigger (visible tab) */}
+          {!sidebarHover && (
+            <button
+              type="button"
+              aria-label="Open sidebar"
+              onClick={() => setSidebarHover(true)}
+              className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 items-center justify-center h-20 w-6 rounded-r-lg bg-primary/80 hover:bg-primary text-primary-foreground shadow-lg transition"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
           <div
             className={cn(
               'hidden lg:block fixed left-0 top-0 h-screen z-40 transition-transform duration-200 ease-out',
               sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
             )}
-            onMouseEnter={() => setSidebarHover(true)}
-            onMouseLeave={() => setSidebarHover(false)}
           >
-            <AppSidebar pinned={sidebarPinned} onTogglePin={togglePin} />
+            <AppSidebar
+              pinned={sidebarPinned}
+              onTogglePin={togglePin}
+              onClose={() => setSidebarHover(false)}
+            />
           </div>
+          {sidebarHover && !sidebarPinned && (
+            <div
+              className="hidden lg:block fixed inset-0 z-30"
+              onClick={() => setSidebarHover(false)}
+            />
+          )}
         </>
       ) : (
         <AppSidebar pinned={sidebarPinned} onTogglePin={togglePin} />
