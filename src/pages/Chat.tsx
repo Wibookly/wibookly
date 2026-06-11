@@ -489,12 +489,7 @@ export default function Chat() {
       if (id) localStorage.setItem('inboxiq:mic-device-id', id);
       else localStorage.removeItem('inboxiq:mic-device-id');
     } catch { /* ignore */ }
-    // After first permission grant, labels become available; refresh.
-    try {
-      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
-      tmp.getTracks().forEach((t) => t.stop());
-      refreshMicDevices();
-    } catch { /* ignore */ }
+    refreshMicDevices();
   }, [refreshMicDevices]);
 
   const { isRecording, isTranscribing, startRecording, stopRecording, cancelRecording, getAnalyser } = useVoiceRecording({

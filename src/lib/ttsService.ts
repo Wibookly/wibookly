@@ -41,6 +41,9 @@ function ensureWorker(): Worker {
   worker.onmessage = (event: MessageEvent) => {
     const { type, state: s, id, blob, message, progress } = event.data || {};
     if (type === 'status') {
+      if (s === 'error' && id && currentRequestId && id !== currentRequestId) {
+        return;
+      }
       state.modelState = s;
       state.error = message || null;
       if (typeof progress === 'number') state.progress = progress;
@@ -52,12 +55,7 @@ function ensureWorker(): Worker {
       return;
     }
     if (type === 'audio') {
-      if (!id || id !== currentRequestId) {
-        if (blob instanceof Blob) {
-          try { URL.revokeObjectURL(URL.createObjectURL(blob)); } catch { /* ignore */ }
-        }
-        return;
-      }
+      if (!id || id !== currentRequestId) return;
       const url = URL.createObjectURL(blob as Blob);
       try { console.log('[tts] blob bytes:', (blob as Blob).size); } catch { /* ignore */ }
       // Reuse the <audio> element that was created synchronously during the

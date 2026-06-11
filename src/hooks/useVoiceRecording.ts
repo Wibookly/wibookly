@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -240,6 +240,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       setIsTranscribing(false);
     }
   };
+
+  useEffect(() => () => {
+    cleanupSilenceDetection();
+    releaseStream();
+  }, [cleanupSilenceDetection, releaseStream]);
 
 
   return {
