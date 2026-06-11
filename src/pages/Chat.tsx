@@ -1715,18 +1715,32 @@ export default function Chat() {
                 className="hidden"
                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={autoMode ? 'default' : 'ghost'}
-                    size="icon"
-                    className={cn(
-                      'h-9 w-9 shrink-0',
-                      autoMode && 'bg-primary text-primary-foreground hover:bg-primary/90',
-                    )}
-                    disabled={isStreaming || limitReached}
-                    onClick={() => {
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-9 w-9 shrink-0 rounded-full border border-[var(--border-strong)]',
+                          (autoMode || webSearch || locationEnabled || deepMode) && 'bg-primary/10 border-primary/40 text-primary',
+                        )}
+                        disabled={isStreaming || limitReached}
+                        aria-label="More tools"
+                        data-tour="chat-tools"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Tools — attach, web search, location, deep mode, voice</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-72">
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
                       setAutoMode((v) => {
                         const next = !v;
                         toast.success(next
@@ -1735,67 +1749,38 @@ export default function Chat() {
                         return next;
                       });
                     }}
-                    title={autoMode
-                      ? 'Auto mode: ON — capabilities auto-enable per message'
-                      : 'Auto mode: OFF — manual toggles only'}
                   >
-                    <Wand2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{autoMode ? 'Auto-detect: web, location & deep reasoning' : 'Auto-detect is off'}</TooltipContent>
-              </Tooltip>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                disabled={isStreaming || limitReached}
-                onClick={() => fileInputRef.current?.click()}
-                data-tour="chat-attach"
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-              {canWebSearch && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={webSearch ? 'default' : 'ghost'}
-                      size="icon"
-                      className={cn(
-                        'h-9 w-9 shrink-0',
-                        webSearch && 'bg-primary text-primary-foreground hover:bg-primary/90',
-                        autoBadges.web && 'ring-2 ring-primary/60 animate-pulse'
-                      )}
-                      disabled={isStreaming || limitReached}
-                      onClick={() => {
+                    <Wand2 className="h-4 w-4 mr-2" />
+                    <span className="flex-1">Auto mode</span>
+                    {autoMode && <Check className="h-4 w-4 opacity-80" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
+                    data-tour="chat-attach"
+                  >
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    <span className="flex-1">Attach files</span>
+                  </DropdownMenuItem>
+                  {canWebSearch && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
                         setWebSearch((v) => {
                           const next = !v;
                           toast.success(next ? 'Web search on — using live results' : 'Web search off');
                           return next;
                         });
                       }}
-                      title={webSearch ? 'Web search: ON — click to disable' : 'Web search: OFF — click to search the internet'}
                       data-tour="chat-web"
                     >
-                      <Globe className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{webSearch ? 'Live web search is on' : 'Search the live web before answering'}</TooltipContent>
-                </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={locationEnabled ? 'default' : 'ghost'}
-                    size="icon"
-                    className={cn(
-                      'h-9 w-9 shrink-0 transition-colors',
-                      locationEnabled && 'bg-accent text-accent-foreground hover:opacity-90',
-                      autoBadges.loc && 'ring-2 ring-accent/60 animate-pulse'
-                    )}
-                    disabled={isStreaming || limitReached}
-                    onClick={() => {
+                      <Globe className="h-4 w-4 mr-2" />
+                      <span className="flex-1">Web search</span>
+                      {webSearch && <Check className="h-4 w-4 opacity-80" />}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
                       setLocationEnabled((v) => {
                         const next = !v;
                         toast.success(next
@@ -1804,28 +1789,15 @@ export default function Chat() {
                         return next;
                       });
                     }}
-                    title={
-                      locationEnabled
-                        ? `Location: ON${userLocation?.city ? ` (${userLocation.city}${userLocation.region ? ', ' + userLocation.region : ''})` : ''} — click to disable`
-                        : 'Location: OFF — click to share your approximate location with the assistant'
-                    }
                     data-tour="chat-location"
                   >
-                    {locationEnabled ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{locationEnabled ? 'Approximate location sharing is on' : 'Share your approximate location for local context'}</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={deepMode ? 'default' : 'ghost'}
-                    size="icon"
-                    className={cn('h-9 w-9 shrink-0', deepMode && 'bg-primary text-primary-foreground hover:bg-primary/90', autoBadges.deep && 'ring-2 ring-primary/60 animate-pulse')}
-                    disabled={isStreaming || limitReached}
-                    onClick={() => {
+                    {locationEnabled ? <MapPin className="h-4 w-4 mr-2" /> : <MapPinOff className="h-4 w-4 mr-2" />}
+                    <span className="flex-1">Share location</span>
+                    {locationEnabled && <Check className="h-4 w-4 opacity-80" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
                       setDeepMode((v) => {
                         const next = !v;
                         toast.success(next
@@ -1834,14 +1806,38 @@ export default function Chat() {
                         return next;
                       });
                     }}
-                    title={deepMode ? 'Deep mode: ON — click to disable' : 'Deep mode: OFF — click for thorough, expert answers'}
                     data-tour="chat-deep"
                   >
-                    <Sparkles className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{deepMode ? 'Deep mode is on' : 'Use deeper multi-step reasoning'}</TooltipContent>
-              </Tooltip>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    <span className="flex-1">Deep mode</span>
+                    {deepMode && <Check className="h-4 w-4 opacity-80" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Volume2 className="h-4 w-4 mr-2" />
+                      <span className="flex-1">Voice</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="max-h-[360px] w-64 overflow-y-auto">
+                        {Object.entries(KOKORO_VOICES_BY_LANGUAGE).map(([lang, voices], idx) => (
+                          <div key={lang}>
+                            {idx > 0 && <DropdownMenuSeparator />}
+                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">{lang}</div>
+                            {voices.map((v) => (
+                              <DropdownMenuItem key={v.id} onSelect={() => handleSelectVoice(v.id)}>
+                                <Check className={cn('h-4 w-4 mr-2', ttsVoice === v.id ? 'opacity-100' : 'opacity-0')} />
+                                <span className="flex-1">{v.label}</span>
+                                <span className="ml-2 text-[10px] text-muted-foreground">{v.gender === 'female' ? '♀' : '♂'}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </div>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <div className="relative flex-1 min-w-0">
                 <Textarea
                   ref={textareaRef}
