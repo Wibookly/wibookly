@@ -283,6 +283,38 @@ export function WelcomeGuide() {
             </p>
           </div>
 
+          {/* "What this app provides" — bullets filtered by user permissions */}
+          {visibleSections.length > 0 && (
+            <div className="mt-8 max-w-4xl mx-auto rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur p-5 sm:p-6">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-indigo-200/80">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
+                What this app provides for you
+              </div>
+              <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                {visibleSections.map((s) => (
+                  <li key={s.id} className="flex items-start gap-3">
+                    <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-gradient-to-br from-indigo-500/40 to-violet-500/20 border border-white/15 flex items-center justify-center">
+                      <s.Icon className="h-3 w-3 text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-white">
+                        {s.title}
+                      </div>
+                      <div className="text-xs text-white/60 leading-relaxed">
+                        {s.tagline}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-[11px] text-white/45">
+                Only the capabilities your account has access to are listed here.
+              </p>
+            </div>
+          )}
+
+
+
           {/* Quick "how it works" strip */}
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {[
