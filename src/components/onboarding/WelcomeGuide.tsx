@@ -224,6 +224,13 @@ export function WelcomeGuide() {
       const isFirstTimeUser = !onboardingCompletedAt;
       if (!cancelled) {
         if (isFirstTimeUser) {
+          // Mark as seen immediately (local + server) so it only ever
+          // auto-opens once — even across devices.
+          try { localStorage.setItem(`${STORAGE_KEY}:${user.id}`, '1'); } catch { /* ignore */ }
+          void supabase
+            .from('user_profiles')
+            .update({ onboarding_completed_at: new Date().toISOString() })
+            .eq('user_id', user.id);
           const t = window.setTimeout(() => {
             if (!cancelled) setOpen(true);
           }, 600);
