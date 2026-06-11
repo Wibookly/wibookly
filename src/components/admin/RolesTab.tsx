@@ -122,13 +122,15 @@ export default function RolesTab() {
                   <th className="py-2 pr-3">User</th>
                   <th className="py-2 pr-3">Department</th>
                   <th className="py-2 pr-3">Roles</th>
+                  <th className="py-2 pr-3">Voice</th>
+                  <th className="py-2 pr-3">Browser</th>
                   <th className="py-2 pr-3">Dept-admin scope</th>
                   <th className="py-2 pr-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No users found.</td></tr>
+                  <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No users found.</td></tr>
                 ) : filtered.map((u) => (
                   <tr key={u.user_id} className="border-b border-border/40">
                     <td className="py-3 pr-3">
