@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing, BookOpen, Headphones } from 'lucide-react';
+import { Plug, FolderOpen, Settings, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing, BookOpen, Headphones, Pin, PinOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -133,7 +133,7 @@ function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
     </NavLink>
   );
 }
-export function AppSidebar() {
+export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; onTogglePin?: () => void } = {}) {
   const { organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
@@ -169,7 +169,18 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex w-[300px] h-screen sticky top-0 flex-col shrink-0" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+    <aside className="hidden lg:flex w-[300px] h-screen flex-col shrink-0 relative" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+      {onTogglePin && (
+        <button
+          onClick={onTogglePin}
+          title={pinned ? 'Unpin sidebar (auto-hide)' : 'Pin sidebar'}
+          aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-md transition-colors hover:bg-white/10"
+          style={{ color: pinned ? 'var(--c-purple)' : 'var(--text-muted)' }}
+        >
+          {pinned ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
+        </button>
+      )}
       <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}

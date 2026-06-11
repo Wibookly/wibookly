@@ -18,6 +18,7 @@ import { ttsService } from '@/lib/ttsService';
 import { getStoredVoice } from '@/hooks/useKokoroTTS';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function AppLayout() {
   const { user, loading, profile } = useAuth();
@@ -87,6 +88,19 @@ export function AppLayout() {
     return <Navigate to="/auth" replace />;
   }
 
+  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('chat-sidebar-pinned') !== 'false';
+  });
+  const [sidebarHover, setSidebarHover] = useState(false);
+  useEffect(() => {
+    localStorage.setItem('chat-sidebar-pinned', String(sidebarPinned));
+  }, [sidebarPinned]);
+  const autoHide = isChatPage && !sidebarPinned;
+  const sidebarOpen = !autoHide || sidebarHover;
+  const togglePin = isChatPage ? () => setSidebarPinned((v) => !v) : undefined;
+
   return (
     <div className="h-screen overflow-hidden flex flex-col lg:flex-row">
       {/* Mobile Header */}
@@ -95,8 +109,28 @@ export function AppLayout() {
       {/* Mobile Sidebar (Sheet) */}
       <MobileSidebar open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
-      {/* Desktop Sidebar */}
-      <AppSidebar />
+      {/* Desktop Sidebar — auto-hide on Chat page when unpinned */}
+      {autoHide ? (
+        <>
+          {/* Hover trigger strip */}
+          <div
+            className="hidden lg:block fixed left-0 top-0 h-screen w-3 z-30"
+            onMouseEnter={() => setSidebarHover(true)}
+          />
+          <div
+            className={cn(
+              'hidden lg:block fixed left-0 top-0 h-screen z-40 transition-transform duration-200 ease-out',
+              sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+            )}
+            onMouseEnter={() => setSidebarHover(true)}
+            onMouseLeave={() => setSidebarHover(false)}
+          >
+            <AppSidebar pinned={sidebarPinned} onTogglePin={togglePin} />
+          </div>
+        </>
+      ) : (
+        <AppSidebar pinned={sidebarPinned} onTogglePin={togglePin} />
+      )}
 
       <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
         <OceanWaves />
@@ -106,6 +140,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+
 
       {/* Global help affordances */}
       <HelpPanelHost />
