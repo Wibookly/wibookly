@@ -482,7 +482,7 @@ export default function PlansTab() {
             Select a plan to configure. Costs project from active M365 users only. Daily limits apply business days only.
           </p>
         </div>
-        <NewPlanButton domains={domains} adminDomainId={domains.find(d => d.domain === adminDomain)?.id || null} onCreated={fetchAll} />
+        <NewPlanButton domains={domains} adminDomainId={domains.find(d => d.domain === adminDomain)?.id || null} onCreated={() => fetchAll()} />
       </div>
 
       {/* KPI strip */}
@@ -540,7 +540,7 @@ export default function PlansTab() {
           activeMembers={activeMembersForPlan(selectedPlanId)}
           domains={domains}
           dollarPerTask={dollarPerTask}
-          onSaved={fetchAll}
+          onSaved={() => fetchAll({ silent: true })}
           allPlans={plans}
         />
       )}
