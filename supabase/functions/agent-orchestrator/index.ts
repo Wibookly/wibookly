@@ -286,15 +286,20 @@ async function callGateway(
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    apikey: ANON_KEY,
   };
   // Prefer internal service-role call when we have a verified user id.
   // This bypasses JWT re-validation issues across function-to-function calls.
+  // IMPORTANT: Supabase's API gateway rejects mismatched apikey/Authorization
+  // ("Conflicting API keys"). When calling internally with service-role, the
+  // service-role key must appear in BOTH headers. For the external/user path,
+  // use the publishable anon key in `apikey` alongside the user's JWT.
   if (userId) {
     headers["Authorization"] = `Bearer ${SERVICE_ROLE_KEY}`;
+    headers["apikey"] = SERVICE_ROLE_KEY;
     headers["x-internal-user-id"] = userId;
   } else {
     headers["Authorization"] = authHeader;
+    headers["apikey"] = ANON_KEY;
   }
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/llm-gateway`, {
     method: "POST",
