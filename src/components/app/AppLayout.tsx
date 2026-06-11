@@ -27,6 +27,12 @@ export function AppLayout() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
   const location = useLocation();
+  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('chat-sidebar-pinned') !== 'false';
+  });
+  const [sidebarHover, setSidebarHover] = useState(false);
 
   // Auto-open the Setup Wizard once per user, when they first land in the app
   // and have not yet completed it. We hit the table directly because the
@@ -77,12 +83,6 @@ export function AppLayout() {
     if (idle) idle(run); else setTimeout(run, 400);
   }, [user?.id]);
 
-  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem('chat-sidebar-pinned') !== 'false';
-  });
-  const [sidebarHover, setSidebarHover] = useState(false);
   useEffect(() => {
     localStorage.setItem('chat-sidebar-pinned', String(sidebarPinned));
   }, [sidebarPinned]);
@@ -120,9 +120,15 @@ export function AppLayout() {
               type="button"
               aria-label="Open sidebar"
               onClick={() => setSidebarHover(true)}
-              className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 items-center justify-center h-20 w-6 rounded-r-lg bg-primary/80 hover:bg-primary text-primary-foreground shadow-lg transition"
+              className="hidden lg:flex fixed left-0 top-24 z-50 items-center justify-center gap-1 h-16 w-10 rounded-r-xl border border-l-0 border-border/60 bg-background/95 hover:bg-background text-foreground shadow-xl backdrop-blur transition"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 shrink-0" />
+              <span
+                className="-rotate-90 text-[10px] font-semibold tracking-[0.18em] uppercase whitespace-nowrap"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Menu
+              </span>
             </button>
           )}
           <div
