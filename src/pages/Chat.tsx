@@ -1040,12 +1040,12 @@ export default function Chat() {
               } else if (data.type === 'token') {
                 const chunk = typeof data.content === 'string' ? data.content : '';
                 if (!chunk) continue;
-                const BATCH = 6;
+                const BATCH = 2;
                 for (let i = 0; i < chunk.length; i += BATCH) {
                   if (info.aborted) break;
                   info.text += chunk.slice(i, i + BATCH);
                   bumpStreams();
-                  await new Promise((resolve) => setTimeout(resolve, 4));
+                  await new Promise((resolve) => setTimeout(resolve, 18));
                 }
               } else if (data.type === 'citations') {
                 info.citations = Array.isArray(data.citations) ? data.citations : [];
