@@ -1959,7 +1959,7 @@ export default function Chat() {
         {messages.length === 0 && !streamingText ? (
           // Empty state — ChatGPT-style: hero + composer sit in the vertical
           // center of the page. Starter prompts live below and start collapsed.
-          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center justify-center px-4 py-6">
+          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-4 pt-8 sm:pt-12 pb-6">
             <div className="w-full max-w-3xl flex flex-col items-center gap-5">
               <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" />
               <div className="text-center">
