@@ -117,8 +117,11 @@ export function actualCost(model: string, tokens_in: number, tokens_out: number)
   return (tokens_in * r.input + tokens_out * r.output) / 1_000_000;
 }
 
-export function detectProvider(model: string): 'openai' | 'anthropic' {
-  if (model.startsWith('claude') || model.includes('anthropic/')) return 'anthropic';
+export function detectProvider(model: string): 'openai' | 'anthropic' | 'google' | 'lovable_ai' {
+  const m = (model || '').toLowerCase();
+  if (m.startsWith('claude') || m.includes('anthropic/')) return 'anthropic';
+  if (m.startsWith('gemini') || m.includes('google/')) return 'google';
+  if (m.includes('lovable_ai/') || m.includes('lovable/')) return 'lovable_ai';
   return 'openai';
 }
 
