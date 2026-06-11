@@ -1166,6 +1166,30 @@ export default function Chat() {
     try { s.abort.abort(); } catch { /* ignore */ }
   };
 
+  // Wake-word handlers. handlersRef in the hook keeps these fresh per render,
+  // so closures over isRecording / input / handleSend stay current.
+  useVoiceCommands({
+    enabled: handsFree,
+    onListen: () => {
+      if (isRecording || isStreaming || isTranscribing || limitReached) return;
+      startRecording();
+      toast.message('Listening…', { description: 'Say "stop" to transcribe or "send" to submit.' });
+    },
+    onStop: () => {
+      if (isRecording) stopRecording();
+    },
+    onSend: () => {
+      if (isRecording) stopRecording();
+      // Give Whisper a moment to populate input, then send.
+      setTimeout(() => {
+        if (input.trim() && !isStreaming) handleSend();
+      }, isRecording ? 1500 : 0);
+    },
+    onCancel: () => {
+      if (isRecording) cancelRecording();
+    },
+  });
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
