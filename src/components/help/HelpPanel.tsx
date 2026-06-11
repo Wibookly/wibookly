@@ -28,6 +28,7 @@ import {
   HELP_CATEGORIES,
   HelpArticle,
   HelpCategoryId,
+  filterHelpArticlesByAccess,
   getContextualArticles,
   searchArticles,
 } from '@/config/help-content';
@@ -35,6 +36,8 @@ import { MiniMarkdown } from './MiniMarkdown';
 import { RESTART_SETUP_WIZARD_EVENT, START_GUIDED_TOUR_EVENT, type StartGuidedTourDetail } from './events';
 import { HelpChat } from './HelpChat';
 import { HelpIssueForm } from './HelpIssueForm';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useAuth } from '@/lib/auth';
 
 type HelpTab = 'articles' | 'chat' | 'issue';
 
@@ -50,10 +53,13 @@ interface HelpPanelProps {
 export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: HelpPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasFeature } = useFeatureAccess();
+  const { profile } = useAuth();
   const [tab, setTab] = useState<HelpTab>('articles');
   const [query, setQuery] = useState('');
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<HelpCategoryId | null>(null);
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
   // Deep-link to a specific article when requested.
   useEffect(() => {
@@ -82,16 +88,33 @@ export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: 
     }
   }, [open]);
 
-  const contextual = useMemo(() => getContextualArticles(location.pathname), [location.pathname]);
-  const searchResults = useMemo(() => (query.trim() ? searchArticles(query) : []), [query]);
+  const visibleArticles = useMemo(
+    () => filterHelpArticlesByAccess(HELP_ARTICLES, hasFeature, isSuperAdmin),
+    [hasFeature, isSuperAdmin],
+  );
+
+  const contextual = useMemo(
+    () => filterHelpArticlesByAccess(getContextualArticles(location.pathname), hasFeature, isSuperAdmin),
+    [location.pathname, hasFeature, isSuperAdmin],
+  );
+
+  const searchResults = useMemo(
+    () => (query.trim() ? filterHelpArticlesByAccess(searchArticles(query), hasFeature, isSuperAdmin) : []),
+    [query, hasFeature, isSuperAdmin],
+  );
 
   const activeArticle: HelpArticle | undefined = activeArticleId
-    ? HELP_ARTICLES.find((a) => a.id === activeArticleId)
+    ? visibleArticles.find((a) => a.id === activeArticleId)
     : undefined;
 
   const articlesInCategory = activeCategory
-    ? HELP_ARTICLES.filter((a) => a.category === activeCategory)
+    ? visibleArticles.filter((a) => a.category === activeCategory)
     : [];
+
+  const visibleCategories = useMemo(
+    () => HELP_CATEGORIES.filter((category) => visibleArticles.some((article) => article.category === category.id)),
+    [visibleArticles],
+  );
 
   const openArticle = (id: string) => setActiveArticleId(id);
 
