@@ -40,8 +40,18 @@ function emit() {
   for (const l of listeners) l({ ...state });
 }
 
+function configureAudioSession() {
+  // iOS Safari 17+: route Web Audio through the "playback" session so it
+  // plays even when the hardware silent (mute) switch is on.
+  try {
+    const session = (navigator as any).audioSession;
+    if (session && session.type !== 'playback') session.type = 'playback';
+  } catch { /* ignore */ }
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  configureAudioSession();
   if (audioCtx) return audioCtx;
   const Ctor: typeof AudioContext | undefined =
     (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -58,6 +68,14 @@ async function unlockAudio() {
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
+    // iOS: play a 1-sample silent buffer inside the gesture to fully unlock.
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch { /* ignore */ }
     console.log('[tts] audioCtx.state after resume:', ctx.state);
   } catch (e) {
     console.error('[tts] audioCtx.resume failed', e);
