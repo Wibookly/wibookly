@@ -17,9 +17,6 @@ let worker: Worker | null = null;
 let preloadRequested = false;
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
-let currentRequestId: string | null = null;
-
-const SILENT_WAV_DATA_URI = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
 
 const state: TtsState = {
   modelState: 'idle',
@@ -41,9 +38,6 @@ function ensureWorker(): Worker {
   worker.onmessage = (event: MessageEvent) => {
     const { type, state: s, id, blob, message, progress } = event.data || {};
     if (type === 'status') {
-      if (s === 'error' && id && currentRequestId && id !== currentRequestId) {
-        return;
-      }
       state.modelState = s;
       state.error = message || null;
       if (typeof progress === 'number') state.progress = progress;
@@ -55,7 +49,6 @@ function ensureWorker(): Worker {
       return;
     }
     if (type === 'audio') {
-      if (!id || id !== currentRequestId) return;
       const url = URL.createObjectURL(blob as Blob);
       try { console.log('[tts] blob bytes:', (blob as Blob).size); } catch { /* ignore */ }
       // Reuse the <audio> element that was created synchronously during the
@@ -70,12 +63,11 @@ function ensureWorker(): Worker {
         el.setAttribute('playsinline', 'true');
         currentAudio = el;
       }
-      try { el.pause(); } catch { /* ignore */ }
-      el.onended = null;
-      el.onerror = null;
+      if (currentUrl) {
+        try { URL.revokeObjectURL(currentUrl); } catch { /* ignore */ }
+      }
       currentUrl = url;
       el.src = url;
-      el.load();
       el.playbackRate = 0.92;
       state.generatingId = null;
       state.playingId = id;
@@ -89,20 +81,18 @@ function ensureWorker(): Worker {
           state.playingId = null;
           emit();
         }
-        if (currentRequestId === id) currentRequestId = null;
-        if (currentAudio === el) currentAudio = null;
+        currentAudio = null;
       };
       el.onerror = () => {
         console.error('[tts] <audio> error', el!.error);
         state.error = 'Audio playback error.';
         if (state.playingId === id) state.playingId = null;
         emit();
-        if (currentRequestId === id) currentRequestId = null;
         if (currentUrl === url) {
           URL.revokeObjectURL(url);
           currentUrl = null;
         }
-        if (currentAudio === el) currentAudio = null;
+        currentAudio = null;
       };
       const p = el.play();
       if (p && typeof p.catch === 'function') {
@@ -124,10 +114,6 @@ function stopAudioOnly() {
     try { currentAudio.pause(); } catch { /* ignore */ }
     currentAudio.onended = null;
     currentAudio.onerror = null;
-    try {
-      currentAudio.removeAttribute('src');
-      currentAudio.load();
-    } catch { /* ignore */ }
     currentAudio = null;
   }
   if (currentUrl) {
@@ -172,7 +158,6 @@ export const ttsService = {
     try {
       const w = ensureWorker();
       stopAudioOnly();
-      currentRequestId = id;
       // CRITICAL: create the <audio> element synchronously inside the user
       // gesture (the click handler that called speak). Safari/iPadOS require
       // this — an Audio() instantiated later, after the async worker reply,
@@ -186,17 +171,8 @@ export const ttsService = {
       // browser marks it as user-unlocked. The real src is swapped in when
       // the worker returns the synthesized audio blob.
       try {
-        el.src = SILENT_WAV_DATA_URI;
-        el.load();
         const p = el.play();
-        if (p && typeof p.then === 'function') {
-          p.then(() => {
-            try {
-              el.pause();
-              el.currentTime = 0;
-            } catch { /* ignore */ }
-          }).catch(() => { /* ignore */ });
-        }
+        if (p && typeof p.catch === 'function') p.catch(() => { /* expected — empty src */ });
       } catch { /* ignore */ }
       state.generatingId = id;
       state.playingId = null;
@@ -205,7 +181,6 @@ export const ttsService = {
       w.postMessage({ type: 'speak', id, text, voice });
     } catch (e: any) {
       console.error('[tts] speak failed', e);
-      currentRequestId = null;
       state.error = String(e?.message ?? e);
       state.generatingId = null;
       emit();
@@ -213,7 +188,6 @@ export const ttsService = {
   },
   stop() {
     stopAudioOnly();
-    currentRequestId = null;
     if (state.generatingId || state.playingId) {
       state.generatingId = null;
       state.playingId = null;
