@@ -84,7 +84,7 @@ const SECTIONS: Section[] = [
     title: 'My Reply Tracker',
     tagline: 'Never lose a follow-up',
     description:
-      'See every thread you’re waiting on. InboxIQ surfaces unanswered conversations, suggests nudges, and helps you close the loop before it slips.',
+      'Track important outbound emails, catch unanswered threads, and stay on top of follow-ups before anything slips through the cracks.',
     route: '/follow-up-reminder',
     tourArticleId: 'reply-tracker',
     Icon: BellRing,
@@ -96,7 +96,7 @@ const SECTIONS: Section[] = [
     title: 'My Daily Brief',
     tagline: 'A 60-second morning standup',
     description:
-      'Open it each morning for an executive summary of what landed overnight, what needs you, and what can wait — generated fresh by AI.',
+      'Your personal AI assistant for priorities, updates, and next actions — available on demand and schedulable for one or more deliveries each day.',
     route: '/ai-daily-brief',
     tourArticleId: 'daily-brief',
     Icon: Sun,
@@ -108,7 +108,7 @@ const SECTIONS: Section[] = [
     title: 'Meeting Copilot',
     tagline: 'Prep, transcribe, summarize',
     description:
-      'Pull context from emails and calendar before every meeting, capture the conversation live, and walk away with action items written for you.',
+      'Run meetings with full AI assistance: prep beforehand, record and transcribe live, then turn discussions into notes, tasks, and action items.',
     route: '/meeting-copilot',
     tourArticleId: 'meeting-copilot',
     Icon: Video,
@@ -120,7 +120,7 @@ const SECTIONS: Section[] = [
     title: 'AI Activity',
     tagline: 'See what the AI did for you',
     description:
-      'A transparent log of every draft written, label applied, and message processed — with full traceability and one-click overrides.',
+      'Review your AI-powered work in one place — drafts, processing, activity, and automation history — so you always know what has been done for you.',
     route: '/ai-activity',
     tourArticleId: 'ai-activity',
     Icon: Activity,
@@ -132,7 +132,7 @@ const SECTIONS: Section[] = [
     title: 'My Profile Settings',
     tagline: 'Make InboxIQ sound like you',
     description:
-      'Set your tone, signature, photo, and writing voice. Manage connected accounts and decide exactly which features are on.',
+      'Design your own profile and signature so AI drafts sound like you, look professional, and use the right identity every time.',
     route: '/settings',
     tourArticleId: 'profile-signature',
     Icon: UserCog,
@@ -306,13 +306,13 @@ export function WelcomeGuide() {
 
   const overlay = (
     <div
-      className="fixed inset-0 z-[110] overflow-y-auto animate-in fade-in duration-300"
+      className="fixed inset-0 z-[110] overflow-hidden animate-in fade-in duration-300"
       role="dialog"
       aria-modal="true"
       aria-label="Welcome to InboxIQ"
     >
       <div
-        className="absolute inset-0 bg-[#05070f]/85 backdrop-blur-xl"
+        className="absolute inset-0 bg-[#05070f]"
         onClick={close}
       />
       <div
@@ -324,8 +324,9 @@ export function WelcomeGuide() {
         <div className="absolute bottom-0 left-1/3 h-[400px] w-[400px] rounded-full bg-fuchsia-500/15 blur-[140px]" />
       </div>
 
-      <div className="relative min-h-full px-4 py-10 sm:px-8 sm:py-14 flex justify-center">
-        <div className="w-full max-w-6xl">
+      <div className="relative h-full overflow-y-auto overscroll-contain">
+        <div className="min-h-full px-4 py-10 sm:px-8 sm:py-14 flex justify-center">
+          <div className="w-full max-w-6xl pb-28">
           <button
             type="button"
             onClick={close}
@@ -580,8 +581,10 @@ export function WelcomeGuide() {
             </div>
           )}
 
-          <div className="mt-10 sticky bottom-0 pb-1">
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[111] px-4 pb-4 sm:px-8">
+            <div className="mx-auto flex w-full max-w-6xl justify-end">
+              <div className="pointer-events-auto rounded-full border border-white/10 bg-[#05070f]/90 px-2 py-2 shadow-[0_-12px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={close}
@@ -589,6 +592,8 @@ export function WelcomeGuide() {
               >
                 {openedByUserRef.current ? 'Close guide' : 'I’ll explore on my own'}
               </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
