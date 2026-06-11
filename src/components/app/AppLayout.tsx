@@ -114,20 +114,22 @@ export function AppLayout() {
       {/* Desktop Sidebar — auto-hide on Chat page when unpinned */}
       {autoHide ? (
         <>
-          {/* Click-to-open edge trigger (visible tab) */}
+          {/* Click-to-open edge trigger (visible tab) — bottom-left, accent-colored */}
           {!sidebarHover && (
             <button
               type="button"
-              aria-label="Open sidebar"
+              aria-label="Open sidebar menu"
               onClick={() => setSidebarHover(true)}
-              className="hidden lg:flex fixed left-0 top-24 z-50 items-center justify-center gap-1 h-16 w-10 rounded-r-xl border border-l-0 border-border/60 bg-background/95 hover:bg-background text-foreground shadow-xl backdrop-blur transition"
+              className="hidden lg:flex fixed left-0 bottom-6 z-50 items-center gap-2 h-11 pl-3 pr-4 rounded-r-xl border border-l-0 shadow-xl backdrop-blur transition hover:brightness-110"
+              style={{
+                background: 'linear-gradient(135deg, var(--c-purple), color-mix(in srgb, var(--c-purple) 80%, black))',
+                color: '#FFFFFF',
+                borderColor: 'color-mix(in srgb, var(--c-purple) 60%, transparent)',
+              }}
             >
               <ChevronRight className="h-4 w-4 shrink-0" />
-              <span
-                className="-rotate-90 text-[10px] font-semibold tracking-[0.18em] uppercase whitespace-nowrap"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                Menu
+              <span className="text-[11px] font-semibold tracking-[0.14em] uppercase whitespace-nowrap">
+                Show Menu
               </span>
             </button>
           )}
