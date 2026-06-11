@@ -153,9 +153,18 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       } catch (err) {
         console.warn('Audio analyser unavailable:', err);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting recording:', error);
-      toast.error('Could not access microphone. Please check permissions.');
+      const name = error?.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        toast.error('Microphone blocked. Allow mic access in your browser settings.');
+      } else if (name === 'NotFoundError') {
+        toast.error('No microphone detected. Plug one in and try again.');
+      } else if (name === 'NotReadableError') {
+        toast.error('Microphone is in use by another app. Close it and try again.');
+      } else {
+        toast.error(`Could not start recording${error?.message ? `: ${error.message}` : ''}`);
+      }
     }
   }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection, deviceId]);
 
@@ -163,31 +172,41 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
     setIsTranscribing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Sign in again — your session expired.');
+        return;
+      }
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-to-text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ audio: base64Audio }),
       });
 
-      if (!response.ok) {
-        throw new Error('Transcription failed');
+      // The edge function returns 200 with `{ error, text: "" }` on failure
+      // so the browser never throws here; inspect the body for a real error.
+      const payload = await response.json().catch(() => ({} as any));
+      if (!response.ok || payload?.error) {
+        const msg = payload?.error || `Transcription failed (${response.status})`;
+        throw new Error(msg);
       }
-
-      const { text } = await response.json();
+      const text = payload?.text || '';
       if (text) {
         onTranscription(text);
+      } else {
+        toast.message("Didn't catch that — try speaking again.");
       }
     } catch (error) {
       console.error('Transcription error:', error);
-      toast.error('Failed to transcribe audio');
+      toast.error(error instanceof Error ? error.message : 'Failed to transcribe audio');
     } finally {
       setIsTranscribing(false);
     }
   };
+
 
   return {
     isRecording,
