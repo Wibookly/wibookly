@@ -5,7 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Activity, DollarSign, Zap, Users as UsersIcon, RefreshCw, Download } from 'lucide-react';
+import { Loader2, Activity, DollarSign, Zap, Users as UsersIcon, RefreshCw, Download, Info } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip as ReTooltip,
+  BarChart, Bar, PieChart, Pie, Cell, Legend, CartesianGrid,
+} from 'recharts';
 
 interface UsageRow {
   id: string;
@@ -24,6 +28,7 @@ interface UserMeta {
   user_id: string;
   email: string;
   full_name: string | null;
+  department: string | null;
 }
 
 const RANGES = [
@@ -74,7 +79,7 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         .limit(2000),
       supabase
         .from('user_profiles')
-        .select('user_id,email,full_name')
+        .select('user_id,email,full_name,department')
         .eq('organization_id', organizationId),
     ]);
 
