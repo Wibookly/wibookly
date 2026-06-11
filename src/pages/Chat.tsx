@@ -12,7 +12,9 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
+  MessageSquare,
 } from 'lucide-react';
+import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
@@ -1581,28 +1583,28 @@ export default function Chat() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
-        {/* Sticky header — stays in place while the chat scrolls */}
-        <header className="shrink-0 z-20 bg-background border-b border-border">
-          <div className="h-14 flex items-center px-4 gap-2">
-            <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-4 w-4" />
-            </Button>
-            <AgentAvatar className="h-8 w-8 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold truncate">
-                {activeConversationTitle}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {activeId
-                  ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
-                  : 'Ask anything about your inbox, calendar, or work.'}
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          </div>
-        </header>
+        {/* Page hero — matches the colored header used on other pages */}
+        <div className="shrink-0 px-4 lg:px-6 pt-4 pb-3">
+          <PageHero
+            accent="purple"
+            eyebrow="AI INTELLIGENCE"
+            title={activeConversationTitle}
+            description={activeId
+              ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
+              : 'Ask anything about your inbox, calendar, or work.'}
+            icon={<MessageSquare className="w-5 h-5 text-white" />}
+            actions={
+              <>
+                <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
+                  <Menu className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </>
+            }
+          />
+        </div>
 
         <div
           ref={scrollContainerRef}

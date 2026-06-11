@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Plug, FolderOpen, Settings, LogOut, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing, BookOpen, Headphones } from 'lucide-react';
+import { Plug, FolderOpen, Settings, Sparkles, BarChart3, ChevronDown, Check, Mail, Calendar, Clock, Tag, Palette, User, PenTool, ListFilter, MessageSquare, Sun, Bot, UserPlus, Link2, Cog, Shield, BellRing, BookOpen, Headphones } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,8 @@ import energyForwardLogo from '@/assets/ef-logo.png';
 import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { TtsStatusBadge } from '@/components/app/TtsStatusBadge';
 
 import { useState, useEffect } from 'react';
 import {
@@ -132,7 +134,7 @@ function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
   );
 }
 export function AppSidebar() {
-  const { signOut, organization, profile } = useAuth();
+  const { organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
@@ -299,13 +301,13 @@ export function AppSidebar() {
           <HelpQuickActions compact />
         </div>
         <ModeToggle />
-        <button
-          onClick={signOut}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+        <div
+          className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+          <UserAvatarDropdown />
+          <TtsStatusBadge />
+        </div>
       </div>
     </aside>
   );
