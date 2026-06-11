@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
+      "kokoro-js": path.resolve(__dirname, "./node_modules/kokoro-js/dist/kokoro.web.js"),
       "@": path.resolve(__dirname, "./src"),
     },
   },
