@@ -188,7 +188,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'ai-features',
     summary: 'A morning summary of what landed in your inbox while you were away.',
     intro:
-      'The Daily Brief is your one-screen morning standup. It pulls together your priorities, calendar, unanswered emails and AI activity so you start the day in control.',
+      'The Daily Brief is your personal AI assistant for priorities, updates, and next actions. Open it anytime on demand, or schedule one or more deliveries each day so the right information reaches you at the right moment.',
     steps: [
       { title: "Open today's brief", description: 'Use the sidebar → AI Daily Brief. This page always shows the freshest brief on demand.', route: '/ai-daily-brief' },
       { title: 'Schedule email delivery', description: 'In the Daily Brief Schedule card, pick the days, time and timezone. Toggle Enable email delivery to start receiving it in your inbox.', target: '[data-tour="brief-schedule"]' },
@@ -373,7 +373,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'ai-features',
     summary: 'Track outgoing emails and get nudged when nobody replies.',
     intro:
-      'The Reply Tracker watches outgoing emails you opt-in to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox and nothing is ever sent without your review.',
+      'My Reply Tracker helps you monitor important outbound emails, surface unanswered threads, and stay ahead of follow-ups. You opt in per email with a special BCC address, so you stay fully in control of what gets tracked.',
     steps: [
       { title: 'Open Reply Tracker', description: 'Use the sidebar → My Reply Tracker.', route: '/follow-up-reminder' },
       { title: 'Turn the tracker ON', description: 'Flip this master switch to enable tracking on your active mailbox. When OFF, BCC triggers are ignored. The badge next to the title shows Active or Off.', target: '[data-tour="followup-toggle"]' },
@@ -391,7 +391,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'ai-features',
     summary: 'Prep, transcribe and summarize every meeting — with full control over what auto-runs.',
     intro:
-      'Meeting Copilot sits next to your calendar. It can prep you before a call, capture the conversation live, and write the follow-up — but every automation is a toggle so you stay in control.',
+      'Meeting Copilot is your end-to-end meeting assistant. It prepares you before the meeting, captures and transcribes the conversation live, then turns it into notes, tasks, action items, and follow-up drafts — all with controls you can tailor to your workflow.',
     steps: [
       { title: 'Open Meeting Copilot', description: 'Use the sidebar → Meeting Copilot.', route: '/meeting-copilot' },
       { title: 'Expand Copilot Behavior', description: 'Click this card to open the global behavior toggles. The one-line summary at the top tells you exactly what is ON / OFF right now.', target: '[data-tour="mc-behavior"]' },
@@ -408,7 +408,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'ai-features',
     summary: 'A transparent log of everything the AI did for you.',
     intro:
-      'This dashboard is your audit trail. Every draft written, auto-reply sent, event scheduled, chat message and meeting handled by AI is counted here so you always know what is going on.',
+      'AI Activity is your visibility center for everything AI has done for you. Review drafts, processing, chat usage, meetings, and automation history in one place so you always understand what happened and when.',
     steps: [
       { title: 'Open AI Activity', description: 'Use the sidebar → AI Activity.', route: '/ai-activity' },
       { title: 'Email AI stats', description: 'Top row: AI drafts created, auto-replies sent, calendar events booked, and total emails processed. Each tile is a 30-day rolling number.', target: '[data-tour="aa-email-stats"]' },
