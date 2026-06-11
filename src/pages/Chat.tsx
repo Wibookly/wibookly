@@ -1439,15 +1439,38 @@ export default function Chat() {
   return (
     <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
-        <div className="p-3 border-b border-border flex items-center justify-between">
+      {/* Edge hover trigger — when unpinned, hovering the left edge opens the chat list */}
+      {!sidebarPinned && (
+        <div
+          className="fixed left-0 top-0 h-full w-2 z-30"
+          onMouseEnter={() => setSidebarOpen(true)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={cn(
+          'inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
+          sidebarPinned ? 'static' : 'fixed',
+          sidebarVisible ? 'translate-x-0' : '-translate-x-full',
+        )}
+        onMouseLeave={() => { if (!sidebarPinned) setSidebarOpen(false); }}
+      >
+        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
           <span className="font-semibold text-sm">InboxIQ Chat</span>
-          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setSidebarPinned((v) => !v)}
+              title={sidebarPinned ? 'Unpin (auto-hide)' : 'Pin sidebar'}
+            >
+              {sidebarPinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="p-3 space-y-2">
           <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
