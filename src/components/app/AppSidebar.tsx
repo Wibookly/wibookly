@@ -133,7 +133,7 @@ function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
     </NavLink>
   );
 }
-export function AppSidebar() {
+export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; onTogglePin?: () => void } = {}) {
   const { organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
