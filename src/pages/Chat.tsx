@@ -1721,11 +1721,11 @@ export default function Chat() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="default"
                         size="icon"
                         className={cn(
-                          'h-9 w-9 shrink-0 rounded-full border border-[var(--border-strong)]',
-                          (autoMode || webSearch || locationEnabled || deepMode) && 'bg-primary/10 border-primary/40 text-primary',
+                          'h-9 w-9 shrink-0 rounded-full',
+                          (autoMode || webSearch || locationEnabled || deepMode) && 'ring-2 ring-primary/40',
                         )}
                         disabled={isStreaming || limitReached}
                         aria-label="More tools"
@@ -1958,7 +1958,7 @@ export default function Chat() {
               <Button
                 size="icon"
                 variant={isStreaming ? 'destructive' : 'default'}
-                className="h-9 w-9 shrink-0"
+                className="h-9 w-9 shrink-0 rounded-full"
                 onClick={() => (isStreaming ? handleStop() : handleSend())}
                 disabled={isStreaming ? false : (!input.trim() || limitReached || isRecording)}
                 title={isStreaming ? 'Stop generating' : (isRecording ? 'Stop the mic first, then send' : 'Send message')}
