@@ -1595,11 +1595,8 @@ export default function Chat() {
             icon={<MessageSquare className="w-5 h-5 text-white" />}
             actions={
               <>
-                <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen((v) => !v)} title={sidebarPinned ? 'Toggle chat list' : 'Show chat list'}>
                   <Menu className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
               </>
             }
