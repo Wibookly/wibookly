@@ -192,6 +192,69 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
       .sort((a, b) => b.totalCalls - a.totalCalls);
   }, [rows]);
 
+  // --- chart aggregations (mirror the Activity report's visual language) ---
+  const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+
+  // Daily cost timeseries
+  const dailyCostSeries = useMemo(() => {
+    const map = new Map<string, { day: string; cost: number; calls: number }>();
+    rows.forEach((r) => {
+      const day = r.created_at.slice(0, 10);
+      const ex = map.get(day) ?? { day, cost: 0, calls: 0 };
+      ex.cost += Number(r.cost_usd || 0);
+      ex.calls += 1;
+      map.set(day, ex);
+    });
+    return Array.from(map.values()).sort((a, b) => a.day.localeCompare(b.day))
+      .map(d => ({ ...d, day: d.day.slice(5), cost: Number(d.cost.toFixed(4)) }));
+  }, [rows]);
+
+  // Cost by provider (pie)
+  const costByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    rows.forEach(r => map.set(r.provider, (map.get(r.provider) ?? 0) + Number(r.cost_usd || 0)));
+    return Array.from(map.entries())
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value: Number(value.toFixed(4)) }));
+  }, [rows]);
+
+  // Cost by model (bar)
+  const costByModel = useMemo(() => {
+    const map = new Map<string, { model: string; cost: number; calls: number }>();
+    rows.forEach(r => {
+      const ex = map.get(r.model) ?? { model: r.model || 'unknown', cost: 0, calls: 0 };
+      ex.cost += Number(r.cost_usd || 0);
+      ex.calls += 1;
+      map.set(r.model, ex);
+    });
+    return Array.from(map.values()).sort((a, b) => b.cost - a.cost).slice(0, 10)
+      .map(d => ({ ...d, cost: Number(d.cost.toFixed(4)) }));
+  }, [rows]);
+
+  // Cost by feature/action (bar)
+  const costByFeature = useMemo(() => {
+    const map = new Map<string, number>();
+    rows.forEach(r => map.set(r.action, (map.get(r.action) ?? 0) + Number(r.cost_usd || 0)));
+    return Array.from(map.entries())
+      .filter(([, v]) => v > 0)
+      .map(([action, cost]) => ({ action, cost: Number(cost.toFixed(4)) }))
+      .sort((a, b) => b.cost - a.cost);
+  }, [rows]);
+
+  // Cost by department (bar)
+  const costByDepartment = useMemo(() => {
+    const map = new Map<string, number>();
+    rows.forEach(r => {
+      const dept = (r.user_id && users[r.user_id]?.department) || 'Unassigned';
+      map.set(dept, (map.get(dept) ?? 0) + Number(r.cost_usd || 0));
+    });
+    return Array.from(map.entries())
+      .filter(([, v]) => v > 0)
+      .map(([department, cost]) => ({ department, cost: Number(cost.toFixed(4)) }))
+      .sort((a, b) => b.cost - a.cost);
+  }, [rows, users]);
+
+
   function exportCsv() {
     const header = ['Time', 'User', 'Email', 'Provider', 'Model', 'Action', 'Prompt Tokens', 'Completion Tokens', 'Total Tokens', 'Cost USD'];
     const lines = rows.map((r) => {
