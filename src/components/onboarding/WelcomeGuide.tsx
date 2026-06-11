@@ -155,6 +155,11 @@ export function WelcomeGuide() {
   const openedByUserRef = useRef(false);
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
+  useEffect(() => {
+    setAutoChecked(false);
+    openedByUserRef.current = false;
+  }, [user?.id]);
+
   // Only surface sections the user actually has permission to use.
   const visibleSections = useMemo(
     () =>
