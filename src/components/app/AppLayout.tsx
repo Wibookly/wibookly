@@ -88,7 +88,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden flex flex-col lg:flex-row">
+    <div className="h-screen overflow-hidden flex flex-col lg:flex-row">
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
