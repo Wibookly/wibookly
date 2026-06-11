@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,7 +134,6 @@ export function AppLayout() {
             <AppSidebar
               pinned={sidebarPinned}
               onTogglePin={togglePin}
-              onClose={() => setSidebarHover(false)}
             />
           </div>
           {sidebarHover && !sidebarPinned && (
