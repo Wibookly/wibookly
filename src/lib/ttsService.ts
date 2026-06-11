@@ -149,6 +149,7 @@ function ensureWorker(): Worker {
       };
       el.onended = () => {
         markStarted();
+        if (id) requestMeta.delete(id);
         if (currentUrl === url) {
           URL.revokeObjectURL(url);
           currentUrl = null;
@@ -161,6 +162,7 @@ function ensureWorker(): Worker {
       };
       el.onerror = () => {
         markStarted();
+        if (id) requestMeta.delete(id);
         console.error('[tts] <audio> error', el.error);
         stopAudioOnly();
         if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
@@ -176,6 +178,7 @@ function ensureWorker(): Worker {
       };
       el.play().catch((err) => {
         markStarted();
+        if (id) requestMeta.delete(id);
         console.error('[tts] play() rejected:', err);
         stopAudioOnly();
         if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
@@ -260,6 +263,7 @@ export const ttsService = {
   },
   stop() {
     stopAudioOnly();
+    requestMeta.clear();
     if (supportsSpeechSynthesis()) {
       try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
     }
