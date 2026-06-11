@@ -22,6 +22,17 @@ interface OrgUser {
   departments_admin: string[];
 }
 
+interface ClientStatusRow {
+  user_id: string;
+  browser_name: string | null;
+  browser_version: string | null;
+  os_name: string | null;
+  device_type: string | null;
+  tts_state: 'ready' | 'loading' | 'error' | 'unused' | string;
+  tts_error: string | null;
+  last_seen_at: string | null;
+}
+
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
 
 export default function RolesTab() {
