@@ -1956,388 +1956,140 @@ export default function Chat() {
           />
         </div>
 
-        <div
-          ref={scrollContainerRef}
-          onScroll={onScrollContainer}
-          className="flex-1 overflow-y-auto min-h-0"
-        >
-          {messages.length === 0 && !streamingText ? (
-            <div className="max-w-6xl mx-auto px-6 pb-16">
-              <div className="flex flex-col items-center mt-4">
-                <AgentAvatar className="w-40 h-40 mb-4 shadow-glow" />
-                <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
-                <p className="text-muted-foreground mb-6 text-sm">Pick a starter or type your own message.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                  {examplePrompts.map((p) => (
-                    <button
-                      key={p.title}
-                      onClick={() => setInput(`${p.title} ${p.desc}`)}
-                      className="text-left border-2 border-border rounded-xl p-4 hover:border-primary hover:bg-accent transition group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
-                          <p.icon className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">{p.title}</div>
-                          <div className="text-xs text-muted-foreground">{p.desc}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-10 text-xs text-muted-foreground">Type your message below to start</div>
+        {messages.length === 0 && !streamingText ? (
+          // Empty state — ChatGPT-style: hero + composer sit in the vertical
+          // center of the page. Starter prompts live below and start collapsed.
+          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center justify-center px-4 py-6">
+            <div className="w-full max-w-3xl flex flex-col items-center gap-5">
+              <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" />
+              <div className="text-center">
+                <h2 className="text-xl sm:text-2xl font-semibold mb-1">How can I help you today?</h2>
+                <p className="text-muted-foreground text-sm">Type your message below — or pick a starter.</p>
               </div>
-            </div>
-          ) : (
-            <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
-              {activeStream && (
-                <>
-                  <MessageBubble
-                    message={activeStream.tempUserMsg}
-                    userInitial={userInitial}
-                    isStreamingAny={isStreaming}
-                  />
-                  {activeStream.text ? (
-                    <MessageBubble
-                      message={{
-                        id: 'streaming',
-                        role: 'assistant',
-                        content: activeStream.text,
-                        created_at: new Date().toISOString(),
-                        citations: activeStream.citations.length ? activeStream.citations : null,
-                      }}
-                      userInitial={userInitial}
-                      streaming
-                    />
-                  ) : (
-                    <AIThinking label={activeStream.phase} />
-                  )}
-                </>
-              )}
 
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
+              {/* Composer placed in the middle, directly under the greeting. */}
+              <div className="w-full">{composerBlock}</div>
 
-        {/* Input area */}
-        <div className="bg-background -mt-2">
-          <div className="max-w-6xl mx-auto px-6 pt-2 pb-3 space-y-2.5">
-            {messages.length > 0 && (
-              <div data-tour="chat-capacity">
-                <ChatCreditMeter
-                  onSummarizeAndContinue={handleSummarizeAndContinue}
-                  summarizing={summarizing}
-                  messageCount={messages.filter((m) => m.role !== 'system').length}
-                />
-
-              </div>
-            )}
-
-            {files.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-muted rounded-md px-2 py-1 text-xs">
-                    <FileText className="h-3 w-3" />
-                    <span className="truncate max-w-[160px]">{f.name}</span>
-                    <span className="text-muted-foreground">{(f.size / 1024).toFixed(0)}KB</span>
-                    <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {autoMode && (autoBadges.web || autoBadges.deep || autoBadges.loc) && (
-              <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-xs font-medium text-primary animate-pulse w-fit">
-                <span className="opacity-70">Auto-enabled:</span>
-                {autoBadges.web && <span>🌐 Web</span>}
-                {autoBadges.deep && <span>🧠 Deep</span>}
-                {autoBadges.loc && <span>📍 Location</span>}
-              </div>
-            )}
-            <div className="relative flex items-end gap-2 border-2 border-[var(--border-strong)] hover:border-primary focus-within:border-primary rounded-2xl p-2 bg-[var(--surface-2)] focus-within:ring-2 focus-within:ring-ring transition-colors shadow-sm">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.docx,.txt,application/pdf,image/png,image/jpeg,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                className="hidden"
-                onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-              />
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="default"
-                        size="icon"
-                        className={cn(
-                          'h-9 w-9 shrink-0 rounded-full',
-                          (autoMode || webSearch || locationEnabled || deepMode) && 'ring-2 ring-primary/40',
-                        )}
-                        disabled={isStreaming || limitReached}
-                        aria-label="More tools"
-                        data-tour="chat-tools"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Tools — attach, web search, location, deep mode, voice</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-72">
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setAutoMode((v) => {
-                        const next = !v;
-                        toast.success(next
-                          ? 'Auto mode ON — I’ll turn on web search, location, and deep reasoning when your request needs them'
-                          : 'Auto mode OFF — I’ll only use the toggles you set');
-                        return next;
-                      });
-                    }}
+              {/* Collapsible starter prompts with admin/user "Add prompt". */}
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setPromptsExpanded((v) => !v)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition"
+                    aria-expanded={promptsExpanded}
                   >
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    <span className="flex-1">Auto mode</span>
-                    {autoMode && <Check className="h-4 w-4 opacity-80" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
-                    data-tour="chat-attach"
-                  >
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    <span className="flex-1">Attach files</span>
-                  </DropdownMenuItem>
-                  {canWebSearch && (
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setWebSearch((v) => {
-                          const next = !v;
-                          toast.success(next ? 'Web search on — using live results' : 'Web search off');
-                          return next;
-                        });
-                      }}
-                      data-tour="chat-web"
-                    >
-                      <Globe className="h-4 w-4 mr-2" />
-                      <span className="flex-1">Web search</span>
-                      {webSearch && <Check className="h-4 w-4 opacity-80" />}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setLocationEnabled((v) => {
-                        const next = !v;
-                        toast.success(next
-                          ? 'Location sharing on — the assistant can use your approximate location'
-                          : 'Location sharing off');
-                        return next;
-                      });
-                    }}
-                    data-tour="chat-location"
-                  >
-                    {locationEnabled ? <MapPin className="h-4 w-4 mr-2" /> : <MapPinOff className="h-4 w-4 mr-2" />}
-                    <span className="flex-1">Share location</span>
-                    {locationEnabled && <Check className="h-4 w-4 opacity-80" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setDeepMode((v) => {
-                        const next = !v;
-                        toast.success(next
-                          ? 'Deep mode ON — thorough multi-step answers, no follow-up questions'
-                          : 'Deep mode OFF');
-                        return next;
-                      });
-                    }}
-                    data-tour="chat-deep"
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    <span className="flex-1">Deep mode</span>
-                    {deepMode && <Check className="h-4 w-4 opacity-80" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Volume2 className="h-4 w-4 mr-2" />
-                      <span className="flex-1">Voice</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="max-h-[360px] w-64 overflow-y-auto">
-                        {Object.entries(KOKORO_VOICES_BY_LANGUAGE).map(([lang, voices], idx) => (
-                          <div key={lang}>
-                            {idx > 0 && <DropdownMenuSeparator />}
-                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">{lang}</div>
-                            {voices.map((v) => (
-                              <DropdownMenuItem key={v.id} onSelect={() => handleSelectVoice(v.id)}>
-                                <Check className={cn('h-4 w-4 mr-2', ttsVoice === v.id ? 'opacity-100' : 'opacity-0')} />
-                                <span className="flex-1">{v.label}</span>
-                                <span className="ml-2 text-[10px] text-muted-foreground">{v.gender === 'female' ? '♀' : '♂'}</span>
-                              </DropdownMenuItem>
-                            ))}
-                          </div>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <div className="relative flex-1 min-w-0">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={limitReached ? 'Daily limit reached' : (isRecording ? 'Listening… your speech will be added to what you already typed' : 'Message InboxIQ...')}
-                  disabled={isStreaming || limitReached}
-                  rows={1}
-                  className={cn(
-                    'w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2',
-                    isRecording && 'pr-[200px]',
-                  )}
-                  data-tour="chat-input"
-                />
-                {isRecording && (
-                  <div className="pointer-events-none absolute right-1 bottom-1 flex items-center gap-2 rounded-full bg-background/90 backdrop-blur px-2 py-1 border border-destructive/40 shadow-sm">
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-destructive/70 animate-ping" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
+                    {promptsExpanded
+                      ? <ChevronDown className="h-3.5 w-3.5" />
+                      : <ChevronRight className="h-3.5 w-3.5" />}
+                    Starter prompts
+                    <span className="text-[10px] opacity-60">
+                      ({examplePrompts.length + customPrompts.length})
                     </span>
-                    <VoiceWaveform getAnalyser={getAnalyser} active={isRecording} className="h-5 w-20" />
-                    <span className="text-[10px] font-medium text-muted-foreground shrink-0">Listening…</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddPromptOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    title="Save your own prompt to this list"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add prompt
+                  </button>
+                </div>
+                {promptsExpanded && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {examplePrompts.map((p) => (
+                      <button
+                        key={p.title}
+                        onClick={() => setInput(`${p.title} ${p.desc}`)}
+                        className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                            <p.icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{p.title}</div>
+                            <div className="text-xs text-muted-foreground truncate">{p.desc}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                    {customPrompts.map((p, idx) => (
+                      <div
+                        key={`custom-${idx}-${p.title}`}
+                        className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setInput(p.desc ? `${p.title} ${p.desc}` : p.title)}
+                          className="block w-full text-left"
+                        >
+                          <div className="flex items-start gap-3 pr-6">
+                            <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                              <Sparkles className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">{p.title}</div>
+                              {p.desc && <div className="text-xs text-muted-foreground truncate">{p.desc}</div>}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeCustomPrompt(idx)}
+                          title="Remove prompt"
+                          className="absolute top-1.5 right-1.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-background opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-              {isRecording ? (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={cancelRecording}
-                        title="Cancel recording"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Cancel</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        onClick={stopRecording}
-                        title="Stop and transcribe"
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Stop &amp; transcribe</TooltipContent>
-                  </Tooltip>
-                </>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="relative h-9 w-9 shrink-0"
-                      disabled={isStreaming || limitReached || isTranscribing}
-                      onClick={startRecording}
-                      title={isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
-                      data-tour="chat-mic"
-                    >
-                      {isTranscribing
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Mic className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
-                </Tooltip>
-              )}
-
-
-              {!isRecording && (
-              <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-6 shrink-0 -ml-1 px-0"
-                        aria-label="Choose microphone"
-                      >
-                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Choose microphone</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="max-w-[300px]">
-                  <DropdownMenuItem onClick={() => handleSelectMic(null)}>
-                    <Check className={cn('h-4 w-4 mr-2', selectedMicId ? 'opacity-0' : 'opacity-100')} />
-                    System default
-                  </DropdownMenuItem>
-                  {micDevices.length > 0 && <DropdownMenuSeparator />}
-                  {micDevices.map((d, i) => (
-                    <DropdownMenuItem key={d.deviceId || i} onClick={() => handleSelectMic(d.deviceId)}>
-                      <Check className={cn('h-4 w-4 mr-2', selectedMicId === d.deviceId ? 'opacity-100' : 'opacity-0')} />
-                      <span className="truncate">{d.label || `Microphone ${i + 1}`}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  {micDevices.length === 0 && (
-                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                      Allow microphone access to list devices
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              )}
-              <Button
-                size="icon"
-                variant={isStreaming ? 'destructive' : 'default'}
-                className="h-9 w-9 shrink-0 rounded-full"
-                onClick={() => (isStreaming ? handleStop() : handleSend())}
-                disabled={isStreaming ? false : (!input.trim() || limitReached || isRecording)}
-                title={isStreaming ? 'Stop generating' : (isRecording ? 'Stop the mic first, then send' : 'Send message')}
-                aria-label={isStreaming ? 'Stop generating' : 'Send message'}
-              >
-                {isStreaming ? <Square className="h-4 w-4" fill="currentColor" /> : <Send className="h-4 w-4" />}
-              </Button>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className={usageColor}>
-                {usage.limit
-                  ? limitReached
-                    ? `Limit reached. Resets at midnight UTC`
-                    : `${usage.used} / ${usage.limit} messages used today`
-                  : `${usage.used} messages today`}
-              </span>
-              {isStreaming && (
-                <span className="text-muted-foreground">InboxIQ is processing…</span>
-              )}
-              {input.length > 1000 && (
-                <span className="text-muted-foreground">{input.length} chars</span>
-              )}
             </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div
+              ref={scrollContainerRef}
+              onScroll={onScrollContainer}
+              className="flex-1 overflow-y-auto min-h-0"
+            >
+              <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
+                {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
+                {activeStream && (
+                  <>
+                    <MessageBubble
+                      message={activeStream.tempUserMsg}
+                      userInitial={userInitial}
+                      isStreamingAny={isStreaming}
+                    />
+                    {activeStream.text ? (
+                      <MessageBubble
+                        message={{
+                          id: 'streaming',
+                          role: 'assistant',
+                          content: activeStream.text,
+                          created_at: new Date().toISOString(),
+                          citations: activeStream.citations.length ? activeStream.citations : null,
+                        }}
+                        userInitial={userInitial}
+                        streaming
+                      />
+                    ) : (
+                      <AIThinking label={activeStream.phase} />
+                    )}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+            {composerBlock}
+          </>
+        )}
+
       </div>
 
       {/* Blocked dialog */}
