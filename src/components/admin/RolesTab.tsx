@@ -192,6 +192,31 @@ export default function RolesTab() {
   );
 }
 
+function VoiceStatusDot({ status }: { status?: ClientStatusRow }) {
+  const state = status?.tts_state ?? 'unknown';
+  const map: Record<string, { color: string; label: string }> = {
+    ready:   { color: '#16a34a', label: 'Read-aloud ready in this user\'s browser.' },
+    loading: { color: '#f59e0b', label: 'Voice model is downloading in this user\'s browser.' },
+    error:   { color: '#f59e0b', label: status?.tts_error || 'Voice model failed to load.' },
+    unused:  { color: '#9ca3af', label: 'User has not loaded the voice model yet.' },
+    unknown: { color: '#6b7280', label: 'No client status reported yet.' },
+  };
+  const { color, label } = map[state] || map.unknown;
+  const seen = status?.last_seen_at ? new Date(status.last_seen_at).toLocaleString() : 'never';
+  return (
+    <span
+      title={`${label} (last seen: ${seen})`}
+      className="inline-flex items-center gap-1.5"
+    >
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={{ background: color, boxShadow: `0 0 0 2px color-mix(in srgb, ${color} 20%, transparent)` }}
+      />
+      <span className="text-xs text-muted-foreground capitalize">{state}</span>
+    </span>
+  );
+}
+
 function EditRoleDialog({
   user, organizationId, isSuper, allDepartments, onClose, onSaved,
 }: {
