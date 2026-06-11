@@ -704,12 +704,16 @@ function PlanCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const performSaveRef = useRef<() => Promise<void>>(async () => {});
 
+  // Only re-seed local edits when the *selected plan* changes — not on every
+  // silent refetch after autosave, otherwise in-flight edits get clobbered
+  // and inputs feel like "the page just refreshed".
   useEffect(() => {
     setRows(initRows);
     setMaxCats(plan.max_categories || 0);
     setChangeToken(0);
     setSaveStatus('idle');
-  }, [initRows, plan.id, plan.max_categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.id]);
 
   const updateRow = (key: string, patch: Partial<FeatureRow>) => {
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
@@ -784,11 +788,13 @@ function PlanCard({
     }
   };
 
+  // Debounced autosave — wait 5s after the *last* change before persisting so
+  // rapid edits don't trigger a save (and parent refetch) on every keystroke.
   useEffect(() => {
     if (changeToken === 0) return;
     const timer = setTimeout(() => {
       performSaveRef.current();
-    }, 600);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [changeToken]);
 
