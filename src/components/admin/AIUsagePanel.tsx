@@ -319,6 +319,73 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
     };
   }, [rows]);
 
+  // Resolve a usage row to one or more group buckets based on the chosen
+  // dimension. A row can land in multiple buckets when grouping by permission
+  // group (a user may belong to several groups); for every other dimension a
+  // row lands in exactly one bucket. Unknown values fall into "Unassigned".
+  function bucketsFor(r: UsageRow, dim: GroupDimension): string[] {
+    const meta = r.user_id ? users[r.user_id] : null;
+    if (!meta) return ['Unassigned'];
+    if (dim === 'department') return [meta.department?.trim() || 'Unassigned'];
+    if (dim === 'company')    return [meta.company?.trim() || 'Unassigned'];
+    if (dim === 'domain') {
+      const dom = meta.domain_id ? domains[meta.domain_id] : null;
+      const label = dom ? (dom.organization_name ? `${dom.organization_name} (${dom.domain})` : dom.domain) : null;
+      if (label) return [label];
+      const fromEmail = meta.email?.split('@')[1];
+      return [fromEmail || 'Unassigned'];
+    }
+    if (dim === 'group') {
+      return meta.groups.length > 0 ? meta.groups : ['Ungrouped'];
+    }
+    return ['Unassigned'];
+  }
+
+  // Cross-tab: chosen group × provider, with per-feature drilldown and a
+  // "Free" flag for any service that logged calls without any billable cost
+  // (e.g. Lovable AI Gateway calls priced at $0 for the current tier).
+  const groupBreakdown = useMemo(() => {
+    const providers = new Set<string>();
+    const map = new Map<string, {
+      group: string;
+      calls: number;
+      cost: number;
+      users: Set<string>;
+      perProvider: Record<string, { calls: number; cost: number; tokens: number; models: Set<string> }>;
+      perFeature: Record<string, { calls: number; cost: number }>;
+    }>();
+    rows.forEach((r) => {
+      providers.add(r.provider);
+      bucketsFor(r, groupBy).forEach((key) => {
+        const ex = map.get(key) ?? {
+          group: key, calls: 0, cost: 0,
+          users: new Set<string>(),
+          perProvider: {}, perFeature: {},
+        };
+        ex.calls += 1;
+        ex.cost += Number(r.cost_usd || 0);
+        if (r.user_id) ex.users.add(r.user_id);
+        const pp = ex.perProvider[r.provider] ?? { calls: 0, cost: 0, tokens: 0, models: new Set<string>() };
+        pp.calls += 1;
+        pp.cost += Number(r.cost_usd || 0);
+        pp.tokens += Number(r.total_tokens || 0);
+        if (r.model) pp.models.add(r.model);
+        ex.perProvider[r.provider] = pp;
+        const pf = ex.perFeature[r.action] ?? { calls: 0, cost: 0 };
+        pf.calls += 1;
+        pf.cost += Number(r.cost_usd || 0);
+        ex.perFeature[r.action] = pf;
+        map.set(key, ex);
+      });
+    });
+    return {
+      providers: Array.from(providers).sort(),
+      rows: Array.from(map.values()).sort((a, b) => b.cost - a.cost),
+    };
+  }, [rows, users, domains, groupBy]);
+
+
+
 
 
   function exportCsv() {
