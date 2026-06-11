@@ -655,12 +655,14 @@ export default function Chat() {
 
   useEffect(() => { loadUsage(); }, [loadUsage]);
 
-  // Auto-scroll only if user near bottom
+  // Auto-scroll only if user near bottom. Also force a scroll the moment a
+  // new turn begins (isStreaming flips true / phase changes) so the user
+  // immediately sees the AI "Thinking…" indicator without scrolling down.
   useEffect(() => {
-    if (stickToBottomRef.current) {
+    if (stickToBottomRef.current || isStreaming) {
       messagesEndRef.current?.scrollIntoView({ behavior: streamingText ? 'auto' : 'smooth' });
     }
-  }, [messages, streamingText]);
+  }, [messages, streamingText, isStreaming, streamingPhase]);
 
   const onScrollContainer = () => {
     const el = scrollContainerRef.current;
