@@ -405,6 +405,13 @@ export default function Chat() {
     return () => { toast.dismiss('kokoro-loading'); };
   }, [ttsLoading, ttsLoadProgress, speakingId]);
 
+  // Surface TTS errors so the user knows why playback didn't start.
+  useEffect(() => {
+    if (ttsModelState === 'error' && ttsError) {
+      toast.error(`Voice playback failed: ${ttsError}`, { id: 'kokoro-error' });
+    }
+  }, [ttsModelState, ttsError]);
+
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {
