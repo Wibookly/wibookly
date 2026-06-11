@@ -312,22 +312,42 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         <SummaryCard icon={<UsersIcon className="w-4 h-4" />} label="Active users" value={totals.activeUsers.toString()} />
       </div>
 
-      {/* Accuracy disclosure — answers "is this actually what I'm being charged?" */}
+      {/* Accuracy methodology — explains exactly how the number is computed */}
       <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="pt-4 pb-4">
           <div className="flex gap-3">
             <Info className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
-            <div className="text-xs leading-relaxed text-muted-foreground">
-              <p className="text-foreground font-medium mb-1">How accurate is this?</p>
+            <div className="text-xs leading-relaxed text-muted-foreground space-y-2">
+              <p className="text-foreground font-medium">How we measure AI cost</p>
               <p>
-                <strong>"Total cost (logged)"</strong> below is computed from every AI call this org made,
-                using each provider's published per-token pricing (OpenAI, Anthropic, Llama, Phi) at the
-                time of the call. It matches what providers bill ± a few cents (rounding + cache hits).
+                Every AI call the app makes goes through one shared accounting helper
+                (<code className="px-1 rounded bg-muted">recordSpend</code>) that writes a row to
+                <code className="px-1 rounded bg-muted"> ai_usage_logs</code> with:
+                <span className="font-medium"> user, organization, feature, provider, model,
+                prompt tokens, completion tokens</span> and a computed
+                <span className="font-medium"> cost_usd</span>.
               </p>
-              <p className="mt-1">
-                <strong>"Live provider spend"</strong> is the authoritative number pulled from the
-                provider billing APIs — use that as the source of truth. Per-feature, per-model and
-                per-department breakdowns are derived from logged calls.
+              <p>
+                <span className="font-medium text-foreground">cost_usd</span> ={' '}
+                <code className="px-1 rounded bg-muted">(prompt_tokens × input_price + completion_tokens × output_price) ÷ 1,000,000</code>{' '}
+                using each vendor's published per-million-token rates (OpenAI, Anthropic,
+                Google Gemini via Lovable AI Gateway, Llama, Phi). Tokens come from the model
+                response's <code className="px-1 rounded bg-muted">usage</code> block — the same
+                counter the vendor bills from — so the "Logged cost" total below matches the
+                vendor invoice within rounding (and minus prompt-cache discounts the vendor
+                applies after the fact).
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Live provider spend</span> (further
+                below) hits each vendor's billing API directly and is the authoritative number.
+                Use the logged numbers for per-user / per-feature / per-department breakdowns
+                — the vendor billing APIs don't expose those.
+              </p>
+              <p className="text-amber-600/90 dark:text-amber-400/80">
+                If a feature shows <span className="font-medium">$0.00</span> with non-zero calls,
+                it means the model id used (e.g. a brand-new Gemini preview) isn't priced in
+                <code className="px-1 rounded bg-muted">_shared/enforce-limits.ts → MODEL_COSTS</code>{' '}
+                yet — add it there and the next call will price correctly.
               </p>
             </div>
           </div>
