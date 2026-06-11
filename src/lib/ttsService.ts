@@ -51,12 +51,24 @@ function ensureWorker(): Worker {
     if (type === 'audio') {
       const url = URL.createObjectURL(blob as Blob);
       try { console.log('[tts] blob bytes:', (blob as Blob).size); } catch { /* ignore */ }
-      stopAudioOnly();
+      // Reuse the <audio> element that was created synchronously during the
+      // user's click in speak(). Safari/iPadOS will only allow .play() on an
+      // element that was instantiated inside the original user gesture, so we
+      // must NOT create a new Audio() here.
+      if (currentUrl) {
+        try { URL.revokeObjectURL(currentUrl); } catch { /* ignore */ }
+      }
       currentUrl = url;
-      const el = new Audio(url);
-      el.setAttribute('playsinline', 'true');
+      let el = currentAudio;
+      if (!el) {
+        // Fallback (no prior gesture-bound element) — will likely be blocked
+        // by autoplay policy, but better than nothing.
+        el = new Audio();
+        el.setAttribute('playsinline', 'true');
+        currentAudio = el;
+      }
+      el.src = url;
       el.playbackRate = 0.92;
-      currentAudio = el;
       state.generatingId = null;
       state.playingId = id;
       emit();
@@ -72,7 +84,7 @@ function ensureWorker(): Worker {
         currentAudio = null;
       };
       el.onerror = () => {
-        console.error('[tts] <audio> error', el.error);
+        console.error('[tts] <audio> error', el!.error);
         state.error = 'Audio playback error.';
         if (state.playingId === id) state.playingId = null;
         emit();
@@ -82,12 +94,15 @@ function ensureWorker(): Worker {
         }
         currentAudio = null;
       };
-      el.play().catch((err) => {
-        console.error('[tts] play() rejected:', err);
-        state.error = err?.message || 'Audio failed to start.';
-        if (state.playingId === id) state.playingId = null;
-        emit();
-      });
+      const p = el.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch((err) => {
+          console.error('[tts] play() rejected:', err);
+          state.error = err?.message || 'Audio failed to start. Tap Play again.';
+          if (state.playingId === id) state.playingId = null;
+          emit();
+        });
+      }
       return;
     }
   };
