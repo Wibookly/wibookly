@@ -12,11 +12,10 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare, Ear, Pencil,
+  MessageSquare, Pencil,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { useVoiceCommands } from '@/hooks/useVoiceCommands';
 import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
 import { supabase } from '@/integrations/supabase/client';
@@ -503,14 +502,8 @@ export default function Chat() {
     deviceId: selectedMicId,
   });
 
-  // Hands-free voice command mode: say "listen" to start mic, "stop" to stop & transcribe,
-  // "send" to submit the current input, "cancel" to discard the current recording.
-  const [handsFree, setHandsFree] = useState<boolean>(() => {
-    try { return localStorage.getItem('inboxiq:handsfree') === '1'; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('inboxiq:handsfree', handsFree ? '1' : '0'); } catch { /* ignore */ }
-  }, [handsFree]);
+
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1166,29 +1159,8 @@ export default function Chat() {
     try { s.abort.abort(); } catch { /* ignore */ }
   };
 
-  // Wake-word handlers. handlersRef in the hook keeps these fresh per render,
-  // so closures over isRecording / input / handleSend stay current.
-  useVoiceCommands({
-    enabled: handsFree,
-    onListen: () => {
-      if (isRecording || isStreaming || isTranscribing || limitReached) return;
-      startRecording();
-      toast.message('Listening…', { description: 'Say "stop" to transcribe or "send" to submit.' });
-    },
-    onStop: () => {
-      if (isRecording) stopRecording();
-    },
-    onSend: () => {
-      if (isRecording) stopRecording();
-      // Give Whisper a moment to populate input, then send.
-      setTimeout(() => {
-        if (input.trim() && !isStreaming) handleSend();
-      }, isRecording ? 1500 : 0);
-    },
-    onCancel: () => {
-      if (isRecording) cancelRecording();
-    },
-  });
+
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1936,34 +1908,8 @@ export default function Chat() {
                   <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
                 </Tooltip>
               )}
-              {!isRecording && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        'relative h-9 w-9 shrink-0',
-                        handsFree && 'text-primary bg-primary/10 hover:bg-primary/15'
-                      )}
-                      onClick={() => setHandsFree((v) => !v)}
-                      aria-pressed={handsFree}
-                      aria-label="Toggle hands-free voice commands"
-                    >
-                      <Ear className="h-4 w-4" />
-                      {handsFree && (
-                        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {handsFree
-                      ? 'Hands-free on — say "listen", "stop", "send", or "cancel"'
-                      : 'Hands-free off — turn on to control with your voice'}
-                  </TooltipContent>
-                </Tooltip>
-              )}
+
+
               {!isRecording && (
               <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
                 <Tooltip>
