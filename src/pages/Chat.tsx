@@ -12,7 +12,7 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare,
+  MessageSquare, Pin, PinOff,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
@@ -367,6 +367,14 @@ export default function Chat() {
   const streamingCitations = activeStream?.citations ?? [];
   const streamingPhase = activeStream?.phase ?? 'Thinking';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('inboxiq-chat-sidebar-pinned') === '1';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('inboxiq-chat-sidebar-pinned', sidebarPinned ? '1' : '0'); } catch {}
+  }, [sidebarPinned]);
+  const sidebarVisible = sidebarPinned || sidebarOpen;
   const [files, setFiles] = useState<File[]>([]);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
@@ -1431,15 +1439,38 @@ export default function Chat() {
   return (
     <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
-        <div className="p-3 border-b border-border flex items-center justify-between">
+      {/* Edge hover trigger — when unpinned, hovering the left edge opens the chat list */}
+      {!sidebarPinned && (
+        <div
+          className="fixed left-0 top-0 h-full w-2 z-30"
+          onMouseEnter={() => setSidebarOpen(true)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={cn(
+          'inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
+          sidebarPinned ? 'static' : 'fixed',
+          sidebarVisible ? 'translate-x-0' : '-translate-x-full',
+        )}
+        onMouseLeave={() => { if (!sidebarPinned) setSidebarOpen(false); }}
+      >
+        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
           <span className="font-semibold text-sm">InboxIQ Chat</span>
-          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setSidebarPinned((v) => !v)}
+              title={sidebarPinned ? 'Unpin (auto-hide)' : 'Pin sidebar'}
+            >
+              {sidebarPinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="p-3 space-y-2">
           <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
@@ -1548,38 +1579,12 @@ export default function Chat() {
             </div>
           )}
         </div>
-        <div className="border-t border-border p-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 w-full text-left hover:bg-accent rounded-md p-2 transition">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">{userInitial}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{profile?.full_name || profile?.email}</div>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="h-4 w-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleTheme}>
-                {theme === 'dark' ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => signOut()}>
-                <LogOut className="h-4 w-4 mr-2" /> Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </aside>
 
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      {sidebarOpen && !sidebarPinned && (
+        <div className="fixed inset-0 bg-black/40 z-30" onClick={() => setSidebarOpen(false)} />
       )}
+
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
@@ -1595,11 +1600,8 @@ export default function Chat() {
             icon={<MessageSquare className="w-5 h-5 text-white" />}
             actions={
               <>
-                <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen((v) => !v)} title={sidebarPinned ? 'Toggle chat list' : 'Show chat list'}>
                   <Menu className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
               </>
             }
