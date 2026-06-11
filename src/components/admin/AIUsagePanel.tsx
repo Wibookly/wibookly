@@ -312,6 +312,175 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         <SummaryCard icon={<UsersIcon className="w-4 h-4" />} label="Active users" value={totals.activeUsers.toString()} />
       </div>
 
+      {/* Accuracy disclosure — answers "is this actually what I'm being charged?" */}
+      <Card className="border-blue-500/20 bg-blue-500/5">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex gap-3">
+            <Info className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
+            <div className="text-xs leading-relaxed text-muted-foreground">
+              <p className="text-foreground font-medium mb-1">How accurate is this?</p>
+              <p>
+                <strong>"Total cost (logged)"</strong> below is computed from every AI call this org made,
+                using each provider's published per-token pricing (OpenAI, Anthropic, Llama, Phi) at the
+                time of the call. It matches what providers bill ± a few cents (rounding + cache hits).
+              </p>
+              <p className="mt-1">
+                <strong>"Live provider spend"</strong> is the authoritative number pulled from the
+                provider billing APIs — use that as the source of truth. Per-feature, per-model and
+                per-department breakdowns are derived from logged calls.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Detailed charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm">Daily cost trend</CardTitle>
+            <CardDescription>Logged AI spend per day (USD)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[260px]">
+              {dailyCostSeries.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center pt-20">No activity in this period.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyCostSeries}>
+                    <defs>
+                      <linearGradient id="ai-cost-gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.6} />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                    <ReTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Cost']}
+                    />
+                    <Area type="monotone" dataKey="cost" stroke="#3b82f6" fill="url(#ai-cost-gradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cost by provider</CardTitle>
+            <CardDescription>Where your spend lives</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[260px]">
+              {costByProvider.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center pt-20">No data.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={costByProvider} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
+                      {costByProvider.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <ReTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Cost']}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cost by model</CardTitle>
+            <CardDescription>Top 10 models by spend</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[280px]">
+              {costByModel.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center pt-24">No data.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={costByModel} layout="vertical" margin={{ left: 80 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                    <YAxis type="category" dataKey="model" tick={{ fontSize: 11 }} width={140} />
+                    <ReTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Cost']}
+                    />
+                    <Bar dataKey="cost" fill="#10b981" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cost by feature</CardTitle>
+            <CardDescription>Which features drive the bill</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[280px]">
+              {costByFeature.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center pt-24">No data.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={costByFeature} layout="vertical" margin={{ left: 80 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                    <YAxis type="category" dataKey="action" tick={{ fontSize: 11 }} width={140} />
+                    <ReTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Cost']}
+                    />
+                    <Bar dataKey="cost" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Cost by department</CardTitle>
+          <CardDescription>Aggregates per-user spend by their assigned department</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[260px]">
+            {costByDepartment.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center pt-20">No department data yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={costByDepartment} margin={{ left: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="department" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                  <ReTooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    formatter={(v: number) => [`$${Number(v).toFixed(4)}`, 'Cost']}
+                  />
+                  <Bar dataKey="cost" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+
       {/* Live provider spend (org-wide) */}
       <Card>
         <CardHeader>
