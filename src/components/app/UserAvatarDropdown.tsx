@@ -18,6 +18,14 @@ import { ttsService, type TtsState } from '@/lib/ttsService';
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [tts, setTts] = useState<TtsState>(() => ttsService.getState());
+  useEffect(() => ttsService.subscribe(setTts), []);
+  const voice = (() => {
+    if (tts.modelState === 'ready') return { color: '#16a34a', label: 'Voice ready', icon: <Volume2 className="w-3 h-3" /> };
+    if (tts.modelState === 'loading') return { color: '#f59e0b', label: 'Voice downloading…', icon: <Loader2 className="w-3 h-3 animate-spin" /> };
+    if (tts.modelState === 'error') return { color: '#f59e0b', label: 'Voice unavailable', icon: <AlertCircle className="w-3 h-3" /> };
+    return { color: '#9ca3af', label: 'Voice not loaded', icon: <Volume2 className="w-3 h-3" /> };
+  })();
 
   // Extract first name + last initial (e.g. "John D.") - no email fallback
   const getNameParts = () => {
