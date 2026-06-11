@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 
 export function AppLayout() {
   const { user, loading, profile } = useAuth();
+  useReportClientStatus();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
