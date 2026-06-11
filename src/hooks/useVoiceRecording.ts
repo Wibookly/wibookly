@@ -49,11 +49,27 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
   }, [stopRecording]);
 
   const startRecording = useCallback(async () => {
+    let stream: MediaStream | null = null;
     try {
-      const audioConstraints: MediaTrackConstraints = deviceId
-        ? { deviceId: { exact: deviceId } }
-        : {};
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      // Try the user's preferred mic first. If the saved device id is no
+      // longer plugged in (or the browser refuses `exact`), gracefully fall
+      // back to the default mic instead of throwing a red error.
+      const tryGetStream = async (constraints: MediaStreamConstraints) =>
+        navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        const audioConstraints: MediaTrackConstraints = deviceId
+          ? { deviceId: { exact: deviceId } }
+          : {};
+        stream = await tryGetStream({ audio: audioConstraints });
+      } catch (e: any) {
+        if (deviceId && (e?.name === 'OverconstrainedError' || e?.name === 'NotFoundError' || e?.name === 'NotReadableError')) {
+          console.warn('Preferred mic unavailable, falling back to default:', e?.name);
+          stream = await tryGetStream({ audio: true });
+        } else {
+          throw e;
+        }
+      }
+
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
