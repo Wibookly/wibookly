@@ -12,7 +12,9 @@ export function TtsStatusBadge() {
 
   useEffect(() => ttsService.subscribe(setSnap), []);
 
-  if (snap.modelState === 'idle') return null;
+  // Hide while idle OR while the model is still downloading — users only want
+  // a confirmation that the voice is ready (or that something failed).
+  if (snap.modelState === 'idle' || snap.modelState === 'loading') return null;
 
   const { color, bg, border, icon, label, title } = (() => {
     if (snap.modelState === 'loading') {

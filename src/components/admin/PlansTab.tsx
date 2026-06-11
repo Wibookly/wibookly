@@ -287,9 +287,9 @@ export default function PlansTab() {
 
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (opts?: { silent?: boolean }) => {
     if (!organization?.id) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       // Plans are defined under a global org; super admin sees all, others see their own org's.
       const plansQuery = isSuperAdmin
@@ -316,7 +316,6 @@ export default function PlansTab() {
         setFeatures((f.data || []) as FeatureRow[]);
         setMemberships(m.data || []);
 
-        // Active users: those in user_group_memberships, joined to user_profiles + monthly usage
         const userIds = (m.data || []).map(r => r.user_id);
         if (userIds.length) {
           const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -355,7 +354,6 @@ export default function PlansTab() {
         setFeatures([]); setMemberships([]); setActiveUsers([]);
       }
 
-      // Discovered count
       const dc = await supabase
         .from('discovered_tenant_users')
         .select('id', { count: 'exact', head: true })
@@ -363,7 +361,7 @@ export default function PlansTab() {
         .is('invited_user_id', null);
       setDiscoveredCount(dc.count || 0);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [organization?.id, isSuperAdmin]);
 
