@@ -30,26 +30,27 @@ export function UserAvatarDropdown() {
 
   const { first: firstName, lastInitial } = getNameParts();
   const displayName = lastInitial ? `${firstName} ${lastInitial}.` : firstName;
+  const fullName = profile?.full_name?.trim() || displayName;
   const initials = (firstName.charAt(0) + (lastInitial || firstName.charAt(1) || '')).toUpperCase();
   const photoUrl = profile?.profile_photo_url ?? undefined;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <span className="hidden sm:inline text-sm font-medium text-foreground">{displayName}</span>
+        <button className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
           {photoUrl ? (
-            <Avatar className="h-9 w-9 border-2 border-white shadow-md">
-              <AvatarImage src={photoUrl} alt={displayName} />
+            <Avatar className="h-9 w-9 border-2 border-white shadow-md shrink-0">
+              <AvatarImage src={photoUrl} alt={fullName} />
               <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
                 {initials}
               </AvatarFallback>
             </Avatar>
           ) : (
-            <div className="h-9 w-9 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
+            <div className="h-9 w-9 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
               {initials}
             </div>
           )}
+          <span className="hidden sm:inline text-sm font-medium text-foreground truncate">{fullName}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

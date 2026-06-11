@@ -311,7 +311,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           </p>
           <HelpQuickActions compact />
         </div>
-        <ModeToggle />
+        
         <div
           className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
