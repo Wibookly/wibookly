@@ -1,6 +1,7 @@
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InboxIQLogo } from './InboxIQLogo';
+import { TtsStatusBadge } from './TtsStatusBadge';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 
 interface MobileHeaderProps {
@@ -14,9 +15,12 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
         <img src={energyForwardLogo} alt="EnergyForward" className="h-8 w-auto object-contain" />
         <InboxIQLogo className="text-2xl" />
       </div>
-      <Button variant="ghost" size="icon" onClick={onMenuClick}>
-        <Menu className="h-5 w-5" />
-      </Button>
+      <div className="flex items-center gap-2">
+        <TtsStatusBadge compact />
+        <Button variant="ghost" size="icon" onClick={onMenuClick}>
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
     </header>
   );
 }

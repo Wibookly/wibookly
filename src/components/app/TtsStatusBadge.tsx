@@ -6,14 +6,14 @@ import { ttsService, type TtsState } from '@/lib/ttsService';
  * Per-user, browser-local indicator confirming the in-browser Kokoro TTS
  * model has finished downloading and is ready to read messages aloud.
  * Visible only to the signed-in user in their own browser (not server state).
+ *
+ * `compact` renders an icon-only pill suitable for the mobile header.
  */
-export function TtsStatusBadge() {
+export function TtsStatusBadge({ compact = false }: { compact?: boolean } = {}) {
   const [snap, setSnap] = useState<TtsState>(() => ttsService.getState());
 
   useEffect(() => ttsService.subscribe(setSnap), []);
 
-  // Hide while idle OR while the model is still downloading — users only want
-  // a confirmation that the voice is ready (or that something failed).
   if (snap.modelState === 'idle' || snap.modelState === 'loading') return null;
 
   const { color, bg, border, icon, label, title } = (() => {
@@ -36,6 +36,19 @@ export function TtsStatusBadge() {
       title: snap.error || 'Voice model failed to load.',
     };
   })();
+
+  if (compact) {
+    return (
+      <div
+        title={title}
+        aria-label={label}
+        className="inline-flex items-center justify-center w-8 h-8 rounded-full"
+        style={{ background: bg, border: `1px solid ${border}`, color }}
+      >
+        {icon}
+      </div>
+    );
+  }
 
   return (
     <div

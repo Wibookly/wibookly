@@ -390,6 +390,40 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+
+  // ---- Starter prompts: collapsed by default + user-added custom prompts ----
+  type StarterPrompt = { icon?: string; title: string; desc: string; custom?: boolean };
+  const CUSTOM_PROMPTS_KEY = 'inboxiq-custom-starter-prompts';
+  const [promptsExpanded, setPromptsExpanded] = useState(false);
+  const [customPrompts, setCustomPrompts] = useState<StarterPrompt[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(CUSTOM_PROMPTS_KEY);
+      return raw ? (JSON.parse(raw) as StarterPrompt[]) : [];
+    } catch { return []; }
+  });
+  const [addPromptOpen, setAddPromptOpen] = useState(false);
+  const [newPromptTitle, setNewPromptTitle] = useState('');
+  const [newPromptDesc, setNewPromptDesc] = useState('');
+  const persistCustomPrompts = (next: StarterPrompt[]) => {
+    setCustomPrompts(next);
+    try { localStorage.setItem(CUSTOM_PROMPTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const addCustomPrompt = () => {
+    const title = newPromptTitle.trim();
+    const desc = newPromptDesc.trim();
+    if (!title) { toast.error('Give the prompt a short title'); return; }
+    persistCustomPrompts([...customPrompts, { title, desc, custom: true }]);
+    setNewPromptTitle('');
+    setNewPromptDesc('');
+    setAddPromptOpen(false);
+    setPromptsExpanded(true);
+    toast.success('Prompt added');
+  };
+  const removeCustomPrompt = (idx: number) => {
+    persistCustomPrompts(customPrompts.filter((_, i) => i !== idx));
+  };
+
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
@@ -403,6 +437,11 @@ export default function Chat() {
   // the first click on a "play" button feels instant instead of waiting
   // for an ~80MB download.
   useEffect(() => { preloadTTS(); }, [preloadTTS]);
+  // Starter prompts are collapsed by default; collapse again whenever the
+  // user switches between conversations (or starts a new chat) so the empty
+  // hero stays focused on the input box.
+  useEffect(() => { setPromptsExpanded(false); }, [activeId]);
+
   // Only show the download toast if the user actually clicks play before
   // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
@@ -1444,224 +1483,10 @@ export default function Chat() {
     );
   };
 
-  return (
-    <div className="h-full flex bg-background text-foreground overflow-hidden">
-      {/* Sidebar */}
-      <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
-        <div className="p-3 border-b border-border flex items-center justify-between">
-          <span className="font-semibold text-sm">InboxIQ Chat</span>
-          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="p-3 space-y-2">
-          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
-            <Plus className="h-4 w-4" /> New chat
-          </Button>
-          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground" data-tour="chat-new-folder">
-            <FolderPlus className="h-3.5 w-3.5" /> New folder
-          </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
-          {/* Inactivity banner removed — chats only expire after 30 days of no activity.
-              Users can export individual chats via the ⋮ menu (Download or Save to OneDrive). */}
-
-          {/* Folders */}
-          {folders.length > 0 && (
-            <div className="space-y-0.5">
-              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Folders</div>
-              {folders.map((f) => {
-                const expanded = expandedFolders.has(f.id);
-                const items = conversationsByFolder[f.id] || [];
-                const isRenaming = renamingFolderId === f.id;
-                return (
-                  <div key={f.id}>
-                    <div
-                      className={cn(
-                        'group flex items-center gap-1.5 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary',
-                      )}
-                      onClick={() => !isRenaming && toggleFolder(f.id)}
-                    >
-                      {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                      <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      {isRenaming ? (
-                        <Input
-                          autoFocus
-                          value={folderNameDraft}
-                          onChange={(e) => setFolderNameDraft(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') { e.preventDefault(); handleRenameFolder(f.id, folderNameDraft); }
-                            if (e.key === 'Escape') { setRenamingFolderId(null); }
-                          }}
-                          onBlur={() => handleRenameFolder(f.id, folderNameDraft)}
-                          className="h-6 text-sm px-1 py-0 flex-1"
-                        />
-                      ) : (
-                        <span className="flex-1 truncate font-medium group-hover:font-semibold transition-all">{f.name}</span>
-                      )}
-                      <span className="text-[10px] text-muted-foreground">{items.length}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
-                            onClick={(e) => e.stopPropagation()}
-                            title="More"
-                          >
-                            <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenuItem onClick={() => { handleNewChat(f.id); }}>
-                            <Plus className="h-4 w-4 mr-2" /> New chat in folder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setRenamingFolderId(f.id); setFolderNameDraft(f.name); }}>
-                            <Check className="h-4 w-4 mr-2" /> Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDeleteFolder(f.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete folder
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    {expanded && (
-                      <div className="space-y-0.5">
-                        {items.length === 0 ? (
-                          <div className="ml-5 px-2 py-1.5 text-xs text-muted-foreground italic">Empty — start a new chat here</div>
-                        ) : (
-                          items.map((c) => renderConvRow(c, { indent: true }))
-                        )}
-                        <button
-                          className="ml-5 flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => handleNewChat(f.id)}
-                        >
-                          <Plus className="h-3 w-3" /> New chat in this folder
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {Object.entries(groupedConversations).map(([label, items]) => (
-            <div key={label}>
-              <div className="mx-2 mt-3 mb-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-sm">{label}</div>
-              {items.map((c) => renderConvRow(c))}
-            </div>
-          ))}
-          {!conversations.length && (
-            <div className="px-2 py-6 text-xs text-muted-foreground text-center">
-              No conversations yet
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
-        {/* Page hero — matches the colored header used on other pages */}
-        <div className="shrink-0 px-4 lg:px-6 pt-4 pb-3">
-          <PageHero
-            accent="purple"
-            eyebrow="AI INTELLIGENCE"
-            title={activeConversationTitle}
-            description={activeId
-              ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
-              : 'Ask anything about your inbox, calendar, or work.'}
-            icon={<MessageSquare className="w-5 h-5 text-white" />}
-            actions={
-              <>
-                <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
-                  <Menu className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </Button>
-              </>
-            }
-          />
-        </div>
-
-        <div
-          ref={scrollContainerRef}
-          onScroll={onScrollContainer}
-          className="flex-1 overflow-y-auto min-h-0"
-        >
-          {messages.length === 0 && !streamingText ? (
-            <div className="max-w-6xl mx-auto px-6 pb-16">
-              <div className="flex flex-col items-center mt-4">
-                <AgentAvatar className="w-40 h-40 mb-4 shadow-glow" />
-                <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
-                <p className="text-muted-foreground mb-6 text-sm">Pick a starter or type your own message.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                  {examplePrompts.map((p) => (
-                    <button
-                      key={p.title}
-                      onClick={() => setInput(`${p.title} ${p.desc}`)}
-                      className="text-left border-2 border-border rounded-xl p-4 hover:border-primary hover:bg-accent transition group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
-                          <p.icon className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">{p.title}</div>
-                          <div className="text-xs text-muted-foreground">{p.desc}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-10 text-xs text-muted-foreground">Type your message below to start</div>
-              </div>
-            </div>
-          ) : (
-            <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
-              {activeStream && (
-                <>
-                  <MessageBubble
-                    message={activeStream.tempUserMsg}
-                    userInitial={userInitial}
-                    isStreamingAny={isStreaming}
-                  />
-                  {activeStream.text ? (
-                    <MessageBubble
-                      message={{
-                        id: 'streaming',
-                        role: 'assistant',
-                        content: activeStream.text,
-                        created_at: new Date().toISOString(),
-                        citations: activeStream.citations.length ? activeStream.citations : null,
-                      }}
-                      userInitial={userInitial}
-                      streaming
-                    />
-                  ) : (
-                    <AIThinking label={activeStream.phase} />
-                  )}
-                </>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
-
-        {/* Input area */}
+  // Composer block — extracted so we can render it both at the bottom of
+  // an active conversation AND in the middle of the empty-state hero
+  // (ChatGPT-style centered input on a fresh chat).
+  const composerBlock = (
         <div className="bg-background -mt-2">
           <div className="max-w-6xl mx-auto px-6 pt-2 pb-3 space-y-2.5">
             {messages.length > 0 && (
@@ -1977,6 +1802,294 @@ export default function Chat() {
             </div>
           </div>
         </div>
+  );
+
+  return (
+
+    <div className="h-full flex bg-background text-foreground overflow-hidden">
+      {/* Sidebar */}
+      <aside className={cn(
+        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      )}>
+        <div className="p-3 border-b border-border flex items-center justify-between">
+          <span className="font-semibold text-sm">InboxIQ Chat</span>
+          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="p-3 space-y-2">
+          <Button onClick={() => handleNewChat(null)} variant="outline" className="w-full justify-start gap-2" data-tour="chat-new">
+            <Plus className="h-4 w-4" /> New chat
+          </Button>
+          <Button onClick={handleCreateFolder} variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs text-muted-foreground" data-tour="chat-new-folder">
+            <FolderPlus className="h-3.5 w-3.5" /> New folder
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
+          {/* Inactivity banner removed — chats only expire after 30 days of no activity.
+              Users can export individual chats via the ⋮ menu (Download or Save to OneDrive). */}
+
+          {/* Folders */}
+          {folders.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Folders</div>
+              {folders.map((f) => {
+                const expanded = expandedFolders.has(f.id);
+                const items = conversationsByFolder[f.id] || [];
+                const isRenaming = renamingFolderId === f.id;
+                return (
+                  <div key={f.id}>
+                    <div
+                      className={cn(
+                        'group flex items-center gap-1.5 px-2.5 py-2 border-b border-border/40 text-sm cursor-pointer transition-all hover:bg-primary/10 hover:text-primary',
+                      )}
+                      onClick={() => !isRenaming && toggleFolder(f.id)}
+                    >
+                      {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {isRenaming ? (
+                        <Input
+                          autoFocus
+                          value={folderNameDraft}
+                          onChange={(e) => setFolderNameDraft(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleRenameFolder(f.id, folderNameDraft); }
+                            if (e.key === 'Escape') { setRenamingFolderId(null); }
+                          }}
+                          onBlur={() => handleRenameFolder(f.id, folderNameDraft)}
+                          className="h-6 text-sm px-1 py-0 flex-1"
+                        />
+                      ) : (
+                        <span className="flex-1 truncate font-medium group-hover:font-semibold transition-all">{f.name}</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{items.length}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded hover:bg-background"
+                            onClick={(e) => e.stopPropagation()}
+                            title="More"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={() => { handleNewChat(f.id); }}>
+                            <Plus className="h-4 w-4 mr-2" /> New chat in folder
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setRenamingFolderId(f.id); setFolderNameDraft(f.name); }}>
+                            <Check className="h-4 w-4 mr-2" /> Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteFolder(f.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete folder
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {expanded && (
+                      <div className="space-y-0.5">
+                        {items.length === 0 ? (
+                          <div className="ml-5 px-2 py-1.5 text-xs text-muted-foreground italic">Empty — start a new chat here</div>
+                        ) : (
+                          items.map((c) => renderConvRow(c, { indent: true }))
+                        )}
+                        <button
+                          className="ml-5 flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => handleNewChat(f.id)}
+                        >
+                          <Plus className="h-3 w-3" /> New chat in this folder
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {Object.entries(groupedConversations).map(([label, items]) => (
+            <div key={label}>
+              <div className="mx-2 mt-3 mb-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-sm">{label}</div>
+              {items.map((c) => renderConvRow(c))}
+            </div>
+          ))}
+          {!conversations.length && (
+            <div className="px-2 py-6 text-xs text-muted-foreground text-center">
+              No conversations yet
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
+        {/* Page hero — matches the colored header used on other pages */}
+        <div className="shrink-0 px-4 lg:px-6 pt-4 pb-3">
+          <PageHero
+            accent="purple"
+            eyebrow="AI INTELLIGENCE"
+            title={activeConversationTitle}
+            description={activeId
+              ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
+              : 'Ask anything about your inbox, calendar, or work.'}
+            icon={<MessageSquare className="w-5 h-5 text-white" />}
+            actions={
+              <>
+                <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
+                  <Menu className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </>
+            }
+          />
+        </div>
+
+        {messages.length === 0 && !streamingText ? (
+          // Empty state — ChatGPT-style: hero + composer sit in the vertical
+          // center of the page. Starter prompts live below and start collapsed.
+          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center justify-center px-4 py-6">
+            <div className="w-full max-w-3xl flex flex-col items-center gap-5">
+              <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" />
+              <div className="text-center">
+                <h2 className="text-xl sm:text-2xl font-semibold mb-1">How can I help you today?</h2>
+                <p className="text-muted-foreground text-sm">Type your message below — or pick a starter.</p>
+              </div>
+
+              {/* Composer placed in the middle, directly under the greeting. */}
+              <div className="w-full">{composerBlock}</div>
+
+              {/* Collapsible starter prompts with admin/user "Add prompt". */}
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setPromptsExpanded((v) => !v)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition"
+                    aria-expanded={promptsExpanded}
+                  >
+                    {promptsExpanded
+                      ? <ChevronDown className="h-3.5 w-3.5" />
+                      : <ChevronRight className="h-3.5 w-3.5" />}
+                    Starter prompts
+                    <span className="text-[10px] opacity-60">
+                      ({examplePrompts.length + customPrompts.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddPromptOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    title="Save your own prompt to this list"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add prompt
+                  </button>
+                </div>
+                {promptsExpanded && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {examplePrompts.map((p) => (
+                      <button
+                        key={p.title}
+                        onClick={() => setInput(`${p.title} ${p.desc}`)}
+                        className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                            <p.icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{p.title}</div>
+                            <div className="text-xs text-muted-foreground truncate">{p.desc}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                    {customPrompts.map((p, idx) => (
+                      <div
+                        key={`custom-${idx}-${p.title}`}
+                        className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setInput(p.desc ? `${p.title} ${p.desc}` : p.title)}
+                          className="block w-full text-left"
+                        >
+                          <div className="flex items-start gap-3 pr-6">
+                            <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                              <Sparkles className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">{p.title}</div>
+                              {p.desc && <div className="text-xs text-muted-foreground truncate">{p.desc}</div>}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeCustomPrompt(idx)}
+                          title="Remove prompt"
+                          className="absolute top-1.5 right-1.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-background opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              ref={scrollContainerRef}
+              onScroll={onScrollContainer}
+              className="flex-1 overflow-y-auto min-h-0"
+            >
+              <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
+                {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
+                {activeStream && (
+                  <>
+                    <MessageBubble
+                      message={activeStream.tempUserMsg}
+                      userInitial={userInitial}
+                      isStreamingAny={isStreaming}
+                    />
+                    {activeStream.text ? (
+                      <MessageBubble
+                        message={{
+                          id: 'streaming',
+                          role: 'assistant',
+                          content: activeStream.text,
+                          created_at: new Date().toISOString(),
+                          citations: activeStream.citations.length ? activeStream.citations : null,
+                        }}
+                        userInitial={userInitial}
+                        streaming
+                      />
+                    ) : (
+                      <AIThinking label={activeStream.phase} />
+                    )}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+            {composerBlock}
+          </>
+        )}
+
       </div>
 
       {/* Blocked dialog */}
@@ -1996,6 +2109,44 @@ export default function Chat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add starter-prompt dialog — saved per-user in this browser. */}
+      <Dialog open={addPromptOpen} onOpenChange={setAddPromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add a starter prompt</DialogTitle>
+            <DialogDescription>
+              Save a custom prompt you use often. It appears in your starter list whenever you open a new chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Title</label>
+              <Input
+                value={newPromptTitle}
+                onChange={(e) => setNewPromptTitle(e.target.value)}
+                placeholder="e.g. Weekly status update"
+                maxLength={80}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Details (optional)</label>
+              <Textarea
+                value={newPromptDesc}
+                onChange={(e) => setNewPromptDesc(e.target.value)}
+                placeholder="e.g. summarizing this week's progress, blockers, and next steps"
+                rows={3}
+                maxLength={300}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddPromptOpen(false)}>Cancel</Button>
+            <Button onClick={addCustomPrompt}>Save prompt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
