@@ -36,20 +36,20 @@ export function UserAvatarDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 w-full hover:opacity-80 transition-opacity">
+        <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <span className="hidden sm:inline text-sm font-medium text-foreground">{displayName}</span>
           {photoUrl ? (
-            <Avatar className="h-9 w-9 border-2 border-white shadow-md shrink-0">
+            <Avatar className="h-9 w-9 border-2 border-white shadow-md">
               <AvatarImage src={photoUrl} alt={displayName} />
               <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
                 {initials}
               </AvatarFallback>
             </Avatar>
           ) : (
-            <div className="h-9 w-9 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
+            <div className="h-9 w-9 flex items-center justify-center shadow-md border-2 border-white rounded-full bg-primary text-primary-foreground text-sm font-medium">
               {initials}
             </div>
           )}
-          <span className="hidden sm:inline text-sm font-medium text-foreground truncate ml-auto text-right">{displayName}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
