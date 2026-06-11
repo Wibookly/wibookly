@@ -12,7 +12,7 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare, Ear,
+  MessageSquare, Ear, Pencil,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
@@ -1658,7 +1658,7 @@ export default function Chat() {
             </div>
           ) : (
             <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
-              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
+              {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
               {activeStream && (
                 <>
                   <MessageBubble
@@ -2063,6 +2063,7 @@ function MessageBubble({
   onStopSpeak,
   onRegenerate,
   onEmailToSelf,
+  onResubmit,
   mailboxLabel,
   mailboxEmail,
   isStreamingAny,
@@ -2075,6 +2076,7 @@ function MessageBubble({
   onStopSpeak?: () => void;
   onRegenerate?: (assistantMessageId: string) => void;
   onEmailToSelf?: (assistantMessage: Msg) => void;
+  onResubmit?: (newText: string) => void;
   mailboxLabel?: string | null;
   mailboxEmail?: string | null;
   isStreamingAny?: boolean;
@@ -2087,21 +2089,91 @@ function MessageBubble({
   const isSpeaking = speakingId === message.id;
   const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
   const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
+  const canEdit = isUser && !!onResubmit && !message.id.startsWith('temp-');
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(message.content);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      setDraft(message.content);
+      requestAnimationFrame(() => {
+        const ta = editRef.current;
+        if (ta) {
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = ta.value.length;
+          ta.style.height = 'auto';
+          ta.style.height = `${Math.min(ta.scrollHeight, 320)}px`;
+        }
+      });
+    }
+  }, [isEditing, message.content]);
+
+  const submitEdit = () => {
+    const next = draft.trim();
+    if (!next) return;
+    setIsEditing(false);
+    onResubmit?.(next);
+  };
 
   return (
     <div className="flex flex-col gap-1.5 group">
       {!isUser && (
         <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
       )}
-      <div className="max-w-[85%] flex flex-col gap-1 items-start">
+      <div className={cn('max-w-[85%] flex flex-col gap-1', isUser ? 'items-end self-end' : 'items-start')}>
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
-            isUser ? 'bg-primary text-primary-foreground' : 'text-foreground'
+            isUser ? 'bg-primary text-primary-foreground' : 'text-foreground',
+            isEditing && 'w-full'
           )}
         >
           {isUser ? (
-            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            isEditing ? (
+              <div className="flex flex-col gap-2 min-w-[260px]">
+                <textarea
+                  ref={editRef}
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    const ta = e.currentTarget;
+                    ta.style.height = 'auto';
+                    ta.style.height = `${Math.min(ta.scrollHeight, 320)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      submitEdit();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setIsEditing(false);
+                    }
+                  }}
+                  className="w-full resize-none bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/60 rounded-lg px-3 py-2 text-[15px] leading-relaxed outline-none ring-1 ring-primary-foreground/30 focus:ring-2 focus:ring-primary-foreground/60"
+                  rows={2}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-2.5 py-1 rounded-md text-xs bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitEdit}
+                    disabled={!draft.trim() || !!isStreamingAny}
+                    className="px-2.5 py-1 rounded-md text-xs bg-primary-foreground text-primary hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Send the edited message (⌘/Ctrl + Enter)"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            )
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed [&_p]:my-3 [&_p]:leading-relaxed [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:leading-relaxed [&_h1]:mt-5 [&_h1]:mb-3 [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:mt-4 [&_h3]:mb-2 [&_hr]:my-5 [&_hr]:border-0 [&_hr]:border-t-2 [&_hr]:border-foreground/25 dark:[&_hr]:border-foreground/30 [&_blockquote]:my-3 [&_pre]:bg-background [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_code]:text-xs [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
@@ -2122,6 +2194,27 @@ function MessageBubble({
         )}
         {!isUser && message.citations && message.citations.length > 0 && (
           <CitationChips citations={message.citations} />
+        )}
+        {isUser && canEdit && !isEditing && (
+          <div className="flex flex-wrap gap-1 items-center mt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <button
+              onClick={() => setIsEditing(true)}
+              disabled={!!isStreamingAny}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Edit this message and send it again"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span>Edit &amp; resend</span>
+            </button>
+            <button
+              onClick={copy}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition"
+              title="Copy to clipboard"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              <span>Copy</span>
+            </button>
+          </div>
         )}
         {!isUser && !streaming && (
           <div className="flex flex-wrap gap-1 items-center mt-1" data-tour="chat-msg-actions">
