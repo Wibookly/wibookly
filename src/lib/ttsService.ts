@@ -55,6 +55,7 @@ function ensureWorker(): Worker {
       currentUrl = url;
       const el = new Audio(url);
       el.setAttribute('playsinline', 'true');
+      el.playbackRate = 0.92;
       currentAudio = el;
       state.generatingId = null;
       state.playingId = id;
