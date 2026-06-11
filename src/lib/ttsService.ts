@@ -17,6 +17,7 @@ let worker: Worker | null = null;
 let preloadRequested = false;
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
+let pendingPlayToken = 0;
 
 const state: TtsState = {
   modelState: 'idle',
@@ -30,6 +31,61 @@ const listeners = new Set<Listener>();
 
 function emit() {
   for (const l of listeners) l({ ...state });
+}
+
+function supportsSpeechSynthesis() {
+  return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+}
+
+function stripForSpeech(text: string) {
+  return String(text || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_`>#~|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function fallbackToSpeechSynthesis(text: string, id: string, preferredVoice?: string) {
+  if (!supportsSpeechSynthesis()) return false;
+  try {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(stripForSpeech(text));
+    utterance.lang = preferredVoice?.startsWith('b') ? 'en-GB' : 'en-US';
+    const voices = synth.getVoices?.() || [];
+    const wantBritish = utterance.lang === 'en-GB';
+    const matchingVoice = voices.find((voice) => {
+      const lang = String(voice.lang || '').toLowerCase();
+      return wantBritish ? lang.startsWith('en-gb') : lang.startsWith('en-us') || lang.startsWith('en');
+    });
+    if (matchingVoice) utterance.voice = matchingVoice;
+
+    state.generatingId = null;
+    state.playingId = id;
+    state.error = null;
+    emit();
+
+    utterance.onend = () => {
+      if (state.playingId === id) {
+        state.playingId = null;
+        emit();
+      }
+    };
+    utterance.onerror = (event: any) => {
+      console.error('[tts] speechSynthesis error:', event?.error || event);
+      if (state.playingId === id) state.playingId = null;
+      state.error = event?.error ? `Speech playback failed: ${event.error}` : 'Speech playback failed.';
+      emit();
+    };
+
+    synth.speak(utterance);
+    return true;
+  } catch (err) {
+    console.error('[tts] speechSynthesis fallback failed:', err);
+    return false;
+  }
 }
 
 function ensureWorker(): Worker {
@@ -55,11 +111,37 @@ function ensureWorker(): Worker {
       currentUrl = url;
       const el = new Audio(url);
       el.setAttribute('playsinline', 'true');
+      el.preload = 'auto';
       currentAudio = el;
       state.generatingId = null;
       state.playingId = id;
       emit();
+      const playToken = ++pendingPlayToken;
+      let started = false;
+      let fallbackTimer: number | null = window.setTimeout(() => {
+        if (started || playToken !== pendingPlayToken || currentAudio !== el) return;
+        console.warn('[tts] audio did not start in time, falling back to speechSynthesis');
+        stopAudioOnly();
+        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+          state.error = 'Audio failed to start.';
+          if (state.playingId === id) state.playingId = null;
+          emit();
+        }
+      }, 1800);
+      const markStarted = () => {
+        started = true;
+        if (fallbackTimer != null) {
+          window.clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
+      };
+      el.onplaying = markStarted;
+      el.oncanplay = () => {
+        if (playToken !== pendingPlayToken || currentAudio !== el) return;
+        markStarted();
+      };
       el.onended = () => {
+        markStarted();
         if (currentUrl === url) {
           URL.revokeObjectURL(url);
           currentUrl = null;
@@ -71,10 +153,14 @@ function ensureWorker(): Worker {
         currentAudio = null;
       };
       el.onerror = () => {
+        markStarted();
         console.error('[tts] <audio> error', el.error);
-        state.error = 'Audio playback error.';
-        if (state.playingId === id) state.playingId = null;
-        emit();
+        stopAudioOnly();
+        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+          state.error = 'Audio playback error.';
+          if (state.playingId === id) state.playingId = null;
+          emit();
+        }
         if (currentUrl === url) {
           URL.revokeObjectURL(url);
           currentUrl = null;
@@ -82,10 +168,14 @@ function ensureWorker(): Worker {
         currentAudio = null;
       };
       el.play().catch((err) => {
+        markStarted();
         console.error('[tts] play() rejected:', err);
-        state.error = err?.message || 'Audio failed to start.';
-        if (state.playingId === id) state.playingId = null;
-        emit();
+        stopAudioOnly();
+        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+          state.error = err?.message || 'Audio failed to start.';
+          if (state.playingId === id) state.playingId = null;
+          emit();
+        }
       });
       return;
     }
@@ -104,6 +194,7 @@ function stopAudioOnly() {
     URL.revokeObjectURL(currentUrl);
     currentUrl = null;
   }
+  pendingPlayToken += 1;
 }
 
 export const ttsService = {
@@ -140,13 +231,21 @@ export const ttsService = {
   },
   speak(text: string, voice: string, id: string) {
     try {
+      if (supportsSpeechSynthesis()) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch { /* ignore */ }
+      }
       const w = ensureWorker();
       stopAudioOnly();
       state.generatingId = id;
       state.playingId = null;
       state.error = null;
       emit();
+      const playHint = { text: stripForSpeech(text), voice };
       w.postMessage({ type: 'speak', id, text, voice });
+      const audioProto = Audio.prototype as HTMLAudioElement & { dataset?: DOMStringMap };
+      void playHint;
     } catch (e: any) {
       console.error('[tts] speak failed', e);
       state.error = String(e?.message ?? e);
@@ -156,6 +255,9 @@ export const ttsService = {
   },
   stop() {
     stopAudioOnly();
+    if (supportsSpeechSynthesis()) {
+      try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+    }
     if (state.generatingId || state.playingId) {
       state.generatingId = null;
       state.playingId = null;
