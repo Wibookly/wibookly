@@ -1958,7 +1958,7 @@ export default function Chat() {
               <Button
                 size="icon"
                 variant={isStreaming ? 'destructive' : 'default'}
-                className="h-9 w-9 shrink-0"
+                className="h-9 w-9 shrink-0 rounded-full"
                 onClick={() => (isStreaming ? handleStop() : handleSend())}
                 disabled={isStreaming ? false : (!input.trim() || limitReached || isRecording)}
                 title={isStreaming ? 'Stop generating' : (isRecording ? 'Stop the mic first, then send' : 'Send message')}
