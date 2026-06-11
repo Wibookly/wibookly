@@ -93,7 +93,6 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: '3. Turn on AI Drafts', description: 'On any category, flip the AI Drafts toggle on. InboxIQ will start writing replies for new mail in that category.' },
       { title: '4. Read your Daily Brief', description: 'Open AI Daily Brief the next morning to see exactly what landed overnight and what needs you.' },
     ],
-    outro: 'You can re-launch the Setup Wizard any time from **Settings → Restart Setup Wizard**.',
     routes: ['/integrations'],
     keywords: ['intro', 'overview', 'tour', 'first time'],
   },
