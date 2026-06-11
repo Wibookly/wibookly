@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Volume2, AlertCircle } from 'lucide-react';
+import { Volume2, AlertCircle } from 'lucide-react';
 import { ttsService, type TtsState } from '@/lib/ttsService';
 
 /**
