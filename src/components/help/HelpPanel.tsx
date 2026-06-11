@@ -458,7 +458,7 @@ export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: 
                       Browse by topic
                     </p>
                     <ul className="divide-y divide-border rounded-md border">
-                      {HELP_CATEGORIES.map((c) => (
+                      {visibleCategories.map((c) => (
                         <li key={c.id}>
                           <button
                             type="button"
