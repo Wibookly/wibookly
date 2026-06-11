@@ -29,7 +29,25 @@ interface UserMeta {
   email: string;
   full_name: string | null;
   department: string | null;
+  company: string | null;
+  domain_id: string | null;
+  groups: string[];
 }
+
+interface DomainMeta {
+  id: string;
+  domain: string;
+  organization_name: string | null;
+}
+
+type GroupDimension = 'department' | 'company' | 'domain' | 'group';
+
+const GROUP_DIMENSIONS: { value: GroupDimension; label: string }[] = [
+  { value: 'department', label: 'Department' },
+  { value: 'company',    label: 'Company' },
+  { value: 'domain',     label: 'Email domain' },
+  { value: 'group',      label: 'Permission group' },
+];
 
 const RANGES = [
   { value: '1', label: 'Last 24 hours' },
