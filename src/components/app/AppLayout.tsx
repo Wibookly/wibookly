@@ -76,6 +76,16 @@ export function AppLayout() {
     if (idle) idle(run); else setTimeout(run, 400);
   }, [user?.id]);
 
+  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('chat-sidebar-pinned') !== 'false';
+  });
+  const [sidebarHover, setSidebarHover] = useState(false);
+  useEffect(() => {
+    localStorage.setItem('chat-sidebar-pinned', String(sidebarPinned));
+  }, [sidebarPinned]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -88,15 +98,6 @@ export function AppLayout() {
     return <Navigate to="/auth" replace />;
   }
 
-  const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem('chat-sidebar-pinned') !== 'false';
-  });
-  const [sidebarHover, setSidebarHover] = useState(false);
-  useEffect(() => {
-    localStorage.setItem('chat-sidebar-pinned', String(sidebarPinned));
-  }, [sidebarPinned]);
   const autoHide = isChatPage && !sidebarPinned;
   const sidebarOpen = !autoHide || sidebarHover;
   const togglePin = isChatPage ? () => setSidebarPinned((v) => !v) : undefined;
