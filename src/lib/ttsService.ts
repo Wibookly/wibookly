@@ -15,9 +15,15 @@ export interface TtsState {
 
 let worker: Worker | null = null;
 let preloadRequested = false;
-let currentAudio: HTMLAudioElement | null = null;
-let currentUrl: string | null = null;
-let pendingPlayToken = 0;
+
+// Web Audio primary playback
+let audioCtx: AudioContext | null = null;
+let currentSource: AudioBufferSourceNode | null = null;
+
+// Fallback <audio> element (persistent ref so it isn't GC'd)
+let fallbackAudio: HTMLAudioElement | null = null;
+let fallbackUrl: string | null = null;
+
 const requestMeta = new Map<string, { text: string; voice: string }>();
 
 const state: TtsState = {
@@ -32,6 +38,30 @@ const listeners = new Set<Listener>();
 
 function emit() {
   for (const l of listeners) l({ ...state });
+}
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  if (audioCtx) return audioCtx;
+  const Ctor: typeof AudioContext | undefined =
+    (window as any).AudioContext || (window as any).webkitAudioContext;
+  if (!Ctor) return null;
+  audioCtx = new Ctor();
+  return audioCtx;
+}
+
+async function unlockAudio() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    console.log('[tts] audioCtx.state before resume:', ctx.state);
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    console.log('[tts] audioCtx.state after resume:', ctx.state);
+  } catch (e) {
+    console.error('[tts] audioCtx.resume failed', e);
+  }
 }
 
 function supportsSpeechSynthesis() {
@@ -91,6 +121,129 @@ function fallbackToSpeechSynthesis(text: string, id: string, preferredVoice?: st
   }
 }
 
+function stopPlaybackOnly() {
+  if (currentSource) {
+    try { currentSource.stop(); } catch { /* ignore */ }
+    try { currentSource.disconnect(); } catch { /* ignore */ }
+    currentSource.onended = null;
+    currentSource = null;
+  }
+  if (fallbackAudio) {
+    try { fallbackAudio.pause(); } catch { /* ignore */ }
+    fallbackAudio.onended = null;
+    fallbackAudio.onerror = null;
+    try { fallbackAudio.removeAttribute('src'); fallbackAudio.load(); } catch { /* ignore */ }
+  }
+  if (fallbackUrl) {
+    URL.revokeObjectURL(fallbackUrl);
+    fallbackUrl = null;
+  }
+}
+
+function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; voice: string }) {
+  try {
+    if (!fallbackAudio) {
+      fallbackAudio = new Audio();
+      fallbackAudio.setAttribute('playsinline', 'true');
+      fallbackAudio.preload = 'auto';
+    }
+    if (fallbackUrl) URL.revokeObjectURL(fallbackUrl);
+    fallbackUrl = URL.createObjectURL(blob);
+    fallbackAudio.src = fallbackUrl;
+    fallbackAudio.onended = () => {
+      requestMeta.delete(id);
+      if (fallbackUrl) { URL.revokeObjectURL(fallbackUrl); fallbackUrl = null; }
+      if (state.playingId === id) { state.playingId = null; emit(); }
+    };
+    fallbackAudio.onerror = () => {
+      console.error('[tts] fallback <audio> error', fallbackAudio?.error);
+      if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+        requestMeta.delete(id);
+        state.error = 'Audio playback error.';
+        if (state.playingId === id) state.playingId = null;
+        emit();
+      }
+    };
+    fallbackAudio.play().catch((err) => {
+      console.error('[tts] fallback play() rejected:', err);
+      if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+        requestMeta.delete(id);
+        state.error = err?.message || 'Audio failed to start.';
+        if (state.playingId === id) state.playingId = null;
+        emit();
+      }
+    });
+  } catch (e) {
+    console.error('[tts] fallback path failed', e);
+    if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+      requestMeta.delete(id);
+      state.error = 'Audio failed to start.';
+      if (state.playingId === id) state.playingId = null;
+      emit();
+    }
+  }
+}
+
+async function playBlob(blob: Blob, id: string) {
+  const meta = requestMeta.get(id);
+  console.log('TTS blob bytes:', blob.size);
+  if (!blob || blob.size === 0) {
+    if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+      state.error = 'Empty audio from model.';
+      if (state.playingId === id) state.playingId = null;
+      emit();
+    }
+    return;
+  }
+
+  stopPlaybackOnly();
+  state.generatingId = null;
+  state.playingId = id;
+  emit();
+
+  const ctx = getAudioContext();
+  if (!ctx) {
+    playWithFallbackAudio(blob, id, meta);
+    return;
+  }
+
+  try {
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch { /* ignore */ }
+    }
+    const arrayBuf = await blob.arrayBuffer();
+    const audioData: AudioBuffer = await new Promise((resolve, reject) => {
+      // Use callback form for Safari compatibility
+      try {
+        const p = ctx.decodeAudioData(arrayBuf.slice(0), resolve, reject);
+        // Some implementations also return a promise
+        if (p && typeof (p as any).then === 'function') {
+          (p as Promise<AudioBuffer>).then(resolve, reject);
+        }
+      } catch (e) {
+        reject(e);
+      }
+    });
+
+    const source = ctx.createBufferSource();
+    source.buffer = audioData;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      if (currentSource === source) currentSource = null;
+      requestMeta.delete(id);
+      if (state.playingId === id) {
+        state.playingId = null;
+        emit();
+      }
+    };
+    currentSource = source;
+    source.start(0);
+  } catch (err) {
+    console.error('[tts] decodeAudioData/play failed, falling back to <audio>:', err);
+    playWithFallbackAudio(blob, id, meta);
+  }
+}
+
 function ensureWorker(): Worker {
   if (worker) return worker;
   worker = new Worker(new URL('../workers/tts.worker.ts', import.meta.url), { type: 'module' });
@@ -114,100 +267,11 @@ function ensureWorker(): Worker {
       return;
     }
     if (type === 'audio') {
-      const meta = id ? requestMeta.get(id) : undefined;
-      const url = URL.createObjectURL(blob as Blob);
-      try { console.log('[tts] blob bytes:', (blob as Blob).size); } catch { /* ignore */ }
-      stopAudioOnly();
-      currentUrl = url;
-      const el = new Audio(url);
-      el.setAttribute('playsinline', 'true');
-      el.preload = 'auto';
-      currentAudio = el;
-      state.generatingId = null;
-      state.playingId = id;
-      emit();
-      const playToken = ++pendingPlayToken;
-      let started = false;
-      let fallbackTimer: number | null = window.setTimeout(() => {
-        if (started || playToken !== pendingPlayToken || currentAudio !== el) return;
-        console.warn('[tts] audio did not start in time, falling back to speechSynthesis');
-        stopAudioOnly();
-        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-          state.error = 'Audio failed to start.';
-          if (state.playingId === id) state.playingId = null;
-          emit();
-        }
-      }, 1800);
-      const markStarted = () => {
-        started = true;
-        if (fallbackTimer != null) {
-          window.clearTimeout(fallbackTimer);
-          fallbackTimer = null;
-        }
-      };
-      el.onplaying = markStarted;
-      el.oncanplay = () => {
-        if (playToken !== pendingPlayToken || currentAudio !== el) return;
-        markStarted();
-      };
-      el.onended = () => {
-        markStarted();
-        if (id) requestMeta.delete(id);
-        if (currentUrl === url) {
-          URL.revokeObjectURL(url);
-          currentUrl = null;
-        }
-        if (state.playingId === id) {
-          state.playingId = null;
-          emit();
-        }
-        currentAudio = null;
-      };
-      el.onerror = () => {
-        markStarted();
-        console.error('[tts] <audio> error', el.error);
-        stopAudioOnly();
-        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-          if (id) requestMeta.delete(id);
-          state.error = 'Audio playback error.';
-          if (state.playingId === id) state.playingId = null;
-          emit();
-        }
-        if (currentUrl === url) {
-          URL.revokeObjectURL(url);
-          currentUrl = null;
-        }
-        currentAudio = null;
-      };
-      el.play().catch((err) => {
-        markStarted();
-        console.error('[tts] play() rejected:', err);
-        stopAudioOnly();
-        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-          if (id) requestMeta.delete(id);
-          state.error = err?.message || 'Audio failed to start.';
-          if (state.playingId === id) state.playingId = null;
-          emit();
-        }
-      });
+      void playBlob(blob as Blob, id);
       return;
     }
   };
   return worker;
-}
-
-function stopAudioOnly() {
-  if (currentAudio) {
-    try { currentAudio.pause(); } catch { /* ignore */ }
-    currentAudio.onended = null;
-    currentAudio.onerror = null;
-    currentAudio = null;
-  }
-  if (currentUrl) {
-    URL.revokeObjectURL(currentUrl);
-    currentUrl = null;
-  }
-  pendingPlayToken += 1;
 }
 
 export const ttsService = {
@@ -219,7 +283,6 @@ export const ttsService = {
   getState(): TtsState { return { ...state }; },
   preload(voice?: string) {
     if (preloadRequested) {
-      // If a specific voice is requested after initial preload, warm it too.
       if (voice && worker) {
         try { worker.postMessage({ type: 'warm', voice }); } catch { /* ignore */ }
       }
@@ -244,13 +307,16 @@ export const ttsService = {
   },
   speak(text: string, voice: string, id: string) {
     try {
+      // CRITICAL: unlock the AudioContext synchronously within the user gesture.
+      // Kick this off immediately; do not await before posting to worker so
+      // we stay inside the gesture activation window.
+      void unlockAudio();
+
       if (supportsSpeechSynthesis()) {
-        try {
-          window.speechSynthesis.cancel();
-        } catch { /* ignore */ }
+        try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
       }
       const w = ensureWorker();
-      stopAudioOnly();
+      stopPlaybackOnly();
       state.generatingId = id;
       state.playingId = null;
       state.error = null;
@@ -265,7 +331,7 @@ export const ttsService = {
     }
   },
   stop() {
-    stopAudioOnly();
+    stopPlaybackOnly();
     requestMeta.clear();
     if (supportsSpeechSynthesis()) {
       try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
