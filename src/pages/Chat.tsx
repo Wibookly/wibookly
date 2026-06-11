@@ -12,7 +12,9 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
+  MessageSquare,
 } from 'lucide-react';
+import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
