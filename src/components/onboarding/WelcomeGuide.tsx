@@ -326,7 +326,7 @@ export function WelcomeGuide() {
 
       <div className="relative h-full overflow-y-auto overscroll-contain">
         <div className="min-h-full px-4 py-10 sm:px-8 sm:py-14 flex justify-center">
-          <div className="w-full max-w-6xl pb-28">
+          <div className="relative w-full max-w-6xl pb-28">
           <button
             type="button"
             onClick={close}
@@ -585,16 +585,17 @@ export function WelcomeGuide() {
             <div className="mx-auto flex w-full max-w-6xl justify-end">
               <div className="pointer-events-auto rounded-full border border-white/10 bg-[#05070f]/90 px-2 py-2 shadow-[0_-12px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl">
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={close}
-                className="w-full sm:w-auto rounded-full px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-medium transition"
-              >
-                {openedByUserRef.current ? 'Close guide' : 'I’ll explore on my own'}
-              </button>
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="w-full sm:w-auto rounded-full px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-medium transition"
+                  >
+                    {openedByUserRef.current ? 'Close guide' : 'I’ll explore on my own'}
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
