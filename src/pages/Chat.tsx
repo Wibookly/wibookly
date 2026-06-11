@@ -2109,6 +2109,44 @@ export default function Chat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add starter-prompt dialog — saved per-user in this browser. */}
+      <Dialog open={addPromptOpen} onOpenChange={setAddPromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add a starter prompt</DialogTitle>
+            <DialogDescription>
+              Save a custom prompt you use often. It appears in your starter list whenever you open a new chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Title</label>
+              <Input
+                value={newPromptTitle}
+                onChange={(e) => setNewPromptTitle(e.target.value)}
+                placeholder="e.g. Weekly status update"
+                maxLength={80}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Details (optional)</label>
+              <Textarea
+                value={newPromptDesc}
+                onChange={(e) => setNewPromptDesc(e.target.value)}
+                placeholder="e.g. summarizing this week's progress, blockers, and next steps"
+                rows={3}
+                maxLength={300}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddPromptOpen(false)}>Cancel</Button>
+            <Button onClick={addCustomPrompt}>Save prompt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
