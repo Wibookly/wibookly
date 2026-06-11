@@ -170,17 +170,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
 
   return (
     <aside className="hidden lg:flex w-[300px] h-screen flex-col shrink-0 relative" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
-      {onTogglePin && (
-        <button
-          onClick={onTogglePin}
-          title={pinned ? 'Unpin sidebar (auto-hide)' : 'Pin sidebar'}
-          aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-md transition-colors hover:bg-white/10"
-          style={{ color: pinned ? 'var(--c-purple)' : 'var(--text-muted)' }}
-        >
-          {pinned ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
-        </button>
-      )}
+
       <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}
