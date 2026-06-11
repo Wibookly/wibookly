@@ -75,6 +75,18 @@ export function UserAvatarDropdown() {
             <div className="flex flex-col space-y-1 min-w-0">
               <p className="text-sm font-medium truncate">{profile?.full_name || 'User'}</p>
               <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+              <div
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium mt-1"
+                style={{ color: voice.color }}
+                title={voice.label}
+              >
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ background: voice.color, boxShadow: `0 0 0 2px color-mix(in srgb, ${voice.color} 25%, transparent)` }}
+                />
+                {voice.icon}
+                <span>{voice.label}</span>
+              </div>
             </div>
           </div>
         </DropdownMenuLabel>
