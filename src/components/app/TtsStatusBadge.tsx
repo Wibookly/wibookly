@@ -17,16 +17,6 @@ export function TtsStatusBadge() {
   if (snap.modelState === 'idle' || snap.modelState === 'loading') return null;
 
   const { color, bg, border, icon, label, title } = (() => {
-    if (snap.modelState === 'loading') {
-      return {
-        color: 'var(--text-body)',
-        bg: 'var(--surface)',
-        border: 'var(--border)',
-        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
-        label: 'Voice downloading…',
-        title: 'Kokoro voice model is downloading in the background. It will be cached for next time.',
-      };
-    }
     if (snap.modelState === 'ready') {
       return {
         color: 'var(--success, #16a34a)',
