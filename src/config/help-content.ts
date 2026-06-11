@@ -6,6 +6,7 @@
  */
 
 import adminGroupsImg from '@/assets/help/admin-groups.png';
+import type { FeatureKey } from '@/hooks/useFeatureAccess';
 
 export type HelpCategoryId =
   | 'getting-started'
@@ -469,5 +470,45 @@ export function searchArticles(query: string): HelpArticle[] {
       .join(' ')
       .toLowerCase();
     return haystack.includes(q);
+  });
+}
+
+export type HelpArticleAccess = FeatureKey | FeatureKey[] | 'admin' | 'always';
+
+export const HELP_ARTICLE_ACCESS: Partial<Record<string, HelpArticleAccess>> = {
+  welcome: 'always',
+  'connect-mailbox': 'always',
+  'connect-calendar': ['meeting_copilot'],
+  'categories-overview': 'email_intelligence',
+  rules: 'email_intelligence',
+  'ai-drafts': ['ai_draft', 'ai_auto_reply'],
+  'daily-brief': ['daily_brief', 'ai_assistant'],
+  'ai-assistant': 'ai_chat',
+  'profile-signature': 'always',
+  'admin-overview': 'admin',
+  'admin-groups': 'admin',
+  'admin-domains': 'admin',
+  'admin-support-issues': 'admin',
+  'troubleshoot-no-drafts': ['ai_draft', 'ai_auto_reply', 'email_intelligence'],
+  'troubleshoot-reconnect': 'always',
+  'email-agent': 'email_agent',
+  'reply-tracker': 'feature.follow_up_reminder',
+  'meeting-copilot': 'meeting_copilot',
+  'ai-activity': 'reports',
+};
+
+export function filterHelpArticlesByAccess(
+  articles: HelpArticle[],
+  hasFeature: (key: FeatureKey) => boolean,
+  isSuperAdmin: boolean,
+): HelpArticle[] {
+  if (isSuperAdmin) return articles;
+
+  return articles.filter((article) => {
+    const access = HELP_ARTICLE_ACCESS[article.id] ?? 'always';
+    if (access === 'always') return true;
+    if (access === 'admin') return false;
+    if (Array.isArray(access)) return access.some((key) => hasFeature(key));
+    return hasFeature(access);
   });
 }
