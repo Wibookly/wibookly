@@ -1955,35 +1955,6 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
               )}
-              {!isRecording && (
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Choose AI voice">
-                        <Volume2 className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Choose voice</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="max-h-[360px] w-64 overflow-y-auto">
-                  {Object.entries(KOKORO_VOICES_BY_LANGUAGE).map(([lang, voices], idx) => (
-                    <div key={lang}>
-                      {idx > 0 && <DropdownMenuSeparator />}
-                      <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">{lang}</div>
-                      {voices.map((v) => (
-                        <DropdownMenuItem key={v.id} onClick={() => handleSelectVoice(v.id)}>
-                          <Check className={cn('h-4 w-4 mr-2', ttsVoice === v.id ? 'opacity-100' : 'opacity-0')} />
-                          <span className="flex-1">{v.label}</span>
-                          <span className="ml-2 text-[10px] text-muted-foreground">{v.gender === 'female' ? '♀' : '♂'}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              )}
               <Button
                 size="icon"
                 variant={isStreaming ? 'destructive' : 'default'}
