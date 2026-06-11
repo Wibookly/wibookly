@@ -18,6 +18,7 @@ let preloadRequested = false;
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 let pendingPlayToken = 0;
+const requestMeta = new Map<string, { text: string; voice: string }>();
 
 const state: TtsState = {
   modelState: 'idle',
@@ -99,12 +100,18 @@ function ensureWorker(): Worker {
       if (typeof progress === 'number') state.progress = progress;
       if (s === 'ready') state.progress = 100;
       if (s === 'error' && id && state.generatingId === id) {
+        const meta = requestMeta.get(id);
         state.generatingId = null;
+        if (meta && fallbackToSpeechSynthesis(meta.text, id, meta.voice)) {
+          requestMeta.delete(id);
+          return;
+        }
       }
       emit();
       return;
     }
     if (type === 'audio') {
+      const meta = id ? requestMeta.get(id) : undefined;
       const url = URL.createObjectURL(blob as Blob);
       try { console.log('[tts] blob bytes:', (blob as Blob).size); } catch { /* ignore */ }
       stopAudioOnly();
@@ -122,7 +129,7 @@ function ensureWorker(): Worker {
         if (started || playToken !== pendingPlayToken || currentAudio !== el) return;
         console.warn('[tts] audio did not start in time, falling back to speechSynthesis');
         stopAudioOnly();
-        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
           state.error = 'Audio failed to start.';
           if (state.playingId === id) state.playingId = null;
           emit();
@@ -156,7 +163,7 @@ function ensureWorker(): Worker {
         markStarted();
         console.error('[tts] <audio> error', el.error);
         stopAudioOnly();
-        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
           state.error = 'Audio playback error.';
           if (state.playingId === id) state.playingId = null;
           emit();
@@ -171,7 +178,7 @@ function ensureWorker(): Worker {
         markStarted();
         console.error('[tts] play() rejected:', err);
         stopAudioOnly();
-        if (!fallbackToSpeechSynthesis((el as any).dataset?.ttsText || '', id, (el as any).dataset?.ttsVoice)) {
+        if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
           state.error = err?.message || 'Audio failed to start.';
           if (state.playingId === id) state.playingId = null;
           emit();
@@ -242,10 +249,8 @@ export const ttsService = {
       state.playingId = null;
       state.error = null;
       emit();
-      const playHint = { text: stripForSpeech(text), voice };
+      requestMeta.set(id, { text: stripForSpeech(text), voice });
       w.postMessage({ type: 'speak', id, text, voice });
-      const audioProto = Audio.prototype as HTMLAudioElement & { dataset?: DOMStringMap };
-      void playHint;
     } catch (e: any) {
       console.error('[tts] speak failed', e);
       state.error = String(e?.message ?? e);
