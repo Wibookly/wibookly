@@ -69,12 +69,14 @@ function fallbackToSpeechSynthesis(text: string, id: string, preferredVoice?: st
     emit();
 
     utterance.onend = () => {
+      requestMeta.delete(id);
       if (state.playingId === id) {
         state.playingId = null;
         emit();
       }
     };
     utterance.onerror = (event: any) => {
+      requestMeta.delete(id);
       console.error('[tts] speechSynthesis error:', event?.error || event);
       if (state.playingId === id) state.playingId = null;
       state.error = event?.error ? `Speech playback failed: ${event.error}` : 'Speech playback failed.';
@@ -106,6 +108,7 @@ function ensureWorker(): Worker {
           requestMeta.delete(id);
           return;
         }
+        requestMeta.delete(id);
       }
       emit();
       return;
@@ -162,10 +165,10 @@ function ensureWorker(): Worker {
       };
       el.onerror = () => {
         markStarted();
-        if (id) requestMeta.delete(id);
         console.error('[tts] <audio> error', el.error);
         stopAudioOnly();
         if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+          if (id) requestMeta.delete(id);
           state.error = 'Audio playback error.';
           if (state.playingId === id) state.playingId = null;
           emit();
@@ -178,10 +181,10 @@ function ensureWorker(): Worker {
       };
       el.play().catch((err) => {
         markStarted();
-        if (id) requestMeta.delete(id);
         console.error('[tts] play() rejected:', err);
         stopAudioOnly();
         if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+          if (id) requestMeta.delete(id);
           state.error = err?.message || 'Audio failed to start.';
           if (state.playingId === id) state.playingId = null;
           emit();
