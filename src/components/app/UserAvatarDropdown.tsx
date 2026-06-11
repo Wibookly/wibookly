@@ -11,7 +11,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
+import { LogOut, User, Sun, Moon, Monitor, Volume2, AlertCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ttsService, type TtsState } from '@/lib/ttsService';
 
 export function UserAvatarDropdown() {
   const { profile, signOut } = useAuth();
