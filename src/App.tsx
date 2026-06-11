@@ -20,7 +20,7 @@ import EmailDraft from "./pages/EmailDraft";
 import AIActivityDashboard from "./pages/AIActivityDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import TtsTest from "./pages/TtsTest";
+
 import AIDailyBrief from "./pages/AIDailyBrief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
@@ -55,7 +55,7 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/tts-test" element={<TtsTest />} />
+                
                 <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/microsoft-consent-complete" element={<MicrosoftConsentComplete />} />
                 {/* Backwards-compatible redirects */}
