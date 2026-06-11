@@ -1908,34 +1908,8 @@ export default function Chat() {
                   <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
                 </Tooltip>
               )}
-              {!isRecording && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        'relative h-9 w-9 shrink-0',
-                        handsFree && 'text-primary bg-primary/10 hover:bg-primary/15'
-                      )}
-                      onClick={() => setHandsFree((v) => !v)}
-                      aria-pressed={handsFree}
-                      aria-label="Toggle hands-free voice commands"
-                    >
-                      <Ear className="h-4 w-4" />
-                      {handsFree && (
-                        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {handsFree
-                      ? 'Hands-free on — say "listen", "stop", "send", or "cancel"'
-                      : 'Hands-free off — turn on to control with your voice'}
-                  </TooltipContent>
-                </Tooltip>
-              )}
+
+
               {!isRecording && (
               <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
                 <Tooltip>
