@@ -390,6 +390,40 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+
+  // ---- Starter prompts: collapsed by default + user-added custom prompts ----
+  type StarterPrompt = { icon?: string; title: string; desc: string; custom?: boolean };
+  const CUSTOM_PROMPTS_KEY = 'inboxiq-custom-starter-prompts';
+  const [promptsExpanded, setPromptsExpanded] = useState(false);
+  const [customPrompts, setCustomPrompts] = useState<StarterPrompt[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(CUSTOM_PROMPTS_KEY);
+      return raw ? (JSON.parse(raw) as StarterPrompt[]) : [];
+    } catch { return []; }
+  });
+  const [addPromptOpen, setAddPromptOpen] = useState(false);
+  const [newPromptTitle, setNewPromptTitle] = useState('');
+  const [newPromptDesc, setNewPromptDesc] = useState('');
+  const persistCustomPrompts = (next: StarterPrompt[]) => {
+    setCustomPrompts(next);
+    try { localStorage.setItem(CUSTOM_PROMPTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const addCustomPrompt = () => {
+    const title = newPromptTitle.trim();
+    const desc = newPromptDesc.trim();
+    if (!title) { toast.error('Give the prompt a short title'); return; }
+    persistCustomPrompts([...customPrompts, { title, desc, custom: true }]);
+    setNewPromptTitle('');
+    setNewPromptDesc('');
+    setAddPromptOpen(false);
+    setPromptsExpanded(true);
+    toast.success('Prompt added');
+  };
+  const removeCustomPrompt = (idx: number) => {
+    persistCustomPrompts(customPrompts.filter((_, i) => i !== idx));
+  };
+
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
