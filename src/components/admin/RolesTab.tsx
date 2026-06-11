@@ -22,12 +22,24 @@ interface OrgUser {
   departments_admin: string[];
 }
 
+interface ClientStatusRow {
+  user_id: string;
+  browser_name: string | null;
+  browser_version: string | null;
+  os_name: string | null;
+  device_type: string | null;
+  tts_state: 'ready' | 'loading' | 'error' | 'unused' | string;
+  tts_error: string | null;
+  last_seen_at: string | null;
+}
+
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
 
 export default function RolesTab() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<OrgUser[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, ClientStatusRow>>({});
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
   const [editTarget, setEditTarget] = useState<OrgUser | null>(null);
@@ -42,7 +54,21 @@ export default function RolesTab() {
         _organization_id: profile.organization_id,
       });
       if (error) throw error;
-      setUsers((data ?? []) as OrgUser[]);
+      const list = (data ?? []) as OrgUser[];
+      setUsers(list);
+
+      const ids = list.map((u) => u.user_id);
+      if (ids.length) {
+        const { data: srows } = await supabase
+          .from('user_client_status')
+          .select('user_id, browser_name, browser_version, os_name, device_type, tts_state, tts_error, last_seen_at')
+          .in('user_id', ids);
+        const map: Record<string, ClientStatusRow> = {};
+        for (const r of (srows ?? []) as ClientStatusRow[]) map[r.user_id] = r;
+        setStatuses(map);
+      } else {
+        setStatuses({});
+      }
     } catch (e: any) {
       toast({ title: 'Failed to load users', description: e?.message ?? String(e), variant: 'destructive' });
     } finally {
@@ -96,13 +122,15 @@ export default function RolesTab() {
                   <th className="py-2 pr-3">User</th>
                   <th className="py-2 pr-3">Department</th>
                   <th className="py-2 pr-3">Roles</th>
+                  <th className="py-2 pr-3">Voice</th>
+                  <th className="py-2 pr-3">Browser</th>
                   <th className="py-2 pr-3">Dept-admin scope</th>
                   <th className="py-2 pr-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No users found.</td></tr>
+                  <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No users found.</td></tr>
                 ) : filtered.map((u) => (
                   <tr key={u.user_id} className="border-b border-border/40">
                     <td className="py-3 pr-3">
@@ -125,6 +153,14 @@ export default function RolesTab() {
                           <Badge variant="outline" className="gap-1 text-muted-foreground"><UserIcon className="w-3 h-3" /> Member</Badge>
                         )}
                       </div>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <VoiceStatusDot status={statuses[u.user_id]} />
+                    </td>
+                    <td className="py-3 pr-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {statuses[u.user_id]?.browser_name
+                        ? `${statuses[u.user_id].browser_name}${statuses[u.user_id].browser_version ? ' ' + String(statuses[u.user_id].browser_version).split('.')[0] : ''}${statuses[u.user_id].os_name ? ' · ' + statuses[u.user_id].os_name : ''}`
+                        : '—'}
                     </td>
                     <td className="py-3 pr-3 text-xs text-muted-foreground">
                       {u.departments_admin.length > 0 ? u.departments_admin.join(', ') : '—'}
@@ -153,6 +189,31 @@ export default function RolesTab() {
         />
       )}
     </div>
+  );
+}
+
+function VoiceStatusDot({ status }: { status?: ClientStatusRow }) {
+  const state = status?.tts_state ?? 'unknown';
+  const map: Record<string, { color: string; label: string }> = {
+    ready:   { color: '#16a34a', label: 'Read-aloud ready in this user\'s browser.' },
+    loading: { color: '#f59e0b', label: 'Voice model is downloading in this user\'s browser.' },
+    error:   { color: '#f59e0b', label: status?.tts_error || 'Voice model failed to load.' },
+    unused:  { color: '#9ca3af', label: 'User has not loaded the voice model yet.' },
+    unknown: { color: '#6b7280', label: 'No client status reported yet.' },
+  };
+  const { color, label } = map[state] || map.unknown;
+  const seen = status?.last_seen_at ? new Date(status.last_seen_at).toLocaleString() : 'never';
+  return (
+    <span
+      title={`${label} (last seen: ${seen})`}
+      className="inline-flex items-center gap-1.5"
+    >
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={{ background: color, boxShadow: `0 0 0 2px color-mix(in srgb, ${color} 20%, transparent)` }}
+      />
+      <span className="text-xs text-muted-foreground capitalize">{state}</span>
+    </span>
   );
 }
 

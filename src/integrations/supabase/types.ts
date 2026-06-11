@@ -3345,6 +3345,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_client_status: {
+        Row: {
+          browser_name: string | null
+          browser_version: string | null
+          device_type: string | null
+          last_seen_at: string
+          organization_id: string | null
+          os_name: string | null
+          tts_error: string | null
+          tts_state: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          browser_name?: string | null
+          browser_version?: string | null
+          device_type?: string | null
+          last_seen_at?: string
+          organization_id?: string | null
+          os_name?: string | null
+          tts_error?: string | null
+          tts_state?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          browser_name?: string | null
+          browser_version?: string | null
+          device_type?: string | null
+          last_seen_at?: string
+          organization_id?: string | null
+          os_name?: string | null
+          tts_error?: string | null
+          tts_state?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_daily_spend: {
         Row: {
           day: string
