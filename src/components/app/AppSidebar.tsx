@@ -291,6 +291,35 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
         </nav>
       </div>
 
+      {onTogglePin && (
+        <div className="px-3 pt-3 pb-2 border-t border-border">
+          <button
+            onClick={onTogglePin}
+            title={pinned ? 'Unpin sidebar (auto-hide on Chat)' : 'Pin sidebar (keep visible)'}
+            aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl transition-colors hover:bg-white/5"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {pinned ? (
+                <Pin className="w-4 h-4 shrink-0" style={{ color: 'var(--c-purple)' }} />
+              ) : (
+                <PinOff className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              )}
+              <span className="text-xs font-medium truncate" style={{ color: 'var(--text-body)' }}>
+                {pinned ? 'Sidebar pinned' : 'Sidebar auto-hides'}
+              </span>
+            </div>
+            <span
+              className="text-[10px] font-semibold tracking-wider uppercase shrink-0"
+              style={{ color: pinned ? 'var(--c-purple)' : 'var(--text-muted)' }}
+            >
+              {pinned ? 'Unpin' : 'Pin'}
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="p-3 border-t border-border space-y-3">
         <div>
           <p
