@@ -154,6 +154,14 @@ export default function RolesTab() {
                         )}
                       </div>
                     </td>
+                    <td className="py-3 pr-3">
+                      <VoiceStatusDot status={statuses[u.user_id]} />
+                    </td>
+                    <td className="py-3 pr-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {statuses[u.user_id]?.browser_name
+                        ? `${statuses[u.user_id].browser_name}${statuses[u.user_id].browser_version ? ' ' + String(statuses[u.user_id].browser_version).split('.')[0] : ''}${statuses[u.user_id].os_name ? ' · ' + statuses[u.user_id].os_name : ''}`
+                        : '—'}
+                    </td>
                     <td className="py-3 pr-3 text-xs text-muted-foreground">
                       {u.departments_admin.length > 0 ? u.departments_admin.join(', ') : '—'}
                     </td>
