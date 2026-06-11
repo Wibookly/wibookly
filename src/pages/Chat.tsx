@@ -1579,38 +1579,12 @@ export default function Chat() {
             </div>
           )}
         </div>
-        <div className="border-t border-border p-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 w-full text-left hover:bg-accent rounded-md p-2 transition">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">{userInitial}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{profile?.full_name || profile?.email}</div>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="h-4 w-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleTheme}>
-                {theme === 'dark' ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => signOut()}>
-                <LogOut className="h-4 w-4 mr-2" /> Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </aside>
 
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      {sidebarOpen && !sidebarPinned && (
+        <div className="fixed inset-0 bg-black/40 z-30" onClick={() => setSidebarOpen(false)} />
       )}
+
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
