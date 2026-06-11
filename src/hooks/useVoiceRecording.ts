@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -14,6 +14,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -21,6 +22,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
   const lastVoiceAtRef = useRef<number>(0);
   const hasSpokenRef = useRef<boolean>(false);
   const cancelledRef = useRef<boolean>(false);
+  const permissionCheckedRef = useRef(false);
   const getAnalyser = useCallback(() => analyserRef.current, []);
 
   const cleanupSilenceDetection = useCallback(() => {
@@ -48,27 +50,56 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
     stopRecording();
   }, [stopRecording]);
 
+  const releaseStream = useCallback(() => {
+    try { streamRef.current?.getTracks().forEach((track) => track.stop()); } catch { /* ignore */ }
+    streamRef.current = null;
+  }, []);
+
+  const ensureMicrophoneStream = useCallback(async () => {
+    if (streamRef.current?.active && streamRef.current.getAudioTracks().some((track) => track.readyState === 'live')) {
+      return streamRef.current;
+    }
+
+    if (!permissionCheckedRef.current) {
+      permissionCheckedRef.current = true;
+      try {
+        if (navigator.permissions?.query) {
+          const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          if (status.state === 'denied') {
+            const err = new Error('Microphone blocked');
+            (err as Error & { name: string }).name = 'NotAllowedError';
+            throw err;
+          }
+        }
+      } catch (err: any) {
+        if (err?.name === 'NotAllowedError') throw err;
+      }
+    }
+
+    const audioConstraints: MediaTrackConstraints = deviceId
+      ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+    } catch (e: any) {
+      if (deviceId && (e?.name === 'OverconstrainedError' || e?.name === 'NotFoundError' || e?.name === 'NotReadableError')) {
+        console.warn('Preferred mic unavailable, falling back to default:', e?.name);
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } else {
+        throw e;
+      }
+    }
+
+    return streamRef.current;
+  }, [deviceId]);
+
   const startRecording = useCallback(async () => {
     let stream: MediaStream | null = null;
     try {
-      // Try the user's preferred mic first. If the saved device id is no
-      // longer plugged in (or the browser refuses `exact`), gracefully fall
-      // back to the default mic instead of throwing a red error.
-      const tryGetStream = async (constraints: MediaStreamConstraints) =>
-        navigator.mediaDevices.getUserMedia(constraints);
-      try {
-        const audioConstraints: MediaTrackConstraints = deviceId
-          ? { deviceId: { exact: deviceId } }
-          : {};
-        stream = await tryGetStream({ audio: audioConstraints });
-      } catch (e: any) {
-        if (deviceId && (e?.name === 'OverconstrainedError' || e?.name === 'NotFoundError' || e?.name === 'NotReadableError')) {
-          console.warn('Preferred mic unavailable, falling back to default:', e?.name);
-          stream = await tryGetStream({ audio: true });
-        } else {
-          throw e;
-        }
-      }
+      stream = await ensureMicrophoneStream();
 
 
       const mediaRecorder = new MediaRecorder(stream, {
@@ -87,7 +118,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       mediaRecorder.onstop = async () => {
         cleanupSilenceDetection();
         const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
-        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
 
         if (cancelledRef.current) {
           cancelledRef.current = false;
@@ -157,16 +188,19 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       console.error('Error starting recording:', error);
       const name = error?.name;
       if (name === 'NotAllowedError' || name === 'SecurityError') {
+        releaseStream();
         toast.error('Microphone blocked. Allow mic access in your browser settings.');
       } else if (name === 'NotFoundError') {
+        releaseStream();
         toast.error('No microphone detected. Plug one in and try again.');
       } else if (name === 'NotReadableError') {
+        releaseStream();
         toast.error('Microphone is in use by another app. Close it and try again.');
       } else {
         toast.error(`Could not start recording${error?.message ? `: ${error.message}` : ''}`);
       }
     }
-  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection, deviceId]);
+  }, [silenceTimeoutMs, stopRecording, cleanupSilenceDetection, ensureMicrophoneStream, releaseStream]);
 
   const transcribeAudio = async (base64Audio: string) => {
     setIsTranscribing(true);
@@ -206,6 +240,11 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
       setIsTranscribing(false);
     }
   };
+
+  useEffect(() => () => {
+    cleanupSilenceDetection();
+    releaseStream();
+  }, [cleanupSilenceDetection, releaseStream]);
 
 
   return {
