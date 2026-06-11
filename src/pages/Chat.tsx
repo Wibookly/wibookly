@@ -115,6 +115,12 @@ function formatAssistantMarkdown(input: string): string {
   text = text.replace(/^([A-Z][A-Za-z0-9 /&'-]{2,40}):\s+(?!\n)/gm, '**$1:** ');
   // Turn single newlines between non-empty, non-list lines into blank lines
   text = text.replace(/([^\n])\n(?=[^\n\-\*\d\s#>`])/g, '$1\n\n');
+  // Insert a horizontal rule before every ## / ### heading (except the very
+  // first line) so long answers visually break into scannable sections.
+  text = text.replace(/(^|\n\n)(#{2,3}\s)/g, (_m, lead, hd, offset) => {
+    if (offset === 0) return lead + hd;
+    return `${lead}---\n\n${hd}`;
+  });
   // Restore code blocks
   text = text.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => codeBlocks[Number(i)]);
   return text;
@@ -1620,7 +1626,7 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+            <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
               {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
               {activeStream && (
                 <>
@@ -1653,8 +1659,8 @@ export default function Chat() {
         </div>
 
         {/* Input area */}
-        <div className="bg-background -mt-16">
-          <div className="max-w-6xl mx-auto px-6 pt-0 pb-2 space-y-2.5">
+        <div className="bg-background -mt-2">
+          <div className="max-w-6xl mx-auto px-6 pt-2 pb-3 space-y-2.5">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
                 <ChatCreditMeter
