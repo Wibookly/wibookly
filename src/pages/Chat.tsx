@@ -437,6 +437,11 @@ export default function Chat() {
   // the first click on a "play" button feels instant instead of waiting
   // for an ~80MB download.
   useEffect(() => { preloadTTS(); }, [preloadTTS]);
+  // Starter prompts are collapsed by default; collapse again whenever the
+  // user switches between conversations (or starts a new chat) so the empty
+  // hero stays focused on the input box.
+  useEffect(() => { setPromptsExpanded(false); }, [activeId]);
+
   // Only show the download toast if the user actually clicks play before
   // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
