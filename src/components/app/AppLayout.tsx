@@ -18,6 +18,7 @@ import { ttsService } from '@/lib/ttsService';
 import { getStoredVoice } from '@/hooks/useKokoroTTS';
 import { RESTART_SETUP_WIZARD_EVENT } from '@/components/help/events';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function AppLayout() {
   const { user, loading, profile } = useAuth();
