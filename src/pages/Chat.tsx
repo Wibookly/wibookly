@@ -12,10 +12,11 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare,
+  MessageSquare, Ear,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { useVoiceCommands } from '@/hooks/useVoiceCommands';
 import { ChatCreditMeter } from '@/components/chat/ChatCreditMeter';
 import { VoiceWaveform } from '@/components/chat/VoiceWaveform';
 import { supabase } from '@/integrations/supabase/client';
@@ -501,6 +502,15 @@ export default function Chat() {
     silenceTimeoutMs: 2000,
     deviceId: selectedMicId,
   });
+
+  // Hands-free voice command mode: say "listen" to start mic, "stop" to stop & transcribe,
+  // "send" to submit the current input, "cancel" to discard the current recording.
+  const [handsFree, setHandsFree] = useState<boolean>(() => {
+    try { return localStorage.getItem('inboxiq:handsfree') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('inboxiq:handsfree', handsFree ? '1' : '0'); } catch { /* ignore */ }
+  }, [handsFree]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1155,6 +1165,30 @@ export default function Chat() {
     s.aborted = true;
     try { s.abort.abort(); } catch { /* ignore */ }
   };
+
+  // Wake-word handlers. handlersRef in the hook keeps these fresh per render,
+  // so closures over isRecording / input / handleSend stay current.
+  useVoiceCommands({
+    enabled: handsFree,
+    onListen: () => {
+      if (isRecording || isStreaming || isTranscribing || limitReached) return;
+      startRecording();
+      toast.message('Listening…', { description: 'Say "stop" to transcribe or "send" to submit.' });
+    },
+    onStop: () => {
+      if (isRecording) stopRecording();
+    },
+    onSend: () => {
+      if (isRecording) stopRecording();
+      // Give Whisper a moment to populate input, then send.
+      setTimeout(() => {
+        if (input.trim() && !isStreaming) handleSend();
+      }, isRecording ? 1500 : 0);
+    },
+    onCancel: () => {
+      if (isRecording) cancelRecording();
+    },
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1903,6 +1937,34 @@ export default function Chat() {
                 </Tooltip>
               )}
               {!isRecording && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        'relative h-9 w-9 shrink-0',
+                        handsFree && 'text-primary bg-primary/10 hover:bg-primary/15'
+                      )}
+                      onClick={() => setHandsFree((v) => !v)}
+                      aria-pressed={handsFree}
+                      aria-label="Toggle hands-free voice commands"
+                    >
+                      <Ear className="h-4 w-4" />
+                      {handsFree && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {handsFree
+                      ? 'Hands-free on — say "listen", "stop", "send", or "cancel"'
+                      : 'Hands-free off — turn on to control with your voice'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {!isRecording && (
               <DropdownMenu onOpenChange={(o) => { if (o) refreshMicDevices(); }}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -2041,7 +2103,7 @@ function MessageBubble({
           {isUser ? (
             <div className="whitespace-pre-wrap break-words">{message.content}</div>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed [&_p]:my-3 [&_p]:leading-relaxed [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:leading-relaxed [&_h1]:mt-5 [&_h1]:mb-3 [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:mt-4 [&_h3]:mb-2 [&_hr]:my-4 [&_blockquote]:my-3 [&_pre]:bg-background [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_code]:text-xs [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed [&_p]:my-3 [&_p]:leading-relaxed [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:leading-relaxed [&_h1]:mt-5 [&_h1]:mb-3 [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:mt-4 [&_h3]:mb-2 [&_hr]:my-5 [&_hr]:border-0 [&_hr]:border-t-2 [&_hr]:border-foreground/25 dark:[&_hr]:border-foreground/30 [&_blockquote]:my-3 [&_pre]:bg-background [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_code]:text-xs [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                 {formatAssistantMarkdown(message.content)}
               </ReactMarkdown>
