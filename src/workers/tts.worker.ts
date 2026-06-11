@@ -49,12 +49,22 @@ async function tryLoad(device: 'webgpu' | 'wasm') {
   } as any);
 }
 
+async function hasUsableWebGPU(): Promise<boolean> {
+  try {
+    const gpu = (navigator as any).gpu;
+    if (!gpu) return false;
+    const adapter = await gpu.requestAdapter();
+    return !!adapter;
+  } catch {
+    return false;
+  }
+}
+
 async function load() {
   if (tts) return tts;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
-    const hasWebGPU = typeof (navigator as any).gpu !== 'undefined';
-    if (hasWebGPU) {
+    if (await hasUsableWebGPU()) {
       try {
         tts = await tryLoad('webgpu');
         console.log('[tts.worker] loaded on WebGPU');
@@ -63,7 +73,7 @@ async function load() {
         console.warn('[tts.worker] WebGPU load failed, falling back to WASM:', e);
       }
     } else {
-      console.log('[tts.worker] navigator.gpu missing — using WASM');
+      console.log('[tts.worker] no usable WebGPU adapter — using WASM');
     }
     tts = await tryLoad('wasm');
     console.log('[tts.worker] loaded on WASM');
