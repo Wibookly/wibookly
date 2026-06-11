@@ -39,6 +39,7 @@ export default function RolesTab() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<OrgUser[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, ClientStatusRow>>({});
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
   const [editTarget, setEditTarget] = useState<OrgUser | null>(null);
@@ -53,7 +54,21 @@ export default function RolesTab() {
         _organization_id: profile.organization_id,
       });
       if (error) throw error;
-      setUsers((data ?? []) as OrgUser[]);
+      const list = (data ?? []) as OrgUser[];
+      setUsers(list);
+
+      const ids = list.map((u) => u.user_id);
+      if (ids.length) {
+        const { data: srows } = await supabase
+          .from('user_client_status')
+          .select('user_id, browser_name, browser_version, os_name, device_type, tts_state, tts_error, last_seen_at')
+          .in('user_id', ids);
+        const map: Record<string, ClientStatusRow> = {};
+        for (const r of (srows ?? []) as ClientStatusRow[]) map[r.user_id] = r;
+        setStatuses(map);
+      } else {
+        setStatuses({});
+      }
     } catch (e: any) {
       toast({ title: 'Failed to load users', description: e?.message ?? String(e), variant: 'destructive' });
     } finally {
