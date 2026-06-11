@@ -79,6 +79,8 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
   const [range, setRange] = useState('30');
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [users, setUsers] = useState<Record<string, UserMeta>>({});
+  const [domains, setDomains] = useState<Record<string, DomainMeta>>({});
+  const [groupBy, setGroupBy] = useState<GroupDimension>('department');
   const [liveSpend, setLiveSpend] = useState<ProviderSpend[] | null>(null);
   const [liveSpendLoading, setLiveSpendLoading] = useState(false);
 
@@ -87,7 +89,7 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
     setLoading(true);
     const since = new Date(Date.now() - parseInt(range) * 86400000).toISOString();
 
-    const [{ data: usage }, { data: profiles }] = await Promise.all([
+    const [{ data: usage }, { data: profiles }, { data: allowedDomains }, { data: memberships }] = await Promise.all([
       supabase
         .from('ai_usage_logs')
         .select('id,user_id,provider,model,action,prompt_tokens,completion_tokens,total_tokens,cost_usd,created_at')
@@ -97,13 +99,34 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         .limit(2000),
       supabase
         .from('user_profiles')
-        .select('user_id,email,full_name,department')
+        .select('user_id,email,full_name,department,company,domain_id')
+        .eq('organization_id', organizationId),
+      supabase
+        .from('allowed_domains')
+        .select('id,domain,organization_name'),
+      supabase
+        .from('user_group_memberships')
+        .select('user_id, permission_groups(name)')
         .eq('organization_id', organizationId),
     ]);
 
     setRows((usage as UsageRow[]) ?? []);
+
+    const domainMap: Record<string, DomainMeta> = {};
+    (allowedDomains ?? []).forEach((d: any) => { domainMap[d.id] = d as DomainMeta; });
+    setDomains(domainMap);
+
+    const groupsByUser: Record<string, string[]> = {};
+    (memberships ?? []).forEach((m: any) => {
+      const name = m.permission_groups?.name;
+      if (!name || !m.user_id) return;
+      (groupsByUser[m.user_id] ||= []).push(name);
+    });
+
     const userMap: Record<string, UserMeta> = {};
-    (profiles ?? []).forEach((p) => { userMap[p.user_id] = p as UserMeta; });
+    (profiles ?? []).forEach((p: any) => {
+      userMap[p.user_id] = { ...p, groups: groupsByUser[p.user_id] ?? [] } as UserMeta;
+    });
     setUsers(userMap);
     setLoading(false);
   }
