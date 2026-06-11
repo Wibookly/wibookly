@@ -254,6 +254,31 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
       .sort((a, b) => b.cost - a.cost);
   }, [rows, users]);
 
+  // Feature × Provider matrix — answers "what AI vendor does each feature use,
+  // and how much is each one costing me?". One row per feature, one column per
+  // provider (openai / anthropic / google / lovable_ai), plus a total.
+  const featureProviderMatrix = useMemo(() => {
+    const providers = new Set<string>();
+    const map = new Map<string, { action: string; calls: number; cost: number; perProvider: Record<string, { calls: number; cost: number; models: Set<string> }> }>();
+    rows.forEach((r) => {
+      providers.add(r.provider);
+      const ex = map.get(r.action) ?? { action: r.action, calls: 0, cost: 0, perProvider: {} };
+      ex.calls += 1;
+      ex.cost += Number(r.cost_usd || 0);
+      const pp = ex.perProvider[r.provider] ?? { calls: 0, cost: 0, models: new Set<string>() };
+      pp.calls += 1;
+      pp.cost += Number(r.cost_usd || 0);
+      if (r.model) pp.models.add(r.model);
+      ex.perProvider[r.provider] = pp;
+      map.set(r.action, ex);
+    });
+    return {
+      providers: Array.from(providers).sort(),
+      rows: Array.from(map.values()).sort((a, b) => b.cost - a.cost),
+    };
+  }, [rows]);
+
+
 
   function exportCsv() {
     const header = ['Time', 'User', 'Email', 'Provider', 'Model', 'Action', 'Prompt Tokens', 'Completion Tokens', 'Total Tokens', 'Cost USD'];
@@ -312,22 +337,42 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         <SummaryCard icon={<UsersIcon className="w-4 h-4" />} label="Active users" value={totals.activeUsers.toString()} />
       </div>
 
-      {/* Accuracy disclosure — answers "is this actually what I'm being charged?" */}
+      {/* Accuracy methodology — explains exactly how the number is computed */}
       <Card className="border-blue-500/20 bg-blue-500/5">
         <CardContent className="pt-4 pb-4">
           <div className="flex gap-3">
             <Info className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
-            <div className="text-xs leading-relaxed text-muted-foreground">
-              <p className="text-foreground font-medium mb-1">How accurate is this?</p>
+            <div className="text-xs leading-relaxed text-muted-foreground space-y-2">
+              <p className="text-foreground font-medium">How we measure AI cost</p>
               <p>
-                <strong>"Total cost (logged)"</strong> below is computed from every AI call this org made,
-                using each provider's published per-token pricing (OpenAI, Anthropic, Llama, Phi) at the
-                time of the call. It matches what providers bill ± a few cents (rounding + cache hits).
+                Every AI call the app makes goes through one shared accounting helper
+                (<code className="px-1 rounded bg-muted">recordSpend</code>) that writes a row to
+                <code className="px-1 rounded bg-muted"> ai_usage_logs</code> with:
+                <span className="font-medium"> user, organization, feature, provider, model,
+                prompt tokens, completion tokens</span> and a computed
+                <span className="font-medium"> cost_usd</span>.
               </p>
-              <p className="mt-1">
-                <strong>"Live provider spend"</strong> is the authoritative number pulled from the
-                provider billing APIs — use that as the source of truth. Per-feature, per-model and
-                per-department breakdowns are derived from logged calls.
+              <p>
+                <span className="font-medium text-foreground">cost_usd</span> ={' '}
+                <code className="px-1 rounded bg-muted">(prompt_tokens × input_price + completion_tokens × output_price) ÷ 1,000,000</code>{' '}
+                using each vendor's published per-million-token rates (OpenAI, Anthropic,
+                Google Gemini via Lovable AI Gateway, Llama, Phi). Tokens come from the model
+                response's <code className="px-1 rounded bg-muted">usage</code> block — the same
+                counter the vendor bills from — so the "Logged cost" total below matches the
+                vendor invoice within rounding (and minus prompt-cache discounts the vendor
+                applies after the fact).
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Live provider spend</span> (further
+                below) hits each vendor's billing API directly and is the authoritative number.
+                Use the logged numbers for per-user / per-feature / per-department breakdowns
+                — the vendor billing APIs don't expose those.
+              </p>
+              <p className="text-amber-600/90 dark:text-amber-400/80">
+                If a feature shows <span className="font-medium">$0.00</span> with non-zero calls,
+                it means the model id used (e.g. a brand-new Gemini preview) isn't priced in
+                <code className="px-1 rounded bg-muted">_shared/enforce-limits.ts → MODEL_COSTS</code>{' '}
+                yet — add it there and the next call will price correctly.
               </p>
             </div>
           </div>
@@ -479,6 +524,75 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
           </div>
         </CardContent>
       </Card>
+
+      {/* Feature × Provider matrix — which AI vendor each app feature is using */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Feature × AI vendor breakdown</CardTitle>
+          <CardDescription>
+            For each app feature: which AI vendor(s) it called, how many calls, which
+            model(s), and how much each vendor was charged. Hover a model badge to see
+            the full id.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {featureProviderMatrix.rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No data in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feature</TableHead>
+                    {featureProviderMatrix.providers.map((p) => (
+                      <TableHead key={p} className="capitalize">{p.replace('_', ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-right">Total cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {featureProviderMatrix.rows.map((r) => (
+                    <TableRow key={r.action}>
+                      <TableCell>
+                        <Badge variant="outline">{r.action}</Badge>
+                        <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                          {r.calls.toLocaleString()} calls
+                        </div>
+                      </TableCell>
+                      {featureProviderMatrix.providers.map((p) => {
+                        const pp = r.perProvider[p];
+                        if (!pp) {
+                          return <TableCell key={p} className="text-muted-foreground">—</TableCell>;
+                        }
+                        return (
+                          <TableCell key={p}>
+                            <div className="text-sm font-medium tabular-nums">{fmtMoney(pp.cost)}</div>
+                            <div className="text-[10px] text-muted-foreground tabular-nums">
+                              {pp.calls.toLocaleString()} calls
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {Array.from(pp.models).slice(0, 3).map((m) => (
+                                <Badge key={m} variant="secondary" className="text-[9px]" title={m}>
+                                  {m.length > 22 ? `${m.slice(0, 22)}…` : m}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right tabular-nums font-semibold">
+                        {fmtMoney(r.cost)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
 
 
       {/* Live provider spend (org-wide) */}

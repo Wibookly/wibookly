@@ -1069,11 +1069,12 @@ Deno.serve(async (req) => {
       tokens_out: lastUsage?.tokens_out ?? null,
     });
 
-    // Post-call accounting (user_daily_spend + org_agent_budget + ai_usage_logs)
-    // Skip for the admin "qa" integration probe — these are health checks, not
-    // real user activity, and we don't want them polluting the AI Usage tab
-    // or counting against quotas.
-    const isAdminProbe = body.agent === 'qa';
+    // Post-call accounting (user_daily_spend + org_agent_budget + ai_usage_logs).
+    // Only skip when the caller is an explicit admin health-check probe
+    // (must pass `probe: true`). We previously skipped on `agent === 'qa'`,
+    // but the real /chat UI ALWAYS sends `agent: 'qa'`, so every user chat
+    // was being silently dropped from AI Usage / quotas. Bug fix.
+    const isAdminProbe = (body as any).probe === true;
     if (!isAdminProbe) {
       try {
         await recordSpend(admin, {

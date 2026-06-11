@@ -18,8 +18,13 @@ export const FEATURE_TOKENS: Record<string, { in: number; out: number }> = {
   file_reading:       { in: 10000, out: 800  },
 };
 
-// USD per 1M tokens
+// USD per 1M tokens.
+// Keep both bare ('gpt-4.1') and gateway-prefixed forms in mind: normalizeModel()
+// strips 'openai/', 'google/', 'anthropic/', 'lovable_ai/' prefixes before
+// lookup. Gemini prices are Google's published API rates and are what users
+// effectively pay through the Lovable AI Gateway (billed in credits, $1 ≈ $1).
 export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+  // OpenAI
   'phi-4':             { input: 0.30, output: 0.60 },
   'gpt-4.1-mini':      { input: 0.40, output: 1.60 },
   'gpt-4.1':           { input: 2.00, output: 8.00 },
@@ -29,15 +34,24 @@ export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'gpt-5-mini':        { input: 0.25, output: 2.00 },
   'gpt-5-nano':        { input: 0.05, output: 0.40 },
   'llama-3.3-70b':     { input: 1.50, output: 2.00 },
+  // Anthropic
   'claude-sonnet-4-5': { input: 3.00, output: 15.00 },
   'claude-3-5-sonnet-latest': { input: 3.00, output: 15.00 },
   'claude-3-5-haiku-latest':  { input: 0.80, output: 4.00 },
   'claude-haiku-4-5':  { input: 1.00, output: 5.00 },
   'claude-opus-4':     { input: 15.00, output: 75.00 },
+  // Google Gemini via Lovable AI Gateway
+  'gemini-2.5-pro':              { input: 1.25,  output: 10.00 },
+  'gemini-2.5-flash':            { input: 0.30,  output: 2.50  },
+  'gemini-2.5-flash-lite':       { input: 0.10,  output: 0.40  },
+  'gemini-2.5-flash-image':      { input: 0.30,  output: 2.50  },
+  'gemini-3-flash-preview':      { input: 0.30,  output: 2.50  },
+  'gemini-3.1-flash-lite-preview': { input: 0.10, output: 0.40 },
+  'gemini-3.5-flash':            { input: 0.30,  output: 2.50  },
+  'gemini-3-pro-image-preview':  { input: 1.25,  output: 10.00 },
 };
 
 // Default model per feature when group_features.model_assignment is NULL.
-// Tuned for cost vs quality per feature class.
 export const FEATURE_DEFAULT_MODEL: Record<string, string> = {
   ai_chat:            'gpt-4.1-mini',
   ai_draft:           'phi-4',
@@ -66,11 +80,28 @@ export function resolveModel(
   return defaultModel;
 }
 
+// Strip gateway prefixes ('openai/', 'google/', 'anthropic/', 'lovable_ai/')
+// so cost lookups succeed whether the caller logged a bare or prefixed model id.
+function normalizeModel(model: string): string {
+  if (!model) return model;
+  return model.replace(/^(openai|google|anthropic|lovable_ai|lovable)\//i, '');
+}
+
 function priceFor(model: string): { input: number; output: number } {
   if (MODEL_COSTS[model]) return MODEL_COSTS[model];
+  const norm = normalizeModel(model);
+  if (MODEL_COSTS[norm]) return MODEL_COSTS[norm];
+  // Longest prefix match — keeps 'gpt-4.1-mini' from matching 'gpt-4.1'.
+  let best: { input: number; output: number } | null = null;
+  let bestLen = 0;
   for (const k of Object.keys(MODEL_COSTS)) {
-    if (model.startsWith(k) || k.startsWith(model)) return MODEL_COSTS[k];
+    if ((norm.startsWith(k) || k.startsWith(norm)) && k.length > bestLen) {
+      best = MODEL_COSTS[k];
+      bestLen = k.length;
+    }
   }
+  if (best) return best;
+  console.warn(`[enforce-limits] no price entry for model="${model}" (normalized="${norm}") — logging $0`);
   return { input: 0, output: 0 };
 }
 
@@ -86,8 +117,11 @@ export function actualCost(model: string, tokens_in: number, tokens_out: number)
   return (tokens_in * r.input + tokens_out * r.output) / 1_000_000;
 }
 
-export function detectProvider(model: string): 'openai' | 'anthropic' {
-  if (model.startsWith('claude') || model.includes('anthropic/')) return 'anthropic';
+export function detectProvider(model: string): 'openai' | 'anthropic' | 'google' | 'lovable_ai' {
+  const m = (model || '').toLowerCase();
+  if (m.startsWith('claude') || m.includes('anthropic/')) return 'anthropic';
+  if (m.startsWith('gemini') || m.includes('google/')) return 'google';
+  if (m.includes('lovable_ai/') || m.includes('lovable/')) return 'lovable_ai';
   return 'openai';
 }
 
