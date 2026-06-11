@@ -700,7 +700,104 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         </CardContent>
       </Card>
 
-
+      {/* Group cost breakdown — switchable dimension (department, company,
+          email domain, or permission group). Each row shows total spend plus
+          a per-vendor matrix with the dominant model and a "Free" badge for
+          any vendor that logged calls without billable cost. */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm">Cost breakdown by group</CardTitle>
+              <CardDescription>
+                Total AI spend per {GROUP_DIMENSIONS.find(d => d.value === groupBy)?.label.toLowerCase()} with per-vendor split.
+                Vendors that did not bill us in this period are marked <span className="font-medium">Free</span>.
+              </CardDescription>
+            </div>
+            <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupDimension)}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {GROUP_DIMENSIONS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>Group by {d.label.toLowerCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {groupBreakdown.rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No usage to group in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{GROUP_DIMENSIONS.find(d => d.value === groupBy)?.label}</TableHead>
+                    <TableHead className="text-right">Users</TableHead>
+                    <TableHead className="text-right">Calls</TableHead>
+                    {groupBreakdown.providers.map((p) => (
+                      <TableHead key={p} className="capitalize">{p.replace('_', ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-right">Top feature</TableHead>
+                    <TableHead className="text-right">Total cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupBreakdown.rows.map((r) => {
+                    const topFeature = Object.entries(r.perFeature).sort((a, b) => b[1].cost - a[1].cost)[0];
+                    return (
+                      <TableRow key={r.group}>
+                        <TableCell className="font-medium">{r.group}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.users.size}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.calls.toLocaleString()}</TableCell>
+                        {groupBreakdown.providers.map((p) => {
+                          const pp = r.perProvider[p];
+                          if (!pp) return <TableCell key={p} className="text-muted-foreground">—</TableCell>;
+                          const isFree = pp.cost === 0 && pp.calls > 0;
+                          return (
+                            <TableCell key={p}>
+                              {isFree ? (
+                                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                  Free · {pp.calls.toLocaleString()}
+                                </Badge>
+                              ) : (
+                                <>
+                                  <div className="text-sm font-medium tabular-nums">{fmtMoney(pp.cost)}</div>
+                                  <div className="text-[10px] text-muted-foreground tabular-nums">
+                                    {pp.calls.toLocaleString()} calls · {fmtTokens(pp.tokens)}
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Array.from(pp.models).slice(0, 2).map((m) => (
+                                  <Badge key={m} variant="outline" className="text-[9px]" title={m}>
+                                    {m.length > 20 ? `${m.slice(0, 20)}…` : m}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-right text-xs">
+                          {topFeature ? (
+                            <>
+                              <Badge variant="outline">{topFeature[0]}</Badge>
+                              <div className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                                {fmtMoney(topFeature[1].cost)}
+                              </div>
+                            </>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold">{fmtMoney(r.cost)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
 
       {/* Live provider spend (org-wide) */}
