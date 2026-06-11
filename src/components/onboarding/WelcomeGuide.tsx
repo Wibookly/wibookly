@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -23,8 +23,10 @@ import {
   START_GUIDED_TOUR_EVENT,
   type StartGuidedTourDetail,
 } from '@/components/help/events';
-import { HELP_ARTICLES } from '@/config/help-content';
+import { HELP_ARTICLES, filterHelpArticlesByAccess } from '@/config/help-content';
 import { useFeatureAccess, type FeatureKey } from '@/hooks/useFeatureAccess';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Full-screen premium dark-glass welcome guide.
@@ -37,7 +39,7 @@ import { useFeatureAccess, type FeatureKey } from '@/hooks/useFeatureAccess';
  *       available on the user's current route.
  */
 
-const STORAGE_KEY = 'inboxiq_welcome_guide_seen_v1';
+const STORAGE_KEY = 'inboxiq_welcome_guide_seen_v2';
 
 interface Section {
   id: string;
@@ -144,9 +146,19 @@ type TabId = 'overview' | 'page';
 export function WelcomeGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>('overview');
+  const [autoChecked, setAutoChecked] = useState(false);
+  const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null | undefined>(undefined);
   const navigate = useNavigate();
   const location = useLocation();
   const { hasFeature, loading: featuresLoading } = useFeatureAccess();
+  const { profile, user, loading: authLoading } = useAuth();
+  const openedByUserRef = useRef(false);
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
+
+  useEffect(() => {
+    setAutoChecked(false);
+    openedByUserRef.current = false;
+  }, [user?.id]);
 
   // Only surface sections the user actually has permission to use.
   const visibleSections = useMemo(
@@ -157,24 +169,81 @@ export function WelcomeGuide() {
     [hasFeature],
   );
 
+  useEffect(() => {
+    if (!user?.id) {
+      setOnboardingCompletedAt(undefined);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadOnboardingStatus = async () => {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('onboarding_completed_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      const row = data as { onboarding_completed_at?: string | null } | null;
+      setOnboardingCompletedAt(row?.onboarding_completed_at ?? null);
+    };
+
+    void loadOnboardingStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Auto-open once per browser/user on first authenticated landing.
   // Wait until features have loaded so we don't render the menu with the
   // wrong set of sections.
   useEffect(() => {
-    if (featuresLoading) return;
-    try {
-      if (localStorage.getItem(STORAGE_KEY) !== '1') {
-        const t = setTimeout(() => setOpen(true), 600);
-        return () => clearTimeout(t);
+    if (featuresLoading || authLoading || !user?.id || autoChecked || onboardingCompletedAt === undefined) return;
+
+    let cancelled = false;
+
+    const maybeOpen = async () => {
+      try {
+        const stored = localStorage.getItem(`${STORAGE_KEY}:${user.id}`);
+        if (stored === '1') {
+          if (!cancelled) setAutoChecked(true);
+          return;
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
-  }, [featuresLoading]);
+
+      const mainLandingRoutes = new Set(['/integrations', '/categories', '/settings']);
+      if (!mainLandingRoutes.has(location.pathname)) {
+        if (!cancelled) setAutoChecked(true);
+        return;
+      }
+
+      const isFirstTimeUser = !onboardingCompletedAt;
+      if (!cancelled) {
+        if (isFirstTimeUser) {
+          const t = window.setTimeout(() => {
+            if (!cancelled) setOpen(true);
+          }, 600);
+          window.setTimeout(() => clearTimeout(t), 1200);
+        }
+        setAutoChecked(true);
+      }
+    };
+
+    void maybeOpen();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [featuresLoading, authLoading, user?.id, autoChecked, location.pathname, onboardingCompletedAt]);
 
   // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
     const handler = (e: Event) => {
+      openedByUserRef.current = true;
       const detail = (e as CustomEvent<{ tab?: TabId }>).detail;
       if (detail?.tab) setTab(detail.tab);
       else setTab('overview');
@@ -187,7 +256,9 @@ export function WelcomeGuide() {
 
   const close = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, '1');
+      if (user?.id) {
+        localStorage.setItem(`${STORAGE_KEY}:${user.id}`, '1');
+      }
     } catch {
       /* ignore */
     }
@@ -211,10 +282,14 @@ export function WelcomeGuide() {
   // Articles whose routes include the current path = "tours for this page".
   const pageArticles = useMemo(() => {
     const path = location.pathname;
-    return HELP_ARTICLES.filter(
+    return filterHelpArticlesByAccess(
+      HELP_ARTICLES.filter(
       (a) => a.routes?.includes(path) && (a.steps?.length ?? 0) > 0,
+      ),
+      hasFeature,
+      isSuperAdmin,
     );
-  }, [location.pathname]);
+  }, [location.pathname, hasFeature, isSuperAdmin]);
 
   const startTour = (articleId: string) => {
     close();
@@ -261,7 +336,7 @@ export function WelcomeGuide() {
           </button>
 
           {/* Hero */}
-          <div className="text-center max-w-3xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto pr-12 sm:pr-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-indigo-200/80 backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
               Welcome to InboxIQ — Quick Guide
@@ -505,14 +580,16 @@ export function WelcomeGuide() {
             </div>
           )}
 
-          <div className="mt-10 flex justify-center sm:justify-end">
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-full px-5 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-medium transition"
-            >
-              I’ll explore on my own
-            </button>
+          <div className="mt-10 sticky bottom-0 pb-1">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={close}
+                className="w-full sm:w-auto rounded-full px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-medium transition"
+              >
+                {openedByUserRef.current ? 'Close guide' : 'I’ll explore on my own'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
