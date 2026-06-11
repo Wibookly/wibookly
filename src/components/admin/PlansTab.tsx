@@ -287,9 +287,9 @@ export default function PlansTab() {
 
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (opts?: { silent?: boolean }) => {
     if (!organization?.id) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       // Plans are defined under a global org; super admin sees all, others see their own org's.
       const plansQuery = isSuperAdmin
@@ -316,7 +316,6 @@ export default function PlansTab() {
         setFeatures((f.data || []) as FeatureRow[]);
         setMemberships(m.data || []);
 
-        // Active users: those in user_group_memberships, joined to user_profiles + monthly usage
         const userIds = (m.data || []).map(r => r.user_id);
         if (userIds.length) {
           const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -355,7 +354,6 @@ export default function PlansTab() {
         setFeatures([]); setMemberships([]); setActiveUsers([]);
       }
 
-      // Discovered count
       const dc = await supabase
         .from('discovered_tenant_users')
         .select('id', { count: 'exact', head: true })
@@ -363,7 +361,7 @@ export default function PlansTab() {
         .is('invited_user_id', null);
       setDiscoveredCount(dc.count || 0);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [organization?.id, isSuperAdmin]);
 
@@ -484,7 +482,7 @@ export default function PlansTab() {
             Select a plan to configure. Costs project from active M365 users only. Daily limits apply business days only.
           </p>
         </div>
-        <NewPlanButton domains={domains} adminDomainId={domains.find(d => d.domain === adminDomain)?.id || null} onCreated={fetchAll} />
+        <NewPlanButton domains={domains} adminDomainId={domains.find(d => d.domain === adminDomain)?.id || null} onCreated={() => fetchAll()} />
       </div>
 
       {/* KPI strip */}
@@ -542,7 +540,7 @@ export default function PlansTab() {
           activeMembers={activeMembersForPlan(selectedPlanId)}
           domains={domains}
           dollarPerTask={dollarPerTask}
-          onSaved={fetchAll}
+          onSaved={() => fetchAll({ silent: true })}
           allPlans={plans}
         />
       )}
@@ -706,12 +704,16 @@ function PlanCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const performSaveRef = useRef<() => Promise<void>>(async () => {});
 
+  // Only re-seed local edits when the *selected plan* changes — not on every
+  // silent refetch after autosave, otherwise in-flight edits get clobbered
+  // and inputs feel like "the page just refreshed".
   useEffect(() => {
     setRows(initRows);
     setMaxCats(plan.max_categories || 0);
     setChangeToken(0);
     setSaveStatus('idle');
-  }, [initRows, plan.id, plan.max_categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.id]);
 
   const updateRow = (key: string, patch: Partial<FeatureRow>) => {
     setRows(rs => rs.map(r => r.feature_key === key ? { ...r, ...patch } : r));
@@ -786,11 +788,13 @@ function PlanCard({
     }
   };
 
+  // Debounced autosave — wait 5s after the *last* change before persisting so
+  // rapid edits don't trigger a save (and parent refetch) on every keystroke.
   useEffect(() => {
     if (changeToken === 0) return;
     const timer = setTimeout(() => {
       performSaveRef.current();
-    }, 600);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [changeToken]);
 
