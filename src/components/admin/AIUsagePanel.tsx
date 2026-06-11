@@ -525,6 +525,75 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
         </CardContent>
       </Card>
 
+      {/* Feature × Provider matrix — which AI vendor each app feature is using */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Feature × AI vendor breakdown</CardTitle>
+          <CardDescription>
+            For each app feature: which AI vendor(s) it called, how many calls, which
+            model(s), and how much each vendor was charged. Hover a model badge to see
+            the full id.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {featureProviderMatrix.rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No data in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feature</TableHead>
+                    {featureProviderMatrix.providers.map((p) => (
+                      <TableHead key={p} className="capitalize">{p.replace('_', ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-right">Total cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {featureProviderMatrix.rows.map((r) => (
+                    <TableRow key={r.action}>
+                      <TableCell>
+                        <Badge variant="outline">{r.action}</Badge>
+                        <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                          {r.calls.toLocaleString()} calls
+                        </div>
+                      </TableCell>
+                      {featureProviderMatrix.providers.map((p) => {
+                        const pp = r.perProvider[p];
+                        if (!pp) {
+                          return <TableCell key={p} className="text-muted-foreground">—</TableCell>;
+                        }
+                        return (
+                          <TableCell key={p}>
+                            <div className="text-sm font-medium tabular-nums">{fmtMoney(pp.cost)}</div>
+                            <div className="text-[10px] text-muted-foreground tabular-nums">
+                              {pp.calls.toLocaleString()} calls
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {Array.from(pp.models).slice(0, 3).map((m) => (
+                                <Badge key={m} variant="secondary" className="text-[9px]" title={m}>
+                                  {m.length > 22 ? `${m.slice(0, 22)}…` : m}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right tabular-nums font-semibold">
+                        {fmtMoney(r.cost)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
+
 
       {/* Live provider spend (org-wide) */}
       <Card>
