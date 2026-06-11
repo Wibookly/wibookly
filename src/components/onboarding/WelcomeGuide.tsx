@@ -26,6 +26,7 @@ import {
 import { HELP_ARTICLES, filterHelpArticlesByAccess } from '@/config/help-content';
 import { useFeatureAccess, type FeatureKey } from '@/hooks/useFeatureAccess';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Full-screen premium dark-glass welcome guide.
@@ -146,6 +147,7 @@ export function WelcomeGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>('overview');
   const [autoChecked, setAutoChecked] = useState(false);
+  const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null | undefined>(undefined);
   const navigate = useNavigate();
   const location = useLocation();
   const { hasFeature, loading: featuresLoading } = useFeatureAccess();
@@ -162,11 +164,38 @@ export function WelcomeGuide() {
     [hasFeature],
   );
 
+  useEffect(() => {
+    if (!user?.id) {
+      setOnboardingCompletedAt(undefined);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadOnboardingStatus = async () => {
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('onboarding_completed_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      const row = data as { onboarding_completed_at?: string | null } | null;
+      setOnboardingCompletedAt(row?.onboarding_completed_at ?? null);
+    };
+
+    void loadOnboardingStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Auto-open once per browser/user on first authenticated landing.
   // Wait until features have loaded so we don't render the menu with the
   // wrong set of sections.
   useEffect(() => {
-    if (featuresLoading || authLoading || !user?.id || autoChecked) return;
+    if (featuresLoading || authLoading || !user?.id || autoChecked || onboardingCompletedAt === undefined) return;
 
     let cancelled = false;
 
@@ -187,8 +216,7 @@ export function WelcomeGuide() {
         return;
       }
 
-      const row = profile as { onboarding_completed_at?: string | null } | null;
-      const isFirstTimeUser = !row?.onboarding_completed_at;
+      const isFirstTimeUser = !onboardingCompletedAt;
       if (!cancelled) {
         if (isFirstTimeUser) {
           const t = window.setTimeout(() => {
@@ -205,7 +233,7 @@ export function WelcomeGuide() {
     return () => {
       cancelled = true;
     };
-  }, [featuresLoading, authLoading, user?.id, autoChecked, location.pathname, profile]);
+  }, [featuresLoading, authLoading, user?.id, autoChecked, location.pathname, onboardingCompletedAt]);
 
   // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
