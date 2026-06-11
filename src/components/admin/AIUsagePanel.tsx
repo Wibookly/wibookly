@@ -254,6 +254,31 @@ export default function AIUsagePanel({ organizationId }: { organizationId: strin
       .sort((a, b) => b.cost - a.cost);
   }, [rows, users]);
 
+  // Feature × Provider matrix — answers "what AI vendor does each feature use,
+  // and how much is each one costing me?". One row per feature, one column per
+  // provider (openai / anthropic / google / lovable_ai), plus a total.
+  const featureProviderMatrix = useMemo(() => {
+    const providers = new Set<string>();
+    const map = new Map<string, { action: string; calls: number; cost: number; perProvider: Record<string, { calls: number; cost: number; models: Set<string> }> }>();
+    rows.forEach((r) => {
+      providers.add(r.provider);
+      const ex = map.get(r.action) ?? { action: r.action, calls: 0, cost: 0, perProvider: {} };
+      ex.calls += 1;
+      ex.cost += Number(r.cost_usd || 0);
+      const pp = ex.perProvider[r.provider] ?? { calls: 0, cost: 0, models: new Set<string>() };
+      pp.calls += 1;
+      pp.cost += Number(r.cost_usd || 0);
+      if (r.model) pp.models.add(r.model);
+      ex.perProvider[r.provider] = pp;
+      map.set(r.action, ex);
+    });
+    return {
+      providers: Array.from(providers).sort(),
+      rows: Array.from(map.values()).sort((a, b) => b.cost - a.cost),
+    };
+  }, [rows]);
+
+
 
   function exportCsv() {
     const header = ['Time', 'User', 'Email', 'Provider', 'Model', 'Action', 'Prompt Tokens', 'Completion Tokens', 'Total Tokens', 'Cost USD'];
