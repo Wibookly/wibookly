@@ -158,6 +158,22 @@ export const ttsService = {
     try {
       const w = ensureWorker();
       stopAudioOnly();
+      // CRITICAL: create the <audio> element synchronously inside the user
+      // gesture (the click handler that called speak). Safari/iPadOS require
+      // this — an Audio() instantiated later, after the async worker reply,
+      // is no longer considered a user-initiated playback and gets blocked.
+      const el = new Audio();
+      el.setAttribute('playsinline', 'true');
+      el.preload = 'auto';
+      el.playbackRate = 0.92;
+      currentAudio = el;
+      // Prime the element with a silent play() during the gesture so the
+      // browser marks it as user-unlocked. The real src is swapped in when
+      // the worker returns the synthesized audio blob.
+      try {
+        const p = el.play();
+        if (p && typeof p.catch === 'function') p.catch(() => { /* expected — empty src */ });
+      } catch { /* ignore */ }
       state.generatingId = id;
       state.playingId = null;
       state.error = null;
