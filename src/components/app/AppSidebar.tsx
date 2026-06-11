@@ -11,6 +11,8 @@ import energyForwardLogo from '@/assets/ef-logo.png';
 import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
+import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { TtsStatusBadge } from '@/components/app/TtsStatusBadge';
 
 import { useState, useEffect } from 'react';
 import {
@@ -299,13 +301,13 @@ export function AppSidebar() {
           <HelpQuickActions compact />
         </div>
         <ModeToggle />
-        <button
-          onClick={signOut}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+        <div
+          className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+          <UserAvatarDropdown />
+          <TtsStatusBadge />
+        </div>
       </div>
     </aside>
   );
