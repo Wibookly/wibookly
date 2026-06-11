@@ -502,14 +502,8 @@ export default function Chat() {
     deviceId: selectedMicId,
   });
 
-  // Hands-free voice command mode: say "listen" to start mic, "stop" to stop & transcribe,
-  // "send" to submit the current input, "cancel" to discard the current recording.
-  const [handsFree, setHandsFree] = useState<boolean>(() => {
-    try { return localStorage.getItem('inboxiq:handsfree') === '1'; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('inboxiq:handsfree', handsFree ? '1' : '0'); } catch { /* ignore */ }
-  }, [handsFree]);
+
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
