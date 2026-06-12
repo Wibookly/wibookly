@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ttsService, type TtsState } from '@/lib/ttsService';
-import { useKokoroEngine, preferredTier } from '@/lib/deviceEngine';
+import { preferredTier } from '@/lib/deviceEngine';
 
 // Tier 2 (KittenTTS) voices — 8 expressive voices, labeled F/M for the UI.
 const KITTEN_VOICES_MOBILE = [
