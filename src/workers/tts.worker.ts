@@ -149,6 +149,11 @@ let currentSpeakId: string | null = null;
 self.onmessage = async (event: MessageEvent) => {
   const { type, id, text, voice } = event.data || {};
 
+  if (type === 'config') {
+    preferSmallModel = !!event.data.compact;
+    return;
+  }
+
   if (type === 'preload') {
     try {
       (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
