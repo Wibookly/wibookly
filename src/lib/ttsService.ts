@@ -240,6 +240,7 @@ function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; vo
 }
 
 async function playBlob(blob: Blob, id: string) {
+  if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
   const meta = requestMeta.get(id);
   console.log('TTS blob bytes:', blob.size);
   if (!blob || blob.size === 0) {
@@ -443,6 +444,7 @@ export const ttsService = {
     }
   },
   stop() {
+    if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
     stopPlaybackOnly();
     requestMeta.clear();
     if (supportsSpeechSynthesis()) {
