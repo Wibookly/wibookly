@@ -16,17 +16,64 @@ export interface KokoroVoiceOption {
   language: string;
 }
 
-// Verified Kokoro voice IDs.
-export const KOKORO_VOICES: KokoroVoiceOption[] = [
-  // English — US (2 female, 2 male)
+// Detect mobile/tablet to serve a trimmed voice list (faster downloads + UI).
+function isCompactDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod|Android|Mobile|Tablet/i.test(ua)) return true;
+  // iPadOS 13+ reports as desktop Safari but has touch points.
+  if ((navigator as any).maxTouchPoints > 1 && /Macintosh/.test(ua)) return true;
+  if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1024px)').matches) return true;
+  return false;
+}
+
+// Compact list — shown on phones & tablets to keep the model download small.
+const COMPACT_VOICES: KokoroVoiceOption[] = [
   { id: 'af_heart',    label: 'Heart (American Female)',   gender: 'female', language: 'English — United States' },
   { id: 'af_bella',    label: 'Bella (American Female)',   gender: 'female', language: 'English — United States' },
   { id: 'am_adam',     label: 'Adam (American Male)',      gender: 'male',   language: 'English — United States' },
   { id: 'am_michael',  label: 'Michael (American Male)',   gender: 'male',   language: 'English — United States' },
-  // English — UK (1 female, 1 male)
   { id: 'bf_emma',     label: 'Emma (British Female)',     gender: 'female', language: 'English — United Kingdom' },
   { id: 'bm_george',   label: 'George (British Male)',     gender: 'male',   language: 'English — United Kingdom' },
 ];
+
+// Full Kokoro voice catalog — shown on desktops/laptops.
+const FULL_VOICES: KokoroVoiceOption[] = [
+  // English — United States, Female
+  { id: 'af_heart',    label: 'Heart (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_alloy',    label: 'Alloy (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_aoede',    label: 'Aoede (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_bella',    label: 'Bella (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_jessica',  label: 'Jessica (American Female)',  gender: 'female', language: 'English — United States' },
+  { id: 'af_kore',     label: 'Kore (American Female)',     gender: 'female', language: 'English — United States' },
+  { id: 'af_nicole',   label: 'Nicole (American Female)',   gender: 'female', language: 'English — United States' },
+  { id: 'af_nova',     label: 'Nova (American Female)',     gender: 'female', language: 'English — United States' },
+  { id: 'af_river',    label: 'River (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_sarah',    label: 'Sarah (American Female)',    gender: 'female', language: 'English — United States' },
+  { id: 'af_sky',      label: 'Sky (American Female)',      gender: 'female', language: 'English — United States' },
+  // English — United States, Male
+  { id: 'am_adam',     label: 'Adam (American Male)',       gender: 'male',   language: 'English — United States' },
+  { id: 'am_echo',     label: 'Echo (American Male)',       gender: 'male',   language: 'English — United States' },
+  { id: 'am_eric',     label: 'Eric (American Male)',       gender: 'male',   language: 'English — United States' },
+  { id: 'am_fenrir',   label: 'Fenrir (American Male)',     gender: 'male',   language: 'English — United States' },
+  { id: 'am_liam',     label: 'Liam (American Male)',       gender: 'male',   language: 'English — United States' },
+  { id: 'am_michael',  label: 'Michael (American Male)',    gender: 'male',   language: 'English — United States' },
+  { id: 'am_onyx',     label: 'Onyx (American Male)',       gender: 'male',   language: 'English — United States' },
+  { id: 'am_puck',     label: 'Puck (American Male)',       gender: 'male',   language: 'English — United States' },
+  // English — United Kingdom, Female
+  { id: 'bf_alice',    label: 'Alice (British Female)',     gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_emma',     label: 'Emma (British Female)',      gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_isabella', label: 'Isabella (British Female)',  gender: 'female', language: 'English — United Kingdom' },
+  { id: 'bf_lily',     label: 'Lily (British Female)',      gender: 'female', language: 'English — United Kingdom' },
+  // English — United Kingdom, Male
+  { id: 'bm_daniel',   label: 'Daniel (British Male)',      gender: 'male',   language: 'English — United Kingdom' },
+  { id: 'bm_fable',    label: 'Fable (British Male)',       gender: 'male',   language: 'English — United Kingdom' },
+  { id: 'bm_george',   label: 'George (British Male)',      gender: 'male',   language: 'English — United Kingdom' },
+  { id: 'bm_lewis',    label: 'Lewis (British Male)',       gender: 'male',   language: 'English — United Kingdom' },
+];
+
+export const KOKORO_VOICES: KokoroVoiceOption[] =
+  isCompactDevice() ? COMPACT_VOICES : FULL_VOICES;
 
 export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> =
   KOKORO_VOICES.reduce((acc, v) => {
