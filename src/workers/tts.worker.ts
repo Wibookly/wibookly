@@ -61,10 +61,13 @@ function isMobileUA(): boolean {
 
 async function tryLoad(device: 'webgpu' | 'wasm') {
   console.log('[tts.worker] attempting load on', device);
-  // Mobile WASM: use q4 (~40MB) instead of q8 (~80MB) — roughly half the
-  // download and noticeably faster first play on phones.
+  // Mobile/tablet WASM: use q4 (~40MB) instead of q8 (~80MB) — half the
+  // download AND small enough to survive Safari's Cache Storage quota, so it
+  // doesn't get evicted and re-downloaded on every refresh.
+  const small = isMobileUA() || preferSmallModel;
   const dtype =
-    device === 'webgpu' ? 'fp32' : (isMobileUA() ? 'q4' : 'q8');
+    device === 'webgpu' ? 'fp32' : (small ? 'q4' : 'q8');
+  console.log('[tts.worker] dtype:', dtype);
   return await KokoroTTS.from_pretrained(MODEL_ID, {
     dtype,
     device: device as any,
