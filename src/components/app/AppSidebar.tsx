@@ -169,22 +169,16 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
   };
 
   return (
-    <aside className="hidden lg:flex w-[300px] h-screen flex-col shrink-0 relative" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
+    <aside className="hidden lg:flex w-[300px] h-[100dvh] flex-col shrink-0 relative overflow-hidden" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
 
-      <div className="px-5 pt-6 pb-5 flex flex-col items-center gap-1.5" style={{ borderBottom: '1px solid var(--border-soft)' }}>
+      <div className="px-5 pt-3 pb-2 flex flex-col items-center gap-1 shrink-0" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
           src={energyForwardLogo}
           alt="EnergyForward"
-          className="h-[70px] w-auto object-contain"
+          className="h-[44px] w-auto object-contain"
           draggable={false}
         />
-        <InboxIQLogo className="text-[18px] leading-none" />
-        <div
-          className="mt-0.5"
-          style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-soft)' }}
-        >
-          AI inbox for M365
-        </div>
+        <InboxIQLogo className="text-[15px] leading-none" />
       </div>
 
       {/* Active Email Selector */}
