@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => ({
   },
   worker: {
     format: "es",
+    plugins: () => [],
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
