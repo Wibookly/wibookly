@@ -1,6 +1,5 @@
 import { Bell } from 'lucide-react';
 import { UserAvatarDropdown } from './UserAvatarDropdown';
-import { TtsStatusBadge } from './TtsStatusBadge';
 
 /**
  * Slim global top bar. Intentionally does NOT show the page title — every
@@ -18,7 +17,6 @@ export function AppHeader() {
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <TtsStatusBadge />
 
       <button
         aria-label="Notifications"

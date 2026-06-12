@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
-import { TtsStatusBadge } from '@/components/app/TtsStatusBadge';
+
 
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
@@ -223,13 +223,12 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
             <HelpQuickActions compact />
           </div>
 
-          {/* User profile + TTS — matches desktop sidebar footer */}
+          {/* User profile — matches desktop sidebar footer */}
           <div
             className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
             <UserAvatarDropdown />
-            <TtsStatusBadge />
           </div>
 
           <button
