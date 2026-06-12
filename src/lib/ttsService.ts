@@ -9,7 +9,7 @@
 //
 // Public API is unchanged: ttsService.{subscribe,getState,speak,stop,preload,warm}.
 
-import { preferredTier } from '@/lib/deviceEngine';
+import { preferredTier, deviceEngine } from '@/lib/deviceEngine';
 
 export type TtsModelState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -305,9 +305,14 @@ async function speakWithCascade(text: string, voice: string, id: string) {
   unlockAudioSync();
 
   const order: (1 | 2 | 3)[] = [];
-  if (!cascadeBlocked[1] && (preferredTier as number) === 1) order.push(1);
-  if (!cascadeBlocked[2]) order.push(2);
-  if (!cascadeBlocked[1] && !order.includes(1)) order.push(1);
+  // iOS Safari: loading the WASM voice models repeatedly crashes the tab
+  // ("A problem repeatedly occurred"). Use the high-quality built-in iOS
+  // system voice (Tier 3) directly — zero download, zero memory pressure.
+  if (!deviceEngine.isIOS) {
+    if (!cascadeBlocked[1] && (preferredTier as number) === 1) order.push(1);
+    if (!cascadeBlocked[2]) order.push(2);
+    if (!cascadeBlocked[1] && !order.includes(1)) order.push(1);
+  }
   order.push(3);
 
   state.generatingId = id;
