@@ -137,7 +137,7 @@ export function AppLayout() {
           )}
           <div
             className={cn(
-              'hidden lg:block fixed left-0 top-0 h-screen z-40 transition-transform duration-200 ease-out',
+              'hidden lg:block fixed left-0 top-0 h-[100dvh] z-40 transition-transform duration-200 ease-out',
               sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
             )}
           >
