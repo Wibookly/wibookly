@@ -35,7 +35,13 @@ const warmedVoices = new Set<string>();
 // the percentage reflects real downloaded bytes (the model file dominates).
 const fileBytes = new Map<string, { loaded: number; total: number }>();
 
+// True when the model files were already in the browser cache — in that case
+// transformers.js still fires "progress" events while reading from cache,
+// which looked like a re-download. Suppress the fake percentages.
+let cacheHit = false;
+
 function reportProgress() {
+  if (cacheHit) return;
   if (fileBytes.size === 0) return;
   let loaded = 0;
   let total = 0;
@@ -43,6 +49,18 @@ function reportProgress() {
   if (total <= 0) return;
   const pct = Math.min(99, Math.round((loaded / total) * 100));
   (self as any).postMessage({ type: 'status', state: 'loading', progress: pct });
+}
+
+async function isModelCached(): Promise<boolean> {
+  try {
+    if (typeof caches === 'undefined') return false;
+    for (const name of await caches.keys()) {
+      const cache = await caches.open(name);
+      const keys = await cache.keys();
+      if (keys.some((req) => /Kokoro/i.test(req.url) && /\.onnx/i.test(req.url))) return true;
+    }
+  } catch { /* ignore */ }
+  return false;
 }
 
 // Stall detector: any progress event bumps this; if nothing happens for 45s
@@ -201,7 +219,11 @@ self.onmessage = async (event: MessageEvent) => {
 
   if (type === 'preload') {
     try {
-      (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
+      // Cached from a previous session? Skip the fake download percentages
+      // and jump straight to the "preparing" phase.
+      cacheHit = await isModelCached();
+      console.log('[tts.worker] model cached from previous session:', cacheHit);
+      (self as any).postMessage({ type: 'status', state: 'loading', progress: cacheHit ? 100 : 0 });
       // Stall timeout: if no download/init progress for 45s, fail loudly so
       // the UI shows an error (and falls back) instead of a frozen 99% bar.
       const model = await withStallTimeout(load());
