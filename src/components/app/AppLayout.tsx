@@ -106,7 +106,7 @@ export function AppLayout() {
   const togglePin = isChatPage ? () => setSidebarPinned((v) => !v) : undefined;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col lg:flex-row">
+    <div className="h-[100dvh] overflow-hidden flex flex-col lg:flex-row">
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
