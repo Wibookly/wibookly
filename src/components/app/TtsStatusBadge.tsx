@@ -20,13 +20,16 @@ export function TtsStatusBadge({ compact = false }: { compact?: boolean } = {}) 
 
   const { color, bg, border, icon, label, title } = (() => {
     if (snap.modelState === 'loading') {
+      const preparing = pct >= 100;
       return {
         color: 'var(--warning, #d97706)',
         bg: 'color-mix(in srgb, var(--warning, #d97706) 12%, transparent)',
         border: 'color-mix(in srgb, var(--warning, #d97706) 35%, transparent)',
         icon: <Download className="w-3.5 h-3.5 animate-pulse" />,
-        label: `Voice ${pct}%`,
-        title: `Downloading voice model… ${pct}% (one-time; cached for next visits).`,
+        label: preparing ? 'Voice preparing…' : `Voice ${pct}%`,
+        title: preparing
+          ? 'Download complete — preparing the voice engine (a few seconds).'
+          : `Downloading voice model… ${pct}% (one-time; cached for next visits).`,
       };
     }
     if (snap.modelState === 'ready') {
