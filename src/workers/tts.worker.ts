@@ -147,6 +147,21 @@ async function warmVoice(model: any, voice: string) {
   }
 }
 
+// Non-fatal variant for the speak path: never block playback. If warm-up
+// stalls or fails, we still proceed to real generation directly. This fixes
+// the "stuck at 99%" hang on some desktops where the silent warm-up gen
+// occasionally never resolves.
+async function warmVoiceSoft(model: any, voice: string, maxMs = 8000) {
+  if (warmedVoices.has(voice)) return;
+  postStatus('loading', { progress: 95 });
+  try {
+    await withTimeout(model.generate('ok', { voice }), maxMs, 'Kokoro warm-up (soft)');
+    warmedVoices.add(voice);
+  } catch (e) {
+    console.warn('[kokoro.worker] soft warm-up skipped:', e);
+  }
+}
+
 function splitIntoChunks(text: string, maxLen = 280): string[] {
   const sentences = String(text || '').match(/[^.!?]+[.!?]+["')\]]*|\S[^.!?]*$/g) || [String(text || '')];
   const chunks: string[] = [];
