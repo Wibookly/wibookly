@@ -40,10 +40,21 @@ function progressCallback(data: any) {
   } catch { /* ignore */ }
 }
 
+function isMobileUA(): boolean {
+  try {
+    const ua = (self as any).navigator?.userAgent || '';
+    return /iPad|iPhone|iPod|Android/i.test(ua);
+  } catch { return false; }
+}
+
 async function tryLoad(device: 'webgpu' | 'wasm') {
   console.log('[tts.worker] attempting load on', device);
+  // Mobile WASM: use q4 (~40MB) instead of q8 (~80MB) — roughly half the
+  // download and noticeably faster first play on phones.
+  const dtype =
+    device === 'webgpu' ? 'fp32' : (isMobileUA() ? 'q4' : 'q8');
   return await KokoroTTS.from_pretrained(MODEL_ID, {
-    dtype: device === 'webgpu' ? 'fp32' : 'q8',
+    dtype,
     device: device as any,
     progress_callback: progressCallback,
   } as any);
