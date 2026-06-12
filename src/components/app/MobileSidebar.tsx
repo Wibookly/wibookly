@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   LogOut,
   BarChart3,
@@ -13,6 +14,8 @@ import {
   Clock,
   Bot,
   UserPlus,
+  Pin,
+  PinOff,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
