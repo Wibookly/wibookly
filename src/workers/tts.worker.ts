@@ -1,34 +1,48 @@
 /// <reference lib="webworker" />
-// Desktop-only Kokoro TTS worker. Mobile/tablet never instantiates this
-// worker — see ttsService for device routing.
+// Tier 1 — Kokoro (kokoro-js) high-quality voice. Desktop/laptop default.
+// Used inside a web worker so the UI never freezes.
+//
+// Hardening:
+//  - WebGPU only if available, else WASM (single-threaded).
+//  - 45s timeout on load + warm-up. The orchestrator cascades on error.
+//  - "Ready" is gated on a silent warm-up gen succeeding (downloaded != ready).
+//  - TTS_CACHE_VERSION lets us invalidate stale browser caches.
 
 import { KokoroTTS, env } from 'kokoro-js';
+
+const TTS_CACHE_VERSION = 'v1';
+const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+const DEFAULT_VOICE = 'af_heart';
+const LOAD_TIMEOUT_MS = 45_000;
 
 try {
   (env as any).useBrowserCache = true;
   (env as any).allowLocalModels = false;
   (env as any).allowRemoteModels = true;
+  (env as any).cacheDir = `kokoro-${TTS_CACHE_VERSION}`;
   if ((env as any).backends?.onnx?.wasm) {
     (env as any).backends.onnx.wasm.numThreads = 1;
   }
 } catch { /* ignore */ }
-
-const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-const DEFAULT_VOICE = 'af_heart';
 
 let tts: any = null;
 let ready = false;
 let loadingPromise: Promise<any> | null = null;
 const warmedVoices = new Set<string>();
 const fileBytes = new Map<string, { loaded: number; total: number }>();
+let currentSpeakId: string | null = null;
+
+function postStatus(state: string, extras: Record<string, unknown> = {}) {
+  (self as any).postMessage({ type: 'status', state, ...extras });
+}
 
 function reportProgress() {
   if (fileBytes.size === 0) return;
   let loaded = 0, total = 0;
   for (const v of fileBytes.values()) { loaded += v.loaded; total += v.total; }
   if (total <= 0) return;
-  const pct = Math.min(99, Math.round((loaded / total) * 100));
-  (self as any).postMessage({ type: 'status', state: 'loading', progress: pct });
+  const pct = Math.min(95, Math.round((loaded / total) * 95)); // cap below 100 until warmed
+  postStatus('loading', { progress: pct });
 }
 
 function progressCallback(data: any) {
@@ -65,22 +79,26 @@ async function hasUsableWebGPU(): Promise<boolean> {
   } catch { return false; }
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function load() {
   if (tts) return tts;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     if ('gpu' in (navigator as any) && await hasUsableWebGPU()) {
       try {
-        tts = await Promise.race([
-          tryLoad('webgpu'),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('WebGPU init timed out')), 45000)),
-        ]);
+        tts = await withTimeout(tryLoad('webgpu'), LOAD_TIMEOUT_MS, 'Kokoro WebGPU load');
         return tts;
       } catch (e) {
-        console.warn('[tts.worker] WebGPU failed, falling back to WASM:', e);
+        console.warn('[kokoro.worker] WebGPU failed, falling back to WASM:', e);
       }
     }
-    tts = await tryLoad('wasm');
+    tts = await withTimeout(tryLoad('wasm'), LOAD_TIMEOUT_MS, 'Kokoro WASM load');
     return tts;
   })().catch((e) => { loadingPromise = null; throw e; });
   return loadingPromise;
@@ -88,12 +106,9 @@ async function load() {
 
 async function warmVoice(model: any, voice: string) {
   if (warmedVoices.has(voice)) return;
-  try {
-    await model.generate('ok', { voice });
-    warmedVoices.add(voice);
-  } catch (e) {
-    console.warn('[tts.worker] warm voice failed:', voice, e);
-  }
+  // "Ready" gate — a silent generation must succeed, with a timeout.
+  await withTimeout(model.generate('ok', { voice }), LOAD_TIMEOUT_MS, 'Kokoro warm-up');
+  warmedVoices.add(voice);
 }
 
 function splitIntoChunks(text: string, maxLen = 280): string[] {
@@ -110,33 +125,26 @@ function splitIntoChunks(text: string, maxLen = 280): string[] {
   return chunks.length ? chunks : [String(text || '')];
 }
 
-let currentSpeakId: string | null = null;
-
 self.onmessage = async (event: MessageEvent) => {
   const { type, id, text, voice } = event.data || {};
+  const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
 
   if (type === 'preload') {
     try {
-      (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
+      postStatus('loading', { progress: 0 });
       const model = await load();
-      (self as any).postMessage({ type: 'status', state: 'loading', progress: 100 });
-      const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
       await warmVoice(model, v);
       ready = true;
-      (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
+      postStatus('ready', { progress: 100 });
     } catch (e: any) {
-      console.error('[tts.worker] preload error:', e);
-      (self as any).postMessage({ type: 'status', state: 'error', message: String(e?.message ?? e) });
+      console.error('[kokoro.worker] preload error:', e);
+      postStatus('error', { message: String(e?.message ?? e) });
     }
     return;
   }
 
   if (type === 'warm') {
-    try {
-      const model = await load();
-      const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
-      await warmVoice(model, v);
-    } catch (e) { console.warn('[tts.worker] warm error:', e); }
+    try { const model = await load(); await warmVoice(model, v); } catch (e) { console.warn('[kokoro.worker] warm error:', e); }
     return;
   }
 
@@ -145,12 +153,12 @@ self.onmessage = async (event: MessageEvent) => {
   if (type === 'speak') {
     currentSpeakId = id;
     try {
-      if (!ready) (self as any).postMessage({ type: 'status', state: 'loading' });
+      if (!ready) postStatus('loading');
       const model = await load();
-      const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
       if (!ready) {
+        await warmVoice(model, v);
         ready = true;
-        (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
+        postStatus('ready', { progress: 100 });
       }
       const chunks = splitIntoChunks(String(text || ''));
       for (let i = 0; i < chunks.length; i++) {
@@ -164,9 +172,8 @@ self.onmessage = async (event: MessageEvent) => {
         });
       }
     } catch (e: any) {
-      console.error('[tts.worker] speak error:', e);
-      (self as any).postMessage({ type: 'status', state: 'error', id, message: String(e?.message ?? e) });
+      console.error('[kokoro.worker] speak error:', e);
+      postStatus('error', { id, message: String(e?.message ?? e) });
     }
-    return;
   }
 };
