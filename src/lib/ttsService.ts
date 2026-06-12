@@ -16,6 +16,18 @@ export interface TtsState {
 let worker: Worker | null = null;
 let preloadRequested = false;
 
+// Detect mobile Safari / iOS — Kokoro (80MB+ WASM model) is impractical there.
+// Use the device's native speechSynthesis voices instead: instant, no download.
+function isNativeOnlyDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  // Treat all iOS and Android mobile browsers as native-only.
+  return isIOS || isAndroid;
+}
+
 // Web Audio primary playback
 let audioCtx: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
@@ -325,6 +337,15 @@ export const ttsService = {
       return;
     }
     preloadRequested = true;
+    // On iOS/Android: skip the 80MB+ Kokoro download entirely. We use the
+    // device's built-in speechSynthesis voices, which are instant.
+    if (isNativeOnlyDevice()) {
+      state.modelState = supportsSpeechSynthesis() ? 'ready' : 'error';
+      state.progress = 100;
+      state.error = supportsSpeechSynthesis() ? null : 'No speech synthesis available on this device.';
+      emit();
+      return;
+    }
     try {
       const w = ensureWorker();
       w.postMessage({ type: 'preload', voice });
@@ -336,6 +357,7 @@ export const ttsService = {
     }
   },
   warm(voice: string) {
+    if (isNativeOnlyDevice()) return;
     try {
       const w = ensureWorker();
       w.postMessage({ type: 'warm', voice });
@@ -344,13 +366,26 @@ export const ttsService = {
   speak(text: string, voice: string, id: string) {
     try {
       // CRITICAL: unlock the AudioContext synchronously within the user gesture.
-      // Kick this off immediately; do not await before posting to worker so
-      // we stay inside the gesture activation window.
       void unlockAudio();
 
       if (supportsSpeechSynthesis()) {
         try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
       }
+
+      // Mobile Safari / Android: use native speechSynthesis directly — no
+      // model download, no WASM, no worker. Plays immediately on tap.
+      if (isNativeOnlyDevice()) {
+        stopPlaybackOnly();
+        requestMeta.set(id, { text: stripForSpeech(text), voice });
+        if (!fallbackToSpeechSynthesis(text, id, voice)) {
+          state.error = 'Speech is not supported on this device.';
+          state.generatingId = null;
+          state.playingId = null;
+          emit();
+        }
+        return;
+      }
+
       const w = ensureWorker();
       stopPlaybackOnly();
       state.generatingId = id;
