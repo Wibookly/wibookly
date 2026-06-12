@@ -25,29 +25,32 @@ let ready = false;
 let loadingPromise: Promise<any> | null = null;
 const warmedVoices = new Set<string>();
 
-// Track download progress across files
-const fileProgress = new Map<string, number>();
+// Track download progress across files, weighted by file size in bytes so
+// the percentage reflects real downloaded bytes (the model file dominates).
+const fileBytes = new Map<string, { loaded: number; total: number }>();
 
 function reportProgress() {
-  if (fileProgress.size === 0) return;
-  let sum = 0;
-  for (const v of fileProgress.values()) sum += v;
-  const pct = Math.min(99, Math.round(sum / fileProgress.size));
+  if (fileBytes.size === 0) return;
+  let loaded = 0;
+  let total = 0;
+  for (const v of fileBytes.values()) { loaded += v.loaded; total += v.total; }
+  if (total <= 0) return;
+  const pct = Math.min(99, Math.round((loaded / total) * 100));
   (self as any).postMessage({ type: 'status', state: 'loading', progress: pct });
 }
 
 function progressCallback(data: any) {
   try {
     if (!data || !data.file) return;
-    if (data.status === 'progress' && typeof data.progress === 'number') {
-      fileProgress.set(data.file, data.progress);
+    if (data.status === 'progress' && typeof data.loaded === 'number' && typeof data.total === 'number') {
+      fileBytes.set(data.file, { loaded: data.loaded, total: data.total });
       reportProgress();
     } else if (data.status === 'done') {
-      fileProgress.set(data.file, 100);
+      const cur = fileBytes.get(data.file);
+      if (cur) fileBytes.set(data.file, { loaded: cur.total || cur.loaded, total: cur.total || cur.loaded });
       reportProgress();
     } else if (data.status === 'initiate' || data.status === 'download') {
-      if (!fileProgress.has(data.file)) fileProgress.set(data.file, 0);
-      reportProgress();
+      if (!fileBytes.has(data.file)) fileBytes.set(data.file, { loaded: 0, total: 0 });
     }
   } catch { /* ignore */ }
 }
