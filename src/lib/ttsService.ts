@@ -340,8 +340,12 @@ async function speakWithCascade(text: string, voice: string, id: string) {
       await speakOnTier(t, text, voice, id);
       return;
     } catch (e: any) {
-      console.warn(`[tts] tier ${t} failed, cascading:`, e?.message || e);
-      cascadeBlocked[t] = true;
+      const msg = e?.message || String(e);
+      console.warn(`[tts] tier ${t} failed, cascading:`, msg);
+      // Only permanently block on hard errors. A preload/speak timeout may
+      // still complete in the background, so leave the tier eligible for
+      // the next click instead of forcing the basic system voice forever.
+      if (!/timed out/i.test(msg)) cascadeBlocked[t] = true;
       // continue to next tier
     }
   }
