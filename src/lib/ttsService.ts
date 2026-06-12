@@ -472,6 +472,7 @@ export const ttsService = {
 
       const w = ensureWorker();
       stopPlaybackOnly();
+      clearChunkQueue();
       state.generatingId = id;
       state.playingId = null;
       state.error = null;
@@ -479,15 +480,17 @@ export const ttsService = {
       requestMeta.set(id, { text: stripForSpeech(text), voice });
       w.postMessage({ type: 'speak', id, text, voice });
 
-      // Watchdog: if Kokoro hasn't produced audio in time (slow/stalled model
-      // download or generation), fall back to the device's built-in voice so
-      // the user never gets stuck on an endless "loading" spinner.
+      // Watchdog: if Kokoro hasn't produced the FIRST chunk in time (slow or
+      // stalled model download/generation), fall back to the device's built-in
+      // voice so the user never gets stuck on an endless "loading" spinner.
+      // Chunked generation means the first chunk arrives fast once ready.
       if (watchdogTimer) window.clearTimeout(watchdogTimer);
-      const timeoutMs = state.modelState === 'ready' ? 20000 : 45000;
+      const timeoutMs = state.modelState === 'ready' ? 30000 : 90000;
       watchdogTimer = window.setTimeout(() => {
         if (state.generatingId !== id) return; // audio arrived or was stopped
         console.warn('[tts] watchdog: Kokoro timed out — falling back to speechSynthesis');
         state.generatingId = null;
+        try { w.postMessage({ type: 'stop' }); } catch { /* ignore */ }
         const meta = requestMeta.get(id);
         if (!fallbackToSpeechSynthesis(meta?.text || text, id, meta?.voice || voice)) {
           state.error = 'Speech timed out. Please try again.';
@@ -503,8 +506,10 @@ export const ttsService = {
   },
   stop() {
     if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
+    clearChunkQueue();
     stopPlaybackOnly();
     requestMeta.clear();
+    try { worker?.postMessage({ type: 'stop' }); } catch { /* ignore */ }
     if (supportsSpeechSynthesis()) {
       try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
     }
