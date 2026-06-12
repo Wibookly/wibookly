@@ -108,6 +108,29 @@ async function warmVoice(model: any, voice: string) {
   }
 }
 
+// Split text into sentence-grouped chunks (~280 chars) so the first audio
+// arrives within seconds instead of generating one huge clip.
+function splitIntoChunks(text: string, maxLen = 280): string[] {
+  const sentences = String(text || '').match(/[^.!?]+[.!?]+["')\]]*|\S[^.!?]*$/g) || [String(text || '')];
+  const chunks: string[] = [];
+  let cur = '';
+  for (const s of sentences) {
+    const piece = s.trim();
+    if (!piece) continue;
+    if (cur && (cur.length + piece.length + 1) > maxLen) {
+      chunks.push(cur);
+      cur = piece;
+    } else {
+      cur = cur ? `${cur} ${piece}` : piece;
+    }
+  }
+  if (cur) chunks.push(cur);
+  return chunks.length ? chunks : [String(text || '')];
+}
+
+// Track which speak request is current so superseded ones stop generating.
+let currentSpeakId: string | null = null;
+
 self.onmessage = async (event: MessageEvent) => {
   const { type, id, text, voice } = event.data || {};
 
