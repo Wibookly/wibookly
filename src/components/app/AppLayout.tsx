@@ -106,7 +106,7 @@ export function AppLayout() {
   const togglePin = isChatPage ? () => setSidebarPinned((v) => !v) : undefined;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col lg:flex-row">
+    <div className="h-[100dvh] overflow-hidden flex flex-col lg:flex-row">
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
@@ -137,7 +137,7 @@ export function AppLayout() {
           )}
           <div
             className={cn(
-              'hidden lg:block fixed left-0 top-0 h-screen z-40 transition-transform duration-200 ease-out',
+              'hidden lg:block fixed left-0 top-0 h-[100dvh] z-40 transition-transform duration-200 ease-out',
               sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
             )}
           >
