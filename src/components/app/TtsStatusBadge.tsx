@@ -54,10 +54,11 @@ export function TtsStatusBadge({ compact = false }: { compact?: boolean } = {}) 
       <div
         title={title}
         aria-label={label}
-        className="inline-flex items-center justify-center w-8 h-8 rounded-full"
+        className={`inline-flex items-center justify-center gap-1 rounded-full ${snap.modelState === 'loading' ? 'px-2 h-8 text-[10px] font-semibold' : 'w-8 h-8'}`}
         style={{ background: bg, border: `1px solid ${border}`, color }}
       >
         {icon}
+        {snap.modelState === 'loading' && <span>{pct}%</span>}
       </div>
     );
   }
