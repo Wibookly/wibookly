@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   LogOut,
   BarChart3,
@@ -13,6 +14,8 @@ import {
   Clock,
   Bot,
   UserPlus,
+  Pin,
+  PinOff,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -98,7 +101,15 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
     !hasFeature('feature.follow_up_reminder') &&
     !hasFeature('meeting_copilot');
 
-  const handleNavClick = () => onClose();
+  const [pinned, setPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('mobile-sidebar-pinned') === 'true';
+  });
+  useEffect(() => {
+    localStorage.setItem('mobile-sidebar-pinned', String(pinned));
+  }, [pinned]);
+
+  const handleNavClick = () => { if (!pinned) onClose(); };
 
   const accents = {
     cyan:   'var(--c-cyan)',
@@ -118,6 +129,20 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
         <SheetHeader className="p-4" style={{ borderBottom: '1px solid var(--border-soft)' }}>
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold" style={{ color: 'var(--text-body)' }}>InboxIQ</span>
+            <button
+              type="button"
+              onClick={() => setPinned((v) => !v)}
+              aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+              title={pinned ? 'Unpin sidebar (taps will close it)' : 'Pin sidebar open (taps keep it open)'}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+              style={{
+                background: pinned ? 'var(--primary)' : 'var(--surface)',
+                color: pinned ? '#FFFFFF' : 'var(--text-muted)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {pinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
+            </button>
           </div>
         </SheetHeader>
 
