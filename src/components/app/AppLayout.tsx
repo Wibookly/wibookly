@@ -110,6 +110,27 @@ export function AppLayout() {
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
+      {/* Mobile "Show Menu" pill — Chat page only, mirrors desktop affordance */}
+      {isChatPage && (
+        <button
+          type="button"
+          aria-label="Open sidebar menu"
+          onClick={() => setMobileMenuOpen(true)}
+          className="lg:hidden fixed left-0 bottom-6 z-50 flex items-center gap-2 h-11 pl-3 pr-4 rounded-r-xl border border-l-0 shadow-xl backdrop-blur transition hover:brightness-110"
+          style={{
+            background: 'linear-gradient(135deg, var(--c-purple), color-mix(in srgb, var(--c-purple) 80%, black))',
+            color: '#FFFFFF',
+            borderColor: 'color-mix(in srgb, var(--c-purple) 60%, transparent)',
+          }}
+        >
+          <ChevronRight className="h-4 w-4 shrink-0" />
+          <span className="text-[11px] font-semibold tracking-[0.14em] uppercase whitespace-nowrap">
+            Show Menu
+          </span>
+        </button>
+      )}
+
+
       {/* Mobile Sidebar (Sheet) */}
       <MobileSidebar open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
