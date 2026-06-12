@@ -9,6 +9,15 @@
 // Output is a 24kHz mono WAV blob (decoded by Web Audio via playPcmBlob).
 
 import { KittenTTS } from 'kitten-tts-js';
+import * as ort from 'onnxruntime-web';
+
+// 'onnxruntime-node' is aliased to 'onnxruntime-web' in vite.config.ts, so the
+// library's first import() succeeds with the web runtime — but that branch
+// skips its own wasmPaths setup, so configure it here explicitly.
+if (!ort.env.wasm.wasmPaths) {
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/';
+}
+ort.env.wasm.numThreads = (self as any).navigator?.hardwareConcurrency || 4;
 
 const MODEL_ID = 'KittenML/kitten-tts-nano-0.8';
 const DEFAULT_VOICE = 'Bella';

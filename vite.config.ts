@@ -38,6 +38,10 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // kitten-tts-js tries `import('onnxruntime-node')` first (Node-only native
+      // package). Bundling it produces a broken module namespace at runtime
+      // ("undefined is not an object (evaluating p.env)"). Always use the web runtime.
+      "onnxruntime-node": "onnxruntime-web",
     },
   },
 }));
