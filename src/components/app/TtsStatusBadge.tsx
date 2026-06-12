@@ -30,7 +30,6 @@ export function TtsStatusBadge({ compact = false }: { compact?: boolean } = {}) 
       };
     }
     if (snap.modelState === 'ready') {
-    if (snap.modelState === 'ready') {
       return {
         color: 'var(--success, #16a34a)',
         bg: 'color-mix(in srgb, var(--success, #16a34a) 12%, transparent)',
