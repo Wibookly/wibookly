@@ -1809,9 +1809,10 @@ export default function Chat() {
     <div className="h-full flex bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-40 w-[300px] bg-card border-r border-border flex flex-col transition-transform',
+        'fixed lg:static top-0 left-0 z-40 w-[300px] h-[100dvh] lg:h-full bg-card border-r border-border flex flex-col transition-transform pb-[env(safe-area-inset-bottom)]',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
+
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="font-semibold text-sm">InboxIQ Chat</span>
           <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
