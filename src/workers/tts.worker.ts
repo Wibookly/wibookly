@@ -219,7 +219,11 @@ self.onmessage = async (event: MessageEvent) => {
 
   if (type === 'preload') {
     try {
-      (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
+      // Cached from a previous session? Skip the fake download percentages
+      // and jump straight to the "preparing" phase.
+      cacheHit = await isModelCached();
+      console.log('[tts.worker] model cached from previous session:', cacheHit);
+      (self as any).postMessage({ type: 'status', state: 'loading', progress: cacheHit ? 100 : 0 });
       // Stall timeout: if no download/init progress for 45s, fail loudly so
       // the UI shows an error (and falls back) instead of a frozen 99% bar.
       const model = await withStallTimeout(load());
