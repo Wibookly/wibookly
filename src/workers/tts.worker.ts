@@ -95,7 +95,13 @@ async function load() {
   loadingPromise = (async () => {
     if (await hasUsableWebGPU()) {
       try {
-        tts = await tryLoad('webgpu');
+        // Some browsers' WebGPU session creation can hang indefinitely after
+        // the files are downloaded (UI stuck at 99%). Cap it at 45s, then
+        // fall back to WASM which always completes.
+        tts = await Promise.race([
+          tryLoad('webgpu'),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('WebGPU init timed out')), 45000)),
+        ]);
         console.log('[tts.worker] loaded on WebGPU');
         return tts;
       } catch (e) {
