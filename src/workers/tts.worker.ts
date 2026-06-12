@@ -123,7 +123,12 @@ async function load() {
   if (tts) return tts;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
-    if (await hasUsableWebGPU()) {
+    // iOS / iPadOS (incl. iPads reporting as Mac — flagged via preferSmallModel)
+    // must NEVER attempt WebGPU: a failed/hanging WebGPU session is the 99%
+    // freeze. Go straight to single-threaded WASM there.
+    const iosLike = isMobileUA() || preferSmallModel;
+    console.log('[tts.worker] device: %s — engine: %s', iosLike ? 'mobile/iOS-like' : 'desktop', iosLike ? 'wasm' : 'auto');
+    if (!iosLike && 'gpu' in (navigator as any) && await hasUsableWebGPU()) {
       try {
         // Some browsers' WebGPU session creation can hang indefinitely after
         // the files are downloaded (UI stuck at 99%). Cap it at 45s, then
@@ -151,14 +156,15 @@ async function load() {
   return loadingPromise;
 }
 
-async function warmVoice(model: any, voice: string) {
+async function warmVoice(model: any, voice: string, strict = false) {
   if (warmedVoices.has(voice)) return;
   try {
-    await model.generate('Hello.', { voice });
+    await model.generate('ok', { voice });
     warmedVoices.add(voice);
     console.log('[tts.worker] warmed voice:', voice);
   } catch (e) {
     console.warn('[tts.worker] warm voice failed:', voice, e);
+    if (strict) throw e;
   }
 }
 
@@ -196,12 +202,15 @@ self.onmessage = async (event: MessageEvent) => {
   if (type === 'preload') {
     try {
       (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
-      const model = await load();
-      // Download finished — tell the UI we're in the (short) warm-up phase
-      // instead of leaving it stuck on a 99% download figure.
+      // Stall timeout: if no download/init progress for 45s, fail loudly so
+      // the UI shows an error (and falls back) instead of a frozen 99% bar.
+      const model = await withStallTimeout(load());
+      // Download finished — tell the UI we're in the (short) initializing
+      // phase instead of leaving it stuck on a 99% download figure.
       (self as any).postMessage({ type: 'status', state: 'loading', progress: 100 });
       const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
-      await warmVoice(model, v);
+      // Ready ONLY after a successful warm-up generation, capped at 45s.
+      await withStallTimeout(warmVoice(model, v, true));
       ready = true;
       (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
     } catch (e: any) {
