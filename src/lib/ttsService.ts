@@ -9,7 +9,7 @@
 //
 // Public API is unchanged: ttsService.{subscribe,getState,speak,stop,preload,warm}.
 
-import { preferredTier } from '@/lib/deviceEngine';
+import { preferredTier, deviceEngine } from '@/lib/deviceEngine';
 
 export type TtsModelState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -305,9 +305,14 @@ async function speakWithCascade(text: string, voice: string, id: string) {
   unlockAudioSync();
 
   const order: (1 | 2 | 3)[] = [];
-  if (!cascadeBlocked[1] && (preferredTier as number) === 1) order.push(1);
-  if (!cascadeBlocked[2]) order.push(2);
-  if (!cascadeBlocked[1] && !order.includes(1)) order.push(1);
+  // iOS Safari: loading the WASM voice models repeatedly crashes the tab
+  // ("A problem repeatedly occurred"). Use the high-quality built-in iOS
+  // system voice (Tier 3) directly — zero download, zero memory pressure.
+  if (!deviceEngine.isIOS) {
+    if (!cascadeBlocked[1] && (preferredTier as number) === 1) order.push(1);
+    if (!cascadeBlocked[2]) order.push(2);
+    if (!cascadeBlocked[1] && !order.includes(1)) order.push(1);
+  }
   order.push(3);
 
   state.generatingId = id;
@@ -350,7 +355,19 @@ export const ttsService = {
   getState(): TtsState { return { ...state }; },
 
   preload(voice?: string) {
-    if (false) return;
+    // iOS: never load WASM models — repeated loads crash Safari tabs.
+    // System voice (Tier 3) is ready instantly with zero download.
+    if (deviceEngine.isIOS) {
+      setActiveTier(3);
+      state.modelState = 'ready';
+      state.progress = 100;
+      state.error = null;
+      emit();
+      return;
+    }
+    // Other phones (Android): skip eager preload to save memory/data —
+    // the model lazy-loads on the first play click instead.
+    if (deviceEngine.isMobile) return;
     // Honor Save-Data on mobile — lazy-load on first click instead.
     try {
       const conn = (navigator as any).connection;
@@ -379,7 +396,7 @@ export const ttsService = {
   },
 
   warm(voice: string) {
-    if (false) return;
+    if (deviceEngine.isIOS) return;
     const t = preferredTier;
     if (!tiers[t].worker) return;
     try { tiers[t].worker!.postMessage({ type: 'warm', voice }); } catch { /* ignore */ }
