@@ -390,6 +390,13 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const voiceCatalog = useVoiceCatalog();
+  const voicesByLanguage = useMemo(() => {
+    return voiceCatalog.reduce((acc, v) => {
+      (acc[v.language] ||= []).push(v);
+      return acc;
+    }, {} as Record<string, typeof voiceCatalog>);
+  }, [voiceCatalog]);
 
   // ---- Starter prompts: collapsed by default + user-added custom prompts ----
   type StarterPrompt = { icon?: string; title: string; desc: string; custom?: boolean };
