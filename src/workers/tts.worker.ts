@@ -207,7 +207,8 @@ self.onmessage = async (event: MessageEvent) => {
       if (!ready) postStatus('loading');
       const model = await load();
       if (!ready) {
-        await warmVoice(model, v);
+        // Non-fatal warm-up: don't let a stalled silent gen block playback.
+        await warmVoiceSoft(model, v);
         ready = true;
         postStatus('ready', { progress: 100 });
       }
