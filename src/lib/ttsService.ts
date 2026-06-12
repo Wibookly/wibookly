@@ -68,6 +68,10 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
+// 44-byte silent WAV used purely to unlock the <audio> element on iOS.
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=';
+
 async function unlockAudio() {
   // Pre-create + prime the HTMLAudioElement INSIDE the user gesture so iOS
   // Safari permits later .play() calls when worker audio arrives async.
@@ -77,8 +81,16 @@ async function unlockAudio() {
       fallbackAudio.setAttribute('playsinline', 'true');
       fallbackAudio.preload = 'auto';
     }
-    // Empty play() call inside gesture unlocks the element on iOS.
-    try { fallbackAudio.muted = true; const p = fallbackAudio.play(); if (p && typeof p.then === 'function') p.then(() => { try { fallbackAudio!.pause(); fallbackAudio!.muted = false; } catch {} }).catch(() => { try { fallbackAudio!.muted = false; } catch {} }); } catch { /* ignore */ }
+    // Play a tiny silent clip inside the gesture to unlock the element.
+    // IMPORTANT: never mute or pause here — a pending play() promise can
+    // resolve later (after the real audio src is set) and would otherwise
+    // pause/mute the actual speech mid-playback.
+    if (!fallbackAudio.src || fallbackAudio.src.startsWith('data:')) {
+      fallbackAudio.muted = false;
+      fallbackAudio.src = SILENT_WAV;
+      const p = fallbackAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });
+    }
   } catch { /* ignore */ }
 
   const ctx = getAudioContext();
@@ -187,6 +199,8 @@ function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; vo
     }
     if (fallbackUrl) URL.revokeObjectURL(fallbackUrl);
     fallbackUrl = URL.createObjectURL(blob);
+    fallbackAudio.muted = false;
+    fallbackAudio.volume = 1;
     fallbackAudio.src = fallbackUrl;
     fallbackAudio.onended = () => {
       requestMeta.delete(id);
