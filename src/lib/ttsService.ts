@@ -199,7 +199,7 @@ function preloadTier(t: 1 | 2, voice?: string): Promise<void> {
     const timer = setTimeout(() => {
       slot.loadPromise = null;
       reject(new Error(`tier ${t} preload timed out`));
-    }, CASCADE_TIMEOUT_MS);
+    }, PRELOAD_TIMEOUT_MS[t]);
     const onMsg = (event: MessageEvent) => {
       const d = event.data || {};
       if (d.type !== 'status') return;
