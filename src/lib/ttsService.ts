@@ -119,7 +119,7 @@ async function playPcmBlob(blob: Blob, id: string, onDone: () => void) {
 // ─────────────────────────────────────────────────────────────
 // Model-worker driver (used by Tier 1 and Tier 2).
 // ─────────────────────────────────────────────────────────────
-const CASCADE_TIMEOUT_MS = 45_000;
+const CASCADE_TIMEOUT_MS = 20_000;
 
 interface ModelTier {
   tier: 1 | 2;
@@ -356,17 +356,25 @@ export const ttsService = {
       const conn = (navigator as any).connection;
       if (preferredTier === 2 && conn?.saveData) return;
     } catch { /* ignore */ }
+    const fallToTier3 = () => {
+      // Tier 3 (window.speechSynthesis) needs no download. Mark ready so UI
+      // stops showing "Voice downloading…" forever when model tiers can't load.
+      setActiveTier(3);
+      state.modelState = 'ready';
+      state.progress = 100;
+      state.error = null;
+      emit();
+    };
     preloadTier(preferredTier, voice).catch((e) => {
       console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, e?.message || e);
       cascadeBlocked[preferredTier] = true;
-      // Try the other model tier in the background as well.
       const other: 1 | 2 = (preferredTier as number) === 1 ? 2 : 1;
-      if (!cascadeBlocked[other]) {
-        preloadTier(other, voice).catch((e2) => {
-          console.warn(`[tts] tier ${other} preload also failed:`, e2?.message || e2);
-          cascadeBlocked[other] = true;
-        });
-      }
+      if (cascadeBlocked[other]) { fallToTier3(); return; }
+      preloadTier(other, voice).catch((e2) => {
+        console.warn(`[tts] tier ${other} preload also failed:`, e2?.message || e2);
+        cascadeBlocked[other] = true;
+        fallToTier3();
+      });
     });
   },
 

@@ -17,7 +17,13 @@ import * as ort from 'onnxruntime-web';
 if (!ort.env.wasm.wasmPaths) {
   ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/';
 }
-ort.env.wasm.numThreads = (self as any).navigator?.hardwareConcurrency || 4;
+// iOS Safari / WebKit lack reliable cross-origin isolation, so threads + SIMD
+// proxy stall silently (stuck at ~90%). Force single-thread, no proxy — slower
+// but actually finishes. Desktop/Chrome still gets multi-thread.
+const ua = (self as any).navigator?.userAgent || '';
+const isIOS = /iPad|iPhone|iPod/.test(ua) || /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
+ort.env.wasm.numThreads = isIOS ? 1 : ((self as any).navigator?.hardwareConcurrency || 4);
+ort.env.wasm.proxy = false;
 
 const MODEL_ID = 'KittenML/kitten-tts-nano-0.8';
 const DEFAULT_VOICE = 'Bella';
