@@ -65,14 +65,33 @@ function progressCallback(data: any) {
 
 async function tryLoad(device: 'webgpu' | 'wasm') {
   // WebGPU laptops: fp32 (full quality, GPU is fast).
-  // CPU/WASM laptops: q4 ≈ 44 MB — roughly half the q8 download (~86 MB) so
-  // the one-time setup completes far faster on slower connections.
-  const dtype = device === 'webgpu' ? 'fp32' : 'q4';
-  return await KokoroTTS.from_pretrained(MODEL_ID, {
-    dtype,
-    device: device as any,
-    progress_callback: progressCallback,
-  } as any);
+  // CPU/WASM laptops: try smaller quantizations first for faster downloads,
+  // falling back to larger/proven variants if the smaller one fails to load
+  // or crashes during initialization on this browser/CPU.
+  if (device === 'webgpu') {
+    return await KokoroTTS.from_pretrained(MODEL_ID, {
+      dtype: 'fp32',
+      device: 'webgpu' as any,
+      progress_callback: progressCallback,
+    } as any);
+  }
+  const dtypes: string[] = ['q8', 'fp16', 'q4'];
+  let lastErr: any = null;
+  for (const dtype of dtypes) {
+    try {
+      // Reset progress bookkeeping between attempts so the bar restarts cleanly.
+      fileBytes.clear();
+      return await KokoroTTS.from_pretrained(MODEL_ID, {
+        dtype,
+        device: 'wasm' as any,
+        progress_callback: progressCallback,
+      } as any);
+    } catch (e) {
+      console.warn(`[kokoro.worker] WASM load failed with dtype=${dtype}:`, e);
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error('All Kokoro WASM dtypes failed to load');
 }
 
 async function hasUsableWebGPU(): Promise<boolean> {
