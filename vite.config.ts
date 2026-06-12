@@ -22,6 +22,9 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     exclude: ["kokoro-js", "onnxruntime-web"],
   },
+  worker: {
+    format: "es",
+  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
