@@ -69,6 +69,18 @@ function getAudioContext(): AudioContext | null {
 }
 
 async function unlockAudio() {
+  // Pre-create + prime the HTMLAudioElement INSIDE the user gesture so iOS
+  // Safari permits later .play() calls when worker audio arrives async.
+  try {
+    if (!fallbackAudio) {
+      fallbackAudio = new Audio();
+      fallbackAudio.setAttribute('playsinline', 'true');
+      fallbackAudio.preload = 'auto';
+    }
+    // Empty play() call inside gesture unlocks the element on iOS.
+    try { fallbackAudio.muted = true; const p = fallbackAudio.play(); if (p && typeof p.then === 'function') p.then(() => { try { fallbackAudio!.pause(); fallbackAudio!.muted = false; } catch {} }).catch(() => { try { fallbackAudio!.muted = false; } catch {} }); } catch { /* ignore */ }
+  } catch { /* ignore */ }
+
   const ctx = getAudioContext();
   if (!ctx) return;
   try {
