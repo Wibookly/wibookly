@@ -355,7 +355,19 @@ export const ttsService = {
   getState(): TtsState { return { ...state }; },
 
   preload(voice?: string) {
-    if (false) return;
+    // iOS: never load WASM models — repeated loads crash Safari tabs.
+    // System voice (Tier 3) is ready instantly with zero download.
+    if (deviceEngine.isIOS) {
+      setActiveTier(3);
+      state.modelState = 'ready';
+      state.progress = 100;
+      state.error = null;
+      emit();
+      return;
+    }
+    // Other phones (Android): skip eager preload to save memory/data —
+    // the model lazy-loads on the first play click instead.
+    if (deviceEngine.isMobile) return;
     // Honor Save-Data on mobile — lazy-load on first click instead.
     try {
       const conn = (navigator as any).connection;
@@ -384,7 +396,7 @@ export const ttsService = {
   },
 
   warm(voice: string) {
-    if (false) return;
+    if (deviceEngine.isIOS) return;
     const t = preferredTier;
     if (!tiers[t].worker) return;
     try { tiers[t].worker!.postMessage({ type: 'warm', voice }); } catch { /* ignore */ }
