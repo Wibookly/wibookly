@@ -126,7 +126,7 @@ async function fetchSpeech(text: string, voice: string, signal: AbortSignal): Pr
   const json = await res.json();
   if (!json?.audio) throw new Error('TTS response missing audio');
   const bytes = base64ToBytes(json.audio);
-  return new Blob([bytes], { type: json.mimeType || 'audio/mpeg' });
+  return new Blob([bytes.buffer as ArrayBuffer], { type: json.mimeType || 'audio/mpeg' });
 }
 
 export const ttsService = {

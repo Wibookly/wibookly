@@ -12,7 +12,7 @@ import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
-import { TtsStatusBadge } from '@/components/app/TtsStatusBadge';
+
 
 import { useState, useEffect } from 'react';
 import {
@@ -330,7 +330,6 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <UserAvatarDropdown />
-          <TtsStatusBadge />
         </div>
       </div>
     </aside>
