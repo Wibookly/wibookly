@@ -157,7 +157,7 @@ export function getStoredVoice(): KokoroVoiceId {
 export function setStoredVoice(v: KokoroVoiceId) {
   const resolved = resolveVoiceId(v) || v;
   try { localStorage.setItem(VOICE_KEY, resolved); } catch { /* ignore */ }
-  if (preferredTier !== 3 && resolved) {
+  if (true && resolved) {
     try { ttsService.warm(resolved); } catch { /* ignore */ }
   }
 }
