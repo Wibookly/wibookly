@@ -120,6 +120,10 @@ async function playPcmBlob(blob: Blob, id: string, onDone: () => void) {
 // Model-worker driver (used by Tier 1 and Tier 2).
 // ─────────────────────────────────────────────────────────────
 const CASCADE_TIMEOUT_MS = 20_000;
+// Preload timeouts (model download + warmup) — generous to avoid falling back
+// to the basic system voice on slow first-load. Tier 1 (Kokoro ~86MB) needs
+// much more time than Tier 2 (~25MB).
+const PRELOAD_TIMEOUT_MS: Record<1 | 2, number> = { 1: 180_000, 2: 90_000 };
 
 interface ModelTier {
   tier: 1 | 2;
@@ -195,7 +199,7 @@ function preloadTier(t: 1 | 2, voice?: string): Promise<void> {
     const timer = setTimeout(() => {
       slot.loadPromise = null;
       reject(new Error(`tier ${t} preload timed out`));
-    }, CASCADE_TIMEOUT_MS);
+    }, PRELOAD_TIMEOUT_MS[t]);
     const onMsg = (event: MessageEvent) => {
       const d = event.data || {};
       if (d.type !== 'status') return;
@@ -336,8 +340,12 @@ async function speakWithCascade(text: string, voice: string, id: string) {
       await speakOnTier(t, text, voice, id);
       return;
     } catch (e: any) {
-      console.warn(`[tts] tier ${t} failed, cascading:`, e?.message || e);
-      cascadeBlocked[t] = true;
+      const msg = e?.message || String(e);
+      console.warn(`[tts] tier ${t} failed, cascading:`, msg);
+      // Only permanently block on hard errors. A preload/speak timeout may
+      // still complete in the background, so leave the tier eligible for
+      // the next click instead of forcing the basic system voice forever.
+      if (!/timed out/i.test(msg)) cascadeBlocked[t] = true;
       // continue to next tier
     }
   }
@@ -383,13 +391,17 @@ export const ttsService = {
       emit();
     };
     preloadTier(preferredTier, voice).catch((e) => {
-      console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, e?.message || e);
-      cascadeBlocked[preferredTier] = true;
+      const msg = e?.message || String(e);
+      console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, msg);
+      // Only hard-block on real errors; on timeout, leave the tier eligible
+      // so the next click can still use the high-quality voice once cached.
+      if (!/timed out/i.test(msg)) cascadeBlocked[preferredTier] = true;
       const other: 1 | 2 = (preferredTier as number) === 1 ? 2 : 1;
       if (cascadeBlocked[other]) { fallToTier3(); return; }
       preloadTier(other, voice).catch((e2) => {
-        console.warn(`[tts] tier ${other} preload also failed:`, e2?.message || e2);
-        cascadeBlocked[other] = true;
+        const msg2 = e2?.message || String(e2);
+        console.warn(`[tts] tier ${other} preload also failed:`, msg2);
+        if (!/timed out/i.test(msg2)) cascadeBlocked[other] = true;
         fallToTier3();
       });
     });
