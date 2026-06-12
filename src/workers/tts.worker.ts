@@ -108,6 +108,29 @@ async function warmVoice(model: any, voice: string) {
   }
 }
 
+// Split text into sentence-grouped chunks (~280 chars) so the first audio
+// arrives within seconds instead of generating one huge clip.
+function splitIntoChunks(text: string, maxLen = 280): string[] {
+  const sentences = String(text || '').match(/[^.!?]+[.!?]+["')\]]*|\S[^.!?]*$/g) || [String(text || '')];
+  const chunks: string[] = [];
+  let cur = '';
+  for (const s of sentences) {
+    const piece = s.trim();
+    if (!piece) continue;
+    if (cur && (cur.length + piece.length + 1) > maxLen) {
+      chunks.push(cur);
+      cur = piece;
+    } else {
+      cur = cur ? `${cur} ${piece}` : piece;
+    }
+  }
+  if (cur) chunks.push(cur);
+  return chunks.length ? chunks : [String(text || '')];
+}
+
+// Track which speak request is current so superseded ones stop generating.
+let currentSpeakId: string | null = null;
+
 self.onmessage = async (event: MessageEvent) => {
   const { type, id, text, voice } = event.data || {};
 
@@ -137,7 +160,13 @@ self.onmessage = async (event: MessageEvent) => {
     return;
   }
 
+  if (type === 'stop') {
+    currentSpeakId = null;
+    return;
+  }
+
   if (type === 'speak') {
+    currentSpeakId = id;
     try {
       if (!ready) (self as any).postMessage({ type: 'status', state: 'loading' });
       const model = await load();
@@ -147,11 +176,26 @@ self.onmessage = async (event: MessageEvent) => {
         ready = true;
         (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
       }
-      const audio = await model.generate(String(text || ''), { voice: v });
-      warmedVoices.add(v);
-      const blob: Blob = audio.toBlob();
-      console.log('[tts.worker] generated audio bytes:', blob.size);
-      (self as any).postMessage({ type: 'audio', id, blob });
+      const chunks = splitIntoChunks(String(text || ''));
+      console.log('[tts.worker] speaking in %d chunk(s)', chunks.length);
+      for (let i = 0; i < chunks.length; i++) {
+        if (currentSpeakId !== id) {
+          console.log('[tts.worker] speak superseded, aborting:', id);
+          return;
+        }
+        const audio = await model.generate(chunks[i], { voice: v });
+        warmedVoices.add(v);
+        if (currentSpeakId !== id) return;
+        const blob: Blob = audio.toBlob();
+        console.log('[tts.worker] chunk %d/%d bytes=%d', i + 1, chunks.length, blob.size);
+        (self as any).postMessage({
+          type: 'audio-chunk',
+          id,
+          blob,
+          index: i,
+          final: i === chunks.length - 1,
+        });
+      }
     } catch (e: any) {
       console.error('[tts.worker] speak error:', e);
       (self as any).postMessage({ type: 'status', state: 'error', id, message: String(e?.message ?? e) });

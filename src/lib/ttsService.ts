@@ -193,7 +193,44 @@ function stopPlaybackOnly() {
   }
 }
 
-function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; voice: string }) {
+// --- Chunked playback queue -------------------------------------------------
+// The worker streams sentence-sized audio chunks so playback starts within
+// seconds even for long answers on slow (WASM) devices.
+type ChunkQueue = {
+  id: string;
+  blobs: Blob[];
+  final: boolean;
+  started: boolean;
+  waitingTimer: number | null;
+};
+let chunkQueue: ChunkQueue | null = null;
+
+function clearChunkQueue() {
+  if (chunkQueue?.waitingTimer) window.clearTimeout(chunkQueue.waitingTimer);
+  chunkQueue = null;
+}
+
+function finishRequest(id: string) {
+  requestMeta.delete(id);
+  clearChunkQueue();
+  if (state.playingId === id) {
+    state.playingId = null;
+    emit();
+  }
+}
+
+function failToSynthOrError(id: string, meta: { text: string; voice: string } | undefined, errMsg: string) {
+  clearChunkQueue();
+  if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
+    requestMeta.delete(id);
+    state.error = errMsg;
+    if (state.playingId === id) state.playingId = null;
+    if (state.generatingId === id) state.generatingId = null;
+    emit();
+  }
+}
+
+function playWithFallbackAudio(blob: Blob, id: string, meta: { text: string; voice: string } | undefined, onDone: () => void) {
   try {
     if (!fallbackAudio) {
       fallbackAudio = new Audio();
@@ -206,60 +243,34 @@ function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; vo
     fallbackAudio.volume = 1;
     fallbackAudio.src = fallbackUrl;
     fallbackAudio.onended = () => {
-      requestMeta.delete(id);
       if (fallbackUrl) { URL.revokeObjectURL(fallbackUrl); fallbackUrl = null; }
-      if (state.playingId === id) { state.playingId = null; emit(); }
+      onDone();
     };
     fallbackAudio.onerror = () => {
       console.error('[tts] fallback <audio> error', fallbackAudio?.error);
-      if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-        requestMeta.delete(id);
-        state.error = 'Audio playback error.';
-        if (state.playingId === id) state.playingId = null;
-        emit();
-      }
+      failToSynthOrError(id, meta, 'Audio playback error.');
     };
     fallbackAudio.play().catch((err) => {
       console.error('[tts] fallback play() rejected:', err);
-      if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-        requestMeta.delete(id);
-        state.error = err?.message || 'Audio failed to start.';
-        if (state.playingId === id) state.playingId = null;
-        emit();
-      }
+      failToSynthOrError(id, meta, err?.message || 'Audio failed to start.');
     });
   } catch (e) {
     console.error('[tts] fallback path failed', e);
-    if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-      requestMeta.delete(id);
-      state.error = 'Audio failed to start.';
-      if (state.playingId === id) state.playingId = null;
-      emit();
-    }
+    failToSynthOrError(id, meta, 'Audio failed to start.');
   }
 }
 
-async function playBlob(blob: Blob, id: string) {
-  if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
+async function playChunk(blob: Blob, id: string, onDone: () => void) {
   const meta = requestMeta.get(id);
-  console.log('TTS blob bytes:', blob.size);
+  console.log('[tts] playing chunk bytes:', blob?.size);
   if (!blob || blob.size === 0) {
-    if (!fallbackToSpeechSynthesis(meta?.text || '', id, meta?.voice)) {
-      state.error = 'Empty audio from model.';
-      if (state.playingId === id) state.playingId = null;
-      emit();
-    }
+    onDone();
     return;
   }
 
-  stopPlaybackOnly();
-  state.generatingId = null;
-  state.playingId = id;
-  emit();
-
   const ctx = getAudioContext();
   if (!ctx) {
-    playWithFallbackAudio(blob, id, meta);
+    playWithFallbackAudio(blob, id, meta, onDone);
     return;
   }
 
@@ -267,20 +278,15 @@ async function playBlob(blob: Blob, id: string) {
     if (ctx.state === 'suspended') {
       try { await ctx.resume(); } catch { /* ignore */ }
     }
-    // iOS Safari: if the context never reached "running" (e.g. resume was
-    // called outside a user gesture), Web Audio will play silently — use the
-    // <audio> element path instead, which is more reliable there.
     if (ctx.state !== 'running') {
       console.warn('[tts] AudioContext not running (%s) — using <audio> fallback', ctx.state);
-      playWithFallbackAudio(blob, id, meta);
+      playWithFallbackAudio(blob, id, meta, onDone);
       return;
     }
     const arrayBuf = await blob.arrayBuffer();
     const audioData: AudioBuffer = await new Promise((resolve, reject) => {
-      // Use callback form for Safari compatibility
       try {
         const p = ctx.decodeAudioData(arrayBuf.slice(0), resolve, reject);
-        // Some implementations also return a promise
         if (p && typeof (p as any).then === 'function') {
           (p as Promise<AudioBuffer>).then(resolve, reject);
         }
@@ -294,11 +300,7 @@ async function playBlob(blob: Blob, id: string) {
     source.connect(ctx.destination);
     source.onended = () => {
       if (currentSource === source) currentSource = null;
-      requestMeta.delete(id);
-      if (state.playingId === id) {
-        state.playingId = null;
-        emit();
-      }
+      onDone();
     };
     currentSource = source;
     source.start(0);
@@ -308,13 +310,64 @@ async function playBlob(blob: Blob, id: string) {
       if (currentSource === source && ctx.state !== 'running') {
         console.warn('[tts] context suspended after start — falling back to <audio>');
         try { source.stop(); } catch { /* ignore */ }
+        source.onended = null;
         currentSource = null;
-        playWithFallbackAudio(blob, id, meta);
+        playWithFallbackAudio(blob, id, meta, onDone);
       }
     }, 300);
   } catch (err) {
     console.error('[tts] decodeAudioData/play failed, falling back to <audio>:', err);
-    playWithFallbackAudio(blob, id, meta);
+    playWithFallbackAudio(blob, id, meta, onDone);
+  }
+}
+
+function playNextChunk() {
+  const q = chunkQueue;
+  if (!q) return;
+  if (q.waitingTimer) { window.clearTimeout(q.waitingTimer); q.waitingTimer = null; }
+  if (q.blobs.length === 0) {
+    if (q.final) {
+      finishRequest(q.id);
+      return;
+    }
+    // Next chunk still generating — wait for it (with a safety cutoff so we
+    // never hang forever if the worker dies mid-stream).
+    q.waitingTimer = window.setTimeout(() => {
+      if (chunkQueue === q && q.blobs.length === 0) {
+        console.warn('[tts] next chunk never arrived — finishing playback');
+        finishRequest(q.id);
+      }
+    }, 60000);
+    return;
+  }
+  const blob = q.blobs.shift()!;
+  void playChunk(blob, q.id, () => {
+    if (chunkQueue === q) playNextChunk();
+  });
+}
+
+function handleIncomingChunk(id: string, blob: Blob, final: boolean) {
+  // Ignore chunks for stale/cancelled requests.
+  const active = state.generatingId === id || state.playingId === id || chunkQueue?.id === id;
+  if (!active) return;
+  if (!chunkQueue || chunkQueue.id !== id) {
+    clearChunkQueue();
+    chunkQueue = { id, blobs: [], final: false, started: false, waitingTimer: null };
+  }
+  chunkQueue.blobs.push(blob);
+  if (final) chunkQueue.final = true;
+  if (!chunkQueue.started) {
+    chunkQueue.started = true;
+    if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
+    stopPlaybackOnly();
+    state.generatingId = null;
+    state.playingId = id;
+    state.error = null;
+    emit();
+    playNextChunk();
+  } else if (chunkQueue.waitingTimer) {
+    // Player was idle waiting on this chunk — kick it.
+    playNextChunk();
   }
 }
 
@@ -322,7 +375,7 @@ function ensureWorker(): Worker {
   if (worker) return worker;
   worker = new Worker(new URL('../workers/tts.worker.ts', import.meta.url), { type: 'module' });
   worker.onmessage = (event: MessageEvent) => {
-    const { type, state: s, id, blob, message, progress } = event.data || {};
+    const { type, state: s, id, blob, message, progress, final } = event.data || {};
     if (type === 'status') {
       state.modelState = s;
       state.error = message || null;
@@ -340,8 +393,13 @@ function ensureWorker(): Worker {
       emit();
       return;
     }
+    if (type === 'audio-chunk') {
+      handleIncomingChunk(id, blob as Blob, !!final);
+      return;
+    }
     if (type === 'audio') {
-      void playBlob(blob as Blob, id);
+      // Legacy single-blob message — treat as one final chunk.
+      handleIncomingChunk(id, blob as Blob, true);
       return;
     }
   };
@@ -414,6 +472,7 @@ export const ttsService = {
 
       const w = ensureWorker();
       stopPlaybackOnly();
+      clearChunkQueue();
       state.generatingId = id;
       state.playingId = null;
       state.error = null;
@@ -421,15 +480,17 @@ export const ttsService = {
       requestMeta.set(id, { text: stripForSpeech(text), voice });
       w.postMessage({ type: 'speak', id, text, voice });
 
-      // Watchdog: if Kokoro hasn't produced audio in time (slow/stalled model
-      // download or generation), fall back to the device's built-in voice so
-      // the user never gets stuck on an endless "loading" spinner.
+      // Watchdog: if Kokoro hasn't produced the FIRST chunk in time (slow or
+      // stalled model download/generation), fall back to the device's built-in
+      // voice so the user never gets stuck on an endless "loading" spinner.
+      // Chunked generation means the first chunk arrives fast once ready.
       if (watchdogTimer) window.clearTimeout(watchdogTimer);
-      const timeoutMs = state.modelState === 'ready' ? 20000 : 45000;
+      const timeoutMs = state.modelState === 'ready' ? 30000 : 90000;
       watchdogTimer = window.setTimeout(() => {
         if (state.generatingId !== id) return; // audio arrived or was stopped
         console.warn('[tts] watchdog: Kokoro timed out — falling back to speechSynthesis');
         state.generatingId = null;
+        try { w.postMessage({ type: 'stop' }); } catch { /* ignore */ }
         const meta = requestMeta.get(id);
         if (!fallbackToSpeechSynthesis(meta?.text || text, id, meta?.voice || voice)) {
           state.error = 'Speech timed out. Please try again.';
@@ -445,8 +506,10 @@ export const ttsService = {
   },
   stop() {
     if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
+    clearChunkQueue();
     stopPlaybackOnly();
     requestMeta.clear();
+    try { worker?.postMessage({ type: 'stop' }); } catch { /* ignore */ }
     if (supportsSpeechSynthesis()) {
       try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
     }
