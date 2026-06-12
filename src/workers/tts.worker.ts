@@ -41,7 +41,9 @@ function reportProgress() {
   let loaded = 0, total = 0;
   for (const v of fileBytes.values()) { loaded += v.loaded; total += v.total; }
   if (total <= 0) return;
-  const pct = Math.min(95, Math.round((loaded / total) * 95)); // cap below 100 until warmed
+  // Download portion = 0..90. Reserve 90..99 for warm-up so users see
+  // continued movement instead of a "stuck at 95%" stall during warm.
+  const pct = Math.min(90, Math.round((loaded / total) * 90));
   postStatus('loading', { progress: pct });
 }
 
