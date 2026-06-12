@@ -160,7 +160,13 @@ self.onmessage = async (event: MessageEvent) => {
     return;
   }
 
+  if (type === 'stop') {
+    currentSpeakId = null;
+    return;
+  }
+
   if (type === 'speak') {
+    currentSpeakId = id;
     try {
       if (!ready) (self as any).postMessage({ type: 'status', state: 'loading' });
       const model = await load();
@@ -170,11 +176,26 @@ self.onmessage = async (event: MessageEvent) => {
         ready = true;
         (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
       }
-      const audio = await model.generate(String(text || ''), { voice: v });
-      warmedVoices.add(v);
-      const blob: Blob = audio.toBlob();
-      console.log('[tts.worker] generated audio bytes:', blob.size);
-      (self as any).postMessage({ type: 'audio', id, blob });
+      const chunks = splitIntoChunks(String(text || ''));
+      console.log('[tts.worker] speaking in %d chunk(s)', chunks.length);
+      for (let i = 0; i < chunks.length; i++) {
+        if (currentSpeakId !== id) {
+          console.log('[tts.worker] speak superseded, aborting:', id);
+          return;
+        }
+        const audio = await model.generate(chunks[i], { voice: v });
+        warmedVoices.add(v);
+        if (currentSpeakId !== id) return;
+        const blob: Blob = audio.toBlob();
+        console.log('[tts.worker] chunk %d/%d bytes=%d', i + 1, chunks.length, blob.size);
+        (self as any).postMessage({
+          type: 'audio-chunk',
+          id,
+          blob,
+          index: i,
+          final: i === chunks.length - 1,
+        });
+      }
     } catch (e: any) {
       console.error('[tts.worker] speak error:', e);
       (self as any).postMessage({ type: 'status', state: 'error', id, message: String(e?.message ?? e) });
