@@ -3,10 +3,22 @@
 // Loads the model once with real download-progress reporting, warms it up
 // per voice, then serves `speak` requests.
 
-import { KokoroTTS } from 'kokoro-js';
+import { KokoroTTS, env } from 'kokoro-js';
+
+// Make sure downloaded model files are cached by the browser (Cache API) so
+// refreshes do NOT re-download. Explicit because some embeds default it off.
+try {
+  (env as any).useBrowserCache = true;
+  (env as any).allowLocalModels = false;
+  console.log('[tts.worker] browser cache available:', typeof caches !== 'undefined');
+} catch { /* ignore */ }
 
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const DEFAULT_VOICE = 'af_heart';
+
+// Set via 'config' message from the main thread (detects iPad/touch devices
+// that lie about being desktops). Small model = fits Safari's cache quota.
+let preferSmallModel = false;
 
 let tts: any = null;
 let ready = false;
@@ -49,10 +61,13 @@ function isMobileUA(): boolean {
 
 async function tryLoad(device: 'webgpu' | 'wasm') {
   console.log('[tts.worker] attempting load on', device);
-  // Mobile WASM: use q4 (~40MB) instead of q8 (~80MB) — roughly half the
-  // download and noticeably faster first play on phones.
+  // Mobile/tablet WASM: use q4 (~40MB) instead of q8 (~80MB) — half the
+  // download AND small enough to survive Safari's Cache Storage quota, so it
+  // doesn't get evicted and re-downloaded on every refresh.
+  const small = isMobileUA() || preferSmallModel;
   const dtype =
-    device === 'webgpu' ? 'fp32' : (isMobileUA() ? 'q4' : 'q8');
+    device === 'webgpu' ? 'fp32' : (small ? 'q4' : 'q8');
+  console.log('[tts.worker] dtype:', dtype);
   return await KokoroTTS.from_pretrained(MODEL_ID, {
     dtype,
     device: device as any,
@@ -133,6 +148,11 @@ let currentSpeakId: string | null = null;
 
 self.onmessage = async (event: MessageEvent) => {
   const { type, id, text, voice } = event.data || {};
+
+  if (type === 'config') {
+    preferSmallModel = !!event.data.compact;
+    return;
+  }
 
   if (type === 'preload') {
     try {

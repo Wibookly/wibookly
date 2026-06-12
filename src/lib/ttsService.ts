@@ -371,9 +371,21 @@ function handleIncomingChunk(id: string, blob: Blob, final: boolean) {
   }
 }
 
+// iPads/tablets report desktop UAs but have touch — they need the smaller
+// model so Safari's Cache Storage quota doesn't evict it between refreshes.
+function isCompactDevice(): boolean {
+  try {
+    const ua = navigator.userAgent || '';
+    if (/iPad|iPhone|iPod|Android|Mobile|Tablet/i.test(ua)) return true;
+    if ((navigator as any).maxTouchPoints > 1 && /Macintosh/.test(ua)) return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
 function ensureWorker(): Worker {
   if (worker) return worker;
   worker = new Worker(new URL('../workers/tts.worker.ts', import.meta.url), { type: 'module' });
+  try { worker.postMessage({ type: 'config', compact: isCompactDevice() }); } catch { /* ignore */ }
   worker.onmessage = (event: MessageEvent) => {
     const { type, state: s, id, blob, message, progress, final } = event.data || {};
     if (type === 'status') {
@@ -421,6 +433,9 @@ export const ttsService = {
       return;
     }
     preloadRequested = true;
+    // Ask the browser to make our storage persistent so the cached voice
+    // model is NOT evicted between sessions (prevents re-downloads).
+    try { void (navigator as any).storage?.persist?.(); } catch { /* ignore */ }
     // On iOS/Android: skip the 80MB+ Kokoro download entirely. We use the
     // device's built-in speechSynthesis voices, which are instant.
     if (isNativeOnlyDevice()) {
