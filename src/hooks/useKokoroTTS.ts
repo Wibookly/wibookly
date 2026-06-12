@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ttsService, type TtsState } from '@/lib/ttsService';
-import { useKokoroEngine } from '@/lib/deviceEngine';
+import { useKokoroEngine, preferredTier } from '@/lib/deviceEngine';
+
+// Tier 2 (KittenTTS) voices — 8 expressive voices, labeled F/M for the UI.
+const KITTEN_VOICES_MOBILE = [
+  { id: 'Bella',  label: 'Bella (Female)',  gender: 'female' as const, language: 'English (KittenTTS)' },
+  { id: 'Luna',   label: 'Luna (Female)',   gender: 'female' as const, language: 'English (KittenTTS)' },
+  { id: 'Rosie',  label: 'Rosie (Female)',  gender: 'female' as const, language: 'English (KittenTTS)' },
+  { id: 'Kiki',   label: 'Kiki (Female)',   gender: 'female' as const, language: 'English (KittenTTS)' },
+  { id: 'Jasper', label: 'Jasper (Male)',   gender: 'male' as const,   language: 'English (KittenTTS)' },
+  { id: 'Bruno',  label: 'Bruno (Male)',    gender: 'male' as const,   language: 'English (KittenTTS)' },
+  { id: 'Hugo',   label: 'Hugo (Male)',     gender: 'male' as const,   language: 'English (KittenTTS)' },
+  { id: 'Leo',    label: 'Leo (Male)',      gender: 'male' as const,   language: 'English (KittenTTS)' },
+];
 
 /**
  * Device-aware read-aloud hook.
@@ -82,16 +94,26 @@ function getSystemVoices(): KokoroVoiceOption[] {
 const VOICE_KEY = 'inboxiq:kokoro-voice';
 const DEFAULT_VOICE_ID: KokoroVoiceId = 'af_heart';
 
-/** Reactive voice catalog. On mobile it updates when `onvoiceschanged` fires. */
+// Tier-aware base voice list (system voices fetched separately when on Tier 3).
+function baseVoices(): KokoroVoiceOption[] {
+  if (preferredTier === 1) return KOKORO_VOICES_DESKTOP;
+  if (preferredTier === 2) return KITTEN_VOICES_MOBILE;
+  return [];
+}
+
+/** Reactive voice catalog. Adds system voices once `onvoiceschanged` fires
+ *  so users on Tier 3 fallbacks also get a populated dropdown. */
 export function useVoiceCatalog(): KokoroVoiceOption[] {
   const [voices, setVoices] = useState<KokoroVoiceOption[]>(() => {
-    if (useKokoroEngine) return KOKORO_VOICES_DESKTOP;
-    return getSystemVoices();
+    const base = baseVoices();
+    return base.length ? base : getSystemVoices();
   });
   useEffect(() => {
-    if (useKokoroEngine) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const refresh = () => setVoices(getSystemVoices());
+    const refresh = () => {
+      const base = baseVoices();
+      setVoices(base.length ? base : getSystemVoices());
+    };
     window.speechSynthesis.onvoiceschanged = refresh;
     refresh();
     return () => { try { window.speechSynthesis.onvoiceschanged = null; } catch { /* ignore */ } };
@@ -99,18 +121,12 @@ export function useVoiceCatalog(): KokoroVoiceOption[] {
   return voices;
 }
 
-// Synchronous snapshot used by non-reactive code paths (e.g. localStorage
-// validation in `getStoredVoice`). On mobile this may be empty until
-// onvoiceschanged fires the first time — that's fine; resolveVoiceId then
-// falls back to a sensible default.
 function snapshotVoices(): KokoroVoiceOption[] {
-  if (useKokoroEngine) return KOKORO_VOICES_DESKTOP;
-  return getSystemVoices();
+  const base = baseVoices();
+  return base.length ? base : getSystemVoices();
 }
 
-export const KOKORO_VOICES: KokoroVoiceOption[] = useKokoroEngine
-  ? KOKORO_VOICES_DESKTOP
-  : [];
+export const KOKORO_VOICES: KokoroVoiceOption[] = baseVoices();
 
 export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> = (() => {
   const src = snapshotVoices();
@@ -121,8 +137,8 @@ export const KOKORO_VOICES_BY_LANGUAGE: Record<string, KokoroVoiceOption[]> = ((
 })();
 
 function defaultVoiceId(voices: KokoroVoiceOption[]): KokoroVoiceId {
-  if (useKokoroEngine) return DEFAULT_VOICE_ID;
-  // Mobile: prefer an English voice, otherwise the first available.
+  if (preferredTier === 1) return DEFAULT_VOICE_ID;
+  if (preferredTier === 2) return 'Bella';
   const en = voices.find((v) => /english/i.test(v.language));
   return en?.id || voices[0]?.id || '';
 }
@@ -130,19 +146,18 @@ function defaultVoiceId(voices: KokoroVoiceOption[]): KokoroVoiceId {
 function resolveVoiceId(v: string | null | undefined): KokoroVoiceId {
   const voices = snapshotVoices();
   if (v && voices.some((x) => x.id === v)) return v;
-  if (useKokoroEngine) return DEFAULT_VOICE_ID;
   return defaultVoiceId(voices);
 }
 
 export function getStoredVoice(): KokoroVoiceId {
   try { return resolveVoiceId(localStorage.getItem(VOICE_KEY)); }
-  catch { return useKokoroEngine ? DEFAULT_VOICE_ID : ''; }
+  catch { return defaultVoiceId(snapshotVoices()); }
 }
 
 export function setStoredVoice(v: KokoroVoiceId) {
   const resolved = resolveVoiceId(v) || v;
   try { localStorage.setItem(VOICE_KEY, resolved); } catch { /* ignore */ }
-  if (useKokoroEngine && resolved) {
+  if (preferredTier !== 3 && resolved) {
     try { ttsService.warm(resolved); } catch { /* ignore */ }
   }
 }
