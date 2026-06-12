@@ -37,11 +37,21 @@ const fileBytes = new Map<string, { loaded: number; total: number }>();
 
 // True when the model files were already in the browser cache — in that case
 // transformers.js still fires "progress" events while reading from cache,
-// which looked like a re-download. Suppress the fake percentages.
+// which looked like a re-download. Suppress those fake percentages ONLY for
+// a short grace window: if progress events are STILL streaming after it,
+// it's a real download (the cache check was a false positive — e.g. only a
+// partial/old file was cached) and we must show the real percentage.
 let cacheHit = false;
+let loadStartTs = 0;
+const CACHE_REPLAY_GRACE_MS = 3000;
 
 function reportProgress() {
-  if (cacheHit) return;
+  if (cacheHit) {
+    if (Date.now() - loadStartTs < CACHE_REPLAY_GRACE_MS) return;
+    // Still downloading after the grace window — not actually cached.
+    console.log('[tts.worker] progress continuing past grace window — real download, showing %');
+    cacheHit = false;
+  }
   if (fileBytes.size === 0) return;
   let loaded = 0;
   let total = 0;
@@ -225,6 +235,7 @@ self.onmessage = async (event: MessageEvent) => {
       // Cached from a previous session? Skip the fake download percentages
       // and jump straight to the "preparing" phase.
       cacheHit = await isModelCached();
+      loadStartTs = Date.now();
       console.log('[tts.worker] model cached from previous session:', cacheHit);
       (self as any).postMessage({ type: 'status', state: 'loading', progress: cacheHit ? 100 : 0 });
       // Stall timeout: if no download/init progress for 45s, fail loudly so
