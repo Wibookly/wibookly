@@ -101,7 +101,15 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
     !hasFeature('feature.follow_up_reminder') &&
     !hasFeature('meeting_copilot');
 
-  const handleNavClick = () => onClose();
+  const [pinned, setPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('mobile-sidebar-pinned') === 'true';
+  });
+  useEffect(() => {
+    localStorage.setItem('mobile-sidebar-pinned', String(pinned));
+  }, [pinned]);
+
+  const handleNavClick = () => { if (!pinned) onClose(); };
 
   const accents = {
     cyan:   'var(--c-cyan)',
