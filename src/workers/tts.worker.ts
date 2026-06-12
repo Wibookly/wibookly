@@ -64,7 +64,10 @@ function progressCallback(data: any) {
 }
 
 async function tryLoad(device: 'webgpu' | 'wasm') {
-  const dtype = device === 'webgpu' ? 'fp32' : 'q8';
+  // WebGPU laptops: fp32 (full quality, GPU is fast).
+  // CPU/WASM laptops: q4 ≈ 44 MB — roughly half the q8 download (~86 MB) so
+  // the one-time setup completes far faster on slower connections.
+  const dtype = device === 'webgpu' ? 'fp32' : 'q4';
   return await KokoroTTS.from_pretrained(MODEL_ID, {
     dtype,
     device: device as any,
