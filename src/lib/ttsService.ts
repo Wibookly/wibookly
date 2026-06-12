@@ -32,6 +32,9 @@ let currentSource: AudioBufferSourceNode | null = null;
 let fallbackAudio: HTMLAudioElement | null = null;
 let fallbackUrl: string | null = null;
 
+// Watchdog timer that bails to speechSynthesis if Kokoro stalls.
+let watchdogTimer: number | null = null;
+
 const requestMeta = new Map<string, { text: string; voice: string }>();
 
 const state: TtsState = {
