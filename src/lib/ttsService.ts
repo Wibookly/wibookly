@@ -120,6 +120,10 @@ async function playPcmBlob(blob: Blob, id: string, onDone: () => void) {
 // Model-worker driver (used by Tier 1 and Tier 2).
 // ─────────────────────────────────────────────────────────────
 const CASCADE_TIMEOUT_MS = 20_000;
+// Preload timeouts (model download + warmup) — generous to avoid falling back
+// to the basic system voice on slow first-load. Tier 1 (Kokoro ~86MB) needs
+// much more time than Tier 2 (~25MB).
+const PRELOAD_TIMEOUT_MS: Record<1 | 2, number> = { 1: 180_000, 2: 90_000 };
 
 interface ModelTier {
   tier: 1 | 2;
