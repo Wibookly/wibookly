@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => ({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
+  define: {
+    "process.env": "{}",
+  },
   optimizeDeps: {
     exclude: ["kokoro-js", "onnxruntime-web"],
   },
