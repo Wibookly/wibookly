@@ -1640,6 +1640,7 @@ export default function Chat() {
                     {deepMode && <Check className="h-4 w-4 opacity-80" />}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {!deviceEngine.isMobile && (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <Volume2 className="h-4 w-4 mr-2" />
@@ -1663,6 +1664,7 @@ export default function Chat() {
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="relative flex-1 min-w-0">
