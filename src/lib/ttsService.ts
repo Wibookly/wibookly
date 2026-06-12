@@ -16,16 +16,12 @@ export interface TtsState {
 let worker: Worker | null = null;
 let preloadRequested = false;
 
-// Detect mobile Safari / iOS — Kokoro (80MB+ WASM model) is impractical there.
-// Use the device's native speechSynthesis voices instead: instant, no download.
+// Previously we forced mobile browsers onto the device's built-in
+// speechSynthesis voices (robotic). Users want the high-quality Kokoro
+// voices on phones too, so we now load the model everywhere and only fall
+// back to speechSynthesis if the worker truly cannot run.
 function isNativeOnlyDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
-  const isAndroid = /Android/i.test(ua);
-  // Treat all iOS and Android mobile browsers as native-only.
-  return isIOS || isAndroid;
+  return false;
 }
 
 // Web Audio primary playback
