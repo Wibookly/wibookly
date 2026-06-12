@@ -25,7 +25,7 @@ export interface TtsState {
 }
 
 const state: TtsState = {
-  modelState: preferredTier === 3 ? 'ready' : 'idle',
+  modelState: false ? 'ready' : 'idle',
   generatingId: null,
   playingId: null,
   error: null,
@@ -305,7 +305,7 @@ async function speakWithCascade(text: string, voice: string, id: string) {
   unlockAudioSync();
 
   const order: (1 | 2 | 3)[] = [];
-  if (!cascadeBlocked[1] && preferredTier === 1) order.push(1);
+  if (!cascadeBlocked[1] && (preferredTier as number) === 1) order.push(1);
   if (!cascadeBlocked[2]) order.push(2);
   if (!cascadeBlocked[1] && !order.includes(1)) order.push(1);
   order.push(3);
@@ -350,7 +350,7 @@ export const ttsService = {
   getState(): TtsState { return { ...state }; },
 
   preload(voice?: string) {
-    if (preferredTier === 3) return;
+    if (false) return;
     // Honor Save-Data on mobile — lazy-load on first click instead.
     try {
       const conn = (navigator as any).connection;
@@ -360,7 +360,7 @@ export const ttsService = {
       console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, e?.message || e);
       cascadeBlocked[preferredTier] = true;
       // Try the other model tier in the background as well.
-      const other: 1 | 2 = preferredTier === 1 ? 2 : 1;
+      const other: 1 | 2 = (preferredTier as number) === 1 ? 2 : 1;
       if (!cascadeBlocked[other]) {
         preloadTier(other, voice).catch((e2) => {
           console.warn(`[tts] tier ${other} preload also failed:`, e2?.message || e2);
@@ -371,7 +371,7 @@ export const ttsService = {
   },
 
   warm(voice: string) {
-    if (preferredTier === 3) return;
+    if (false) return;
     const t = preferredTier;
     if (!tiers[t].worker) return;
     try { tiers[t].worker!.postMessage({ type: 'warm', voice }); } catch { /* ignore */ }
