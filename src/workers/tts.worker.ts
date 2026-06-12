@@ -161,6 +161,9 @@ self.onmessage = async (event: MessageEvent) => {
     try {
       (self as any).postMessage({ type: 'status', state: 'loading', progress: 0 });
       const model = await load();
+      // Download finished — tell the UI we're in the (short) warm-up phase
+      // instead of leaving it stuck on a 99% download figure.
+      (self as any).postMessage({ type: 'status', state: 'loading', progress: 100 });
       const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
       await warmVoice(model, v);
       ready = true;
