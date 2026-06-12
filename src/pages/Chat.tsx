@@ -445,10 +445,13 @@ export default function Chat() {
   // Only show the download toast if the user actually clicks play before
   // the background preload finishes. We track that via `speakingId`.
   useEffect(() => {
-    if (!ttsLoading || !speakingId || ttsLoadProgress >= 100) return;
-    toast.loading(`Loading free voice model… ${ttsLoadProgress}%`, { id: 'kokoro-loading' });
+    if (!ttsLoading || !speakingId) return;
+    const msg = ttsModelState !== 'ready' && ttsLoadProgress < 100
+      ? `Downloading voice model… ${Math.round(ttsLoadProgress)}% (one-time, then cached)`
+      : 'Generating audio…';
+    toast.loading(msg, { id: 'kokoro-loading' });
     return () => { toast.dismiss('kokoro-loading'); };
-  }, [ttsLoading, ttsLoadProgress, speakingId]);
+  }, [ttsLoading, ttsLoadProgress, speakingId, ttsModelState]);
 
   // Surface TTS errors so the user knows why playback didn't start.
   useEffect(() => {
@@ -2059,7 +2062,7 @@ export default function Chat() {
               className="flex-1 overflow-y-auto min-h-0"
             >
               <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-10 space-y-6">
-                {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
+                {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} ttsLoading={ttsLoading} ttsProgress={ttsLoadProgress} ttsModelState={ttsModelState} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
                 {activeStream && (
                   <>
                     <MessageBubble
@@ -2157,6 +2160,9 @@ function MessageBubble({
   userInitial,
   streaming,
   speakingId,
+  ttsLoading,
+  ttsProgress,
+  ttsModelState,
   onSpeak,
   onStopSpeak,
   onRegenerate,
@@ -2170,6 +2176,9 @@ function MessageBubble({
   userInitial: string;
   streaming?: boolean;
   speakingId?: string | null;
+  ttsLoading?: boolean;
+  ttsProgress?: number;
+  ttsModelState?: string;
   onSpeak?: (text: string, id: string) => void;
   onStopSpeak?: () => void;
   onRegenerate?: (assistantMessageId: string) => void;
@@ -2185,6 +2194,11 @@ function MessageBubble({
     toast.success('Copied to clipboard');
   };
   const isSpeaking = speakingId === message.id;
+  const isTtsBusy = isSpeaking && !!ttsLoading;
+  const ttsPct = Math.max(0, Math.min(100, Math.round(ttsProgress ?? 0)));
+  const ttsBusyLabel = ttsModelState !== 'ready' && ttsPct < 100
+    ? `Downloading ${ttsPct}%`
+    : 'Generating…';
   const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
   const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
   const canEdit = isUser && !!onResubmit && !message.id.startsWith('temp-');
@@ -2358,10 +2372,16 @@ function MessageBubble({
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
                 )}
-                title={isSpeaking ? 'Stop reading' : 'Read this reply aloud'}
+                title={isSpeaking ? (isTtsBusy ? 'Preparing audio — click to cancel' : 'Stop reading') : 'Read this reply aloud'}
               >
-                {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                <span>{isSpeaking ? 'Stop' : 'Play'}</span>
+                {isTtsBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isSpeaking ? (
+                  <VolumeX className="h-3.5 w-3.5" />
+                ) : (
+                  <Volume2 className="h-3.5 w-3.5" />
+                )}
+                <span>{isTtsBusy ? ttsBusyLabel : isSpeaking ? 'Stop' : 'Play'}</span>
               </button>
             )}
           </div>
