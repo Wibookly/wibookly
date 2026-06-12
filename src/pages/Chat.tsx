@@ -434,7 +434,7 @@ export default function Chat() {
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
-    const selectedGroup = Object.entries(KOKORO_VOICES_BY_LANGUAGE)
+    const selectedGroup = Object.entries(voicesByLanguage)
       .find(([, voices]) => voices.some((voice) => voice.id === v));
     const previewText = VOICE_PREVIEW_TEXT[selectedGroup?.[0] ?? '']
       ?? 'Hello, this is your selected voice preview. It should sound different from the other options.';
@@ -1646,7 +1646,7 @@ export default function Chat() {
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent className="max-h-[360px] w-64 overflow-y-auto">
-                        {Object.entries(KOKORO_VOICES_BY_LANGUAGE).map(([lang, voices], idx) => (
+                        {Object.entries(voicesByLanguage).map(([lang, voices], idx) => (
                           <div key={lang}>
                             {idx > 0 && <DropdownMenuSeparator />}
                             <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">{lang}</div>
