@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
+import { deviceEngine } from '@/lib/deviceEngine';
 
 const VOICE_PREVIEW_TEXT: Record<string, string> = {
   'English — United States': 'Hello, this is your selected American English voice. You should hear a clear difference now.',
@@ -1639,6 +1640,7 @@ export default function Chat() {
                     {deepMode && <Check className="h-4 w-4 opacity-80" />}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {!deviceEngine.isMobile && (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <Volume2 className="h-4 w-4 mr-2" />
@@ -1662,6 +1664,7 @@ export default function Chat() {
                       </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="relative flex-1 min-w-0">
