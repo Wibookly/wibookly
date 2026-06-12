@@ -3,10 +3,22 @@
 // Loads the model once with real download-progress reporting, warms it up
 // per voice, then serves `speak` requests.
 
-import { KokoroTTS } from 'kokoro-js';
+import { KokoroTTS, env } from 'kokoro-js';
+
+// Make sure downloaded model files are cached by the browser (Cache API) so
+// refreshes do NOT re-download. Explicit because some embeds default it off.
+try {
+  (env as any).useBrowserCache = true;
+  (env as any).allowLocalModels = false;
+  console.log('[tts.worker] browser cache available:', typeof caches !== 'undefined');
+} catch { /* ignore */ }
 
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const DEFAULT_VOICE = 'af_heart';
+
+// Set via 'config' message from the main thread (detects iPad/touch devices
+// that lie about being desktops). Small model = fits Safari's cache quota.
+let preferSmallModel = false;
 
 let tts: any = null;
 let ready = false;
