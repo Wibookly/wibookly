@@ -1827,7 +1827,7 @@ export default function Chat() {
             <FolderPlus className="h-3.5 w-3.5" /> New folder
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-1 space-y-3 pb-[calc(env(safe-area-inset-bottom)+96px)]">
           {/* Inactivity banner removed — chats only expire after 30 days of no activity.
               Users can export individual chats via the ⋮ menu (Download or Save to OneDrive). */}
 
