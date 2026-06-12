@@ -391,13 +391,17 @@ export const ttsService = {
       emit();
     };
     preloadTier(preferredTier, voice).catch((e) => {
-      console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, e?.message || e);
-      cascadeBlocked[preferredTier] = true;
+      const msg = e?.message || String(e);
+      console.warn(`[tts] preferred tier ${preferredTier} preload failed:`, msg);
+      // Only hard-block on real errors; on timeout, leave the tier eligible
+      // so the next click can still use the high-quality voice once cached.
+      if (!/timed out/i.test(msg)) cascadeBlocked[preferredTier] = true;
       const other: 1 | 2 = (preferredTier as number) === 1 ? 2 : 1;
       if (cascadeBlocked[other]) { fallToTier3(); return; }
       preloadTier(other, voice).catch((e2) => {
-        console.warn(`[tts] tier ${other} preload also failed:`, e2?.message || e2);
-        cascadeBlocked[other] = true;
+        const msg2 = e2?.message || String(e2);
+        console.warn(`[tts] tier ${other} preload also failed:`, msg2);
+        if (!/timed out/i.test(msg2)) cascadeBlocked[other] = true;
         fallToTier3();
       });
     });
