@@ -63,11 +63,14 @@ async function isModelCached(): Promise<boolean> {
   return false;
 }
 
-// Stall detector: any progress event bumps this; if nothing happens for 45s
-// during load/warm-up we error out instead of hanging at 99% forever.
+// Stall detector: any progress event bumps this; if nothing happens for the
+// stall window we error out instead of hanging at 99% forever. NOTE: after
+// the files finish loading, building the WASM session emits NO progress
+// events and on iPads can quietly take 2-3 minutes — the window must be
+// generous enough to cover that, or we throw a false "timed out" error.
 let lastProgressTs = Date.now();
 
-function withStallTimeout<T>(p: Promise<T>, stallMs = 45000): Promise<T> {
+function withStallTimeout<T>(p: Promise<T>, stallMs = 240000): Promise<T> {
   lastProgressTs = Date.now();
   return new Promise<T>((resolve, reject) => {
     let done = false;
