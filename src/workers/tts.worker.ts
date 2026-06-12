@@ -89,7 +89,11 @@ async function load() {
     tts = await tryLoad('wasm');
     console.log('[tts.worker] loaded on WASM');
     return tts;
-  })();
+  })().catch((e) => {
+    // Reset so a later attempt can retry instead of awaiting a dead promise.
+    loadingPromise = null;
+    throw e;
+  });
   return loadingPromise;
 }
 

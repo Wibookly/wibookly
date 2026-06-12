@@ -32,6 +32,9 @@ let currentSource: AudioBufferSourceNode | null = null;
 let fallbackAudio: HTMLAudioElement | null = null;
 let fallbackUrl: string | null = null;
 
+// Watchdog timer that bails to speechSynthesis if Kokoro stalls.
+let watchdogTimer: number | null = null;
+
 const requestMeta = new Map<string, { text: string; voice: string }>();
 
 const state: TtsState = {
@@ -237,6 +240,7 @@ function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; vo
 }
 
 async function playBlob(blob: Blob, id: string) {
+  if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
   const meta = requestMeta.get(id);
   console.log('TTS blob bytes:', blob.size);
   if (!blob || blob.size === 0) {
@@ -416,6 +420,22 @@ export const ttsService = {
       emit();
       requestMeta.set(id, { text: stripForSpeech(text), voice });
       w.postMessage({ type: 'speak', id, text, voice });
+
+      // Watchdog: if Kokoro hasn't produced audio in time (slow/stalled model
+      // download or generation), fall back to the device's built-in voice so
+      // the user never gets stuck on an endless "loading" spinner.
+      if (watchdogTimer) window.clearTimeout(watchdogTimer);
+      const timeoutMs = state.modelState === 'ready' ? 20000 : 45000;
+      watchdogTimer = window.setTimeout(() => {
+        if (state.generatingId !== id) return; // audio arrived or was stopped
+        console.warn('[tts] watchdog: Kokoro timed out — falling back to speechSynthesis');
+        state.generatingId = null;
+        const meta = requestMeta.get(id);
+        if (!fallbackToSpeechSynthesis(meta?.text || text, id, meta?.voice || voice)) {
+          state.error = 'Speech timed out. Please try again.';
+          emit();
+        }
+      }, timeoutMs);
     } catch (e: any) {
       console.error('[tts] speak failed', e);
       state.error = String(e?.message ?? e);
@@ -424,6 +444,7 @@ export const ttsService = {
     }
   },
   stop() {
+    if (watchdogTimer) { window.clearTimeout(watchdogTimer); watchdogTimer = null; }
     stopPlaybackOnly();
     requestMeta.clear();
     if (supportsSpeechSynthesis()) {
