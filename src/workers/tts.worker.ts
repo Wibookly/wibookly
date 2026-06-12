@@ -41,7 +41,9 @@ function reportProgress() {
   let loaded = 0, total = 0;
   for (const v of fileBytes.values()) { loaded += v.loaded; total += v.total; }
   if (total <= 0) return;
-  const pct = Math.min(95, Math.round((loaded / total) * 95)); // cap below 100 until warmed
+  // Download portion = 0..90. Reserve 90..99 for warm-up so users see
+  // continued movement instead of a "stuck at 95%" stall during warm.
+  const pct = Math.min(90, Math.round((loaded / total) * 90));
   postStatus('loading', { progress: pct });
 }
 
@@ -106,9 +108,21 @@ async function load() {
 
 async function warmVoice(model: any, voice: string) {
   if (warmedVoices.has(voice)) return;
-  // "Ready" gate — a silent generation must succeed, with a timeout.
-  await withTimeout(model.generate('ok', { voice }), LOAD_TIMEOUT_MS, 'Kokoro warm-up');
-  warmedVoices.add(voice);
+  // Animate progress 92 → 99 during warm-up so the bar keeps moving instead
+  // of appearing frozen at 95% while the silent test generation runs.
+  postStatus('loading', { progress: 92 });
+  let pct = 92;
+  const tick = setInterval(() => {
+    pct = Math.min(99, pct + 1);
+    postStatus('loading', { progress: pct });
+  }, 600);
+  try {
+    // "Ready" gate — a silent generation must succeed, with a timeout.
+    await withTimeout(model.generate('ok', { voice }), LOAD_TIMEOUT_MS, 'Kokoro warm-up');
+    warmedVoices.add(voice);
+  } finally {
+    clearInterval(tick);
+  }
 }
 
 function splitIntoChunks(text: string, maxLen = 280): string[] {
