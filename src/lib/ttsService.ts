@@ -262,7 +262,7 @@ function playWithFallbackAudio(blob: Blob, id: string, meta: { text: string; voi
 
 async function playChunk(blob: Blob, id: string, onDone: () => void) {
   const meta = requestMeta.get(id);
-  console.log('[tts] playing chunk bytes:', blob?.size);
+  console.log('TTS blob bytes:', blob?.size, '| ctx state:', audioCtx?.state ?? 'none');
   if (!blob || blob.size === 0) {
     onDone();
     return;
