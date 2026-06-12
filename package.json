@@ -55,6 +55,7 @@
     "embla-carousel-react": "^8.6.0",
     "highlight.js": "^11.11.1",
     "input-otp": "^1.4.2",
+    "kitten-tts-js": "^0.1.2",
     "kokoro-js": "^1.2.1",
     "lucide-react": "^0.462.0",
     "marked": "^18.0.5",
