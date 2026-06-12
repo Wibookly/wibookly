@@ -108,9 +108,21 @@ async function load() {
 
 async function warmVoice(model: any, voice: string) {
   if (warmedVoices.has(voice)) return;
-  // "Ready" gate — a silent generation must succeed, with a timeout.
-  await withTimeout(model.generate('ok', { voice }), LOAD_TIMEOUT_MS, 'Kokoro warm-up');
-  warmedVoices.add(voice);
+  // Animate progress 92 → 99 during warm-up so the bar keeps moving instead
+  // of appearing frozen at 95% while the silent test generation runs.
+  postStatus('loading', { progress: 92 });
+  let pct = 92;
+  const tick = setInterval(() => {
+    pct = Math.min(99, pct + 1);
+    postStatus('loading', { progress: pct });
+  }, 600);
+  try {
+    // "Ready" gate — a silent generation must succeed, with a timeout.
+    await withTimeout(model.generate('ok', { voice }), LOAD_TIMEOUT_MS, 'Kokoro warm-up');
+    warmedVoices.add(voice);
+  } finally {
+    clearInterval(tick);
+  }
 }
 
 function splitIntoChunks(text: string, maxLen = 280): string[] {
