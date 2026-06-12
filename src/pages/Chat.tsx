@@ -2057,7 +2057,7 @@ export default function Chat() {
               onScroll={onScrollContainer}
               className="flex-1 overflow-y-auto min-h-0"
             >
-              <div className="max-w-6xl mx-auto px-6 py-6 pb-10 space-y-6">
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-10 space-y-6">
                 {messages.map((m) => <MessageBubble key={m.id} message={m} userInitial={userInitial} speakingId={speakingId} onSpeak={speak} onStopSpeak={stopSpeak} onRegenerate={handleRegenerate} onEmailToSelf={handleEmailToSelf} onResubmit={(text) => { if (!isStreaming) handleSend(text); }} mailboxLabel={activeConnection?.provider === 'google' ? 'Gmail' : activeConnection?.provider === 'outlook' ? 'Outlook' : null} mailboxEmail={activeConnection?.email ?? null} isStreamingAny={isStreaming} />)}
                 {activeStream && (
                   <>
