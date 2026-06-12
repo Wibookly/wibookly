@@ -10,6 +10,12 @@ import { KokoroTTS, env } from 'kokoro-js';
 try {
   (env as any).useBrowserCache = true;
   (env as any).allowLocalModels = false;
+  (env as any).allowRemoteModels = true;
+  // iOS Safari / non-cross-origin-isolated contexts HANG when onnxruntime
+  // tries to spawn WASM threads. Single-threaded is the safe default.
+  if ((env as any).backends?.onnx?.wasm) {
+    (env as any).backends.onnx.wasm.numThreads = 1;
+  }
   console.log('[tts.worker] browser cache available:', typeof caches !== 'undefined');
 } catch { /* ignore */ }
 
@@ -39,8 +45,32 @@ function reportProgress() {
   (self as any).postMessage({ type: 'status', state: 'loading', progress: pct });
 }
 
+// Stall detector: any progress event bumps this; if nothing happens for 45s
+// during load/warm-up we error out instead of hanging at 99% forever.
+let lastProgressTs = Date.now();
+
+function withStallTimeout<T>(p: Promise<T>, stallMs = 45000): Promise<T> {
+  lastProgressTs = Date.now();
+  return new Promise<T>((resolve, reject) => {
+    let done = false;
+    const timer = setInterval(() => {
+      if (done) return;
+      if (Date.now() - lastProgressTs > stallMs) {
+        done = true;
+        clearInterval(timer);
+        reject(new Error('Voice engine timed out initializing on this device.'));
+      }
+    }, 5000);
+    p.then(
+      (v) => { done = true; clearInterval(timer); resolve(v); },
+      (e) => { done = true; clearInterval(timer); reject(e); },
+    );
+  });
+}
+
 function progressCallback(data: any) {
   try {
+    lastProgressTs = Date.now();
     if (!data || !data.file) return;
     if (data.status === 'progress' && typeof data.loaded === 'number' && typeof data.total === 'number') {
       fileBytes.set(data.file, { loaded: data.loaded, total: data.total });
