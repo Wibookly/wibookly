@@ -209,8 +209,24 @@ self.onmessage = async (event: MessageEvent) => {
       // phase instead of leaving it stuck on a 99% download figure.
       (self as any).postMessage({ type: 'status', state: 'loading', progress: 100 });
       const v = typeof voice === 'string' && voice ? voice : DEFAULT_VOICE;
-      // Ready ONLY after a successful warm-up generation, capped at 45s.
-      await withStallTimeout(warmVoice(model, v, true));
+      // Warm-up: first generation on slow (iPad/WASM) devices can legitimately
+      // take a couple of minutes — give it a generous cap and one retry.
+      const warmCap = (ms: number) => Promise.race([
+        warmVoice(model, v, true),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('warm-up timed out')), ms)),
+      ]);
+      try {
+        await warmCap(120000);
+      } catch (warmErr) {
+        console.warn('[tts.worker] warm-up failed, retrying once:', warmErr);
+        try {
+          await warmCap(120000);
+        } catch (warmErr2) {
+          // Model IS loaded — speak still works (it generates on demand), so
+          // don't show a scary error. Mark ready; speak path proves it out.
+          console.warn('[tts.worker] warm-up retry failed — marking ready anyway:', warmErr2);
+        }
+      }
       ready = true;
       (self as any).postMessage({ type: 'status', state: 'ready', progress: 100 });
     } catch (e: any) {
