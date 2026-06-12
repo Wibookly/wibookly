@@ -2199,6 +2199,8 @@ function MessageBubble({
   const ttsBusyLabel = ttsModelState !== 'ready' && ttsPct < 100
     ? `Downloading ${ttsPct}%`
     : 'Generating…';
+  // Play is disabled until the voice model is fully downloaded & prepared.
+  const ttsNotReady = ttsModelState !== 'ready';
   const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
   const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
   const canEdit = isUser && !!onResubmit && !message.id.startsWith('temp-');
@@ -2366,13 +2368,18 @@ function MessageBubble({
               <button
                 data-tour="chat-msg-play"
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
+                disabled={ttsNotReady && !isSpeaking}
                 className={cn(
-                  'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition',
+                  'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition disabled:opacity-40 disabled:cursor-not-allowed',
                   isSpeaking
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
                 )}
-                title={isSpeaking ? (isTtsBusy ? 'Preparing audio — click to cancel' : 'Stop reading') : 'Read this reply aloud'}
+                title={
+                  ttsNotReady && !isSpeaking
+                    ? (ttsPct < 100 ? `Voice downloading… ${ttsPct}%` : 'Voice preparing — Play unlocks when ready')
+                    : isSpeaking ? (isTtsBusy ? 'Preparing audio — click to cancel' : 'Stop reading') : 'Read this reply aloud'
+                }
               >
                 {isTtsBusy ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -2381,7 +2388,7 @@ function MessageBubble({
                 ) : (
                   <Volume2 className="h-3.5 w-3.5" />
                 )}
-                <span>{isTtsBusy ? ttsBusyLabel : isSpeaking ? 'Stop' : 'Play'}</span>
+                <span>{isTtsBusy ? ttsBusyLabel : isSpeaking ? 'Stop' : ttsNotReady ? (ttsPct < 100 ? `Voice ${ttsPct}%` : 'Preparing…') : 'Play'}</span>
               </button>
             )}
           </div>
