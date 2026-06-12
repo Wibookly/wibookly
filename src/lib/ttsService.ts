@@ -199,6 +199,8 @@ function playWithFallbackAudio(blob: Blob, id: string, meta?: { text: string; vo
     }
     if (fallbackUrl) URL.revokeObjectURL(fallbackUrl);
     fallbackUrl = URL.createObjectURL(blob);
+    fallbackAudio.muted = false;
+    fallbackAudio.volume = 1;
     fallbackAudio.src = fallbackUrl;
     fallbackAudio.onended = () => {
       requestMeta.delete(id);
