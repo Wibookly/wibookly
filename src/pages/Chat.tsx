@@ -1487,8 +1487,8 @@ export default function Chat() {
   // an active conversation AND in the middle of the empty-state hero
   // (ChatGPT-style centered input on a fresh chat).
   const composerBlock = (
-        <div className="bg-background -mt-2">
-          <div className="max-w-6xl mx-auto px-6 pt-2 pb-3 space-y-2.5">
+        <div className="bg-background -mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-2 pb-3 space-y-2.5">
             {messages.length > 0 && (
               <div data-tour="chat-capacity">
                 <ChatCreditMeter
