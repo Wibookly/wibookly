@@ -132,33 +132,20 @@ function dateBucket(dateStr: string): string {
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  const fmtDate = (dt: Date) =>
-    dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const fmtMonth = (dt: Date) =>
     dt.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  if (sameDay) return `Today · ${fmtDate(d)}`;
-  if (d.toDateString() === yesterday.toDateString()) return `Yesterday · ${fmtDate(d)}`;
+  if (sameDay) return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays < 7) {
-    // Week-of label with start/end dates
-    const start = new Date(now); start.setDate(now.getDate() - 6);
-    return `This week · ${fmtDate(start)} – ${fmtDate(now)}`;
-  }
-  if (diffDays < 14) {
-    const start = new Date(now); start.setDate(now.getDate() - 13);
-    const end = new Date(now); end.setDate(now.getDate() - 7);
-    return `Last week · ${fmtDate(start)} – ${fmtDate(end)}`;
-  }
-  // Same calendar month as today → "This month"
+  if (diffDays < 7) return 'This week';
+  if (diffDays < 14) return 'Last week';
   if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
-    return `This month · ${fmtMonth(d)}`;
+    return 'This month';
   }
-  // Previous calendar month → "Last month"
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   if (d.getFullYear() === lastMonth.getFullYear() && d.getMonth() === lastMonth.getMonth()) {
-    return `Last month · ${fmtMonth(d)}`;
+    return 'Last month';
   }
-  // Group by month/year for everything older
   return fmtMonth(d);
 }
 
