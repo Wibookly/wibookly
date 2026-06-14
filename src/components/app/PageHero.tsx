@@ -27,6 +27,8 @@ interface PageHeroProps {
   accent?: Accent;
   actions?: ReactNode;
   icon?: ReactNode;
+  /** Optional override for the title's font-size / wrapping classes. */
+  titleClassName?: string;
 }
 
 /**
@@ -40,6 +42,7 @@ export function PageHero({
   accent = 'purple',
   actions,
   icon,
+  titleClassName,
 }: PageHeroProps) {
   return (
     <div
@@ -71,7 +74,10 @@ export function PageHero({
                 {icon}
               </div>
             )}
-            <h1 className="text-h4 md:text-h3" style={{ color: '#FFFFFF', margin: 0 }}>
+            <h1
+              className={titleClassName ?? 'text-h4 md:text-h3'}
+              style={{ color: '#FFFFFF', margin: 0, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            >
               {title}
             </h1>
           </div>

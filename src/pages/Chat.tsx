@@ -1926,6 +1926,7 @@ export default function Chat() {
             accent="purple"
             eyebrow="AI INTELLIGENCE"
             title={activeConversationTitle}
+            titleClassName="text-sm sm:text-base md:text-lg font-semibold leading-tight line-clamp-2"
             description={activeId
               ? 'Ask follow-ups, draft replies, or summarize — all in one thread.'
               : 'Ask anything about your inbox, calendar, or work.'}
