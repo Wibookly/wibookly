@@ -67,6 +67,7 @@ function stopPlayback() {
     try { currentAudio.pause(); } catch { /* ignore */ }
     currentAudio.onended = null;
     currentAudio.onerror = null;
+    currentAudio.onpause = null;
     currentAudio.removeAttribute('src');
     try { currentAudio.load(); } catch { /* ignore */ }
   }
@@ -205,6 +206,9 @@ export const ttsService = {
             audio.muted = false;
             audio.onended = () => {
               resolve();
+            };
+            audio.onpause = () => {
+              if (state.generatingId !== id && state.playingId !== id) resolve();
             };
             audio.onerror = () => {
               reject(new Error('Audio playback failed.'));
