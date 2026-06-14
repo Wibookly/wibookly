@@ -26,6 +26,7 @@ const AUDIO_CACHE_NAME = 'inboxiq-tts-audio-v1';
 const AUDIO_CACHE_LIMIT = 24;
 const AUDIO_CACHE_INDEX_KEY = `${AUDIO_CACHE_PREFIX}index`;
 const BROWSER_SPEECH_LANG = 'en-US';
+const BROWSER_SPEECH_START_TIMEOUT_MS = 900;
 const BROWSER_SPEECH_HINTS: Record<string, string[]> = {
   af_heart: ['ava', 'samantha', 'allison', 'aria', 'jenny', 'zira', 'female'],
   am_michael: ['alex', 'daniel', 'aaron', 'matthew', 'david', 'andrew', 'brian', 'male'],
@@ -588,11 +589,21 @@ async function playWithBrowserSpeech(text: string, preferredVoice: string, token
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
+    let started = false;
+    const startTimeout = window.setTimeout(() => {
+      if (!started) {
+        try { synthesis.cancel(); } catch { /* ignore */ }
+        finish(new Error('Browser speech did not start in time.'));
+      }
+    }, BROWSER_SPEECH_START_TIMEOUT_MS);
+
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
+      window.clearTimeout(startTimeout);
       if (settleCurrentPlayback === settle) settleCurrentPlayback = null;
       if (currentUtterance === utterance) currentUtterance = null;
+      utterance.onstart = null;
       utterance.onend = null;
       utterance.onerror = null;
       if (error) reject(error);
@@ -603,6 +614,9 @@ async function playWithBrowserSpeech(text: string, preferredVoice: string, token
     settleCurrentPlayback = settle;
     currentUtterance = utterance;
 
+    utterance.onstart = () => {
+      started = true;
+    };
     utterance.onend = () => finish();
     utterance.onerror = (event) => {
       const error = event.error && event.error !== 'interrupted' && event.error !== 'canceled'
