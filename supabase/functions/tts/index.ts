@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const MAX_INPUT_LENGTH = 1000;
 const FETCH_TIMEOUT_MS = 90_000;
+const DEFAULT_FALLBACK_VOICE = 'af_heart';
 
 function cleanMarkdownForSpeech(input: string) {
   const original = String(input || '');
@@ -57,6 +58,47 @@ function toBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+async function fetchKokoroAudio(baseUrl: string, apiKey: string, text: string, voice: string) {
+  const url = `${baseUrl.replace(/\/+$/, '')}/audio/speech`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort('timeout'), FETCH_TIMEOUT_MS);
+
+  try {
+    const upstream = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'kokoro',
+        voice,
+        input: text,
+        response_format: 'mp3',
+      }),
+      signal: controller.signal,
+    });
+
+    console.log('[tts] upstream status:', upstream.status, 'url:', url, 'voice:', voice);
+
+    if (!upstream.ok) {
+      const detail = (await upstream.text().catch(() => '')) || upstream.statusText || 'Unknown upstream error';
+      return { ok: false as const, status: upstream.status, detail };
+    }
+
+    const bytes = new Uint8Array(await upstream.arrayBuffer());
+    return { ok: true as const, bytes };
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === 'AbortError';
+    const detail = isTimeout
+      ? 'timeout'
+      : String(((err as Error)?.message ?? err) || 'Unknown upstream error');
+    return { ok: false as const, status: isTimeout ? 504 : 502, detail };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -86,62 +128,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    const url = `${baseUrl.replace(/\/+$/, '')}/audio/speech`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort('timeout'), FETCH_TIMEOUT_MS);
+    const primary = await fetchKokoroAudio(baseUrl, apiKey, cleanedText, voice);
+    if (!primary.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Kokoro upstream error', status: primary.status, detail: primary.detail }),
+        { status: primary.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
-    try {
-      const upstream = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'kokoro',
-          voice,
-          input: cleanedText,
-          response_format: 'mp3',
-        }),
-        signal: controller.signal,
-      });
+    let bytes = primary.bytes;
+    let voiceUsed = voice;
+    let fallbackUsed = false;
 
-      console.log('[tts] upstream status:', upstream.status, 'url:', url);
-
-      if (!upstream.ok) {
-        const detail = (await upstream.text().catch(() => '')) || upstream.statusText || 'Unknown upstream error';
+    if (bytes.byteLength === 0 && voice !== DEFAULT_FALLBACK_VOICE) {
+      console.warn('[tts] empty audio from upstream, retrying with fallback voice', voice, '->', DEFAULT_FALLBACK_VOICE);
+      const fallback = await fetchKokoroAudio(baseUrl, apiKey, cleanedText, DEFAULT_FALLBACK_VOICE);
+      if (!fallback.ok) {
         return new Response(
-          JSON.stringify({ error: 'Kokoro upstream error', status: upstream.status, detail }),
-          { status: upstream.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          JSON.stringify({ error: 'Kokoro upstream error', status: fallback.status, detail: fallback.detail }),
+          { status: fallback.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
-
-      const bytes = new Uint8Array(await upstream.arrayBuffer());
-      const audio = toBase64(bytes);
-
-      return new Response(
-        JSON.stringify({ audio, mimeType: 'audio/mpeg' }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store',
-          },
-        },
-      );
-    } catch (err) {
-      const isTimeout = err instanceof Error && err.name === 'AbortError';
-      const detail = isTimeout
-        ? 'timeout'
-        : String(((err as Error)?.message ?? err) || 'Unknown upstream error');
-      return new Response(
-        JSON.stringify({ error: 'Kokoro upstream error', status: isTimeout ? 504 : 502, detail }),
-        { status: isTimeout ? 504 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    } finally {
-      clearTimeout(timeoutId);
+      bytes = fallback.bytes;
+      voiceUsed = DEFAULT_FALLBACK_VOICE;
+      fallbackUsed = true;
     }
+
+    if (bytes.byteLength === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Kokoro upstream error', status: 502, detail: `Empty audio response for voice ${voiceUsed}.` }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    console.log('[tts] audio bytes:', bytes.byteLength, 'voice requested:', voice, 'voice used:', voiceUsed, 'fallback:', fallbackUsed);
+    const audio = toBase64(bytes);
+
+    return new Response(
+      JSON.stringify({ audio, mimeType: 'audio/mpeg', voiceUsed, fallbackUsed }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
   } catch (err) {
     const detail = String(((err as Error)?.message ?? err) || 'Unknown error');
     console.error('[tts] unexpected error', detail);
