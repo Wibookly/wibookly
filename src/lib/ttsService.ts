@@ -648,12 +648,6 @@ export const ttsService = {
     const targetVoice = voice || 'af_heart';
     if (!cleaned) return;
 
-    if (canUseBrowserSpeech()) {
-      const synthesis = window.speechSynthesis;
-      void synthesis.getVoices();
-      return;
-    }
-
     const cacheKey = getCacheKey(cleaned, targetVoice);
     if (getCachedBlob(cacheKey) || inFlightAudioRequests.has(cacheKey)) return;
 
@@ -701,36 +695,11 @@ export const ttsService = {
     emit();
 
     try {
-      if (canUseBrowserSpeech()) {
-        try {
-          if (token !== playToken) return;
-          state.generatingId = null;
-          state.playingId = id;
-          state.modelState = 'ready';
-          emit();
-
-          await playWithBrowserSpeech(cleaned, voice, token);
-
-          if (state.playingId === id) {
-            state.playingId = null;
-            state.modelState = 'ready';
-            emit();
-          }
-          return;
-        } catch (browserSpeechError) {
-          console.warn('[tts] browser speech failed, falling back to hosted audio', browserSpeechError);
-          if (token !== playToken) return;
-          state.generatingId = id;
-          state.playingId = null;
-          state.modelState = 'loading';
-          emit();
-        }
-      }
-
       cancelActiveBackgroundPreload();
       if (token !== playToken) return;
       const blob = await fetchAudioBlob(cleaned, voice);
       console.log('TTS blob bytes:', blob.size);
+
 
       if (token !== playToken) return;
       if (state.generatingId === id) {
