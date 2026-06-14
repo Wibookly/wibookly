@@ -390,9 +390,8 @@ export default function Chat() {
     return localStorage.getItem('inboxiq-chat-deep') === '1';
   });
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
-  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
+  const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
-  const prefetchedTtsIdsRef = useRef<Set<string>>(new Set());
   const [collapsedTimeGroups, setCollapsedTimeGroups] = useState<Set<string>>(() => new Set());
   const voiceCatalog = useVoiceCatalog();
   const voicesByLanguage = useMemo(() => {
