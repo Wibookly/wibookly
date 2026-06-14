@@ -172,9 +172,8 @@ export const ttsService = {
 
   /**
    * Speak `text`. MUST be called from a user-gesture handler so playback can
-   * start on iPhone/iPad. Long replies are split into ~500-char sentence chunks
-   * and the resulting MP3s are fetched + played sequentially — the hosted
-   * Kokoro server 502s on very long inputs.
+   * start on iPhone/iPad. The edge function now does the final markdown cleanup
+   * and length limiting before sending to Kokoro.
    */
   async speak(text: string, voice: string, id: string) {
     playToken += 1;
@@ -193,7 +192,6 @@ export const ttsService = {
 
     const cleaned = stripForSpeech(text);
     if (!cleaned) return;
-    const chunks = splitIntoChunks(cleaned, 1000);
 
     state.generatingId = id;
     state.playingId = null;
@@ -202,20 +200,18 @@ export const ttsService = {
     emit();
 
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        if (token !== playToken) return;
-        const blob = await fetchAudioBlob(chunks[i], voice);
-        console.log('TTS blob bytes:', blob.size, `chunk ${i + 1}/${chunks.length}`);
+      if (token !== playToken) return;
+      const blob = await fetchAudioBlob(cleaned, voice);
+      console.log('TTS blob bytes:', blob.size);
 
-        if (token !== playToken) return;
-        if (state.generatingId === id) {
-          state.generatingId = null;
-          state.playingId = id;
-          emit();
-        }
-
-        await playBlob(blob, token);
+      if (token !== playToken) return;
+      if (state.generatingId === id) {
+        state.generatingId = null;
+        state.playingId = id;
+        emit();
       }
+
+      await playBlob(blob, token);
 
       if (state.playingId === id) {
         state.playingId = null;
@@ -238,32 +234,3 @@ export const ttsService = {
     }
   },
 };
-
-function splitIntoChunks(text: string, maxLen = 500): string[] {
-  const sentences = text.match(/[^.!?]+[.!?]+["')\]]*|\S[^.!?]*$/g) || [text];
-  const chunks: string[] = [];
-  let cur = '';
-  for (const raw of sentences) {
-    const s = raw.trim();
-    if (!s) continue;
-    if (s.length > maxLen) {
-      if (cur) { chunks.push(cur); cur = ''; }
-      // Hard-split very long sentences on whitespace.
-      let buf = '';
-      for (const word of s.split(/\s+/)) {
-        if ((buf + ' ' + word).trim().length > maxLen) {
-          if (buf) chunks.push(buf);
-          buf = word;
-        } else {
-          buf = buf ? `${buf} ${word}` : word;
-        }
-      }
-      if (buf) chunks.push(buf);
-      continue;
-    }
-    if (cur && (cur.length + s.length + 1) > maxLen) { chunks.push(cur); cur = s; }
-    else { cur = cur ? `${cur} ${s}` : s; }
-  }
-  if (cur) chunks.push(cur);
-  return chunks.length ? chunks : [text];
-}
