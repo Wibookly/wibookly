@@ -236,7 +236,7 @@ async function playBlobWithHtmlAudio(blob: Blob, token: number) {
     currentObjectUrl = objectUrl;
 
     audio.preload = 'auto';
-    audio.playsInline = true;
+    audio.setAttribute('playsinline', 'true');
     audio.src = objectUrl;
     audio.onended = () => finish();
     audio.onerror = () => finish(new Error(formatMediaError(audio.error)));
