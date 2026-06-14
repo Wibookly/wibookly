@@ -7,9 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MAX_INPUT_LENGTH = 320;
-const FETCH_TIMEOUT_MS = 60_000;
+const MAX_INPUT_LENGTH = 180;
+const FETCH_TIMEOUT_MS = 20_000;
 const DEFAULT_FALLBACK_VOICE = 'af_heart';
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function cleanMarkdownForSpeech(input: string) {
   const original = String(input || '');
@@ -99,6 +103,10 @@ async function fetchKokoroAudio(baseUrl: string, apiKey: string, text: string, v
   }
 }
 
+function shouldRetryUpstream(status: number, detail: string) {
+  return status === 502 || status === 503 || status === 504 || detail === 'timeout';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -128,7 +136,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const primary = await fetchKokoroAudio(baseUrl, apiKey, cleanedText, voice);
+    let primary = await fetchKokoroAudio(baseUrl, apiKey, cleanedText, voice);
+    if (!primary.ok && shouldRetryUpstream(primary.status, primary.detail)) {
+      console.warn('[tts] upstream retrying after transient failure', primary.status, primary.detail, 'voice:', voice);
+      await sleep(250);
+      primary = await fetchKokoroAudio(baseUrl, apiKey, cleanedText, voice);
+    }
     if (!primary.ok) {
       return new Response(
         JSON.stringify({ error: 'Kokoro upstream error', status: primary.status, detail: primary.detail }),
