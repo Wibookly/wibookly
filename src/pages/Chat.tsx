@@ -42,12 +42,6 @@ import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 
 
-const VOICE_PREVIEW_TEXT: Record<string, string> = {
-  'English — United States': 'Hello, this is your selected American English voice. You should hear a clear difference now.',
-  'English — United Kingdom': 'Hello, this is your selected British English voice. You should hear a distinct accent now.',
-};
-
-
 interface Conversation {
   id: string;
   title: string | null;
@@ -442,12 +436,8 @@ export default function Chat() {
   const handleSelectVoice = useCallback((v: KokoroVoiceId) => {
     setTtsVoice(v);
     setStoredVoice(v);
-    const selectedGroup = Object.entries(voicesByLanguage)
-      .find(([, voices]) => voices.some((voice) => voice.id === v));
-    const previewText = VOICE_PREVIEW_TEXT[selectedGroup?.[0] ?? '']
-      ?? 'Hello, this is your selected voice preview. It should sound different from the other options.';
-    speak(previewText, `voice-preview-${v}-${Date.now()}`);
-  }, [speak]);
+    stopSpeak();
+  }, [stopSpeak]);
   // Server-side TTS — no model download, no preload, no "preparing voice".
   // Starter prompts are collapsed by default; collapse again whenever the
   // user switches between conversations (or starts a new chat) so the empty
