@@ -740,8 +740,20 @@ export default function Chat() {
       const k = dateBucket(c.updated_at || c.created_at);
       (groups[k] = groups[k] || []).push(c);
     }
-    return groups;
+    return TIME_GROUP_ORDER.reduce((acc, label) => {
+      if (groups[label]?.length) acc[label] = groups[label];
+      return acc;
+    }, {} as Record<string, Conversation[]>);
   }, [rootConversations]);
+
+  const toggleTimeGroup = useCallback((label: string) => {
+    setCollapsedTimeGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
 
   // Pick a header title that reflects the current conversation, not a
   // generic label. Prefers the saved conversation title; falls back to the
@@ -1920,12 +1932,27 @@ export default function Chat() {
             </div>
           )}
 
-          {Object.entries(groupedConversations).map(([label, items]) => (
-            <div key={label}>
-              <div className="mx-2 mt-3 mb-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-              {items.map((c) => renderConvRow(c))}
-            </div>
-          ))}
+          {Object.entries(groupedConversations).map(([label, items]) => {
+            const collapsed = collapsedTimeGroups.has(label);
+            return (
+              <div key={label} className="mx-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => toggleTimeGroup(label)}
+                  className={cn(
+                    'mb-1 flex w-full items-center justify-between rounded-md border px-2 py-1 text-left transition hover:bg-accent/40',
+                    timeGroupTone(label),
+                  )}
+                  aria-expanded={!collapsed}
+                  aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
+                  {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+                {!collapsed && items.map((c) => renderConvRow(c))}
+              </div>
+            );
+          })}
           {!conversations.length && (
             <div className="px-2 py-6 text-xs text-muted-foreground text-center">
               No conversations yet
