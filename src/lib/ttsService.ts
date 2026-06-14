@@ -75,9 +75,7 @@ async function unlockAudioContext() {
 
 function stopPlayback() {
   if (currentSource) {
-    try { currentSource.onended = null; } catch { /* ignore */ }
     try { currentSource.stop(); } catch { /* ignore */ }
-    try { currentSource.disconnect(); } catch { /* ignore */ }
     currentSource = null;
   }
 }
@@ -85,18 +83,24 @@ function stopPlayback() {
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  const res = await fetch(TTS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${SUPABASE_ANON}`,
-    },
-    body: JSON.stringify({ text, voice }),
-    signal: controller.signal,
-  });
   try {
-    const payload = await res.json().catch(async () => ({ error: 'Invalid TTS response', detail: await res.text().catch(() => '') }));
+    const res = await fetch(TTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({ text, voice }),
+      signal: controller.signal,
+    });
+    const raw = await res.text();
+    let payload: any = null;
+    try {
+      payload = raw ? JSON.parse(raw) : null;
+    } catch {
+      payload = { error: 'Invalid TTS response', detail: raw };
+    }
     if (!res.ok) {
       const detail = payload?.detail || payload?.error || 'Unknown TTS error';
       throw new Error(`tts ${res.status}: ${detail}`);
@@ -106,12 +110,17 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     }
     const bytes = base64ToUint8Array(payload.audio);
     return new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('tts timeout');
+    }
+    throw err;
   } finally {
     window.clearTimeout(timeoutId);
   }
 }
 
-async function playBlob(blob: Blob, id: string, token: number) {
+async function playBlob(blob: Blob, token: number) {
   const audioCtx = getAudioContext();
   const buffer = await blob.arrayBuffer();
   const data = await new Promise<AudioBuffer>((res, rej) => {
@@ -123,21 +132,18 @@ async function playBlob(blob: Blob, id: string, token: number) {
   if (token !== playToken) return;
 
   stopPlayback();
-  const src = audioCtx.createBufferSource();
-  src.buffer = data;
-  src.connect(audioCtx.destination);
-  src.onended = () => {
-    if (currentSource === src) {
-      currentSource.disconnect();
-      currentSource = null;
-      if (state.playingId === id) {
-        state.playingId = null;
-        emit();
-      }
-    }
-  };
-  currentSource = src;
-  src.start(0);
+  await new Promise<void>((resolve) => {
+    const src = audioCtx.createBufferSource();
+    src.buffer = data;
+    src.connect(audioCtx.destination);
+    src.onended = () => {
+      try { src.disconnect(); } catch { /* ignore */ }
+      if (currentSource === src) currentSource = null;
+      resolve();
+    };
+    currentSource = src;
+    src.start(0);
+  });
 }
 
 export const ttsService = {
