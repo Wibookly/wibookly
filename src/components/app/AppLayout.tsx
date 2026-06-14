@@ -73,17 +73,7 @@ export function AppLayout() {
     return () => window.removeEventListener(RESTART_SETUP_WIZARD_EVENT, handler);
   }, []);
 
-  // Preload the in-browser Kokoro TTS model in the background once the user
-  // is signed in, so read-aloud is ready when they open a chat. Skip on
-  // data-saver connections; the worker will lazy-load on first click instead.
-  useEffect(() => {
-    if (!user?.id) return;
-    const saveData = (navigator as any).connection?.saveData === true;
-    if (saveData) return;
-    const idle = (window as any).requestIdleCallback as undefined | ((cb: () => void) => number);
-    const run = () => ttsService.preload(getStoredVoice());
-    if (idle) idle(run); else setTimeout(run, 400);
-  }, [user?.id]);
+  // TTS is now served from a hosted Kokoro server — no model to preload.
 
   useEffect(() => {
     localStorage.setItem('chat-sidebar-pinned', String(sidebarPinned));
