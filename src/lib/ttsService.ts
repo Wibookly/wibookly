@@ -212,25 +212,7 @@ export const ttsService = {
           emit();
         }
 
-        await new Promise<void>(async (resolve, reject) => {
-          try {
-            await playBlob(blob, token);
-            const source = currentSource;
-            if (!source) {
-              resolve();
-              return;
-            }
-            source.onended = () => {
-              if (currentSource === source) {
-                source.disconnect();
-                currentSource = null;
-              }
-              resolve();
-            };
-          } catch (err) {
-            reject(err);
-          }
-        });
+        await playBlob(blob, token);
       }
 
       if (state.playingId === id) {
