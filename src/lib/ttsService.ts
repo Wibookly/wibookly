@@ -25,6 +25,11 @@ const AUDIO_CACHE_PREFIX = 'inboxiq:tts-audio:';
 const AUDIO_CACHE_NAME = 'inboxiq-tts-audio-v1';
 const AUDIO_CACHE_LIMIT = 24;
 const AUDIO_CACHE_INDEX_KEY = `${AUDIO_CACHE_PREFIX}index`;
+const BROWSER_SPEECH_LANG = 'en-US';
+const BROWSER_SPEECH_HINTS: Record<string, string[]> = {
+  af_heart: ['ava', 'samantha', 'allison', 'aria', 'jenny', 'zira', 'female'],
+  am_michael: ['alex', 'daniel', 'aaron', 'matthew', 'david', 'andrew', 'brian', 'male'],
+};
 
 function hashString(value: string) {
   let hash = 2166136261;
@@ -62,6 +67,7 @@ let currentSource: AudioBufferSourceNode | null = null;
 let currentAudioElement: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
 let settleCurrentPlayback: (() => void) | null = null;
+let currentUtterance: SpeechSynthesisUtterance | null = null;
 let playToken = 0;
 let currentFetchController: AbortController | null = null;
 let backgroundFetchController: AbortController | null = null;
@@ -226,6 +232,46 @@ function clearAudioElement() {
   }
 }
 
+function canUseBrowserSpeech() {
+  return typeof window !== 'undefined'
+    && 'speechSynthesis' in window
+    && typeof SpeechSynthesisUtterance !== 'undefined';
+}
+
+function pickBrowserVoice(preferredVoice: string): SpeechSynthesisVoice | null {
+  if (!canUseBrowserSpeech()) return null;
+
+  const hints = BROWSER_SPEECH_HINTS[preferredVoice] ?? [];
+  const voices = window.speechSynthesis.getVoices().filter((voice) => {
+    const lang = String(voice.lang || '').toLowerCase();
+    return lang.startsWith('en-us') && !lang.startsWith('en-gb');
+  });
+
+  if (!voices.length) return null;
+
+  const scoreVoice = (voice: SpeechSynthesisVoice) => {
+    const name = String(voice.name || '').toLowerCase();
+    let score = 0;
+    if (voice.default) score += 4;
+    if (voice.localService) score += 4;
+    if (String(voice.lang || '').toLowerCase() === 'en-us') score += 3;
+    if (hints.some((hint) => name.includes(hint))) score += 10;
+    return score;
+  };
+
+  return [...voices].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] ?? null;
+}
+
+function stopSpeechSynthesis() {
+  if (!canUseBrowserSpeech()) return;
+  currentUtterance = null;
+  try {
+    window.speechSynthesis.cancel();
+  } catch {
+    /* ignore */
+  }
+}
+
 function stopPlayback() {
   const settle = settleCurrentPlayback;
   settleCurrentPlayback = null;
@@ -239,6 +285,7 @@ function stopPlayback() {
   }
 
   clearAudioElement();
+  stopSpeechSynthesis();
   settle?.();
 }
 
@@ -510,6 +557,74 @@ async function playBlob(blob: Blob, token: number, allowAudioContext: boolean) {
   await playBlobWithHtmlAudio(blob, token);
 }
 
+async function playWithBrowserSpeech(text: string, preferredVoice: string, token: number) {
+  if (!canUseBrowserSpeech()) {
+    throw new Error('Browser speech synthesis is unavailable.');
+  }
+
+  const synthesis = window.speechSynthesis;
+  if (!synthesis.getVoices().length) {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        synthesis.onvoiceschanged = null;
+        resolve();
+      };
+
+      synthesis.onvoiceschanged = () => finish();
+      window.setTimeout(finish, 250);
+    });
+  }
+
+  const voice = pickBrowserVoice(preferredVoice);
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = voice?.lang || BROWSER_SPEECH_LANG;
+  utterance.voice = voice ?? null;
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 0.78;
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (settleCurrentPlayback === settle) settleCurrentPlayback = null;
+      if (currentUtterance === utterance) currentUtterance = null;
+      utterance.onend = null;
+      utterance.onerror = null;
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const settle = () => finish();
+    settleCurrentPlayback = settle;
+    currentUtterance = utterance;
+
+    utterance.onend = () => finish();
+    utterance.onerror = (event) => {
+      const error = event.error && event.error !== 'interrupted' && event.error !== 'canceled'
+        ? new Error(`Speech synthesis failed: ${event.error}`)
+        : undefined;
+      finish(error);
+    };
+
+    if (token !== playToken) {
+      finish();
+      return;
+    }
+
+    try {
+      synthesis.cancel();
+      synthesis.speak(utterance);
+    } catch (err) {
+      finish(new Error(String((err as Error)?.message ?? err)));
+    }
+  });
+}
+
 export const ttsService = {
   subscribe(l: Listener) { listeners.add(l); l({ ...state }); return () => { listeners.delete(l); }; },
   getState(): TtsState { return { ...state }; },
@@ -518,6 +633,12 @@ export const ttsService = {
     const cleaned = stripForSpeech(text);
     const targetVoice = voice || 'af_heart';
     if (!cleaned) return;
+
+    if (canUseBrowserSpeech()) {
+      const synthesis = window.speechSynthesis;
+      void synthesis.getVoices();
+      return;
+    }
 
     const cacheKey = getCacheKey(cleaned, targetVoice);
     if (getCachedBlob(cacheKey) || inFlightAudioRequests.has(cacheKey)) return;
@@ -566,6 +687,23 @@ export const ttsService = {
     emit();
 
     try {
+      if (canUseBrowserSpeech()) {
+        if (token !== playToken) return;
+        state.generatingId = null;
+        state.playingId = id;
+        state.modelState = 'ready';
+        emit();
+
+        await playWithBrowserSpeech(cleaned, voice, token);
+
+        if (state.playingId === id) {
+          state.playingId = null;
+          state.modelState = 'ready';
+          emit();
+        }
+        return;
+      }
+
       cancelActiveBackgroundPreload();
       if (token !== playToken) return;
       const blob = await fetchAudioBlob(cleaned, voice);
