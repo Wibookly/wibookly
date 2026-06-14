@@ -147,7 +147,9 @@ export const ttsService = {
 
   /**
    * Speak `text`. MUST be called from a user-gesture handler so iOS unlocks
-   * the AudioContext. Returns once playback has started (or rejects on error).
+   * the AudioContext. Long replies are split into ~500-char sentence chunks
+   * and the resulting MP3s are fetched + played sequentially — the hosted
+   * Kokoro server 502s on very long inputs.
    */
   speak(text: string, voice: string, id: string) {
     // iOS unlock — synchronous inside the click handler.
@@ -156,6 +158,7 @@ export const ttsService = {
 
     const cleaned = stripForSpeech(text);
     if (!cleaned) return;
+    const chunks = splitIntoChunks(cleaned, 500);
 
     state.generatingId = id;
     state.playingId = null;
@@ -165,33 +168,66 @@ export const ttsService = {
 
     void (async () => {
       try {
-        const blob = await fetchAudioBlob(cleaned, voice);
-        console.log('TTS blob bytes:', blob.size);
-        if (state.generatingId !== id) return; // stopped or replaced
         const ctx = getAudioContext();
         if (!ctx) throw new Error('Web Audio not supported');
         if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* ignore */ } }
-        const arrayBuf = await blob.arrayBuffer();
-        const audioData = await decodeAudio(ctx, arrayBuf);
-        if (state.generatingId !== id) return;
 
-        stopPlayback();
-        const source = ctx.createBufferSource();
-        source.buffer = audioData;
-        source.connect(ctx.destination);
-        source.onended = () => {
-          if (currentSource === source) currentSource = null;
-          if (state.playingId === id) {
-            state.playingId = null;
+        // Fetch the first chunk before flipping state to "playing".
+        let nextBuffer: AudioBuffer | null = null;
+        let nextFetch: Promise<AudioBuffer | null> | null = (async () => {
+          const blob = await fetchAudioBlob(chunks[0], voice);
+          console.log('TTS blob bytes:', blob.size, 'chunk 1/' + chunks.length);
+          const buf = await blob.arrayBuffer();
+          return decodeAudio(ctx, buf);
+        })();
+
+        for (let i = 0; i < chunks.length; i++) {
+          if (state.generatingId !== id && state.playingId !== id) return; // stopped
+          nextBuffer = await nextFetch;
+          // Pre-fetch the next chunk while this one plays.
+          nextFetch = i + 1 < chunks.length
+            ? (async () => {
+                try {
+                  const blob = await fetchAudioBlob(chunks[i + 1], voice);
+                  console.log('TTS blob bytes:', blob.size, `chunk ${i + 2}/${chunks.length}`);
+                  const buf = await blob.arrayBuffer();
+                  return decodeAudio(ctx, buf);
+                } catch (e) {
+                  console.error('[tts] chunk fetch failed', e);
+                  return null;
+                }
+              })()
+            : null;
+
+          if (!nextBuffer) continue;
+          if (state.generatingId !== id && state.playingId !== id) return;
+
+          // Flip to playing state on the first chunk that's ready.
+          if (state.generatingId === id) {
+            state.generatingId = null;
+            state.playingId = id;
             emit();
           }
-        };
-        currentSource = source;
-        source.start(0);
 
-        state.generatingId = null;
-        state.playingId = id;
-        emit();
+          await new Promise<void>((resolve) => {
+            const source = ctx.createBufferSource();
+            source.buffer = nextBuffer!;
+            source.connect(ctx.destination);
+            source.onended = () => {
+              if (currentSource === source) currentSource = null;
+              resolve();
+            };
+            currentSource = source;
+            source.start(0);
+          });
+
+          if (state.playingId !== id) return; // user pressed stop
+        }
+
+        if (state.playingId === id) {
+          state.playingId = null;
+          emit();
+        }
       } catch (err: any) {
         console.error('[tts] speak failed', err);
         state.generatingId = null;
@@ -211,3 +247,32 @@ export const ttsService = {
     })();
   },
 };
+
+function splitIntoChunks(text: string, maxLen = 500): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+["')\]]*|\S[^.!?]*$/g) || [text];
+  const chunks: string[] = [];
+  let cur = '';
+  for (const raw of sentences) {
+    const s = raw.trim();
+    if (!s) continue;
+    if (s.length > maxLen) {
+      if (cur) { chunks.push(cur); cur = ''; }
+      // Hard-split very long sentences on whitespace.
+      let buf = '';
+      for (const word of s.split(/\s+/)) {
+        if ((buf + ' ' + word).trim().length > maxLen) {
+          if (buf) chunks.push(buf);
+          buf = word;
+        } else {
+          buf = buf ? `${buf} ${word}` : word;
+        }
+      }
+      if (buf) chunks.push(buf);
+      continue;
+    }
+    if (cur && (cur.length + s.length + 1) > maxLen) { chunks.push(cur); cur = s; }
+    else { cur = cur ? `${cur} ${s}` : s; }
+  }
+  if (cur) chunks.push(cur);
+  return chunks.length ? chunks : [text];
+}
