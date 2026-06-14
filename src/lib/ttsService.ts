@@ -557,6 +557,74 @@ async function playBlob(blob: Blob, token: number, allowAudioContext: boolean) {
   await playBlobWithHtmlAudio(blob, token);
 }
 
+async function playWithBrowserSpeech(text: string, preferredVoice: string, token: number) {
+  if (!canUseBrowserSpeech()) {
+    throw new Error('Browser speech synthesis is unavailable.');
+  }
+
+  const synthesis = window.speechSynthesis;
+  if (!synthesis.getVoices().length) {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        synthesis.onvoiceschanged = null;
+        resolve();
+      };
+
+      synthesis.onvoiceschanged = () => finish();
+      window.setTimeout(finish, 250);
+    });
+  }
+
+  const voice = pickBrowserVoice(preferredVoice);
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = voice?.lang || BROWSER_SPEECH_LANG;
+  utterance.voice = voice ?? null;
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 0.78;
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (settleCurrentPlayback === settle) settleCurrentPlayback = null;
+      if (currentUtterance === utterance) currentUtterance = null;
+      utterance.onend = null;
+      utterance.onerror = null;
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const settle = () => finish();
+    settleCurrentPlayback = settle;
+    currentUtterance = utterance;
+
+    utterance.onend = () => finish();
+    utterance.onerror = (event) => {
+      const error = event.error && event.error !== 'interrupted' && event.error !== 'canceled'
+        ? new Error(`Speech synthesis failed: ${event.error}`)
+        : undefined;
+      finish(error);
+    };
+
+    if (token !== playToken) {
+      finish();
+      return;
+    }
+
+    try {
+      synthesis.cancel();
+      synthesis.speak(utterance);
+    } catch (err) {
+      finish(new Error(String((err as Error)?.message ?? err)));
+    }
+  });
+}
+
 export const ttsService = {
   subscribe(l: Listener) { listeners.add(l); l({ ...state }); return () => { listeners.delete(l); }; },
   getState(): TtsState { return { ...state }; },
