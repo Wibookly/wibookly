@@ -702,20 +702,29 @@ export const ttsService = {
 
     try {
       if (canUseBrowserSpeech()) {
-        if (token !== playToken) return;
-        state.generatingId = null;
-        state.playingId = id;
-        state.modelState = 'ready';
-        emit();
-
-        await playWithBrowserSpeech(cleaned, voice, token);
-
-        if (state.playingId === id) {
-          state.playingId = null;
+        try {
+          if (token !== playToken) return;
+          state.generatingId = null;
+          state.playingId = id;
           state.modelState = 'ready';
           emit();
+
+          await playWithBrowserSpeech(cleaned, voice, token);
+
+          if (state.playingId === id) {
+            state.playingId = null;
+            state.modelState = 'ready';
+            emit();
+          }
+          return;
+        } catch (browserSpeechError) {
+          console.warn('[tts] browser speech failed, falling back to hosted audio', browserSpeechError);
+          if (token !== playToken) return;
+          state.generatingId = id;
+          state.playingId = null;
+          state.modelState = 'loading';
+          emit();
         }
-        return;
       }
 
       cancelActiveBackgroundPreload();
