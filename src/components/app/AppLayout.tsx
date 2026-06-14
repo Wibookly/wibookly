@@ -34,13 +34,20 @@ export function AppLayout() {
   });
   const [sidebarHover, setSidebarHover] = useState(false);
 
-  // Auto-open the Setup Wizard once per user, when they first land in the app
-  // and have not yet completed it. We hit the table directly because the
-  // get_my_profile RPC does not return the new onboarding column yet.
+  // Auto-open the Setup Wizard ONCE per user — only the very first time
+  // they sign in. After that, refreshing the page never re-opens it; the
+  // user can relaunch the wizard manually from the Help panel / Settings.
   useEffect(() => {
     if (!user?.id || wizardChecked) return;
     let cancelled = false;
+    const flagKey = `inboxiq:wizard-auto-shown:${user.id}`;
     (async () => {
+      // If we've already auto-shown the wizard for this user in this browser,
+      // do nothing — the user can re-open it manually.
+      let alreadyShown = false;
+      try { alreadyShown = localStorage.getItem(flagKey) === '1'; } catch { /* ignore */ }
+      if (alreadyShown) { setWizardChecked(true); return; }
+
       const { data } = await supabase
         .from('user_profiles')
         .select('onboarding_completed_at')
@@ -48,14 +55,14 @@ export function AppLayout() {
         .maybeSingle();
       if (cancelled) return;
       const row = data as { onboarding_completed_at?: string | null } | null;
-      // Only auto-launch on the main authenticated landing pages — never
-      // on the OAuth callback or invitation pages.
       const safeRoute =
         location.pathname === '/integrations' ||
         location.pathname === '/categories' ||
         location.pathname === '/settings';
       if (row && !row.onboarding_completed_at && safeRoute) {
         setWizardOpen(true);
+        // Mark as shown so subsequent refreshes don't re-open it.
+        try { localStorage.setItem(flagKey, '1'); } catch { /* ignore */ }
       }
       setWizardChecked(true);
     })();
