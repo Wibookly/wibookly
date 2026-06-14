@@ -211,7 +211,7 @@ function stopPlayback() {
   settle?.();
 }
 
-async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
+async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCurrent?: boolean }): Promise<Blob> {
   const cacheKey = getCacheKey(text, voice);
   const cached = getCachedBlob(cacheKey);
   if (cached) {
@@ -225,9 +225,14 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     return inFlight;
   }
 
-  currentFetchController?.abort();
+  const trackAsCurrent = options?.trackAsCurrent !== false;
+  if (trackAsCurrent) {
+    currentFetchController?.abort();
+  }
   const controller = new AbortController();
-  currentFetchController = controller;
+  if (trackAsCurrent) {
+    currentFetchController = controller;
+  }
   const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const requestPromise = (async () => {
   try {
@@ -286,7 +291,7 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     throw new Error('TTS returned audio in an unsupported format.');
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      if (currentFetchController === controller) {
+      if (trackAsCurrent && currentFetchController === controller) {
         throw new Error('tts timeout');
       }
       throw new Error('tts canceled');
@@ -294,7 +299,7 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     throw err;
   } finally {
     inFlightAudioRequests.delete(cacheKey);
-    if (currentFetchController === controller) {
+    if (trackAsCurrent && currentFetchController === controller) {
       currentFetchController = null;
     }
     window.clearTimeout(timeoutId);
@@ -424,7 +429,7 @@ export const ttsService = {
     const cacheKey = getCacheKey(cleaned, targetVoice);
     if (getCachedBlob(cacheKey) || inFlightAudioRequests.has(cacheKey)) return;
 
-    void fetchAudioBlob(cleaned, targetVoice).catch((err) => {
+    void fetchAudioBlob(cleaned, targetVoice, { trackAsCurrent: false }).catch((err) => {
       if (String(err?.message ?? err) === 'tts canceled') return;
       console.warn('[tts] preload failed', err);
     });
