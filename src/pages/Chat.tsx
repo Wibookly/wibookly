@@ -71,6 +71,7 @@ interface Msg {
   created_at: string;
   attachments?: string[] | null;
   citations?: Citation[] | null;
+  conversation_id?: string;
 }
 
 const examplePrompts = [
@@ -391,6 +392,7 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const prefetchedTtsIdsRef = useRef<Set<string>>(new Set());
   const [collapsedTimeGroups, setCollapsedTimeGroups] = useState<Set<string>>(() => new Set());
   const voiceCatalog = useVoiceCatalog();
   const voicesByLanguage = useMemo(() => {
@@ -452,10 +454,52 @@ export default function Chat() {
   }, [ttsModelState, ttsError]);
 
   useEffect(() => {
-    const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !!m.content?.trim());
-    if (!latestAssistant) return;
-    preloadTTS(latestAssistant.content, ttsVoice);
+    const recentAssistants = [...messages]
+      .filter((m) => m.role === 'assistant' && !!m.content?.trim())
+      .slice(-3);
+
+    for (const message of recentAssistants) {
+      const prefetchKey = `${ttsVoice}:${message.id}`;
+      if (prefetchedTtsIdsRef.current.has(prefetchKey)) continue;
+      prefetchedTtsIdsRef.current.add(prefetchKey);
+      preloadTTS(message.content, ttsVoice);
+    }
   }, [messages, preloadTTS, ttsVoice]);
+
+  useEffect(() => {
+    if (!user || !conversations.length) return;
+
+    let cancelled = false;
+    const preloadRecentConversationAudio = async () => {
+      const conversationIds = conversations.slice(0, 12).map((conversation) => conversation.id);
+      if (!conversationIds.length) return;
+
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('id, conversation_id, role, content, created_at')
+        .in('conversation_id', conversationIds)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: false })
+        .limit(36);
+
+      if (cancelled || !data?.length) return;
+
+      const seenConversationIds = new Set<string>();
+      for (const message of data as Msg[]) {
+        if (!message.content?.trim() || !message.conversation_id) continue;
+        if (seenConversationIds.has(message.conversation_id)) continue;
+        seenConversationIds.add(message.conversation_id);
+
+        const prefetchKey = `${ttsVoice}:${message.id}`;
+        if (prefetchedTtsIdsRef.current.has(prefetchKey)) continue;
+        prefetchedTtsIdsRef.current.add(prefetchKey);
+        preloadTTS(message.content, ttsVoice);
+      }
+    };
+
+    void preloadRecentConversationAudio();
+    return () => { cancelled = true; };
+  }, [user, conversations, preloadTTS, ttsVoice]);
 
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
