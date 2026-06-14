@@ -86,13 +86,6 @@ function stopPlayback() {
   }
 }
 
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
 async function decodeAudio(ctx: AudioContext, buf: ArrayBuffer): Promise<AudioBuffer> {
   return await new Promise<AudioBuffer>((resolve, reject) => {
     try {
@@ -115,15 +108,15 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     body: JSON.stringify({ text, voice }),
   });
   const ct = res.headers.get('content-type') || '';
-  if (!res.ok || !ct.includes('application/json')) {
+  if (!res.ok) {
     const detail = await res.text().catch(() => '');
     throw new Error(`tts ${res.status}: ${detail.slice(0, 200)}`);
   }
-  const data = await res.json() as { audio?: string; mimeType?: string; error?: string; detail?: string };
-  if (data.error) throw new Error(`${data.error}${data.detail ? ` — ${data.detail}` : ''}`);
-  if (!data.audio) throw new Error('Empty audio response');
-  const bytes = base64ToBytes(data.audio);
-  return new Blob([bytes.buffer as ArrayBuffer], { type: data.mimeType || 'audio/mpeg' });
+  if (ct.includes('audio/')) {
+    return await res.blob();
+  }
+  const detail = await res.text().catch(() => '');
+  throw new Error(`tts returned unexpected content-type ${ct || 'unknown'}: ${detail.slice(0, 200)}`);
 }
 
 export const ttsService = {
