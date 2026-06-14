@@ -471,7 +471,7 @@ export default function Chat() {
 
     let cancelled = false;
     const preloadRecentConversationAudio = async () => {
-      const conversationIds = conversations.slice(0, 12).map((conversation) => conversation.id);
+      const conversationIds = conversations.slice(0, 4).map((conversation) => conversation.id);
       if (!conversationIds.length) return;
 
       const { data } = await supabase
@@ -480,7 +480,7 @@ export default function Chat() {
         .in('conversation_id', conversationIds)
         .eq('role', 'assistant')
         .order('created_at', { ascending: false })
-        .limit(36);
+        .limit(8);
 
       if (cancelled || !data?.length) return;
 

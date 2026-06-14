@@ -64,8 +64,12 @@ let currentObjectUrl: string | null = null;
 let settleCurrentPlayback: (() => void) | null = null;
 let playToken = 0;
 let currentFetchController: AbortController | null = null;
+let backgroundFetchController: AbortController | null = null;
+let backgroundPreloadRunning = false;
+let backgroundPreloadTimer: number | null = null;
 const memoryBlobCache = new Map<string, Blob>();
-const inFlightAudioRequests = new Map<string, Promise<Blob>>();
+const inFlightAudioRequests = new Map<string, { promise: Promise<Blob>; background: boolean }>();
+const queuedPreloadRequests = new Map<string, { text: string; voice: string }>();
 
 function getCacheKey(text: string, voice: string) {
   return `${voice}:${hashString(text)}`;
@@ -238,8 +242,57 @@ function stopPlayback() {
   settle?.();
 }
 
-async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCurrent?: boolean }): Promise<Blob> {
+function clearBackgroundPreloadTimer() {
+  if (backgroundPreloadTimer == null) return;
+  window.clearTimeout(backgroundPreloadTimer);
+  backgroundPreloadTimer = null;
+}
+
+function cancelActiveBackgroundPreload() {
+  backgroundFetchController?.abort();
+  backgroundFetchController = null;
+}
+
+function scheduleBackgroundPreload(delayMs = 900) {
+  if (!queuedPreloadRequests.size || backgroundPreloadRunning || backgroundPreloadTimer != null) return;
+  backgroundPreloadTimer = window.setTimeout(() => {
+    backgroundPreloadTimer = null;
+    void processBackgroundPreloadQueue();
+  }, delayMs);
+}
+
+async function processBackgroundPreloadQueue() {
+  if (backgroundPreloadRunning || !queuedPreloadRequests.size) return;
+  if (currentFetchController || state.generatingId) {
+    scheduleBackgroundPreload(1200);
+    return;
+  }
+
+  const nextEntry = queuedPreloadRequests.entries().next();
+  if (nextEntry.done) return;
+
+  const [cacheKey, job] = nextEntry.value;
+  queuedPreloadRequests.delete(cacheKey);
+  backgroundPreloadRunning = true;
+
+  try {
+    await fetchAudioBlob(job.text, job.voice, { trackAsCurrent: false, background: true });
+  } catch (err) {
+    if (String((err as Error)?.message ?? err) !== 'tts canceled') {
+      console.warn('[tts] background preload failed', err);
+    }
+  } finally {
+    backgroundPreloadRunning = false;
+    if (queuedPreloadRequests.size) {
+      scheduleBackgroundPreload(500);
+    }
+  }
+}
+
+async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCurrent?: boolean; background?: boolean }): Promise<Blob> {
   const cacheKey = getCacheKey(text, voice);
+  const trackAsCurrent = options?.trackAsCurrent !== false;
+  const isBackground = options?.background === true;
   const cached = getCachedBlob(cacheKey);
   if (cached) {
     console.log('TTS cache hit (memory):', cacheKey, 'bytes:', cached.size);
@@ -253,18 +306,19 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
   }
 
   const inFlight = inFlightAudioRequests.get(cacheKey);
-  if (inFlight) {
+  if (inFlight && !(trackAsCurrent && inFlight.background)) {
     console.log('TTS awaiting in-flight audio:', cacheKey);
-    return inFlight;
+    return inFlight.promise;
   }
-
-  const trackAsCurrent = options?.trackAsCurrent !== false;
   if (trackAsCurrent) {
     currentFetchController?.abort();
   }
   const controller = new AbortController();
   if (trackAsCurrent) {
     currentFetchController = controller;
+  }
+  if (isBackground) {
+    backgroundFetchController = controller;
   }
   const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const requestPromise = (async () => {
@@ -331,15 +385,21 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
     }
     throw err;
   } finally {
-    inFlightAudioRequests.delete(cacheKey);
+    const activeRequest = inFlightAudioRequests.get(cacheKey);
+    if (activeRequest?.promise === requestPromise) {
+      inFlightAudioRequests.delete(cacheKey);
+    }
     if (trackAsCurrent && currentFetchController === controller) {
       currentFetchController = null;
+    }
+    if (isBackground && backgroundFetchController === controller) {
+      backgroundFetchController = null;
     }
     window.clearTimeout(timeoutId);
   }
   })();
 
-  inFlightAudioRequests.set(cacheKey, requestPromise);
+  inFlightAudioRequests.set(cacheKey, { promise: requestPromise, background: isBackground });
   return requestPromise;
 }
 
@@ -462,10 +522,8 @@ export const ttsService = {
     const cacheKey = getCacheKey(cleaned, targetVoice);
     if (getCachedBlob(cacheKey) || inFlightAudioRequests.has(cacheKey)) return;
 
-    void fetchAudioBlob(cleaned, targetVoice, { trackAsCurrent: false }).catch((err) => {
-      if (String(err?.message ?? err) === 'tts canceled') return;
-      console.warn('[tts] preload failed', err);
-    });
+    queuedPreloadRequests.set(cacheKey, { text: cleaned, voice: targetVoice });
+    scheduleBackgroundPreload();
   },
   warm(_voice?: string) { /* no-op */ },
 
@@ -473,6 +531,7 @@ export const ttsService = {
     playToken += 1;
     currentFetchController?.abort();
     currentFetchController = null;
+    cancelActiveBackgroundPreload();
     stopPlayback();
     if (state.generatingId || state.playingId || state.error) {
       state.generatingId = null;
@@ -481,6 +540,7 @@ export const ttsService = {
       state.modelState = 'ready';
       emit();
     }
+    if (queuedPreloadRequests.size) scheduleBackgroundPreload(1200);
   },
 
   async speak(text: string, voice: string, id: string) {
@@ -506,6 +566,7 @@ export const ttsService = {
     emit();
 
     try {
+      cancelActiveBackgroundPreload();
       if (token !== playToken) return;
       const blob = await fetchAudioBlob(cleaned, voice);
       console.log('TTS blob bytes:', blob.size);
@@ -536,6 +597,8 @@ export const ttsService = {
       state.modelState = 'ready';
       toast.error('Voice playback failed', { description: state.error || 'Unknown playback error' });
       emit();
+    } finally {
+      if (queuedPreloadRequests.size) scheduleBackgroundPreload(1500);
     }
   },
 };
