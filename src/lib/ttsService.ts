@@ -654,10 +654,6 @@ export const ttsService = {
     queuedPreloadRequests.set(cacheKey, { text: cleaned, voice: targetVoice });
     scheduleBackgroundPreload();
   },
-
-    queuedPreloadRequests.set(cacheKey, { text: cleaned, voice: targetVoice });
-    scheduleBackgroundPreload();
-  },
   warm(_voice?: string) { /* no-op */ },
 
   stop() {
