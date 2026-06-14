@@ -123,7 +123,7 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
   if (data.error) throw new Error(`${data.error}${data.detail ? ` — ${data.detail}` : ''}`);
   if (!data.audio) throw new Error('Empty audio response');
   const bytes = base64ToBytes(data.audio);
-  return new Blob([bytes], { type: data.mimeType || 'audio/mpeg' });
+  return new Blob([bytes.buffer as ArrayBuffer], { type: data.mimeType || 'audio/mpeg' });
 }
 
 export const ttsService = {
