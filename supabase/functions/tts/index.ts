@@ -1,5 +1,5 @@
 // Server-side proxy to a hosted Kokoro TTS server.
-// Accepts { text, voice } and returns { audio: base64, mimeType: "audio/mpeg" }.
+// Accepts { text, voice } and returns binary MP3 audio.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,15 +7,6 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(bin);
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -43,46 +34,62 @@ Deno.serve(async (req) => {
     }
 
     const trimmedText = text.slice(0, 4000);
-    console.log('[tts] incoming text length:', trimmedText.length, 'voice:', voice);
+    const normalizedBase = baseUrl.replace(/\/+$/, '');
+    const host = (() => {
+      try { return new URL(normalizedBase).host; } catch { return normalizedBase; }
+    })();
+    console.log('[tts] incoming text length:', trimmedText.length, 'voice:', voice, 'host:', host);
 
-    const url = baseUrl.replace(/\/+$/, '') + '/audio/speech';
-    const upstream = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'kokoro',
-        voice,
-        input: trimmedText,
-        response_format: 'mp3',
-      }),
-    });
+    const candidateUrls = [
+      `${normalizedBase}/v1/audio/speech`,
+      `${normalizedBase}/audio/speech`,
+    ];
 
-    console.log('[tts] upstream status:', upstream.status);
+    let lastStatus = 500;
+    let lastDetail = '';
 
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => '');
-      console.error('[tts] upstream error', upstream.status, detail.slice(0, 500));
-      return new Response(
-        JSON.stringify({
-          error: 'Kokoro upstream error',
-          status: upstream.status,
-          detail: detail.slice(0, 1000),
+    for (const url of candidateUrls) {
+      const upstream = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'kokoro',
+          voice,
+          input: trimmedText,
+          response_format: 'mp3',
         }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      });
+
+      console.log('[tts] upstream status:', upstream.status, 'url:', url);
+
+      if (!upstream.ok) {
+        lastStatus = upstream.status;
+        lastDetail = await upstream.text().catch(() => '');
+        console.error('[tts] upstream error', upstream.status, url, lastDetail.slice(0, 500));
+        continue;
+      }
+
+      const contentType = upstream.headers.get('content-type') || 'audio/mpeg';
+      return new Response(upstream.body, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': contentType.includes('audio/') ? contentType : 'audio/mpeg',
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
-    const arrayBuf = await upstream.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuf);
-    console.log('[tts] returned byte size:', bytes.byteLength);
-
-    const audio = bytesToBase64(bytes);
     return new Response(
-      JSON.stringify({ audio, mimeType: 'audio/mpeg' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({
+        error: 'Kokoro upstream error',
+        status: lastStatus,
+        detail: lastDetail.slice(0, 1000),
+      }),
+      { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
     console.error('[tts] unexpected error', err);
