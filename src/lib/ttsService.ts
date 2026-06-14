@@ -130,6 +130,15 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
       body: JSON.stringify({ text, voice }),
       signal: controller.signal,
     });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('audio/')) {
+      const directBlob = await res.blob();
+      if (!res.ok) throw new Error(`tts ${res.status}: ${res.statusText || 'Audio response failed'}`);
+      if (directBlob.size <= 0) throw new Error('TTS returned empty audio.');
+      return directBlob;
+    }
+
     const raw = await res.text();
     let payload: any = null;
     try {
@@ -141,11 +150,24 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
       const detail = payload?.detail || payload?.error || 'Unknown TTS error';
       throw new Error(`tts ${res.status}: ${detail}`);
     }
+
+    if (typeof payload?.audio === 'string' && payload.audio.length > 0) {
+      const bytes = base64ToUint8Array(payload.audio);
+      if (bytes.byteLength <= 0) throw new Error('TTS returned empty audio.');
+      return new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+    }
+
+    if (payload?.audioBase64) {
+      const bytes = base64ToUint8Array(String(payload.audioBase64));
+      if (bytes.byteLength <= 0) throw new Error('TTS returned empty audio.');
+      return new Blob([bytes], { type: payload.mimeType || payload.contentType || 'audio/mpeg' });
+    }
+
     if (!payload?.audio) {
       throw new Error(payload?.detail || payload?.error || 'TTS response did not include audio.');
     }
-    const bytes = base64ToUint8Array(payload.audio);
-    return new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+
+    throw new Error('TTS returned audio in an unsupported format.');
   } catch (err: any) {
     if (err?.name === 'AbortError') {
       throw new Error('tts timeout');
