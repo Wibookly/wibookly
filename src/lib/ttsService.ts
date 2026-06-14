@@ -21,6 +21,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
 const FETCH_TIMEOUT_MS = 90_000;
+const AUDIO_CACHE_PREFIX = 'inboxiq:tts-audio:';
+const AUDIO_CACHE_LIMIT = 24;
 
 const state: TtsState = {
   modelState: 'ready',
@@ -51,6 +53,85 @@ let currentObjectUrl: string | null = null;
 let settleCurrentPlayback: (() => void) | null = null;
 let playToken = 0;
 let currentFetchController: AbortController | null = null;
+const memoryBlobCache = new Map<string, Blob>();
+const inFlightAudioRequests = new Map<string, Promise<Blob>>();
+
+function getCacheKey(text: string, voice: string) {
+  return `${voice}::${text}`;
+}
+
+function getStorageKey(cacheKey: string) {
+  return `${AUDIO_CACHE_PREFIX}${cacheKey}`;
+}
+
+function touchCacheIndex(cacheKey: string) {
+  try {
+    const indexKey = `${AUDIO_CACHE_PREFIX}index`;
+    const existing = JSON.parse(localStorage.getItem(indexKey) || '[]') as string[];
+    const next = [cacheKey, ...existing.filter((item) => item !== cacheKey)].slice(0, AUDIO_CACHE_LIMIT);
+    localStorage.setItem(indexKey, JSON.stringify(next));
+
+    const evicted = existing.filter((item) => !next.includes(item));
+    for (const item of evicted) {
+      localStorage.removeItem(getStorageKey(item));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function readBlobFromStorage(cacheKey: string): Blob | null {
+  try {
+    const raw = localStorage.getItem(getStorageKey(cacheKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { mimeType?: string; audioBase64?: string } | null;
+    if (!parsed?.audioBase64) return null;
+    const bytes = base64ToUint8Array(parsed.audioBase64);
+    if (!bytes.byteLength) return null;
+    touchCacheIndex(cacheKey);
+    return new Blob([bytes], { type: parsed.mimeType || 'audio/mpeg' });
+  } catch {
+    return null;
+  }
+}
+
+async function blobToBase64(blob: Blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function storeBlobInCache(cacheKey: string, blob: Blob) {
+  memoryBlobCache.set(cacheKey, blob);
+  try {
+    const audioBase64 = await blobToBase64(blob);
+    localStorage.setItem(getStorageKey(cacheKey), JSON.stringify({
+      mimeType: blob.type || 'audio/mpeg',
+      audioBase64,
+    }));
+    touchCacheIndex(cacheKey);
+  } catch {
+    /* ignore quota failures */
+  }
+}
+
+function getCachedBlob(cacheKey: string): Blob | null {
+  const inMemory = memoryBlobCache.get(cacheKey);
+  if (inMemory) return inMemory;
+
+  const fromStorage = readBlobFromStorage(cacheKey);
+  if (fromStorage) {
+    memoryBlobCache.set(cacheKey, fromStorage);
+    return fromStorage;
+  }
+
+  return null;
+}
 
 function getAudioContext() {
   if (sharedAudioContext) return sharedAudioContext;
@@ -118,10 +199,24 @@ function stopPlayback() {
 }
 
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
+  const cacheKey = getCacheKey(text, voice);
+  const cached = getCachedBlob(cacheKey);
+  if (cached) {
+    console.log('TTS cache hit:', cacheKey, 'bytes:', cached.size);
+    return cached;
+  }
+
+  const inFlight = inFlightAudioRequests.get(cacheKey);
+  if (inFlight) {
+    console.log('TTS awaiting in-flight audio:', cacheKey);
+    return inFlight;
+  }
+
   currentFetchController?.abort();
   const controller = new AbortController();
   currentFetchController = controller;
   const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const requestPromise = (async () => {
   try {
     const res = await fetch(TTS_URL, {
       method: 'POST',
@@ -139,6 +234,7 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
       const directBlob = await res.blob();
       if (!res.ok) throw new Error(`tts ${res.status}: ${res.statusText || 'Audio response failed'}`);
       if (directBlob.size <= 0) throw new Error('TTS returned empty audio.');
+      await storeBlobInCache(cacheKey, directBlob);
       return directBlob;
     }
 
@@ -157,13 +253,17 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     if (typeof payload?.audio === 'string' && payload.audio.length > 0) {
       const bytes = base64ToUint8Array(payload.audio);
       if (bytes.byteLength <= 0) throw new Error('TTS returned empty audio.');
-      return new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+      const blob = new Blob([bytes], { type: payload.mimeType || 'audio/mpeg' });
+      await storeBlobInCache(cacheKey, blob);
+      return blob;
     }
 
     if (payload?.audioBase64) {
       const bytes = base64ToUint8Array(String(payload.audioBase64));
       if (bytes.byteLength <= 0) throw new Error('TTS returned empty audio.');
-      return new Blob([bytes], { type: payload.mimeType || payload.contentType || 'audio/mpeg' });
+      const blob = new Blob([bytes], { type: payload.mimeType || payload.contentType || 'audio/mpeg' });
+      await storeBlobInCache(cacheKey, blob);
+      return blob;
     }
 
     if (!payload?.audio) {
@@ -180,11 +280,16 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     }
     throw err;
   } finally {
+    inFlightAudioRequests.delete(cacheKey);
     if (currentFetchController === controller) {
       currentFetchController = null;
     }
     window.clearTimeout(timeoutId);
   }
+  })();
+
+  inFlightAudioRequests.set(cacheKey, requestPromise);
+  return requestPromise;
 }
 
 function formatMediaError(error: MediaError | null) {
