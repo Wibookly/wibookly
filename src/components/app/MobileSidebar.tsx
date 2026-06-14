@@ -129,20 +129,6 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
         <SheetHeader className="p-4" style={{ borderBottom: '1px solid var(--border-soft)' }}>
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold" style={{ color: 'var(--text-body)' }}>InboxIQ</span>
-            <button
-              type="button"
-              onClick={() => setPinned((v) => !v)}
-              aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-              title={pinned ? 'Unpin sidebar (taps will close it)' : 'Pin sidebar open (taps keep it open)'}
-              className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
-              style={{
-                background: pinned ? 'var(--primary)' : 'var(--surface)',
-                color: pinned ? '#FFFFFF' : 'var(--text-muted)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              {pinned ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
-            </button>
           </div>
         </SheetHeader>
 
