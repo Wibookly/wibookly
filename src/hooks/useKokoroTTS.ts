@@ -17,33 +17,10 @@ export interface KokoroVoiceOption {
 }
 
 const SERVER_VOICES: KokoroVoiceOption[] = [
-  // American Female
+  // One female, one male — American English only. Keeps the browser cache hot
+  // and avoids re-generating audio for many rarely-used voices.
   { id: 'af_heart',   label: 'Heart (American Female)',   gender: 'female', language: 'English — United States' },
-  { id: 'af_bella',   label: 'Bella (American Female)',   gender: 'female', language: 'English — United States' },
-  { id: 'af_nicole',  label: 'Nicole (American Female)',  gender: 'female', language: 'English — United States' },
-  { id: 'af_sarah',   label: 'Sarah (American Female)',   gender: 'female', language: 'English — United States' },
-  { id: 'af_nova',    label: 'Nova (American Female)',    gender: 'female', language: 'English — United States' },
-  { id: 'af_sky',     label: 'Sky (American Female)',     gender: 'female', language: 'English — United States' },
-  { id: 'af_aoede',   label: 'Aoede (American Female)',   gender: 'female', language: 'English — United States' },
-  { id: 'af_kore',    label: 'Kore (American Female)',    gender: 'female', language: 'English — United States' },
-  // American Male
-  { id: 'am_adam',    label: 'Adam (American Male)',      gender: 'male',   language: 'English — United States' },
   { id: 'am_michael', label: 'Michael (American Male)',   gender: 'male',   language: 'English — United States' },
-  { id: 'am_onyx',    label: 'Onyx (American Male)',      gender: 'male',   language: 'English — United States' },
-  { id: 'am_echo',    label: 'Echo (American Male)',      gender: 'male',   language: 'English — United States' },
-  { id: 'am_eric',    label: 'Eric (American Male)',      gender: 'male',   language: 'English — United States' },
-  { id: 'am_liam',    label: 'Liam (American Male)',      gender: 'male',   language: 'English — United States' },
-  { id: 'am_puck',    label: 'Puck (American Male)',      gender: 'male',   language: 'English — United States' },
-  // British Female
-  { id: 'bf_emma',    label: 'Emma (British Female)',     gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bf_isabella',label: 'Isabella (British Female)', gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bf_alice',   label: 'Alice (British Female)',    gender: 'female', language: 'English — United Kingdom' },
-  { id: 'bf_lily',    label: 'Lily (British Female)',     gender: 'female', language: 'English — United Kingdom' },
-  // British Male
-  { id: 'bm_george',  label: 'George (British Male)',     gender: 'male',   language: 'English — United Kingdom' },
-  { id: 'bm_lewis',   label: 'Lewis (British Male)',      gender: 'male',   language: 'English — United Kingdom' },
-  { id: 'bm_daniel',  label: 'Daniel (British Male)',     gender: 'male',   language: 'English — United Kingdom' },
-  { id: 'bm_fable',   label: 'Fable (British Male)',      gender: 'male',   language: 'English — United Kingdom' },
 ];
 
 const VOICE_KEY = 'inboxiq:kokoro-voice';
