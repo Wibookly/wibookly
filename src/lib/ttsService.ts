@@ -214,7 +214,7 @@ export const ttsService = {
 
         await new Promise<void>(async (resolve, reject) => {
           try {
-            await playBlob(blob, id, token);
+            await playBlob(blob, token);
             const source = currentSource;
             if (!source) {
               resolve();
