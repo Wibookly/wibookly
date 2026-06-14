@@ -22,7 +22,9 @@ const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
 const FETCH_TIMEOUT_MS = 90_000;
 const AUDIO_CACHE_PREFIX = 'inboxiq:tts-audio:';
+const AUDIO_CACHE_NAME = 'inboxiq-tts-audio-v1';
 const AUDIO_CACHE_LIMIT = 24;
+const AUDIO_CACHE_INDEX_KEY = `${AUDIO_CACHE_PREFIX}index`;
 
 function hashString(value: string) {
   let hash = 2166136261;
@@ -77,73 +79,98 @@ function cloneBlob(blob: Blob) {
   return blob.slice(0, blob.size, blob.type || 'audio/mpeg');
 }
 
-function touchCacheIndex(cacheKey: string) {
+function readCacheIndex() {
   try {
-    const indexKey = `${AUDIO_CACHE_PREFIX}index`;
-    const existing = JSON.parse(localStorage.getItem(indexKey) || '[]') as string[];
-    const next = [cacheKey, ...existing.filter((item) => item !== cacheKey)].slice(0, AUDIO_CACHE_LIMIT);
-    localStorage.setItem(indexKey, JSON.stringify(next));
-
-    const evicted = existing.filter((item) => !next.includes(item));
-    for (const item of evicted) {
-      localStorage.removeItem(getStorageKey(item));
-    }
+    return JSON.parse(localStorage.getItem(AUDIO_CACHE_INDEX_KEY) || '[]') as string[];
   } catch {
-    /* ignore */
+    return [];
   }
 }
 
-function readBlobFromStorage(cacheKey: string): Blob | null {
+function canUsePersistentCache() {
+  return typeof window !== 'undefined' && 'caches' in window;
+}
+
+function getPersistentCacheRequest(cacheKey: string) {
+  return new Request(`https://tts-cache.local/${encodeURIComponent(cacheKey)}`);
+}
+
+async function openPersistentAudioCache() {
+  if (!canUsePersistentCache()) return null;
   try {
-    const raw = localStorage.getItem(getStorageKey(cacheKey));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { mimeType?: string; audioBase64?: string } | null;
-    if (!parsed?.audioBase64) return null;
-    const bytes = base64ToUint8Array(parsed.audioBase64);
-    if (!bytes.byteLength) return null;
-    touchCacheIndex(cacheKey);
-    return new Blob([bytes], { type: parsed.mimeType || 'audio/mpeg' });
+    return await caches.open(AUDIO_CACHE_NAME);
   } catch {
     return null;
   }
 }
 
-async function blobToBase64(blob: Blob) {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
+async function touchCacheIndex(cacheKey: string) {
+  const existing = readCacheIndex();
+  const next = [cacheKey, ...existing.filter((item) => item !== cacheKey)].slice(0, AUDIO_CACHE_LIMIT);
 
-async function storeBlobInCache(cacheKey: string, blob: Blob) {
-  memoryBlobCache.set(cacheKey, blob);
   try {
-    const audioBase64 = await blobToBase64(blob);
-    localStorage.setItem(getStorageKey(cacheKey), JSON.stringify({
-      mimeType: blob.type || 'audio/mpeg',
-      audioBase64,
-    }));
-    touchCacheIndex(cacheKey);
+    localStorage.setItem(AUDIO_CACHE_INDEX_KEY, JSON.stringify(next));
   } catch {
-    /* ignore quota failures */
+    /* ignore */
   }
+
+  const evicted = existing.filter((item) => !next.includes(item));
+  if (!evicted.length) return;
+
+  const cache = await openPersistentAudioCache();
+  if (!cache) return;
+
+  await Promise.all(evicted.map((item) => cache.delete(getPersistentCacheRequest(item)).catch(() => false)));
 }
 
 function getCachedBlob(cacheKey: string): Blob | null {
   const inMemory = memoryBlobCache.get(cacheKey);
   if (inMemory) return cloneBlob(inMemory);
-
-  const fromStorage = readBlobFromStorage(cacheKey);
-  if (fromStorage) {
-    memoryBlobCache.set(cacheKey, fromStorage);
-    return cloneBlob(fromStorage);
-  }
-
   return null;
+}
+
+async function readBlobFromPersistentCache(cacheKey: string): Promise<Blob | null> {
+  const cache = await openPersistentAudioCache();
+  if (!cache) return null;
+
+  try {
+    const res = await cache.match(getPersistentCacheRequest(cacheKey));
+    if (!res?.ok) return null;
+
+    const blob = await res.blob();
+    if (blob.size <= 0) {
+      await cache.delete(getPersistentCacheRequest(cacheKey));
+      return null;
+    }
+
+    memoryBlobCache.set(cacheKey, blob);
+    void touchCacheIndex(cacheKey);
+    return cloneBlob(blob);
+  } catch {
+    return null;
+  }
+}
+
+async function storeBlobInCache(cacheKey: string, blob: Blob) {
+  memoryBlobCache.set(cacheKey, blob);
+
+  const cache = await openPersistentAudioCache();
+  if (!cache) return;
+
+  try {
+    await cache.put(
+      getPersistentCacheRequest(cacheKey),
+      new Response(blob, {
+        headers: {
+          'Content-Type': blob.type || 'audio/mpeg',
+          'Cache-Control': 'private, max-age=2592000, immutable',
+        },
+      }),
+    );
+    void touchCacheIndex(cacheKey);
+  } catch {
+    /* ignore cache write failures */
+  }
 }
 
 function getAudioContext() {
@@ -215,8 +242,14 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
   const cacheKey = getCacheKey(text, voice);
   const cached = getCachedBlob(cacheKey);
   if (cached) {
-    console.log('TTS cache hit:', cacheKey, 'bytes:', cached.size);
+    console.log('TTS cache hit (memory):', cacheKey, 'bytes:', cached.size);
     return cached;
+  }
+
+  const persistentCached = await readBlobFromPersistentCache(cacheKey);
+  if (persistentCached) {
+    console.log('TTS cache hit (persistent):', cacheKey, 'bytes:', persistentCached.size);
+    return persistentCached;
   }
 
   const inFlight = inFlightAudioRequests.get(cacheKey);
