@@ -451,6 +451,12 @@ export default function Chat() {
     }
   }, [ttsModelState, ttsError]);
 
+  useEffect(() => {
+    const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !!m.content?.trim());
+    if (!latestAssistant) return;
+    preloadTTS(latestAssistant.content, ttsVoice);
+  }, [messages, preloadTTS, ttsVoice]);
+
   // Auto mode: detect intent from each message and turn web search / deep
   // reasoning / location ON just for that turn, then back OFF when done.
   const [autoMode, setAutoMode] = useState<boolean>(() => {

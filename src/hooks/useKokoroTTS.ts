@@ -85,7 +85,9 @@ export function useKokoroTTS() {
   }, []);
 
   const stop = useCallback(() => ttsService.stop(), []);
-  const preload = useCallback(() => { /* no-op — server has no preload */ }, []);
+  const preload = useCallback((text: string, voice?: string) => {
+    ttsService.preload(text, voice || getStoredVoice());
+  }, []);
 
   const speakingId = snap.playingId ?? snap.generatingId;
   const loading = !!snap.generatingId;

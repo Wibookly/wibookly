@@ -416,7 +416,19 @@ export const ttsService = {
   subscribe(l: Listener) { listeners.add(l); l({ ...state }); return () => { listeners.delete(l); }; },
   getState(): TtsState { return { ...state }; },
 
-  preload(_voice?: string) { /* no-op */ },
+  preload(text: string, voice?: string) {
+    const cleaned = stripForSpeech(text);
+    const targetVoice = voice || 'af_heart';
+    if (!cleaned) return;
+
+    const cacheKey = getCacheKey(cleaned, targetVoice);
+    if (getCachedBlob(cacheKey) || inFlightAudioRequests.has(cacheKey)) return;
+
+    void fetchAudioBlob(cleaned, targetVoice).catch((err) => {
+      if (String(err?.message ?? err) === 'tts canceled') return;
+      console.warn('[tts] preload failed', err);
+    });
+  },
   warm(_voice?: string) { /* no-op */ },
 
   stop() {
