@@ -1,5 +1,5 @@
 // Server-side proxy to a hosted Kokoro TTS server.
-// Accepts { text, voice } and returns { audio, mimeType } JSON.
+// Accepts { text, voice } and returns audio bytes.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MAX_INPUT_LENGTH = 500;
+const MAX_INPUT_LENGTH = 320;
 const FETCH_TIMEOUT_MS = 60_000;
 const DEFAULT_FALLBACK_VOICE = 'af_heart';
 
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         ...corsHeaders,
         'Content-Type': 'audio/mpeg',
         'Content-Length': String(bytes.byteLength),
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'private, max-age=86400, immutable',
         'X-Tts-Voice-Used': voiceUsed,
         'X-Tts-Fallback': fallbackUsed ? '1' : '0',
       },
