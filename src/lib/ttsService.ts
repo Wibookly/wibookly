@@ -291,6 +291,8 @@ async function processBackgroundPreloadQueue() {
 
 async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCurrent?: boolean; background?: boolean }): Promise<Blob> {
   const cacheKey = getCacheKey(text, voice);
+  const trackAsCurrent = options?.trackAsCurrent !== false;
+  const isBackground = options?.background === true;
   const cached = getCachedBlob(cacheKey);
   if (cached) {
     console.log('TTS cache hit (memory):', cacheKey, 'bytes:', cached.size);
@@ -308,9 +310,6 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
     console.log('TTS awaiting in-flight audio:', cacheKey);
     return inFlight.promise;
   }
-
-  const trackAsCurrent = options?.trackAsCurrent !== false;
-  const isBackground = options?.background === true;
   if (trackAsCurrent) {
     currentFetchController?.abort();
   }
