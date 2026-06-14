@@ -132,8 +132,6 @@ function dateBucket(dateStr: string): string {
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  const fmtMonth = (dt: Date) =>
-    dt.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   if (sameDay) return 'Today';
   if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
@@ -146,7 +144,7 @@ function dateBucket(dateStr: string): string {
   if (d.getFullYear() === lastMonth.getFullYear() && d.getMonth() === lastMonth.getMonth()) {
     return 'Last month';
   }
-  return fmtMonth(d);
+  return 'Older';
 }
 
 const RETENTION_DAYS = 30;
