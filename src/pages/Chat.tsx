@@ -2179,12 +2179,7 @@ function MessageBubble({
   };
   const isSpeaking = speakingId === message.id;
   const isTtsBusy = isSpeaking && !!ttsLoading;
-  const ttsPct = Math.max(0, Math.min(100, Math.round(ttsProgress ?? 0)));
-  const ttsBusyLabel = ttsModelState !== 'ready' && ttsPct < 100
-    ? `Downloading ${ttsPct}%`
-    : 'Generating…';
-  // Play is disabled until the voice model is fully downloaded & prepared.
-  const ttsNotReady = ttsModelState !== 'ready';
+  const ttsUnavailable = ttsModelState === 'error';
   const canRegenerate = !!onRegenerate && !message.id.startsWith('temp-') && message.id !== 'streaming';
   const canEmail = !!onEmailToSelf && !!mailboxLabel && !!mailboxEmail;
   const canEdit = isUser && !!onResubmit && !message.id.startsWith('temp-');
@@ -2352,7 +2347,7 @@ function MessageBubble({
               <button
                 data-tour="chat-msg-play"
                 onClick={() => isSpeaking ? onStopSpeak?.() : onSpeak(message.content, message.id)}
-                disabled={ttsNotReady && !isSpeaking}
+                disabled={ttsUnavailable && !isSpeaking}
                 className={cn(
                   'inline-flex items-center gap-1 px-2 py-1 rounded text-xs border transition disabled:opacity-40 disabled:cursor-not-allowed',
                   isSpeaking
@@ -2360,8 +2355,8 @@ function MessageBubble({
                     : 'text-muted-foreground border-border hover:bg-accent hover:text-foreground'
                 )}
                 title={
-                  ttsNotReady && !isSpeaking
-                    ? (ttsPct < 100 ? `Voice downloading… ${ttsPct}%` : 'Voice preparing — Play unlocks when ready')
+                  ttsUnavailable && !isSpeaking
+                    ? 'Voice playback is temporarily unavailable'
                     : isSpeaking ? (isTtsBusy ? 'Preparing audio — click to cancel' : 'Stop reading') : 'Read this reply aloud'
                 }
               >
@@ -2372,7 +2367,7 @@ function MessageBubble({
                 ) : (
                   <Volume2 className="h-3.5 w-3.5" />
                 )}
-                <span>{isTtsBusy ? ttsBusyLabel : isSpeaking ? 'Stop' : ttsNotReady ? (ttsPct < 100 ? `Voice ${ttsPct}%` : 'Preparing…') : 'Play'}</span>
+                <span>{isTtsBusy ? 'Generating…' : isSpeaking ? 'Stop' : ttsUnavailable ? 'Unavailable' : 'Play'}</span>
               </button>
             )}
           </div>
