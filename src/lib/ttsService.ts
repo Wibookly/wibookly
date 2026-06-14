@@ -47,15 +47,26 @@ function stripForSpeech(text: string) {
     .slice(0, 4000);
 }
 
+const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+
 let currentAudio: HTMLAudioElement | null = null;
 let currentAudioUrl: string | null = null;
+
+function getOrCreateAudio(): HTMLAudioElement {
+  if (currentAudio) return currentAudio;
+  const audio = new Audio();
+  audio.preload = 'auto';
+  audio.setAttribute('playsinline', '');
+  audio.setAttribute('webkit-playsinline', '');
+  currentAudio = audio;
+  return audio;
+}
 
 function stopPlayback() {
   if (currentAudio) {
     try { currentAudio.pause(); } catch { /* ignore */ }
     currentAudio.onended = null;
     currentAudio.onerror = null;
-    currentAudio = null;
   }
   if (currentAudioUrl) {
     try { URL.revokeObjectURL(currentAudioUrl); } catch { /* ignore */ }
@@ -64,13 +75,29 @@ function stopPlayback() {
 }
 
 function createPlayableAudio(blob: Blob) {
+  const audio = getOrCreateAudio();
   const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-  audio.preload = 'auto';
-  audio.playsInline = true;
+  audio.src = url;
+  audio.load();
   currentAudioUrl = url;
-  currentAudio = audio;
   return audio;
+}
+
+function primeAudioForGestureSync() {
+  const audio = getOrCreateAudio();
+  audio.muted = true;
+  if (!audio.src) {
+    audio.src = SILENT_AUDIO_DATA_URI;
+    audio.load();
+  }
+  void audio.play()
+    .then(() => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch { /* ignore */ }
+    })
+    .catch(() => { /* ignore */ });
 }
 
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
@@ -122,6 +149,7 @@ export const ttsService = {
    */
   speak(text: string, voice: string, id: string) {
     stopPlayback();
+    primeAudioForGestureSync();
 
     const cleaned = stripForSpeech(text);
     if (!cleaned) return;
@@ -169,21 +197,19 @@ export const ttsService = {
             emit();
           }
 
-          await new Promise<void>((resolve) => {
+          await new Promise<void>((resolve, reject) => {
             stopPlayback();
             const audio = createPlayableAudio(nextBlob!);
+            audio.muted = false;
             audio.onended = () => {
-              if (currentAudio === audio) {
-                currentAudio = null;
-              }
               resolve();
             };
             audio.onerror = () => {
-              resolve();
+              reject(new Error('Audio playback failed.'));
             };
             void audio.play().catch((err) => {
               console.error('[tts] audio play failed', err);
-              throw err;
+              reject(err instanceof Error ? err : new Error(String(err)));
             });
           });
 
