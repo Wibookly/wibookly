@@ -68,7 +68,7 @@ let backgroundFetchController: AbortController | null = null;
 let backgroundPreloadRunning = false;
 let backgroundPreloadTimer: number | null = null;
 const memoryBlobCache = new Map<string, Blob>();
-const inFlightAudioRequests = new Map<string, Promise<Blob>>();
+const inFlightAudioRequests = new Map<string, { promise: Promise<Blob>; background: boolean }>();
 const queuedPreloadRequests = new Map<string, { text: string; voice: string }>();
 
 function getCacheKey(text: string, voice: string) {
@@ -304,9 +304,9 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
   }
 
   const inFlight = inFlightAudioRequests.get(cacheKey);
-  if (inFlight) {
+  if (inFlight && !(trackAsCurrent && inFlight.background)) {
     console.log('TTS awaiting in-flight audio:', cacheKey);
-    return inFlight;
+    return inFlight.promise;
   }
 
   const trackAsCurrent = options?.trackAsCurrent !== false;
@@ -386,7 +386,10 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
     }
     throw err;
   } finally {
-    inFlightAudioRequests.delete(cacheKey);
+    const activeRequest = inFlightAudioRequests.get(cacheKey);
+    if (activeRequest?.promise === requestPromise) {
+      inFlightAudioRequests.delete(cacheKey);
+    }
     if (trackAsCurrent && currentFetchController === controller) {
       currentFetchController = null;
     }
@@ -397,7 +400,7 @@ async function fetchAudioBlob(text: string, voice: string, options?: { trackAsCu
   }
   })();
 
-  inFlightAudioRequests.set(cacheKey, requestPromise);
+  inFlightAudioRequests.set(cacheKey, { promise: requestPromise, background: isBackground });
   return requestPromise;
 }
 
