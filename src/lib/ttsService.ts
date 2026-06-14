@@ -75,8 +75,10 @@ async function unlockAudioContext() {
 
 function stopPlayback() {
   if (currentSource) {
-    try { currentSource.stop(); } catch { /* ignore */ }
+    const source = currentSource;
     currentSource = null;
+    try { source.disconnect(); } catch { /* ignore */ }
+    try { source.stop(); } catch { /* ignore */ }
   }
 }
 
