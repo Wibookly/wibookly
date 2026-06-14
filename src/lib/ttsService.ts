@@ -1,5 +1,5 @@
 // Read-aloud orchestrator — calls the hosted TTS edge function and plays
-// decoded audio through one shared AudioContext.
+// returned audio with a resilient browser playback strategy.
 
 import { toast } from 'sonner';
 
@@ -23,7 +23,7 @@ const TTS_URL = `${SUPABASE_URL}/functions/v1/tts`;
 const FETCH_TIMEOUT_MS = 90_000;
 
 const state: TtsState = {
-  modelState: 'ready', // No model to load — always "ready".
+  modelState: 'ready',
   generatingId: null,
   playingId: null,
   error: null,
@@ -46,6 +46,9 @@ function stripForSpeech(text: string) {
 
 let sharedAudioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
+let currentAudioElement: HTMLAudioElement | null = null;
+let currentObjectUrl: string | null = null;
+let settleCurrentPlayback: (() => void) | null = null;
 let playToken = 0;
 
 function getAudioContext() {
@@ -75,13 +78,42 @@ async function unlockAudioContext() {
   source.start(0);
 }
 
+function clearAudioElement() {
+  const audio = currentAudioElement;
+  const objectUrl = currentObjectUrl;
+  currentAudioElement = null;
+  currentObjectUrl = null;
+
+  if (audio) {
+    audio.onended = null;
+    audio.onerror = null;
+    audio.onpause = null;
+    try { audio.pause(); } catch { /* ignore */ }
+    try {
+      audio.removeAttribute('src');
+      audio.load();
+    } catch { /* ignore */ }
+  }
+
+  if (objectUrl) {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function stopPlayback() {
+  const settle = settleCurrentPlayback;
+  settleCurrentPlayback = null;
+
   if (currentSource) {
     const source = currentSource;
     currentSource = null;
+    source.onended = null;
+    try { source.stop(0); } catch { /* ignore */ }
     try { source.disconnect(); } catch { /* ignore */ }
-    try { source.stop(); } catch { /* ignore */ }
   }
+
+  clearAudioElement();
+  settle?.();
 }
 
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
@@ -124,46 +156,124 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
   }
 }
 
-async function playBlob(blob: Blob, token: number) {
+function formatMediaError(error: MediaError | null) {
+  switch (error?.code) {
+    case MediaError.MEDIA_ERR_ABORTED:
+      return 'Audio playback was aborted.';
+    case MediaError.MEDIA_ERR_NETWORK:
+      return 'A network error interrupted audio playback.';
+    case MediaError.MEDIA_ERR_DECODE:
+      return 'The browser could not decode the audio.';
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return 'This browser could not play the audio format.';
+    default:
+      return 'Unknown audio playback error.';
+  }
+}
+
+async function playBlobWithAudioContext(blob: Blob, token: number) {
   const audioCtx = getAudioContext();
+  await audioCtx.resume();
   const buffer = await blob.arrayBuffer();
-  const data = await new Promise<AudioBuffer>((res, rej) => {
-    const decoded = audioCtx.decodeAudioData(buffer.slice(0), res, rej);
-    if (decoded && 'then' in decoded) {
-      decoded.then(res).catch(rej);
-    }
-  });
+  const decoded = await audioCtx.decodeAudioData(buffer.slice(0));
   if (token !== playToken) return;
 
   stopPlayback();
   await new Promise<void>((resolve) => {
+    let settled = false;
     const src = audioCtx.createBufferSource();
-    src.buffer = data;
-    src.connect(audioCtx.destination);
-    src.onended = () => {
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (settleCurrentPlayback === finish) settleCurrentPlayback = null;
+      src.onended = null;
       try { src.disconnect(); } catch { /* ignore */ }
       if (currentSource === src) currentSource = null;
       resolve();
     };
+
+    src.buffer = decoded;
+    src.connect(audioCtx.destination);
+    src.onended = finish;
     currentSource = src;
+    settleCurrentPlayback = finish;
     src.start(0);
   });
+}
+
+async function playBlobWithHtmlAudio(blob: Blob, token: number) {
+  if (token !== playToken) return;
+
+  stopPlayback();
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const audio = new Audio();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (settleCurrentPlayback === settle) settleCurrentPlayback = null;
+      if (currentAudioElement === audio) currentAudioElement = null;
+      if (currentObjectUrl === objectUrl) currentObjectUrl = null;
+
+      audio.onended = null;
+      audio.onerror = null;
+      audio.onpause = null;
+      try {
+        audio.removeAttribute('src');
+        audio.load();
+      } catch { /* ignore */ }
+      URL.revokeObjectURL(objectUrl);
+
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const settle = () => finish();
+    settleCurrentPlayback = settle;
+    currentAudioElement = audio;
+    currentObjectUrl = objectUrl;
+
+    audio.preload = 'auto';
+    audio.playsInline = true;
+    audio.src = objectUrl;
+    audio.onended = () => finish();
+    audio.onerror = () => finish(new Error(formatMediaError(audio.error)));
+    audio.onpause = () => {
+      if (token !== playToken) finish();
+    };
+
+    void audio.play().catch((err) => {
+      finish(new Error(String(err?.message ?? err)));
+    });
+  });
+}
+
+async function playBlob(blob: Blob, token: number, allowAudioContext: boolean) {
+  if (allowAudioContext) {
+    try {
+      await playBlobWithAudioContext(blob, token);
+      return;
+    } catch (err) {
+      console.warn('[tts] Web Audio playback failed, falling back to HTMLAudioElement', err);
+    }
+  }
+
+  await playBlobWithHtmlAudio(blob, token);
 }
 
 export const ttsService = {
   subscribe(l: Listener) { listeners.add(l); l({ ...state }); return () => { listeners.delete(l); }; },
   getState(): TtsState { return { ...state }; },
 
-  /** No-op — kept for API compatibility. Server requires no preload. */
   preload(_voice?: string) { /* no-op */ },
-  /** No-op — kept for API compatibility. */
   warm(_voice?: string) { /* no-op */ },
 
-  /** Stop any current playback. */
   stop() {
     playToken += 1;
     stopPlayback();
-    if (state.generatingId || state.playingId) {
+    if (state.generatingId || state.playingId || state.error) {
       state.generatingId = null;
       state.playingId = null;
       state.error = null;
@@ -172,33 +282,26 @@ export const ttsService = {
     }
   },
 
-  /**
-   * Speak `text`. MUST be called from a user-gesture handler so playback can
-   * start on iPhone/iPad. The edge function now does the final markdown cleanup
-   * and length limiting before sending to Kokoro.
-   */
   async speak(text: string, voice: string, id: string) {
     playToken += 1;
     const token = playToken;
     stopPlayback();
-    try {
-      await unlockAudioContext();
-    } catch (err: any) {
-      state.generatingId = null;
-      state.playingId = null;
-      state.error = String(err?.message ?? err);
-      state.modelState = 'error';
-      emit();
-      return;
-    }
 
     const cleaned = stripForSpeech(text);
     if (!cleaned) return;
 
+    let audioContextReady = false;
+    try {
+      await unlockAudioContext();
+      audioContextReady = true;
+    } catch (err) {
+      console.warn('[tts] audio context unlock failed, will use HTML audio fallback', err);
+    }
+
     state.generatingId = id;
     state.playingId = null;
     state.error = null;
-    state.modelState = 'ready';
+    state.modelState = 'loading';
     emit();
 
     try {
@@ -210,13 +313,15 @@ export const ttsService = {
       if (state.generatingId === id) {
         state.generatingId = null;
         state.playingId = id;
+        state.modelState = 'ready';
         emit();
       }
 
-      await playBlob(blob, token);
+      await playBlob(blob, token, audioContextReady);
 
       if (state.playingId === id) {
         state.playingId = null;
+        state.modelState = 'ready';
         emit();
       }
     } catch (err: any) {
@@ -224,16 +329,9 @@ export const ttsService = {
       state.generatingId = null;
       state.playingId = null;
       state.error = String(err?.message ?? err);
-      state.modelState = 'error';
-      toast.error(state.error || 'Voice playback failed');
+      state.modelState = 'ready';
+      toast.error('Voice playback failed', { description: state.error || 'Unknown playback error' });
       emit();
-      setTimeout(() => {
-        if (state.modelState === 'error') {
-          state.modelState = 'ready';
-          state.error = null;
-          emit();
-        }
-      }, 4000);
     }
   },
 };
