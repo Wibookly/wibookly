@@ -73,6 +73,10 @@ function getStorageKey(cacheKey: string) {
   return `${AUDIO_CACHE_PREFIX}${cacheKey}`;
 }
 
+function cloneBlob(blob: Blob) {
+  return blob.slice(0, blob.size, blob.type || 'audio/mpeg');
+}
+
 function touchCacheIndex(cacheKey: string) {
   try {
     const indexKey = `${AUDIO_CACHE_PREFIX}index`;
@@ -131,12 +135,12 @@ async function storeBlobInCache(cacheKey: string, blob: Blob) {
 
 function getCachedBlob(cacheKey: string): Blob | null {
   const inMemory = memoryBlobCache.get(cacheKey);
-  if (inMemory) return inMemory;
+  if (inMemory) return cloneBlob(inMemory);
 
   const fromStorage = readBlobFromStorage(cacheKey);
   if (fromStorage) {
     memoryBlobCache.set(cacheKey, fromStorage);
-    return fromStorage;
+    return cloneBlob(fromStorage);
   }
 
   return null;
