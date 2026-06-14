@@ -50,6 +50,7 @@ let currentAudioElement: HTMLAudioElement | null = null;
 let currentObjectUrl: string | null = null;
 let settleCurrentPlayback: (() => void) | null = null;
 let playToken = 0;
+let currentFetchController: AbortController | null = null;
 
 function getAudioContext() {
   if (sharedAudioContext) return sharedAudioContext;
@@ -117,7 +118,9 @@ function stopPlayback() {
 }
 
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
+  currentFetchController?.abort();
   const controller = new AbortController();
+  currentFetchController = controller;
   const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(TTS_URL, {
@@ -170,10 +173,16 @@ async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
     throw new Error('TTS returned audio in an unsupported format.');
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new Error('tts timeout');
+      if (currentFetchController === controller) {
+        throw new Error('tts timeout');
+      }
+      throw new Error('tts canceled');
     }
     throw err;
   } finally {
+    if (currentFetchController === controller) {
+      currentFetchController = null;
+    }
     window.clearTimeout(timeoutId);
   }
 }
@@ -294,6 +303,8 @@ export const ttsService = {
 
   stop() {
     playToken += 1;
+    currentFetchController?.abort();
+    currentFetchController = null;
     stopPlayback();
     if (state.generatingId || state.playingId || state.error) {
       state.generatingId = null;
@@ -347,6 +358,9 @@ export const ttsService = {
         emit();
       }
     } catch (err: any) {
+      if (String(err?.message ?? err) === 'tts canceled' || token !== playToken) {
+        return;
+      }
       console.error('[tts] speak failed', err);
       state.generatingId = null;
       state.playingId = null;
