@@ -40,7 +40,7 @@ import { toast } from 'sonner';
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
-import { deviceEngine } from '@/lib/deviceEngine';
+
 
 const VOICE_PREVIEW_TEXT: Record<string, string> = {
   'English — United States': 'Hello, this is your selected American English voice. You should hear a clear difference now.',
@@ -428,25 +428,11 @@ export default function Chat() {
       ?? 'Hello, this is your selected voice preview. It should sound different from the other options.';
     speak(previewText, `voice-preview-${v}-${Date.now()}`);
   }, [speak]);
-  // Warm up the Kokoro model in the background as soon as Chat mounts so
-  // the first click on a "play" button feels instant instead of waiting
-  // for an ~80MB download.
-  useEffect(() => { preloadTTS(); }, [preloadTTS]);
+  // Server-side TTS — no model download, no preload, no "preparing voice".
   // Starter prompts are collapsed by default; collapse again whenever the
   // user switches between conversations (or starts a new chat) so the empty
   // hero stays focused on the input box.
   useEffect(() => { setPromptsExpanded(false); }, [activeId]);
-
-  // Only show the download toast if the user actually clicks play before
-  // the background preload finishes. We track that via `speakingId`.
-  useEffect(() => {
-    if (!ttsLoading || !speakingId) return;
-    const msg = ttsModelState !== 'ready' && ttsLoadProgress < 100
-      ? `Downloading voice model… ${Math.round(ttsLoadProgress)}% (one-time, then cached)`
-      : 'Generating audio…';
-    toast.loading(msg, { id: 'kokoro-loading' });
-    return () => { toast.dismiss('kokoro-loading'); };
-  }, [ttsLoading, ttsLoadProgress, speakingId, ttsModelState]);
 
   // Surface TTS errors so the user knows why playback didn't start.
   useEffect(() => {
@@ -1627,7 +1613,7 @@ export default function Chat() {
                     {deepMode && <Check className="h-4 w-4 opacity-80" />}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {!deviceEngine.isMobile && (
+                  {true && (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <Volume2 className="h-4 w-4 mr-2" />
