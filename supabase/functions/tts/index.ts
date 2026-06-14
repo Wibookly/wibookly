@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MAX_INPUT_LENGTH = 1000;
-const FETCH_TIMEOUT_MS = 90_000;
+const MAX_INPUT_LENGTH = 500;
+const FETCH_TIMEOUT_MS = 60_000;
 const DEFAULT_FALLBACK_VOICE = 'af_heart';
 
 function cleanMarkdownForSpeech(input: string) {
@@ -162,19 +162,18 @@ Deno.serve(async (req) => {
     }
 
     console.log('[tts] audio bytes:', bytes.byteLength, 'voice requested:', voice, 'voice used:', voiceUsed, 'fallback:', fallbackUsed);
-    const audio = toBase64(bytes);
 
-    return new Response(
-      JSON.stringify({ audio, mimeType: 'audio/mpeg', voiceUsed, fallbackUsed }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        },
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': String(bytes.byteLength),
+        'Cache-Control': 'no-store',
+        'X-Tts-Voice-Used': voiceUsed,
+        'X-Tts-Fallback': fallbackUsed ? '1' : '0',
       },
-    );
+    });
   } catch (err) {
     const detail = String(((err as Error)?.message ?? err) || 'Unknown error');
     console.error('[tts] unexpected error', detail);
