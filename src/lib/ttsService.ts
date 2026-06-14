@@ -47,54 +47,60 @@ function stripForSpeech(text: string) {
     .slice(0, 4000);
 }
 
-// ─────────────────────────────────────────────────────────────
-// Shared AudioContext singleton + iOS unlock.
-// ─────────────────────────────────────────────────────────────
-let audioCtx: AudioContext | null = null;
-let currentSource: AudioBufferSourceNode | null = null;
+const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
 
-function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  if (audioCtx) return audioCtx;
-  const Ctor: typeof AudioContext | undefined =
-    (window as any).AudioContext || (window as any).webkitAudioContext;
-  if (!Ctor) return null;
-  audioCtx = new Ctor();
-  return audioCtx;
-}
+let currentAudio: HTMLAudioElement | null = null;
+let currentAudioUrl: string | null = null;
 
-/** MUST be called synchronously inside a user gesture (click). */
-function unlockAudioSync() {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  try {
-    if (ctx.state === 'suspended') void ctx.resume();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
-  } catch { /* ignore */ }
+function getOrCreateAudio(): HTMLAudioElement {
+  if (currentAudio) return currentAudio;
+  const audio = new Audio();
+  audio.preload = 'auto';
+  audio.setAttribute('playsinline', '');
+  audio.setAttribute('webkit-playsinline', '');
+  currentAudio = audio;
+  return audio;
 }
 
 function stopPlayback() {
-  if (currentSource) {
-    try { currentSource.stop(); } catch { /* ignore */ }
-    try { currentSource.disconnect(); } catch { /* ignore */ }
-    currentSource.onended = null;
-    currentSource = null;
+  if (currentAudio) {
+    try { currentAudio.pause(); } catch { /* ignore */ }
+    currentAudio.onended = null;
+    currentAudio.onerror = null;
+    currentAudio.onpause = null;
+    currentAudio.removeAttribute('src');
+    try { currentAudio.load(); } catch { /* ignore */ }
+  }
+  if (currentAudioUrl) {
+    try { URL.revokeObjectURL(currentAudioUrl); } catch { /* ignore */ }
+    currentAudioUrl = null;
   }
 }
 
-async function decodeAudio(ctx: AudioContext, buf: ArrayBuffer): Promise<AudioBuffer> {
-  return await new Promise<AudioBuffer>((resolve, reject) => {
-    try {
-      const p = ctx.decodeAudioData(buf, resolve, reject);
-      if (p && typeof (p as any).then === 'function') {
-        (p as Promise<AudioBuffer>).then(resolve, reject);
-      }
-    } catch (e) { reject(e); }
-  });
+function createPlayableAudio(blob: Blob) {
+  const audio = getOrCreateAudio();
+  const url = URL.createObjectURL(blob);
+  audio.src = url;
+  audio.load();
+  currentAudioUrl = url;
+  return audio;
+}
+
+function primeAudioForGestureSync() {
+  const audio = getOrCreateAudio();
+  audio.muted = true;
+  if (!audio.src) {
+    audio.src = SILENT_AUDIO_DATA_URI;
+    audio.load();
+  }
+  void audio.play()
+    .then(() => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch { /* ignore */ }
+    })
+    .catch(() => { /* ignore */ });
 }
 
 async function fetchAudioBlob(text: string, voice: string): Promise<Blob> {
@@ -139,15 +145,14 @@ export const ttsService = {
   },
 
   /**
-   * Speak `text`. MUST be called from a user-gesture handler so iOS unlocks
-   * the AudioContext. Long replies are split into ~500-char sentence chunks
+   * Speak `text`. MUST be called from a user-gesture handler so playback can
+   * start on iPhone/iPad. Long replies are split into ~500-char sentence chunks
    * and the resulting MP3s are fetched + played sequentially — the hosted
    * Kokoro server 502s on very long inputs.
    */
   speak(text: string, voice: string, id: string) {
-    // iOS unlock — synchronous inside the click handler.
-    unlockAudioSync();
     stopPlayback();
+    primeAudioForGestureSync();
 
     const cleaned = stripForSpeech(text);
     if (!cleaned) return;
@@ -161,30 +166,23 @@ export const ttsService = {
 
     void (async () => {
       try {
-        const ctx = getAudioContext();
-        if (!ctx) throw new Error('Web Audio not supported');
-        if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* ignore */ } }
-
-        // Fetch the first chunk before flipping state to "playing".
-        let nextBuffer: AudioBuffer | null = null;
-        let nextFetch: Promise<AudioBuffer | null> | null = (async () => {
+        let nextBlob: Blob | null = null;
+        let nextFetch: Promise<Blob | null> | null = (async () => {
           const blob = await fetchAudioBlob(chunks[0], voice);
           console.log('TTS blob bytes:', blob.size, 'chunk 1/' + chunks.length);
-          const buf = await blob.arrayBuffer();
-          return decodeAudio(ctx, buf);
+          return blob;
         })();
 
         for (let i = 0; i < chunks.length; i++) {
           if (state.generatingId !== id && state.playingId !== id) return; // stopped
-          nextBuffer = await nextFetch;
+          nextBlob = await nextFetch;
           // Pre-fetch the next chunk while this one plays.
           nextFetch = i + 1 < chunks.length
             ? (async () => {
                 try {
                   const blob = await fetchAudioBlob(chunks[i + 1], voice);
                   console.log('TTS blob bytes:', blob.size, `chunk ${i + 2}/${chunks.length}`);
-                  const buf = await blob.arrayBuffer();
-                  return decodeAudio(ctx, buf);
+                  return blob;
                 } catch (e) {
                   console.error('[tts] chunk fetch failed', e);
                   return null;
@@ -192,7 +190,7 @@ export const ttsService = {
               })()
             : null;
 
-          if (!nextBuffer) continue;
+          if (!nextBlob) continue;
           if (state.generatingId !== id && state.playingId !== id) return;
 
           // Flip to playing state on the first chunk that's ready.
@@ -202,16 +200,23 @@ export const ttsService = {
             emit();
           }
 
-          await new Promise<void>((resolve) => {
-            const source = ctx.createBufferSource();
-            source.buffer = nextBuffer!;
-            source.connect(ctx.destination);
-            source.onended = () => {
-              if (currentSource === source) currentSource = null;
+          await new Promise<void>((resolve, reject) => {
+            stopPlayback();
+            const audio = createPlayableAudio(nextBlob!);
+            audio.muted = false;
+            audio.onended = () => {
               resolve();
             };
-            currentSource = source;
-            source.start(0);
+            audio.onpause = () => {
+              if (state.generatingId !== id && state.playingId !== id) resolve();
+            };
+            audio.onerror = () => {
+              reject(new Error('Audio playback failed.'));
+            };
+            void audio.play().catch((err) => {
+              console.error('[tts] audio play failed', err);
+              reject(err instanceof Error ? err : new Error(String(err)));
+            });
           });
 
           if (state.playingId !== id) return; // user pressed stop

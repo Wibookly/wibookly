@@ -147,6 +147,27 @@ function dateBucket(dateStr: string): string {
   return 'Older';
 }
 
+const TIME_GROUP_ORDER = ['Today', 'Yesterday', 'This week', 'Last week', 'This month', 'Last month', 'Older'] as const;
+
+function timeGroupTone(label: string) {
+  switch (label) {
+    case 'Today':
+      return 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
+    case 'Yesterday':
+      return 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20';
+    case 'This week':
+      return 'text-violet-300 bg-violet-500/10 border-violet-500/20';
+    case 'Last week':
+      return 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/20';
+    case 'This month':
+      return 'text-amber-300 bg-amber-500/10 border-amber-500/20';
+    case 'Last month':
+      return 'text-orange-300 bg-orange-500/10 border-orange-500/20';
+    default:
+      return 'text-muted-foreground bg-muted/30 border-border';
+  }
+}
+
 const RETENTION_DAYS = 30;
 const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
 
@@ -376,6 +397,7 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const [collapsedTimeGroups, setCollapsedTimeGroups] = useState<Set<string>>(() => new Set());
   const voiceCatalog = useVoiceCatalog();
   const voicesByLanguage = useMemo(() => {
     return voiceCatalog.reduce((acc, v) => {
@@ -718,8 +740,20 @@ export default function Chat() {
       const k = dateBucket(c.updated_at || c.created_at);
       (groups[k] = groups[k] || []).push(c);
     }
-    return groups;
+    return TIME_GROUP_ORDER.reduce((acc, label) => {
+      if (groups[label]?.length) acc[label] = groups[label];
+      return acc;
+    }, {} as Record<string, Conversation[]>);
   }, [rootConversations]);
+
+  const toggleTimeGroup = useCallback((label: string) => {
+    setCollapsedTimeGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
 
   // Pick a header title that reflects the current conversation, not a
   // generic label. Prefers the saved conversation title; falls back to the
@@ -1898,12 +1932,27 @@ export default function Chat() {
             </div>
           )}
 
-          {Object.entries(groupedConversations).map(([label, items]) => (
-            <div key={label}>
-              <div className="mx-2 mt-3 mb-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-              {items.map((c) => renderConvRow(c))}
-            </div>
-          ))}
+          {Object.entries(groupedConversations).map(([label, items]) => {
+            const collapsed = collapsedTimeGroups.has(label);
+            return (
+              <div key={label} className="mx-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => toggleTimeGroup(label)}
+                  className={cn(
+                    'mb-1 flex w-full items-center justify-between rounded-md border px-2 py-1 text-left transition hover:bg-accent/40',
+                    timeGroupTone(label),
+                  )}
+                  aria-expanded={!collapsed}
+                  aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
+                  {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+                {!collapsed && items.map((c) => renderConvRow(c))}
+              </div>
+            );
+          })}
           {!conversations.length && (
             <div className="px-2 py-6 text-xs text-muted-foreground text-center">
               No conversations yet

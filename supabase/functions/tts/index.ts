@@ -35,15 +35,16 @@ Deno.serve(async (req) => {
 
     const trimmedText = text.slice(0, 4000);
     const normalizedBase = baseUrl.replace(/\/+$/, '');
+    const apiRoot = normalizedBase.replace(/\/v1$/i, '');
     const host = (() => {
       try { return new URL(normalizedBase).host; } catch { return normalizedBase; }
     })();
     console.log('[tts] incoming text length:', trimmedText.length, 'voice:', voice, 'host:', host);
 
-    const candidateUrls = [
-      `${normalizedBase}/v1/audio/speech`,
+    const candidateUrls = Array.from(new Set([
+      `${apiRoot}/v1/audio/speech`,
       `${normalizedBase}/audio/speech`,
-    ];
+    ]));
 
     let lastStatus = 500;
     let lastDetail = '';
