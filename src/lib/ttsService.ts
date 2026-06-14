@@ -67,6 +67,8 @@ function stopPlayback() {
     try { currentAudio.pause(); } catch { /* ignore */ }
     currentAudio.onended = null;
     currentAudio.onerror = null;
+    currentAudio.removeAttribute('src');
+    try { currentAudio.load(); } catch { /* ignore */ }
   }
   if (currentAudioUrl) {
     try { URL.revokeObjectURL(currentAudioUrl); } catch { /* ignore */ }
