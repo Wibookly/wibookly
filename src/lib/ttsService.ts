@@ -24,6 +24,15 @@ const FETCH_TIMEOUT_MS = 90_000;
 const AUDIO_CACHE_PREFIX = 'inboxiq:tts-audio:';
 const AUDIO_CACHE_LIMIT = 24;
 
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 const state: TtsState = {
   modelState: 'ready',
   generatingId: null,
@@ -57,7 +66,7 @@ const memoryBlobCache = new Map<string, Blob>();
 const inFlightAudioRequests = new Map<string, Promise<Blob>>();
 
 function getCacheKey(text: string, voice: string) {
-  return `${voice}::${text}`;
+  return `${voice}:${hashString(text)}`;
 }
 
 function getStorageKey(cacheKey: string) {
