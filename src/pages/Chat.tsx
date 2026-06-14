@@ -147,6 +147,27 @@ function dateBucket(dateStr: string): string {
   return 'Older';
 }
 
+const TIME_GROUP_ORDER = ['Today', 'Yesterday', 'This week', 'Last week', 'This month', 'Last month', 'Older'] as const;
+
+function timeGroupTone(label: string) {
+  switch (label) {
+    case 'Today':
+      return 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20';
+    case 'Yesterday':
+      return 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20';
+    case 'This week':
+      return 'text-violet-300 bg-violet-500/10 border-violet-500/20';
+    case 'Last week':
+      return 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/20';
+    case 'This month':
+      return 'text-amber-300 bg-amber-500/10 border-amber-500/20';
+    case 'Last month':
+      return 'text-orange-300 bg-orange-500/10 border-orange-500/20';
+    default:
+      return 'text-muted-foreground bg-muted/30 border-border';
+  }
+}
+
 const RETENTION_DAYS = 30;
 const EXPIRY_WARN_DAYS = 7; // warn within 7 days of deletion
 
@@ -376,6 +397,7 @@ export default function Chat() {
   const [voiceOut] = useState<boolean>(false); // Auto-speak disabled — use per-message speaker buttons instead.
   const { speak, stop: stopSpeak, speakingId, loading: ttsLoading, loadProgress: ttsLoadProgress, preload: preloadTTS, error: ttsError, modelState: ttsModelState } = useKokoroTTS();
   const [ttsVoice, setTtsVoice] = useState<KokoroVoiceId>(() => getStoredVoice());
+  const [collapsedTimeGroups, setCollapsedTimeGroups] = useState<Set<string>>(() => new Set());
   const voiceCatalog = useVoiceCatalog();
   const voicesByLanguage = useMemo(() => {
     return voiceCatalog.reduce((acc, v) => {
