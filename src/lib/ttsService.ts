@@ -1,6 +1,8 @@
 // Read-aloud orchestrator — calls the hosted TTS edge function and plays
 // decoded audio through one shared AudioContext.
 
+import { toast } from 'sonner';
+
 export type TtsModelState = 'idle' | 'loading' | 'ready' | 'error';
 
 type Listener = (s: TtsState) => void;
@@ -223,6 +225,7 @@ export const ttsService = {
       state.playingId = null;
       state.error = String(err?.message ?? err);
       state.modelState = 'error';
+      toast.error(state.error || 'Voice playback failed');
       emit();
       setTimeout(() => {
         if (state.modelState === 'error') {
