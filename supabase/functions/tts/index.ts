@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MAX_INPUT_LENGTH = 1000;
-const FETCH_TIMEOUT_MS = 90_000;
+const MAX_INPUT_LENGTH = 500;
+const FETCH_TIMEOUT_MS = 60_000;
 const DEFAULT_FALLBACK_VOICE = 'af_heart';
 
 function cleanMarkdownForSpeech(input: string) {
