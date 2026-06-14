@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       const isTimeout = err instanceof Error && err.name === 'AbortError';
       const detail = isTimeout
         ? 'timeout'
-        : String((err as Error)?.message ?? err || 'Unknown upstream error');
+        : String(((err as Error)?.message ?? err) || 'Unknown upstream error');
       return new Response(
         JSON.stringify({ error: 'Kokoro upstream error', status: isTimeout ? 504 : 502, detail }),
         { status: isTimeout ? 504 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       clearTimeout(timeoutId);
     }
   } catch (err) {
-    const detail = String((err as Error)?.message ?? err || 'Unknown error');
+    const detail = String(((err as Error)?.message ?? err) || 'Unknown error');
     console.error('[tts] unexpected error', detail);
     return new Response(
       JSON.stringify({ error: 'Unexpected TTS error', status: 500, detail }),
