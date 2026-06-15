@@ -337,7 +337,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
 
       {/* Action mode */}
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-actions" className={!settings.is_enabled ? 'opacity-70' : ''}>
+
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <StepBadge n={2} /> When the due date arrives
@@ -349,39 +350,47 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </CardDescription>
         </CardHeader>
         <CardContent className={`space-y-4 ${!settings.is_enabled ? 'pointer-events-none' : ''}`}>
-          <ActionRow
-            icon={Tag}
-            title="Always: move to No Reply Tracker category"
-            description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
-            checked={true}
-            disabled
-            disabledHint="This action is always on while the tracker is enabled."
-            onChange={() => {}}
-          />
-          <ActionRow
-            icon={FileEdit}
-            title="Auto Draft a follow-up"
-            description="AI writes a polite nudge into your Outlook Drafts. You review and send."
-            checked={settings.auto_draft_enabled}
-            disabled={!settings.is_enabled}
-            disabledHint="Turn on Step 1 (master switch) to enable Auto Draft."
-            onChange={(v) => patch({ auto_draft_enabled: v })}
-          />
-          <ActionRow
-            icon={Send}
-            title="Auto Reply (sends automatically)"
-            description="AI writes AND sends the follow-up without review. Use with care."
-            checked={settings.auto_reply_enabled}
-            disabled={!settings.is_enabled}
-            disabledHint="Turn on Step 1 (master switch) to enable Auto Reply."
-            onChange={(v) => patch({ auto_reply_enabled: v })}
-            warning={settings.auto_reply_enabled ? 'Replies will be sent without your review.' : undefined}
-          />
+          <div data-tour="followup-action-tag">
+            <ActionRow
+              icon={Tag}
+              title="Always: move to No Reply Tracker category"
+              description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
+              checked={true}
+              disabled
+              disabledHint="This action is always on while the tracker is enabled."
+              onChange={() => {}}
+            />
+          </div>
+          <div data-tour="followup-action-draft">
+            <ActionRow
+              icon={FileEdit}
+              title="Auto Draft a follow-up"
+              description="AI writes a polite nudge into your Outlook Drafts. You review and send."
+              checked={settings.auto_draft_enabled}
+              disabled={!settings.is_enabled}
+              disabledHint="Turn on Step 1 (master switch) to enable Auto Draft."
+              onChange={(v) => patch({ auto_draft_enabled: v })}
+            />
+          </div>
+          <div data-tour="followup-action-reply">
+            <ActionRow
+              icon={Send}
+              title="Auto Reply (sends automatically)"
+              description="AI writes AND sends the follow-up without review. Use with care."
+              checked={settings.auto_reply_enabled}
+              disabled={!settings.is_enabled}
+              disabledHint="Turn on Step 1 (master switch) to enable Auto Reply."
+              onChange={(v) => patch({ auto_reply_enabled: v })}
+              warning={settings.auto_reply_enabled ? 'Replies will be sent without your review.' : undefined}
+            />
+          </div>
+
         </CardContent>
       </Card>
 
       {/* Lifecycle & how to stop */}
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-lifecycle" className={!settings.is_enabled ? 'opacity-70' : ''}>
+
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-primary" /> Lifecycle & how to stop a tracker
@@ -420,7 +429,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
       {/* Business hours */}
 
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-bh" className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -538,7 +547,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       </Card>
 
       {/* Manual inbox audit */}
-      <Card>
+      <Card data-tour="followup-audit">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Search className="w-4 h-4 text-primary" /> Inbox audit
@@ -553,22 +562,22 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-3 gap-3 items-end">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-audit-from">
               <Label htmlFor="audit-from">From</Label>
               <Input id="audit-from" type="date" value={auditFrom} max={auditTo}
                 onChange={(e) => setAuditFrom(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-audit-to">
               <Label htmlFor="audit-to">To</Label>
               <Input id="audit-to" type="date" value={auditTo} min={auditFrom} max={todayIso()}
                 onChange={(e) => setAuditTo(e.target.value)} />
             </div>
-            <Button onClick={runAudit} disabled={auditing}>
+            <Button data-tour="followup-audit-run" onClick={runAudit} disabled={auditing}>
               {auditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               {auditing ? 'Auditing…' : 'Audit now'}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-tour="followup-audit-presets">
             {[7, 30, 90].map((d) => (
               <Button key={d} variant="ghost" size="sm" onClick={() => { setAuditFrom(isoDaysAgo(d)); setAuditTo(todayIso()); }}>
                 Last {d} days
@@ -576,7 +585,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             ))}
           </div>
 
-          <div className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
+          <div data-tour="followup-autosync" className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
+
             <div className="flex items-start gap-3 min-w-0">
               <div className="p-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CalendarClock className="w-4 h-4" />
