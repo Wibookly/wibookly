@@ -101,7 +101,7 @@ export const emailIntelligenceTour: Step[] = [
     title: 'Add a Rule',
     content:
       'Click to append a new rule to this category. Stack as many as you need — each new rule appears below the previous one.',
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-rule-type"]',
@@ -122,29 +122,30 @@ export const emailIntelligenceTour: Step[] = [
     title: 'Enable / Disable Rule',
     content:
       'Turn an individual rule off without deleting it. Useful for testing or pausing a rule temporarily.',
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-rule-sync"]',
     title: 'Sync Rule',
     content:
       'Red pulse = unsaved changes. Amber = never run. Green = synced. Click to push this rule to your mailbox and reprocess matching emails.',
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-rule-advanced"]',
     title: 'Advanced Options',
     content:
       'Expand to add Recipient, Subject contains, and Body contains conditions joined with AND/OR — for precise multi-condition matching.',
-    placement: 'right',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-rule-delete"]',
     title: 'Delete Rule',
     content:
       'Permanently removes this rule. The category stays — only this specific rule is removed and unsynced from your mailbox.',
-    placement: 'left',
+    placement: 'top',
   },
+
   {
     target: '[data-tour="ei-sync"]',
     title: 'Real-Time Sync',
