@@ -349,34 +349,41 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </CardDescription>
         </CardHeader>
         <CardContent className={`space-y-4 ${!settings.is_enabled ? 'pointer-events-none' : ''}`}>
-          <ActionRow
-            icon={Tag}
-            title="Always: move to No Reply Tracker category"
-            description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
-            checked={true}
-            disabled
-            disabledHint="This action is always on while the tracker is enabled."
-            onChange={() => {}}
-          />
-          <ActionRow
-            icon={FileEdit}
-            title="Auto Draft a follow-up"
-            description="AI writes a polite nudge into your Outlook Drafts. You review and send."
-            checked={settings.auto_draft_enabled}
-            disabled={!settings.is_enabled}
-            disabledHint="Turn on Step 1 (master switch) to enable Auto Draft."
-            onChange={(v) => patch({ auto_draft_enabled: v })}
-          />
-          <ActionRow
-            icon={Send}
-            title="Auto Reply (sends automatically)"
-            description="AI writes AND sends the follow-up without review. Use with care."
-            checked={settings.auto_reply_enabled}
-            disabled={!settings.is_enabled}
-            disabledHint="Turn on Step 1 (master switch) to enable Auto Reply."
-            onChange={(v) => patch({ auto_reply_enabled: v })}
-            warning={settings.auto_reply_enabled ? 'Replies will be sent without your review.' : undefined}
-          />
+          <div data-tour="followup-action-tag">
+            <ActionRow
+              icon={Tag}
+              title="Always: move to No Reply Tracker category"
+              description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
+              checked={true}
+              disabled
+              disabledHint="This action is always on while the tracker is enabled."
+              onChange={() => {}}
+            />
+          </div>
+          <div data-tour="followup-action-draft">
+            <ActionRow
+              icon={FileEdit}
+              title="Auto Draft a follow-up"
+              description="AI writes a polite nudge into your Outlook Drafts. You review and send."
+              checked={settings.auto_draft_enabled}
+              disabled={!settings.is_enabled}
+              disabledHint="Turn on Step 1 (master switch) to enable Auto Draft."
+              onChange={(v) => patch({ auto_draft_enabled: v })}
+            />
+          </div>
+          <div data-tour="followup-action-reply">
+            <ActionRow
+              icon={Send}
+              title="Auto Reply (sends automatically)"
+              description="AI writes AND sends the follow-up without review. Use with care."
+              checked={settings.auto_reply_enabled}
+              disabled={!settings.is_enabled}
+              disabledHint="Turn on Step 1 (master switch) to enable Auto Reply."
+              onChange={(v) => patch({ auto_reply_enabled: v })}
+              warning={settings.auto_reply_enabled ? 'Replies will be sent without your review.' : undefined}
+            />
+          </div>
+
         </CardContent>
       </Card>
 
