@@ -389,7 +389,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       </Card>
 
       {/* Lifecycle & how to stop */}
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-lifecycle" className={!settings.is_enabled ? 'opacity-70' : ''}>
+
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-primary" /> Lifecycle & how to stop a tracker
