@@ -28,42 +28,42 @@ export const aiChatTour: Step[] = [
     title: 'Voice input',
     content:
       "Tap the mic and dictate. We transcribe in real time and send when you stop talking. Perfect for hands-free use in the car or on a walk.",
-    placement: 'top',
-  },
-  {
-    target: '[data-tour="chat-web"]',
-    title: 'Web search (auto-enabled)',
-    content:
-      "InboxIQ automatically turns on web search whenever your question needs fresh info from the internet — flights, prices, news, public companies, weather. The 🌐 badge lights up when it kicks in and turns off after the answer. You don't need to toggle anything.",
-    placement: 'top',
-  },
-  {
-    target: '[data-tour="chat-location"]',
-    title: 'Location (auto-enabled)',
-    content:
-      "When you ask 'near me' or about local places, InboxIQ enables location automatically for that turn only. It turns back off right after — your location is never persistently shared.",
-    placement: 'top',
-  },
-  {
-    target: '[data-tour="chat-deep"]',
-    title: 'Deep reasoning (auto-enabled)',
-    content:
-      "For complex multi-step requests, deep reasoning auto-enables so the model thinks longer before answering. It costs a bit more time but produces dramatically better results for analysis, planning, and math.",
-    placement: 'top',
+    placement: 'top-end',
   },
   {
     target: '[data-tour="chat-attach"]',
     title: 'Attach files',
     content:
       "Upload PDFs, Word, Excel, PowerPoint, images. InboxIQ reads them and you can ask questions ('summarize this contract'), extract data ('pull the line items into a table'), or generate new documents from the content.",
-    placement: 'top',
+    placement: 'top-start',
+  },
+  {
+    target: '[data-tour="chat-web"]',
+    title: 'Web search (auto-enabled)',
+    content:
+      "InboxIQ automatically turns web search on when your question needs fresh info from the internet — flights, prices, news, public companies, weather. The 🌐 badge lights up when it kicks in and turns off after the answer. You don't need to toggle anything.",
+    placement: 'right',
+  },
+  {
+    target: '[data-tour="chat-location"]',
+    title: 'Location (auto-enabled)',
+    content:
+      "When you ask 'near me' or about local places, InboxIQ enables location automatically for that turn only. It turns back off right after — your location is never persistently shared.",
+    placement: 'right',
+  },
+  {
+    target: '[data-tour="chat-deep"]',
+    title: 'Deep reasoning (auto-enabled)',
+    content:
+      "For complex multi-step requests, deep reasoning auto-enables so the model thinks longer before answering. It costs a bit more time but produces dramatically better results for analysis, planning, and math.",
+    placement: 'right',
   },
   {
     target: '[data-tour="chat-capacity"]',
     title: 'Daily capacity',
     content:
       "Your daily chat allowance. Each message uses a small slice. Resets every 24 hours. If you hit the cap, an admin can raise it in /admin → AI Usage.",
-    placement: 'bottom',
+    placement: 'top-end',
   },
   {
     target: 'body',
