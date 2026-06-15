@@ -678,6 +678,7 @@ function ActionRow({
   disabled,
   disabledHint,
   warning,
+  alwaysOn,
 }: {
   icon: React.ElementType;
   title: string;
@@ -687,6 +688,7 @@ function ActionRow({
   disabled?: boolean;
   disabledHint?: string;
   warning?: string;
+  alwaysOn?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 rounded-lg border-2 p-3 bg-[var(--surface-2)]">
@@ -704,16 +706,23 @@ function ActionRow({
           ) : null}
         </div>
       </div>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-block">
-              <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-            </span>
-          </TooltipTrigger>
-          {disabled && disabledHint && <TooltipContent>{disabledHint}</TooltipContent>}
-        </Tooltip>
-      </TooltipProvider>
+      {alwaysOn ? (
+        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 shrink-0">
+          Always On
+        </Badge>
+      ) : (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+              </span>
+            </TooltipTrigger>
+            {disabled && disabledHint && <TooltipContent>{disabledHint}</TooltipContent>}
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
+
 }
