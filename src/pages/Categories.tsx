@@ -1352,8 +1352,9 @@ export default function Categories() {
       </div>
 
       {/* Categories Table with Drag and Drop */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden mb-8">
-        <Table>
+      <div className="bg-card rounded-lg border border-border overflow-x-auto mb-8">
+        <Table className="min-w-[900px]">
+
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
