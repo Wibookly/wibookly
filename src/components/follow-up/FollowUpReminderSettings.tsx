@@ -429,7 +429,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
       {/* Business hours */}
 
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-bh" className={!settings.is_enabled ? 'opacity-70' : ''}>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
