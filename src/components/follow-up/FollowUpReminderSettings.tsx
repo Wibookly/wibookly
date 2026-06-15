@@ -255,12 +255,25 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   <Badge variant="outline">Off</Badge>
                 )}
               </CardTitle>
-              <CardDescription className="mt-1.5 max-w-2xl">
-                Turn this ON, then BCC yourself with a number to track any thread.
-                Works on <strong>any</strong> domain — no shared mailbox or extra
-                inbox required. The BCC address is just a private trigger; it never
-                needs to receive mail.
+              <CardDescription className="mt-1.5 max-w-2xl space-y-2">
+                <p>
+                  <strong>In plain English:</strong> No Reply Tracker makes sure you never lose
+                  an email you're waiting on a reply for.
+                </p>
+                <p>
+                  When you send an email and you expect an answer back, just add a BCC like{' '}
+                  <code className="font-mono text-[11px] px-1 rounded bg-muted">3@{domain}</code>{' '}
+                  — the number is how many days you're willing to wait. If the recipient replies
+                  in time, nothing happens. If they don't, InboxIQ automatically <strong>drafts a
+                  polite follow-up</strong> for you to review (or <strong>drafts and sends it</strong>{' '}
+                  if you turn on Auto Reply) so the conversation never goes cold.
+                </p>
+                <p className="text-xs">
+                  Works on <strong>any</strong> domain — no shared mailbox or extra inbox needed.
+                  The BCC address is just a private signal to InboxIQ; it never has to receive mail.
+                </p>
               </CardDescription>
+
             </div>
             <Switch
               data-tour="followup-toggle"
@@ -354,13 +367,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             <ActionRow
               icon={Tag}
               title="Always: move to No Reply Tracker category"
-              description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
+              description="Original email is labeled and surfaced in your inbox so you can act on it. This is built into the tracker and can't be turned off."
               checked={true}
-              disabled
-              disabledHint="This action is always on while the tracker is enabled."
               onChange={() => {}}
+              alwaysOn
             />
           </div>
+
           <div data-tour="followup-action-draft">
             <ActionRow
               icon={FileEdit}
@@ -665,6 +678,7 @@ function ActionRow({
   disabled,
   disabledHint,
   warning,
+  alwaysOn,
 }: {
   icon: React.ElementType;
   title: string;
@@ -674,6 +688,7 @@ function ActionRow({
   disabled?: boolean;
   disabledHint?: string;
   warning?: string;
+  alwaysOn?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 rounded-lg border-2 p-3 bg-[var(--surface-2)]">
@@ -691,16 +706,23 @@ function ActionRow({
           ) : null}
         </div>
       </div>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-block">
-              <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
-            </span>
-          </TooltipTrigger>
-          {disabled && disabledHint && <TooltipContent>{disabledHint}</TooltipContent>}
-        </Tooltip>
-      </TooltipProvider>
+      {alwaysOn ? (
+        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 shrink-0">
+          Always On
+        </Badge>
+      ) : (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+              </span>
+            </TooltipTrigger>
+            {disabled && disabledHint && <TooltipContent>{disabledHint}</TooltipContent>}
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
+
 }
