@@ -367,13 +367,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             <ActionRow
               icon={Tag}
               title="Always: move to No Reply Tracker category"
-              description="Original email is labeled and surfaced in your inbox so you can act on it. Always on."
+              description="Original email is labeled and surfaced in your inbox so you can act on it. This is built into the tracker and can't be turned off."
               checked={true}
-              disabled
-              disabledHint="This action is always on while the tracker is enabled."
               onChange={() => {}}
+              alwaysOn
             />
           </div>
+
           <div data-tour="followup-action-draft">
             <ActionRow
               icon={FileEdit}
