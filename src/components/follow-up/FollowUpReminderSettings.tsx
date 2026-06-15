@@ -337,7 +337,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
 
       {/* Action mode */}
-      <Card className={!settings.is_enabled ? 'opacity-70' : ''}>
+      <Card data-tour="followup-actions" className={!settings.is_enabled ? 'opacity-70' : ''}>
+
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <StepBadge n={2} /> When the due date arrives
