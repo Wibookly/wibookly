@@ -196,56 +196,22 @@ export function WelcomeGuide() {
     };
   }, [user?.id]);
 
-  // Auto-open once per browser/user on first authenticated landing.
-  // Wait until features have loaded so we don't render the menu with the
-  // wrong set of sections.
+  // Auto-open disabled by user preference. The Welcome Guide now only opens
+  // when explicitly requested from the menu (OPEN_WELCOME_GUIDE_EVENT below).
+  // We still mark the user as having "seen" onboarding once so any other
+  // first-run logic stays consistent.
   useEffect(() => {
     if (featuresLoading || authLoading || !user?.id || autoChecked || onboardingCompletedAt === undefined) return;
+    try { localStorage.setItem(`${STORAGE_KEY}:${user.id}`, '1'); } catch { /* ignore */ }
+    if (!onboardingCompletedAt) {
+      void supabase
+        .from('user_profiles')
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+    }
+    setAutoChecked(true);
+  }, [featuresLoading, authLoading, user?.id, autoChecked, onboardingCompletedAt]);
 
-    let cancelled = false;
-
-    const maybeOpen = async () => {
-      try {
-        const stored = localStorage.getItem(`${STORAGE_KEY}:${user.id}`);
-        if (stored === '1') {
-          if (!cancelled) setAutoChecked(true);
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
-
-      const mainLandingRoutes = new Set(['/integrations', '/categories', '/settings']);
-      if (!mainLandingRoutes.has(location.pathname)) {
-        if (!cancelled) setAutoChecked(true);
-        return;
-      }
-
-      const isFirstTimeUser = !onboardingCompletedAt;
-      if (!cancelled) {
-        if (isFirstTimeUser) {
-          // Mark as seen immediately (local + server) so it only ever
-          // auto-opens once — even across devices.
-          try { localStorage.setItem(`${STORAGE_KEY}:${user.id}`, '1'); } catch { /* ignore */ }
-          void supabase
-            .from('user_profiles')
-            .update({ onboarding_completed_at: new Date().toISOString() })
-            .eq('user_id', user.id);
-          const t = window.setTimeout(() => {
-            if (!cancelled) setOpen(true);
-          }, 600);
-          window.setTimeout(() => clearTimeout(t), 1200);
-        }
-        setAutoChecked(true);
-      }
-    };
-
-    void maybeOpen();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [featuresLoading, authLoading, user?.id, autoChecked, location.pathname, onboardingCompletedAt]);
 
   // Manual relaunch. Honor optional `tab` detail.
   useEffect(() => {
