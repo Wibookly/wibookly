@@ -547,7 +547,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
       </Card>
 
       {/* Manual inbox audit */}
-      <Card>
+      <Card data-tour="followup-audit">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Search className="w-4 h-4 text-primary" /> Inbox audit
@@ -562,22 +562,22 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-3 gap-3 items-end">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-audit-from">
               <Label htmlFor="audit-from">From</Label>
               <Input id="audit-from" type="date" value={auditFrom} max={auditTo}
                 onChange={(e) => setAuditFrom(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-audit-to">
               <Label htmlFor="audit-to">To</Label>
               <Input id="audit-to" type="date" value={auditTo} min={auditFrom} max={todayIso()}
                 onChange={(e) => setAuditTo(e.target.value)} />
             </div>
-            <Button onClick={runAudit} disabled={auditing}>
+            <Button data-tour="followup-audit-run" onClick={runAudit} disabled={auditing}>
               {auditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               {auditing ? 'Auditing…' : 'Audit now'}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-tour="followup-audit-presets">
             {[7, 30, 90].map((d) => (
               <Button key={d} variant="ghost" size="sm" onClick={() => { setAuditFrom(isoDaysAgo(d)); setAuditTo(todayIso()); }}>
                 Last {d} days
@@ -585,7 +585,8 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             ))}
           </div>
 
-          <div className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
+          <div data-tour="followup-autosync" className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
+
             <div className="flex items-start gap-3 min-w-0">
               <div className="p-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CalendarClock className="w-4 h-4" />
