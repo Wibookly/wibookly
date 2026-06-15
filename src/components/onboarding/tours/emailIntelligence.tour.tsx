@@ -47,21 +47,21 @@ export const emailIntelligenceTour: Step[] = [
         </p>
       </div>
     ),
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-active"]',
     title: 'Active Toggle',
     content:
       'Turns the category on. If you disable a category, all emails inside it automatically move back into your Inbox — nothing is ever lost.',
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-draft"]',
     title: 'AI Draft',
     content:
       'AI prepares a suggested reply for emails in this category. Drafts wait in your Drafts folder — you review and send.',
-    placement: 'left',
+    placement: 'top',
   },
   {
     target: '[data-tour="ei-autoreply"]',
@@ -79,7 +79,8 @@ export const emailIntelligenceTour: Step[] = [
         </ul>
       </div>
     ),
-    placement: 'left',
+    placement: 'top',
+
   },
   {
     target: '[data-tour="ei-rules"]',
