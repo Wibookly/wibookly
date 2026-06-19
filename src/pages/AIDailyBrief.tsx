@@ -34,6 +34,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
+import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 
 import { BellRing, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
