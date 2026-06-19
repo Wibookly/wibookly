@@ -68,6 +68,19 @@ interface DailyBrief {
     risks?: string[];
     wins?: string[];
   };
+  actionPlan?: Array<{
+    priority?: number;
+    urgency?: 'high' | 'medium' | 'low';
+    title: string;
+    source?: 'email' | 'meeting' | 'task';
+    from?: string;
+    subject?: string;
+    receivedAt?: string;
+    context?: string;
+    action: string;
+    why?: string;
+    estimatedMinutes?: number;
+  }>;
 }
 
 const defaultColors = {
