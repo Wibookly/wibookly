@@ -556,13 +556,13 @@ serve(async (req) => {
      "why": "Blocks the Friday board sign-off — without your reply John can't finalize the deck.",
      "estimatedMinutes": 15
    }
-   STRICT RULES for actionPlan:
-   - "context" MUST summarize in plain English WHAT THE SENDER ASKED or WHAT IS HAPPENING, with enough detail that the user does NOT need to reopen the email. 1-3 sentences.
-   - "action" MUST be the concrete next step, not a vague "review" — say WHAT to do.
-   - "why" MUST explain the business reason / deadline / dependency in one short sentence.
+   STRICT RULES for actionPlan (BE CONCISE — executives skim, they don't read):
+   - "context" = MAX 2 SHORT sentences summarizing what the sender asked or what's happening. No filler. Plain English. The user must not need to reopen the email.
+   - "action" = ONE imperative sentence with the concrete next step. Not "review" — say WHAT to do.
+   - "why" = ONE short clause explaining the deadline / dependency / business reason.
    - Order strictly by priority (1 = highest impact, do first). Mix emails, meetings, and tasks together in the same ranked list.
    - Use ONLY real items from the provided context. Never invent senders, subjects, or topics.
-   - If a meeting starts within 2 hours, it MUST appear at priority 1 with source "meeting" and context describing attendees/location/prep needed.`;
+   - If a meeting starts within 2 hours, it MUST appear at priority 1 with source "meeting" and a short context with attendees/location/prep needed.
 
     const morningInstructions = `Based on the context provided, generate a structured MORNING brief in JSON format with these sections:
 1. "greeting": A personalized "Good morning" greeting
