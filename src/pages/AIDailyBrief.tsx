@@ -535,7 +535,7 @@ export default function AIDailyBrief() {
             const t = (s.type || '').toLowerCase();
             return !(t === 'focus' || t === 'available' || t === 'free');
           }).length)} />
-          <StatCard label="Email Highlights" value={String(brief.emailHighlights?.length ?? 0)} />
+          <StatCard label="Carry-over" value={String((brief.actionPlan || []).filter((i: any) => i.carriedFromDate).length)} />
           <StatCard label="Quick Wins" value={String(brief.aiAnalysis?.wins?.length ?? 0)} />
         </div>
       )}
