@@ -252,7 +252,7 @@ export default function AIDailyBrief() {
 
     const hasActionPlan = Array.isArray(brief.actionPlan) && brief.actionPlan.length > 0;
 
-    if ((type === 'all' || type === 'todo') && hasActionPlan) {
+    if ((type === 'all' || type === 'todo' || type === 'priorities') && hasActionPlan) {
       const urgBorder = (u?: string) => u === 'high' ? priorityColors.high : u === 'low' ? priorityColors.low : priorityColors.medium;
       content += `
         <section class="brief-section">
