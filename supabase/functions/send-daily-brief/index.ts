@@ -793,19 +793,22 @@ function buildBriefPdf(
   }
 
   // To-Do List — combined priorities + email actions, mirroring the on-screen view.
+  // Skipped when Action Plan is present (Action Plan already covers it).
   const todoLines: Array<{ label: string; sub?: string }> = [];
-  priorities.forEach((p: any) => {
-    todoLines.push({
-      label: String(p.title || ""),
-      sub: p.description ? String(p.description) : undefined,
+  if (!hasActionPlan) {
+    priorities.forEach((p: any) => {
+      todoLines.push({
+        label: String(p.title || ""),
+        sub: p.description ? String(p.description) : undefined,
+      });
     });
-  });
-  emails.slice(0, 5).forEach((e: any) => {
-    todoLines.push({
-      label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
-      sub: e.from ? `From ${e.from}` : undefined,
+    emails.slice(0, 5).forEach((e: any) => {
+      todoLines.push({
+        label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
+        sub: e.from ? `From ${e.from}` : undefined,
+      });
     });
-  });
+  }
   if (todoLines.length) {
     sectionHeading("To-Do List", { newPage: true });
     todoLines.forEach((t) => {
