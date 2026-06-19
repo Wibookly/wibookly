@@ -783,6 +783,7 @@ export default function AIDailyBrief() {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* SECTION 4 — Today's Schedule + Email Highlights side-by-side on large screens */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
