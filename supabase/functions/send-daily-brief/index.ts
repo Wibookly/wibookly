@@ -125,38 +125,56 @@ function renderBriefHtml(
   const greeting = esc(brief?.greeting || "");
   const summary = esc(brief?.summary || "Here is your daily brief.");
 
-  // ===== Action Plan (primary unified section) =====
+  // ===== Action Items (primary unified section, SPLIT by source to match the web page) =====
   const actionPlan = Array.isArray(brief?.actionPlan) ? brief.actionPlan : [];
+  const openItems = actionPlan.filter((i: any) => i.status !== 'done');
+  const emailItems = openItems.filter((i: any) => (i.source || 'email') === 'email');
+  const meetingItems = openItems.filter((i: any) => i.source === 'meeting');
+  const taskItems = openItems.filter((i: any) => i.source === 'task');
   const hasActionPlan = actionPlan.length > 0;
+
+  const renderItemHtml = (it: any, i: number) => {
+    const c = urgencyColor(it.urgency);
+    const num = it.priority ?? i + 1;
+    const meta: string[] = [];
+    if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
+    if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
+    if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
+    const carry = it.carriedFromDate
+      ? `<div style="display:inline-block;margin-top:4px;padding:2px 6px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:600;border-radius:4px">↻ Carried from ${esc(it.carriedFromDate)}${it.carryCount > 1 ? ` (×${esc(it.carryCount)})` : ''}</div>`
+      : '';
+    return `<div style="margin:10px 0;padding:14px 16px;background:#ffffff;border:1px solid #e2e8f0;border-left:5px solid ${c.border};border-radius:10px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${c.border};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(num)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong style="color:#0f172a;font-size:15px;line-height:1.3">${esc(it.title || '')}</strong>
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${c.fg};background:${c.bg};padding:3px 8px;border-radius:10px;border:1px solid ${c.border}">${esc(it.urgency || 'medium')}</span>
+          </div>
+          ${meta.length ? `<div style="color:#64748b;font-size:11px;margin-top:4px">${meta.join(' · ')}</div>` : ''}
+          ${carry}
+          ${it.context ? `<div style="margin-top:8px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">Context:</span> ${esc(it.context)}</div>` : ''}
+          ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do:</span> ${esc(it.action)}</div>` : ''}
+          ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why: ${esc(it.why)}</div>` : ''}
+          ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const groupBlock = (label: string, icon: string, items: any[], emptyMsg: string) => `
+    <h3 style="font-size:14px;color:#0f172a;margin:18px 0 6px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px">
+      ${icon} ${esc(label)} <span style="color:#94a3b8;font-weight:400;font-size:12px">(${items.length})</span>
+    </h3>
+    ${items.length ? items.map(renderItemHtml).join('') : `<p style="color:#94a3b8;font-style:italic;font-size:12px;padding:8px 0">${esc(emptyMsg)}</p>`}`;
+
   const actionPlanBlock = hasActionPlan
     ? `<div style="margin:24px 0 8px">
-         <h2 style="font-size:18px;color:#0f172a;margin:0 0 4px;display:flex;align-items:center;gap:8px">🎯 Your Action Plan</h2>
-         <p style="margin:0 0 14px;color:#64748b;font-size:13px">Ordered list of what to do today — with the context, the ask, and the next step for each item, so you can act without reopening your inbox.</p>
-         ${actionPlan.map((it: any, i: number) => {
-            const c = urgencyColor(it.urgency);
-            const num = it.priority ?? i + 1;
-            const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
-            const meta: string[] = [];
-            if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
-            if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
-            if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
-            return `<div style="margin:10px 0;padding:14px 16px;background:#ffffff;border:1px solid #e2e8f0;border-left:5px solid ${c.border};border-radius:10px">
-              <div style="display:flex;gap:12px;align-items:flex-start">
-                <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${c.border};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(num)}</div>
-                <div style="flex:1;min-width:0">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-                    <strong style="color:#0f172a;font-size:15px;line-height:1.3">${esc(it.title || '')}</strong>
-                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${c.fg};background:${c.bg};padding:3px 8px;border-radius:10px;border:1px solid ${c.border}">${esc(it.urgency || 'medium')}</span>
-                  </div>
-                  <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">${srcLabel}${meta.length ? ' · ' : ''}<span style="color:#64748b;text-transform:none;letter-spacing:0;font-weight:400">${meta.join(' · ')}</span></div>
-                  ${it.context ? `<div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">What's being asked:</span> ${esc(it.context)}</div>` : ''}
-                  ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do this:</span> ${esc(it.action)}</div>` : ''}
-                  ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why it matters: ${esc(it.why)}</div>` : ''}
-                  ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
+         <h2 style="font-size:18px;color:#0f172a;margin:0 0 4px;display:flex;align-items:center;gap:8px">🎯 Your Action Items</h2>
+         <p style="margin:0 0 6px;color:#64748b;font-size:13px">Email and calendar items that need your attention. Anything left open carries to tomorrow.</p>
+         ${groupBlock('Emails', '📧', emailItems, 'No email action items today. Inbox is clear. 🎉')}
+         ${groupBlock('Calendar', '📅', meetingItems, 'No calendar items today.')}
+         ${taskItems.length ? groupBlock('Tasks', '✅', taskItems, 'No tasks today.') : ''}
        </div>`
     : '';
 
