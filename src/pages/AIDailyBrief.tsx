@@ -69,6 +69,10 @@ interface DailyBrief {
     wins?: string[];
   };
   actionPlan?: Array<{
+    taskId?: string;
+    status?: 'open' | 'done' | 'snoozed' | 'scheduled';
+    carriedFromDate?: string;
+    carryCount?: number;
     priority?: number;
     urgency?: 'high' | 'medium' | 'low';
     title: string;
