@@ -721,7 +721,8 @@ export default function AIDailyBrief() {
         </Card>
       ) : brief ? (
         <div className="space-y-6">
-          {/* SECTION 3 — Today's Priorities (executive top focus) */}
+          {/* SECTION 3 — Today's Priorities (executive top focus). Hidden when Action Plan is present to avoid duplication. */}
+          {!(brief.actionPlan && brief.actionPlan.length > 0) && (
           <Card data-tour="brief-priorities" className="border-0 shadow-lg overflow-hidden ring-1 ring-amber-200/60 dark:ring-amber-900/40">
             <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
             <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
