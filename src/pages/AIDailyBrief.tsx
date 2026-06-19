@@ -68,6 +68,19 @@ interface DailyBrief {
     risks?: string[];
     wins?: string[];
   };
+  actionPlan?: Array<{
+    priority?: number;
+    urgency?: 'high' | 'medium' | 'low';
+    title: string;
+    source?: 'email' | 'meeting' | 'task';
+    from?: string;
+    subject?: string;
+    receivedAt?: string;
+    context?: string;
+    action: string;
+    why?: string;
+    estimatedMinutes?: number;
+  }>;
 }
 
 const defaultColors = {
@@ -237,7 +250,42 @@ export default function AIDailyBrief() {
       </div>
     `;
 
-    if (type === 'all' && brief.aiAnalysis) {
+    const hasActionPlan = Array.isArray(brief.actionPlan) && brief.actionPlan.length > 0;
+
+    if ((type === 'all' || type === 'todo' || type === 'priorities') && hasActionPlan) {
+      const urgBorder = (u?: string) => u === 'high' ? priorityColors.high : u === 'low' ? priorityColors.low : priorityColors.medium;
+      content += `
+        <section class="brief-section">
+          <h2>Your Action Plan</h2>
+          <p style="margin:0 0 14px;color:#64748b;font-size:13px">Ordered list of what to do today — with the context, the ask, and the next step for each item, so you can act without reopening your inbox.</p>
+          ${brief.actionPlan!.map((it, i) => {
+            const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
+            const meta: string[] = [];
+            if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
+            if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
+            if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
+            return `<div style="margin:10px 0;padding:14px 16px;background:#fff;border:1px solid #e2e8f0;border-left:5px solid ${urgBorder(it.urgency)};border-radius:10px;page-break-inside:avoid">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${urgBorder(it.urgency)};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(it.priority ?? i + 1)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong style="color:#0f172a;font-size:15px">${esc(it.title)}</strong>
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:${urgBorder(it.urgency)};padding:3px 8px;border-radius:10px">${esc(it.urgency || 'medium')}</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">${srcLabel}${meta.length ? ' · ' : ''}<span style="color:#64748b;text-transform:none;letter-spacing:0;font-weight:400">${meta.join(' · ')}</span></div>
+                  ${it.context ? `<div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">What's being asked:</span> ${esc(it.context)}</div>` : ''}
+                  ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do this:</span> ${esc(it.action)}</div>` : ''}
+                  ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why it matters: ${esc(it.why)}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${brief.aiAnalysis?.risks?.length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${brief.aiAnalysis.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
+          ${brief.aiAnalysis?.wins?.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${brief.aiAnalysis.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+        </section>
+      `;
+    } else if (type === 'all' && brief.aiAnalysis) {
       const ai = brief.aiAnalysis;
       content += `
         <section class="brief-section">
@@ -262,7 +310,7 @@ export default function AIDailyBrief() {
       `;
     }
 
-    if (type === 'all' || type === 'priorities') {
+    if (!hasActionPlan && (type === 'all' || type === 'priorities')) {
       content += `
         <section class="brief-section">
           <h2>Priorities</h2>
@@ -315,7 +363,7 @@ export default function AIDailyBrief() {
       `;
     }
 
-    if (type === 'all' || type === 'todo') {
+    if (!hasActionPlan && (type === 'all' || type === 'todo')) {
       content += `
         <section class="brief-section">
           <h2>To-Do List</h2>
@@ -487,52 +535,165 @@ export default function AIDailyBrief() {
         </div>
       )}
 
-      {/* AI Analysis details (steps + risks/wins) */}
-      {brief?.aiAnalysis && (brief.aiAnalysis.whatToDoFirst?.length || brief.aiAnalysis.risks?.length || brief.aiAnalysis.wins?.length) ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
-            <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <h3 className="text-h6 mb-3" style={{ color: 'var(--text)' }}>What to do first</h3>
-              <ol className="space-y-2">
-                {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
-                  <li key={i} className="flex gap-3 p-3 rounded-xl" style={{ background: 'var(--surface-2)' }}>
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full text-white text-sm font-bold grid place-items-center" style={{ background: 'var(--c-blue)' }}>
-                      {item.step ?? i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-button" style={{ color: 'var(--text)' }}>{item.action}</p>
-                      {item.why && <p className="text-caption mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.why}</p>}
-                      {item.estimatedMinutes && <p className="text-caption font-semibold mt-1" style={{ color: 'var(--c-blue)' }}>~{item.estimatedMinutes} min</p>}
+      {/* Unified Action Plan — primary executive section. Replaces separate AI Analysis + Priorities when present. */}
+      {brief?.actionPlan && brief.actionPlan.length > 0 ? (
+        <Card data-tour="brief-action-plan" className="border-0 shadow-lg overflow-hidden ring-1 ring-indigo-200/60 dark:ring-indigo-900/40 mb-6">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+          <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-3">
+                <span className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
+                Your Action Plan
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1.5 ml-11">
+                Ordered list of what to do today — with the context, the ask, and the next step for each item.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => handlePrint('todo')}>
+              <Printer className="w-4 h-4 mr-1" /> Print
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-5">
+            <ol className="space-y-3">
+              {brief.actionPlan.map((it, i) => {
+                const urgColor = it.urgency === 'high' ? priorityColors.high
+                  : it.urgency === 'low' ? priorityColors.low
+                  : priorityColors.medium;
+                const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
+                return (
+                  <li
+                    key={i}
+                    className="p-4 rounded-xl bg-card border shadow-sm"
+                    style={{ borderLeftWidth: '5px', borderLeftColor: urgColor }}
+                  >
+                    <div className="flex gap-3 items-start">
+                      <div
+                        className="flex-shrink-0 w-8 h-8 rounded-full text-white text-sm font-bold grid place-items-center"
+                        style={{ background: urgColor }}
+                      >
+                        {it.priority ?? i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{it.title}</span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase tracking-wide"
+                            style={getUrgencyStyle(it.urgency || 'medium')}
+                          >
+                            {it.urgency || 'medium'}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">
+                          {srcLabel}
+                          {it.from && <span className="font-normal normal-case tracking-normal"> · From <strong>{it.from}</strong></span>}
+                          {it.subject && <span className="font-normal normal-case tracking-normal"> · {it.subject}</span>}
+                          {it.receivedAt && <span className="font-normal normal-case tracking-normal"> · {it.receivedAt}</span>}
+                        </p>
+                        {it.context && (
+                          <div className="mt-2 p-2.5 rounded-md bg-muted/40 text-sm leading-relaxed">
+                            <span className="font-semibold text-foreground">What's being asked: </span>
+                            <span className="text-muted-foreground">{it.context}</span>
+                          </div>
+                        )}
+                        {it.action && (
+                          <p className="mt-2 text-sm leading-relaxed">
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Do this: </span>
+                            <span>{it.action}</span>
+                          </p>
+                        )}
+                        {it.why && (
+                          <p className="mt-1 text-xs italic text-muted-foreground">
+                            Why it matters: {it.why}
+                          </p>
+                        )}
+                        {it.estimatedMinutes && (
+                          <p className="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                            ⏱ ~{it.estimatedMinutes} min
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </li>
-                ))}
-              </ol>
+                );
+              })}
+            </ol>
+            {(brief.aiAnalysis?.risks?.length || brief.aiAnalysis?.wins?.length) ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
+                {brief.aiAnalysis?.risks && brief.aiAnalysis.risks.length > 0 && (
+                  <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
+                    <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
+                      <AlertTriangle className="w-3.5 h-3.5" /> At Risk
+                    </p>
+                    <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                      {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {brief.aiAnalysis?.wins && brief.aiAnalysis.wins.length > 0 && (
+                  <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
+                    <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
+                    </p>
+                    <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                      {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : (
+        /* Legacy AI Analysis details (steps + risks/wins) — shown only when no actionPlan */
+        brief?.aiAnalysis && (brief.aiAnalysis.whatToDoFirst?.length || brief.aiAnalysis.risks?.length || brief.aiAnalysis.wins?.length) ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {brief.aiAnalysis.whatToDoFirst && brief.aiAnalysis.whatToDoFirst.length > 0 && (
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <h3 className="text-h6 mb-3" style={{ color: 'var(--text)' }}>What to do first</h3>
+                <ol className="space-y-2">
+                  {brief.aiAnalysis.whatToDoFirst.map((item, i) => (
+                    <li key={i} className="flex gap-3 p-3 rounded-xl" style={{ background: 'var(--surface-2)' }}>
+                      <div className="flex-shrink-0 w-7 h-7 rounded-full text-white text-sm font-bold grid place-items-center" style={{ background: 'var(--c-blue)' }}>
+                        {item.step ?? i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-button" style={{ color: 'var(--text)' }}>{item.action}</p>
+                        {item.why && <p className="text-caption mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.why}</p>}
+                        {item.estimatedMinutes && <p className="text-caption font-semibold mt-1" style={{ color: 'var(--c-blue)' }}>~{item.estimatedMinutes} min</p>}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            <div className="space-y-4">
+              {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
+                <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
+                  <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
+                    <AlertTriangle className="w-3.5 h-3.5" /> At Risk
+                  </p>
+                  <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                    {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+              {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
+                <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
+                  <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
+                  </p>
+                  <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                    {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
-          <div className="space-y-4">
-            {brief.aiAnalysis.risks && brief.aiAnalysis.risks.length > 0 && (
-              <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
-                <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
-                  <AlertTriangle className="w-3.5 h-3.5" /> At Risk
-                </p>
-                <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
-                  {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-            {brief.aiAnalysis.wins && brief.aiAnalysis.wins.length > 0 && (
-              <div className="rounded-2xl p-5" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
-                <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
-                </p>
-                <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
-                  {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              </div>
-            )}
           </div>
-        </div>
-      ) : null}
+        ) : null
+      )}
 
       <PendingFromYesterdaySection connectionId={activeConnection?.id} />
 
@@ -560,7 +721,8 @@ export default function AIDailyBrief() {
         </Card>
       ) : brief ? (
         <div className="space-y-6">
-          {/* SECTION 3 — Today's Priorities (executive top focus) */}
+          {/* SECTION 3 — Today's Priorities (executive top focus). Hidden when Action Plan is present to avoid duplication. */}
+          {!(brief.actionPlan && brief.actionPlan.length > 0) && (
           <Card data-tour="brief-priorities" className="border-0 shadow-lg overflow-hidden ring-1 ring-amber-200/60 dark:ring-amber-900/40">
             <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
             <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
@@ -621,6 +783,7 @@ export default function AIDailyBrief() {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* SECTION 4 — Today's Schedule + Email Highlights side-by-side on large screens */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -125,10 +125,45 @@ function renderBriefHtml(
   const greeting = esc(brief?.greeting || "");
   const summary = esc(brief?.summary || "Here is your daily brief.");
 
-  // AI Analysis – What to do first
+  // ===== Action Plan (primary unified section) =====
+  const actionPlan = Array.isArray(brief?.actionPlan) ? brief.actionPlan : [];
+  const hasActionPlan = actionPlan.length > 0;
+  const actionPlanBlock = hasActionPlan
+    ? `<div style="margin:24px 0 8px">
+         <h2 style="font-size:18px;color:#0f172a;margin:0 0 4px;display:flex;align-items:center;gap:8px">🎯 Your Action Plan</h2>
+         <p style="margin:0 0 14px;color:#64748b;font-size:13px">Ordered list of what to do today — with the context, the ask, and the next step for each item, so you can act without reopening your inbox.</p>
+         ${actionPlan.map((it: any, i: number) => {
+            const c = urgencyColor(it.urgency);
+            const num = it.priority ?? i + 1;
+            const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
+            const meta: string[] = [];
+            if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
+            if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
+            if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
+            return `<div style="margin:10px 0;padding:14px 16px;background:#ffffff;border:1px solid #e2e8f0;border-left:5px solid ${c.border};border-radius:10px">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${c.border};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(num)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong style="color:#0f172a;font-size:15px;line-height:1.3">${esc(it.title || '')}</strong>
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${c.fg};background:${c.bg};padding:3px 8px;border-radius:10px;border:1px solid ${c.border}">${esc(it.urgency || 'medium')}</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">${srcLabel}${meta.length ? ' · ' : ''}<span style="color:#64748b;text-transform:none;letter-spacing:0;font-weight:400">${meta.join(' · ')}</span></div>
+                  ${it.context ? `<div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">What's being asked:</span> ${esc(it.context)}</div>` : ''}
+                  ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do this:</span> ${esc(it.action)}</div>` : ''}
+                  ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why it matters: ${esc(it.why)}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+       </div>`
+    : '';
+
+  // AI Analysis – What to do first (LEGACY — only shown when no actionPlan)
   const ai = brief?.aiAnalysis || {};
   const whatToDoItems = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
-  const aiBlock = `
+  const aiBlock = hasActionPlan ? '' : `
     <div style="margin:24px 0;padding:18px 20px;border-radius:10px;background:linear-gradient(135deg,#eff6ff 0%,#f5f3ff 100%);border:1px solid #c7d2fe">
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#4338ca;text-transform:uppercase;margin-bottom:6px">🤖 AI Analysis — What to do first</div>
       ${ai.headline ? `<p style="margin:0 0 14px;font-size:15px;color:#0f172a;font-weight:600">${esc(ai.headline)}</p>` : ""}
@@ -151,10 +186,19 @@ function renderBriefHtml(
       ${Array.isArray(ai.wins) && ai.wins.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     </div>`;
 
-  // Priorities — Today Highlighted
+  // Risks & Wins extracted from actionPlan path so executives still see them
+  const riskWinBlock = (hasActionPlan && ((Array.isArray(ai.risks) && ai.risks.length) || (Array.isArray(ai.wins) && ai.wins.length)))
+    ? `<div style="margin:16px 0">
+         ${Array.isArray(ai.risks) && ai.risks.length ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ''}
+         ${Array.isArray(ai.wins) && ai.wins.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ''}
+       </div>`
+    : '';
+
+  // Priorities — Today Highlighted (LEGACY — hidden when actionPlan present, since Action Plan already covers it)
   const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
-  const prioritiesBlock = priorities.length
-    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">🎯 Today's Priorities</h2>
+  const prioritiesBlock = (hasActionPlan || !priorities.length)
+    ? ''
+    : `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">🎯 Today's Priorities</h2>
        ${priorities.map((p: any) => {
           const c = urgencyColor(p.urgency);
           return `<div style="padding:12px 14px;margin:8px 0;background:${c.bg};border-left:4px solid ${c.border};border-radius:6px">
@@ -164,8 +208,7 @@ function renderBriefHtml(
             </div>
             ${p.description ? `<p style="margin:6px 0 0;color:#475569;font-size:13px">${esc(p.description)}</p>` : ""}
           </div>`;
-        }).join("")}`
-    : "";
+        }).join("")}`;
 
   // Schedule
   const schedule = Array.isArray(brief?.schedule) ? brief.schedule : [];
@@ -181,14 +224,15 @@ function renderBriefHtml(
           </div>`).join("")}</div>`
     : "";
 
-  // Email Highlights
+  // Email Highlights — kept as a reference list. When Action Plan is present, render compact.
   const emails = Array.isArray(brief?.emailHighlights) ? brief.emailHighlights.slice(0, 10) : [];
   const emailsBlock = emails.length
-    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">📧 Email Highlights</h2>
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">📧 Email Highlights ${hasActionPlan ? '<span style="font-size:11px;color:#94a3b8;font-weight:400">· reference list</span>' : ''}</h2>
        ${emails.map((e: any) => `
           <div style="padding:10px 12px;margin:6px 0;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:4px">
             <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(e.subject)}</div>
             <div style="color:#64748b;font-size:12px;margin-top:3px">From <strong>${esc(e.from)}</strong> · Action: <span style="color:#0ea5e9;font-weight:600">${esc(e.action)}</span></div>
+            ${e.preview ? `<div style="color:#475569;font-size:12px;margin-top:4px;line-height:1.5">${esc(e.preview)}</div>` : ''}
           </div>`).join("")}`
     : "";
 
@@ -210,10 +254,12 @@ function renderBriefHtml(
         }).join("")}`
     : "";
 
-  // To-Do List (combined priorities + email actions)
+  // To-Do List (LEGACY — hidden when actionPlan present)
   const todoItems: string[] = [];
-  priorities.forEach((p: any) => todoItems.push(`${esc(p.title)}${p.description ? ` — <span style="color:#64748b">${esc(p.description)}</span>` : ""}`));
-  emails.slice(0, 5).forEach((e: any) => todoItems.push(`<strong>${esc(e.action)}:</strong> ${esc(e.subject)} <span style="color:#64748b">(${esc(e.from)})</span>`));
+  if (!hasActionPlan) {
+    priorities.forEach((p: any) => todoItems.push(`${esc(p.title)}${p.description ? ` — <span style="color:#64748b">${esc(p.description)}</span>` : ""}`));
+    emails.slice(0, 5).forEach((e: any) => todoItems.push(`<strong>${esc(e.action)}:</strong> ${esc(e.subject)} <span style="color:#64748b">(${esc(e.from)})</span>`));
+  }
   const todoBlock = todoItems.length
     ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">✅ To-Do List</h2>
        <ul style="list-style:none;padding:0;margin:0">
@@ -246,6 +292,8 @@ function renderBriefHtml(
     </div>
     ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 8px">${greeting}</p>` : ""}
     <p style="color:#0f172a;font-size:15px;margin:0 0 8px">${summary}</p>
+    <div class="brief-section">${actionPlanBlock}</div>
+    <div class="brief-section">${riskWinBlock}</div>
     <div class="brief-section">${aiBlock}</div>
     <div class="brief-section">${prioritiesBlock}</div>
     <div class="brief-section">${scheduleBlock}</div>
@@ -401,39 +449,80 @@ function buildBriefPdf(
     y += 8;
   }
 
-  // AI Analysis — first major section. Stays on page 1 (no force-page).
+  // ===== Action Plan (unified) — primary PDF section =====
+  const actionPlan = Array.isArray(brief?.actionPlan) ? brief.actionPlan : [];
+  const hasActionPlan = actionPlan.length > 0;
   const ai = brief?.aiAnalysis || {};
-  const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
-  if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
-    sectionHeading("AI Analysis — What to do first");
-    if (ai.headline) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      writeWrapped(String(ai.headline), marginX, pageW - 2 * marginX);
-      y += 4;
-    }
-    items.forEach((it: any, idx: number) => {
-      ensureSpace(40);
-      doc.setFillColor(238, 242, 255);
-      const startY = y - 10;
+  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
+
+  if (hasActionPlan) {
+    sectionHeading("Your Action Plan");
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    writeWrapped(
+      "Ordered list of what to do today — with the context, the ask, and the next step for each item.",
+      marginX,
+      pageW - 2 * marginX,
+      12,
+    );
+    y += 4;
+    actionPlan.forEach((it: any, idx: number) => {
+      ensureSpace(80);
       const cardX = marginX;
       const cardW = pageW - 2 * marginX;
       const innerX = cardX + 36;
       const innerW = cardW - 44;
+      const startY = y - 10;
 
-      // step bubble
+      // header line: title + urgency
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      // Render text first to know height
-      const beforeY = y;
       doc.setTextColor(15, 23, 42);
-      writeWrapped(String(it.action || ""), innerX, innerW, 14);
-      if (it.why) {
-        doc.setFont("helvetica", "normal");
+      writeWrapped(
+        `${String(it.urgency || "MED").toUpperCase()} — ${String(it.title || "")}`,
+        innerX,
+        innerW,
+        14,
+      );
+
+      // meta line
+      const metaBits: string[] = [];
+      const srcLabel = it.source === "meeting" ? "Meeting" : it.source === "task" ? "Task" : "Email";
+      metaBits.push(srcLabel);
+      if (it.from) metaBits.push(`From ${it.from}`);
+      if (it.subject) metaBits.push(`Subject: ${it.subject}`);
+      if (it.receivedAt) metaBits.push(`Received ${it.receivedAt}`);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      writeWrapped(metaBits.join(" · "), innerX, innerW, 11);
+
+      if (it.context) {
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("What's being asked:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        writeWrapped(String(it.context), innerX, innerW, 12);
+      }
+      if (it.action) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("Do this:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(it.action), innerX, innerW, 12);
+      }
+      if (it.why) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
-        writeWrapped(String(it.why), innerX, innerW, 12);
+        writeWrapped(`Why it matters: ${String(it.why)}`, innerX, innerW, 11);
       }
       if (it.estimatedMinutes) {
         doc.setFont("helvetica", "bold");
@@ -443,27 +532,59 @@ function buildBriefPdf(
         doc.text(`~${it.estimatedMinutes} min`, innerX, y);
         y += 12;
       }
-      const endY = y + 4;
-      // Draw bg + bubble behind
-      doc.setFillColor(238, 242, 255);
+      const endY = y + 6;
+
+      // background card + number bubble
+      doc.setFillColor(248, 250, 252);
       doc.rect(cardX, startY, cardW, endY - startY, "F");
-      doc.setFillColor(67, 56, 202);
-      doc.circle(cardX + 18, startY + 16, 10, "F");
+      const urg = String(it.urgency || "medium");
+      const bub: [number, number, number] = urg === "high" ? [239, 68, 68] : urg === "low" ? [16, 185, 129] : [245, 158, 11];
+      doc.setFillColor(bub[0], bub[1], bub[2]);
+      doc.circle(cardX + 18, startY + 16, 11, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(255, 255, 255);
-      doc.text(String(it.step ?? idx + 1), cardX + 18, startY + 20, { align: "center" });
-      // Re-render text on top
-      y = beforeY;
+      doc.text(String(it.priority ?? idx + 1), cardX + 18, startY + 20, { align: "center" });
+      // Re-draw text on top of card background
+      y = startY + 10;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      writeWrapped(String(it.action || ""), innerX, innerW, 14);
-      if (it.why) {
-        doc.setFont("helvetica", "normal");
+      writeWrapped(
+        `${String(it.urgency || "MED").toUpperCase()} — ${String(it.title || "")}`,
+        innerX,
+        innerW,
+        14,
+      );
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      writeWrapped(metaBits.join(" · "), innerX, innerW, 11);
+      if (it.context) {
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("What's being asked:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        writeWrapped(String(it.context), innerX, innerW, 12);
+      }
+      if (it.action) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("Do this:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(it.action), innerX, innerW, 12);
+      }
+      if (it.why) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
-        writeWrapped(String(it.why), innerX, innerW, 12);
+        writeWrapped(`Why it matters: ${String(it.why)}`, innerX, innerW, 11);
       }
       if (it.estimatedMinutes) {
         doc.setFont("helvetica", "bold");
@@ -473,7 +594,7 @@ function buildBriefPdf(
         doc.text(`~${it.estimatedMinutes} min`, innerX, y);
         y += 12;
       }
-      y = endY + 6;
+      y = endY + 8;
     });
 
     if (Array.isArray(ai.risks) && ai.risks.length) {
@@ -502,29 +623,87 @@ function buildBriefPdf(
       ai.wins.forEach((w: string) => writeWrapped("• " + String(w), marginX + 12, pageW - 2 * marginX - 12, 12));
       y += 8;
     }
-  }
-
-  // Priorities — starts on a fresh page so executives see them cleanly.
-  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
-  if (priorities.length) {
-    sectionHeading("Today's Priorities", { newPage: true });
-    priorities.forEach((p: any) => {
-      ensureSpace(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      const tag = String(p.urgency || "medium").toUpperCase();
-      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
-      y += 14;
-      if (p.description) {
+  } else {
+    // LEGACY path: no actionPlan — keep old AI Analysis + Priorities sections.
+    const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
+    if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
+      sectionHeading("AI Analysis — What to do first");
+      if (ai.headline) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(ai.headline), marginX, pageW - 2 * marginX);
+        y += 4;
+      }
+      items.forEach((it: any, idx: number) => {
+        ensureSpace(24);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${it.step ?? idx + 1}. ${String(it.action || "")}`, marginX, y);
+        y += 14;
+        if (it.why) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          writeWrapped(String(it.why), marginX + 16, pageW - 2 * marginX - 16, 12);
+        }
+        if (it.estimatedMinutes) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(67, 56, 202);
+          doc.text(`~${it.estimatedMinutes} min`, marginX + 16, y);
+          y += 12;
+        }
+        y += 4;
+      });
+      if (Array.isArray(ai.risks) && ai.risks.length) {
+        ensureSpace(20);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(185, 28, 28);
+        doc.text("AT RISK", marginX, y);
+        y += 12;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+        doc.setTextColor(127, 29, 29);
+        ai.risks.forEach((r: string) => writeWrapped("• " + String(r), marginX + 12, pageW - 2 * marginX - 12, 12));
+        y += 4;
       }
-      y += 4;
-    });
-    y += 6;
+      if (Array.isArray(ai.wins) && ai.wins.length) {
+        ensureSpace(20);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("QUICK WINS", marginX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(6, 95, 70);
+        ai.wins.forEach((w: string) => writeWrapped("• " + String(w), marginX + 12, pageW - 2 * marginX - 12, 12));
+        y += 8;
+      }
+    }
+    if (priorities.length) {
+      sectionHeading("Today's Priorities", { newPage: true });
+      priorities.forEach((p: any) => {
+        ensureSpace(30);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        const tag = String(p.urgency || "medium").toUpperCase();
+        doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
+        y += 14;
+        if (p.description) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+        }
+        y += 4;
+      });
+      y += 6;
+    }
   }
 
   // Today's Schedule — fresh page.
@@ -614,19 +793,22 @@ function buildBriefPdf(
   }
 
   // To-Do List — combined priorities + email actions, mirroring the on-screen view.
+  // Skipped when Action Plan is present (Action Plan already covers it).
   const todoLines: Array<{ label: string; sub?: string }> = [];
-  priorities.forEach((p: any) => {
-    todoLines.push({
-      label: String(p.title || ""),
-      sub: p.description ? String(p.description) : undefined,
+  if (!hasActionPlan) {
+    priorities.forEach((p: any) => {
+      todoLines.push({
+        label: String(p.title || ""),
+        sub: p.description ? String(p.description) : undefined,
+      });
     });
-  });
-  emails.slice(0, 5).forEach((e: any) => {
-    todoLines.push({
-      label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
-      sub: e.from ? `From ${e.from}` : undefined,
+    emails.slice(0, 5).forEach((e: any) => {
+      todoLines.push({
+        label: `${e.action || "Review"}: ${e.subject || "(no subject)"}`,
+        sub: e.from ? `From ${e.from}` : undefined,
+      });
     });
-  });
+  }
   if (todoLines.length) {
     sectionHeading("To-Do List", { newPage: true });
     todoLines.forEach((t) => {
