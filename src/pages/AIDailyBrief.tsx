@@ -250,7 +250,42 @@ export default function AIDailyBrief() {
       </div>
     `;
 
-    if (type === 'all' && brief.aiAnalysis) {
+    const hasActionPlan = Array.isArray(brief.actionPlan) && brief.actionPlan.length > 0;
+
+    if ((type === 'all' || type === 'todo') && hasActionPlan) {
+      const urgBorder = (u?: string) => u === 'high' ? priorityColors.high : u === 'low' ? priorityColors.low : priorityColors.medium;
+      content += `
+        <section class="brief-section">
+          <h2>Your Action Plan</h2>
+          <p style="margin:0 0 14px;color:#64748b;font-size:13px">Ordered list of what to do today — with the context, the ask, and the next step for each item, so you can act without reopening your inbox.</p>
+          ${brief.actionPlan!.map((it, i) => {
+            const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
+            const meta: string[] = [];
+            if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
+            if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
+            if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
+            return `<div style="margin:10px 0;padding:14px 16px;background:#fff;border:1px solid #e2e8f0;border-left:5px solid ${urgBorder(it.urgency)};border-radius:10px;page-break-inside:avoid">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${urgBorder(it.urgency)};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(it.priority ?? i + 1)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong style="color:#0f172a;font-size:15px">${esc(it.title)}</strong>
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:${urgBorder(it.urgency)};padding:3px 8px;border-radius:10px">${esc(it.urgency || 'medium')}</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">${srcLabel}${meta.length ? ' · ' : ''}<span style="color:#64748b;text-transform:none;letter-spacing:0;font-weight:400">${meta.join(' · ')}</span></div>
+                  ${it.context ? `<div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">What's being asked:</span> ${esc(it.context)}</div>` : ''}
+                  ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do this:</span> ${esc(it.action)}</div>` : ''}
+                  ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why it matters: ${esc(it.why)}</div>` : ''}
+                  ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${brief.aiAnalysis?.risks?.length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${brief.aiAnalysis.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
+          ${brief.aiAnalysis?.wins?.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${brief.aiAnalysis.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+        </section>
+      `;
+    } else if (type === 'all' && brief.aiAnalysis) {
       const ai = brief.aiAnalysis;
       content += `
         <section class="brief-section">
