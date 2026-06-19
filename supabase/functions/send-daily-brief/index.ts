@@ -292,6 +292,8 @@ function renderBriefHtml(
     </div>
     ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 8px">${greeting}</p>` : ""}
     <p style="color:#0f172a;font-size:15px;margin:0 0 8px">${summary}</p>
+    <div class="brief-section">${actionPlanBlock}</div>
+    <div class="brief-section">${riskWinBlock}</div>
     <div class="brief-section">${aiBlock}</div>
     <div class="brief-section">${prioritiesBlock}</div>
     <div class="brief-section">${scheduleBlock}</div>
