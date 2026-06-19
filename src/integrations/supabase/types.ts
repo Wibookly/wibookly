@@ -1173,6 +1173,90 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_brief_tasks: {
+        Row: {
+          action: string | null
+          brief_date: string
+          calendar_event_id: string | null
+          carried_from_date: string | null
+          carry_count: number
+          completed_at: string | null
+          connection_id: string | null
+          context: string | null
+          created_at: string
+          estimated_minutes: number | null
+          fingerprint: string
+          from_text: string | null
+          id: string
+          priority: number | null
+          received_at: string | null
+          reminder_at: string | null
+          snoozed_until: string | null
+          source: string
+          status: string
+          subject: string | null
+          title: string
+          updated_at: string
+          urgency: string | null
+          user_id: string
+          why: string | null
+        }
+        Insert: {
+          action?: string | null
+          brief_date?: string
+          calendar_event_id?: string | null
+          carried_from_date?: string | null
+          carry_count?: number
+          completed_at?: string | null
+          connection_id?: string | null
+          context?: string | null
+          created_at?: string
+          estimated_minutes?: number | null
+          fingerprint: string
+          from_text?: string | null
+          id?: string
+          priority?: number | null
+          received_at?: string | null
+          reminder_at?: string | null
+          snoozed_until?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+          title: string
+          updated_at?: string
+          urgency?: string | null
+          user_id: string
+          why?: string | null
+        }
+        Update: {
+          action?: string | null
+          brief_date?: string
+          calendar_event_id?: string | null
+          carried_from_date?: string | null
+          carry_count?: number
+          completed_at?: string | null
+          connection_id?: string | null
+          context?: string | null
+          created_at?: string
+          estimated_minutes?: number | null
+          fingerprint?: string
+          from_text?: string | null
+          id?: string
+          priority?: number | null
+          received_at?: string | null
+          reminder_at?: string | null
+          snoozed_until?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+          title?: string
+          updated_at?: string
+          urgency?: string | null
+          user_id?: string
+          why?: string | null
+        }
+        Relationships: []
+      }
       discovered_tenant_users: {
         Row: {
           account_enabled: boolean
