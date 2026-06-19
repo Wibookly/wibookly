@@ -540,117 +540,40 @@ export default function AIDailyBrief() {
         </div>
       )}
 
-      {/* Unified Action Plan — primary executive section. Replaces separate AI Analysis + Priorities when present. */}
+      {/* Unified Action Items — split into Emails / Calendar / Tasks. */}
       {brief?.actionPlan && brief.actionPlan.length > 0 ? (
-        <Card data-tour="brief-action-plan" className="border-0 shadow-lg overflow-hidden ring-1 ring-indigo-200/60 dark:ring-indigo-900/40 mb-6">
-          <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
-          <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-3">
-                <span className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
-                  <CheckCircle2 className="w-4 h-4" />
-                </span>
-                Your Action Plan
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1.5 ml-11">
-                Ordered list of what to do today — with the context, the ask, and the next step for each item.
-              </p>
+        <>
+          <ActionItemsPanel
+            items={brief.actionPlan as any}
+            priorityColors={priorityColors}
+            onChanged={() => refetch()}
+            onPrint={() => handlePrint('all')}
+          />
+          {(brief.aiAnalysis?.risks?.length || brief.aiAnalysis?.wins?.length) ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {brief.aiAnalysis?.risks && brief.aiAnalysis.risks.length > 0 && (
+                <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
+                  <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
+                    <AlertTriangle className="w-3.5 h-3.5" /> At Risk
+                  </p>
+                  <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                    {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+              {brief.aiAnalysis?.wins && brief.aiAnalysis.wins.length > 0 && (
+                <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
+                  <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
+                  </p>
+                  <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
+                    {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
-            <Button variant="ghost" size="sm" onClick={() => handlePrint('todo')}>
-              <Printer className="w-4 h-4 mr-1" /> Print
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-5">
-            <ol className="space-y-3">
-              {brief.actionPlan.map((it, i) => {
-                const urgColor = it.urgency === 'high' ? priorityColors.high
-                  : it.urgency === 'low' ? priorityColors.low
-                  : priorityColors.medium;
-                const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
-                return (
-                  <li
-                    key={i}
-                    className="p-4 rounded-xl bg-card border shadow-sm"
-                    style={{ borderLeftWidth: '5px', borderLeftColor: urgColor }}
-                  >
-                    <div className="flex gap-3 items-start">
-                      <div
-                        className="flex-shrink-0 w-8 h-8 rounded-full text-white text-sm font-bold grid place-items-center"
-                        style={{ background: urgColor }}
-                      >
-                        {it.priority ?? i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="font-semibold text-sm">{it.title}</span>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] uppercase tracking-wide"
-                            style={getUrgencyStyle(it.urgency || 'medium')}
-                          >
-                            {it.urgency || 'medium'}
-                          </Badge>
-                        </div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">
-                          {srcLabel}
-                          {it.from && <span className="font-normal normal-case tracking-normal"> · From <strong>{it.from}</strong></span>}
-                          {it.subject && <span className="font-normal normal-case tracking-normal"> · {it.subject}</span>}
-                          {it.receivedAt && <span className="font-normal normal-case tracking-normal"> · {it.receivedAt}</span>}
-                        </p>
-                        {it.context && (
-                          <div className="mt-2 p-2.5 rounded-md bg-muted/40 text-sm leading-relaxed">
-                            <span className="font-semibold text-foreground">What's being asked: </span>
-                            <span className="text-muted-foreground">{it.context}</span>
-                          </div>
-                        )}
-                        {it.action && (
-                          <p className="mt-2 text-sm leading-relaxed">
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Do this: </span>
-                            <span>{it.action}</span>
-                          </p>
-                        )}
-                        {it.why && (
-                          <p className="mt-1 text-xs italic text-muted-foreground">
-                            Why it matters: {it.why}
-                          </p>
-                        )}
-                        {it.estimatedMinutes && (
-                          <p className="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
-                            ⏱ ~{it.estimatedMinutes} min
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-            {(brief.aiAnalysis?.risks?.length || brief.aiAnalysis?.wins?.length) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
-                {brief.aiAnalysis?.risks && brief.aiAnalysis.risks.length > 0 && (
-                  <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-rose) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-rose) 30%, transparent)' }}>
-                    <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--c-rose)' }}>
-                      <AlertTriangle className="w-3.5 h-3.5" /> At Risk
-                    </p>
-                    <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
-                      {brief.aiAnalysis.risks.map((r, i) => <li key={i}>{r}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {brief.aiAnalysis?.wins && brief.aiAnalysis.wins.length > 0 && (
-                  <div className="rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--c-green) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--c-green) 30%, transparent)' }}>
-                    <p className="text-overline mb-2 flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Quick Wins
-                    </p>
-                    <ul className="text-body-2 list-disc pl-5 space-y-1" style={{ color: 'var(--text-body)' }}>
-                      {brief.aiAnalysis.wins.map((w, i) => <li key={i}>{w}</li>)}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+          ) : null}
+        </>
       ) : (
         /* Legacy AI Analysis details (steps + risks/wins) — shown only when no actionPlan */
         brief?.aiAnalysis && (brief.aiAnalysis.whatToDoFirst?.length || brief.aiAnalysis.risks?.length || brief.aiAnalysis.wins?.length) ? (
