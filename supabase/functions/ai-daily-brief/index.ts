@@ -719,8 +719,67 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
           })),
           risks: unreadEmails.length > 5 ? ['Inbox volume is high — block time to triage'] : [],
           wins: calendarEvents.length === 0 ? ['Calendar is clear — protect a focus block'] : [],
-        }
+        },
+        actionPlan: [
+          ...calendarEvents.slice(0, 3).map((ev, i) => ({
+            priority: i + 1,
+            urgency: 'high' as const,
+            title: ev.title,
+            source: 'meeting' as const,
+            context: `Scheduled ${formatTime(ev.start)} – ${formatTime(ev.end)}${ev.location ? ` at ${ev.location}` : ''}${ev.attendees?.length ? ` with ${ev.attendees.slice(0, 3).join(', ')}` : ''}.`,
+            action: 'Join on time and have your prep notes ready.',
+            why: 'Calendar commitment — attendees are expecting you.',
+            estimatedMinutes: 30,
+          })),
+          ...unreadEmails.slice(0, 7).map((e, i) => ({
+            priority: calendarEvents.slice(0, 3).length + i + 1,
+            urgency: (i < 2 ? 'high' : i < 5 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+            title: `Reply: ${e.subject.slice(0, 60)}`,
+            source: 'email' as const,
+            from: e.from,
+            subject: e.subject,
+            receivedAt: formatTime(e.date),
+            context: e.snippet?.slice(0, 240) || 'Unread email — open to see what was asked.',
+            action: 'Read the message, then reply or delegate.',
+            why: 'Sitting unanswered in your inbox.',
+            estimatedMinutes: 10,
+          })),
+        ],
       };
+    }
+
+    // Backwards-compat safety net: if AI omitted actionPlan, synthesize one from priorities + emailHighlights.
+    if (briefData && !Array.isArray(briefData.actionPlan)) {
+      const synth: any[] = [];
+      const pris = Array.isArray(briefData.priorities) ? briefData.priorities : [];
+      const ehs = Array.isArray(briefData.emailHighlights) ? briefData.emailHighlights : [];
+      pris.forEach((p: any, i: number) => {
+        synth.push({
+          priority: i + 1,
+          urgency: p.urgency || 'medium',
+          title: p.title || 'Untitled',
+          source: p.type || 'task',
+          context: p.description || '',
+          action: p.description || 'Review and act.',
+          why: '',
+          estimatedMinutes: 10,
+        });
+      });
+      ehs.forEach((e: any, i: number) => {
+        synth.push({
+          priority: pris.length + i + 1,
+          urgency: e.urgency || 'medium',
+          title: `${e.action || 'Reply'}: ${e.subject || '(no subject)'}`,
+          source: 'email',
+          from: e.from,
+          subject: e.subject,
+          context: e.preview || e.description || '',
+          action: e.action || 'Reply or triage.',
+          why: '',
+          estimatedMinutes: 10,
+        });
+      });
+      briefData.actionPlan = synth;
     }
 
     return new Response(JSON.stringify(briefData), {
