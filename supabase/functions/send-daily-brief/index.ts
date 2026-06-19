@@ -449,39 +449,80 @@ function buildBriefPdf(
     y += 8;
   }
 
-  // AI Analysis — first major section. Stays on page 1 (no force-page).
+  // ===== Action Plan (unified) — primary PDF section =====
+  const actionPlan = Array.isArray(brief?.actionPlan) ? brief.actionPlan : [];
+  const hasActionPlan = actionPlan.length > 0;
   const ai = brief?.aiAnalysis || {};
-  const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
-  if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
-    sectionHeading("AI Analysis — What to do first");
-    if (ai.headline) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      writeWrapped(String(ai.headline), marginX, pageW - 2 * marginX);
-      y += 4;
-    }
-    items.forEach((it: any, idx: number) => {
-      ensureSpace(40);
-      doc.setFillColor(238, 242, 255);
-      const startY = y - 10;
+  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
+
+  if (hasActionPlan) {
+    sectionHeading("Your Action Plan");
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    writeWrapped(
+      "Ordered list of what to do today — with the context, the ask, and the next step for each item.",
+      marginX,
+      pageW - 2 * marginX,
+      12,
+    );
+    y += 4;
+    actionPlan.forEach((it: any, idx: number) => {
+      ensureSpace(80);
       const cardX = marginX;
       const cardW = pageW - 2 * marginX;
       const innerX = cardX + 36;
       const innerW = cardW - 44;
+      const startY = y - 10;
 
-      // step bubble
+      // header line: title + urgency
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      // Render text first to know height
-      const beforeY = y;
       doc.setTextColor(15, 23, 42);
-      writeWrapped(String(it.action || ""), innerX, innerW, 14);
-      if (it.why) {
-        doc.setFont("helvetica", "normal");
+      writeWrapped(
+        `${String(it.urgency || "MED").toUpperCase()} — ${String(it.title || "")}`,
+        innerX,
+        innerW,
+        14,
+      );
+
+      // meta line
+      const metaBits: string[] = [];
+      const srcLabel = it.source === "meeting" ? "Meeting" : it.source === "task" ? "Task" : "Email";
+      metaBits.push(srcLabel);
+      if (it.from) metaBits.push(`From ${it.from}`);
+      if (it.subject) metaBits.push(`Subject: ${it.subject}`);
+      if (it.receivedAt) metaBits.push(`Received ${it.receivedAt}`);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      writeWrapped(metaBits.join(" · "), innerX, innerW, 11);
+
+      if (it.context) {
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("What's being asked:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        writeWrapped(String(it.context), innerX, innerW, 12);
+      }
+      if (it.action) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("Do this:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(it.action), innerX, innerW, 12);
+      }
+      if (it.why) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
-        writeWrapped(String(it.why), innerX, innerW, 12);
+        writeWrapped(`Why it matters: ${String(it.why)}`, innerX, innerW, 11);
       }
       if (it.estimatedMinutes) {
         doc.setFont("helvetica", "bold");
@@ -491,27 +532,59 @@ function buildBriefPdf(
         doc.text(`~${it.estimatedMinutes} min`, innerX, y);
         y += 12;
       }
-      const endY = y + 4;
-      // Draw bg + bubble behind
-      doc.setFillColor(238, 242, 255);
+      const endY = y + 6;
+
+      // background card + number bubble
+      doc.setFillColor(248, 250, 252);
       doc.rect(cardX, startY, cardW, endY - startY, "F");
-      doc.setFillColor(67, 56, 202);
-      doc.circle(cardX + 18, startY + 16, 10, "F");
+      const urg = String(it.urgency || "medium");
+      const bub: [number, number, number] = urg === "high" ? [239, 68, 68] : urg === "low" ? [16, 185, 129] : [245, 158, 11];
+      doc.setFillColor(bub[0], bub[1], bub[2]);
+      doc.circle(cardX + 18, startY + 16, 11, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(255, 255, 255);
-      doc.text(String(it.step ?? idx + 1), cardX + 18, startY + 20, { align: "center" });
-      // Re-render text on top
-      y = beforeY;
+      doc.text(String(it.priority ?? idx + 1), cardX + 18, startY + 20, { align: "center" });
+      // Re-draw text on top of card background
+      y = startY + 10;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      writeWrapped(String(it.action || ""), innerX, innerW, 14);
-      if (it.why) {
-        doc.setFont("helvetica", "normal");
+      writeWrapped(
+        `${String(it.urgency || "MED").toUpperCase()} — ${String(it.title || "")}`,
+        innerX,
+        innerW,
+        14,
+      );
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      writeWrapped(metaBits.join(" · "), innerX, innerW, 11);
+      if (it.context) {
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("What's being asked:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        writeWrapped(String(it.context), innerX, innerW, 12);
+      }
+      if (it.action) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("Do this:", innerX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(it.action), innerX, innerW, 12);
+      }
+      if (it.why) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
-        writeWrapped(String(it.why), innerX, innerW, 12);
+        writeWrapped(`Why it matters: ${String(it.why)}`, innerX, innerW, 11);
       }
       if (it.estimatedMinutes) {
         doc.setFont("helvetica", "bold");
@@ -521,7 +594,7 @@ function buildBriefPdf(
         doc.text(`~${it.estimatedMinutes} min`, innerX, y);
         y += 12;
       }
-      y = endY + 6;
+      y = endY + 8;
     });
 
     if (Array.isArray(ai.risks) && ai.risks.length) {
@@ -550,29 +623,87 @@ function buildBriefPdf(
       ai.wins.forEach((w: string) => writeWrapped("• " + String(w), marginX + 12, pageW - 2 * marginX - 12, 12));
       y += 8;
     }
-  }
-
-  // Priorities — starts on a fresh page so executives see them cleanly.
-  const priorities = Array.isArray(brief?.priorities) ? brief.priorities : [];
-  if (priorities.length) {
-    sectionHeading("Today's Priorities", { newPage: true });
-    priorities.forEach((p: any) => {
-      ensureSpace(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      const tag = String(p.urgency || "medium").toUpperCase();
-      doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
-      y += 14;
-      if (p.description) {
+  } else {
+    // LEGACY path: no actionPlan — keep old AI Analysis + Priorities sections.
+    const items = Array.isArray(ai.whatToDoFirst) ? ai.whatToDoFirst : [];
+    if (ai.headline || items.length || (ai.risks?.length ?? 0) || (ai.wins?.length ?? 0)) {
+      sectionHeading("AI Analysis — What to do first");
+      if (ai.headline) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        writeWrapped(String(ai.headline), marginX, pageW - 2 * marginX);
+        y += 4;
+      }
+      items.forEach((it: any, idx: number) => {
+        ensureSpace(24);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${it.step ?? idx + 1}. ${String(it.action || "")}`, marginX, y);
+        y += 14;
+        if (it.why) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          writeWrapped(String(it.why), marginX + 16, pageW - 2 * marginX - 16, 12);
+        }
+        if (it.estimatedMinutes) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(67, 56, 202);
+          doc.text(`~${it.estimatedMinutes} min`, marginX + 16, y);
+          y += 12;
+        }
+        y += 4;
+      });
+      if (Array.isArray(ai.risks) && ai.risks.length) {
+        ensureSpace(20);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(185, 28, 28);
+        doc.text("AT RISK", marginX, y);
+        y += 12;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+        doc.setTextColor(127, 29, 29);
+        ai.risks.forEach((r: string) => writeWrapped("• " + String(r), marginX + 12, pageW - 2 * marginX - 12, 12));
+        y += 4;
       }
-      y += 4;
-    });
-    y += 6;
+      if (Array.isArray(ai.wins) && ai.wins.length) {
+        ensureSpace(20);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(4, 120, 87);
+        doc.text("QUICK WINS", marginX, y);
+        y += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(6, 95, 70);
+        ai.wins.forEach((w: string) => writeWrapped("• " + String(w), marginX + 12, pageW - 2 * marginX - 12, 12));
+        y += 8;
+      }
+    }
+    if (priorities.length) {
+      sectionHeading("Today's Priorities", { newPage: true });
+      priorities.forEach((p: any) => {
+        ensureSpace(30);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        const tag = String(p.urgency || "medium").toUpperCase();
+        doc.text(`[${tag}] ${p.title || ""}`, marginX, y);
+        y += 14;
+        if (p.description) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          writeWrapped(String(p.description), marginX, pageW - 2 * marginX, 12);
+        }
+        y += 4;
+      });
+      y += 6;
+    }
   }
 
   // Today's Schedule — fresh page.
