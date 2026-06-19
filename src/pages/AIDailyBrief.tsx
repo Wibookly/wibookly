@@ -363,7 +363,7 @@ export default function AIDailyBrief() {
       `;
     }
 
-    if (type === 'all' || type === 'todo') {
+    if (!hasActionPlan && (type === 'all' || type === 'todo')) {
       content += `
         <section class="brief-section">
           <h2>To-Do List</h2>
