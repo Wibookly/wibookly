@@ -782,6 +782,91 @@ IMPORTANT: Use the REAL data provided. Do not make up meetings or emails. If the
       briefData.actionPlan = synth;
     }
 
+    // ===== Persist actionPlan items + carry forward unfinished items from prior days =====
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const fingerprint = (it: any) => {
+        const base = `${(it.source || 'email')}|${(it.title || '').toLowerCase().trim().slice(0, 120)}|${(it.subject || '').toLowerCase().trim().slice(0, 120)}|${(it.from || '').toLowerCase().trim().slice(0, 80)}`;
+        return base.replace(/\s+/g, ' ').slice(0, 240);
+      };
+
+      // 1. Upsert today's items
+      const rows = (briefData.actionPlan || []).map((it: any) => ({
+        user_id: effectiveUserId,
+        connection_id: connectionId,
+        brief_date: today,
+        source: it.source === 'meeting' ? 'calendar' : (it.source || 'email'),
+        fingerprint: fingerprint(it),
+        priority: it.priority ?? null,
+        urgency: it.urgency || 'medium',
+        title: (it.title || '').slice(0, 280),
+        from_text: it.from || null,
+        subject: it.subject || null,
+        received_at: it.receivedAt || null,
+        context: it.context || null,
+        action: it.action || null,
+        why: it.why || null,
+        estimated_minutes: it.estimatedMinutes ?? null,
+        status: 'open',
+      }));
+      if (rows.length) {
+        await supabase.from('daily_brief_tasks').upsert(rows, { onConflict: 'user_id,fingerprint,brief_date' });
+      }
+
+      // 2. Pull all OPEN tasks (today + carried-over) for this user/connection to stamp ids onto response
+      const { data: openTasks } = await supabase
+        .from('daily_brief_tasks')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .eq('connection_id', connectionId)
+        .eq('status', 'open')
+        .order('brief_date', { ascending: true })
+        .order('priority', { ascending: true, nullsFirst: false });
+
+      const tasksByFp = new Map<string, any>();
+      (openTasks || []).forEach((t: any) => {
+        if (!tasksByFp.has(t.fingerprint)) tasksByFp.set(t.fingerprint, t);
+      });
+
+      // 3. Merge carry-overs (open tasks from prior days that didn't show up today) into actionPlan
+      const todayFps = new Set(rows.map((r: any) => r.fingerprint));
+      const carryOvers: any[] = [];
+      (openTasks || []).forEach((t: any) => {
+        if (t.brief_date < today && !todayFps.has(t.fingerprint)) {
+          carryOvers.push({
+            taskId: t.id,
+            priority: t.priority,
+            urgency: t.urgency || 'medium',
+            title: t.title,
+            source: t.source === 'calendar' ? 'meeting' : t.source,
+            from: t.from_text || undefined,
+            subject: t.subject || undefined,
+            receivedAt: t.received_at || undefined,
+            context: t.context || undefined,
+            action: t.action || undefined,
+            why: t.why || undefined,
+            estimatedMinutes: t.estimated_minutes || undefined,
+            status: t.status,
+            carriedFromDate: t.brief_date,
+            carryCount: (t.carry_count || 0) + 1,
+          });
+          // bump carry_count
+          supabase.from('daily_brief_tasks').update({ carry_count: (t.carry_count || 0) + 1 }).eq('id', t.id).then(() => {});
+        }
+      });
+
+      // 4. Stamp taskId/status onto today's items
+      briefData.actionPlan = [
+        ...carryOvers,
+        ...(briefData.actionPlan || []).map((it: any) => {
+          const t = tasksByFp.get(fingerprint(it));
+          return t ? { ...it, taskId: t.id, status: t.status } : it;
+        }),
+      ];
+    } catch (persistErr) {
+      console.warn('[ai-daily-brief] persistence failed', persistErr);
+    }
+
     return new Response(JSON.stringify(briefData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
