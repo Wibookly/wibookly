@@ -212,254 +212,161 @@ export default function AIDailyBrief() {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
 
-    // Escape any user/AI-derived strings before interpolating into HTML
     const esc = (v: unknown): string => {
       if (v === null || v === undefined) return '';
       return String(v)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     };
 
-    const today = new Date().toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
     const appName = 'InboxIQ';
     const email = activeConnection?.email || profile?.email || 'N/A';
     const fullName = profile?.full_name || firstName || '';
-    const printTitle = type === 'todo' ? 'To-Do List' : 
-                       type === 'calendar' ? 'Today\'s Schedule' : 
-                       type === 'priorities' ? 'Priorities' : 'Daily Brief';
 
-    let content = '';
+    const ap = (brief.actionPlan || []) as any[];
+    const openItems = ap.filter((i) => i.status !== 'done');
+    const emailItems = openItems.filter((i) => (i.source || 'email') === 'email');
+    const meetingItems = openItems.filter((i) => i.source === 'meeting');
+    const taskItems = openItems.filter((i) => i.source === 'task');
 
+    const urgColor = (u?: string) =>
+      u === 'high' ? priorityColors.high : u === 'low' ? priorityColors.low : priorityColors.medium;
 
-    const header = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 18px; border-bottom: 3px solid #0ea5e9;">
+    const renderItem = (it: any, i: number) => `
+      <div class="pi-item">
+        <div class="pi-num" style="background:${urgColor(it.urgency)}">${esc(it.priority ?? i + 1)}</div>
+        <div class="pi-body">
+          <div class="pi-top">
+            <strong>${esc(it.title)}</strong>
+            <span class="pi-urg" style="background:${urgColor(it.urgency)}">${esc(it.urgency || 'medium')}</span>
+          </div>
+          ${(it.from || it.subject || it.receivedAt) ? `<div class="pi-meta">${[it.from && `From <strong>${esc(it.from)}</strong>`, it.subject && esc(it.subject), it.receivedAt && esc(it.receivedAt)].filter(Boolean).join(' · ')}</div>` : ''}
+          ${it.carriedFromDate ? `<div class="pi-carry">↻ Carried from ${esc(it.carriedFromDate)}${it.carryCount > 1 ? ` (×${esc(it.carryCount)})` : ''}</div>` : ''}
+          ${it.context ? `<div class="pi-ctx"><span>Context:</span> ${esc(it.context)}</div>` : ''}
+          ${it.action ? `<div class="pi-do"><span>Do:</span> ${esc(it.action)}</div>` : ''}
+          ${it.why ? `<div class="pi-why">Why: ${esc(it.why)}</div>` : ''}
+          ${it.estimatedMinutes ? `<div class="pi-min">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
+        </div>
+      </div>`;
+
+    const sectionHeader = (label: string, kind: string) => `
+      <header class="page-head">
         <div>
-          <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif;">${esc(printTitle)}</h1>
-          ${fullName ? `<p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #0f172a;">${esc(fullName)}</p>` : ''}
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(email)}</p>
-          <p style="margin: 2px 0 0 0; font-size: 14px; color: #64748b;">${esc(today)}</p>
+          <div class="ph-title">${esc(appName)} Daily Brief · ${esc(label)}</div>
+          <div class="ph-sub">${esc(fullName)} · ${esc(email)} · ${esc(today)} · ${esc(kind)}</div>
         </div>
-        <div style="text-align: right;">
-          <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" style="height: 120px; width: auto; display: block; margin-left: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-          <div style="display: none; font-size: 24px; font-weight: 700; color: #0ea5e9; font-family: 'Segoe UI', system-ui, sans-serif;">InboxIQ</div>
-        </div>
-      </div>
-    `;
+        <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" class="ph-logo" onerror="this.style.display='none'" />
+      </header>`;
 
-    const hasActionPlan = Array.isArray(brief.actionPlan) && brief.actionPlan.length > 0;
+    const buildSection = (title: string, kind: string, body: string, emptyMsg?: string) => `
+      <section class="page">
+        ${sectionHeader(title, kind)}
+        <div class="page-body">${body || `<p class="empty">${esc(emptyMsg || 'Nothing here.')}</p>`}</div>
+      </section>`;
 
-    if ((type === 'all' || type === 'todo' || type === 'priorities') && hasActionPlan) {
-      const urgBorder = (u?: string) => u === 'high' ? priorityColors.high : u === 'low' ? priorityColors.low : priorityColors.medium;
-      content += `
-        <section class="brief-section">
-          <h2>Your Action Plan</h2>
-          <p style="margin:0 0 14px;color:#64748b;font-size:13px">Ordered list of what to do today — with the context, the ask, and the next step for each item, so you can act without reopening your inbox.</p>
-          ${brief.actionPlan!.map((it, i) => {
-            const srcLabel = it.source === 'meeting' ? '📅 Meeting' : it.source === 'task' ? '✅ Task' : '✉️ Email';
-            const meta: string[] = [];
-            if (it.from) meta.push(`From <strong>${esc(it.from)}</strong>`);
-            if (it.subject) meta.push(`Subject: <em>${esc(it.subject)}</em>`);
-            if (it.receivedAt) meta.push(`Received ${esc(it.receivedAt)}`);
-            return `<div style="margin:10px 0;padding:14px 16px;background:#fff;border:1px solid #e2e8f0;border-left:5px solid ${urgBorder(it.urgency)};border-radius:10px;page-break-inside:avoid">
-              <div style="display:flex;gap:12px;align-items:flex-start">
-                <div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:${urgBorder(it.urgency)};color:#fff;font-weight:700;font-size:14px;text-align:center;line-height:30px">${esc(it.priority ?? i + 1)}</div>
-                <div style="flex:1;min-width:0">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-                    <strong style="color:#0f172a;font-size:15px">${esc(it.title)}</strong>
-                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:${urgBorder(it.urgency)};padding:3px 8px;border-radius:10px">${esc(it.urgency || 'medium')}</span>
-                  </div>
-                  <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">${srcLabel}${meta.length ? ' · ' : ''}<span style="color:#64748b;text-transform:none;letter-spacing:0;font-weight:400">${meta.join(' · ')}</span></div>
-                  ${it.context ? `<div style="margin-top:10px;padding:8px 10px;background:#f8fafc;border-radius:6px;color:#334155;font-size:13px;line-height:1.5"><span style="color:#475569;font-weight:600">What's being asked:</span> ${esc(it.context)}</div>` : ''}
-                  ${it.action ? `<div style="margin-top:6px;color:#0f172a;font-size:13px;line-height:1.5"><span style="color:#047857;font-weight:600">Do this:</span> ${esc(it.action)}</div>` : ''}
-                  ${it.why ? `<div style="margin-top:4px;color:#64748b;font-size:12px;font-style:italic">Why it matters: ${esc(it.why)}</div>` : ''}
-                  ${it.estimatedMinutes ? `<div style="margin-top:6px;color:#4338ca;font-size:11px;font-weight:700">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
-          ${brief.aiAnalysis?.risks?.length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${brief.aiAnalysis.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
-          ${brief.aiAnalysis?.wins?.length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${brief.aiAnalysis.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
-        </section>
-      `;
-    } else if (type === 'all' && brief.aiAnalysis) {
-      const ai = brief.aiAnalysis;
-      content += `
-        <section class="brief-section">
-        <h2>AI Analysis — What to do first</h2>
-        <div style="margin-bottom: 16px; padding: 18px 20px; border-radius: 10px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe;">
-          ${ai.headline ? `<p style="margin: 0 0 14px; font-size: 15px; color: #0f172a; font-weight: 600;">${esc(ai.headline)}</p>` : ''}
-          ${(ai.whatToDoFirst || []).length ? `<ol style="margin:0;padding-left:0;list-style:none">
-            ${ai.whatToDoFirst.map((it: any, i: number) => `
-              <li style="display:flex;gap:12px;padding:10px 12px;margin:6px 0;background:#fff;border-radius:8px;border:1px solid #e0e7ff">
-                <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#4338ca;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:26px">${esc(it.step ?? i + 1)}</div>
-                <div style="flex:1">
-                  <div style="font-weight:600;color:#0f172a;font-size:14px">${esc(it.action || '')}</div>
-                  ${it.why ? `<div style="color:#64748b;font-size:12px;margin-top:2px">${esc(it.why)}</div>` : ''}
-                  ${it.estimatedMinutes ? `<div style="color:#4338ca;font-size:11px;font-weight:600;margin-top:4px">⏱ ~${esc(it.estimatedMinutes)} min</div>` : ''}
-                </div>
-              </li>`).join('')}
-          </ol>` : ''}
-          ${(ai.risks || []).length ? `<div style="margin-top:14px;padding:10px 12px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;margin-bottom:4px">⚠️ At Risk</div><ul style="margin:0;padding-left:18px;color:#7f1d1d;font-size:13px">${ai.risks.map((r: string) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
-          ${(ai.wins || []).length ? `<div style="margin-top:10px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px"><div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;margin-bottom:4px">✨ Quick Wins</div><ul style="margin:0;padding-left:18px;color:#065f46;font-size:13px">${ai.wins.map((w: string) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
-        </div>
-        </section>
-      `;
+    let pages = '';
+
+    // Action Items split: Emails, Calendar, Tasks
+    if (type === 'all' || type === 'todo' || type === 'priorities') {
+      pages += buildSection(
+        'Action Items — Emails', 'Email',
+        emailItems.length ? emailItems.map(renderItem).join('') : '',
+        'No email action items today.',
+      );
+      pages += buildSection(
+        'Action Items — Calendar', 'Calendar',
+        meetingItems.length ? meetingItems.map(renderItem).join('') : '',
+        'No calendar action items today.',
+      );
+      if (taskItems.length) {
+        pages += buildSection('Action Items — Tasks', 'Tasks', taskItems.map(renderItem).join(''));
+      }
     }
 
-    if (!hasActionPlan && (type === 'all' || type === 'priorities')) {
-      content += `
-        <section class="brief-section">
-          <h2>Priorities</h2>
-          ${brief.priorities?.length ? brief.priorities.map(p => `
-            <div class="priority-item" style="padding: 12px; margin: 10px 0; border-left: 4px solid ${
-              p.urgency === 'high' ? priorityColors.high : 
-              p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-            }; background: #f9f9f9;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong>${esc(p.title)}</strong>
-                <span style="padding: 2px 8px; border-radius: 4px; font-size: 12px; background: ${
-                  p.urgency === 'high' ? '#fee2e2' : 
-                  p.urgency === 'medium' ? '#fef3c7' : '#d1fae5'
-                }; color: ${
-                  p.urgency === 'high' ? priorityColors.high : 
-                  p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                };">${esc(String(p.urgency).toUpperCase())}</span>
-              </div>
-              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(p.description)}</p>
-            </div>
-          `).join('') : '<p style="color: #999;">No priorities for today</p>'}
-        </section>
-      `;
-    }
-
-
+    // Today's Schedule
     if (type === 'all' || type === 'calendar') {
-      content += `
-        <section class="brief-section">
-          <h2>Today's Schedule</h2>
-          ${(() => {
-            const booked = (brief.schedule || []).filter(s => {
-              const t = (s.type || '').toLowerCase();
-              const title = (s.title || '').toLowerCase();
-              if (t === 'focus' || t === 'available' || t === 'free') return false;
-              if (title.includes('available for focus') || title.includes('available')) return false;
-              return true;
-            });
-            return booked.length ? booked.map(s => `
-            <div class="priority-item" style="display: flex; padding: 10px 0; border-bottom: 1px solid #eee;">
-              <span style="width: 80px; font-family: monospace; color: #666;">${esc(s.time)}</span>
-              <div style="flex: 1;">
+      const booked = (brief.schedule || []).filter((s) => {
+        const t = (s.type || '').toLowerCase();
+        const ti = (s.title || '').toLowerCase();
+        if (t === 'focus' || t === 'available' || t === 'free') return false;
+        if (ti.includes('available')) return false;
+        return true;
+      });
+      const body = booked.length
+        ? booked.map((s) => `
+            <div class="sch-row">
+              <span class="sch-time">${esc(s.time)}</span>
+              <div class="sch-body">
                 <strong>${esc(s.title)}</strong>
-                ${s.description ? `<p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${esc(s.description)}</p>` : ''}
+                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
               </div>
-            </div>
-          `).join('') : '<p style="color: #999;">No meetings scheduled for today</p>';
-          })()}
-        </section>
-      `;
+            </div>`).join('')
+        : '';
+      pages += buildSection("Today's Schedule", 'Calendar', body, 'No meetings scheduled for today.');
     }
 
-    if (!hasActionPlan && (type === 'all' || type === 'todo')) {
-      content += `
-        <section class="brief-section">
-          <h2>To-Do List</h2>
-          ${brief.priorities?.length || brief.emailHighlights?.length ? `
-            <div style="display: grid; gap: 12px;">
-              ${brief.priorities?.map(p => `
-                <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: ${
-                  p.urgency === 'high' ? '#fef2f2' : 
-                  p.urgency === 'medium' ? '#fffbeb' : '#f0fdf4'
-                }; border-left: 4px solid ${
-                  p.urgency === 'high' ? priorityColors.high : 
-                  p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                };">
-                  <span style="width: 18px; height: 18px; border: 2px solid ${
-                    p.urgency === 'high' ? priorityColors.high : 
-                    p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                  }; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
-                  <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${esc(p.title)}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">${esc(p.description)}</div>
-                  </div>
-                  <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; background: ${
-                    p.urgency === 'high' ? priorityColors.high : 
-                    p.urgency === 'medium' ? priorityColors.medium : priorityColors.low
-                  }; color: white;">${esc(p.urgency)}</span>
-                </div>
-              `).join('') || ''}
-              ${brief.emailHighlights?.slice(0, 10).map(e => `
-                <div class="priority-item" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 8px; background: #f8fafc; border-left: 4px solid #0ea5e9;">
-                  <span style="width: 18px; height: 18px; border: 2px solid #0ea5e9; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></span>
-                  <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 15px;">${esc(e.action)}: ${esc(e.subject)}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">From: ${esc(e.from)}</div>
-                  </div>
-                </div>
-              `).join('') || ''}
-            </div>
-          ` : '<p style="color: #94a3b8; text-align: center; padding: 40px;">No to-do items for today</p>'}
-        </section>
-      `;
+    // To-Do (recap list of open items)
+    if (type === 'all' || type === 'todo') {
+      const body = openItems.length
+        ? `<ul class="todo">${openItems.map((it) => `<li>☐ <strong>${esc(it.title)}</strong>${it.action ? ` — ${esc(it.action)}` : ''}</li>`).join('')}</ul>`
+        : '';
+      pages += buildSection('To-Do List', 'Tasks', body, 'No open action items.');
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${esc(appName)} - ${esc(printTitle)}</title>
-          <style>
-            * { box-sizing: border-box; }
-            body { 
-              font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; 
-              padding: 40px 50px; 
-              max-width: 900px; 
-              margin: 0 auto; 
-              color: #0f172a;
-              line-height: 1.5;
-            }
-            h2 { 
-              font-size: 20px; 
-              font-weight: 600; 
-              color: #0f172a; 
-              margin: 0 0 16px 0;
-              padding-bottom: 8px;
-              border-bottom: 2px solid #e2e8f0;
-            }
-            .brief-section {
-              margin-bottom: 28px;
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-            .priority-item {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-            @page { margin: 0.6in; }
-            @media print { 
-              body { padding: 0; max-width: none; } 
-              .brief-section { page-break-inside: avoid; break-inside: avoid; }
-              .brief-section + .brief-section { page-break-before: auto; }
-              .priority-item { break-inside: avoid; page-break-inside: avoid; }
-            }
-          </style>
-        </head>
-        <body>
-          ${header}
-          ${content}
-        </body>
-      </html>
-    `);
+    // Priority Tips / Suggestions
+    if (type === 'all') {
+      if (brief.suggestions?.length) {
+        pages += buildSection(
+          'Priority Tips', 'Tips',
+          `<ul class="tips">${brief.suggestions.map((s: any) => `<li>${esc(typeof s === 'string' ? s : s?.suggestion || '')}</li>`).join('')}</ul>`,
+        );
+      }
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html><head><title>${esc(appName)} - Daily Brief</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; margin: 0; }
+  @page { size: Letter; margin: 0.5in; }
+  .page { page-break-after: always; padding: 0; }
+  .page:last-child { page-break-after: auto; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 3px solid #0ea5e9; margin-bottom: 18px; }
+  .ph-title { font-size: 18px; font-weight: 700; }
+  .ph-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .ph-logo { height: 56px; }
+  .page-body { font-size: 13px; }
+  .empty { color: #94a3b8; font-style: italic; padding: 24px 0; text-align: center; }
+  .pi-item { display: flex; gap: 10px; padding: 12px 14px; margin: 8px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; break-inside: avoid; page-break-inside: avoid; }
+  .pi-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-weight: 700; text-align: center; line-height: 28px; font-size: 13px; }
+  .pi-body { flex: 1; min-width: 0; }
+  .pi-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .pi-top strong { font-size: 14px; }
+  .pi-urg { font-size: 9px; text-transform: uppercase; color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .pi-meta { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .pi-carry { font-size: 10px; color: #b45309; background: #fef3c7; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-top: 4px; font-weight: 600; }
+  .pi-ctx { margin-top: 6px; padding: 6px 8px; background: #fff; border-radius: 4px; }
+  .pi-ctx span, .pi-do span { font-weight: 600; color: #047857; }
+  .pi-ctx span { color: #475569; }
+  .pi-do { margin-top: 4px; }
+  .pi-why { margin-top: 3px; font-size: 11px; font-style: italic; color: #64748b; }
+  .pi-min { margin-top: 4px; font-size: 11px; font-weight: 700; color: #4338ca; }
+  .sch-row { display: flex; padding: 8px 0; border-bottom: 1px solid #f1f5f9; break-inside: avoid; }
+  .sch-time { width: 110px; font-family: monospace; color: #0ea5e9; font-weight: 600; }
+  .sch-body strong { font-size: 13px; }
+  .sch-body p { margin: 3px 0 0; color: #64748b; font-size: 12px; }
+  .todo, .tips { list-style: none; padding: 0; margin: 0; }
+  .todo li, .tips li { padding: 8px 12px; margin: 4px 0; background: #f8fafc; border-radius: 4px; break-inside: avoid; }
+  .tips li::before { content: "💡 "; }
+  @media print { .page { padding: 0; } }
+</style></head>
+<body>${pages}</body></html>`);
     printWindow.document.close();
-    printWindow.print();
+    setTimeout(() => printWindow.print(), 250);
   };
 
   const currentHour = new Date().getHours();
