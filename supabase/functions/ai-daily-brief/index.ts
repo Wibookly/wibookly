@@ -542,34 +542,58 @@ serve(async (req) => {
       });
     }
 
+    const actionPlanSpec = `"actionPlan": Array of 5-10 prioritized action items that MERGE the user's AI analysis, priorities, and email/meeting to-dos into ONE ordered, executable list. This is the PRIMARY section the user reads — they should be able to act from it without opening their inbox. Each item MUST be an object with EXACTLY this shape:
+   {
+     "priority": 1,                                  // 1 = do first, ascending
+     "urgency": "high" | "medium" | "low",
+     "title": "Reply to John about Q4 proposal",     // short imperative headline
+     "source": "email" | "meeting" | "task",
+     "from": "John Smith <john@acme.com>",           // REQUIRED when source = "email"
+     "subject": "Q4 Proposal review",                // REQUIRED when source = "email"
+     "receivedAt": "9:42 AM",                        // when the email arrived, if known
+     "context": "John sent the revised Q4 proposal yesterday and is asking you to confirm the two budget lines he flagged in red before Friday's board meeting. He attached the updated spreadsheet.",
+     "action": "Open the spreadsheet, confirm or adjust the two flagged budget lines, then reply approving and CC Sarah.",
+     "why": "Blocks the Friday board sign-off — without your reply John can't finalize the deck.",
+     "estimatedMinutes": 15
+   }
+   STRICT RULES for actionPlan:
+   - "context" MUST summarize in plain English WHAT THE SENDER ASKED or WHAT IS HAPPENING, with enough detail that the user does NOT need to reopen the email. 1-3 sentences.
+   - "action" MUST be the concrete next step, not a vague "review" — say WHAT to do.
+   - "why" MUST explain the business reason / deadline / dependency in one short sentence.
+   - Order strictly by priority (1 = highest impact, do first). Mix emails, meetings, and tasks together in the same ranked list.
+   - Use ONLY real items from the provided context. Never invent senders, subjects, or topics.
+   - If a meeting starts within 2 hours, it MUST appear at priority 1 with source "meeting" and context describing attendees/location/prep needed.`;
+
     const morningInstructions = `Based on the context provided, generate a structured MORNING brief in JSON format with these sections:
 1. "greeting": A personalized "Good morning" greeting
 2. "summary": Brief 1-2 sentence overview of TODAY ahead (mention number of meetings, unread emails)
-3. "priorities": Array of 3-5 priority items for TODAY based on REAL emails and meetings (each with "title", "description", "urgency": "high"|"medium"|"low", "type": "email"|"meeting"|"task"). Base urgency on:
-   - HIGH: Meetings within 2 hours, emails from executives/clients, time-sensitive subjects
-   - MEDIUM: Emails needing response today, meetings later today
-   - LOW: FYI emails, non-urgent follow-ups
-4. "schedule": Array of TODAY's actual calendar events (each with "time", "title", "type"). If no events, include "Available for focus work" blocks based on availability.
-5. "emailHighlights": Array of important unread emails to address (each with "from", "subject", "action" - suggest specific action like "Reply", "Review attachment", "Schedule call")
-6. "suggestions": Array of 2-3 productivity suggestions to start the day strong
-7. "aiAnalysis": Object with executive analysis. MUST include:
-   - "headline": One-sentence strategic read on the day (e.g. "Heavy meeting day with 3 client emails needing replies before lunch.")
-   - "whatToDoFirst": Array of 3-5 ordered next-actions the user should tackle RIGHT NOW, in order. Each item: { "step": 1, "action": "Reply to John about Q4 proposal", "why": "Client awaiting response since yesterday", "estimatedMinutes": 10 }
-   - "risks": Array of 1-3 short strings flagging anything at risk of slipping today
-   - "wins": Array of 1-2 quick-win opportunities the user can knock out in <15 min`;
+3. ${actionPlanSpec}
+4. "priorities": Array of 3-5 priority items for TODAY (kept for backwards compat — derive from actionPlan; each with "title", "description", "urgency": "high"|"medium"|"low", "type": "email"|"meeting"|"task"). "description" MUST mirror the corresponding actionPlan item's "context" + "action".
+5. "schedule": Array of TODAY's actual calendar events (each with "time", "title", "type"). If no events, include "Available for focus work" blocks based on availability.
+6. "emailHighlights": Array of important unread emails to address (each with "from", "subject", "action", and "preview" — 1-2 sentence plain-English summary of what the email is about and what was asked).
+7. "suggestions": Array of 2-3 productivity suggestions to start the day strong
+8. "aiAnalysis": Object with executive analysis (kept for backwards compat — derive from actionPlan):
+   - "headline": One-sentence strategic read on the day
+   - "whatToDoFirst": Mirror of the first 3-5 actionPlan items as { "step", "action", "why", "estimatedMinutes" }
+   - "risks": 1-3 short strings flagging anything at risk of slipping today
+   - "wins": 1-2 quick-win opportunities the user can knock out in <15 min
+
+Urgency baseline: HIGH = meetings within 2 hours, emails from executives/clients, time-sensitive subjects. MEDIUM = emails needing response today, meetings later today. LOW = FYI emails, non-urgent follow-ups.`;
 
     const eveningInstructions = `Based on the context provided, generate a structured END-OF-DAY RECAP in JSON format with these sections:
 1. "greeting": A warm "Good evening" greeting recapping today
 2. "summary": Brief 1-2 sentence recap of WHAT WAS COMPLETED today + what carries to tomorrow
-3. "priorities": Array of 3-5 TOMORROW'S TODOS — items still open from today's emails/meetings that need follow-up tomorrow (each with "title", "description", "urgency", "type"). Frame these as tomorrow's action list.
-4. "schedule": Array of TOMORROW's calendar events if any can be inferred from the data — otherwise list today's completed meetings as "✓ Completed: <title>".
-5. "emailHighlights": Array of unanswered emails from today that need attention (each with "from", "subject", "action" - what to do tomorrow)
-6. "suggestions": Array of 2-3 reflections on today + recommendations for tomorrow
-7. "aiAnalysis": Object with executive recap analysis. MUST include:
+3. ${actionPlanSpec}
+   For the EVENING recap, every actionPlan item is something that DID NOT get closed today and needs to be tackled tomorrow. Frame "action" and "why" with that lens.
+4. "priorities": Array of 3-5 TOMORROW'S TODOS (backwards-compat mirror of the first 3-5 actionPlan items; "description" MUST mirror actionPlan "context" + "action").
+5. "schedule": Array of TOMORROW's calendar events if known — otherwise list today's completed meetings as "✓ Completed: <title>".
+6. "emailHighlights": Array of unanswered emails from today (each with "from", "subject", "action", and "preview" — 1-2 sentence plain-English summary of what the email is about and what was asked).
+7. "suggestions": Array of 2-3 reflections on today + recommendations for tomorrow
+8. "aiAnalysis": Object with executive recap analysis (backwards-compat mirror of actionPlan):
    - "headline": One-sentence read on how the day went and what carries over
-   - "whatToDoFirst": Array of 3-5 ordered next-actions to start tomorrow with. Each item: { "step": 1, "action": "...", "why": "...", "estimatedMinutes": 10 }
-   - "risks": Array of 1-3 short strings flagging items at risk of slipping
-   - "wins": Array of 1-2 things accomplished today worth acknowledging
+   - "whatToDoFirst": Mirror of the first 3-5 actionPlan items as { "step", "action", "why", "estimatedMinutes" }
+   - "risks": 1-3 short strings flagging items at risk of slipping
+   - "wins": 1-2 things accomplished today worth acknowledging
 
 Frame everything as "today is wrapping up — here's what got done and what's queued for tomorrow."`;
 
