@@ -310,7 +310,7 @@ export default function AIDailyBrief() {
       `;
     }
 
-    if (type === 'all' || type === 'priorities') {
+    if (!hasActionPlan && (type === 'all' || type === 'priorities')) {
       content += `
         <section class="brief-section">
           <h2>Priorities</h2>
