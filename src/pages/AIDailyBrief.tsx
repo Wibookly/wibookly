@@ -309,13 +309,29 @@ export default function AIDailyBrief() {
       pages += buildSection("Today's Schedule", 'Calendar', body, 'No meetings scheduled for today.');
     }
 
-    // To-Do (recap list of open items)
+    // Final Tasks list — one explicit checkbox task per action item
+    // (emails to reply, meetings to attend/prep, follow-ups to do).
     if (type === 'all' || type === 'todo') {
+      const srcIcon = (s?: string) => s === 'meeting' ? '📅' : s === 'task' ? '✅' : '📧';
+      const srcLabel = (s?: string) => s === 'meeting' ? 'Meeting' : s === 'task' ? 'Task' : 'Email';
       const body = openItems.length
-        ? `<ul class="todo">${openItems.map((it) => `<li>☐ <strong>${esc(it.title)}</strong>${it.action ? ` — ${esc(it.action)}` : ''}</li>`).join('')}</ul>`
+        ? `<ul class="todo">${openItems.map((it, i) => `
+            <li>
+              <div class="todo-line">
+                <span class="todo-box">☐</span>
+                <span class="todo-num">${esc(it.priority ?? i + 1)}.</span>
+                <span class="todo-src">${srcIcon(it.source)} ${esc(srcLabel(it.source))}</span>
+                <strong class="todo-title">${esc(it.title)}</strong>
+                <span class="todo-urg" style="background:${urgColor(it.urgency)}">${esc(it.urgency || 'medium')}</span>
+                ${it.estimatedMinutes ? `<span class="todo-min">⏱ ${esc(it.estimatedMinutes)}m</span>` : ''}
+              </div>
+              ${(it.from || it.subject) ? `<div class="todo-meta">${[it.from && `From ${esc(it.from)}`, it.subject && esc(it.subject)].filter(Boolean).join(' · ')}</div>` : ''}
+              ${it.action ? `<div class="todo-do"><span>Do:</span> ${esc(it.action)}</div>` : ''}
+            </li>`).join('')}</ul>`
         : '';
-      pages += buildSection('To-Do List', 'Tasks', body, 'No open action items.');
+      pages += buildSection('Tasks — What To Do', 'Tasks', body, 'No open tasks.');
     }
+
 
     // Priority Tips / Suggestions
     if (type === 'all') {
