@@ -309,13 +309,29 @@ export default function AIDailyBrief() {
       pages += buildSection("Today's Schedule", 'Calendar', body, 'No meetings scheduled for today.');
     }
 
-    // To-Do (recap list of open items)
+    // Final Tasks list — one explicit checkbox task per action item
+    // (emails to reply, meetings to attend/prep, follow-ups to do).
     if (type === 'all' || type === 'todo') {
+      const srcIcon = (s?: string) => s === 'meeting' ? '📅' : s === 'task' ? '✅' : '📧';
+      const srcLabel = (s?: string) => s === 'meeting' ? 'Meeting' : s === 'task' ? 'Task' : 'Email';
       const body = openItems.length
-        ? `<ul class="todo">${openItems.map((it) => `<li>☐ <strong>${esc(it.title)}</strong>${it.action ? ` — ${esc(it.action)}` : ''}</li>`).join('')}</ul>`
+        ? `<ul class="todo">${openItems.map((it, i) => `
+            <li>
+              <div class="todo-line">
+                <span class="todo-box">☐</span>
+                <span class="todo-num">${esc(it.priority ?? i + 1)}.</span>
+                <span class="todo-src">${srcIcon(it.source)} ${esc(srcLabel(it.source))}</span>
+                <strong class="todo-title">${esc(it.title)}</strong>
+                <span class="todo-urg" style="background:${urgColor(it.urgency)}">${esc(it.urgency || 'medium')}</span>
+                ${it.estimatedMinutes ? `<span class="todo-min">⏱ ${esc(it.estimatedMinutes)}m</span>` : ''}
+              </div>
+              ${(it.from || it.subject) ? `<div class="todo-meta">${[it.from && `From ${esc(it.from)}`, it.subject && esc(it.subject)].filter(Boolean).join(' · ')}</div>` : ''}
+              ${it.action ? `<div class="todo-do"><span>Do:</span> ${esc(it.action)}</div>` : ''}
+            </li>`).join('')}</ul>`
         : '';
-      pages += buildSection('To-Do List', 'Tasks', body, 'No open action items.');
+      pages += buildSection('Tasks — What To Do', 'Tasks', body, 'No open tasks.');
     }
+
 
     // Priority Tips / Suggestions
     if (type === 'all') {
@@ -360,8 +376,19 @@ export default function AIDailyBrief() {
   .sch-body strong { font-size: 13px; }
   .sch-body p { margin: 3px 0 0; color: #64748b; font-size: 12px; }
   .todo, .tips { list-style: none; padding: 0; margin: 0; }
-  .todo li, .tips li { padding: 8px 12px; margin: 4px 0; background: #f8fafc; border-radius: 4px; break-inside: avoid; }
+  .todo li, .tips li { padding: 10px 12px; margin: 6px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; break-inside: avoid; }
   .tips li::before { content: "💡 "; }
+  .todo-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .todo-box { font-size: 16px; color: #0ea5e9; }
+  .todo-num { font-weight: 700; color: #475569; min-width: 22px; }
+  .todo-src { font-size: 11px; color: #475569; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  .todo-title { flex: 1; font-size: 13px; }
+  .todo-urg { font-size: 9px; text-transform: uppercase; color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .todo-min { font-size: 11px; font-weight: 700; color: #4338ca; }
+  .todo-meta { font-size: 11px; color: #64748b; margin: 4px 0 0 30px; }
+  .todo-do { font-size: 12px; margin: 4px 0 0 30px; color: #0f172a; }
+  .todo-do span { font-weight: 700; color: #047857; margin-right: 4px; }
+
   @media print { .page { padding: 0; } }
 </style></head>
 <body>${pages}</body></html>`);

@@ -101,16 +101,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
     return { currentRoute: match?.[0], currentTour: match?.[1] as Step[] | undefined };
   }, [location.pathname]);
 
-  // Auto-start on first visit to a tour page
+  // Auto-start disabled by user preference. Tours never start on page load
+  // or refresh — the user must explicitly launch them from the Help panel or
+  // the "Tour this page" button.
   useEffect(() => {
     setRun(false);
-    if (!currentTour || !currentRoute) return;
-    const completed = getCompleted();
-    if (!completed[currentRoute]) {
-      const t = setTimeout(() => setRun(true), 700);
-      return () => clearTimeout(t);
-    }
   }, [currentRoute, currentTour]);
+
 
   // Watch for theme changes
   useEffect(() => {

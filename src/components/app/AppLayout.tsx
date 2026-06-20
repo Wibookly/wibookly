@@ -34,42 +34,14 @@ export function AppLayout() {
   });
   const [sidebarHover, setSidebarHover] = useState(false);
 
-  // Auto-open the Setup Wizard ONCE per user — only the very first time
-  // they sign in. After that, refreshing the page never re-opens it; the
-  // user can relaunch the wizard manually from the Help panel / Settings.
+  // Auto-open of the Setup Wizard is disabled by user preference. The wizard
+  // never opens on page load or refresh — users open it manually from the
+  // Help panel, Settings, or the "Setup Guide" button.
   useEffect(() => {
     if (!user?.id || wizardChecked) return;
-    let cancelled = false;
-    const flagKey = `inboxiq:wizard-auto-shown:${user.id}`;
-    (async () => {
-      // If we've already auto-shown the wizard for this user in this browser,
-      // do nothing — the user can re-open it manually.
-      let alreadyShown = false;
-      try { alreadyShown = localStorage.getItem(flagKey) === '1'; } catch { /* ignore */ }
-      if (alreadyShown) { setWizardChecked(true); return; }
+    setWizardChecked(true);
+  }, [user?.id, wizardChecked]);
 
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('onboarding_completed_at')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      const row = data as { onboarding_completed_at?: string | null } | null;
-      const safeRoute =
-        location.pathname === '/integrations' ||
-        location.pathname === '/categories' ||
-        location.pathname === '/settings';
-      if (row && !row.onboarding_completed_at && safeRoute) {
-        setWizardOpen(true);
-        // Mark as shown so subsequent refreshes don't re-open it.
-        try { localStorage.setItem(flagKey, '1'); } catch { /* ignore */ }
-      }
-      setWizardChecked(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, wizardChecked, location.pathname]);
 
   // Allow the Help panel (and Settings) to relaunch the wizard on demand
   useEffect(() => {
