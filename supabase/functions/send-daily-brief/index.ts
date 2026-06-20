@@ -272,16 +272,37 @@ function renderBriefHtml(
         }).join("")}`
     : "";
 
-  // To-Do List (LEGACY — hidden when actionPlan present)
+  // Final consolidated Tasks list (one checkbox per action item) — mirrors
+  // the print/web "Tasks — What To Do" section so users have a single list
+  // to work from.
   const todoItems: string[] = [];
-  if (!hasActionPlan) {
+  if (hasActionPlan) {
+    const srcIcon = (s?: string) => s === 'meeting' ? '📅' : s === 'task' ? '✅' : '📧';
+    const srcLabel = (s?: string) => s === 'meeting' ? 'Meeting' : s === 'task' ? 'Task' : 'Email';
+    openItems.forEach((it: any, i: number) => {
+      const meta = [it.from && `From ${esc(it.from)}`, it.subject && esc(it.subject)].filter(Boolean).join(' · ');
+      const urg = it.urgency || 'medium';
+      const c = urgencyColor(urg);
+      todoItems.push(
+        `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+           <strong style="color:#475569">${esc(it.priority ?? i + 1)}.</strong>
+           <span style="font-size:11px;color:#475569;background:#e2e8f0;padding:2px 6px;border-radius:4px;font-weight:600">${srcIcon(it.source)} ${esc(srcLabel(it.source))}</span>
+           <strong style="color:#0f172a">${esc(it.title)}</strong>
+           <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${c.fg};background:#fff;padding:2px 7px;border-radius:10px;border:1px solid ${c.border}">${esc(urg)}</span>
+           ${it.estimatedMinutes ? `<span style="font-size:11px;color:#4338ca;font-weight:700">⏱ ${esc(it.estimatedMinutes)}m</span>` : ''}
+         </div>
+         ${meta ? `<div style="font-size:11px;color:#64748b;margin:4px 0 0 0">${meta}</div>` : ''}
+         ${it.action ? `<div style="font-size:12px;color:#0f172a;margin:4px 0 0 0"><span style="font-weight:700;color:#047857">Do:</span> ${esc(it.action)}</div>` : ''}`
+      );
+    });
+  } else {
     priorities.forEach((p: any) => todoItems.push(`${esc(p.title)}${p.description ? ` — <span style="color:#64748b">${esc(p.description)}</span>` : ""}`));
     emails.slice(0, 5).forEach((e: any) => todoItems.push(`<strong>${esc(e.action)}:</strong> ${esc(e.subject)} <span style="color:#64748b">(${esc(e.from)})</span>`));
   }
   const todoBlock = todoItems.length
-    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">✅ To-Do List</h2>
+    ? `<h2 style="font-size:16px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:24px 0 12px">✅ Tasks — What To Do</h2>
        <ul style="list-style:none;padding:0;margin:0">
-         ${todoItems.map(t => `<li style="padding:8px 12px;margin:4px 0;background:#f8fafc;border-radius:4px;font-size:13px;color:#0f172a">☐ ${t}</li>`).join("")}
+         ${todoItems.map(t => `<li style="padding:10px 12px;margin:6px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#0f172a"><span style="color:#0ea5e9;font-size:16px;margin-right:6px">☐</span>${t}</li>`).join("")}
        </ul>`
     : "";
 
