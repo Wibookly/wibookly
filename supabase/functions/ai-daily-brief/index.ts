@@ -562,7 +562,9 @@ serve(async (req) => {
    - "why" = ONE short clause explaining the deadline / dependency / business reason.
    - Order strictly by priority (1 = highest impact, do first). Mix emails, meetings, and tasks together in the same ranked list.
    - Use ONLY real items from the provided context. Never invent senders, subjects, or topics.
+   - ACCURACY: Only include emails that the user has NOT yet replied to. If the email thread shows the user has already sent a reply (their address appears as a later sender in the same thread/conversation), SKIP it — do not surface it as an action item.
    - If a meeting starts within 2 hours, it MUST appear at priority 1 with source "meeting" and a short context with attendees/location/prep needed.`;
+
 
 
     const morningInstructions = `Based on the context provided, generate a structured MORNING brief in JSON format with these sections:
