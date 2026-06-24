@@ -112,6 +112,23 @@ export function HelpIssueForm() {
 
     setSubmitting(true);
     try {
+      // Upload screenshots first (if any) to support-attachments/{userId}/{issueTime}/
+      let attachments: Array<{ path: string; name: string; size: number; type: string }> = [];
+      if (files.length) {
+        setUploading(true);
+        const stamp = Date.now();
+        for (const f of files) {
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+          const path = `${user.id}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from('support-attachments')
+            .upload(path, f, { contentType: f.type, upsert: false });
+          if (upErr) throw upErr;
+          attachments.push({ path, name: f.name, size: f.size, type: f.type });
+        }
+        setUploading(false);
+      }
+
       const taggedSubject = `[${feature}] ${s}`.slice(0, 200);
       const taggedDescription = `Feature: ${feature}\n\n${d}`;
       const { data, error } = await supabase
@@ -124,6 +141,7 @@ export function HelpIssueForm() {
           description: taggedDescription,
           page_url: `${location.pathname}${location.search}`,
           user_agent: navigator.userAgent,
+          attachments,
         })
         .select('id')
         .single();
@@ -134,6 +152,7 @@ export function HelpIssueForm() {
       setSubject('');
       setDescription('');
       setFeature('');
+      setFiles([]);
       toast({
         title: 'Issue submitted',
         description: 'Your admin team has been notified.',
