@@ -332,11 +332,17 @@ async function resolveSenderLicense(
     return { ok: false, reason: 'sender_empty', html: '<p>Hello,</p><p>I could not identify the sender of this email.</p>' };
   }
 
+  // Look up by email globally. The sender domain has already been validated
+  // against the org's allowed-domains list above, so we don't re-filter by
+  // organization here. (Historically this filter caused legitimate users to
+  // be rejected when the agent_settings org id didn't match their profile's
+  // organization_id — e.g. multiple Energyforward org rows.)
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('user_id, email')
+    .select('user_id, email, organization_id')
     .ilike('email', normalized)
-    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (!profile?.user_id) {
