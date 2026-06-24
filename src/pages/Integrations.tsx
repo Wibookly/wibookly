@@ -569,14 +569,6 @@ export default function Integrations() {
           description="Connect Google or Microsoft so InboxIQ can start organizing your inbox and calendar."
           accent="cyan"
           icon={<LinkIcon className="w-5 h-5 text-white" strokeWidth={2} />}
-          actions={
-            <Link to="/integration-setup">
-              <Button variant="secondary" size="sm" className="bg-white/15 text-white border border-white/25 hover:bg-white/25">
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Setup Guide
-              </Button>
-            </Link>
-          }
         />
       </div>
 
