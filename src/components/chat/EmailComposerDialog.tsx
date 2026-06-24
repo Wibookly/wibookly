@@ -168,6 +168,22 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           const d = (data as any)?.draft || {};
           setSubject(String(d.subject || ''));
           setBodyHtml(String(d.body || ''));
+          // Auto-resolve recipient from the prompt
+          const recEmail = String(d.recipient_email || '').trim();
+          const recName = String(d.recipient_name || '').trim();
+          if (recEmail && isValidEmail(recEmail)) {
+            setTo([recEmail]);
+          } else if (recName && connectionId) {
+            try {
+              const { data: c } = await supabase.functions.invoke('email-compose', {
+                body: { action: 'contacts', connection_id: connectionId, query: recName, top: 5 },
+              });
+              if (!cancelled) {
+                const first = ((c as any)?.results || []).find((r: any) => isValidEmail(r?.email));
+                if (first?.email) setTo([first.email]);
+              }
+            } catch { /* non-fatal */ }
+          }
         } catch (e) {
           toast.error('Could not draft email');
         } finally { if (!cancelled) setDrafting(false); }
