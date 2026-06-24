@@ -1003,7 +1003,7 @@ export default function Settings() {
                 </div>
 
                 {/* Contact Fields */}
-                <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
+                <div data-tour="settings-contact" className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
                   <div className="space-y-2">
                     <Label htmlFor="sigPhone">Phone (Optional)</Label>
                     <Input
