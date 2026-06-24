@@ -299,11 +299,17 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: 'Regenerate the reply', description: 'Not happy with the answer? Click Regenerate to have the assistant try again with a fresh take. Your original question is reused, but the AI rewrites the response from scratch.', target: '[data-tour="chat-msg-regenerate"]' },
       { title: 'Email the reply to yourself (Outlook)', description: 'One click on "Email to me (Outlook)" creates a ready-to-send draft in your Outlook mailbox containing the full AI reply, nicely formatted. Perfect for forwarding the answer to a colleague or keeping it in your inbox for later.', target: '[data-tour="chat-msg-email"]' },
       { title: 'Play the reply out loud', description: 'Click ▶ Play to have the AI read the answer aloud using the voice you picked in the + menu → Voice. Great for long replies, when your eyes need a break, or while driving. Click again to stop.', target: '[data-tour="chat-msg-play"]' },
+      { title: 'Re-open any past chat', description: 'In the sidebar, click any conversation row to reopen it. The currently open chat is highlighted in green under TODAY / THIS WEEK / LAST WEEK so you always know where you are. Full history, attachments, and citations are restored exactly as you left them.', target: '[data-tour="chat-conv-row"]' },
+      { title: 'Conversation header (gradient banner)', description: 'The colored banner at the top of an open chat shows the chat title and the tagline "Ask follow-ups, draft replies, or summarize — all in one thread." It is your reminder that this thread keeps its own memory — every message you send below builds on what was said earlier.' },
+      { title: '⋮ menu — Move to folder', description: 'First option in the three-dot menu on any chat row. Pick one of your folders (Clients, Travel, Personal, etc.) to file the chat under it. The chat moves out of the date group and into the chosen folder in the sidebar.', target: '[data-tour="chat-conv-menu"]' },
+      { title: '⋮ menu — Download to computer', description: 'Second option. Saves the entire transcript (every question and every AI reply, with formatting and links preserved) to your computer as a PDF or Excel spreadsheet. Use this to archive important chats before the 30-day auto-cleanup.', target: '[data-tour="chat-conv-menu"]' },
+      { title: '⋮ menu — Save to OneDrive', description: 'Third option. Pushes the full transcript straight into your OneDrive as a document so the whole company (or shared collaborators) can read it. Great for research, decisions, or any chat worth keeping in your knowledge base.', target: '[data-tour="chat-conv-menu"]' },
+      { title: '⋮ menu — Delete', description: 'Last option, shown in red. Permanently removes the chat and all its history. There is no undo — export first with Download or Save to OneDrive if you might need it later.', target: '[data-tour="chat-conv-menu"]' },
     ],
     outro:
       'AI Chat respects your permissions — it can only see what you can see across Outlook, OneDrive, and SharePoint, and it never sends mail or changes anything without your explicit confirmation. Export anything important with the ⋮ menu before the 30-day auto-cleanup.',
     routes: ['/chat', '/ai-chat'],
-    keywords: ['chat', 'assistant', 'ask', 'question', 'voice', 'microphone', 'capacity', 'folder', 'attach', 'web search', 'play', 'tts', 'copy', 'regenerate'],
+    keywords: ['chat', 'assistant', 'ask', 'question', 'voice', 'microphone', 'capacity', 'folder', 'attach', 'web search', 'play', 'tts', 'copy', 'regenerate', 'move to folder', 'download', 'onedrive', 'delete'],
   },
   {
     id: 'profile-signature',
