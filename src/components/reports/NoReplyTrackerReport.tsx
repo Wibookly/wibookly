@@ -83,6 +83,17 @@ function recipientLabel(to: any): string {
     .join(', ');
 }
 
+async function readableFunctionError(error: unknown, fallback: string): Promise<string> {
+  const context = (error as any)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.clone().json();
+      if (body?.error) return String(body.error);
+    } catch { /* ignore */ }
+  }
+  return (error as Error)?.message || fallback;
+}
+
 export function NoReplyTrackerReport() {
   const { user, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
@@ -157,7 +168,7 @@ export function NoReplyTrackerReport() {
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
         body: { mode: 'manual', connection_id: activeConnection.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readableFunctionError(error, 'Scan failed'));
       if ((data as any)?.error) throw new Error((data as any).error);
       const added = Number((data as any)?.added ?? 0);
       if (!silent) {
