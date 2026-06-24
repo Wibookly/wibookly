@@ -76,10 +76,10 @@ interface Msg {
 }
 
 const examplePrompts = [
-  { icon: Mail, title: 'Draft an email', desc: 'to my team about Q1 priorities' },
+  { icon: Mail, title: 'Send an email', desc: "to <name> about <topic>. Draft it first and ask me to confirm before sending." },
+  { icon: Calendar, title: 'Schedule a meeting', desc: "with <name> for 30 min sometime this week. Find a slot where neither of us is double-booked, then ask me to confirm." },
   { icon: FileText, title: 'Summarize a document', desc: 'and pull out the key action items' },
-  { icon: Calendar, title: 'Prepare for a meeting', desc: 'review my calendar and recent emails' },
-  { icon: BarChart3, title: 'Analyze data', desc: 'trends in my recent activity' },
+  { icon: BarChart3, title: 'Prepare for a meeting', desc: 'review my calendar and recent emails' },
 ];
 
 import { useTheme as useGlobalTheme } from '@/lib/theme';

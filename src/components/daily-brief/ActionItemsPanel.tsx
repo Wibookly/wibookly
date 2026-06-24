@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ReminderDialog } from '@/components/chat/ReminderDialog';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 
 export interface ActionItem {
   taskId?: string;
@@ -59,6 +61,9 @@ function ItemRow({
   index: number;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const { activeConnection } = useActiveEmail();
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderMode, setReminderMode] = useState<'remind' | 'schedule'>('remind');
   const urg = urgencyHex(it.urgency, colors);
   const done = it.status === 'done';
   const snoozed = it.status === 'snoozed';
@@ -90,16 +95,28 @@ function ItemRow({
       return updateTask(it.taskId!, { status: 'snoozed', snoozed_until: t.toISOString().slice(0, 10) });
     });
 
-  const addReminder = () =>
-    handle('Reminder set for tomorrow 9:00 AM', () => {
-      const t = new Date();
-      t.setDate(t.getDate() + 1);
-      t.setHours(9, 0, 0, 0);
-      return updateTask(it.taskId!, { reminder_at: t.toISOString() });
-    });
+  const openReminder = () => {
+    if (!activeConnection?.id) {
+      toast.error('Connect Microsoft 365 first to add a reminder to your calendar.');
+      return;
+    }
+    setReminderMode('remind');
+    setReminderOpen(true);
+  };
 
-  const scheduleSlot = () =>
-    handle('Marked as scheduled', () => updateTask(it.taskId!, { status: 'scheduled' }));
+  const openSchedule = () => {
+    if (!activeConnection?.id) {
+      toast.error('Connect Microsoft 365 first to schedule this on your calendar.');
+      return;
+    }
+    setReminderMode('schedule');
+    setReminderOpen(true);
+  };
+
+  const reminderTitle = (() => {
+    const base = it.title || it.action || it.subject || 'Reminder';
+    return reminderMode === 'schedule' ? base : `Follow up: ${base}`;
+  })();
 
   return (
     <li
@@ -174,16 +191,28 @@ function ItemRow({
               <Button data-tour={index === 0 ? 'brief-snooze' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={snooze} disabled={!!busy}>
                 <Clock className="w-3 h-3 mr-1" /> Snooze
               </Button>
-              <Button data-tour={index === 0 ? 'brief-remind' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={addReminder} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-remind' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={openReminder} disabled={!!busy}>
                 <BellPlus className="w-3 h-3 mr-1" /> Remind me
               </Button>
-              <Button data-tour={index === 0 ? 'brief-schedule-action' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={scheduleSlot} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-schedule-action' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={openSchedule} disabled={!!busy}>
                 <CalendarPlus className="w-3 h-3 mr-1" /> Schedule
               </Button>
             </div>
           )}
         </div>
       </div>
+      <ReminderDialog
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
+        connectionId={activeConnection?.id ?? null}
+        initialTitle={reminderTitle}
+        onCreated={() => {
+          // Mark the task as scheduled in the brief so the UI reflects the booking.
+          if (it.taskId) {
+            updateTask(it.taskId, { status: 'scheduled' }).then(() => onChanged?.()).catch(() => null);
+          }
+        }}
+      />
     </li>
   );
 }

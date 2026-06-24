@@ -1,61 +1,48 @@
-## 1. Daily Brief — "Today's Schedule" upgrades
+## 1. No-Reply Tracker — missing emails
 
-**Page (`src/pages/AIDailyBrief.tsx` + new `CalendarPanel.tsx`)**
-- Replace the static "today only" schedule block with a new `CalendarPanel` that has:
-  - Range toggle: **Today / This Week / This Month** (defaults to Today).
-  - Live fetch from Microsoft 365 via existing connection (Graph `/me/calendarview?startDateTime=…&endDateTime=…`) through a new edge function `calendar-events` (so the token vault stays server-side). Returns subject, start, end, location, organizer, attendees count, isOnlineMeeting, webLink.
-  - "Refresh", "Print" (opens a clean print-only view), and "Include in email" toggle (persists per-user via `daily_brief_schedules.include_calendar_in_email`).
-  - Grouped by day with time, color-coded status (Now / Upcoming / Past).
-- Print view: `/daily-brief/print` route that renders Today's Schedule + action items branded InboxIQ.
+**Why it's empty:** The hourly scan (`cron-follow-ups`) only processes connections where `follow_up_settings.is_enabled = true`. Some of your accounts have it OFF, and the report shows trackers across all connections so any miss is obvious. The scan also skips emails whose BCC alias is not purely numeric — `1@energyforward.com` is fine, but plain `audit@…` or `test@…` isn't picked up.
 
-**Daily Brief email (`supabase/functions/send-daily-brief/index.ts`)**
-- Reuse `calendar-events` server-side to fetch today's events for that user's connection.
-- Append a "Today's Schedule" HTML section before action items when the new `include_calendar_in_email` flag is on.
+**Fix:**
+- Add a "Scan my Sent now" button on the AI Intelligence Reports → No-Reply Tracker tab that calls `cron-follow-ups` for the active connection on demand (no need to wait 15 min).
+- After a manual scan, show a toast with "Found N new tracked emails / 0 new".
+- Add a small banner on the tab when the active connection has `is_enabled = false`, with a one-click "Enable tracking" that flips the flag.
+- Surface the latest scan timestamp ("Last scanned 4 min ago").
 
-**Migration**
-- `ALTER TABLE daily_brief_schedules ADD COLUMN include_calendar_in_email boolean NOT NULL DEFAULT true;`
+## 2. Daily Brief — Remind me / Schedule buttons broken
 
-## 2. AI Chat — "Remind me" popup → Outlook event + Daily Brief task
+Today the "Remind me" and "Schedule" buttons on each action item just flip a database flag — no popup, nothing on the calendar.
 
-**`src/pages/AIChat.tsx`**
-- Detect phrases `remind me`, `schedule`, `set a reminder` in the user's submitted message (regex, case-insensitive).
-- Open a new `ReminderDialog` component with: title (prefilled from message), date, time, duration (default 30m), notes, attendee email (optional).
-- On confirm: call new edge function `create-reminder` which:
-  1. Creates a Microsoft Graph calendar event on the user's connected calendar via `POST /me/events`.
-  2. Inserts a `daily_brief_tasks` row (kind = 'reminder') linked to that event id so it appears in Daily Brief action items.
-- Chat thread gets an assistant message confirming the reminder with date/time + link to event.
+**Fix:** Wire both buttons to the same `ReminderDialog` already used in AI Chat, pre-filled with the item title, sender, and a sensible default time (tomorrow 9 AM for Remind, next free 30-min slot today/tomorrow for Schedule). Confirming the dialog calls `create-reminder`, which already (a) posts the event to Outlook calendar and (b) writes a `daily_brief_tasks` row so it surfaces in the brief.
 
-## 3. AI Activity panel rename + new No-Reply Tracker Report
+## 3. AI Chat — Send email & schedule meetings by voice/text
 
-**`src/pages/AIActivityDashboard.tsx`**
-- Rename header to **"AI Intelligence Reports"**.
-- Add a tab bar with two tabs:
-  1. **AI Activity** (existing content moved into the tab).
-  2. **No-Reply Tracker** (new `NoReplyTrackerReport.tsx`).
+Add two new tools to `agent-orchestrator` so the chat agent can take action, not just read:
 
-**`NoReplyTrackerReport.tsx`**
-- Pulls from `follow_up_trackers` joined with `email_messages`/`email_threads` for subject + recipients.
-- Columns: Sent At · Recipient · Subject · BCC alias (e.g. `3@…`) · Expected reply by · Status badge (Pending · Missed 1 · Missed 2 · Missed 3 · Replied · Completed · Cancelled) · Replied at.
-- Filters: date preset (Today / Week / Month / Custom range) · status multi-select · recipient search.
-- Actions: **Export CSV** and **Print**.
-- Status mapping uses the existing tracker fields (`reminder_count`, `status`, `replied_at`, `cancelled_at`).
+**`send_email`** — sends through Microsoft Graph `/me/sendMail`. Inputs: `to[]`, `cc[]`, `bcc[]`, `subject`, `body` (HTML), `reply_to_message_id?`. The agent first calls `search_outlook_mail` or a new lightweight `search_contacts` tool to resolve names → addresses from your recent correspondents, then drafts, then asks for confirmation before sending. Confirmation is a one-line "Send this email to X? Yes / Edit / Cancel" rendered as quick-reply chips.
 
-## 4. Backend pieces
+**`book_meeting`** — books an Outlook event. Inputs: `subject`, `attendees[]`, `duration_minutes`, `preferred_window` (e.g. "Thursday afternoon"), `location_or_online`. The tool first calls Graph `/me/calendar/getSchedule` for the user + attendees over the preferred window, picks the earliest slot with **no conflicts on anyone's calendar**, and creates a Teams online meeting. It never overwrites an existing event — if no free slot exists, it returns the top 3 alternative windows for the agent to propose back.
 
-New edge functions (all `verify_jwt = false`, validate JWT in code, use Outlook connector pattern already in repo):
-- `calendar-events` — GET events between start/end for caller's primary M365 connection.
-- `create-reminder` — POST event to Graph + insert `daily_brief_tasks`.
+**`search_contacts`** — small helper: searches `/me/people` and recent message senders so "email Ali about the budget" resolves to the right address without you typing it.
 
-Reuse existing `oauth_token_vault` decrypt helper (`_shared/token-vault.ts` pattern already used by `m365-sync-connection`).
+Add prompt rules so the agent:
+- Always shows the draft + recipients and asks confirmation before `send_email` fires.
+- For booking, summarizes the chosen slot ("Thursday June 26, 2:00–2:30 PM, all three attendees free") and asks confirmation before `book_meeting` fires.
+- Refuses to send to external domains the first time without explicit "yes, send externally" confirmation.
 
-## 5. Out of scope (confirm if needed)
+Two starter prompt chips added to the AI Chat composer:
+- ✉️ "Send an email" → seeds `Draft an email to <name> about <topic>. I'll review before sending.`
+- 📅 "Schedule a meeting" → seeds `Schedule a 30-min meeting with <name> sometime <window>. Don't double-book anyone.`
 
-- Google Calendar support for the new calendar features (M365 only this pass — matches current product focus).
-- Recurring reminders / RRULE — single events only for v1.
+## 4. Files changed
 
-## Technical notes
+- `supabase/functions/agent-orchestrator/index.ts` — add `send_email`, `book_meeting`, `search_contacts` tools + confirmation prompt rules.
+- `supabase/functions/cron-follow-ups/index.ts` — accept `{ mode: "manual", connection_id }` for on-demand scan.
+- `src/components/reports/NoReplyTrackerReport.tsx` — "Scan now" button, "Tracking disabled" banner, last-scan timestamp.
+- `src/components/daily-brief/ActionItemsPanel.tsx` — open `ReminderDialog` from Remind / Schedule.
+- `src/pages/Chat.tsx` — two new starter chips above the composer.
 
-- All new components use existing shadcn primitives and design tokens; no hardcoded colors.
-- Print view uses `@media print` only, no separate library.
-- CSV export uses the same `csvEscape` pattern as `ActivityReportTab`.
-- The remind-me detection runs client-side before send; the actual message still posts to chat so the assistant log stays consistent.
+## 5. Out of scope (this pass)
+
+- Sending from any account other than your active Microsoft 365 connection.
+- Recurring meetings or multi-day events.
+- Calendars other than Outlook (Google Calendar later).

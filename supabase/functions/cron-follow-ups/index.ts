@@ -647,31 +647,87 @@ async function userHasFollowUpPermission(userId: string): Promise<boolean> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Auth gate: require service-role bearer or shared cron secret.
+  // Auth gate: accept (a) service-role bearer, (b) shared cron secret, or
+  // (c) any authenticated user JWT — in case (c) we validate ownership of the
+  // requested connection_id below before doing anything.
   const authHeader = req.headers.get('Authorization') ?? '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   const cronSecret = Deno.env.get('CRON_SECRET') ?? '';
   const providedCronSecret = req.headers.get('x-cron-secret') ?? '';
   const hasServiceRole = !!serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`;
   const hasCronSecret = !!cronSecret && providedCronSecret === cronSecret;
+  let authedUserId: string | null = null;
   if (!hasServiceRole && !hasCronSecret) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    try {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const { data, error } = await supabase.auth.getClaims(token);
+      if (error || !data?.claims?.sub) throw new Error('invalid token');
+      authedUserId = data.claims.sub as string;
+    } catch {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   try {
-    // Lifecycle: pause trackers belonging to users who have lost the permission,
-    // and resume any that were paused but now have it again.
-    const [{ data: paused }, { data: resumed }] = await Promise.all([
-      supabase.rpc('pause_followups_without_permission'),
-      supabase.rpc('resume_followups_with_permission'),
-    ]);
+    // Optional payload: { mode: "manual", connection_id, user_id? }
+    // When mode === "manual" we scan ONLY the given connection and skip the
+    // heavy cross-tenant work. This is what the "Scan now" button calls.
+    let manualConnectionId: string | null = null;
+    let callerUserId: string | null = null;
+    try {
+      const body = await req.json();
+      if (body?.mode === "manual" && body?.connection_id) {
+        manualConnectionId = String(body.connection_id);
+      }
+      if (body?.user_id) callerUserId = String(body.user_id);
+    } catch { /* no body — treat as cron */ }
 
-    const { data: connections } = await supabase
+    // Authenticated end-users may ONLY trigger a manual scan of their own
+    // connection. Any other request shape is rejected.
+    if (authedUserId) {
+      if (!manualConnectionId) {
+        return new Response(JSON.stringify({ error: 'Manual scans must include connection_id' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: ownCheck } = await supabase
+        .from('provider_connections')
+        .select('id,user_id')
+        .eq('id', manualConnectionId)
+        .maybeSingle();
+      if (!ownCheck || ownCheck.user_id !== authedUserId) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Lifecycle: pause trackers belonging to users who have lost the permission,
+    // and resume any that were paused but now have it again. Skip for manual mode
+    // to keep the on-demand scan snappy.
+    let paused: any = 0, resumed: any = 0;
+    if (!manualConnectionId) {
+      const [p, r] = await Promise.all([
+        supabase.rpc('pause_followups_without_permission'),
+        supabase.rpc('resume_followups_with_permission'),
+      ]);
+      paused = p.data ?? 0;
+      resumed = r.data ?? 0;
+    }
+
+    let connectionsQuery = supabase
       .from('provider_connections')
       .select('id,user_id,provider,organization_id,inbox_followup_folder_id,connected_email')
       .eq('is_connected', true);
+    if (manualConnectionId) connectionsQuery = connectionsQuery.eq('id', manualConnectionId);
+    const { data: connections } = await connectionsQuery;
 
     let totalAdded = 0, totalDrafted = 0, totalReplied = 0, totalAutoSent = 0, totalLabeled = 0, totalReminded = 0, processed = 0, skippedNoPermission = 0;
     for (const c of (connections ?? []) as Connection[]) {
@@ -699,17 +755,19 @@ Deno.serve(async (req) => {
     // itself filters to connections that have daily_audit_enabled = true
     // and whose last_audit_at is older than 23h, so calling this every
     // 15 minutes is safe and idempotent.
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/audit-inbox-followups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ mode: 'daily_cron' }),
-      });
-    } catch (e) {
-      console.warn('daily audit kickoff failed', e);
+    if (!manualConnectionId) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/audit-inbox-followups`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ mode: 'daily_cron' }),
+        });
+      } catch (e) {
+        console.warn('daily audit kickoff failed', e);
+      }
     }
 
     return new Response(JSON.stringify({

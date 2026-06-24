@@ -220,6 +220,62 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_contacts",
+      description: "Resolve a person's name (e.g. 'Ali', 'Sarah Lee') to their email address by searching the user's Outlook People (/me/people) and recent senders. Call this BEFORE send_email or book_meeting when you only have a name. Returns up to 10 candidates with name, email, and relevance score.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Name or partial name to search for." },
+          top: { type: "number", description: "Max results, default 10." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_email",
+      description: "Send an email through the user's Outlook mailbox via Microsoft Graph /me/sendMail. ONLY call this AFTER the user has explicitly confirmed the recipients, subject, and body in chat. NEVER call on the first turn — first compose, show the draft, ask 'Send to <recipients>? Reply YES to send' and wait for confirmation. Returns { sent: true, message_id } on success.",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "array", items: { type: "string" }, description: "TO recipient email addresses." },
+          cc: { type: "array", items: { type: "string" }, description: "Optional CC recipients." },
+          bcc: { type: "array", items: { type: "string" }, description: "Optional BCC recipients." },
+          subject: { type: "string" },
+          body: { type: "string", description: "Email body in HTML. Include a brief greeting and sign-off." },
+          reply_to_message_id: { type: "string", description: "Optional. If replying to an existing message, the Graph message id." },
+          confirmed: { type: "boolean", description: "MUST be true. Acts as a guard so accidental calls are rejected." },
+        },
+        required: ["to", "subject", "body", "confirmed"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "book_meeting",
+      description: "Book a meeting on the user's Outlook calendar AFTER explicit user confirmation. Workflow: (1) call get_calendar_events for the user and find free windows; (2) propose a specific slot back to the user and ask 'Book Thu Jun 26 2:00–2:30 PM with X? Reply YES to confirm'; (3) ONLY after the user replies YES, call this tool with confirmed=true. The tool will refuse to overwrite an existing event — if the chosen slot conflicts on the user's own calendar, it returns a conflict error and you must propose another slot. A Teams online meeting link is added automatically.",
+      parameters: {
+        type: "object",
+        properties: {
+          subject: { type: "string" },
+          attendees: { type: "array", items: { type: "string" }, description: "Attendee email addresses." },
+          start_iso: { type: "string", description: "ISO datetime in UTC." },
+          end_iso: { type: "string", description: "ISO datetime in UTC." },
+          body: { type: "string", description: "Optional agenda/description (HTML or plain)." },
+          location: { type: "string", description: "Optional physical location. Leave blank for an online-only meeting." },
+          online: { type: "boolean", description: "Default true — adds a Teams meeting link." },
+          confirmed: { type: "boolean", description: "MUST be true. Guard against accidental booking." },
+        },
+        required: ["subject", "attendees", "start_iso", "end_iso", "confirmed"],
+      },
+    },
+  },
 ];
 
 const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
@@ -269,7 +325,15 @@ Rules:
     📊 [Open Excel workbook](XLSX_WEBURL)
     🖼️ [Open PowerPoint deck](PPTX_WEBURL)
   Replace the all-caps tokens with the actual webUrl from the tool result. Never paste raw OneDrive paths — always wrap them in markdown link syntax so they are clickable.
-- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.`;
+- Only ask the user to reconnect if a tool result has error.kind of no_token, unauthorized, or forbidden_scope.
+
+Action tools — sending email and booking meetings (CRITICAL safety rules):
+- send_email and book_meeting are ACTION tools that change the real world. They require explicit, in-chat user confirmation BEFORE you call them.
+- For send_email: first compose the draft using compose_email_draft (or inline), show the full recipients + subject + body to the user, then ask "Send this email to <names>? Reply YES to send, or tell me what to change." DO NOT call send_email on the same turn the user first asks for it unless they have already approved the exact final draft (recipients + subject + body).
+- For book_meeting: first call get_calendar_events for the user covering the requested window. Find a slot with NO existing event on the user's own calendar. Propose ONE specific slot ("Thursday June 26, 2:00–2:30 PM PT") and ask "Book it? Reply YES to confirm." Only after YES, call book_meeting with confirmed=true. NEVER pick a slot that overlaps an existing event — that would override the user's calendar.
+- When the user only gives a name ("email Ali about the budget"), call search_contacts first to resolve the email address. If multiple matches, ask the user to pick.
+- When sending to a recipient outside the user's own domain for the first time in a conversation, explicitly call out "this is an external recipient" in the confirmation question.
+- After send_email succeeds, reply with "✅ Sent to <recipients> at <time>." After book_meeting succeeds, reply with "✅ Booked: <subject> on <date/time>." plus the calendar webLink as a markdown link.`;
 
 const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
 - Use search_outlook_mail and search_context to gather background on the recipient and prior threads.
@@ -666,6 +730,124 @@ async function executeTool(
       slides,
       subfolder: "Generated Documents",
     });
+  }
+  if (name === "search_contacts") {
+    const q = String(args.query || "").trim();
+    const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    if (!q) return { error: "query required" };
+    const endpoint = `/me/people?$search="${encodeURIComponent(q).replace(/"/g, '%22')}"&$top=${top}&$select=displayName,scoredEmailAddresses,emailAddresses,personType`;
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "user", endpoint, {
+      headers: { ConsistencyLevel: "eventual" },
+    });
+    if (!res.ok) return { error: res.error };
+    const items = (res.data?.value || []).map((p: any) => {
+      const emails = (p.scoredEmailAddresses?.length ? p.scoredEmailAddresses : p.emailAddresses) || [];
+      return {
+        name: p.displayName,
+        email: emails[0]?.address || null,
+        relevance: emails[0]?.relevanceScore ?? null,
+        kind: p.personType?.subclass || p.personType?.class || null,
+      };
+    }).filter((p: any) => p.email);
+    return { count: items.length, results: items };
+  }
+  if (name === "send_email") {
+    if (!args.confirmed) {
+      return { error: "Refused: send_email requires confirmed=true after explicit in-chat user approval of recipients, subject, and body." };
+    }
+    const to = (Array.isArray(args.to) ? args.to : []).filter((e: any) => typeof e === "string" && e.includes("@"));
+    if (!to.length) return { error: "to required (at least one valid email)" };
+    const subject = String(args.subject || "").trim();
+    const body = String(args.body || "").trim();
+    if (!subject || !body) return { error: "subject and body required" };
+    const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
+    const message: Record<string, any> = {
+      subject,
+      body: { contentType: /<\/?[a-z][\s\S]*>/i.test(body) ? "HTML" : "Text", content: body },
+      toRecipients: toRecip(to),
+    };
+    if (Array.isArray(args.cc) && args.cc.length) message.ccRecipients = toRecip(args.cc);
+    if (Array.isArray(args.bcc) && args.bcc.length) message.bccRecipients = toRecip(args.bcc);
+    // Reply to existing thread if provided
+    if (args.reply_to_message_id) {
+      const replyRes = await callGraph(ctx.user_id, ctx.connection_id, "mail",
+        `/me/messages/${encodeURIComponent(args.reply_to_message_id)}/reply`, {
+          method: "POST",
+          body: JSON.stringify({ message, comment: "" }),
+        });
+      if (!replyRes.ok) return { error: replyRes.error };
+      return { sent: true, mode: "reply", to, subject, sent_at: new Date().toISOString() };
+    }
+    const sendRes = await callGraph(ctx.user_id, ctx.connection_id, "mail", "/me/sendMail", {
+      method: "POST",
+      body: JSON.stringify({ message, saveToSentItems: true }),
+    });
+    if (!sendRes.ok) return { error: sendRes.error };
+    return { sent: true, to, cc: args.cc || [], bcc: args.bcc || [], subject, sent_at: new Date().toISOString() };
+  }
+  if (name === "book_meeting") {
+    if (!args.confirmed) {
+      return { error: "Refused: book_meeting requires confirmed=true after the user has approved the specific slot in chat." };
+    }
+    const subject = String(args.subject || "").trim();
+    const attendees: string[] = (Array.isArray(args.attendees) ? args.attendees : []).filter((e: any) => typeof e === "string" && e.includes("@"));
+    const startIso = String(args.start_iso || "");
+    const endIso = String(args.end_iso || "");
+    if (!subject || !startIso || !endIso) return { error: "subject, start_iso, end_iso required" };
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    if (!(start.getTime() < end.getTime())) return { error: "end_iso must be after start_iso" };
+
+    // Conflict guard: check the user's own calendar for any overlapping event.
+    const overlapEndpoint = `/me/calendarView?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}&$select=id,subject,start,end,showAs&$top=10`;
+    const overlapRes = await callGraph(ctx.user_id, ctx.connection_id, "calendar", overlapEndpoint, {
+      headers: { Prefer: 'outlook.timezone="UTC"' },
+    });
+    if (overlapRes.ok) {
+      const conflicts = (overlapRes.data?.value || []).filter((e: any) => {
+        const s = e.showAs || "busy";
+        return s !== "free" && s !== "workingElsewhere";
+      });
+      if (conflicts.length) {
+        return {
+          error: "Conflict: your calendar already has an event in this window. Propose a different slot.",
+          conflicts: conflicts.map((c: any) => ({
+            subject: c.subject, start: c.start?.dateTime, end: c.end?.dateTime,
+          })),
+        };
+      }
+    }
+
+    const online = args.online !== false;
+    const eventBody: Record<string, any> = {
+      subject,
+      body: { contentType: "HTML", content: String(args.body || "").replace(/\n/g, "<br/>") },
+      start: { dateTime: start.toISOString().replace("Z", ""), timeZone: "UTC" },
+      end: { dateTime: end.toISOString().replace("Z", ""), timeZone: "UTC" },
+      attendees: attendees.map((a) => ({ emailAddress: { address: a }, type: "required" })),
+      isOnlineMeeting: online,
+      onlineMeetingProvider: online ? "teamsForBusiness" : undefined,
+    };
+    if (args.location) eventBody.location = { displayName: String(args.location) };
+
+    const createRes = await callGraph(ctx.user_id, ctx.connection_id, "calendar", "/me/events", {
+      method: "POST",
+      body: JSON.stringify(eventBody),
+    });
+    if (!createRes.ok) return { error: createRes.error };
+    const event = createRes.data || {};
+    return {
+      booked: true,
+      event: {
+        id: event.id,
+        web_link: event.webLink,
+        join_url: event.onlineMeeting?.joinUrl || null,
+        subject,
+        start: startIso,
+        end: endIso,
+        attendees,
+      },
+    };
   }
   return { error: `Unknown tool: ${name}` };
 }

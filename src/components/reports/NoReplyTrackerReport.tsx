@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Printer, CalendarIcon, Loader2, BellRing, Search } from 'lucide-react';
+import { Download, Printer, CalendarIcon, Loader2, BellRing, Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { format, subDays, startOfDay, endOfDay, startOfWeek, startOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -92,11 +93,34 @@ export function NoReplyTrackerReport() {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<TrackerRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [trackingEnabled, setTrackingEnabled] = useState<boolean | null>(null);
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
   const { start, end } = useMemo(
     () => rangeBounds(preset, { start: customStart, end: customEnd }),
     [preset, customStart, customEnd],
   );
+
+  // Load follow_up_settings for the active connection to surface
+  // "tracking disabled" and "last scanned" hints.
+  useEffect(() => {
+    if (!activeConnection?.id) {
+      setTrackingEnabled(null);
+      setLastScanAt(null);
+      return;
+    }
+    supabase
+      .from('follow_up_settings')
+      .select('is_enabled, last_audit_at, updated_at')
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setTrackingEnabled(data?.is_enabled ?? null);
+        setLastScanAt((data?.last_audit_at as string | null) ?? (data?.updated_at as string | null) ?? null);
+      });
+  }, [activeConnection?.id, reloadKey]);
 
   useEffect(() => {
     if (!user?.id || !organization?.id) return;
@@ -115,7 +139,50 @@ export function NoReplyTrackerReport() {
       setRows((data as TrackerRow[]) ?? []);
       setLoading(false);
     });
-  }, [user?.id, organization?.id, activeConnection?.id, start, end]);
+  }, [user?.id, organization?.id, activeConnection?.id, start, end, reloadKey]);
+
+  const handleScanNow = async () => {
+    if (!activeConnection?.id) {
+      toast.error('Pick an active email account first.');
+      return;
+    }
+    setScanning(true);
+    const before = rows.length;
+    try {
+      const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
+        body: { mode: 'manual', connection_id: activeConnection.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const added = Number((data as any)?.added ?? 0);
+      toast.success(
+        added > 0
+          ? `Found ${added} new tracked email${added === 1 ? '' : 's'}.`
+          : 'Scan complete — no new BCC-tracked emails found.',
+      );
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      toast.error((e as Error).message || 'Scan failed');
+    } finally {
+      setScanning(false);
+    }
+    void before;
+  };
+
+  const handleEnableTracking = async () => {
+    if (!activeConnection?.id) return;
+    const { error } = await supabase
+      .from('follow_up_settings')
+      .update({ is_enabled: true })
+      .eq('connection_id', activeConnection.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('No-reply tracking enabled for this account.');
+    setReloadKey((k) => k + 1);
+  };
+
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -212,6 +279,10 @@ export function NoReplyTrackerReport() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={handleScanNow} disabled={scanning || !activeConnection?.id}>
+              {scanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              {scanning ? 'Scanning…' : 'Scan now'}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
               <Download className="w-4 h-4 mr-2" /> Export CSV
             </Button>
@@ -220,6 +291,24 @@ export function NoReplyTrackerReport() {
             </Button>
           </div>
         </div>
+        {(trackingEnabled === false || lastScanAt) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            {trackingEnabled === false && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>No-reply tracking is OFF for this account — new BCC'd emails won't be picked up.</span>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={handleEnableTracking}>
+                  Enable
+                </Button>
+              </div>
+            )}
+            {lastScanAt && (
+              <span className="text-muted-foreground">
+                Last scanned {format(new Date(lastScanAt), "MMM d, h:mm a")}
+              </span>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-center gap-3 mb-4">
