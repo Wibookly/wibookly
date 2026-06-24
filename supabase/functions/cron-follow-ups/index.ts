@@ -763,7 +763,7 @@ Deno.serve(async (req) => {
           skippedNoPermission++;
           continue;
         }
-        const r = await processConnection(c);
+        const r = await processConnection(c, { forceScan: !!manualConnectionId });
         totalAdded += r.added;
         totalDrafted += r.drafted;
         totalReplied += r.replied;
