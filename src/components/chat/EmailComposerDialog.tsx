@@ -21,8 +21,12 @@ interface Props {
   connectionId: string | null;
   connectionEmail: string | null;
   initialPrompt?: string;
+  initialTo?: string[];
+  initialSubject?: string;
+  initialBody?: string;
   onSent?: () => void;
 }
+
 
 function isValidEmail(e: string) { return /\S+@\S+\.\S+/.test(e); }
 
