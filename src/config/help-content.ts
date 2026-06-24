@@ -71,13 +71,48 @@ export interface HelpCategory {
 }
 
 export const HELP_CATEGORIES: HelpCategory[] = [
-  { id: 'getting-started', label: 'Getting Started', description: 'Set up InboxIQ from scratch.' },
-  { id: 'integrations', label: 'Integrations', description: 'Connect Gmail, Outlook, and your calendar.' },
-  { id: 'categories-rules', label: 'Categories & Rules', description: 'Organize your inbox automatically.' },
-  { id: 'ai-features', label: 'AI Features', description: 'Drafts, daily brief, and the AI assistant.' },
-  { id: 'account-billing', label: 'Account & Workspace', description: 'Profile, signature, and team settings.' },
-  { id: 'admin', label: 'Admin Dashboard', description: 'Domains, users, groups, and feature gating.' },
-  { id: 'troubleshooting', label: 'Troubleshooting', description: 'Fix common issues quickly.' },
+  {
+    id: 'getting-started',
+    label: 'Getting Started',
+    description:
+      'New here? Start with a 60-second tour, then connect your mailbox and pick your categories. Everything else builds on these two steps.',
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    description:
+      'Link your Gmail or Outlook mailbox, your calendar, and (optionally) OneDrive / SharePoint. InboxIQ only ever asks for the access it really needs and never deletes mail.',
+  },
+  {
+    id: 'categories-rules',
+    label: 'Categories & Rules',
+    description:
+      'Decide how your mail is organized. Categories become real labels/folders inside your mailbox, and rules tell InboxIQ what belongs where — by sender, subject, or keywords.',
+  },
+  {
+    id: 'ai-features',
+    label: 'AI Features',
+    description:
+      'The smart side of InboxIQ: pre-written draft replies, your morning Daily Brief, the AI Chat assistant, Meeting Copilot, and the Reply Tracker that nudges you when nobody answers.',
+  },
+  {
+    id: 'account-billing',
+    label: 'Account & Workspace',
+    description:
+      'Make every AI reply sound like you. Add your name, title, photo, company logo, and signature so outgoing drafts feel personal and on-brand.',
+  },
+  {
+    id: 'admin',
+    label: 'Admin Dashboard',
+    description:
+      'For workspace admins only. Manage who can sign up (allowed email domains), invite users, group features together, and turn capabilities on or off per team.',
+  },
+  {
+    id: 'troubleshooting',
+    label: 'Troubleshooting',
+    description:
+      'Quick fixes for the most common bumps — drafts not showing up, a mailbox that says "disconnected", or a stuck consent screen.',
+  },
 ];
 
 export const HELP_ARTICLES: HelpArticle[] = [
@@ -85,17 +120,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'welcome',
     title: 'Welcome to InboxIQ',
     category: 'getting-started',
-    summary: 'A 60-second tour of what InboxIQ does and how to get value fast.',
+    summary: 'A plain-English overview of what InboxIQ does and how to get value in the first 10 minutes.',
     intro:
-      'InboxIQ is your AI-powered email co-pilot. It connects to your Gmail or Outlook mailbox, sorts incoming mail into categories you control, and prepares draft replies for the messages that need a response — so you can review and send in seconds instead of minutes.',
+      'InboxIQ is an AI co-pilot that sits on top of your existing Gmail or Outlook mailbox — you keep using the email client you already know. Once connected, InboxIQ quietly does four things for you:\n\n' +
+      '1. **Sorts your inbox automatically.** Every new email is read and dropped into the category you chose (Urgent, Clients, Finance, Newsletters, etc.) as a real label/folder inside your mailbox.\n\n' +
+      '2. **Writes draft replies for you.** For the categories you turn AI Drafts on for, a polished reply is waiting in your Drafts folder within ~2 minutes — written in your tone, using your signature. Nothing is ever sent without you clicking Send.\n\n' +
+      '3. **Sends you a Daily Brief.** Each morning you get a short, prioritized summary of what landed overnight, what needs a reply, and what can wait — plus an action list with time estimates.\n\n' +
+      '4. **Gives you an AI assistant for everything else.** AI Chat can search your mail, your OneDrive/SharePoint, attached documents, and the live web. Meeting Copilot can join meetings, transcribe them, and draft the follow-up. Reply Tracker nudges you when someone never responds.\n\n' +
+      'You stay in control the entire time: you choose what gets categorized, what gets a draft, and what gets sent.',
     steps: [
-      { title: '1. Connect your mailbox', description: 'Open the Integrations page and click Connect next to Google Workspace or Microsoft 365.' },
-      { title: '2. Confirm your categories', description: 'Open the Categories page. Rename or recolor the defaults so they match how you actually work.' },
-      { title: '3. Turn on AI Drafts', description: 'On any category, flip the AI Drafts toggle on. InboxIQ will start writing replies for new mail in that category.' },
-      { title: '4. Read your Daily Brief', description: 'Open AI Daily Brief the next morning to see exactly what landed overnight and what needs you.' },
+      { title: '1. Connect your mailbox', description: 'Open the Integrations page and click Connect next to Google Workspace or Microsoft 365. Takes ~30 seconds.' },
+      { title: '2. Confirm your categories', description: 'Open the Categories page. Rename, recolor, and re-order the defaults so they match how you actually triage mail.' },
+      { title: '3. Turn on AI Drafts where you want help', description: 'On any category, flip the AI Drafts toggle on. From that point on, replies are pre-written for you in that category.' },
+      { title: '4. Read your Daily Brief tomorrow morning', description: 'Open AI Daily Brief to see exactly what landed overnight, what needs you, and what can wait. Schedule it to arrive in your inbox automatically.' },
     ],
+    outro:
+      '**Want a deeper walkthrough of any feature?** Open this Help panel anywhere in the app and pick the matching article — every page has its own contextual guide.',
     routes: ['/integrations'],
-    keywords: ['intro', 'overview', 'tour', 'first time'],
+    keywords: ['intro', 'overview', 'tour', 'first time', 'what is inboxiq', 'how it works'],
   },
   {
     id: 'connect-mailbox',

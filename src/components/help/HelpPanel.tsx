@@ -412,6 +412,40 @@ export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: 
                 </section>
               ) : (
                 <>
+                  {/* Welcome / "What is InboxIQ?" hero */}
+                  <section
+                    aria-label="What InboxIQ does"
+                    className="rounded-lg border bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Sparkles className="w-4 h-4 text-primary" aria-hidden />
+                      <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                        Your user guide
+                      </p>
+                    </div>
+                    <h3 className="text-base font-semibold text-foreground leading-snug">
+                      InboxIQ — your AI co-pilot for email
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                      InboxIQ plugs into your existing Gmail or Outlook and quietly does four things for you:
+                      <strong className="text-foreground"> sorts every incoming email</strong> into the categories you choose,
+                      <strong className="text-foreground"> drafts replies in your tone</strong> (you always click Send),
+                      <strong className="text-foreground"> sends you a Daily Brief</strong> of what needs attention, and gives you an
+                      <strong className="text-foreground"> AI assistant</strong> that can search your mail, files, and the live web.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      Below you'll find a section for every part of the app — written in plain English with step-by-step screenshots and a "guide me" button for each page.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => openArticle('welcome')}
+                      className="w-full justify-center gap-2 mt-3"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Read the full introduction
+                    </Button>
+                  </section>
+
                   {contextual.length > 0 && (
                     <section aria-label="Help for this page">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
@@ -463,13 +497,13 @@ export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: 
                           <button
                             type="button"
                             onClick={() => setActiveCategory(c.id)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                            className="w-full flex items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/50 transition-colors"
                           >
-                            <span>
-                              <span className="text-sm font-medium block">{c.label}</span>
-                              <span className="text-xs text-muted-foreground">{c.description}</span>
+                            <span className="min-w-0">
+                              <span className="text-sm font-semibold block text-foreground">{c.label}</span>
+                              <span className="text-xs text-muted-foreground block mt-0.5 leading-relaxed">{c.description}</span>
                             </span>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
                           </button>
                         </li>
                       ))}
