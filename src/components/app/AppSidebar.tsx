@@ -330,7 +330,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <UserAvatarDropdown />
-          <ModeToggle />
+          <ModeToggle variant="icon" className="w-9 h-9 shrink-0" />
         </div>
       </div>
     </aside>
