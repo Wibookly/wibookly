@@ -1987,7 +1987,7 @@ export default function Chat() {
           // center of the page. Starter prompts live below and start collapsed.
           <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-4 pt-8 sm:pt-12 pb-6">
             <div className="w-full max-w-3xl flex flex-col items-center gap-5">
-              <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" data-tour="chat-hero-avatar" />
+              <div data-tour="chat-hero-avatar"><AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" /></div>
               <div className="text-center" data-tour="chat-hero-greeting">
                 <h2 className="text-xl sm:text-2xl font-semibold mb-1">How can I help you today?</h2>
                 <p className="text-muted-foreground text-sm">Type your message below — or pick a starter.</p>
