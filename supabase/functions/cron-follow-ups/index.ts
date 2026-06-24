@@ -661,17 +661,38 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Lifecycle: pause trackers belonging to users who have lost the permission,
-    // and resume any that were paused but now have it again.
-    const [{ data: paused }, { data: resumed }] = await Promise.all([
-      supabase.rpc('pause_followups_without_permission'),
-      supabase.rpc('resume_followups_with_permission'),
-    ]);
+    // Optional payload: { mode: "manual", connection_id, user_id? }
+    // When mode === "manual" we scan ONLY the given connection and skip the
+    // heavy cross-tenant work. This is what the "Scan now" button calls.
+    let manualConnectionId: string | null = null;
+    let callerUserId: string | null = null;
+    try {
+      const body = await req.json();
+      if (body?.mode === "manual" && body?.connection_id) {
+        manualConnectionId = String(body.connection_id);
+      }
+      if (body?.user_id) callerUserId = String(body.user_id);
+    } catch { /* no body — treat as cron */ }
 
-    const { data: connections } = await supabase
+    // Lifecycle: pause trackers belonging to users who have lost the permission,
+    // and resume any that were paused but now have it again. Skip for manual mode
+    // to keep the on-demand scan snappy.
+    let paused: any = 0, resumed: any = 0;
+    if (!manualConnectionId) {
+      const [p, r] = await Promise.all([
+        supabase.rpc('pause_followups_without_permission'),
+        supabase.rpc('resume_followups_with_permission'),
+      ]);
+      paused = p.data ?? 0;
+      resumed = r.data ?? 0;
+    }
+
+    let connectionsQuery = supabase
       .from('provider_connections')
       .select('id,user_id,provider,organization_id,inbox_followup_folder_id,connected_email')
       .eq('is_connected', true);
+    if (manualConnectionId) connectionsQuery = connectionsQuery.eq('id', manualConnectionId);
+    const { data: connections } = await connectionsQuery;
 
     let totalAdded = 0, totalDrafted = 0, totalReplied = 0, totalAutoSent = 0, totalLabeled = 0, totalReminded = 0, processed = 0, skippedNoPermission = 0;
     for (const c of (connections ?? []) as Connection[]) {
