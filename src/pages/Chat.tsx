@@ -2214,12 +2214,16 @@ export default function Chat() {
 
       <EmailComposerDialog
         open={composeOpen}
-        onOpenChange={setComposeOpen}
+        onOpenChange={(o) => { setComposeOpen(o); if (!o) { setComposePrefill({}); setComposeInitial(''); } }}
         connectionId={activeConnection?.id ?? null}
         connectionEmail={activeConnection?.email ?? null}
         initialPrompt={composeInitial}
+        initialTo={composePrefill.to}
+        initialSubject={composePrefill.subject}
+        initialBody={composePrefill.body}
         onSent={() => setInput('')}
       />
+
 
     </div>
   );
