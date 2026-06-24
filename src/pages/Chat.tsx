@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
+import { ReminderDialog, isReminderTrigger } from '@/components/chat/ReminderDialog';
 
 
 interface Conversation {
@@ -964,7 +965,14 @@ export default function Chat() {
     const text = (override ?? input).trim();
     if (!text || !user) return;
 
-    // The conversation we're starting this stream for, captured at send time.
+    // Detect "remind me / schedule" phrases and open the reminder dialog
+    // instead of sending. Skip when this is an internal re-submit (override).
+    if (!override && isReminderTrigger(text) && activeConnection?.id) {
+      setReminderInitial(text);
+      setReminderOpen(true);
+      return;
+    }
+
     // May be null when the user is on the "New chat" screen.
     const startingConvId = activeId;
 
