@@ -44,11 +44,5 @@ export const dailyBriefTour: Step[] = [
       "Going on vacation? Open Schedule and pause delivery. The brief will resume the next time you re-enable it — no setup loss.",
     placement: 'center',
   },
-  {
-    target: 'body',
-    title: "You're set 🎉",
-    content:
-      "Click 'Guide me through this page' anytime in the top bar to replay this tour.",
-    placement: 'center',
-  },
 ];
+
