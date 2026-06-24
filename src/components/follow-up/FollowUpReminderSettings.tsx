@@ -436,7 +436,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardHeader>
         <CardContent className={`space-y-4 ${!settings.business_hours_only ? 'opacity-70 pointer-events-none' : ''}`}>
           <div className="grid sm:grid-cols-3 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-bh-start">
               <Label htmlFor="bh-start">Start (local)</Label>
               <select
                 id="bh-start"
@@ -449,7 +449,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-bh-end">
               <Label htmlFor="bh-end">End (local)</Label>
               <select
                 id="bh-end"
@@ -464,7 +464,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="followup-bh-tz">
               <Label htmlFor="bh-tz">Timezone</Label>
               <div className="flex gap-2">
                 <Input
@@ -475,6 +475,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   onBlur={() => patch({ timezone: settings.timezone || browserTimezone() })}
                 />
                 <Button
+                  data-tour="followup-bh-usemine"
                   variant="outline"
                   size="sm"
                   onClick={() => patch({ timezone: browserTimezone() })}
@@ -489,9 +490,10 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" data-tour="followup-bh-days">
             <Label>Business days</Label>
             <div className="flex flex-wrap gap-2">
+
               {DAY_LABELS.map((label, idx) => {
                 const active = settings.business_days.includes(idx);
                 return (
