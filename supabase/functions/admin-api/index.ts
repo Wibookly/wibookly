@@ -515,6 +515,20 @@ serve(async (req) => {
             ? `${magicLink}${magicLink.includes('?') ? '&' : '?'}welcome=1`
             : 'https://inboxiq.energyforward.com/?welcome=1';
 
+          // Resolve which features this user actually has access to so the
+          // welcome email only describes what they can use.
+          const FEATURE_KEYS = [
+            'ai_draft','ai_auto_reply','ai_assistant','daily_brief','reports',
+            'email_agent','teams_agent','feature.follow_up_reminder',
+          ];
+          const enabledFeatures: string[] = [];
+          await Promise.all(FEATURE_KEYS.map(async (key) => {
+            const { data } = await adminClient.rpc('has_feature', {
+              _user_id: user_id, _feature_key: key,
+            });
+            if (data === true) enabledFeatures.push(key);
+          }));
+
           const welcomeResult = await enqueueWelcomeEmail(adminClient, {
             templateName: 'welcome-access-granted',
             recipientEmail: profile.email,
@@ -522,7 +536,7 @@ serve(async (req) => {
               fullName: profile.full_name ?? undefined,
               organizationName,
               loginUrl,
-              guideUrl: 'https://inboxiq.energyforward.com/?welcome=1',
+              enabledFeatures,
             },
             idempotencyKey: `welcome-access-granted:${user_id}:${Date.now()}`,
           });
