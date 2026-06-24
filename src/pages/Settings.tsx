@@ -733,7 +733,7 @@ export default function Settings() {
 
   return (
     <div className="page-shell">
-      <div className="page-shell-sticky">
+      <div data-tour="settings-page-hero" className="page-shell-sticky">
         <PageHero
           eyebrow="My Settings"
           title="My Profile & Signature"
@@ -752,7 +752,7 @@ export default function Settings() {
         {/* Unified Profile + Signature card */}
         <section className="space-y-3">
           {/* Legend explaining the two field types */}
-          <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div data-tour="settings-legend" className="flex flex-wrap items-center gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" />
               <span className="text-muted-foreground">
@@ -843,6 +843,7 @@ export default function Settings() {
                 </Label>
                 <div className="flex items-center gap-1">
                   <Button
+                    data-tour="settings-resp-edit"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -852,6 +853,7 @@ export default function Settings() {
                     {respEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
                   </Button>
                   <Button
+                    data-tour="settings-resp-regenerate"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -865,6 +867,7 @@ export default function Settings() {
                 </div>
               </div>
               <Textarea
+                data-tour="settings-resp-field"
                 id="aboutResp"
                 value={aboutMe.responsibilities}
                 onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
@@ -882,6 +885,7 @@ export default function Settings() {
                 </Label>
                 <div className="flex items-center gap-1">
                   <Button
+                    data-tour="settings-style-edit"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -891,6 +895,7 @@ export default function Settings() {
                     {styleEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
                   </Button>
                   <Button
+                    data-tour="settings-style-regenerate"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -904,6 +909,7 @@ export default function Settings() {
                 </div>
               </div>
               <Textarea
+                data-tour="settings-style-field"
                 id="aboutStyle"
                 value={aboutMe.communication_style}
                 onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
@@ -918,7 +924,7 @@ export default function Settings() {
 
 
         {/* Email Signature Builder */}
-        <section className="space-y-4">
+        <section data-tour="settings-signature-section" className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-border">
             <div>
               <h2 className="text-lg font-semibold inline-flex items-center gap-1">Email Signature <HelpTip id="profile.signaturePreview" /></h2>
@@ -942,6 +948,7 @@ export default function Settings() {
             <div data-tour="settings-signature-mode" className="flex items-center gap-4 pb-4 border-b border-border">
               <div className="flex gap-2">
                 <Button
+                  data-tour="settings-signature-builder"
                   type="button"
                   variant={!useCustomSignature ? "default" : "outline"}
                   size="sm"
@@ -950,6 +957,7 @@ export default function Settings() {
                   Use Signature Builder
                 </Button>
                 <Button
+                  data-tour="settings-custom-signature"
                   type="button"
                   variant={useCustomSignature ? "default" : "outline"}
                   size="sm"
@@ -1049,7 +1057,7 @@ export default function Settings() {
                 <div data-tour="settings-photo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label className="inline-flex items-center gap-1">Profile Photo (Optional) <HelpTip id="profile.photo" /></Label>
-                    <div className="flex items-center gap-2">
+                    <div data-tour="settings-photo-toggle" className="flex items-center gap-2">
                       <Label htmlFor="showProfilePhoto" className="text-xs font-normal text-muted-foreground">
                         Show in signature
                       </Label>
@@ -1064,6 +1072,7 @@ export default function Settings() {
                     {signatureFields.profilePhotoUrl ? (
                       <div className="relative">
                         <img 
+                          data-tour="settings-photo-preview"
                           src={signatureFields.profilePhotoUrl} 
                           alt="Profile photo" 
                           className="h-16 w-16 object-cover rounded-full border border-border"
@@ -1077,7 +1086,7 @@ export default function Settings() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-16 w-16 rounded-full border-2 border-dashed border-border bg-muted/50">
+                      <div data-tour="settings-photo-preview" className="flex items-center justify-center h-16 w-16 rounded-full border-2 border-dashed border-border bg-muted/50">
                         <ImageIcon className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
@@ -1122,6 +1131,7 @@ export default function Settings() {
                         }}
                       />
                       <Button
+                        data-tour="settings-photo-upload"
                         type="button"
                         variant="outline"
                         size="sm"
@@ -1146,7 +1156,7 @@ export default function Settings() {
                 <div data-tour="settings-logo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label>Company Logo (Optional)</Label>
-                    <div className="flex items-center gap-2">
+                    <div data-tour="settings-logo-toggle" className="flex items-center gap-2">
                       <Label htmlFor="showCompanyLogo" className="text-xs font-normal text-muted-foreground">
                         Show in signature
                       </Label>
@@ -1161,6 +1171,7 @@ export default function Settings() {
                     {signatureFields.signatureLogoUrl ? (
                       <div className="relative">
                         <img 
+                          data-tour="settings-logo-preview"
                           src={signatureFields.signatureLogoUrl} 
                           alt="Company logo" 
                           className="h-16 w-auto object-contain rounded border border-border bg-background p-1"
@@ -1174,7 +1185,7 @@ export default function Settings() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
+                      <div data-tour="settings-logo-preview" className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
                         <ImageIcon className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
@@ -1219,6 +1230,7 @@ export default function Settings() {
                         }}
                       />
                       <Button
+                        data-tour="settings-logo-upload"
                         type="button"
                         variant="outline"
                         size="sm"

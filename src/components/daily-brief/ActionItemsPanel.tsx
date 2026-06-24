@@ -47,7 +47,17 @@ async function updateTask(taskId: string, patch: Record<string, unknown>) {
   if (error) throw error;
 }
 
-function ItemRow({ it, colors, onChanged }: { it: ActionItem; colors: Props['priorityColors']; onChanged?: () => void }) {
+function ItemRow({
+  it,
+  colors,
+  onChanged,
+  index,
+}: {
+  it: ActionItem;
+  colors: Props['priorityColors'];
+  onChanged?: () => void;
+  index: number;
+}) {
   const [busy, setBusy] = useState<string | null>(null);
   const urg = urgencyHex(it.urgency, colors);
   const done = it.status === 'done';
@@ -93,6 +103,7 @@ function ItemRow({ it, colors, onChanged }: { it: ActionItem; colors: Props['pri
 
   return (
     <li
+      data-tour={index === 0 ? 'brief-action-item' : undefined}
       className={cn(
         'p-4 rounded-xl bg-card border shadow-sm transition-opacity',
         done && 'opacity-50',
@@ -109,7 +120,7 @@ function ItemRow({ it, colors, onChanged }: { it: ActionItem; colors: Props['pri
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className={cn('font-semibold text-sm', done && 'line-through')}>{it.title}</span>
-            <div className="flex items-center gap-1.5">
+            <div data-tour={index === 0 ? 'brief-item-badges' : undefined} className="flex items-center gap-1.5">
               {it.carriedFromDate && (
                 <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
                   ↻ Carried over{it.carryCount && it.carryCount > 1 ? ` ×${it.carryCount}` : ''}
@@ -156,17 +167,17 @@ function ItemRow({ it, colors, onChanged }: { it: ActionItem; colors: Props['pri
 
           {/* Per-item action toolbar */}
           {it.taskId && !done && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={markDone} disabled={!!busy}>
+            <div data-tour={index === 0 ? 'brief-item-actions' : undefined} className="mt-3 flex flex-wrap gap-1.5">
+              <Button data-tour={index === 0 ? 'brief-mark-done' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={markDone} disabled={!!busy}>
                 <Check className="w-3 h-3 mr-1" /> Mark done
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={snooze} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-snooze' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={snooze} disabled={!!busy}>
                 <Clock className="w-3 h-3 mr-1" /> Snooze
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addReminder} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-remind' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={addReminder} disabled={!!busy}>
                 <BellPlus className="w-3 h-3 mr-1" /> Remind me
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={scheduleSlot} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-schedule-action' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={scheduleSlot} disabled={!!busy}>
                 <CalendarPlus className="w-3 h-3 mr-1" /> Schedule
               </Button>
             </div>
@@ -178,7 +189,7 @@ function ItemRow({ it, colors, onChanged }: { it: ActionItem; colors: Props['pri
 }
 
 function Group({
-  title, icon: Icon, items, emptyText, colors, onChanged, defaultOpen,
+  title, icon: Icon, items, emptyText, colors, onChanged, defaultOpen, tourKey,
 }: {
   title: string;
   icon: typeof Mail;
@@ -187,12 +198,13 @@ function Group({
   colors: Props['priorityColors'];
   onChanged?: () => void;
   defaultOpen: boolean;
+  tourKey: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const count = items.length;
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="w-full flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+      <CollapsibleTrigger data-tour={tourKey} className="w-full flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-2 text-sm font-semibold">
           {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           <Icon className="w-4 h-4" />
@@ -206,7 +218,7 @@ function Group({
         ) : (
           <ol className="space-y-3 mt-3">
             {items.map((it, i) => (
-              <ItemRow key={it.taskId || `${it.source}-${i}`} it={it} colors={colors} onChanged={onChanged} />
+              <ItemRow key={it.taskId || `${it.source}-${i}`} it={it} colors={colors} onChanged={onChanged} index={i} />
             ))}
           </ol>
         )}
@@ -251,6 +263,7 @@ export function ActionItemsPanel({ items, priorityColors, onChanged, onPrint }: 
           colors={priorityColors}
           onChanged={onChanged}
           defaultOpen={emails.length > 0}
+          tourKey="brief-emails-group"
         />
         <Group
           title="Calendar"
@@ -260,6 +273,7 @@ export function ActionItemsPanel({ items, priorityColors, onChanged, onPrint }: 
           colors={priorityColors}
           onChanged={onChanged}
           defaultOpen={meetings.length > 0}
+          tourKey="brief-calendar-group"
         />
         {tasks.length > 0 && (
           <Group
@@ -270,6 +284,7 @@ export function ActionItemsPanel({ items, priorityColors, onChanged, onPrint }: 
             colors={priorityColors}
             onChanged={onChanged}
             defaultOpen
+            tourKey="brief-tasks-group"
           />
         )}
       </CardContent>

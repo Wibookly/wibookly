@@ -446,8 +446,8 @@ export function DailyBriefSchedule() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Recipient + timezone */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
+        <div data-tour="brief-schedule-delivery" className="grid gap-4 sm:grid-cols-2">
+          <div data-tour="brief-schedule-send-to" className="space-y-2">
             <Label htmlFor="recipient">Send to</Label>
             <Input
               id="recipient"
@@ -460,7 +460,7 @@ export function DailyBriefSchedule() {
               Briefs are sent from <span className="font-mono">agent@energyforward.com</span>.
             </p>
           </div>
-          <div className="space-y-2">
+          <div data-tour="brief-schedule-timezone" className="space-y-2">
             <Label>Timezone</Label>
             <Select value={timezone} onValueChange={setTimezone}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -479,7 +479,7 @@ export function DailyBriefSchedule() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">Your schedules</h4>
-            <div className="flex flex-wrap gap-2">
+            <div data-tour="brief-schedule-presets" className="flex flex-wrap gap-2">
               {PRESET_DAY_GROUPS.map(p => (
                 <Button
                   key={p.label}
@@ -507,6 +507,7 @@ export function DailyBriefSchedule() {
                 return (
                   <div
                     key={s.id}
+                    data-tour={idx === 0 ? 'brief-schedule-row' : undefined}
                     className={`rounded-lg border bg-card transition-colors ${isEditing ? 'border-primary shadow-sm' : 'hover:border-primary/50'}`}
                   >
                     {/* Summary row — always visible */}
@@ -516,10 +517,12 @@ export function DailyBriefSchedule() {
                       const persisted = isSchedulePersisted(s);
                       return (
                     <div className="flex items-center gap-3 p-3">
+                      <div data-tour={idx === 0 ? 'brief-schedule-toggle' : undefined}>
                       <Switch
                         checked={s.enabled}
                         onCheckedChange={(v) => updateSchedule(s.id, { enabled: v })}
                       />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`text-sm font-semibold ${s.enabled ? '' : 'text-muted-foreground'}`}>
@@ -559,6 +562,7 @@ export function DailyBriefSchedule() {
                         </p>
                       </div>
                       <Button
+                        data-tour={idx === 0 ? 'brief-schedule-edit' : undefined}
                         variant="ghost"
                         size="sm"
                         onClick={() => setEditingId(isEditing ? null : s.id)}
@@ -566,6 +570,7 @@ export function DailyBriefSchedule() {
                         {isEditing ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
                       </Button>
                       <Button
+                        data-tour={idx === 0 ? 'brief-schedule-delete' : undefined}
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
