@@ -790,7 +790,13 @@ async function processNotification(n: GraphNotification) {
         connectionId: license.connection_id,
         taskText,
         threadText,
+        mode,
+        senderName,
+        senderEmail,
+        otherRecipients: otherHumanRecipients,
+        subject: msg.subject ?? '',
       });
+
       replyHtml = orch.replyHtml;
       agentProvider = orch.provider;
       agentModel = orch.model;
