@@ -136,41 +136,86 @@ export function TodoChecklistCard({ items, onChanged }: Props) {
             style={{ width: `${pct}%` }}
           />
         </div>
+        {/* Open items */}
         <ul className="divide-y">
-          {ordered.map((it, i) => {
-            const done = it.status === 'done';
-            return (
-              <li key={it.taskId || `${it.source}-${i}`} className={cn('py-2.5 flex items-start gap-3', done && 'opacity-60')}>
-                <Checkbox
-                  checked={done}
-                  disabled={busy === it.taskId}
-                  onCheckedChange={(c) => toggle(it, !!c)}
-                  className="mt-0.5"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-mono text-muted-foreground w-5 text-right">{i + 1}.</span>
-                    {srcIcon(it.source)}
-                    <span className={cn('text-sm font-medium flex-1 min-w-0', done && 'line-through text-muted-foreground')}>
-                      {it.title}
+          {openItems.length === 0 && (
+            <li className="py-4 text-sm text-center text-muted-foreground italic">
+              All done — nothing left on the checklist. 🎉
+            </li>
+          )}
+          {openItems.map((it, i) => (
+            <li key={it.taskId || `open-${it.source}-${i}`} className="py-2.5 flex items-start gap-3">
+              <Checkbox
+                checked={false}
+                disabled={busy === it.taskId}
+                onCheckedChange={(c) => toggle(it, !!c)}
+                className="mt-0.5"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground w-5 text-right">{i + 1}.</span>
+                  {srcIcon(it.source)}
+                  <span className="text-sm font-medium flex-1 min-w-0">{it.title}</span>
+                  {it.estimatedMinutes && (
+                    <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                      ⏱ {it.estimatedMinutes}m
                     </span>
-                    {it.estimatedMinutes && (
-                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
-                        ⏱ {it.estimatedMinutes}m
-                      </span>
-                    )}
-                  </div>
-                  {it.action && !done && (
-                    <p className="text-xs text-muted-foreground mt-0.5 ml-7">
-                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Do: </span>
-                      {it.action}
-                    </p>
                   )}
                 </div>
-              </li>
-            );
-          })}
+                {it.action && (
+                  <p className="text-xs text-muted-foreground mt-0.5 ml-7">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">Do: </span>
+                    {it.action}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
         </ul>
+
+        {/* Completed section — stays visible until the brief is closed */}
+        {doneItems.length > 0 && (
+          <div className="mt-5">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 mb-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                Completed today
+              </span>
+              <span className="ml-auto text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                {doneItems.length}
+              </span>
+            </div>
+            <ul className="divide-y divide-emerald-200/40 dark:divide-emerald-900/30 rounded-md border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/10">
+              {doneItems.map((it, i) => (
+                <li
+                  key={it.taskId || `done-${it.source}-${i}`}
+                  className="py-2.5 px-3 flex items-start gap-3 border-l-4 border-l-emerald-500"
+                >
+                  <Checkbox
+                    checked
+                    disabled={busy === it.taskId}
+                    onCheckedChange={(c) => toggle(it, !!c)}
+                    className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {srcIcon(it.source)}
+                      <span className="text-sm font-medium line-through text-muted-foreground flex-1 min-w-0">
+                        {it.title}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                        ✓ Done
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-muted-foreground mt-2 px-1">
+              These stay here until you refresh or close the brief. Uncheck to move back to your list.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
