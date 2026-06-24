@@ -689,6 +689,26 @@ Deno.serve(async (req) => {
       if (body?.user_id) callerUserId = String(body.user_id);
     } catch { /* no body — treat as cron */ }
 
+    // Authenticated end-users may ONLY trigger a manual scan of their own
+    // connection. Any other request shape is rejected.
+    if (authedUserId) {
+      if (!manualConnectionId) {
+        return new Response(JSON.stringify({ error: 'Manual scans must include connection_id' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: ownCheck } = await supabase
+        .from('provider_connections')
+        .select('id,user_id')
+        .eq('id', manualConnectionId)
+        .maybeSingle();
+      if (!ownCheck || ownCheck.user_id !== authedUserId) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Lifecycle: pause trackers belonging to users who have lost the permission,
     // and resume any that were paused but now have it again. Skip for manual mode
     // to keep the on-demand scan snappy.
