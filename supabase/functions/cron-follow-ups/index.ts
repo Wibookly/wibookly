@@ -647,17 +647,32 @@ async function userHasFollowUpPermission(userId: string): Promise<boolean> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Auth gate: require service-role bearer or shared cron secret.
+  // Auth gate: accept (a) service-role bearer, (b) shared cron secret, or
+  // (c) any authenticated user JWT — in case (c) we validate ownership of the
+  // requested connection_id below before doing anything.
   const authHeader = req.headers.get('Authorization') ?? '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   const cronSecret = Deno.env.get('CRON_SECRET') ?? '';
   const providedCronSecret = req.headers.get('x-cron-secret') ?? '';
   const hasServiceRole = !!serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`;
   const hasCronSecret = !!cronSecret && providedCronSecret === cronSecret;
+  let authedUserId: string | null = null;
   if (!hasServiceRole && !hasCronSecret) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    try {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const { data, error } = await supabase.auth.getClaims(token);
+      if (error || !data?.claims?.sub) throw new Error('invalid token');
+      authedUserId = data.claims.sub as string;
+    } catch {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   try {
