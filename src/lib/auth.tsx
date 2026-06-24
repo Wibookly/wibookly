@@ -75,6 +75,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profileData = profileRows?.[0];
 
       if (profileData) {
+        let photoUrl =
+          (profileData as { profile_photo_url?: string | null }).profile_photo_url ?? null;
+
+        // Fallback: if the user has no uploaded profile photo, use the photo
+        // pulled from their Microsoft 365 tenant directory (discovered_tenant_users).
+        if (!photoUrl && profileData.email) {
+          try {
+            const { data: directoryRow } = await supabase
+              .from('discovered_tenant_users')
+              .select('profile_photo_url')
+              .eq('email', profileData.email)
+              .maybeSingle();
+            if (directoryRow?.profile_photo_url) {
+              photoUrl = directoryRow.profile_photo_url;
+            }
+          } catch {
+            // RLS or other error — silently ignore, fall back to initials.
+          }
+        }
+
         setProfile({
           id: profileData.id,
           user_id: profileData.user_id,
@@ -82,8 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: profileData.email,
           full_name: profileData.full_name,
           title: profileData.title ?? null,
-          profile_photo_url: (profileData as { profile_photo_url?: string | null }).profile_photo_url ?? null,
+          profile_photo_url: photoUrl,
         });
+
 
         const { data: orgData } = await supabase
           .from('organizations')
