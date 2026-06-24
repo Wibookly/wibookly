@@ -166,6 +166,7 @@ export function HelpIssueForm() {
       });
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
