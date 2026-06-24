@@ -118,21 +118,21 @@ Deno.serve(async (req) => {
       if (!connectionId) return json({ error: 'connection_id required' }, 400);
       const { data: conn } = await supabase
         .from('provider_connections')
-        .select('id, provider, email')
+        .select('id, provider, connected_email')
         .eq('id', connectionId)
         .eq('user_id', userId)
         .maybeSingle();
       if (!conn || conn.provider !== 'outlook') return json({ error: 'Outlook connection not found' }, 404);
-      connEmail = (conn as any).email || null;
+      connEmail = (conn as any).connected_email || null;
     }
 
     if (action === 'draft') {
       const prompt = String(body?.prompt || '').trim();
       if (!prompt) return json({ error: 'prompt required' }, 400);
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('full_name')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle();
       const draft = await draftWithLLM(prompt, (profile as any)?.full_name || null);
       return json({ ok: true, draft });
@@ -140,9 +140,9 @@ Deno.serve(async (req) => {
 
     if (action === 'signature') {
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle();
       const html = buildSignature(profile, connEmail);
       return json({ ok: true, signature: html, from_email: connEmail });
