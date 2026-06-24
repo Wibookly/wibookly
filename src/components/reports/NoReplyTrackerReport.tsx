@@ -93,11 +93,34 @@ export function NoReplyTrackerReport() {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<TrackerRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [trackingEnabled, setTrackingEnabled] = useState<boolean | null>(null);
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
   const { start, end } = useMemo(
     () => rangeBounds(preset, { start: customStart, end: customEnd }),
     [preset, customStart, customEnd],
   );
+
+  // Load follow_up_settings for the active connection to surface
+  // "tracking disabled" and "last scanned" hints.
+  useEffect(() => {
+    if (!activeConnection?.id) {
+      setTrackingEnabled(null);
+      setLastScanAt(null);
+      return;
+    }
+    supabase
+      .from('follow_up_settings')
+      .select('is_enabled, last_audit_at, updated_at')
+      .eq('connection_id', activeConnection.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setTrackingEnabled(data?.is_enabled ?? null);
+        setLastScanAt((data?.last_audit_at as string | null) ?? (data?.updated_at as string | null) ?? null);
+      });
+  }, [activeConnection?.id, reloadKey]);
 
   useEffect(() => {
     if (!user?.id || !organization?.id) return;
@@ -116,7 +139,50 @@ export function NoReplyTrackerReport() {
       setRows((data as TrackerRow[]) ?? []);
       setLoading(false);
     });
-  }, [user?.id, organization?.id, activeConnection?.id, start, end]);
+  }, [user?.id, organization?.id, activeConnection?.id, start, end, reloadKey]);
+
+  const handleScanNow = async () => {
+    if (!activeConnection?.id) {
+      toast.error('Pick an active email account first.');
+      return;
+    }
+    setScanning(true);
+    const before = rows.length;
+    try {
+      const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
+        body: { mode: 'manual', connection_id: activeConnection.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const added = Number((data as any)?.added ?? 0);
+      toast.success(
+        added > 0
+          ? `Found ${added} new tracked email${added === 1 ? '' : 's'}.`
+          : 'Scan complete — no new BCC-tracked emails found.',
+      );
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      toast.error((e as Error).message || 'Scan failed');
+    } finally {
+      setScanning(false);
+    }
+    void before;
+  };
+
+  const handleEnableTracking = async () => {
+    if (!activeConnection?.id) return;
+    const { error } = await supabase
+      .from('follow_up_settings')
+      .update({ is_enabled: true })
+      .eq('connection_id', activeConnection.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('No-reply tracking enabled for this account.');
+    setReloadKey((k) => k + 1);
+  };
+
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
