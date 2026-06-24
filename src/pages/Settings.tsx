@@ -874,7 +874,7 @@ export default function Settings() {
                 className={!respEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
-            <div className="space-y-1.5">
+            <div data-tour="settings-style" className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="aboutStyle" className="text-xs inline-flex items-center gap-1.5">
                   Communication style
