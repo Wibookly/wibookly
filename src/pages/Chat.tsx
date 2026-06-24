@@ -1022,20 +1022,12 @@ export default function Chat() {
       return;
     }
 
-    // Detect "remind me / schedule" phrases and open the reminder dialog
-    // instead of sending. Skip when this is an internal re-submit (override).
-    if (!override && isReminderTrigger(text) && activeConnection?.id) {
-      setReminderInitial(text);
-      setReminderOpen(true);
-      return;
-    }
-
-    // Detect "send/compose/write email" phrases.
-    // If the user gave details (longer phrase with subject/to hints), open the
-    // composer directly and let it AI-draft. Otherwise start a guided wizard
-    // that asks for subject -> body -> recipient — works great with the mic.
+    // Email composer takes priority over the reminder/calendar dialog.
+    // If the user says "send an email to X and schedule a meeting", we open
+    // the email composer — never the calendar — because the primary intent
+    // is the email. The calendar only opens for pure scheduling phrases
+    // like "schedule a meeting with X" or "remind me to ...".
     if (!override && isComposeEmailTrigger(text)) {
-      // Require an Outlook connection to actually send — otherwise tell the user.
       if (!activeConnection?.id || activeConnection.provider !== 'outlook') {
         pushLocalMessage('user', text);
         setInput('');
@@ -1045,12 +1037,18 @@ export default function Chat() {
         );
         return;
       }
-      // Always open the composer immediately with the narrated request so the
-      // AI can extract recipient / subject / body and prefill the template.
       pushLocalMessage('user', text);
       setComposeInitial(text);
       setComposeOpen(true);
       if (!override) setInput('');
+      return;
+    }
+
+    // Detect "remind me / schedule" phrases and open the reminder dialog
+    // only when no email-send intent is present.
+    if (!override && isReminderTrigger(text) && activeConnection?.id) {
+      setReminderInitial(text);
+      setReminderOpen(true);
       return;
     }
 
