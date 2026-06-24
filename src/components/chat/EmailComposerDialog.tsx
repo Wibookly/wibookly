@@ -152,7 +152,7 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           .maybeSingle();
         if (!cancelled && followUpSettings?.is_enabled) {
           const domain = String(
-            connectionEmail?.split('@')[1] || (followUpSettings as any)?.bcc_domain || '',
+            (followUpSettings as any)?.bcc_domain || connectionEmail?.split('@')[1] || '',
           ).trim().toLowerCase();
           if (domain) {
             const alias = `3@${domain}`;

@@ -60,13 +60,17 @@ function buildSignature(p: any, userEmail: string | null): string {
 </div>`;
 }
 
-function parseFollowupAlias(addresses: string[], senderEmail: string | null): { alias: string; days: number } | null {
-  const domain = String(senderEmail || '').split('@')[1]?.toLowerCase();
-  if (!domain) return null;
+function normalizeDomain(value: string | null | undefined): string {
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
+}
+
+function parseFollowupAlias(addresses: string[], domains: Array<string | null | undefined>): { alias: string; days: number } | null {
+  const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
+  if (allowedDomains.size === 0) return null;
   for (const raw of addresses) {
     const address = String(raw || '').trim().toLowerCase();
     const match = address.match(/^(\d+)@(.+)$/);
-    if (!match || match[2] !== domain) continue;
+    if (!match || !allowedDomains.has(normalizeDomain(match[2]))) continue;
     const days = Number(match[1]);
     if (Number.isInteger(days) && days >= 1 && days <= 90) return { alias: address, days };
   }
@@ -226,11 +230,30 @@ Deno.serve(async (req) => {
       const to: string[] = (Array.isArray(body?.to) ? body.to : []).filter((e: any) => typeof e === 'string' && e.includes('@'));
       if (!to.length) return json({ error: 'at least one valid To recipient is required' }, 400);
       const cc: string[] = (Array.isArray(body?.cc) ? body.cc : []).filter((e: any) => typeof e === 'string' && e.includes('@'));
-      const bcc: string[] = (Array.isArray(body?.bcc) ? body.bcc : []).filter((e: any) => typeof e === 'string' && e.includes('@'));
+      let bcc: string[] = (Array.isArray(body?.bcc) ? body.bcc : []).filter((e: any) => typeof e === 'string' && e.includes('@'));
       const subject = String(body?.subject || '').trim();
       const html = String(body?.body || '').trim();
       if (!subject) return json({ error: 'subject required' }, 400);
       if (!html) return json({ error: 'body required' }, 400);
+      const senderDomain = normalizeDomain(connEmail?.split('@')[1]);
+      let trackingDomain = senderDomain;
+      try {
+        const { data: settings } = await supabase
+          .from('follow_up_settings')
+          .select('is_enabled,bcc_domain')
+          .eq('connection_id', connectionId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        const configuredDomain = normalizeDomain((settings as any)?.bcc_domain);
+        trackingDomain = configuredDomain || senderDomain;
+        const alreadyTracked = parseFollowupAlias(bcc, [senderDomain, configuredDomain]);
+        if ((settings as any)?.is_enabled && trackingDomain && !alreadyTracked) {
+          const alias = `3@${trackingDomain}`;
+          bcc = bcc.some((v) => v.toLowerCase() === alias) ? bcc : [...bcc, alias];
+        }
+      } catch (e) {
+        console.warn('follow-up settings lookup failed; sending without auto-BCC fallback', e);
+      }
       const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
       const message: Record<string, any> = {
         subject,
@@ -245,29 +268,30 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ message, saveToSentItems: true }),
       });
       if (!res.ok) return json({ error: res.error?.message || 'send failed', code: res.error?.code }, res.status || 500);
-      const alias = parseFollowupAlias(bcc, connEmail);
+      const alias = parseFollowupAlias(bcc, [senderDomain, trackingDomain]);
       if (alias && connOrgId) {
         try {
           const sentMessage = await findRecentSentMessage(userId, connectionId, subject, sentAfterIso, to);
-          if (sentMessage?.id) {
-            const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-            const sentAt = new Date(sentMessage.sentDateTime || new Date().toISOString());
-            await admin.from('follow_up_trackers').upsert({
-              organization_id: connOrgId,
-              connection_id: connectionId,
-              user_id: userId,
-              message_id: sentMessage.id,
-              conversation_id: sentMessage.conversationId ?? null,
-              subject,
-              to_recipients: sentMessage.toRecipients || message.toRecipients || [],
-              cc_recipients: sentMessage.ccRecipients || message.ccRecipients || [],
-              bcc_alias: alias.alias,
-              days_after_send: alias.days,
-              sent_at: sentAt.toISOString(),
-              due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
-              status: 'pending',
-            }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
-          }
+          const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+          const sentAt = new Date(sentMessage?.sentDateTime || new Date().toISOString());
+          const messageId = sentMessage?.id || `compose-${crypto.randomUUID()}`;
+          const { error: trackerError } = await admin.from('follow_up_trackers').upsert({
+            organization_id: connOrgId,
+            connection_id: connectionId,
+            user_id: userId,
+            message_id: messageId,
+            conversation_id: sentMessage?.conversationId ?? null,
+            subject,
+            to_recipients: sentMessage?.toRecipients || message.toRecipients || [],
+            cc_recipients: sentMessage?.ccRecipients || message.ccRecipients || [],
+            bcc_alias: alias.alias,
+            days_after_send: alias.days,
+            sent_at: sentAt.toISOString(),
+            due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
+            status: 'pending',
+            metadata: sentMessage?.id ? {} : { source: 'email-compose-fallback', sent_item_lookup: 'not_found_yet' },
+          }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+          if (trackerError) console.warn('follow-up tracker insert failed', trackerError);
         } catch (e) {
           console.warn('follow-up tracker insert after send failed', e);
         }
