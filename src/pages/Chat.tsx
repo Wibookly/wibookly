@@ -1687,29 +1687,34 @@ export default function Chat() {
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="relative flex-1 min-w-0">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={limitReached ? 'Daily limit reached' : (isRecording ? 'Listening…' : 'Message InboxIQ...')}
-                  disabled={isStreaming || limitReached}
-                  rows={1}
-                  className={cn(
-                    'w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2',
-                    isRecording && 'pr-16',
-                  )}
-                  data-tour="chat-input"
-                />
-                {isRecording && (
-                  <div className="pointer-events-none absolute right-1 bottom-1 flex items-center gap-1.5 rounded-full bg-background/90 backdrop-blur px-2 py-1 border border-destructive/40 shadow-sm">
+                {isRecording ? (
+                  <div className="flex items-center gap-2 rounded-md bg-muted/40 border border-destructive/30 px-3 py-2 min-h-[36px]">
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-destructive/70 animate-ping" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
                     </span>
+                    <VoiceWaveform
+                      getAnalyser={getAnalyser}
+                      active={isRecording}
+                      className="flex-1 h-7"
+                      bars={56}
+                    />
                   </div>
+                ) : (
+                  <Textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
+                    disabled={isStreaming || limitReached}
+                    rows={1}
+                    className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
+                    data-tour="chat-input"
+                  />
                 )}
               </div>
+
               {isRecording ? (
                 <>
                   <Tooltip>
