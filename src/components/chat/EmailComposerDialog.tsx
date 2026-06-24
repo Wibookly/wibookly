@@ -73,7 +73,7 @@ function RecipientField({ label, values, setValues, connectionId, autoFocus }: {
 
   return (
     <div className="space-y-1.5 relative">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">{label}</Label>
       <div className="flex flex-wrap gap-1.5 items-center min-h-[38px] rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
         {values.map((v) => (
           <span key={v} className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 px-2 py-0.5 text-xs">
@@ -218,19 +218,20 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-sky-500" />
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+            <Mail className="w-5 h-5 text-sky-500 shrink-0" />
             Compose email
             {drafting && <span className="text-xs font-normal text-muted-foreground inline-flex items-center gap-1 ml-2"><Sparkles className="w-3 h-3" /> AI drafting…</span>}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
             Sent through your Outlook ({connectionEmail || 'not connected'}). Recipients autocomplete from your Outlook contacts.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+        <div className="space-y-3 overflow-y-auto px-6 py-4 flex-1">
+
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>From: <span className="font-medium text-foreground">{connectionEmail || '—'}</span></span>
             <div className="flex gap-2">
@@ -244,13 +245,13 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           {showBcc && <RecipientField label="Bcc" values={bcc} setValues={setBcc} connectionId={connectionId} />}
 
           <div className="space-y-1.5">
-            <Label htmlFor="comp-subj" className="text-xs uppercase tracking-wide text-muted-foreground">Subject</Label>
+            <Label htmlFor="comp-subj" className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">Subject</Label>
             <Input id="comp-subj" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Message</Label>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">Message</Label>
               <button
                 type="button"
                 onClick={() => setEditMode((v) => !v)}
@@ -289,7 +290,7 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           </div>
         </div>
 
-        <DialogFooter className="pt-3 border-t">
+        <DialogFooter className="px-6 py-3 border-t bg-muted/20">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={sending}>Cancel</Button>
           <Button onClick={handleSend} disabled={sending || drafting || !to.length}>
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
