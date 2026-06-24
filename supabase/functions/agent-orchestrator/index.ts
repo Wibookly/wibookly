@@ -731,6 +731,124 @@ async function executeTool(
       subfolder: "Generated Documents",
     });
   }
+  if (name === "search_contacts") {
+    const q = String(args.query || "").trim();
+    const top = Math.min(Math.max(Number(args.top) || 10, 1), 25);
+    if (!q) return { error: "query required" };
+    const endpoint = `/me/people?$search="${encodeURIComponent(q).replace(/"/g, '%22')}"&$top=${top}&$select=displayName,scoredEmailAddresses,emailAddresses,personType`;
+    const res = await callGraph(ctx.user_id, ctx.connection_id, "user", endpoint, {
+      headers: { ConsistencyLevel: "eventual" },
+    });
+    if (!res.ok) return { error: res.error };
+    const items = (res.data?.value || []).map((p: any) => {
+      const emails = (p.scoredEmailAddresses?.length ? p.scoredEmailAddresses : p.emailAddresses) || [];
+      return {
+        name: p.displayName,
+        email: emails[0]?.address || null,
+        relevance: emails[0]?.relevanceScore ?? null,
+        kind: p.personType?.subclass || p.personType?.class || null,
+      };
+    }).filter((p: any) => p.email);
+    return { count: items.length, results: items };
+  }
+  if (name === "send_email") {
+    if (!args.confirmed) {
+      return { error: "Refused: send_email requires confirmed=true after explicit in-chat user approval of recipients, subject, and body." };
+    }
+    const to = (Array.isArray(args.to) ? args.to : []).filter((e: any) => typeof e === "string" && e.includes("@"));
+    if (!to.length) return { error: "to required (at least one valid email)" };
+    const subject = String(args.subject || "").trim();
+    const body = String(args.body || "").trim();
+    if (!subject || !body) return { error: "subject and body required" };
+    const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
+    const message: Record<string, any> = {
+      subject,
+      body: { contentType: /<\/?[a-z][\s\S]*>/i.test(body) ? "HTML" : "Text", content: body },
+      toRecipients: toRecip(to),
+    };
+    if (Array.isArray(args.cc) && args.cc.length) message.ccRecipients = toRecip(args.cc);
+    if (Array.isArray(args.bcc) && args.bcc.length) message.bccRecipients = toRecip(args.bcc);
+    // Reply to existing thread if provided
+    if (args.reply_to_message_id) {
+      const replyRes = await callGraph(ctx.user_id, ctx.connection_id, "mail",
+        `/me/messages/${encodeURIComponent(args.reply_to_message_id)}/reply`, {
+          method: "POST",
+          body: JSON.stringify({ message, comment: "" }),
+        });
+      if (!replyRes.ok) return { error: replyRes.error };
+      return { sent: true, mode: "reply", to, subject, sent_at: new Date().toISOString() };
+    }
+    const sendRes = await callGraph(ctx.user_id, ctx.connection_id, "mail", "/me/sendMail", {
+      method: "POST",
+      body: JSON.stringify({ message, saveToSentItems: true }),
+    });
+    if (!sendRes.ok) return { error: sendRes.error };
+    return { sent: true, to, cc: args.cc || [], bcc: args.bcc || [], subject, sent_at: new Date().toISOString() };
+  }
+  if (name === "book_meeting") {
+    if (!args.confirmed) {
+      return { error: "Refused: book_meeting requires confirmed=true after the user has approved the specific slot in chat." };
+    }
+    const subject = String(args.subject || "").trim();
+    const attendees: string[] = (Array.isArray(args.attendees) ? args.attendees : []).filter((e: any) => typeof e === "string" && e.includes("@"));
+    const startIso = String(args.start_iso || "");
+    const endIso = String(args.end_iso || "");
+    if (!subject || !startIso || !endIso) return { error: "subject, start_iso, end_iso required" };
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    if (!(start.getTime() < end.getTime())) return { error: "end_iso must be after start_iso" };
+
+    // Conflict guard: check the user's own calendar for any overlapping event.
+    const overlapEndpoint = `/me/calendarView?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}&$select=id,subject,start,end,showAs&$top=10`;
+    const overlapRes = await callGraph(ctx.user_id, ctx.connection_id, "calendar", overlapEndpoint, {
+      headers: { Prefer: 'outlook.timezone="UTC"' },
+    });
+    if (overlapRes.ok) {
+      const conflicts = (overlapRes.data?.value || []).filter((e: any) => {
+        const s = e.showAs || "busy";
+        return s !== "free" && s !== "workingElsewhere";
+      });
+      if (conflicts.length) {
+        return {
+          error: "Conflict: your calendar already has an event in this window. Propose a different slot.",
+          conflicts: conflicts.map((c: any) => ({
+            subject: c.subject, start: c.start?.dateTime, end: c.end?.dateTime,
+          })),
+        };
+      }
+    }
+
+    const online = args.online !== false;
+    const eventBody: Record<string, any> = {
+      subject,
+      body: { contentType: "HTML", content: String(args.body || "").replace(/\n/g, "<br/>") },
+      start: { dateTime: start.toISOString().replace("Z", ""), timeZone: "UTC" },
+      end: { dateTime: end.toISOString().replace("Z", ""), timeZone: "UTC" },
+      attendees: attendees.map((a) => ({ emailAddress: { address: a }, type: "required" })),
+      isOnlineMeeting: online,
+      onlineMeetingProvider: online ? "teamsForBusiness" : undefined,
+    };
+    if (args.location) eventBody.location = { displayName: String(args.location) };
+
+    const createRes = await callGraph(ctx.user_id, ctx.connection_id, "calendar", "/me/events", {
+      method: "POST",
+      body: JSON.stringify(eventBody),
+    });
+    if (!createRes.ok) return { error: createRes.error };
+    const event = createRes.data || {};
+    return {
+      booked: true,
+      event: {
+        id: event.id,
+        web_link: event.webLink,
+        join_url: event.onlineMeeting?.joinUrl || null,
+        subject,
+        start: startIso,
+        end: endIso,
+        attendees,
+      },
+    };
+  }
   return { error: `Unknown tool: ${name}` };
 }
 
