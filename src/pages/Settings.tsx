@@ -843,6 +843,7 @@ export default function Settings() {
                 </Label>
                 <div className="flex items-center gap-1">
                   <Button
+                    data-tour="settings-resp-edit"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -852,6 +853,7 @@ export default function Settings() {
                     {respEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
                   </Button>
                   <Button
+                    data-tour="settings-resp-regenerate"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -882,6 +884,7 @@ export default function Settings() {
                 </Label>
                 <div className="flex items-center gap-1">
                   <Button
+                    data-tour="settings-style-edit"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -891,6 +894,7 @@ export default function Settings() {
                     {styleEditable ? <><Check className="w-3 h-3 mr-1" />Done</> : <><Pencil className="w-3 h-3 mr-1" />Edit</>}
                   </Button>
                   <Button
+                    data-tour="settings-style-regenerate"
                     type="button"
                     size="sm"
                     variant="ghost"
@@ -1049,7 +1053,7 @@ export default function Settings() {
                 <div data-tour="settings-photo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label className="inline-flex items-center gap-1">Profile Photo (Optional) <HelpTip id="profile.photo" /></Label>
-                    <div className="flex items-center gap-2">
+                    <div data-tour="settings-photo-toggle" className="flex items-center gap-2">
                       <Label htmlFor="showProfilePhoto" className="text-xs font-normal text-muted-foreground">
                         Show in signature
                       </Label>
@@ -1077,7 +1081,7 @@ export default function Settings() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-16 w-16 rounded-full border-2 border-dashed border-border bg-muted/50">
+                      <div data-tour="settings-photo-preview" className="flex items-center justify-center h-16 w-16 rounded-full border-2 border-dashed border-border bg-muted/50">
                         <ImageIcon className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
@@ -1122,6 +1126,7 @@ export default function Settings() {
                         }}
                       />
                       <Button
+                        data-tour="settings-photo-upload"
                         type="button"
                         variant="outline"
                         size="sm"
@@ -1146,7 +1151,7 @@ export default function Settings() {
                 <div data-tour="settings-logo" className="space-y-3 pt-4 border-t border-border">
                   <div className="flex items-center justify-between">
                     <Label>Company Logo (Optional)</Label>
-                    <div className="flex items-center gap-2">
+                    <div data-tour="settings-logo-toggle" className="flex items-center gap-2">
                       <Label htmlFor="showCompanyLogo" className="text-xs font-normal text-muted-foreground">
                         Show in signature
                       </Label>
@@ -1174,7 +1179,7 @@ export default function Settings() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
+                      <div data-tour="settings-logo-preview" className="flex items-center justify-center h-16 w-24 rounded border-2 border-dashed border-border bg-muted/50">
                         <ImageIcon className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
@@ -1219,6 +1224,7 @@ export default function Settings() {
                         }}
                       />
                       <Button
+                        data-tour="settings-logo-upload"
                         type="button"
                         variant="outline"
                         size="sm"
