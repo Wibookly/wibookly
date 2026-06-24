@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Joyride, STATUS } from 'react-joyride';
 import type { EventData, Step } from 'react-joyride';
 import { TOUR_REGISTRY } from './tours/index';
+import { START_GUIDED_TOUR_EVENT } from '@/components/help/events';
+
 
 const STORAGE_KEY = 'iq_tour_completed';
 
@@ -107,6 +109,27 @@ export function TourProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setRun(false);
   }, [currentRoute, currentTour]);
+
+  // Hijack the legacy article-based START_GUIDED_TOUR_EVENT so that, on any
+  // route that has a registered Joyride tour, we run THAT instead of the
+  // old article overlay (which targets `body` and never highlights specific
+  // controls). Prevents the "two training guides" dual-tour problem.
+  useEffect(() => {
+    const handler = () => {
+      if (currentTour && currentRoute) {
+        // Give the page a moment to mount (handles navigate-then-dispatch).
+        setTimeout(() => {
+          const completed = getCompleted();
+          delete completed[currentRoute];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
+          setRun(true);
+        }, 50);
+      }
+    };
+    window.addEventListener(START_GUIDED_TOUR_EVENT, handler);
+    return () => window.removeEventListener(START_GUIDED_TOUR_EVENT, handler);
+  }, [currentTour, currentRoute]);
+
 
 
   // Watch for theme changes
