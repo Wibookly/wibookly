@@ -78,19 +78,23 @@ async function sleep(ms: number) {
 }
 
 async function findRecentSentMessage(userId: string, connectionId: string, subject: string, sentAfterIso: string, to: string[]) {
-  await sleep(1200);
-  const res = await callGraph(userId, connectionId, 'mail',
-    `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=10`,
-  );
-  if (!res.ok) return null;
   const wantedRecipients = new Set(to.map((email) => email.toLowerCase()));
-  return ((res.data as any)?.value || []).find((m: any) => {
-    if (String(m.subject || '') !== subject) return false;
-    const recipients = (m.toRecipients || [])
-      .map((r: any) => String(r?.emailAddress?.address || '').toLowerCase())
-      .filter(Boolean);
-    return recipients.some((email: string) => wantedRecipients.has(email));
-  }) || null;
+  for (const delay of [1000, 1800, 3000]) {
+    await sleep(delay);
+    const res = await callGraph(userId, connectionId, 'mail',
+      `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=15`,
+    );
+    if (!res.ok) continue;
+    const match = ((res.data as any)?.value || []).find((m: any) => {
+      if (String(m.subject || '') !== subject) return false;
+      const recipients = (m.toRecipients || [])
+        .map((r: any) => String(r?.emailAddress?.address || '').toLowerCase())
+        .filter(Boolean);
+      return recipients.some((email: string) => wantedRecipients.has(email));
+    });
+    if (match) return match;
+  }
+  return null;
 }
 
 async function draftWithLLM(prompt: string, senderName: string | null): Promise<{ subject: string; body: string; recipient_name: string; recipient_email: string }> {
