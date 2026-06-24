@@ -8,9 +8,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const COMPOSE_TRIGGERS = /\b(send|compose|write|draft)\s+(an?\s+)?(e?-?mail|message)\b/i;
+// Matches "send/compose/write/draft/reply (a|an|the|my|some|this|that)? email(s)/mail/message(s)"
+// plus natural-voice variants like "shoot an email" or "email Ali about ...".
+const COMPOSE_TRIGGERS =
+  /\b(send|compose|write|draft|reply|shoot|fire\s+off)\s+(?:(?:an?|the|my|some|this|that|a\s+quick|a\s+new)\s+)?(?:e?-?mails?|messages?)\b/i;
+const EMAIL_VERB_TRIGGER = /\bemail\s+\S+/i; // "email Ali ...", "email john@..."
 export function isComposeEmailTrigger(text: string): boolean {
-  return COMPOSE_TRIGGERS.test(text || '');
+  const t = text || '';
+  return COMPOSE_TRIGGERS.test(t) || EMAIL_VERB_TRIGGER.test(t);
 }
 
 interface Contact { name: string; email: string; relevance?: number | null }
