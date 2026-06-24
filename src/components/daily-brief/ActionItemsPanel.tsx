@@ -191,16 +191,28 @@ function ItemRow({
               <Button data-tour={index === 0 ? 'brief-snooze' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={snooze} disabled={!!busy}>
                 <Clock className="w-3 h-3 mr-1" /> Snooze
               </Button>
-              <Button data-tour={index === 0 ? 'brief-remind' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={addReminder} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-remind' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={openReminder} disabled={!!busy}>
                 <BellPlus className="w-3 h-3 mr-1" /> Remind me
               </Button>
-              <Button data-tour={index === 0 ? 'brief-schedule-action' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={scheduleSlot} disabled={!!busy}>
+              <Button data-tour={index === 0 ? 'brief-schedule-action' : undefined} size="sm" variant="outline" className="h-7 text-xs" onClick={openSchedule} disabled={!!busy}>
                 <CalendarPlus className="w-3 h-3 mr-1" /> Schedule
               </Button>
             </div>
           )}
         </div>
       </div>
+      <ReminderDialog
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
+        connectionId={activeConnection?.id ?? null}
+        initialTitle={reminderTitle}
+        onCreated={() => {
+          // Mark the task as scheduled in the brief so the UI reflects the booking.
+          if (it.taskId) {
+            updateTask(it.taskId, { status: 'scheduled' }).then(() => onChanged?.()).catch(() => null);
+          }
+        }}
+      />
     </li>
   );
 }
