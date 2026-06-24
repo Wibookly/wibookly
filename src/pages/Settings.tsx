@@ -808,33 +808,33 @@ export default function Settings() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="fullName" className="text-xs inline-flex items-center gap-1">Full Name <HelpTip id="profile.fullName" /></Label>
-                <Input id="fullName" value={fullName} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input id="fullName" value={fullName} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Email</Label>
-                <Input value={profile?.email || ''} disabled className="bg-background/60 h-9" />
+                <Input value={profile?.email || ''} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" />
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="aboutCompany" className="text-xs">Company</Label>
-                <Input id="aboutCompany" value={aboutMe.company || organization?.name || ''} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input id="aboutCompany" value={aboutMe.company || organization?.name || ''} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="aboutDept" className="text-xs">Department</Label>
-                <Input id="aboutDept" value={aboutMe.department} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input id="aboutDept" value={aboutMe.department} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" placeholder="—" />
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Business Phone</Label>
-                <Input value={aboutMe.business_phone || signatureFields.phone || ''} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input value={aboutMe.business_phone || signatureFields.phone || ''} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" placeholder="—" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Mobile Phone</Label>
-                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} disabled className="bg-background/60 h-9" placeholder="—" />
+                <Input value={aboutMe.mobile_phone || signatureFields.mobile || ''} readOnly className="bg-background h-9 text-foreground font-medium opacity-100 cursor-default" placeholder="—" />
               </div>
             </div>
           </div>
