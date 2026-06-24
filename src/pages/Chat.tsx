@@ -41,6 +41,7 @@ import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 import { ReminderDialog, isReminderTrigger } from '@/components/chat/ReminderDialog';
+import { EmailComposerDialog, isComposeEmailTrigger } from '@/components/chat/EmailComposerDialog';
 
 
 interface Conversation {
@@ -292,6 +293,8 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [reminderOpen, setReminderOpen] = useState(false);
   const [reminderInitial, setReminderInitial] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeInitial, setComposeInitial] = useState('');
   // ---- Per-conversation parallel streaming ----
   // Each in-flight chat request lives in `streamsRef` keyed by a stable
   // internal id. The map can contain multiple entries — one per chat that
@@ -974,6 +977,16 @@ export default function Chat() {
       setReminderOpen(true);
       return;
     }
+
+    // Detect "send/compose/write email" phrases and open the inline composer
+    // (autocomplete contacts + signature + Outlook send) instead of chatting.
+    if (!override && isComposeEmailTrigger(text) && activeConnection?.id && activeConnection.provider === 'outlook') {
+      setComposeInitial(text);
+      setComposeOpen(true);
+      if (!override) setInput('');
+      return;
+    }
+
 
     // May be null when the user is on the "New chat" screen.
     const startingConvId = activeId;
@@ -2191,6 +2204,15 @@ export default function Chat() {
         connectionId={activeConnection?.id ?? null}
         initialTitle={reminderInitial}
         onCreated={() => setInput('')}
+      />
+
+      <EmailComposerDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        connectionId={activeConnection?.id ?? null}
+        connectionEmail={activeConnection?.email ?? null}
+        initialPrompt={composeInitial}
+        onSent={() => setInput('')}
       />
 
     </div>
