@@ -453,6 +453,8 @@ export default function AIActivityDashboard() {
           )}
         </>
       )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
