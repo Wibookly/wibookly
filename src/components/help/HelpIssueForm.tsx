@@ -239,6 +239,59 @@ export function HelpIssueForm() {
           {description.length} / 4000
         </p>
       </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5">
+            <Paperclip className="h-3.5 w-3.5" /> Screenshots (optional)
+          </span>
+          <span className="text-[10px] font-normal text-muted-foreground">
+            {files.length}/{MAX_FILES} · images up to 10 MB
+          </span>
+        </Label>
+
+        <label
+          htmlFor="issue-attachments"
+          onDragOver={(e) => { e.preventDefault(); }}
+          onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+          className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-xs text-muted-foreground cursor-pointer hover:bg-muted/40 transition"
+        >
+          <ImageIcon className="h-5 w-5" />
+          <span><span className="font-medium text-foreground">Click to upload</span> or drag & drop</span>
+          <span className="text-[10px]">PNG, JPG, GIF, WebP</span>
+          <input
+            id="issue-attachments"
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+            disabled={files.length >= MAX_FILES}
+          />
+        </label>
+
+        {files.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {files.map((f, i) => {
+              const url = URL.createObjectURL(f);
+              return (
+                <div key={i} className="relative group rounded-md overflow-hidden border border-border bg-background">
+                  <img src={url} alt={f.name} className="w-full h-20 object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="px-1.5 py-1 text-[10px] text-muted-foreground truncate">{f.name}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground space-y-0.5">
         <p>
           <span className="font-medium text-foreground">Page:</span>{' '}
