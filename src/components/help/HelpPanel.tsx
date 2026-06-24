@@ -497,13 +497,13 @@ export function HelpPanel({ open, onOpenChange, initialArticleId, initialTab }: 
                           <button
                             type="button"
                             onClick={() => setActiveCategory(c.id)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                            className="w-full flex items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/50 transition-colors"
                           >
-                            <span>
-                              <span className="text-sm font-medium block">{c.label}</span>
-                              <span className="text-xs text-muted-foreground">{c.description}</span>
+                            <span className="min-w-0">
+                              <span className="text-sm font-semibold block text-foreground">{c.label}</span>
+                              <span className="text-xs text-muted-foreground block mt-0.5 leading-relaxed">{c.description}</span>
                             </span>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
                           </button>
                         </li>
                       ))}
