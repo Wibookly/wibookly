@@ -220,6 +220,62 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_contacts",
+      description: "Resolve a person's name (e.g. 'Ali', 'Sarah Lee') to their email address by searching the user's Outlook People (/me/people) and recent senders. Call this BEFORE send_email or book_meeting when you only have a name. Returns up to 10 candidates with name, email, and relevance score.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Name or partial name to search for." },
+          top: { type: "number", description: "Max results, default 10." },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_email",
+      description: "Send an email through the user's Outlook mailbox via Microsoft Graph /me/sendMail. ONLY call this AFTER the user has explicitly confirmed the recipients, subject, and body in chat. NEVER call on the first turn — first compose, show the draft, ask 'Send to <recipients>? Reply YES to send' and wait for confirmation. Returns { sent: true, message_id } on success.",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "array", items: { type: "string" }, description: "TO recipient email addresses." },
+          cc: { type: "array", items: { type: "string" }, description: "Optional CC recipients." },
+          bcc: { type: "array", items: { type: "string" }, description: "Optional BCC recipients." },
+          subject: { type: "string" },
+          body: { type: "string", description: "Email body in HTML. Include a brief greeting and sign-off." },
+          reply_to_message_id: { type: "string", description: "Optional. If replying to an existing message, the Graph message id." },
+          confirmed: { type: "boolean", description: "MUST be true. Acts as a guard so accidental calls are rejected." },
+        },
+        required: ["to", "subject", "body", "confirmed"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "book_meeting",
+      description: "Book a meeting on the user's Outlook calendar AFTER explicit user confirmation. Workflow: (1) call get_calendar_events for the user and find free windows; (2) propose a specific slot back to the user and ask 'Book Thu Jun 26 2:00–2:30 PM with X? Reply YES to confirm'; (3) ONLY after the user replies YES, call this tool with confirmed=true. The tool will refuse to overwrite an existing event — if the chosen slot conflicts on the user's own calendar, it returns a conflict error and you must propose another slot. A Teams online meeting link is added automatically.",
+      parameters: {
+        type: "object",
+        properties: {
+          subject: { type: "string" },
+          attendees: { type: "array", items: { type: "string" }, description: "Attendee email addresses." },
+          start_iso: { type: "string", description: "ISO datetime in UTC." },
+          end_iso: { type: "string", description: "ISO datetime in UTC." },
+          body: { type: "string", description: "Optional agenda/description (HTML or plain)." },
+          location: { type: "string", description: "Optional physical location. Leave blank for an online-only meeting." },
+          online: { type: "boolean", description: "Default true — adds a Teams meeting link." },
+          confirmed: { type: "boolean", description: "MUST be true. Guard against accidental booking." },
+        },
+        required: ["subject", "attendees", "start_iso", "end_iso", "confirmed"],
+      },
+    },
+  },
 ];
 
 const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
