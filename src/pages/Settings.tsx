@@ -1274,7 +1274,7 @@ CEO, Company Name
             )}
             
             {/* Preview */}
-            <div className="space-y-3 pt-4 border-t border-border">
+            <div data-tour="settings-preview" className="space-y-3 pt-4 border-t border-border">
               <Label>Signature Preview</Label>
               <div 
                 className="p-4 bg-background rounded-md border border-border min-h-[80px]"
