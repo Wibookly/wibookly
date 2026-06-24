@@ -437,25 +437,53 @@ function markdownToHtml(md: string): string {
 // own user_id + connection_id so all Graph tools (Outlook mail, OneDrive,
 // SharePoint, Calendar) run with THAT user's delegated permissions.
 async function invokeOrchestratorAsSender(args: {
+// Invoke agent-orchestrator server-to-server, using the licensed sender's
+// delegated permissions. Supports two modes:
+//   • 'answer'         — the user asked the agent a question directly. Lead
+//                        with the verified answer, then options/recommendations.
+//   • 'suggested-reply'— the agent was CC'd on a thread with other people.
+//                        Produce a DRAFT REPLY written in the user's voice
+//                        for them to review and send themselves.
+async function invokeOrchestratorAsSender(args: {
   userId: string;
   connectionId: string;
   taskText: string;
   threadText: string;
+  mode: 'answer' | 'suggested-reply';
+  senderName: string;
+  senderEmail: string;
+  otherRecipients: string[];
+  subject: string;
 }): Promise<{ replyHtml: string; provider: string; model: string }> {
-  const formattingGuide =
-    `FORMATTING & DEPTH GUIDANCE (email reply — apply strictly):\n` +
-    `• Detect the question's technical depth. If technical (code, security, APIs, configs, vendor evals, architecture), give an in-depth, expert answer with concrete details, examples, and tradeoffs. If casual/basic, keep it short and plain-language. Mirror the asker's level.\n` +
-    `• Structure the answer for skimmability: a 1–2 sentence summary first, then short ## headings, tight paragraphs (2–4 sentences), and bullet lists for steps, options, risks, or checklists.\n` +
-    `• Use **bold** for key terms, inline code for commands/URLs/identifiers, and numbered lists for ordered procedures.\n` +
-    `• When the question references a product, link, vendor, or any real-world fact that may change, USE WEB SEARCH to verify before answering. Cite sources inline as [source](url) and add a short "Sources" list at the end when multiple are used.\n` +
-    `• Never refuse with "I can't verify" — search the web, follow links the user shared, and give a grounded answer. If something truly cannot be confirmed, say what you checked and what you found.\n` +
-    `• End with a "Next steps" or "Recommendation" section when actionable.\n` +
-    `• Never invent product names, pricing, or policies; verify or omit.\n`;
+  const answerGuide =
+    `RESPONSE GUIDANCE (the user emailed the agent directly — apply strictly):\n` +
+    `• ANSWER FIRST. Open with the direct, verified answer to what they asked — no preamble like "I couldn't verify" or "Here's a clear path forward". Just the answer.\n` +
+    `• Use web search to ground real-world facts (products, vendors, prices, links, APIs). Cite sources inline as [source](url). If the user shared a URL, fetch it and use what it actually says.\n` +
+    `• Mirror the asker's technical depth: experts get expert detail, casual asks get a short plain-language answer.\n` +
+    `• Structure for skimmability: 1–2 sentence summary, then short ## sections, tight 2–4 sentence paragraphs, **bold** key terms, inline \`code\` for commands/URLs, numbered lists for procedures.\n` +
+    `• AFTER the answer, add an optional "## Recommendations" or "## Options" section with suggestions/next steps. Never lead with these.\n` +
+    `• If something genuinely cannot be confirmed after a real search, say what you checked and what you found — don't refuse.\n` +
+    `• Never invent product names, pricing, or policies. Verify or omit.\n`;
+
+  const others = args.otherRecipients.filter((e) => e.toLowerCase() !== args.senderEmail.toLowerCase()).join(', ') || '(none — sender only)';
+  const replyGuide =
+    `SUGGESTED-REPLY MODE (you were CC'd on a thread with other people — apply strictly):\n` +
+    `• Your output is a DRAFT REPLY that ${args.senderName || args.senderEmail} will review and send TO THE OTHER RECIPIENTS: ${others}.\n` +
+    `• Write in FIRST PERSON as ${args.senderName || args.senderEmail}. No "As an AI", no "Here is a draft", no meta commentary. Sound like the user wrote it.\n` +
+    `• Match a professional but natural email tone. Greet the other recipient(s) by first name when known.\n` +
+    `• Address what the other party actually said in the latest message. If they asked something, answer it. If they made a point, respond to it.\n` +
+    `• Use web search to verify any facts you'd include before stating them.\n` +
+    `• Keep it tight: short paragraphs, no headings unless really needed. End with a clear ask or close, plus a sign-off line like "Thanks,\\n${args.senderName || ''}".\n` +
+    `• Output the draft ONLY — no preamble, no "Subject:" line, no quoted thread, no explanations. Just the email body the user can send.\n` +
+    `• Begin your output with this exact one-line header (literal markdown), then a blank line, then the draft:\n` +
+    `> **Suggested reply for you to send to ${others}** — review and forward / send as-is.\n`;
+
+  const guide = args.mode === 'suggested-reply' ? replyGuide : answerGuide;
 
   const userMessage =
     args.threadText && args.threadText.trim().length
-      ? `${formattingGuide}\n---\n${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
-      : `${formattingGuide}\n---\n${args.taskText}`;
+      ? `${guide}\n---\nLatest message from ${args.senderEmail} (subject: "${args.subject}"):\n${args.taskText}\n\n--- Prior thread (oldest first) ---\n${args.threadText}`
+      : `${guide}\n---\n${args.taskText}`;
 
   const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-orchestrator`, {
     method: 'POST',
@@ -487,6 +515,7 @@ async function invokeOrchestratorAsSender(args: {
     model: json?.model || 'unknown',
   };
 }
+
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
