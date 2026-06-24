@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, Search, CalendarClock } from 'lucide-react';
+import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
