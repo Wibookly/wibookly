@@ -435,10 +435,20 @@ async function invokeOrchestratorAsSender(args: {
   taskText: string;
   threadText: string;
 }): Promise<{ replyHtml: string; provider: string; model: string }> {
+  const formattingGuide =
+    `FORMATTING & DEPTH GUIDANCE (email reply — apply strictly):\n` +
+    `• Detect the question's technical depth. If technical (code, security, APIs, configs, vendor evals, architecture), give an in-depth, expert answer with concrete details, examples, and tradeoffs. If casual/basic, keep it short and plain-language. Mirror the asker's level.\n` +
+    `• Structure the answer for skimmability: a 1–2 sentence summary first, then short ## headings, tight paragraphs (2–4 sentences), and bullet lists for steps, options, risks, or checklists.\n` +
+    `• Use **bold** for key terms, inline code for commands/URLs/identifiers, and numbered lists for ordered procedures.\n` +
+    `• When the question references a product, link, vendor, or any real-world fact that may change, USE WEB SEARCH to verify before answering. Cite sources inline as [source](url) and add a short "Sources" list at the end when multiple are used.\n` +
+    `• Never refuse with "I can't verify" — search the web, follow links the user shared, and give a grounded answer. If something truly cannot be confirmed, say what you checked and what you found.\n` +
+    `• End with a "Next steps" or "Recommendation" section when actionable.\n` +
+    `• Never invent product names, pricing, or policies; verify or omit.\n`;
+
   const userMessage =
     args.threadText && args.threadText.trim().length
-      ? `${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
-      : args.taskText;
+      ? `${formattingGuide}\n---\n${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
+      : `${formattingGuide}\n---\n${args.taskText}`;
 
   const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-orchestrator`, {
     method: 'POST',
@@ -451,8 +461,9 @@ async function invokeOrchestratorAsSender(args: {
       connection_id: args.connectionId,
       agent: 'qa',
       user_message: userMessage,
-      max_steps: 8,
+      max_steps: 12,
       deep: true,
+      web_search: true,
     }),
   });
   if (!res.ok) {
