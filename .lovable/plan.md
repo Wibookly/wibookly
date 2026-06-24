@@ -1,42 +1,61 @@
-## Daily Brief Overhaul — Unified Action Items, Carry-Over Tasks, Print-Ready Layout
+## 1. Daily Brief — "Today's Schedule" upgrades
 
-### 1. Restructure the Daily Brief page (`src/pages/AIDailyBrief.tsx`)
-- **Remove** the standalone "Email Highlights" card (content already lives in the Action Plan).
-- Keep the page order: **Your Action Items → Priority Tips → Daily Brief Schedule**.
-- Reorganize **Action Items** into two collapsible sub-sections:
-  - 📧 **Emails** (items where `source = email`)
-  - 📅 **Calendar** (items where `source = calendar` / meeting)
-  - Auto-expanded when items exist; auto-collapsed (and showing "No email items today" / "No calendar items today") when empty.
-- Each action item gets a small action toolbar:
-  - **Mark Done**, **Snooze to tomorrow**, **Add Reminder**, **Schedule on Calendar** (uses availability hours to suggest a slot).
+**Page (`src/pages/AIDailyBrief.tsx` + new `CalendarPanel.tsx`)**
+- Replace the static "today only" schedule block with a new `CalendarPanel` that has:
+  - Range toggle: **Today / This Week / This Month** (defaults to Today).
+  - Live fetch from Microsoft 365 via existing connection (Graph `/me/calendarview?startDateTime=…&endDateTime=…`) through a new edge function `calendar-events` (so the token vault stays server-side). Returns subject, start, end, location, organizer, attendees count, isOnlineMeeting, webLink.
+  - "Refresh", "Print" (opens a clean print-only view), and "Include in email" toggle (persists per-user via `daily_brief_schedules.include_calendar_in_email`).
+  - Grouped by day with time, color-coded status (Now / Upcoming / Past).
+- Print view: `/daily-brief/print` route that renders Today's Schedule + action items branded InboxIQ.
 
-### 2. Carry-over / persistence (new table `daily_brief_tasks`)
-- Store every generated action item with: `user_id, connection_id, brief_date, source (email|calendar|todo), context, action, why, estimated_minutes, status (open|done|snoozed|scheduled), carried_from_date, calendar_event_id, reminder_at`.
-- RLS + GRANT for `authenticated` and `service_role`.
-- When `ai-daily-brief` runs, **carry forward all `open` items from previous days** and merge them with newly generated ones (dedupe by context+action hash).
-- Mark items `done` only when the user clicks Mark Done (or detected reply/meeting completion later).
+**Daily Brief email (`supabase/functions/send-daily-brief/index.ts`)**
+- Reuse `calendar-events` server-side to fetch today's events for that user's connection.
+- Append a "Today's Schedule" HTML section before action items when the new `include_calendar_in_email` flag is on.
 
-### 3. Calendar / reminder integration
-- "Add Reminder" → creates a `follow_up_trackers` entry tied to the item (uses existing infra).
-- "Schedule on Calendar" → opens a dialog that proposes a slot from `availability_hours`, then creates the event via the existing Microsoft/Google calendar edge function and stores `calendar_event_id` on the task.
-- AI prompt updated to add a `recommendation` field per item: `reminder` | `schedule` | `none` with a suggested duration, so the UI can pre-select the right CTA.
+**Migration**
+- `ALTER TABLE daily_brief_schedules ADD COLUMN include_calendar_in_email boolean NOT NULL DEFAULT true;`
 
-### 4. Email = Page parity
-- `send-daily-brief` and the PDF generator are rewritten to render **exactly** the same Action Plan structure (Emails section, Calendar section, Carry-over badge, recommendations) as the web page — single shared template object so they cannot drift.
+## 2. AI Chat — "Remind me" popup → Outlook event + Daily Brief task
 
-### 5. Print layout (handlePrint in `AIDailyBrief.tsx`)
-- Each section starts on its own printed page with a header:
-  `InboxIQ Daily Brief · {Section Name} · {Date} · Page X of Y`
-- Sections supported: **Action Items – Emails**, **Action Items – Calendar**, **To-Do List**, **Priority Tips**, **Schedule**.
-- CSS `@page { size: Letter; margin: 0.5in }` + `break-before: page` per section, `break-inside: avoid` per item. If a section overflows, page number auto-increments and the header repeats.
+**`src/pages/AIChat.tsx`**
+- Detect phrases `remind me`, `schedule`, `set a reminder` in the user's submitted message (regex, case-insensitive).
+- Open a new `ReminderDialog` component with: title (prefilled from message), date, time, duration (default 30m), notes, attendee email (optional).
+- On confirm: call new edge function `create-reminder` which:
+  1. Creates a Microsoft Graph calendar event on the user's connected calendar via `POST /me/events`.
+  2. Inserts a `daily_brief_tasks` row (kind = 'reminder') linked to that event id so it appears in Daily Brief action items.
+- Chat thread gets an assistant message confirming the reminder with date/time + link to event.
 
-### 6. Concise content
-- Tighten AI prompt: each item ≤ 2 sentences for `context`, 1 sentence for `action`, 1 short sentence for `why`. No filler.
+## 3. AI Activity panel rename + new No-Reply Tracker Report
 
-### Technical notes
-- New file: `supabase/migrations/<ts>_daily_brief_tasks.sql`
-- Edited: `src/pages/AIDailyBrief.tsx`, `supabase/functions/ai-daily-brief/index.ts`, `supabase/functions/send-daily-brief/index.ts`
-- New small component: `src/components/daily-brief/ActionItemRow.tsx` (shared between web + print)
-- Reuses existing `availability_hours`, `follow_up_trackers`, calendar OAuth tokens — no new secrets.
+**`src/pages/AIActivityDashboard.tsx`**
+- Rename header to **"AI Intelligence Reports"**.
+- Add a tab bar with two tabs:
+  1. **AI Activity** (existing content moved into the tab).
+  2. **No-Reply Tracker** (new `NoReplyTrackerReport.tsx`).
 
-Approve to proceed and I'll implement in one pass.
+**`NoReplyTrackerReport.tsx`**
+- Pulls from `follow_up_trackers` joined with `email_messages`/`email_threads` for subject + recipients.
+- Columns: Sent At · Recipient · Subject · BCC alias (e.g. `3@…`) · Expected reply by · Status badge (Pending · Missed 1 · Missed 2 · Missed 3 · Replied · Completed · Cancelled) · Replied at.
+- Filters: date preset (Today / Week / Month / Custom range) · status multi-select · recipient search.
+- Actions: **Export CSV** and **Print**.
+- Status mapping uses the existing tracker fields (`reminder_count`, `status`, `replied_at`, `cancelled_at`).
+
+## 4. Backend pieces
+
+New edge functions (all `verify_jwt = false`, validate JWT in code, use Outlook connector pattern already in repo):
+- `calendar-events` — GET events between start/end for caller's primary M365 connection.
+- `create-reminder` — POST event to Graph + insert `daily_brief_tasks`.
+
+Reuse existing `oauth_token_vault` decrypt helper (`_shared/token-vault.ts` pattern already used by `m365-sync-connection`).
+
+## 5. Out of scope (confirm if needed)
+
+- Google Calendar support for the new calendar features (M365 only this pass — matches current product focus).
+- Recurring reminders / RRULE — single events only for v1.
+
+## Technical notes
+
+- All new components use existing shadcn primitives and design tokens; no hardcoded colors.
+- Print view uses `@media print` only, no separate library.
+- CSV export uses the same `csvEscape` pattern as `ActivityReportTab`.
+- The remind-me detection runs client-side before send; the actual message still posts to chat so the assistant log stays consistent.
