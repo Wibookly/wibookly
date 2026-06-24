@@ -233,6 +233,9 @@ export default function SupportIssuesPanel() {
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
                     <p className="text-sm whitespace-pre-wrap break-words">{it.description}</p>
                   </div>
+                  {Array.isArray(it.attachments) && it.attachments.length > 0 && (
+                    <AttachmentsStrip attachments={it.attachments} />
+                  )}
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">
                       Admin notes (visible to admins only)
