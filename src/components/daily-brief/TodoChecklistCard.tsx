@@ -27,17 +27,18 @@ function srcLabel(s?: string) {
 export function TodoChecklistCard({ items, onChanged }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
 
-  // Stable order: open first (by priority), then done items at the bottom.
-  const ordered = useMemo(() => {
-    const arr = [...items];
-    arr.sort((a, b) => {
-      const ad = a.status === 'done' ? 1 : 0;
-      const bd = b.status === 'done' ? 1 : 0;
-      if (ad !== bd) return ad - bd;
-      return (a.priority ?? 99) - (b.priority ?? 99);
-    });
-    return arr;
+  // Split into open (top) and completed (bottom). Each list keeps its own
+  // priority order so the user can see exactly what's left and what they've
+  // already knocked out this session. Completed items stay visible until
+  // the brief is closed/refreshed.
+  const { openItems, doneItems } = useMemo(() => {
+    const byPriority = (a: ActionItem, b: ActionItem) => (a.priority ?? 99) - (b.priority ?? 99);
+    return {
+      openItems: items.filter((i) => i.status !== 'done').sort(byPriority),
+      doneItems: items.filter((i) => i.status === 'done').sort(byPriority),
+    };
   }, [items]);
+  const ordered = useMemo(() => [...openItems, ...doneItems], [openItems, doneItems]);
 
   const toggle = async (it: ActionItem, checked: boolean) => {
     if (!it.taskId) {
