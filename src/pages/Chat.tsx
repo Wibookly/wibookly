@@ -978,6 +978,14 @@ export default function Chat() {
       return;
     }
 
+    // Detect "send/compose/write email" phrases and open the inline composer
+    // (autocomplete contacts + signature + Outlook send) instead of chatting.
+    if (!override && isComposeEmailTrigger(text) && activeConnection?.id && activeConnection.provider === 'outlook') {
+      setComposeInitial(text);
+      setComposeOpen(true);
+      if (!override) setInput('');
+      return;
+
     // May be null when the user is on the "New chat" screen.
     const startingConvId = activeId;
 
