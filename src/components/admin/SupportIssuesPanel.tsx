@@ -272,3 +272,46 @@ export default function SupportIssuesPanel() {
     </div>
   );
 }
+
+function AttachmentsStrip({ attachments }: { attachments: Array<{ path: string; name: string; size?: number; type?: string }> }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const a of attachments) {
+        const { data } = await supabase.storage
+          .from('support-attachments')
+          .createSignedUrl(a.path, 60 * 60);
+        if (data?.signedUrl) next[a.path] = data.signedUrl;
+      }
+      if (!cancelled) setUrls(next);
+    })();
+    return () => { cancelled = true; };
+  }, [attachments]);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs font-medium text-muted-foreground">Attachments ({attachments.length})</div>
+      <div className="flex flex-wrap gap-2">
+        {attachments.map((a) => (
+          <a
+            key={a.path}
+            href={urls[a.path] || '#'}
+            target="_blank"
+            rel="noreferrer"
+            className="relative block w-28 h-20 rounded-md overflow-hidden border border-border bg-muted hover:ring-2 hover:ring-primary transition"
+            title={a.name}
+          >
+            {urls[a.path] ? (
+              <img src={urls[a.path]} alt={a.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">loading…</div>
+            )}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
