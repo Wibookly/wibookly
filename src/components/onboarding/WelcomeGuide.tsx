@@ -227,6 +227,27 @@ export function WelcomeGuide() {
       window.removeEventListener(OPEN_WELCOME_GUIDE_EVENT, handler as EventListener);
   }, []);
 
+  // Auto-open when the user lands from the welcome email (?welcome=1).
+  // Fires once per session per user, then strips the query param so a
+  // refresh doesn't re-open it.
+  const welcomeParamHandledRef = useRef(false);
+  useEffect(() => {
+    if (welcomeParamHandledRef.current) return;
+    if (authLoading || !user?.id) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('welcome') !== '1') return;
+    welcomeParamHandledRef.current = true;
+    openedByUserRef.current = true;
+    setTab('overview');
+    setOpen(true);
+    params.delete('welcome');
+    const newSearch = params.toString();
+    navigate(
+      { pathname: location.pathname, search: newSearch ? `?${newSearch}` : '' },
+      { replace: true },
+    );
+  }, [authLoading, user?.id, location.pathname, location.search, navigate]);
+
   const close = () => {
     try {
       if (user?.id) {

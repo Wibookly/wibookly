@@ -18,7 +18,7 @@ const EMAIL_FROM_DOMAIN = 'energyforward.com';
 async function enqueueWelcomeEmail(
   adminClient: SupabaseClient,
   opts: {
-    templateName: 'welcome-sso' | 'welcome-temp-password';
+    templateName: 'welcome-sso' | 'welcome-temp-password' | 'welcome-access-granted';
     recipientEmail: string;
     templateData: Record<string, any>;
     idempotencyKey: string;
@@ -489,18 +489,53 @@ serve(async (req) => {
 
         const { data: profile } = await adminClient
           .from('user_profiles')
-          .select('email')
+          .select('email, full_name, organization_id')
           .eq('user_id', user_id)
           .maybeSingle();
 
         let magicLink: string | null = null;
+        let welcomeEmailSent = false;
         if (profile?.email) {
           magicLink = await sendReactivationMagicLink(adminClient, profile.email);
+
+          // Resolve organization name for personalization (best-effort).
+          let organizationName: string | undefined;
+          if (profile.organization_id) {
+            const { data: org } = await adminClient
+              .from('organizations')
+              .select('name')
+              .eq('id', profile.organization_id)
+              .maybeSingle();
+            organizationName = org?.name ?? undefined;
+          }
+
+          // The link lands on the app with ?welcome=1 so the in-app
+          // Welcome Guide auto-opens on first sign-in.
+          const loginUrl = magicLink
+            ? `${magicLink}${magicLink.includes('?') ? '&' : '?'}welcome=1`
+            : 'https://inboxiq.energyforward.com/?welcome=1';
+
+          const welcomeResult = await enqueueWelcomeEmail(adminClient, {
+            templateName: 'welcome-access-granted',
+            recipientEmail: profile.email,
+            templateData: {
+              fullName: profile.full_name ?? undefined,
+              organizationName,
+              loginUrl,
+              guideUrl: 'https://inboxiq.energyforward.com/?welcome=1',
+            },
+            idempotencyKey: `welcome-access-granted:${user_id}:${Date.now()}`,
+          });
+          welcomeEmailSent = welcomeResult.ok;
+          if (!welcomeResult.ok) {
+            console.error('welcome-access-granted enqueue failed', welcomeResult.error);
+          }
         }
 
-        return new Response(JSON.stringify({ success: true, magic_link: magicLink }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({ success: true, magic_link: magicLink, welcome_email_sent: welcomeEmailSent }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
       case 'reset_password': {
