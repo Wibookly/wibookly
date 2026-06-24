@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Send, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, Paperclip, X, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -56,6 +56,31 @@ export function HelpIssueForm() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const MAX_FILES = 5;
+  const MAX_BYTES = 10 * 1024 * 1024; // 10 MB each
+
+  const addFiles = (incoming: FileList | File[] | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming);
+    const accepted: File[] = [];
+    for (const f of arr) {
+      if (!f.type.startsWith('image/')) {
+        toast({ title: 'Only images allowed', description: `${f.name} isn't an image.`, variant: 'destructive' });
+        continue;
+      }
+      if (f.size > MAX_BYTES) {
+        toast({ title: 'File too large', description: `${f.name} is over 10 MB.`, variant: 'destructive' });
+        continue;
+      }
+      accepted.push(f);
+    }
+    setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
+  };
+
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const submit = async () => {
     const s = subject.trim();
@@ -87,6 +112,23 @@ export function HelpIssueForm() {
 
     setSubmitting(true);
     try {
+      // Upload screenshots first (if any) to support-attachments/{userId}/{issueTime}/
+      let attachments: Array<{ path: string; name: string; size: number; type: string }> = [];
+      if (files.length) {
+        setUploading(true);
+        const stamp = Date.now();
+        for (const f of files) {
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+          const path = `${user.id}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from('support-attachments')
+            .upload(path, f, { contentType: f.type, upsert: false });
+          if (upErr) throw upErr;
+          attachments.push({ path, name: f.name, size: f.size, type: f.type });
+        }
+        setUploading(false);
+      }
+
       const taggedSubject = `[${feature}] ${s}`.slice(0, 200);
       const taggedDescription = `Feature: ${feature}\n\n${d}`;
       const { data, error } = await supabase
@@ -99,6 +141,7 @@ export function HelpIssueForm() {
           description: taggedDescription,
           page_url: `${location.pathname}${location.search}`,
           user_agent: navigator.userAgent,
+          attachments,
         })
         .select('id')
         .single();
@@ -109,6 +152,7 @@ export function HelpIssueForm() {
       setSubject('');
       setDescription('');
       setFeature('');
+      setFiles([]);
       toast({
         title: 'Issue submitted',
         description: 'Your admin team has been notified.',
@@ -122,6 +166,7 @@ export function HelpIssueForm() {
       });
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -194,6 +239,59 @@ export function HelpIssueForm() {
           {description.length} / 4000
         </p>
       </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5">
+            <Paperclip className="h-3.5 w-3.5" /> Screenshots (optional)
+          </span>
+          <span className="text-[10px] font-normal text-muted-foreground">
+            {files.length}/{MAX_FILES} · images up to 10 MB
+          </span>
+        </Label>
+
+        <label
+          htmlFor="issue-attachments"
+          onDragOver={(e) => { e.preventDefault(); }}
+          onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+          className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-xs text-muted-foreground cursor-pointer hover:bg-muted/40 transition"
+        >
+          <ImageIcon className="h-5 w-5" />
+          <span><span className="font-medium text-foreground">Click to upload</span> or drag & drop</span>
+          <span className="text-[10px]">PNG, JPG, GIF, WebP</span>
+          <input
+            id="issue-attachments"
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+            disabled={files.length >= MAX_FILES}
+          />
+        </label>
+
+        {files.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {files.map((f, i) => {
+              const url = URL.createObjectURL(f);
+              return (
+                <div key={i} className="relative group rounded-md overflow-hidden border border-border bg-background">
+                  <img src={url} alt={f.name} className="w-full h-20 object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="px-1.5 py-1 text-[10px] text-muted-foreground truncate">{f.name}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground space-y-0.5">
         <p>
           <span className="font-medium text-foreground">Page:</span>{' '}
@@ -215,7 +313,7 @@ export function HelpIssueForm() {
         ) : (
           <Send className="h-4 w-4 mr-2" />
         )}
-        Submit issue
+        {uploading ? 'Uploading screenshots…' : submitting ? 'Submitting…' : 'Submit issue'}
       </Button>
     </div>
   );

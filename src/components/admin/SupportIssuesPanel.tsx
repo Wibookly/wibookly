@@ -27,6 +27,7 @@ interface SupportIssue {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  attachments?: Array<{ path: string; name: string; size?: number; type?: string }> | null;
 }
 
 const STATUS_OPTIONS = [
@@ -64,7 +65,7 @@ export default function SupportIssuesPanel() {
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
-      setIssues((data ?? []) as SupportIssue[]);
+      setIssues((data ?? []) as unknown as SupportIssue[]);
     } catch (err) {
       console.error('load support issues', err);
       toast({
@@ -232,6 +233,9 @@ export default function SupportIssuesPanel() {
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
                     <p className="text-sm whitespace-pre-wrap break-words">{it.description}</p>
                   </div>
+                  {Array.isArray(it.attachments) && it.attachments.length > 0 && (
+                    <AttachmentsStrip attachments={it.attachments} />
+                  )}
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">
                       Admin notes (visible to admins only)
@@ -265,6 +269,49 @@ export default function SupportIssuesPanel() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function AttachmentsStrip({ attachments }: { attachments: Array<{ path: string; name: string; size?: number; type?: string }> }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const a of attachments) {
+        const { data } = await supabase.storage
+          .from('support-attachments')
+          .createSignedUrl(a.path, 60 * 60);
+        if (data?.signedUrl) next[a.path] = data.signedUrl;
+      }
+      if (!cancelled) setUrls(next);
+    })();
+    return () => { cancelled = true; };
+  }, [attachments]);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs font-medium text-muted-foreground">Attachments ({attachments.length})</div>
+      <div className="flex flex-wrap gap-2">
+        {attachments.map((a) => (
+          <a
+            key={a.path}
+            href={urls[a.path] || '#'}
+            target="_blank"
+            rel="noreferrer"
+            className="relative block w-28 h-20 rounded-md overflow-hidden border border-border bg-muted hover:ring-2 hover:ring-primary transition"
+            title={a.name}
+          >
+            {urls[a.path] ? (
+              <img src={urls[a.path]} alt={a.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">loading…</div>
+            )}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

@@ -3264,6 +3264,7 @@ export type Database = {
       support_issues: {
         Row: {
           admin_notes: string | null
+          attachments: Json
           created_at: string
           description: string
           id: string
@@ -3279,6 +3280,7 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          attachments?: Json
           created_at?: string
           description: string
           id?: string
@@ -3294,6 +3296,7 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          attachments?: Json
           created_at?: string
           description?: string
           id?: string
