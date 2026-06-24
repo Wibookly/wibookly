@@ -972,9 +972,52 @@ export default function Chat() {
     return { urls, refs };
   };
 
+  const pushLocalMessage = (role: 'user' | 'assistant', content: string) => {
+    setMessages((prev) => [...prev, {
+      id: `local-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      role, content, created_at: new Date().toISOString(),
+    }]);
+  };
+
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || !user) return;
+
+    // --- Email wizard: collect subject -> body -> recipient, then open composer prefilled
+    if (!override && emailWizard) {
+      pushLocalMessage('user', text);
+      setInput('');
+      if (emailWizard.step === 'subject') {
+        setEmailWizard({ step: 'body', subject: text });
+        pushLocalMessage('assistant', `Great — subject set to **"${text}"**.\n\nWhat should the **body** of the email say? You can type it or use the mic.`);
+        return;
+      }
+      if (emailWizard.step === 'body') {
+        setEmailWizard({ step: 'to', subject: emailWizard.subject, body: text });
+        pushLocalMessage('assistant', `Got it. Who should I send this to? Reply with one or more **email addresses** (comma-separated).`);
+        return;
+      }
+      if (emailWizard.step === 'to') {
+        const emails = text.split(/[\s,;]+/).map((e) => e.trim()).filter((e) => /\S+@\S+\.\S+/.test(e));
+        if (!emails.length) {
+          pushLocalMessage('assistant', `I couldn't find a valid email address. Please reply with one like **name@company.com**, or type **cancel** to stop.`);
+          return;
+        }
+        setComposePrefill({ to: emails, subject: emailWizard.subject, body: emailWizard.body });
+        setComposeOpen(true);
+        setEmailWizard(null);
+        pushLocalMessage('assistant', `Opening the composer with everything filled in — review and hit **Send**.`);
+        return;
+      }
+    }
+
+    // Allow user to cancel the wizard
+    if (!override && emailWizard && /^(cancel|stop|nevermind|never mind)$/i.test(text)) {
+      setEmailWizard(null);
+      setInput('');
+      pushLocalMessage('assistant', 'Cancelled the email. What else can I help with?');
+      return;
+    }
 
     // Detect "remind me / schedule" phrases and open the reminder dialog
     // instead of sending. Skip when this is an internal re-submit (override).
@@ -984,14 +1027,27 @@ export default function Chat() {
       return;
     }
 
-    // Detect "send/compose/write email" phrases and open the inline composer
-    // (autocomplete contacts + signature + Outlook send) instead of chatting.
+    // Detect "send/compose/write email" phrases.
+    // If the user gave details (longer phrase with subject/to hints), open the
+    // composer directly and let it AI-draft. Otherwise start a guided wizard
+    // that asks for subject -> body -> recipient — works great with the mic.
     if (!override && isComposeEmailTrigger(text) && activeConnection?.id && activeConnection.provider === 'outlook') {
-      setComposeInitial(text);
-      setComposeOpen(true);
-      if (!override) setInput('');
+      const hasDetails = text.length > 60 || /\b(to|about|regarding|re:|subject)\b/i.test(text);
+      if (hasDetails) {
+        setComposeInitial(text);
+        setComposeOpen(true);
+        if (!override) setInput('');
+        return;
+      }
+      // Start guided wizard
+      pushLocalMessage('user', text);
+      setInput('');
+      setEmailWizard({ step: 'subject' });
+      pushLocalMessage('assistant', `Sure — let's compose an email. What's the **subject**? (Say "cancel" anytime to stop.)`);
       return;
     }
+
+
 
 
     // May be null when the user is on the "New chat" screen.
