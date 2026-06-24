@@ -1692,23 +1692,21 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={limitReached ? 'Daily limit reached' : (isRecording ? 'Listening… your speech will be added to what you already typed' : 'Message InboxIQ...')}
+                  placeholder={limitReached ? 'Daily limit reached' : (isRecording ? 'Listening…' : 'Message InboxIQ...')}
                   disabled={isStreaming || limitReached}
                   rows={1}
                   className={cn(
                     'w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2',
-                    isRecording && 'pr-[200px]',
+                    isRecording && 'pr-16',
                   )}
                   data-tour="chat-input"
                 />
                 {isRecording && (
-                  <div className="pointer-events-none absolute right-1 bottom-1 flex items-center gap-2 rounded-full bg-background/90 backdrop-blur px-2 py-1 border border-destructive/40 shadow-sm">
+                  <div className="pointer-events-none absolute right-1 bottom-1 flex items-center gap-1.5 rounded-full bg-background/90 backdrop-blur px-2 py-1 border border-destructive/40 shadow-sm">
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-destructive/70 animate-ping" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
                     </span>
-                    <VoiceWaveform getAnalyser={getAnalyser} active={isRecording} className="h-5 w-20" />
-                    <span className="text-[10px] font-medium text-muted-foreground shrink-0">Listening…</span>
                   </div>
                 )}
               </div>
