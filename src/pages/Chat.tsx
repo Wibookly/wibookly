@@ -2185,6 +2185,14 @@ export default function Chat() {
         </DialogContent>
       </Dialog>
 
+      <ReminderDialog
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
+        connectionId={activeConnection?.id ?? null}
+        initialTitle={reminderInitial}
+        onCreated={() => setInput('')}
+      />
+
     </div>
   );
 }
