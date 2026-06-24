@@ -733,7 +733,7 @@ export default function Settings() {
 
   return (
     <div className="page-shell">
-      <div className="page-shell-sticky">
+      <div data-tour="settings-page-hero" className="page-shell-sticky">
         <PageHero
           eyebrow="My Settings"
           title="My Profile & Signature"
@@ -752,7 +752,7 @@ export default function Settings() {
         {/* Unified Profile + Signature card */}
         <section className="space-y-3">
           {/* Legend explaining the two field types */}
-          <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div data-tour="settings-legend" className="flex flex-wrap items-center gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" />
               <span className="text-muted-foreground">
@@ -924,7 +924,7 @@ export default function Settings() {
 
 
         {/* Email Signature Builder */}
-        <section className="space-y-4">
+        <section data-tour="settings-signature-section" className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-border">
             <div>
               <h2 className="text-lg font-semibold inline-flex items-center gap-1">Email Signature <HelpTip id="profile.signaturePreview" /></h2>
