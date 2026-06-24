@@ -39,6 +39,48 @@ function toLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function parseLocalInput(s: string): Date {
+  // "YYYY-MM-DDTHH:mm" parsed as local time
+  if (!s) return new Date();
+  const [date, time = '09:00'] = s.split('T');
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
+}
+
+function setTimeOn(s: string, hh: number, mm: number): string {
+  const d = parseLocalInput(s);
+  d.setHours(hh, mm, 0, 0);
+  return toLocalInput(d);
+}
+
+function setDateOn(s: string, date: Date): string {
+  const cur = parseLocalInput(s);
+  const d = new Date(date);
+  d.setHours(cur.getHours(), cur.getMinutes(), 0, 0);
+  return toLocalInput(d);
+}
+
+const QUICK_TIMES: Array<{ label: string; hh: number; mm: number }> = [
+  { label: '8:00 AM', hh: 8, mm: 0 },
+  { label: '9:00 AM', hh: 9, mm: 0 },
+  { label: '10:00 AM', hh: 10, mm: 0 },
+  { label: '11:00 AM', hh: 11, mm: 0 },
+  { label: '1:00 PM', hh: 13, mm: 0 },
+  { label: '2:00 PM', hh: 14, mm: 0 },
+  { label: '3:00 PM', hh: 15, mm: 0 },
+  { label: '4:00 PM', hh: 16, mm: 0 },
+];
+
+const DURATIONS: Array<{ label: string; value: string }> = [
+  { label: '15m', value: '15' },
+  { label: '30m', value: '30' },
+  { label: '45m', value: '45' },
+  { label: '1h', value: '60' },
+  { label: '1.5h', value: '90' },
+  { label: '2h', value: '120' },
+];
+
 type Conflict = { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string } };
 type Availability =
   | { status: 'idle' }
