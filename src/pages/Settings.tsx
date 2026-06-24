@@ -835,7 +835,7 @@ export default function Settings() {
             {/* AI-generated profile blurbs (Responsibilities + Communication style).
                 Auto-generated once based on company + title; user can edit or
                 regenerate at any time via the controls in each row. */}
-            <div className="space-y-1.5">
+            <div data-tour="settings-resp" className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="aboutResp" className="text-xs inline-flex items-center gap-1.5">
                   Responsibilities
