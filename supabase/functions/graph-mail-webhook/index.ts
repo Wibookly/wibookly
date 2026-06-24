@@ -409,21 +409,28 @@ function markdownToHtml(md: string): string {
   const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const inline = (s: string) =>
     escape(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/`([^`]+)`/g, '<code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-family:Consolas,Menlo,monospace;font-size:0.92em;">$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#2563eb;text-decoration:underline;">$1</a>');
   const blocks = md.split(/\n{2,}/).map((block) => {
+    const trimmed = block.trim();
+    const h3 = trimmed.match(/^###\s+(.+)$/);
+    if (h3) return `<h3 style="font-size:16px;margin:18px 0 6px;color:#111827;">${inline(h3[1])}</h3>`;
+    const h2 = trimmed.match(/^##\s+(.+)$/);
+    if (h2) return `<h2 style="font-size:18px;margin:22px 0 8px;color:#111827;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">${inline(h2[1])}</h2>`;
+    const h1 = trimmed.match(/^#\s+(.+)$/);
+    if (h1) return `<h1 style="font-size:20px;margin:24px 0 10px;color:#111827;">${inline(h1[1])}</h1>`;
     const lines = block.split('\n');
     if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
-      return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('') + '</ul>';
+      return '<ul style="margin:8px 0;padding-left:22px;">' + lines.map((l) => `<li style="margin:4px 0;">${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('') + '</ul>';
     }
     if (lines.every((l) => /^\s*\d+\.\s+/.test(l))) {
-      return '<ol>' + lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('') + '</ol>';
+      return '<ol style="margin:8px 0;padding-left:22px;">' + lines.map((l) => `<li style="margin:4px 0;">${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('') + '</ol>';
     }
-    return `<p>${inline(block).replace(/\n/g, '<br/>')}</p>`;
+    return `<p style="margin:10px 0;line-height:1.55;">${inline(block).replace(/\n/g, '<br/>')}</p>`;
   });
-  return blocks.join('\n');
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#1f2937;max-width:720px;">${blocks.join('\n')}</div>`;
 }
 
 // Invoke agent-orchestrator server-to-server, using the licensed sender's
@@ -435,10 +442,20 @@ async function invokeOrchestratorAsSender(args: {
   taskText: string;
   threadText: string;
 }): Promise<{ replyHtml: string; provider: string; model: string }> {
+  const formattingGuide =
+    `FORMATTING & DEPTH GUIDANCE (email reply — apply strictly):\n` +
+    `• Detect the question's technical depth. If technical (code, security, APIs, configs, vendor evals, architecture), give an in-depth, expert answer with concrete details, examples, and tradeoffs. If casual/basic, keep it short and plain-language. Mirror the asker's level.\n` +
+    `• Structure the answer for skimmability: a 1–2 sentence summary first, then short ## headings, tight paragraphs (2–4 sentences), and bullet lists for steps, options, risks, or checklists.\n` +
+    `• Use **bold** for key terms, inline code for commands/URLs/identifiers, and numbered lists for ordered procedures.\n` +
+    `• When the question references a product, link, vendor, or any real-world fact that may change, USE WEB SEARCH to verify before answering. Cite sources inline as [source](url) and add a short "Sources" list at the end when multiple are used.\n` +
+    `• Never refuse with "I can't verify" — search the web, follow links the user shared, and give a grounded answer. If something truly cannot be confirmed, say what you checked and what you found.\n` +
+    `• End with a "Next steps" or "Recommendation" section when actionable.\n` +
+    `• Never invent product names, pricing, or policies; verify or omit.\n`;
+
   const userMessage =
     args.threadText && args.threadText.trim().length
-      ? `${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
-      : args.taskText;
+      ? `${formattingGuide}\n---\n${args.taskText}\n\n--- Prior thread ---\n${args.threadText}`
+      : `${formattingGuide}\n---\n${args.taskText}`;
 
   const res = await fetch(`${SUPABASE_URL}/functions/v1/agent-orchestrator`, {
     method: 'POST',
@@ -451,8 +468,9 @@ async function invokeOrchestratorAsSender(args: {
       connection_id: args.connectionId,
       agent: 'qa',
       user_message: userMessage,
-      max_steps: 8,
+      max_steps: 12,
       deep: true,
+      web_search: true,
     }),
   });
   if (!res.ok) {
