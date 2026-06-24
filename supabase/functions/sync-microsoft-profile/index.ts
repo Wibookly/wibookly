@@ -171,6 +171,29 @@ serve(async (req) => {
       return json({ error: 'Failed to save synced profile' }, 500);
     }
 
+    // Propagate the synced photo into email_profiles for this user's
+    // connections so the email signature picks it up automatically.
+    if (photoUrl) {
+      try {
+        const { data: conns } = await admin
+          .from('provider_connections')
+          .select('id')
+          .eq('user_id', user.id);
+        const connectionIds = (conns ?? []).map((c: { id: string }) => c.id);
+        if (connectionIds.length) {
+          // Only fill in where empty so we don't clobber a manual upload.
+          await admin
+            .from('email_profiles')
+            .update({ profile_photo_url: photoUrl, show_profile_photo: true })
+            .in('connection_id', connectionIds)
+            .or('profile_photo_url.is.null,profile_photo_url.eq.');
+        }
+      } catch (e) {
+        console.warn('email_profiles photo propagation failed:', e);
+      }
+    }
+
+
     return json({
       success: true,
       profile: {
