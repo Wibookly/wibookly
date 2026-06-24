@@ -295,6 +295,12 @@ export default function Chat() {
   const [reminderInitial, setReminderInitial] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeInitial, setComposeInitial] = useState('');
+  type ComposePrefill = { to?: string[]; subject?: string; body?: string };
+  const [composePrefill, setComposePrefill] = useState<ComposePrefill>({});
+  type EmailWizard = { step: 'subject' | 'body' | 'to'; subject?: string; body?: string };
+  const [emailWizard, setEmailWizard] = useState<EmailWizard | null>(null);
+
+
   // ---- Per-conversation parallel streaming ----
   // Each in-flight chat request lives in `streamsRef` keyed by a stable
   // internal id. The map can contain multiple entries — one per chat that
@@ -966,9 +972,52 @@ export default function Chat() {
     return { urls, refs };
   };
 
+  const pushLocalMessage = (role: 'user' | 'assistant', content: string) => {
+    setMessages((prev) => [...prev, {
+      id: `local-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      role, content, created_at: new Date().toISOString(),
+    }]);
+  };
+
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || !user) return;
+
+    // --- Email wizard: collect subject -> body -> recipient, then open composer prefilled
+    if (!override && emailWizard) {
+      pushLocalMessage('user', text);
+      setInput('');
+      if (emailWizard.step === 'subject') {
+        setEmailWizard({ step: 'body', subject: text });
+        pushLocalMessage('assistant', `Great — subject set to **"${text}"**.\n\nWhat should the **body** of the email say? You can type it or use the mic.`);
+        return;
+      }
+      if (emailWizard.step === 'body') {
+        setEmailWizard({ step: 'to', subject: emailWizard.subject, body: text });
+        pushLocalMessage('assistant', `Got it. Who should I send this to? Reply with one or more **email addresses** (comma-separated).`);
+        return;
+      }
+      if (emailWizard.step === 'to') {
+        const emails = text.split(/[\s,;]+/).map((e) => e.trim()).filter((e) => /\S+@\S+\.\S+/.test(e));
+        if (!emails.length) {
+          pushLocalMessage('assistant', `I couldn't find a valid email address. Please reply with one like **name@company.com**, or type **cancel** to stop.`);
+          return;
+        }
+        setComposePrefill({ to: emails, subject: emailWizard.subject, body: emailWizard.body });
+        setComposeOpen(true);
+        setEmailWizard(null);
+        pushLocalMessage('assistant', `Opening the composer with everything filled in — review and hit **Send**.`);
+        return;
+      }
+    }
+
+    // Allow user to cancel the wizard
+    if (!override && emailWizard && /^(cancel|stop|nevermind|never mind)$/i.test(text)) {
+      setEmailWizard(null);
+      setInput('');
+      pushLocalMessage('assistant', 'Cancelled the email. What else can I help with?');
+      return;
+    }
 
     // Detect "remind me / schedule" phrases and open the reminder dialog
     // instead of sending. Skip when this is an internal re-submit (override).
@@ -978,14 +1027,27 @@ export default function Chat() {
       return;
     }
 
-    // Detect "send/compose/write email" phrases and open the inline composer
-    // (autocomplete contacts + signature + Outlook send) instead of chatting.
+    // Detect "send/compose/write email" phrases.
+    // If the user gave details (longer phrase with subject/to hints), open the
+    // composer directly and let it AI-draft. Otherwise start a guided wizard
+    // that asks for subject -> body -> recipient — works great with the mic.
     if (!override && isComposeEmailTrigger(text) && activeConnection?.id && activeConnection.provider === 'outlook') {
-      setComposeInitial(text);
-      setComposeOpen(true);
-      if (!override) setInput('');
+      const hasDetails = text.length > 60 || /\b(to|about|regarding|re:|subject)\b/i.test(text);
+      if (hasDetails) {
+        setComposeInitial(text);
+        setComposeOpen(true);
+        if (!override) setInput('');
+        return;
+      }
+      // Start guided wizard
+      pushLocalMessage('user', text);
+      setInput('');
+      setEmailWizard({ step: 'subject' });
+      pushLocalMessage('assistant', `Sure — let's compose an email. What's the **subject**? (Say "cancel" anytime to stop.)`);
       return;
     }
+
+
 
 
     // May be null when the user is on the "New chat" screen.
@@ -1701,19 +1763,46 @@ export default function Chat() {
                     />
                   </div>
                 ) : (
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
-                    disabled={isStreaming || limitReached}
-                    rows={1}
-                    className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
-                    data-tour="chat-input"
-                  />
+                  <>
+                    <Textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'Message InboxIQ...')}
+                      disabled={isStreaming || limitReached}
+                      rows={1}
+                      className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
+                      data-tour="chat-input"
+                    />
+                    {(() => {
+                      if (emailWizard) return null;
+                      const q = input.trim().toLowerCase();
+                      if (q.length < 2) return null;
+                      const all = [...examplePrompts.map((p) => ({ title: p.title, desc: p.desc })), ...customPrompts.map((p) => ({ title: p.title, desc: p.desc }))];
+                      const matches = all.filter((p) => `${p.title} ${p.desc}`.toLowerCase().includes(q)).slice(0, 4);
+                      if (!matches.length) return null;
+                      return (
+                        <div className="absolute bottom-full left-0 right-0 mb-2 rounded-md border bg-popover shadow-lg overflow-hidden z-50">
+                          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/40">Matching prompts</div>
+                          {matches.map((p, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); setInput(`${p.title} ${p.desc}`.trim()); textareaRef.current?.focus(); }}
+                              className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex flex-col gap-0.5"
+                            >
+                              <span className="font-medium">{p.title}</span>
+                              <span className="text-xs text-muted-foreground line-clamp-1">{p.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
+
 
               {isRecording ? (
                 <>
@@ -2211,12 +2300,16 @@ export default function Chat() {
 
       <EmailComposerDialog
         open={composeOpen}
-        onOpenChange={setComposeOpen}
+        onOpenChange={(o) => { setComposeOpen(o); if (!o) { setComposePrefill({}); setComposeInitial(''); } }}
         connectionId={activeConnection?.id ?? null}
         connectionEmail={activeConnection?.email ?? null}
         initialPrompt={composeInitial}
+        initialTo={composePrefill.to}
+        initialSubject={composePrefill.subject}
+        initialBody={composePrefill.body}
         onSent={() => setInput('')}
       />
+
 
     </div>
   );

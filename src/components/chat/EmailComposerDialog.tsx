@@ -21,8 +21,12 @@ interface Props {
   connectionId: string | null;
   connectionEmail: string | null;
   initialPrompt?: string;
+  initialTo?: string[];
+  initialSubject?: string;
+  initialBody?: string;
   onSent?: () => void;
 }
+
 
 function isValidEmail(e: string) { return /\S+@\S+\.\S+/.test(e); }
 
@@ -109,7 +113,7 @@ function RecipientField({ label, values, setValues, connectionId, autoFocus }: {
   );
 }
 
-export function EmailComposerDialog({ open, onOpenChange, connectionId, connectionEmail, initialPrompt = '', onSent }: Props) {
+export function EmailComposerDialog({ open, onOpenChange, connectionId, connectionEmail, initialPrompt = '', initialTo, initialSubject, initialBody, onSent }: Props) {
   const [drafting, setDrafting] = useState(false);
   const [sending, setSending] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -135,7 +139,20 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
         });
         if (!cancelled) setSignature(String((data as any)?.signature || ''));
       }
-      // Draft (skip if no prompt — empty composer)
+      // Prefill from wizard (skip AI drafting if any prefilled field present)
+      const hasPrefill = (initialTo && initialTo.length) || initialSubject || initialBody;
+      if (hasPrefill) {
+        if (initialTo?.length) setTo(initialTo.filter((e) => isValidEmail(e)));
+        if (initialSubject) setSubject(initialSubject);
+        if (initialBody) {
+          const html = /<[a-z][\s\S]*>/i.test(initialBody)
+            ? initialBody
+            : initialBody.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+          setBodyHtml(html);
+        }
+        return;
+      }
+      // Draft from a free-form prompt (skip if empty — empty composer)
       if (initialPrompt.trim()) {
         setDrafting(true);
         try {
@@ -152,7 +169,8 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
       }
     })();
     return () => { cancelled = true; };
-  }, [open, initialPrompt, connectionId]);
+  }, [open, initialPrompt, initialTo, initialSubject, initialBody, connectionId]);
+
 
   // Reset when closing
   useEffect(() => {
