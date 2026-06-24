@@ -279,6 +279,10 @@ export function NoReplyTrackerReport() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={handleScanNow} disabled={scanning || !activeConnection?.id}>
+              {scanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              {scanning ? 'Scanning…' : 'Scan now'}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
               <Download className="w-4 h-4 mr-2" /> Export CSV
             </Button>
@@ -287,6 +291,24 @@ export function NoReplyTrackerReport() {
             </Button>
           </div>
         </div>
+        {(trackingEnabled === false || lastScanAt) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            {trackingEnabled === false && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>No-reply tracking is OFF for this account — new BCC'd emails won't be picked up.</span>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={handleEnableTracking}>
+                  Enable
+                </Button>
+              </div>
+            )}
+            {lastScanAt && (
+              <span className="text-muted-foreground">
+                Last scanned {format(new Date(lastScanAt), "MMM d, h:mm a")}
+              </span>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-center gap-3 mb-4">
