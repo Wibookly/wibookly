@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
+import { ReminderDialog, isReminderTrigger } from '@/components/chat/ReminderDialog';
 
 
 interface Conversation {
@@ -289,6 +290,8 @@ export default function Chat() {
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderInitial, setReminderInitial] = useState('');
   // ---- Per-conversation parallel streaming ----
   // Each in-flight chat request lives in `streamsRef` keyed by a stable
   // internal id. The map can contain multiple entries — one per chat that
@@ -964,7 +967,14 @@ export default function Chat() {
     const text = (override ?? input).trim();
     if (!text || !user) return;
 
-    // The conversation we're starting this stream for, captured at send time.
+    // Detect "remind me / schedule" phrases and open the reminder dialog
+    // instead of sending. Skip when this is an internal re-submit (override).
+    if (!override && isReminderTrigger(text) && activeConnection?.id) {
+      setReminderInitial(text);
+      setReminderOpen(true);
+      return;
+    }
+
     // May be null when the user is on the "New chat" screen.
     const startingConvId = activeId;
 
@@ -2174,6 +2184,14 @@ export default function Chat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReminderDialog
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
+        connectionId={activeConnection?.id ?? null}
+        initialTitle={reminderInitial}
+        onCreated={() => setInput('')}
+      />
 
     </div>
   );
