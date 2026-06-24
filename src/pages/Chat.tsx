@@ -41,6 +41,7 @@ import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { AIThinking } from '@/components/ai/AIThinking';
 import { useKokoroTTS, useVoiceCatalog, getStoredVoice, setStoredVoice, type KokoroVoiceId } from '@/hooks/useKokoroTTS';
 import { ReminderDialog, isReminderTrigger } from '@/components/chat/ReminderDialog';
+import { EmailComposerDialog, isComposeEmailTrigger } from '@/components/chat/EmailComposerDialog';
 
 
 interface Conversation {
