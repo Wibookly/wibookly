@@ -146,9 +146,15 @@ export function NoReplyTrackerReport() {
       if (!silent) toast.error('Pick an active email account first.');
       return;
     }
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.access_token) {
+      if (!silent) toast.error('Please sign in again before scanning your mailbox.');
+      return;
+    }
     setScanning(true);
     try {
       const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
         body: { mode: 'manual', connection_id: activeConnection.id },
       });
       if (error) throw error;
