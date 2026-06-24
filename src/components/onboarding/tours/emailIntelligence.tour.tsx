@@ -153,21 +153,5 @@ export const emailIntelligenceTour: Step[] = [
       'InboxIQ continuously watches incoming mail and applies your categories, drafts, and replies in near real-time. Hit "Re-sync All" if you ever want to reprocess past emails.',
     placement: 'bottom',
   },
-  {
-    target: '[data-tour="ei-header"]',
-    title: "You're Ready 🎉",
-    content: (
-      <div>
-        <p>✅ Categories organize emails</p>
-        <p>✅ Rules route them automatically</p>
-        <p>✅ AI Draft prepares responses</p>
-        <p>✅ Auto-Reply sends them automatically</p>
-        <p>✅ Tone customizes the writing style</p>
-        <p style={{ marginTop: 8, fontStyle: 'italic' }}>
-          Hit "Guide me through this page" anytime to replay.
-        </p>
-      </div>
-    ),
-    placement: 'center',
-  },
 ];
+
