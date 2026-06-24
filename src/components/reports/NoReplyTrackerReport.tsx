@@ -83,6 +83,17 @@ function recipientLabel(to: any): string {
     .join(', ');
 }
 
+async function readableFunctionError(error: unknown, fallback: string): Promise<string> {
+  const context = (error as any)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.clone().json();
+      if (body?.error) return String(body.error);
+    } catch { /* ignore */ }
+  }
+  return (error as Error)?.message || fallback;
+}
+
 export function NoReplyTrackerReport() {
   const { user, organization } = useAuth();
   const { activeConnection } = useActiveEmail();
@@ -146,12 +157,18 @@ export function NoReplyTrackerReport() {
       if (!silent) toast.error('Pick an active email account first.');
       return;
     }
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.access_token) {
+      if (!silent) toast.error('Please sign in again before scanning your mailbox.');
+      return;
+    }
     setScanning(true);
     try {
       const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
         body: { mode: 'manual', connection_id: activeConnection.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readableFunctionError(error, 'Scan failed'));
       if ((data as any)?.error) throw new Error((data as any).error);
       const added = Number((data as any)?.added ?? 0);
       if (!silent) {

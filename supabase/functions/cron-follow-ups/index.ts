@@ -15,6 +15,7 @@
 //    replies and cancels them.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { getValidAccessToken } from '../_shared/oauth-tokens.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +25,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!;
-const TOKEN_ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -32,30 +32,8 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 // kept as a fallback hint for the UI, but the cron parses any number.
 const MAX_DAYS = 90;
 
-// === AES-GCM token decryption (same scheme as other functions) ===
-async function importKey(): Promise<CryptoKey> {
-  const raw = new TextEncoder().encode(TOKEN_ENC_KEY.padEnd(32).slice(0, 32));
-  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
-}
-async function decrypt(b64: string): Promise<string> {
-  const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const iv = data.slice(0, 12);
-  const ct = data.slice(12);
-  const key = await importKey();
-  const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-  return new TextDecoder().decode(dec);
-}
-
-async function getValidToken(userId: string, provider: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('oauth_token_vault')
-    .select('encrypted_access_token,expires_at')
-    .eq('user_id', userId).eq('provider', provider).maybeSingle();
-  if (!data) return null;
-  if (data.expires_at && new Date(data.expires_at) > new Date(Date.now() + 60_000)) {
-    return decrypt(data.encrypted_access_token);
-  }
-  return null;
+async function getValidToken(userId: string, connectionId: string): Promise<string | null> {
+  return await getValidAccessToken(userId, 'outlook', connectionId);
 }
 
 async function logAiUsage(orgId: string, userId: string | null, model: string, action: string, prompt: number, completion: number) {
@@ -610,7 +588,7 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
   // Auto-drafting / auto-reply / reminder emails still require is_enabled=true.
   if (!settings.is_enabled && !opts.forceScan) return { ...empty, skipped: true };
 
-  const token = await getValidToken(conn.user_id, conn.provider);
+  const token = await getValidToken(conn.user_id, conn.id);
   if (!token) {
     console.log(`Skip ${conn.id}: no valid token`);
     return { ...empty, skipped: true };
