@@ -288,7 +288,7 @@ export function NoReplyTrackerReport() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="default" size="sm" onClick={handleScanNow} disabled={scanning || !activeConnection?.id}>
+            <Button variant="default" size="sm" onClick={() => handleScanNow(false)} disabled={scanning || !activeConnection?.id}>
               {scanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
               {scanning ? 'Scanning…' : 'Scan now'}
             </Button>
