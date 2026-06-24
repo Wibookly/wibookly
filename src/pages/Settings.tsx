@@ -812,7 +812,7 @@ export default function Settings() {
           </div>
 
           {/* EDITABLE — your inputs */}
-          <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/30">
+          <div data-tour="settings-inputs" className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/30">
             <div className="flex items-center gap-2 mb-1">
               <User2 className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-semibold">Your Inputs</h3>
