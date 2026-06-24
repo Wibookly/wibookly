@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, Search, CalendarClock } from 'lucide-react';
+import { Loader2, Mail, AlertTriangle, Clock, Send, FileEdit, Tag, Lock, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -71,9 +71,6 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   const [saving, setSaving] = useState(false);
   
   const [intervalsDraft, setIntervalsDraft] = useState('');
-  const [auditing, setAuditing] = useState(false);
-  const [auditFrom, setAuditFrom] = useState(isoDaysAgo(30));
-  const [auditTo, setAuditTo] = useState(todayIso());
 
   async function load() {
     if (!activeConnection?.id) return;
@@ -164,37 +161,6 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   }
 
 
-
-
-  async function runAudit() {
-    if (!activeConnection?.id) return;
-    if (auditFrom > auditTo) {
-      toast({ title: 'Invalid range', description: '"From" date must be before "To" date.', variant: 'destructive' });
-      return;
-    }
-    setAuditing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('audit-inbox-followups', {
-        body: {
-          connection_id: activeConnection.id,
-          from_date: auditFrom,
-          to_date: new Date(auditTo + 'T23:59:59').toISOString(),
-        },
-      });
-      if (error) throw error;
-      const r = data as { scanned?: number; flagged?: number; already_replied?: number; errors?: number };
-      toast({
-        title: 'Audit complete',
-        description: `Scanned ${r.scanned ?? 0} sent emails — flagged ${r.flagged ?? 0} for follow-up, ${r.already_replied ?? 0} already had replies.`,
-      });
-      await load();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: 'Audit failed', description: msg, variant: 'destructive' });
-    } finally {
-      setAuditing(false);
-    }
-  }
 
   if (featureLoading || loading) {
     return (
@@ -465,6 +431,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               checked={settings.business_hours_only}
               disabled={saving || settings.is_enabled}
               onCheckedChange={(v) => patch({ business_hours_only: v })}
+              className={settings.business_hours_only ? 'data-[disabled]:bg-emerald-500 data-[disabled]:border-emerald-600 data-[disabled]:opacity-100' : ''}
             />
           </div>
         </CardHeader>
@@ -559,47 +526,22 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
         </CardContent>
       </Card>
 
-      {/* Manual inbox audit */}
+      {/* Auto-sync (every 24 hours) */}
       <Card data-tour="followup-audit">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Search className="w-4 h-4 text-primary" /> Inbox audit
+            <CalendarClock className="w-4 h-4 text-primary" /> Inbox auto-audit
           </CardTitle>
           <CardDescription>
-            Scan your <strong>Sent Items</strong> over a date range and flag every email
-            that hasn't received a reply. Flagged emails are copied into your Outlook
+            InboxIQ automatically scans your <strong>Sent Items</strong> every 24 hours and flags
+            any email that hasn't been replied to. Flagged messages are copied into your Outlook
             <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">No-Reply-Tracker</code>
-            folder and surfaced in the InboxIQ <strong>No Reply Tracker</strong> category. No
-            drafts are written and nothing is sent — pure audit for your review.
+            folder and surfaced in the InboxIQ <strong>No Reply Tracker</strong> category. No drafts
+            are written and nothing is sent — pure audit for your review.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid sm:grid-cols-3 gap-3 items-end">
-            <div className="space-y-1.5" data-tour="followup-audit-from">
-              <Label htmlFor="audit-from">From</Label>
-              <Input id="audit-from" type="date" value={auditFrom} max={auditTo}
-                onChange={(e) => setAuditFrom(e.target.value)} />
-            </div>
-            <div className="space-y-1.5" data-tour="followup-audit-to">
-              <Label htmlFor="audit-to">To</Label>
-              <Input id="audit-to" type="date" value={auditTo} min={auditFrom} max={todayIso()}
-                onChange={(e) => setAuditTo(e.target.value)} />
-            </div>
-            <Button data-tour="followup-audit-run" onClick={runAudit} disabled={auditing}>
-              {auditing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-              {auditing ? 'Auditing…' : 'Audit now'}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2" data-tour="followup-audit-presets">
-            {[7, 30, 90].map((d) => (
-              <Button key={d} variant="ghost" size="sm" onClick={() => { setAuditFrom(isoDaysAgo(d)); setAuditTo(todayIso()); }}>
-                Last {d} days
-              </Button>
-            ))}
-          </div>
-
           <div data-tour="followup-autosync" className="rounded-lg border p-3 flex items-start justify-between gap-4 bg-muted/30">
-
             <div className="flex items-start gap-3 min-w-0">
               <div className="p-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CalendarClock className="w-4 h-4" />
@@ -615,8 +557,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   While No Reply Tracker is ON, InboxIQ scans the previous 24 hours of Sent Items
-                  every day and flags anything that hasn't been replied to. Use <strong>Audit now</strong>
-                  above to run an extra manual sweep over a custom date range.
+                  every day and flags anything that hasn't been replied to.
                 </div>
               </div>
             </div>
