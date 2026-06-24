@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,26 +15,43 @@ import { Loader2, Send, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useFeatureAccess, type FeatureKey } from '@/hooks/useFeatureAccess';
 
-const FEATURE_OPTIONS = [
-  'AI Chat',
-  'Email Intelligence',
-  'No Reply Tracker',
-  'My Profile & Signature',
-  'Meeting Copilot',
-  'AI Activity Report',
-  'My Daily Brief',
-  'User Access',
-  'Integrations (Email & Calendar)',
-  'Other',
-] as const;
-type FeatureOption = (typeof FEATURE_OPTIONS)[number];
+/**
+ * Feature dropdown options. Each entry has a label and an optional
+ * `requires` feature key — if the user doesn't have that feature, the
+ * option is hidden from the dropdown. Entries with no `requires` are
+ * always visible (Integrations is needed by everyone; "Other" is a
+ * universal fallback).
+ */
+const FEATURE_OPTIONS: { label: string; requires?: FeatureKey }[] = [
+  { label: 'AI Chat', requires: 'ai_chat' },
+  { label: 'Email Intelligence', requires: 'email_intelligence' },
+  { label: 'No Reply Tracker', requires: 'feature.follow_up_reminder' },
+  { label: 'Meeting Copilot', requires: 'meeting_copilot' },
+  { label: 'AI Activity Report', requires: 'reports' },
+  { label: 'My Daily Brief', requires: 'daily_brief' },
+  { label: 'My Profile & Signature' },
+  { label: 'User Access' },
+  { label: 'Integrations (Email & Calendar)' },
+  { label: 'Other' },
+];
 
 export function HelpIssueForm() {
   const { user, profile } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
-  const [feature, setFeature] = useState<FeatureOption | ''>('');
+  const { hasFeature } = useFeatureAccess();
+  const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
+
+  const visibleOptions = useMemo(
+    () =>
+      FEATURE_OPTIONS.filter((o) => !o.requires || isSuperAdmin || hasFeature(o.requires)),
+    [hasFeature, isSuperAdmin],
+  );
+
+  const [feature, setFeature] = useState<string>('');
+
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -142,13 +159,13 @@ export function HelpIssueForm() {
         <Label htmlFor="issue-feature" className="text-xs">
           Which feature is this about? <span className="text-destructive">*</span>
         </Label>
-        <Select value={feature} onValueChange={(v) => setFeature(v as FeatureOption)}>
+        <Select value={feature} onValueChange={(v) => setFeature(v)}>
           <SelectTrigger id="issue-feature">
             <SelectValue placeholder="Select a feature…" />
           </SelectTrigger>
           <SelectContent>
-            {FEATURE_OPTIONS.map((f) => (
-              <SelectItem key={f} value={f}>{f}</SelectItem>
+            {visibleOptions.map((f) => (
+              <SelectItem key={f.label} value={f.label}>{f.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
