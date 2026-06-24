@@ -750,11 +750,29 @@ async function processNotification(n: GraphNotification) {
     const senderName = msg.from?.emailAddress?.name ?? '';
     const taskText = msg.bodyPreview ?? stripHtml(msg.body?.content ?? '').slice(0, 8000);
 
-    // (4) Prompt cache: hash (user + subject + task) — keyed per-sender so
+    // Decide mode: if the agent was CC'd on a thread that includes other
+    // human recipients (anyone besides the sender + the agent mailbox), the
+    // user wants a SUGGESTED REPLY they can review and send to the others —
+    // not a direct answer back to them. Otherwise treat as a direct question.
+    const allRecipients = [
+      ...((msg.toRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+      ...((msg.ccRecipients ?? []) as Array<{ emailAddress?: { address?: string } }>),
+    ]
+      .map((r) => (r?.emailAddress?.address ?? '').toLowerCase().trim())
+      .filter(Boolean);
+    const otherHumanRecipients = allRecipients.filter(
+      (a) => a !== senderEmail && a !== (settings.shared_mailbox_address ?? '').toLowerCase().trim(),
+    );
+    const isThreadReply = (msg.subject ?? '').trim().toLowerCase().startsWith('re:') || thread.length > 1;
+    const mode: 'answer' | 'suggested-reply' =
+      otherHumanRecipients.length > 0 && isThreadReply ? 'suggested-reply' : 'answer';
+
+    // (4) Prompt cache: hash (user + subject + task + mode) — keyed per-sender so
     // each user's cache is isolated by their own delegated permissions.
-    const cacheInput = `${license.user_id}|${msg.subject ?? ''}|${taskText}`;
+    const cacheInput = `${license.user_id}|${mode}|${msg.subject ?? ''}|${taskText}`;
     const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cacheInput));
     const promptHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
 
     let replyHtml: string;
     let agentProvider = 'cache';
