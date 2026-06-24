@@ -1034,8 +1034,21 @@ export default function Chat() {
     // If the user gave details (longer phrase with subject/to hints), open the
     // composer directly and let it AI-draft. Otherwise start a guided wizard
     // that asks for subject -> body -> recipient — works great with the mic.
-    if (!override && isComposeEmailTrigger(text) && activeConnection?.id && activeConnection.provider === 'outlook') {
-      const hasDetails = text.length > 60 || /\b(to|about|regarding|re:|subject)\b/i.test(text);
+    if (!override && isComposeEmailTrigger(text)) {
+      // Require an Outlook connection to actually send — otherwise tell the user.
+      if (!activeConnection?.id || activeConnection.provider !== 'outlook') {
+        pushLocalMessage('user', text);
+        setInput('');
+        pushLocalMessage(
+          'assistant',
+          `I can help compose that email, but I need an **Outlook** account connected first. Open **Integrations** in the sidebar to connect Microsoft 365, then ask me again.`,
+        );
+        return;
+      }
+      const hasDetails =
+        text.length > 60 ||
+        /\b(to|about|regarding|re:|subject)\b/i.test(text) ||
+        /\S+@\S+\.\S+/.test(text);
       if (hasDetails) {
         setComposeInitial(text);
         setComposeOpen(true);
