@@ -867,6 +867,7 @@ export default function Settings() {
                 </div>
               </div>
               <Textarea
+                data-tour="settings-resp-field"
                 id="aboutResp"
                 value={aboutMe.responsibilities}
                 onChange={(e) => setAboutMe(p => ({ ...p, responsibilities: e.target.value }))}
@@ -908,6 +909,7 @@ export default function Settings() {
                 </div>
               </div>
               <Textarea
+                data-tour="settings-style-field"
                 id="aboutStyle"
                 value={aboutMe.communication_style}
                 onChange={(e) => setAboutMe(p => ({ ...p, communication_style: e.target.value }))}
@@ -946,6 +948,7 @@ export default function Settings() {
             <div data-tour="settings-signature-mode" className="flex items-center gap-4 pb-4 border-b border-border">
               <div className="flex gap-2">
                 <Button
+                  data-tour="settings-signature-builder"
                   type="button"
                   variant={!useCustomSignature ? "default" : "outline"}
                   size="sm"
@@ -954,6 +957,7 @@ export default function Settings() {
                   Use Signature Builder
                 </Button>
                 <Button
+                  data-tour="settings-custom-signature"
                   type="button"
                   variant={useCustomSignature ? "default" : "outline"}
                   size="sm"
@@ -1068,6 +1072,7 @@ export default function Settings() {
                     {signatureFields.profilePhotoUrl ? (
                       <div className="relative">
                         <img 
+                          data-tour="settings-photo-preview"
                           src={signatureFields.profilePhotoUrl} 
                           alt="Profile photo" 
                           className="h-16 w-16 object-cover rounded-full border border-border"
@@ -1166,6 +1171,7 @@ export default function Settings() {
                     {signatureFields.signatureLogoUrl ? (
                       <div className="relative">
                         <img 
+                          data-tour="settings-logo-preview"
                           src={signatureFields.signatureLogoUrl} 
                           alt="Company logo" 
                           className="h-16 w-auto object-contain rounded border border-border bg-background p-1"
