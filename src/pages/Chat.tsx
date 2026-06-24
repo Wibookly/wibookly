@@ -1045,21 +1045,12 @@ export default function Chat() {
         );
         return;
       }
-      const hasDetails =
-        text.length > 60 ||
-        /\b(to|about|regarding|re:|subject)\b/i.test(text) ||
-        /\S+@\S+\.\S+/.test(text);
-      if (hasDetails) {
-        setComposeInitial(text);
-        setComposeOpen(true);
-        if (!override) setInput('');
-        return;
-      }
-      // Start guided wizard
+      // Always open the composer immediately with the narrated request so the
+      // AI can extract recipient / subject / body and prefill the template.
       pushLocalMessage('user', text);
-      setInput('');
-      setEmailWizard({ step: 'subject' });
-      pushLocalMessage('assistant', `Sure — let's compose an email. What's the **subject**? (Say "cancel" anytime to stop.)`);
+      setComposeInitial(text);
+      setComposeOpen(true);
+      if (!override) setInput('');
       return;
     }
 

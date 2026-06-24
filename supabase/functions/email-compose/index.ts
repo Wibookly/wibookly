@@ -60,14 +60,17 @@ function buildSignature(p: any, userEmail: string | null): string {
 </div>`;
 }
 
-async function draftWithLLM(prompt: string, senderName: string | null): Promise<{ subject: string; body: string }> {
+async function draftWithLLM(prompt: string, senderName: string | null): Promise<{ subject: string; body: string; recipient_name: string; recipient_email: string }> {
   const key = Deno.env.get('LOVABLE_API_KEY');
-  if (!key) return { subject: '', body: prompt };
-  const sys = `You write professional business emails. Reply ONLY with strict JSON of shape {"subject":"...","body":"<p>...</p>"}.
+  const fallback = { subject: '', body: `<p>${prompt}</p>`, recipient_name: '', recipient_email: '' };
+  if (!key) return fallback;
+  const sys = `You convert a spoken/typed request into a ready-to-send business email. Reply ONLY with strict JSON of shape {"subject":"...","body":"<p>...</p>","recipient_name":"...","recipient_email":"..."}.
 - subject: ≤ 80 chars, no quotes.
-- body: clean HTML using <p> paragraphs, <ul><li> for lists, <strong>. Open with a brief greeting (e.g. "Hi {first name}," or "Hello,") and close with a sign-off line (e.g. "Thanks,"). DO NOT include the sender signature — that is added separately.
-- Match a concise, friendly, professional tone${senderName ? ` from ${senderName}` : ''}.
-- Use the user's request below verbatim for intent; do not invent facts not implied.`;
+- body: clean HTML using <p> paragraphs, <ul><li> for lists, <strong>. Open with a brief greeting using the recipient's first name when known (e.g. "Hi Ali,"). Close with a sign-off line (e.g. "Thanks,"). DO NOT include the sender signature — that is added separately.
+- recipient_name: the addressee mentioned in the prompt (e.g. "Ali", "John Smith"). Empty string if none.
+- recipient_email: only if an explicit email address appears in the prompt; otherwise empty.
+- Tone: concise, friendly, professional${senderName ? ` from ${senderName}` : ''}.
+- Use the user's request verbatim for intent; do not invent facts.`;
   const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
@@ -80,14 +83,19 @@ async function draftWithLLM(prompt: string, senderName: string | null): Promise<
       response_format: { type: 'json_object' },
     }),
   });
-  if (!res.ok) return { subject: '', body: `<p>${prompt}</p>` };
+  if (!res.ok) return fallback;
   const j = await res.json();
   const txt = j?.choices?.[0]?.message?.content || '{}';
   try {
     const parsed = JSON.parse(txt);
-    return { subject: String(parsed.subject || '').slice(0, 200), body: String(parsed.body || '') };
+    return {
+      subject: String(parsed.subject || '').slice(0, 200),
+      body: String(parsed.body || ''),
+      recipient_name: String(parsed.recipient_name || '').slice(0, 120),
+      recipient_email: String(parsed.recipient_email || '').slice(0, 200),
+    };
   } catch {
-    return { subject: '', body: `<p>${prompt}</p>` };
+    return fallback;
   }
 }
 
