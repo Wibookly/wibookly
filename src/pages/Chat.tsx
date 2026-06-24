@@ -417,6 +417,9 @@ export default function Chat() {
   type StarterPrompt = { icon?: string; title: string; desc: string; custom?: boolean };
   const CUSTOM_PROMPTS_KEY = 'inboxiq-custom-starter-prompts';
   const [promptsExpanded, setPromptsExpanded] = useState(false);
+  // Separate toggle for the in-chat prompts drawer that appears above the
+  // composer once a conversation has started.
+  const [inChatPromptsOpen, setInChatPromptsOpen] = useState(false);
   const [customPrompts, setCustomPrompts] = useState<StarterPrompt[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
