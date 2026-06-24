@@ -44,11 +44,5 @@ export const settingsTour: Step[] = [
       "Changes save instantly to your profile and apply to all future AI drafts, daily briefs, and reply suggestions. There is no separate publish step.",
     placement: 'center',
   },
-  {
-    target: 'body',
-    title: "You're set 🎉",
-    content:
-      "Click 'Guide me through this page' anytime in the top bar to replay this tour.",
-    placement: 'center',
-  },
 ];
+
