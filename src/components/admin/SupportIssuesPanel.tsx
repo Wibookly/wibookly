@@ -27,6 +27,7 @@ interface SupportIssue {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  attachments?: Array<{ path: string; name: string; size?: number; type?: string }> | null;
 }
 
 const STATUS_OPTIONS = [
