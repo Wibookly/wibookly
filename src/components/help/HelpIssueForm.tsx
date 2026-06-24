@@ -159,13 +159,13 @@ export function HelpIssueForm() {
         <Label htmlFor="issue-feature" className="text-xs">
           Which feature is this about? <span className="text-destructive">*</span>
         </Label>
-        <Select value={feature} onValueChange={(v) => setFeature(v as FeatureOption)}>
+        <Select value={feature} onValueChange={(v) => setFeature(v)}>
           <SelectTrigger id="issue-feature">
             <SelectValue placeholder="Select a feature…" />
           </SelectTrigger>
           <SelectContent>
-            {FEATURE_OPTIONS.map((f) => (
-              <SelectItem key={f} value={f}>{f}</SelectItem>
+            {visibleOptions.map((f) => (
+              <SelectItem key={f.label} value={f.label}>{f.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
