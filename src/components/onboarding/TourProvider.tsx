@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Joyride, STATUS } from 'react-joyride';
 import type { EventData, Step } from 'react-joyride';
 import { TOUR_REGISTRY } from './tours/index';
+import { START_GUIDED_TOUR_EVENT } from '@/components/help/events';
+
 
 const STORAGE_KEY = 'iq_tour_completed';
 
