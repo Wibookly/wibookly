@@ -173,7 +173,7 @@ export function useVoiceRecording({ onTranscription, silenceTimeoutMs = 2000, de
               hasSpokenRef.current = true;
             }
             if (hasSpokenRef.current && now - lastVoiceAtRef.current >= silenceTimeoutMs) {
-              toast.info('Voice captured — converting it to text…', { position: 'top-center', duration: 2500 });
+              toast.info('Converting voice to text…', { position: 'bottom-right', duration: 1500 });
               stopRecording();
               return;
             }
