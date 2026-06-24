@@ -105,6 +105,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profile_photo_url: photoUrl,
         });
 
+        // If we still have no photo, trigger a silent Microsoft 365 sync in the
+        // background. When it returns we refresh the profile so the avatar in
+        // the top-left and the email signature pick up the M365 photo without
+        // requiring the user to open Settings.
+        if (!photoUrl) {
+          (async () => {
+            try {
+              const { data: syncData } = await supabase.functions.invoke(
+                'sync-microsoft-profile'
+              );
+              const synced = (syncData as { profile?: { profile_photo_url?: string | null } } | null)
+                ?.profile?.profile_photo_url;
+              if (synced) {
+                setProfile(prev => prev ? { ...prev, profile_photo_url: synced } : prev);
+              }
+            } catch {
+              // silent — user may not have Microsoft connected yet
+            }
+          })();
+        }
+
+
 
         const { data: orgData } = await supabase
           .from('organizations')
