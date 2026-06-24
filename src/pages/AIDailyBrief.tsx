@@ -485,6 +485,10 @@ export default function AIDailyBrief() {
             onChanged={() => refetch()}
             onPrint={() => handlePrint('all')}
           />
+          <TodoChecklistCard
+            items={brief.actionPlan as any}
+            onChanged={() => refetch()}
+          />
           {(brief.aiAnalysis?.risks?.length || brief.aiAnalysis?.wins?.length) ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {brief.aiAnalysis?.risks && brief.aiAnalysis.risks.length > 0 && (
