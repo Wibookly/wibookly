@@ -748,34 +748,6 @@ export default function Settings() {
 
       <div className="space-y-6">
 
-        {/* Help & Onboarding quick actions */}
-        <section className="rounded-lg border border-border bg-background/60 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">Help & Onboarding</h2>
-            <p className="text-xs text-muted-foreground">
-              Re-run the guided setup wizard at any time, or toggle the in-app help icons.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.dispatchEvent(new CustomEvent('inboxiq:restart-setup-wizard'))}
-            >
-              Restart Setup Wizard
-            </Button>
-            {profile?.email?.toLowerCase() === 'arahimi@energyforward.com' && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => window.location.assign('/settings/help')}
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Edit Help & Support (AI)
-              </Button>
-            )}
-          </div>
-        </section>
 
         {/* Unified Profile + Signature card */}
         <section className="space-y-3">
