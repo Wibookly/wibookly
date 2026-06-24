@@ -508,19 +508,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'ai-activity',
     title: 'AI Activity — guided walkthrough',
     category: 'ai-features',
-    summary: 'A transparent log of everything the AI did for you.',
+    summary: 'A full transparency dashboard for every action the AI has taken on your behalf.',
     intro:
-      'AI Activity is your visibility center for everything AI has done for you. Review drafts, processing, chat usage, meetings, and automation history in one place so you always understand what happened and when.',
+      "AI Activity is your transparency and audit center. Every time the AI drafts an email, sends an auto-reply, books a meeting, answers a chat question, or processes an inbox item, it is recorded here with a timestamp. Use this page to verify what the AI has been doing, spot which categories drive the most automation, and export a clean report for compliance or team review.",
     steps: [
-      { title: 'Open AI Activity', description: 'Use the sidebar → AI Activity.', route: '/ai-activity' },
-      { title: 'Email AI stats', description: 'Top row: AI drafts created, auto-replies sent, calendar events booked, and total emails processed. Each tile is a 30-day rolling number.', target: '[data-tour="aa-email-stats"]' },
-      { title: 'Chat & Meetings stats', description: 'Second row: how many AI Chat messages and conversations you have run, and how many meetings Copilot has handled.', target: '[data-tour="aa-chat-stats"]' },
-      { title: 'Activity by Category', description: 'Per-category breakdown of drafts vs auto-replies. Use this to spot which categories are pulling the most AI work.', target: '[data-tour="aa-category"]' },
-      { title: 'Export the report', description: 'Use this button to download a CSV of every AI action with timestamps — handy for compliance or sharing with your team.', target: '[data-tour="aa-export"]' },
+      { title: 'Open AI Activity', description: 'Sidebar → AI Activity. The dashboard loads with a rolling 30-day view by default.', route: '/ai-activity' },
+      { title: 'Email AI stats row', description: 'Top tiles: AI drafts created, auto-replies sent, calendar events booked, and total emails processed. Each tile reflects the last 30 days across all your connected mailboxes.', target: '[data-tour="aa-email-stats"]' },
+      { title: 'Chat & Meetings stats row', description: 'Second row: AI Chat messages sent, distinct AI Chat conversations, and meetings handled by Meeting Copilot. Use these to see how heavily you lean on the conversational and meeting features.', target: '[data-tour="aa-chat-stats"]' },
+      { title: 'Activity by Category', description: 'A per-category breakdown showing drafts vs auto-replies for every category you have configured. Tall bars highlight which categories are pulling the most AI work — useful when tuning rules.', target: '[data-tour="aa-category"]' },
+      { title: 'Recent activity feed', description: 'A scrollable, timestamped log of each AI action: what was done, on which email or meeting, and the outcome. Click any row to jump to the source item.' },
+      { title: 'Filters & time range', description: 'Narrow the view by action type (draft, auto-reply, schedule, chat) or by date range. Filters apply to both the stat tiles and the feed.' },
+      { title: 'Export the report', description: 'Download a CSV of every AI action with full timestamps, categories, and outcomes. Useful for compliance reviews or sharing weekly metrics with your team.', target: '[data-tour="aa-export"]' },
     ],
+    outro:
+      "**Good to know:** AI Activity is read-only — it never changes your data. If a number looks wrong, use the Refresh control; if an action looks unexpected, click into it to see the exact email or meeting that triggered it.",
     routes: ['/ai-activity'],
-    keywords: ['activity', 'audit', 'report', 'log', 'transparency'],
+    keywords: ['activity', 'audit', 'report', 'log', 'transparency', 'dashboard', 'analytics'],
   },
+
 ];
 
 /**
