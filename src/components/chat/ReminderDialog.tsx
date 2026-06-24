@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarClock, Loader2, MapPin, Video, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarClock, Loader2, MapPin, Video, CheckCircle2, AlertTriangle, CalendarIcon, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface Props {
   open: boolean;
@@ -36,6 +38,48 @@ function toLocalInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+function parseLocalInput(s: string): Date {
+  // "YYYY-MM-DDTHH:mm" parsed as local time
+  if (!s) return new Date();
+  const [date, time = '09:00'] = s.split('T');
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
+}
+
+function setTimeOn(s: string, hh: number, mm: number): string {
+  const d = parseLocalInput(s);
+  d.setHours(hh, mm, 0, 0);
+  return toLocalInput(d);
+}
+
+function setDateOn(s: string, date: Date): string {
+  const cur = parseLocalInput(s);
+  const d = new Date(date);
+  d.setHours(cur.getHours(), cur.getMinutes(), 0, 0);
+  return toLocalInput(d);
+}
+
+const QUICK_TIMES: Array<{ label: string; hh: number; mm: number }> = [
+  { label: '8:00 AM', hh: 8, mm: 0 },
+  { label: '9:00 AM', hh: 9, mm: 0 },
+  { label: '10:00 AM', hh: 10, mm: 0 },
+  { label: '11:00 AM', hh: 11, mm: 0 },
+  { label: '1:00 PM', hh: 13, mm: 0 },
+  { label: '2:00 PM', hh: 14, mm: 0 },
+  { label: '3:00 PM', hh: 15, mm: 0 },
+  { label: '4:00 PM', hh: 16, mm: 0 },
+];
+
+const DURATIONS: Array<{ label: string; value: string }> = [
+  { label: '15m', value: '15' },
+  { label: '30m', value: '30' },
+  { label: '45m', value: '45' },
+  { label: '1h', value: '60' },
+  { label: '1.5h', value: '90' },
+  { label: '2h', value: '120' },
+];
 
 type Conflict = { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string } };
 type Availability =
@@ -141,7 +185,7 @@ export function ReminderDialog({ open, onOpenChange, connectionId, initialTitle 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-sky-500" />
@@ -152,7 +196,7 @@ export function ReminderDialog({ open, onOpenChange, connectionId, initialTitle 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="rem-title">Title</Label>
             <Input
@@ -163,31 +207,96 @@ export function ReminderDialog({ open, onOpenChange, connectionId, initialTitle 
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="rem-when">When</Label>
-              <Input
-                id="rem-when"
-                type="datetime-local"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rem-dur">Duration</Label>
-              <Select value={durationMin} onValueChange={setDurationMin}>
-                <SelectTrigger id="rem-dur"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 min</SelectItem>
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="45">45 min</SelectItem>
-                  <SelectItem value="60">1 hour</SelectItem>
-                  <SelectItem value="90">1.5 hours</SelectItem>
-                  <SelectItem value="120">2 hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+
+          {/* Date + Time picker — calendar popover and quick-time chips */}
+          {(() => {
+            const currentDate = parseLocalInput(start);
+            const timeStr = `${String(currentDate.getHours()).padStart(2, '0')}:${String(currentDate.getMinutes()).padStart(2, '0')}`;
+            const matchedQuick = QUICK_TIMES.find((q) => q.hh === currentDate.getHours() && q.mm === currentDate.getMinutes());
+            return (
+              <div className="space-y-2.5 rounded-lg border bg-muted/20 p-3">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/70">When</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="justify-start text-left font-normal h-10">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-sky-500" />
+                        {format(currentDate, 'EEE, MMM d, yyyy')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={currentDate}
+                        onSelect={(d) => d && setStart(setDateOn(start, d))}
+                        initialFocus
+                        className="pointer-events-auto"
+                        disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-500 pointer-events-none" />
+                    <Input
+                      type="time"
+                      value={timeStr}
+                      step={900}
+                      onChange={(e) => {
+                        const [hh, mm] = e.target.value.split(':').map(Number);
+                        if (!Number.isNaN(hh)) setStart(setTimeOn(start, hh, mm || 0));
+                      }}
+                      className="pl-9 h-10"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {QUICK_TIMES.map((q) => {
+                    const active = matchedQuick?.label === q.label;
+                    return (
+                      <button
+                        key={q.label}
+                        type="button"
+                        onClick={() => setStart(setTimeOn(start, q.hh, q.mm))}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md text-xs font-medium border transition-colors',
+                          active
+                            ? 'bg-sky-500 text-white border-sky-500 shadow-sm'
+                            : 'bg-background hover:bg-muted border-border text-foreground/80',
+                        )}
+                      >
+                        {q.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="pt-1">
+                  <Label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/60">
+                    Duration
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {DURATIONS.map((d) => {
+                      const active = durationMin === d.value;
+                      return (
+                        <button
+                          key={d.value}
+                          type="button"
+                          onClick={() => setDurationMin(d.value)}
+                          className={cn(
+                            'px-3 py-1 rounded-md text-xs font-semibold border transition-colors',
+                            active
+                              ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                              : 'bg-background hover:bg-muted border-border text-foreground/80',
+                          )}
+                        >
+                          {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Availability indicator */}
           <div
