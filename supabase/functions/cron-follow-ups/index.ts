@@ -484,6 +484,21 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
     });
 
     if (mode === 'auto_reply') {
+      // Defensive double-check: never auto-send outside business hours,
+      // even if a race or stale `mode` slipped through above.
+      if (!isWithinBusinessHours(settings, effectiveTz)) {
+        console.log(`Skip auto-send for tracker ${t.id}: outside business hours`);
+        const firstNudge = settings.reminder_intervals_days[0] ?? 1;
+        await supabase.from('follow_up_trackers').update({
+          status: 'drafted',
+          action_mode: 'auto_draft',
+          drafted_at: new Date().toISOString(),
+          draft_id: draft.id,
+          next_reminder_at: new Date(Date.now() + firstNudge * 86400000).toISOString(),
+        }).eq('id', t.id);
+        drafted++;
+        continue;
+      }
       // Send the draft immediately.
       const sendRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}/send`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` },
