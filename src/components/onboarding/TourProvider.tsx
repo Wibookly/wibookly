@@ -72,9 +72,37 @@ function waitForSelector(selector: string, timeoutMs = 1500): Promise<HTMLElemen
 }
 
 /**
- * Global `before` hook: runs before each step is shown. If the upcoming
- * step targets a per-rule element but no rule exists yet, programmatically
- * click "Add Rule" so the targets actually render.
+ * Scroll the highlight target into the middle of the viewport AND the middle
+ * of any custom scroll container it lives in. AppLayout wraps page content
+ * in an `overflow-auto` div, which prevents Joyride's window-level scroll
+ * from actually moving the target on screen — so we walk up and nudge each
+ * scrollable ancestor too.
+ */
+function scrollTargetIntoView(el: HTMLElement) {
+  try {
+    el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
+  } catch {
+    /* no-op */
+  }
+  let node: HTMLElement | null = el.parentElement;
+  while (node && node !== document.body) {
+    const style = window.getComputedStyle(node);
+    const oy = style.overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+      const nodeRect = node.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const delta =
+        elRect.top - nodeRect.top - node.clientHeight / 2 + el.offsetHeight / 2;
+      node.scrollBy({ top: delta, behavior: 'auto' });
+    }
+    node = node.parentElement;
+  }
+}
+
+/**
+ * Global `before` hook: runs before each step is shown. Seeds any UI the
+ * step needs (e.g. an EI rule row), then force-scrolls the target into view
+ * so the spotlight always lands on the section being explained.
  */
 async function ensureStepReady(data: { step: { target?: unknown } }): Promise<void> {
   const sel = typeof data.step?.target === 'string' ? (data.step.target as string) : '';
@@ -84,11 +112,15 @@ async function ensureStepReady(data: { step: { target?: unknown } }): Promise<vo
     const addBtn = document.querySelector<HTMLButtonElement>('[data-tour="ei-add-rule"]');
     if (addBtn) {
       addBtn.click();
-      await waitForSelector(sel, 2000);
+      const seeded = await waitForSelector(sel, 2000);
+      if (seeded) scrollTargetIntoView(seeded);
+      await new Promise((r) => setTimeout(r, 250));
       return;
     }
   }
-  await waitForSelector(sel, 1200);
+  const el = await waitForSelector(sel, 1200);
+  if (el) scrollTargetIntoView(el);
+  await new Promise((r) => setTimeout(r, 250));
 }
 
 export function TourProvider({ children }: { children: ReactNode }) {
