@@ -290,21 +290,37 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: 'profile-signature',
-    title: 'Profile & email signature — guided walkthrough',
+    title: 'My Profile & Signature — full walkthrough',
     category: 'account-billing',
-    summary: 'Your name, title, photo and signature show up on every AI draft.',
+    summary: 'Every section on this page, what it does, and how it feeds your AI drafts and email signature.',
     intro:
-      'Take a minute on this page and every AI draft, brief and reply automatically gets noticeably more "you". The live preview at the bottom shows exactly what recipients will see.',
+      'This page is the single source of truth for "who you are" inside InboxIQ. Anything you set here flows into every AI-drafted reply, every daily brief, and the signature appended to outgoing email. The page is split into three blocks: Directory Information (auto-synced from Microsoft 365, read-only), Your Inputs (what you type — title + AI personalization), and Email Signature (builder + live preview).',
     steps: [
-      { title: 'Open Settings', description: 'Use the sidebar → Settings to land on this page.', route: '/settings' },
-      { title: 'Upload your profile photo', description: 'Drop a square headshot here. Toggle "Show in signature" on to make it appear in every signature. Profile photo wins over company logo when both are on.', target: '[data-tour="settings-photo"]' },
-      { title: 'Upload your company logo', description: 'For Business accounts, drop your logo here. Toggle "Show in signature" on to display it. The logo appears when no profile photo is shown.', target: '[data-tour="settings-logo"]' },
-      { title: 'Turn the signature on or off', description: 'Use this switch to enable or disable the AI signature globally. When off, AI drafts go out without any signature appended.', target: '[data-tour="settings-signature-toggle"]' },
-      { title: 'Builder vs custom HTML', description: 'Use Signature Builder for guided editing, or paste your own HTML in Custom Signature mode for full control.', target: '[data-tour="settings-signature-mode"]' },
+      { title: 'Page header — My Profile & Signature', description: 'The orange hero at the top names the page. Everything you change below saves automatically and starts being used by the AI on your very next draft — no Save button needed.' },
+      { title: 'Legend — read-only vs editable', description: 'The two small chips under the header explain the color coding: grey rows are auto-synced from Microsoft 365 and cannot be edited here (fix them in M365), blue-tinted rows are yours to fill in and personalize the AI.' },
+      { title: 'Directory Information — Full Name', description: 'Pulled live from your Microsoft 365 profile. Used as the name in your signature ("Best regards, <Full Name>") and as how the AI refers to you. To change it, update it in Microsoft 365 and it will re-sync.' },
+      { title: 'Directory Information — Email', description: 'Your primary mailbox address from M365. Used in the signature footer and as the reply-to. Read-only.' },
+      { title: 'Directory Information — Company', description: 'Your organization name from M365 / Entra ID. The AI uses it for context ("I work at <Company>") and the signature builder can show it under your name.' },
+      { title: 'Directory Information — Department', description: 'Your M365 department (e.g. "Information Technology"). The AI uses it to tune tone — an IT department reply sounds different from a Sales department reply.' },
+      { title: 'Directory Information — Business Phone', description: 'Office number from M365. Auto-populates the "Phone (Optional)" field in the signature builder below. Read-only here — edit it in M365 to change.' },
+      { title: 'Directory Information — Mobile Phone', description: 'Mobile number from M365. Auto-populates the "Mobile (Optional)" field in the signature builder below.' },
+      { title: 'Your Inputs — Title (used in signature)', description: 'The single most important field on the page. Whatever you type here appears directly under your name in every signature AND tells the AI what role to write from (e.g. "IT Manager" produces a different tone than "VP of Sales"). Required for Business accounts.' },
+      { title: 'Your Inputs — Responsibilities (AI-generated, editable)', description: 'A short description of what you actually do day-to-day (approvals, follow-ups, contracts, scheduling, etc.). The AI uses this to decide what kind of replies make sense for you. Click Edit to type your own, or click Regenerate to have the AI rewrite it from your title and company.' },
+      { title: 'Your Inputs — Communication style (AI-generated, editable)', description: 'Tone, length, sign-offs, things to avoid. This is the AI\'s style guide for your voice — e.g. "warm but concise, always end with Best, never use exclamation points". Edit it directly or click Regenerate for a fresh AI suggestion based on your role.' },
+      { title: 'Email Signature — master on/off switch', description: 'The green "Signature On" toggle in the top-right of the Email Signature card. When ON, every AI-drafted email and reply gets your signature appended automatically. When OFF, drafts go out with no signature at all.' },
+      { title: 'Email Signature — Use Signature Builder vs Paste Custom Signature', description: 'Two modes. "Use Signature Builder" (recommended) generates a clean, mobile-friendly HTML signature from the fields below — font, color, phone, logo, photo. "Paste Custom Signature" lets you paste your own raw HTML if you already have a signature you want to keep pixel-perfect.' },
+      { title: 'Builder — Font and Text Color', description: 'Pick the typeface and color used for your signature text. Text Color defaults to #333333 (near-black) for maximum readability on white backgrounds. Click the swatch to change it.' },
+      { title: 'Builder — Phone / Mobile / Website / Email (Optional)', description: 'Pre-filled from Microsoft 365 where possible. Leave a field blank to hide that line in the signature. Website is the only one you usually need to type yourself.' },
+      { title: 'Builder — Profile Photo (Optional) + Show in signature toggle', description: 'Upload a square headshot (max 2 MB). The "Show in signature" toggle on the right controls whether it actually appears in outgoing email. Profile photo WINS over company logo when both are turned on — that\'s by design so headshots take priority on personal replies.' },
+      { title: 'Builder — Company Logo (Optional) + Show in signature toggle', description: 'Upload your company logo (PNG/JPG, max 2 MB, ~200×50 px works best). Toggle "Show in signature" ON to display it. The logo only shows when no profile photo is shown, so use logo-only signatures by leaving Profile Photo off.' },
+      { title: 'Signature Preview', description: 'The bottom card renders your signature exactly as recipients will see it — same fonts, same colors, same logo/photo. Every change above updates this preview live. If it looks right here, it will look right in their inbox.' },
     ],
+    outro:
+      'Rule of thumb: fill out Title, Responsibilities and Communication style and your AI drafts immediately stop sounding generic. Toggle Signature On, upload either a photo OR a logo, and the preview at the bottom is exactly what will go out on your next AI-drafted email. Everything saves automatically.',
     routes: ['/settings'],
-    keywords: ['signature', 'name', 'title', 'photo', 'logo', 'profile'],
+    keywords: ['signature', 'name', 'title', 'photo', 'logo', 'profile', 'directory', 'company', 'department', 'phone', 'mobile', 'font', 'color', 'preview', 'responsibilities', 'communication style', 'tone'],
   },
+
 
   /* ============== ADMIN ============== */
   {
