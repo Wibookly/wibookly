@@ -1822,7 +1822,7 @@ export default function Chat() {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
 
-        <div className="p-3 border-b border-border flex items-center justify-between">
+        <div className="p-3 border-b border-border flex items-center justify-between" data-tour="chat-sidebar-header">
           <span className="font-semibold text-sm">InboxIQ Chat</span>
           <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
@@ -1959,7 +1959,7 @@ export default function Chat() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 h-full min-h-0">
         {/* Page hero — matches the colored header used on other pages */}
-        <div className="shrink-0 px-4 lg:px-6 pt-4 pb-3">
+        <div className="shrink-0 px-4 lg:px-6 pt-4 pb-3" data-tour="chat-hero">
           <PageHero
             accent="purple"
             eyebrow="AI INTELLIGENCE"
@@ -1974,7 +1974,7 @@ export default function Chat() {
                 <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 text-white hover:bg-white/15" onClick={() => setSidebarOpen(true)}>
                   <Menu className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-white hover:bg-white/15">
+                <Button variant="ghost" size="icon" onClick={toggleTheme} data-tour="chat-theme" className="h-8 w-8 text-white hover:bg-white/15">
                   {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
               </>
@@ -1987,8 +1987,8 @@ export default function Chat() {
           // center of the page. Starter prompts live below and start collapsed.
           <div className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-4 pt-8 sm:pt-12 pb-6">
             <div className="w-full max-w-3xl flex flex-col items-center gap-5">
-              <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" />
-              <div className="text-center">
+              <AgentAvatar className="w-24 h-24 sm:w-28 sm:h-28 shadow-glow" data-tour="chat-hero-avatar" />
+              <div className="text-center" data-tour="chat-hero-greeting">
                 <h2 className="text-xl sm:text-2xl font-semibold mb-1">How can I help you today?</h2>
                 <p className="text-muted-foreground text-sm">Type your message below — or pick a starter.</p>
               </div>
@@ -2002,6 +2002,7 @@ export default function Chat() {
                   <button
                     type="button"
                     onClick={() => setPromptsExpanded((v) => !v)}
+                    data-tour="chat-starter-prompts"
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition"
                     aria-expanded={promptsExpanded}
                   >
@@ -2016,6 +2017,7 @@ export default function Chat() {
                   <button
                     type="button"
                     onClick={() => setAddPromptOpen(true)}
+                    data-tour="chat-add-prompt"
                     className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     title="Save your own prompt to this list"
                   >

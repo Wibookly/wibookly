@@ -286,7 +286,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
       </div>
 
       {onTogglePin && (
-        <div className="px-3 pt-3 pb-2 border-t border-border">
+        <div className="px-3 pt-3 pb-2 border-t border-border" data-tour="sidebar-pin">
           <button
             onClick={onTogglePin}
             title={pinned ? 'Unpin sidebar (auto-hide on Chat)' : 'Pin sidebar (keep visible)'}
