@@ -60,6 +60,39 @@ function buildSignature(p: any, userEmail: string | null): string {
 </div>`;
 }
 
+function parseFollowupAlias(addresses: string[], senderEmail: string | null): { alias: string; days: number } | null {
+  const domain = String(senderEmail || '').split('@')[1]?.toLowerCase();
+  if (!domain) return null;
+  for (const raw of addresses) {
+    const address = String(raw || '').trim().toLowerCase();
+    const match = address.match(/^(\d+)@(.+)$/);
+    if (!match || match[2] !== domain) continue;
+    const days = Number(match[1]);
+    if (Number.isInteger(days) && days >= 1 && days <= 90) return { alias: address, days };
+  }
+  return null;
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function findRecentSentMessage(userId: string, connectionId: string, subject: string, sentAfterIso: string, to: string[]) {
+  await sleep(1200);
+  const res = await callGraph(userId, connectionId, 'mail',
+    `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=10`,
+  );
+  if (!res.ok) return null;
+  const wantedRecipients = new Set(to.map((email) => email.toLowerCase()));
+  return ((res.data as any)?.value || []).find((m: any) => {
+    if (String(m.subject || '') !== subject) return false;
+    const recipients = (m.toRecipients || [])
+      .map((r: any) => String(r?.emailAddress?.address || '').toLowerCase())
+      .filter(Boolean);
+    return recipients.some((email: string) => wantedRecipients.has(email));
+  }) || null;
+}
+
 async function draftWithLLM(prompt: string, senderName: string | null): Promise<{ subject: string; body: string; recipient_name: string; recipient_email: string }> {
   const key = Deno.env.get('LOVABLE_API_KEY');
   const fallback = { subject: '', body: `<p>${prompt}</p>`, recipient_name: '', recipient_email: '' };
@@ -122,16 +155,18 @@ Deno.serve(async (req) => {
 
     // For everything except `draft`, we need a verified connection.
     let connEmail: string | null = null;
+    let connOrgId: string | null = null;
     if (action !== 'draft') {
       if (!connectionId) return json({ error: 'connection_id required' }, 400);
       const { data: conn } = await supabase
         .from('provider_connections')
-        .select('id, provider, connected_email')
+        .select('id, provider, connected_email, organization_id')
         .eq('id', connectionId)
         .eq('user_id', userId)
         .maybeSingle();
       if (!conn || conn.provider !== 'outlook') return json({ error: 'Outlook connection not found' }, 404);
       connEmail = (conn as any).connected_email || null;
+      connOrgId = (conn as any).organization_id || null;
     }
 
     if (action === 'draft') {
@@ -200,11 +235,39 @@ Deno.serve(async (req) => {
       };
       if (cc.length) message.ccRecipients = toRecip(cc);
       if (bcc.length) message.bccRecipients = toRecip(bcc);
+      const sentAfterIso = new Date(Date.now() - 2 * 60_000).toISOString();
       const res = await callGraph(userId, connectionId, 'mail', '/me/sendMail', {
         method: 'POST',
         body: JSON.stringify({ message, saveToSentItems: true }),
       });
       if (!res.ok) return json({ error: res.error?.message || 'send failed', code: res.error?.code }, res.status || 500);
+      const alias = parseFollowupAlias(bcc, connEmail);
+      if (alias && connOrgId) {
+        try {
+          const sentMessage = await findRecentSentMessage(userId, connectionId, subject, sentAfterIso, to);
+          if (sentMessage?.id) {
+            const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+            const sentAt = new Date(sentMessage.sentDateTime || new Date().toISOString());
+            await admin.from('follow_up_trackers').upsert({
+              organization_id: connOrgId,
+              connection_id: connectionId,
+              user_id: userId,
+              message_id: sentMessage.id,
+              conversation_id: sentMessage.conversationId ?? null,
+              subject,
+              to_recipients: sentMessage.toRecipients || message.toRecipients || [],
+              cc_recipients: sentMessage.ccRecipients || message.ccRecipients || [],
+              bcc_alias: alias.alias,
+              days_after_send: alias.days,
+              sent_at: sentAt.toISOString(),
+              due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
+              status: 'pending',
+            }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+          }
+        } catch (e) {
+          console.warn('follow-up tracker insert after send failed', e);
+        }
+      }
       return json({ ok: true, sent_at: new Date().toISOString(), to, cc, bcc, subject });
     }
 
