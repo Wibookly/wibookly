@@ -821,7 +821,7 @@ export default function Settings() {
               </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="settings-title" className="space-y-1.5">
               <Label htmlFor="title" className="text-xs inline-flex items-center gap-1">Title <span className="text-primary">(used in signature)</span> <HelpTip id="profile.title" /></Label>
               <Input
                 id="title"
