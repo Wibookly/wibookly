@@ -35,6 +35,7 @@ import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
+import { CalendarPanel } from '@/components/daily-brief/CalendarPanel';
 
 import { BellRing, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -647,67 +648,10 @@ export default function AIDailyBrief() {
           </Card>
           )}
 
-          {/* SECTION 4 — Today's Schedule (full width; Email Highlights merged into Action Items above) */}
-          <Card className="border-0 shadow-lg overflow-hidden ring-1 ring-blue-200/60 dark:ring-blue-900/40">
-            <div className="h-1 bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-500" />
-            <CardHeader className="pb-3 flex flex-row items-center justify-between bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/20 dark:to-blue-950/20">
-              <CardTitle className="text-lg flex items-center gap-3">
-                <span className="p-2 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md">
-                  <CalendarClock className="w-4 h-4" />
-                </span>
-                Today's Schedule
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handlePrint('calendar')}>
-                <Printer className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-5">
-              <ScrollArea className="max-h-[420px]">
-                <div className="space-y-2">
-                  {(() => {
-                    const bookedItems = (brief.schedule || []).filter(item => {
-                      const type = (item.type || '').toLowerCase();
-                      const title = (item.title || '').toLowerCase();
-                      if (type === 'focus' || type === 'available' || type === 'free') return false;
-                      if (title.includes('available for focus') || title.includes('available')) return false;
-                      return true;
-                    });
-                    return bookedItems.length > 0 ? (
-                      bookedItems.map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex gap-3 p-3 rounded-lg bg-card border border-sky-100 dark:border-sky-900/40 hover:shadow-sm transition-shadow"
-                        >
-                          <div className="flex-shrink-0 w-20 text-center">
-                            <div className="text-xs font-mono font-bold text-sky-700 dark:text-sky-300 uppercase">
-                              {item.time}
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0 border-l border-sky-200 dark:border-sky-800 pl-3">
-                            <p className="font-medium text-sm break-words">{item.title}</p>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {item.description}
-                              </p>
-                            )}
-                            <Badge variant="outline" className="text-[10px] mt-1 border-sky-200 text-sky-700 dark:text-sky-300">
-                              {item.type}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12">
-                        <Calendar className="w-12 h-12 text-sky-300 mx-auto mb-3" />
-                        <p className="text-muted-foreground text-sm font-medium">No meetings scheduled</p>
-                        <p className="text-xs text-muted-foreground mt-1">A clear day for focused work.</p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          {/* SECTION 4 — Live Outlook schedule (Today / Week / Month, printable) */}
+          {activeConnection?.id && (
+            <CalendarPanel connectionId={activeConnection.id} />
+          )}
 
           {/* SECTION 5 — No Reply Tracker (slim if empty) */}
           <PendingFollowUpsSection connectionId={activeConnection?.id} />
