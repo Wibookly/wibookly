@@ -130,6 +130,7 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
   const [subject, setSubject] = useState('');
   const [bodyHtml, setBodyHtml] = useState('');
   const [signature, setSignature] = useState('');
+  const [trackingAlias, setTrackingAlias] = useState('');
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Load signature + draft on open
@@ -143,6 +144,23 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           body: { action: 'signature', connection_id: connectionId },
         });
         if (!cancelled) setSignature(String((data as any)?.signature || ''));
+
+        const { data: followUpSettings } = await supabase
+          .from('follow_up_settings')
+          .select('is_enabled,bcc_domain')
+          .eq('connection_id', connectionId)
+          .maybeSingle();
+        if (!cancelled && followUpSettings?.is_enabled) {
+          const domain = String(
+            connectionEmail?.split('@')[1] || (followUpSettings as any)?.bcc_domain || '',
+          ).trim().toLowerCase();
+          if (domain) {
+            const alias = `3@${domain}`;
+            setTrackingAlias(alias);
+            setBcc((prev) => prev.some((v) => v.toLowerCase() === alias) ? prev : [...prev, alias]);
+            setShowBcc(true);
+          }
+        }
       }
       // Prefill from wizard (skip AI drafting if any prefilled field present)
       const hasPrefill = (initialTo && initialTo.length) || initialSubject || initialBody;
@@ -190,14 +208,14 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
       }
     })();
     return () => { cancelled = true; };
-  }, [open, initialPrompt, initialTo, initialSubject, initialBody, connectionId]);
+  }, [open, initialPrompt, initialTo, initialSubject, initialBody, connectionId, connectionEmail]);
 
 
   // Reset when closing
   useEffect(() => {
     if (!open) {
       setTo([]); setCc([]); setBcc([]); setShowCc(false); setShowBcc(false);
-      setSubject(''); setBodyHtml(''); setEditMode(false);
+      setSubject(''); setBodyHtml(''); setEditMode(false); setTrackingAlias('');
     }
   }, [open]);
 
@@ -225,6 +243,14 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success(`Sent to ${to.join(', ')}`);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (token) {
+        supabase.functions.invoke('cron-follow-ups', {
+          headers: { Authorization: `Bearer ${token}` },
+          body: { mode: 'manual', connection_id: connectionId },
+        }).catch(() => { /* non-blocking report sync */ });
+      }
       onSent?.();
       onOpenChange(false);
     } catch (e) {
@@ -259,6 +285,11 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           <RecipientField label="To" values={to} setValues={setTo} connectionId={connectionId} autoFocus />
           {showCc && <RecipientField label="Cc" values={cc} setValues={setCc} connectionId={connectionId} />}
           {showBcc && <RecipientField label="Bcc" values={bcc} setValues={setBcc} connectionId={connectionId} />}
+          {trackingAlias && bcc.some((v) => v.toLowerCase() === trackingAlias) && (
+            <div className="text-xs text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              No-reply tracking is attached to this email.
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="comp-subj" className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">Subject</Label>
