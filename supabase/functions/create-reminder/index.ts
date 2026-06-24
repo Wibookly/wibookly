@@ -34,6 +34,8 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const body = await req.json().catch(() => ({}));
+    const action = String(body?.action || 'create');
+
     const {
       connection_id,
       title,
@@ -42,11 +44,13 @@ Deno.serve(async (req) => {
       notes = '',
       attendee_email = '',
       reminder_minutes_before_start = 15,
+      location = '',
+      is_online_meeting = false,
     } = body ?? {};
 
-    if (!connection_id || !title || !start || !end) {
+    if (!connection_id || !start || !end) {
       return new Response(
-        JSON.stringify({ error: 'connection_id, title, start, end required' }),
+        JSON.stringify({ error: 'connection_id, start, end required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -64,6 +68,38 @@ Deno.serve(async (req) => {
       );
     }
 
+    // === Availability check: returns busy events overlapping [start,end] ===
+    if (action === 'availability') {
+      const startIso = new Date(start).toISOString();
+      const endIso = new Date(end).toISOString();
+      const path =
+        `/me/calendarView?startDateTime=${encodeURIComponent(startIso)}` +
+        `&endDateTime=${encodeURIComponent(endIso)}` +
+        `&$select=id,subject,start,end,showAs,isAllDay&$top=25&$orderby=start/dateTime`;
+      const res = await callGraph<any>(userId, connection_id, 'calendar', path);
+      if (!res.ok) {
+        return new Response(
+          JSON.stringify({ error: res.error?.message || 'availability lookup failed', code: res.error?.code }),
+          { status: res.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const events = ((res.data as any)?.value || []).filter((e: any) => {
+        const sa = String(e.showAs || '').toLowerCase();
+        return sa !== 'free' && sa !== 'workingelsewhere';
+      });
+      return new Response(
+        JSON.stringify({ ok: true, available: events.length === 0, conflicts: events }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    if (!title) {
+      return new Response(
+        JSON.stringify({ error: 'title required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const eventBody: Record<string, unknown> = {
       subject: title,
       body: { contentType: 'HTML', content: (notes || '').replace(/\n/g, '<br/>') },
@@ -74,13 +110,21 @@ Deno.serve(async (req) => {
       categories: ['InboxIQ Reminder'],
     };
 
+    if (location && String(location).trim()) {
+      eventBody.location = { displayName: String(location).trim() };
+    }
+
+    if (is_online_meeting) {
+      eventBody.isOnlineMeeting = true;
+      eventBody.onlineMeetingProvider = 'teamsForBusiness';
+    }
+
     if (attendee_email) {
-      eventBody.attendees = [
-        {
-          emailAddress: { address: attendee_email },
-          type: 'required',
-        },
-      ];
+      const list = Array.isArray(attendee_email) ? attendee_email : String(attendee_email).split(/[,;\s]+/).filter(Boolean);
+      eventBody.attendees = list.map((addr: string) => ({
+        emailAddress: { address: addr },
+        type: 'required',
+      }));
     }
 
     const result = await callGraph<any>(userId, connection_id, 'calendar', '/me/events', {
