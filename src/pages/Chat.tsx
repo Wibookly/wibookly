@@ -2232,6 +2232,98 @@ export default function Chat() {
                 <div ref={messagesEndRef} />
               </div>
             </div>
+            {/* In-chat prompts drawer: a small pill above the composer that
+                opens the full starter/custom prompt grid so users can reuse
+                prompts after the conversation has started. */}
+            <div className="max-w-4xl mx-auto w-full px-4 sm:px-6">
+              <div className="flex items-center justify-between gap-2 pb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setInChatPromptsOpen((v) => !v)}
+                  aria-expanded={inChatPromptsOpen}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition rounded-full border border-border/60 bg-background/60 px-2.5 py-1"
+                  title="Show saved prompts"
+                >
+                  {inChatPromptsOpen
+                    ? <ChevronDown className="h-3.5 w-3.5" />
+                    : <ChevronRight className="h-3.5 w-3.5" />}
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Prompts
+                  <span className="text-[10px] opacity-60">
+                    ({examplePrompts.length + customPrompts.length})
+                  </span>
+                </button>
+                {inChatPromptsOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setAddPromptOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    title="Save your own prompt to this list"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add prompt
+                  </button>
+                )}
+              </div>
+              {inChatPromptsOpen && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3 max-h-64 overflow-y-auto pr-1">
+                  {examplePrompts.map((p) => (
+                    <button
+                      key={p.title}
+                      onClick={() => {
+                        setInput(`${p.title} ${p.desc}`);
+                        setInChatPromptsOpen(false);
+                        requestAnimationFrame(() => textareaRef.current?.focus());
+                      }}
+                      className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                          <p.icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm truncate">{p.title}</div>
+                          <div className="text-xs text-muted-foreground truncate">{p.desc}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  {customPrompts.map((p, idx) => (
+                    <div
+                      key={`custom-inchat-${idx}-${p.title}`}
+                      className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInput(p.desc ? `${p.title} ${p.desc}` : p.title);
+                          setInChatPromptsOpen(false);
+                          requestAnimationFrame(() => textareaRef.current?.focus());
+                        }}
+                        className="block w-full text-left"
+                      >
+                        <div className="flex items-start gap-3 pr-6">
+                          <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
+                            <Sparkles className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{p.title}</div>
+                            {p.desc && <div className="text-xs text-muted-foreground truncate">{p.desc}</div>}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeCustomPrompt(idx)}
+                        title="Remove prompt"
+                        className="absolute top-1.5 right-1.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-background opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {composerBlock}
           </>
         )}
