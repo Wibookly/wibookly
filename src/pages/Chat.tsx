@@ -290,6 +290,8 @@ export default function Chat() {
   const [activeId, setActiveId] = useState<string | null>(params.id || null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderInitial, setReminderInitial] = useState('');
   // ---- Per-conversation parallel streaming ----
   // Each in-flight chat request lives in `streamsRef` keyed by a stable
   // internal id. The map can contain multiple entries — one per chat that
