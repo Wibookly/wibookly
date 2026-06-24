@@ -434,14 +434,11 @@ function markdownToHtml(md: string): string {
 }
 
 // Invoke agent-orchestrator server-to-server, using the licensed sender's
-// own user_id + connection_id so all Graph tools (Outlook mail, OneDrive,
-// SharePoint, Calendar) run with THAT user's delegated permissions.
-async function invokeOrchestratorAsSender(args: {
-// Invoke agent-orchestrator server-to-server, using the licensed sender's
 // delegated permissions. Supports two modes:
 //   • 'answer'         — the user asked the agent a question directly. Lead
 //                        with the verified answer, then options/recommendations.
 //   • 'suggested-reply'— the agent was CC'd on a thread with other people.
+
 //                        Produce a DRAFT REPLY written in the user's voice
 //                        for them to review and send themselves.
 async function invokeOrchestratorAsSender(args: {
