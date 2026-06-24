@@ -65,7 +65,7 @@ export default function SupportIssuesPanel() {
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
-      setIssues((data ?? []) as SupportIssue[]);
+      setIssues((data ?? []) as unknown as SupportIssue[]);
     } catch (err) {
       console.error('load support issues', err);
       toast({
