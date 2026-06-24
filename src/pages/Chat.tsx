@@ -295,6 +295,9 @@ export default function Chat() {
   const [reminderInitial, setReminderInitial] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeInitial, setComposeInitial] = useState('');
+  type EmailWizard = { step: 'subject' | 'body' | 'to'; subject?: string; body?: string };
+  const [emailWizard, setEmailWizard] = useState<EmailWizard | null>(null);
+
   // ---- Per-conversation parallel streaming ----
   // Each in-flight chat request lives in `streamsRef` keyed by a stable
   // internal id. The map can contain multiple entries — one per chat that
