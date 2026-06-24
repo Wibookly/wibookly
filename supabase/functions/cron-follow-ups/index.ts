@@ -638,6 +638,13 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
 
   const stopWords = (settings.stop_aliases && settings.stop_aliases.length > 0) ? settings.stop_aliases : ['stop', '0'];
   const { added, cancelled } = await scanSentForTriggers(conn, token, ourDomain, stopWords);
+
+  // Skip the rest when tracking is paused — scanning is read-only and safe,
+  // but drafting/auto-sending/reminders must respect the user's pause.
+  if (!settings.is_enabled) {
+    return { added, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled, skipped: false };
+  }
+
   const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings, effectiveTz);
   // Missed-reminder *emails* (transactional reminders to the user) only
   // go out during business hours so we don't ping people overnight.
