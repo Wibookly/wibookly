@@ -13,6 +13,8 @@ import {
   START_GUIDED_TOUR_EVENT,
   type StartGuidedTourDetail,
 } from './events';
+import { TOUR_REGISTRY } from '@/components/onboarding/tours/index';
+
 
 /**
  * Full-screen guided tour overlay.
