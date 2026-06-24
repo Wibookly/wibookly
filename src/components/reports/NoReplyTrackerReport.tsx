@@ -141,13 +141,12 @@ export function NoReplyTrackerReport() {
     });
   }, [user?.id, organization?.id, activeConnection?.id, start, end, reloadKey]);
 
-  const handleScanNow = async () => {
+  const handleScanNow = async (silent = false) => {
     if (!activeConnection?.id) {
-      toast.error('Pick an active email account first.');
+      if (!silent) toast.error('Pick an active email account first.');
       return;
     }
     setScanning(true);
-    const before = rows.length;
     try {
       const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
         body: { mode: 'manual', connection_id: activeConnection.id },
@@ -155,19 +154,29 @@ export function NoReplyTrackerReport() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       const added = Number((data as any)?.added ?? 0);
-      toast.success(
-        added > 0
-          ? `Found ${added} new tracked email${added === 1 ? '' : 's'}.`
-          : 'Scan complete — no new BCC-tracked emails found.',
-      );
+      if (!silent) {
+        toast.success(
+          added > 0
+            ? `Found ${added} new tracked email${added === 1 ? '' : 's'}.`
+            : 'Scan complete — no new BCC-tracked emails found.',
+        );
+      }
       setReloadKey((k) => k + 1);
     } catch (e) {
-      toast.error((e as Error).message || 'Scan failed');
+      if (!silent) toast.error((e as Error).message || 'Scan failed');
     } finally {
       setScanning(false);
     }
-    void before;
   };
+
+  // Auto-scan on mount and whenever the active range/connection changes.
+  // Debounced so rapid filter changes only trigger one scan.
+  useEffect(() => {
+    if (!activeConnection?.id) return;
+    const t = setTimeout(() => { void handleScanNow(true); }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConnection?.id, preset, customStart?.getTime(), customEnd?.getTime()]);
 
   const handleEnableTracking = async () => {
     if (!activeConnection?.id) return;
@@ -279,7 +288,7 @@ export function NoReplyTrackerReport() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="default" size="sm" onClick={handleScanNow} disabled={scanning || !activeConnection?.id}>
+            <Button variant="default" size="sm" onClick={() => handleScanNow(false)} disabled={scanning || !activeConnection?.id}>
               {scanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
               {scanning ? 'Scanning…' : 'Scan now'}
             </Button>

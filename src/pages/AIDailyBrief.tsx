@@ -35,6 +35,7 @@ import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
+import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
 import { CalendarPanel } from '@/components/daily-brief/CalendarPanel';
 
 import { BellRing, ExternalLink } from 'lucide-react';
@@ -483,6 +484,10 @@ export default function AIDailyBrief() {
             priorityColors={priorityColors}
             onChanged={() => refetch()}
             onPrint={() => handlePrint('all')}
+          />
+          <TodoChecklistCard
+            items={brief.actionPlan as any}
+            onChanged={() => refetch()}
           />
           {(brief.aiAnalysis?.risks?.length || brief.aiAnalysis?.wins?.length) ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
