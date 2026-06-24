@@ -431,7 +431,6 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
               checked={settings.business_hours_only}
               disabled={saving || settings.is_enabled}
               onCheckedChange={(v) => patch({ business_hours_only: v })}
-              className={settings.business_hours_only ? 'data-[disabled]:bg-emerald-500 data-[disabled]:border-emerald-600 data-[disabled]:opacity-100' : ''}
             />
           </div>
         </CardHeader>

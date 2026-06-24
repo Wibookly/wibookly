@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
  * Tri-state visible Switch.
  *  - ON  (checked, enabled)            -> green
  *  - OFF (unchecked, enabled)          -> red
- *  - DISABLED (locked / no permission) -> neutral gray, always visible in
+ *  - DISABLED + ON  (locked on)        -> green, still clearly visible
+ *  - DISABLED + OFF (locked / no permission) -> neutral gray, still clearly visible in
  *    both light and dark mode, with a strong border so the shape is obvious.
  *
  * The Switch ALWAYS has a visible 2px border so users can find the control
@@ -25,11 +26,12 @@ const Switch = React.forwardRef<
       // ENABLED states (green on / red off)
       "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-600",
       "data-[state=unchecked]:bg-rose-500/85 data-[state=unchecked]:border-rose-600",
-      // DISABLED state — neutral gray, still clearly visible in light & dark
+      // DISABLED state — neutral gray when OFF, still green when ON
       "data-[disabled]:cursor-not-allowed",
-      "data-[disabled]:bg-slate-300 data-[disabled]:border-slate-400",
-      "dark:data-[disabled]:bg-slate-600 dark:data-[disabled]:border-slate-400",
       "data-[disabled]:opacity-100",
+      "data-[state=unchecked]:data-[disabled]:bg-slate-300 data-[state=unchecked]:data-[disabled]:border-slate-400",
+      "dark:data-[state=unchecked]:data-[disabled]:bg-slate-600 dark:data-[state=unchecked]:data-[disabled]:border-slate-400",
+      "data-[state=checked]:data-[disabled]:bg-emerald-500 data-[state=checked]:data-[disabled]:border-emerald-600",
       className,
     )}
     {...props}
