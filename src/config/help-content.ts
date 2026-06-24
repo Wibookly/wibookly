@@ -71,13 +71,48 @@ export interface HelpCategory {
 }
 
 export const HELP_CATEGORIES: HelpCategory[] = [
-  { id: 'getting-started', label: 'Getting Started', description: 'Set up InboxIQ from scratch.' },
-  { id: 'integrations', label: 'Integrations', description: 'Connect Gmail, Outlook, and your calendar.' },
-  { id: 'categories-rules', label: 'Categories & Rules', description: 'Organize your inbox automatically.' },
-  { id: 'ai-features', label: 'AI Features', description: 'Drafts, daily brief, and the AI assistant.' },
-  { id: 'account-billing', label: 'Account & Workspace', description: 'Profile, signature, and team settings.' },
-  { id: 'admin', label: 'Admin Dashboard', description: 'Domains, users, groups, and feature gating.' },
-  { id: 'troubleshooting', label: 'Troubleshooting', description: 'Fix common issues quickly.' },
+  {
+    id: 'getting-started',
+    label: 'Getting Started',
+    description:
+      'New here? Start with a 60-second tour, then connect your mailbox and pick your categories. Everything else builds on these two steps.',
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    description:
+      'Link your Gmail or Outlook mailbox, your calendar, and (optionally) OneDrive / SharePoint. InboxIQ only ever asks for the access it really needs and never deletes mail.',
+  },
+  {
+    id: 'categories-rules',
+    label: 'Categories & Rules',
+    description:
+      'Decide how your mail is organized. Categories become real labels/folders inside your mailbox, and rules tell InboxIQ what belongs where — by sender, subject, or keywords.',
+  },
+  {
+    id: 'ai-features',
+    label: 'AI Features',
+    description:
+      'The smart side of InboxIQ: pre-written draft replies, your morning Daily Brief, the AI Chat assistant, Meeting Copilot, and the Reply Tracker that nudges you when nobody answers.',
+  },
+  {
+    id: 'account-billing',
+    label: 'Account & Workspace',
+    description:
+      'Make every AI reply sound like you. Add your name, title, photo, company logo, and signature so outgoing drafts feel personal and on-brand.',
+  },
+  {
+    id: 'admin',
+    label: 'Admin Dashboard',
+    description:
+      'For workspace admins only. Manage who can sign up (allowed email domains), invite users, group features together, and turn capabilities on or off per team.',
+  },
+  {
+    id: 'troubleshooting',
+    label: 'Troubleshooting',
+    description:
+      'Quick fixes for the most common bumps — drafts not showing up, a mailbox that says "disconnected", or a stuck consent screen.',
+  },
 ];
 
 export const HELP_ARTICLES: HelpArticle[] = [
