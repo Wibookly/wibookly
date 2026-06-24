@@ -101,7 +101,14 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
   // dashboard reflects the latest activity without requiring a button click.
   useEffect(() => {
     if (!activeConnection?.id) return;
-    supabase.functions.invoke('cron-follow-ups', { body: {} }).catch(() => { /* silent */ });
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (!token) return;
+      supabase.functions.invoke('cron-follow-ups', {
+        headers: { Authorization: `Bearer ${token}` },
+        body: { mode: 'manual', connection_id: activeConnection.id },
+      }).catch(() => { /* silent */ });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConnection?.id]);
 
