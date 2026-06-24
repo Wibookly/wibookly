@@ -81,6 +81,93 @@ const DURATIONS: Array<{ label: string; value: string }> = [
   { label: '2h', value: '120' },
 ];
 
+const WEEKDAYS: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+type ParsedReminderPrompt = {
+  title: string;
+  start?: string;
+  notes: string;
+  attendeeName: string;
+  attendeeEmail: string;
+};
+
+function titleCaseTopic(topic: string): string {
+  const cleaned = topic
+    .replace(/[.?!]+$/g, '')
+    .replace(/^the\s+/i, '')
+    .trim();
+  if (!cleaned) return '';
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+function parsePromptDateTime(prompt: string): string | undefined {
+  const lower = prompt.toLowerCase();
+  const now = new Date();
+  const dayMatch = lower.match(/\b(?:(next)\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  const date = new Date(now);
+
+  if (dayMatch) {
+    const target = WEEKDAYS[dayMatch[2]];
+    let delta = (target - now.getDay() + 7) % 7;
+    if (dayMatch[1] || delta === 0) delta += 7;
+    date.setDate(now.getDate() + delta);
+  } else if (/\btomorrow\b/.test(lower)) {
+    date.setDate(now.getDate() + 1);
+  } else if (/\btoday\b/.test(lower)) {
+    // keep today's date
+  } else {
+    return undefined;
+  }
+
+  const timeMatch = prompt.match(/\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (timeMatch) {
+    let hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2] || 0);
+    const meridiem = timeMatch[3].toLowerCase();
+    if (meridiem === 'pm' && hour < 12) hour += 12;
+    if (meridiem === 'am' && hour === 12) hour = 0;
+    date.setHours(hour, minute, 0, 0);
+  } else {
+    date.setHours(9, 0, 0, 0);
+  }
+
+  return toLocalInput(date);
+}
+
+function parseReminderPrompt(prompt: string): ParsedReminderPrompt {
+  const raw = prompt.trim();
+  const attendeeEmail = raw.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? '';
+  const attendeeName = raw.match(/\bwith\s+([A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,2})(?=\s+(?:for|next|this|tomorrow|today|at|about|regarding|to\s+discuss)\b|[,.!?]|$)/)?.[1]?.trim() ?? '';
+  const topicMatch = raw.match(/\b(?:regarding|about|to\s+discuss|discussing)\s+(.+?)(?=\s+(?:with|on|at)\b|[.?!]?$)/i);
+  const topic = titleCaseTopic(topicMatch?.[1] ?? '');
+  const title = topic || raw
+    .replace(/^\s*(schedule|set up|create|book)\s+(?:a\s+)?(?:meeting|call|event)\s*/i, '')
+    .replace(/\b(?:for|next|this)\s+(?:week\s+)?(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b.*$/i, '')
+    .replace(/\bwith\s+/i, 'Meeting with ')
+    .trim() || 'Meeting';
+  const notes = [
+    attendeeName ? `Attendee: ${attendeeName}` : '',
+    topic ? `Topic: ${topic}` : '',
+    raw ? `Original request: ${raw}` : '',
+  ].filter(Boolean).join('\n');
+
+  return {
+    title: title.slice(0, 200),
+    start: parsePromptDateTime(raw),
+    notes,
+    attendeeName,
+    attendeeEmail,
+  };
+}
+
 type Conflict = { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string } };
 type Availability =
   | { status: 'idle' }
@@ -103,16 +190,26 @@ export function ReminderDialog({ open, onOpenChange, connectionId, initialTitle 
 
   useEffect(() => {
     if (open) {
-      setTitle(initialTitle.slice(0, 200));
-      setStart(defaultStart());
+      const parsed = parseReminderPrompt(initialTitle);
+      setTitle((parsed.title || initialTitle).slice(0, 200));
+      setStart(parsed.start || defaultStart());
       setDurationMin('30');
-      setNotes('');
-      setAttendee('');
+      setNotes(parsed.notes);
+      setAttendee(parsed.attendeeEmail);
       setLocation('');
       setIsTeams(false);
       setAvailability({ status: 'idle' });
+
+      if (!parsed.attendeeEmail && parsed.attendeeName && connectionId) {
+        supabase.functions.invoke('email-compose', {
+          body: { action: 'contacts', connection_id: connectionId, query: parsed.attendeeName, top: 3 },
+        }).then(({ data }) => {
+          const first = ((data as any)?.results || []).find((r: any) => /\S+@\S+\.\S+/.test(String(r?.email || '')));
+          if (first?.email) setAttendee(first.email);
+        }).catch(() => { /* best-effort contact lookup */ });
+      }
     }
-  }, [open, initialTitle]);
+  }, [open, initialTitle, connectionId]);
 
   // Check availability whenever start/duration changes
   useEffect(() => {
