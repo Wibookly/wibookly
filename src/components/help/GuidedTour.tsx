@@ -58,11 +58,19 @@ export function GuidedTour() {
       if (!article || !article.steps?.length) return;
       // If the article declares a primary route and we're not there, go.
       const primaryRoute = article.routes?.[0];
+      const targetPath = primaryRoute ?? location.pathname;
+      // If the destination route has a registered Joyride tour, defer to it
+      // (TourProvider listens for the same event). Prevents double-tour.
+      const hasJoyride = Object.keys(TOUR_REGISTRY).some((r) =>
+        targetPath.startsWith(r),
+      );
+      if (hasJoyride) return;
       if (primaryRoute && location.pathname !== primaryRoute) {
         navigate(primaryRoute);
       }
       setTour({ article, steps: article.steps, index: 0 });
     };
+
     window.addEventListener(START_GUIDED_TOUR_EVENT, handler as EventListener);
     return () =>
       window.removeEventListener(START_GUIDED_TOUR_EVENT, handler as EventListener);
