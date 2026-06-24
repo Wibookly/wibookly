@@ -1047,8 +1047,10 @@ export default function Chat() {
     // Detect "remind me / schedule" phrases and open the reminder dialog
     // only when no email-send intent is present.
     if (!override && isReminderTrigger(text) && activeConnection?.id) {
+      pushLocalMessage('user', text);
       setReminderInitial(text);
       setReminderOpen(true);
+      setInput('');
       return;
     }
 
