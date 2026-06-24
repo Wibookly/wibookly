@@ -18,7 +18,7 @@ const EMAIL_FROM_DOMAIN = 'energyforward.com';
 async function enqueueWelcomeEmail(
   adminClient: SupabaseClient,
   opts: {
-    templateName: 'welcome-sso' | 'welcome-temp-password';
+    templateName: 'welcome-sso' | 'welcome-temp-password' | 'welcome-access-granted';
     recipientEmail: string;
     templateData: Record<string, any>;
     idempotencyKey: string;
