@@ -427,15 +427,15 @@ export default function AIDailyBrief() {
   return (
     <div className="page-shell" style={{ background: 'var(--bg)' }} ref={printRef}>
       <div className="page-shell-sticky space-y-4">
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
+      <div data-tour="brief-top-actions" className="flex justify-end gap-2">
+        <Button data-tour="brief-email" variant="outline" size="sm" onClick={handleEmailMe} disabled={isEmailing}>
           <Send className={cn('w-4 h-4 mr-2', isEmailing && 'animate-pulse')} />
           {isEmailing ? 'Sending…' : 'Email me'}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => handlePrint('all')}>
+        <Button data-tour="brief-print" variant="outline" size="sm" onClick={() => handlePrint('all')}>
           <Printer className="w-4 h-4 mr-2" /> Print
         </Button>
-        <Button size="sm" onClick={handleRefresh} disabled={isLoading || isRefreshing}>
+        <Button data-tour="brief-refresh" size="sm" onClick={handleRefresh} disabled={isLoading || isRefreshing}>
           <RefreshCw className={cn('w-4 h-4 mr-2', (isLoading || isRefreshing) && 'animate-spin')} />
           Refresh
         </Button>
@@ -443,7 +443,7 @@ export default function AIDailyBrief() {
 
       {/* Vibrant FeatureCard — AI Analysis hero */}
       {brief?.aiAnalysis ? (
-        <div className="mb-6">
+        <div data-tour="brief-hero" className="mb-6">
           <FeatureCard
             eyebrow="AI Analysis · What to do first"
             title={`Good ${timeOfDay}, ${firstName}`}
@@ -452,7 +452,7 @@ export default function AIDailyBrief() {
           </FeatureCard>
         </div>
       ) : (
-        <div className="mb-6">
+        <div data-tour="brief-hero" className="mb-6">
           <FeatureCard eyebrow="Daily Brief" title={`Good ${timeOfDay}, ${firstName}`}>
             {brief?.summary || `Here's a snapshot of your day. Review priorities and email highlights below.`}
           </FeatureCard>
@@ -463,7 +463,7 @@ export default function AIDailyBrief() {
       <div className="page-shell-content">
       {/* 4-up StatCard grid */}
       {brief && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div data-tour="brief-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Priorities" value={String(brief.priorities?.length ?? 0)} />
           <StatCard label="Meetings Today" value={String((brief.schedule || []).filter(s => {
             const t = (s.type || '').toLowerCase();
@@ -762,7 +762,7 @@ export default function AIDailyBrief() {
           </div>
 
           {/* Settings Section */}
-          <Card>
+          <Card data-tour="brief-priority-colors">
             <CardHeader
               className="pb-3 cursor-pointer"
               onClick={() => setShowSettings(!showSettings)}
@@ -779,7 +779,7 @@ export default function AIDailyBrief() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {(['high', 'medium', 'low'] as const).map((level) => (
-                    <div key={level} className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
+                    <div key={level} data-tour={`brief-color-${level}`} className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-card">
                       <div className="flex items-center gap-3">
                         <div
                           className="w-5 h-5 rounded-full border-2"
