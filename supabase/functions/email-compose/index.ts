@@ -118,12 +118,12 @@ Deno.serve(async (req) => {
       if (!connectionId) return json({ error: 'connection_id required' }, 400);
       const { data: conn } = await supabase
         .from('provider_connections')
-        .select('id, provider, email')
+        .select('id, provider, connected_email')
         .eq('id', connectionId)
         .eq('user_id', userId)
         .maybeSingle();
       if (!conn || conn.provider !== 'outlook') return json({ error: 'Outlook connection not found' }, 404);
-      connEmail = (conn as any).email || null;
+      connEmail = (conn as any).connected_email || null;
     }
 
     if (action === 'draft') {
