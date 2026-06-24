@@ -409,21 +409,28 @@ function markdownToHtml(md: string): string {
   const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const inline = (s: string) =>
     escape(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/`([^`]+)`/g, '<code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-family:Consolas,Menlo,monospace;font-size:0.92em;">$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#2563eb;text-decoration:underline;">$1</a>');
   const blocks = md.split(/\n{2,}/).map((block) => {
+    const trimmed = block.trim();
+    const h3 = trimmed.match(/^###\s+(.+)$/);
+    if (h3) return `<h3 style="font-size:16px;margin:18px 0 6px;color:#111827;">${inline(h3[1])}</h3>`;
+    const h2 = trimmed.match(/^##\s+(.+)$/);
+    if (h2) return `<h2 style="font-size:18px;margin:22px 0 8px;color:#111827;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">${inline(h2[1])}</h2>`;
+    const h1 = trimmed.match(/^#\s+(.+)$/);
+    if (h1) return `<h1 style="font-size:20px;margin:24px 0 10px;color:#111827;">${inline(h1[1])}</h1>`;
     const lines = block.split('\n');
     if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
-      return '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('') + '</ul>';
+      return '<ul style="margin:8px 0;padding-left:22px;">' + lines.map((l) => `<li style="margin:4px 0;">${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('') + '</ul>';
     }
     if (lines.every((l) => /^\s*\d+\.\s+/.test(l))) {
-      return '<ol>' + lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('') + '</ol>';
+      return '<ol style="margin:8px 0;padding-left:22px;">' + lines.map((l) => `<li style="margin:4px 0;">${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('') + '</ol>';
     }
-    return `<p>${inline(block).replace(/\n/g, '<br/>')}</p>`;
+    return `<p style="margin:10px 0;line-height:1.55;">${inline(block).replace(/\n/g, '<br/>')}</p>`;
   });
-  return blocks.join('\n');
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#1f2937;max-width:720px;">${blocks.join('\n')}</div>`;
 }
 
 // Invoke agent-orchestrator server-to-server, using the licensed sender's
