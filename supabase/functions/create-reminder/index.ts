@@ -211,7 +211,14 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        event: { id: event.id, webLink: event.webLink, start, end, title },
+        event: {
+          id: event.id,
+          webLink: event.webLink,
+          joinUrl: event.onlineMeeting?.joinUrl ?? event.onlineMeetingUrl ?? null,
+          start,
+          end,
+          title,
+        },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
