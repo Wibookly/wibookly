@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ReminderDialog } from '@/components/chat/ReminderDialog';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 
 export interface ActionItem {
   taskId?: string;
