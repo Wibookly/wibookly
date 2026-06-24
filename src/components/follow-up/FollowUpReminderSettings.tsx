@@ -162,37 +162,6 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
 
 
 
-
-  async function runAudit() {
-    if (!activeConnection?.id) return;
-    if (auditFrom > auditTo) {
-      toast({ title: 'Invalid range', description: '"From" date must be before "To" date.', variant: 'destructive' });
-      return;
-    }
-    setAuditing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('audit-inbox-followups', {
-        body: {
-          connection_id: activeConnection.id,
-          from_date: auditFrom,
-          to_date: new Date(auditTo + 'T23:59:59').toISOString(),
-        },
-      });
-      if (error) throw error;
-      const r = data as { scanned?: number; flagged?: number; already_replied?: number; errors?: number };
-      toast({
-        title: 'Audit complete',
-        description: `Scanned ${r.scanned ?? 0} sent emails — flagged ${r.flagged ?? 0} for follow-up, ${r.already_replied ?? 0} already had replies.`,
-      });
-      await load();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: 'Audit failed', description: msg, variant: 'destructive' });
-    } finally {
-      setAuditing(false);
-    }
-  }
-
   if (featureLoading || loading) {
     return (
       <div className="flex items-center justify-center py-12">
