@@ -2206,6 +2206,15 @@ export default function Chat() {
         onCreated={() => setInput('')}
       />
 
+      <EmailComposerDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        connectionId={activeConnection?.id ?? null}
+        connectionEmail={activeConnection?.email ?? null}
+        initialPrompt={composeInitial}
+        onSent={() => setInput('')}
+      />
+
     </div>
   );
 }
