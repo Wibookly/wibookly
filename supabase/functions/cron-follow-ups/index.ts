@@ -600,12 +600,15 @@ async function processMissedReminders(conn: Connection, settings: FollowUpSettin
   return sent;
 }
 
-async function processConnection(conn: Connection): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; cancelled: number; skipped: boolean }> {
+async function processConnection(conn: Connection, opts: { forceScan?: boolean } = {}): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; cancelled: number; skipped: boolean }> {
   const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled: 0, skipped: false };
   if (conn.provider !== 'outlook') return { ...empty, skipped: true };
 
   const settings = await loadSettings(conn.id);
-  if (!settings.is_enabled) return { ...empty, skipped: true };
+  // Manual scans (forceScan) ALWAYS run the BCC scan so the No-Reply Tracker
+  // report reflects what the user just sent — even when tracking is paused.
+  // Auto-drafting / auto-reply / reminder emails still require is_enabled=true.
+  if (!settings.is_enabled && !opts.forceScan) return { ...empty, skipped: true };
 
   const token = await getValidToken(conn.user_id, conn.provider);
   if (!token) {
