@@ -272,25 +272,26 @@ Deno.serve(async (req) => {
       if (alias && connOrgId) {
         try {
           const sentMessage = await findRecentSentMessage(userId, connectionId, subject, sentAfterIso, to);
-          if (sentMessage?.id) {
-            const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-            const sentAt = new Date(sentMessage.sentDateTime || new Date().toISOString());
-            await admin.from('follow_up_trackers').upsert({
-              organization_id: connOrgId,
-              connection_id: connectionId,
-              user_id: userId,
-              message_id: sentMessage.id,
-              conversation_id: sentMessage.conversationId ?? null,
-              subject,
-              to_recipients: sentMessage.toRecipients || message.toRecipients || [],
-              cc_recipients: sentMessage.ccRecipients || message.ccRecipients || [],
-              bcc_alias: alias.alias,
-              days_after_send: alias.days,
-              sent_at: sentAt.toISOString(),
-              due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
-              status: 'pending',
-            }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
-          }
+          const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+          const sentAt = new Date(sentMessage?.sentDateTime || new Date().toISOString());
+          const messageId = sentMessage?.id || `compose-${crypto.randomUUID()}`;
+          const { error: trackerError } = await admin.from('follow_up_trackers').upsert({
+            organization_id: connOrgId,
+            connection_id: connectionId,
+            user_id: userId,
+            message_id: messageId,
+            conversation_id: sentMessage?.conversationId ?? null,
+            subject,
+            to_recipients: sentMessage?.toRecipients || message.toRecipients || [],
+            cc_recipients: sentMessage?.ccRecipients || message.ccRecipients || [],
+            bcc_alias: alias.alias,
+            days_after_send: alias.days,
+            sent_at: sentAt.toISOString(),
+            due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
+            status: 'pending',
+            metadata: sentMessage?.id ? {} : { source: 'email-compose-fallback', sent_item_lookup: 'not_found_yet' },
+          }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+          if (trackerError) console.warn('follow-up tracker insert failed', trackerError);
         } catch (e) {
           console.warn('follow-up tracker insert after send failed', e);
         }
