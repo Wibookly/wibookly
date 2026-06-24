@@ -218,19 +218,20 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-sky-500" />
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+            <Mail className="w-5 h-5 text-sky-500 shrink-0" />
             Compose email
             {drafting && <span className="text-xs font-normal text-muted-foreground inline-flex items-center gap-1 ml-2"><Sparkles className="w-3 h-3" /> AI drafting…</span>}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
             Sent through your Outlook ({connectionEmail || 'not connected'}). Recipients autocomplete from your Outlook contacts.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+        <div className="space-y-3 overflow-y-auto px-6 py-4 flex-1">
+
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>From: <span className="font-medium text-foreground">{connectionEmail || '—'}</span></span>
             <div className="flex gap-2">
