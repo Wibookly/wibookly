@@ -963,7 +963,7 @@ export default function Settings() {
             {!useCustomSignature ? (
               <>
                 {/* Font & Color Settings */}
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div data-tour="settings-font-color" className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="sigFont">Font</Label>
                     <Select
