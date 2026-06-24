@@ -768,7 +768,7 @@ export default function Settings() {
           </div>
 
           {/* SYNCED FROM M365 — read-only block */}
-          <div className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
+          <div data-tour="settings-directory" className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Building2 className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">Directory Information</h3>
