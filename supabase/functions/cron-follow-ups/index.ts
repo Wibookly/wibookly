@@ -100,12 +100,18 @@ async function ensureFollowupFolder(token: string, connectionId: string, cachedI
 }
 
 interface ParsedAlias { alias: string; days: number }
-function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | null {
+function normalizeDomain(value: string | null | undefined): string {
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
+}
+
+function parseFollowupAlias(addresses: string[], domains: string[]): ParsedAlias | null {
+  const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
+  if (allowedDomains.size === 0) return null;
   for (const raw of addresses) {
     const a = raw.toLowerCase().trim();
     const m = a.match(/^(\d+)@(.+)$/);
     if (!m) continue;
-    if (m[2] !== domain) continue;
+    if (!allowedDomains.has(normalizeDomain(m[2]))) continue;
     const days = parseInt(m[1], 10);
     // 0 is reserved as a stop signal — handled separately.
     if (Number.isInteger(days) && days >= 1 && days <= MAX_DAYS) return { alias: a, days };
@@ -115,13 +121,15 @@ function parseFollowupAlias(addresses: string[], domain: string): ParsedAlias | 
 
 // Returns the matched stop alias (e.g. "stop@example.com" or "0@example.com")
 // if any BCC recipient is a configured cancel signal for our domain.
-function parseStopAlias(addresses: string[], domain: string, stopWords: string[]): string | null {
+function parseStopAlias(addresses: string[], domains: string[], stopWords: string[]): string | null {
+  const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
+  if (allowedDomains.size === 0) return null;
   const wanted = new Set(stopWords.map((s) => s.toLowerCase().trim()).filter(Boolean));
   for (const raw of addresses) {
     const a = raw.toLowerCase().trim();
     const m = a.match(/^([^@]+)@(.+)$/);
     if (!m) continue;
-    if (m[2] !== domain) continue;
+    if (!allowedDomains.has(normalizeDomain(m[2]))) continue;
     if (wanted.has(m[1])) return a;
   }
   return null;
@@ -165,7 +173,7 @@ interface Connection {
 async function scanSentForTriggers(
   conn: Connection,
   token: string,
-  ourDomain: string,
+  trackingDomains: string[],
   stopWords: string[],
 ): Promise<{ added: number; cancelled: number }> {
   // Look back 30 days; the BCC tag survives forever, so we catch anything we missed too.
@@ -191,7 +199,7 @@ async function scanSentForTriggers(
 
       // 1. STOP signal — cancel all open trackers in this conversation and
       //    move their original sent messages back out of the Follow-up folder.
-      const stopAlias = parseStopAlias(bccs, ourDomain, stopWords);
+      const stopAlias = parseStopAlias(bccs, trackingDomains, stopWords);
       if (stopAlias && m.conversationId) {
         try {
           const { data: rows } = await supabase.rpc('cancel_trackers_for_conversation', {
@@ -217,7 +225,7 @@ async function scanSentForTriggers(
       }
 
       // 2. Numeric trigger — schedule a tracker.
-      const parsed = parseFollowupAlias(bccs, ourDomain);
+      const parsed = parseFollowupAlias(bccs, trackingDomains);
       if (!parsed) continue;
 
       const sentAt = new Date(m.sentDateTime);
@@ -276,6 +284,7 @@ interface FollowUpSettings {
   business_hours_start: number;
   business_hours_end: number;
   business_days: number[];
+  bcc_domain: string | null;
   timezone: string | null;
   stop_aliases: string[];
 }
@@ -283,7 +292,7 @@ interface FollowUpSettings {
 async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
   const { data } = await supabase
     .from('follow_up_settings')
-    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days,business_hours_only,business_hours_start,business_hours_end,business_days,timezone,stop_aliases')
+    .select('is_enabled,auto_draft_enabled,auto_reply_enabled,skip_if_replied,reminder_max_count,reminder_intervals_days,business_hours_only,business_hours_start,business_hours_end,business_days,bcc_domain,timezone,stop_aliases')
     .eq('connection_id', connectionId)
     .maybeSingle();
   return (data as FollowUpSettings | null) ?? {
@@ -297,6 +306,7 @@ async function loadSettings(connectionId: string): Promise<FollowUpSettings> {
     business_hours_start: 8,
     business_hours_end: 17,
     business_days: [1, 2, 3, 4, 5],
+    bcc_domain: null,
     timezone: null,
     stop_aliases: ['stop', '0'],
   };
@@ -602,6 +612,7 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
   const myEmail: string = (me.mail ?? me.userPrincipalName ?? conn.connected_email ?? '').toLowerCase();
   const ourDomain = myEmail.split('@')[1];
   if (!ourDomain) return empty;
+  const trackingDomains = Array.from(new Set([ourDomain, settings.bcc_domain].map(normalizeDomain).filter(Boolean)));
 
   // Resolve effective timezone: explicit setting → Outlook mailbox tz → default.
   let effectiveTz = settings.timezone || '';
@@ -615,7 +626,7 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
   }
 
   const stopWords = (settings.stop_aliases && settings.stop_aliases.length > 0) ? settings.stop_aliases : ['stop', '0'];
-  const { added, cancelled } = await scanSentForTriggers(conn, token, ourDomain, stopWords);
+  const { added, cancelled } = await scanSentForTriggers(conn, token, trackingDomains, stopWords);
 
   // Skip the rest when tracking is paused — scanning is read-only and safe,
   // but drafting/auto-sending/reminders must respect the user's pause.
