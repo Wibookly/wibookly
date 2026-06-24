@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppSidebar } from './AppSidebar';
 import { MobileHeader } from './MobileHeader';
+import { AppHeader } from './AppHeader';
 import { MobileSidebar } from './MobileSidebar';
 import { OceanWaves } from '@/components/theme/OceanWaves';
 
@@ -121,6 +122,9 @@ export function AppLayout() {
 
       <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
         <OceanWaves />
+        <div className="relative z-20 hidden lg:block">
+          <AppHeader />
+        </div>
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-10">
           <div className="h-full min-h-full flex flex-col">
             <Outlet />
