@@ -768,7 +768,7 @@ export default function Settings() {
           </div>
 
           {/* SYNCED FROM M365 — read-only block */}
-          <div className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
+          <div data-tour="settings-directory" className="space-y-3 p-4 bg-muted/40 rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Building2 className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">Directory Information</h3>
@@ -812,7 +812,7 @@ export default function Settings() {
           </div>
 
           {/* EDITABLE — your inputs */}
-          <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/30">
+          <div data-tour="settings-inputs" className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/30">
             <div className="flex items-center gap-2 mb-1">
               <User2 className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-semibold">Your Inputs</h3>
@@ -821,7 +821,7 @@ export default function Settings() {
               </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="settings-title" className="space-y-1.5">
               <Label htmlFor="title" className="text-xs inline-flex items-center gap-1">Title <span className="text-primary">(used in signature)</span> <HelpTip id="profile.title" /></Label>
               <Input
                 id="title"
@@ -835,7 +835,7 @@ export default function Settings() {
             {/* AI-generated profile blurbs (Responsibilities + Communication style).
                 Auto-generated once based on company + title; user can edit or
                 regenerate at any time via the controls in each row. */}
-            <div className="space-y-1.5">
+            <div data-tour="settings-resp" className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="aboutResp" className="text-xs inline-flex items-center gap-1.5">
                   Responsibilities
@@ -874,7 +874,7 @@ export default function Settings() {
                 className={!respEditable ? 'bg-background/60 cursor-default' : ''}
               />
             </div>
-            <div className="space-y-1.5">
+            <div data-tour="settings-style" className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="aboutStyle" className="text-xs inline-flex items-center gap-1.5">
                   Communication style
@@ -963,7 +963,7 @@ export default function Settings() {
             {!useCustomSignature ? (
               <>
                 {/* Font & Color Settings */}
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div data-tour="settings-font-color" className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="sigFont">Font</Label>
                     <Select
@@ -1003,7 +1003,7 @@ export default function Settings() {
                 </div>
 
                 {/* Contact Fields */}
-                <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
+                <div data-tour="settings-contact" className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-border">
                   <div className="space-y-2">
                     <Label htmlFor="sigPhone">Phone (Optional)</Label>
                     <Input
@@ -1274,7 +1274,7 @@ CEO, Company Name
             )}
             
             {/* Preview */}
-            <div className="space-y-3 pt-4 border-t border-border">
+            <div data-tour="settings-preview" className="space-y-3 pt-4 border-t border-border">
               <Label>Signature Preview</Label>
               <div 
                 className="p-4 bg-background rounded-md border border-border min-h-[80px]"
