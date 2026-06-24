@@ -79,58 +79,17 @@ export const followUpTour: Step[] = [
   },
   {
     target: '[data-tour="followup-audit"]',
-    title: 'Inbox audit',
+    title: 'Inbox auto-audit (every 24 hours)',
     content:
-      "Run a manual sweep of your Sent Items over any date range. Every email without a reply is flagged into the 'No-Reply-Tracker' Outlook folder and surfaced in InboxIQ. No drafts are written and nothing is sent — pure audit for your review.",
-    placement: 'top',
-  },
-  {
-    target: '[data-tour="followup-audit-from"]',
-    title: 'From date',
-    content:
-      "Pick the earliest sent date to include in the audit. Defaults to 30 days ago.",
-    placement: 'bottom',
-  },
-  {
-    target: '[data-tour="followup-audit-to"]',
-    title: 'To date',
-    content:
-      "Pick the most recent sent date to include. Defaults to today.",
-    placement: 'bottom',
-  },
-  {
-    target: '[data-tour="followup-audit-run"]',
-    title: '"Audit now" button',
-    content:
-      "Click to scan Sent Items in the selected range right now. You'll get a toast summary: how many were scanned, how many were flagged for follow-up, and how many already had replies.",
-    placement: 'top',
-  },
-  {
-    target: '[data-tour="followup-audit-presets"]',
-    title: 'Quick presets',
-    content:
-      "One-click date ranges: Last 7, 30, or 90 days. Tap one to fill the From/To fields instantly, then click Audit now.",
+      "No manual audit needed. While the tracker is ON, InboxIQ automatically scans the previous 24 hours of your Sent Items every day and flags any email that hasn't been replied to. Flagged messages are copied into your Outlook 'No-Reply-Tracker' folder and surfaced in the No Reply Tracker category. Nothing is drafted or sent here — pure audit.",
     placement: 'top',
   },
   {
     target: '[data-tour="followup-autosync"]',
-    title: 'Auto-sync every 24 hours',
+    title: 'Background refresh every 15 minutes',
     content:
-      "While No Reply Tracker is ON, InboxIQ automatically scans the previous 24 hours of Sent Items every day and flags anything that hasn't been replied to. The Active / Paused badge tells you whether the daily sweep is currently running.",
+      "On top of the daily 24-hour sweep, a lightweight background scan runs every 15 minutes and also refreshes whenever you open this page — so the Active / Paused badge and audit stats stay current.",
     placement: 'top',
   },
-  {
-    target: 'body',
-    title: 'Best practices',
-    content:
-      "Use 2 days for urgent decisions, 3–5 days for normal asks, and 7+ days for low-priority pings. You get up to 3 reminders per thread, then InboxIQ stops automatically so you never spam a recipient. AI drafts always wait for you unless you explicitly turn on Auto Reply.",
-    placement: 'center',
-  },
-  {
-    target: 'body',
-    title: "You're set 🎉",
-    content:
-      "Click 'Guide me through this page' anytime in the top bar to replay this tour.",
-    placement: 'center',
-  },
 ];
+
