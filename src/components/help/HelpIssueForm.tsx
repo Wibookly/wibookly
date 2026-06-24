@@ -56,6 +56,31 @@ export function HelpIssueForm() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const MAX_FILES = 5;
+  const MAX_BYTES = 10 * 1024 * 1024; // 10 MB each
+
+  const addFiles = (incoming: FileList | File[] | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming);
+    const accepted: File[] = [];
+    for (const f of arr) {
+      if (!f.type.startsWith('image/')) {
+        toast({ title: 'Only images allowed', description: `${f.name} isn't an image.`, variant: 'destructive' });
+        continue;
+      }
+      if (f.size > MAX_BYTES) {
+        toast({ title: 'File too large', description: `${f.name} is over 10 MB.`, variant: 'destructive' });
+        continue;
+      }
+      accepted.push(f);
+    }
+    setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES));
+  };
+
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const submit = async () => {
     const s = subject.trim();
