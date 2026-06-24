@@ -1763,19 +1763,46 @@ export default function Chat() {
                     />
                   </div>
                 ) : (
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={limitReached ? 'Daily limit reached' : 'Message InboxIQ...'}
-                    disabled={isStreaming || limitReached}
-                    rows={1}
-                    className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
-                    data-tour="chat-input"
-                  />
+                  <>
+                    <Textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'Message InboxIQ...')}
+                      disabled={isStreaming || limitReached}
+                      rows={1}
+                      className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
+                      data-tour="chat-input"
+                    />
+                    {(() => {
+                      if (emailWizard) return null;
+                      const q = input.trim().toLowerCase();
+                      if (q.length < 2) return null;
+                      const all = [...examplePrompts.map((p) => ({ title: p.title, desc: p.desc })), ...customPrompts.map((p) => ({ title: p.title, desc: p.desc }))];
+                      const matches = all.filter((p) => `${p.title} ${p.desc}`.toLowerCase().includes(q)).slice(0, 4);
+                      if (!matches.length) return null;
+                      return (
+                        <div className="absolute bottom-full left-0 right-0 mb-2 rounded-md border bg-popover shadow-lg overflow-hidden z-50">
+                          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/40">Matching prompts</div>
+                          {matches.map((p, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); setInput(`${p.title} ${p.desc}`.trim()); textareaRef.current?.focus(); }}
+                              className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex flex-col gap-0.5"
+                            >
+                              <span className="font-medium">{p.title}</span>
+                              <span className="text-xs text-muted-foreground line-clamp-1">{p.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
+
 
               {isRecording ? (
                 <>
