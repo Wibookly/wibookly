@@ -290,7 +290,7 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           </div>
         </div>
 
-        <DialogFooter className="pt-3 border-t">
+        <DialogFooter className="px-6 py-3 border-t bg-muted/20">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={sending}>Cancel</Button>
           <Button onClick={handleSend} disabled={sending || drafting || !to.length}>
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
