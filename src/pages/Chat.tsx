@@ -2148,7 +2148,7 @@ export default function Chat() {
                       <button
                         key={p.title}
                         onClick={() => setInput(`${p.title} ${p.desc}`)}
-                        className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                        className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-muted/60 hover:shadow-sm transition group"
                       >
                         <div className="flex items-start gap-3">
                           <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
@@ -2164,7 +2164,7 @@ export default function Chat() {
                     {customPrompts.map((p, idx) => (
                       <div
                         key={`custom-${idx}-${p.title}`}
-                        className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                        className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-muted/60 hover:shadow-sm transition group"
                       >
                         <button
                           type="button"
@@ -2274,7 +2274,7 @@ export default function Chat() {
                         setInChatPromptsOpen(false);
                         requestAnimationFrame(() => textareaRef.current?.focus());
                       }}
-                      className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      className="text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-muted/60 hover:shadow-sm transition group"
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 rounded-lg bg-muted group-hover:bg-background">
@@ -2290,7 +2290,7 @@ export default function Chat() {
                   {customPrompts.map((p, idx) => (
                     <div
                       key={`custom-inchat-${idx}-${p.title}`}
-                      className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-accent transition group"
+                      className="relative text-left border border-border rounded-xl p-3 hover:border-primary hover:bg-muted/60 hover:shadow-sm transition group"
                     >
                       <button
                         type="button"
