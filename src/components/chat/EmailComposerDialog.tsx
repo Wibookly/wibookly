@@ -73,7 +73,7 @@ function RecipientField({ label, values, setValues, connectionId, autoFocus }: {
 
   return (
     <div className="space-y-1.5 relative">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">{label}</Label>
       <div className="flex flex-wrap gap-1.5 items-center min-h-[38px] rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
         {values.map((v) => (
           <span key={v} className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 px-2 py-0.5 text-xs">
@@ -245,13 +245,13 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           {showBcc && <RecipientField label="Bcc" values={bcc} setValues={setBcc} connectionId={connectionId} />}
 
           <div className="space-y-1.5">
-            <Label htmlFor="comp-subj" className="text-xs uppercase tracking-wide text-muted-foreground">Subject</Label>
+            <Label htmlFor="comp-subj" className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">Subject</Label>
             <Input id="comp-subj" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Message</Label>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">Message</Label>
               <button
                 type="button"
                 onClick={() => setEditMode((v) => !v)}
