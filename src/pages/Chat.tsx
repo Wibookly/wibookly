@@ -985,6 +985,8 @@ export default function Chat() {
       setComposeOpen(true);
       if (!override) setInput('');
       return;
+    }
+
 
     // May be null when the user is on the "New chat" screen.
     const startingConvId = activeId;
