@@ -671,7 +671,10 @@ export default function AIDailyBrief() {
             <CalendarPanel connectionId={activeConnection.id} />
           )}
 
-          {/* SECTION 5 — No Reply Tracker (slim if empty) */}
+          {/* SECTION 5 — Flagged Email Tracker summary */}
+          <FlaggedEmailSummarySection />
+
+          {/* SECTION 5b — No Reply Tracker (slim if empty) */}
           <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
           {/* Optional summary line */}
