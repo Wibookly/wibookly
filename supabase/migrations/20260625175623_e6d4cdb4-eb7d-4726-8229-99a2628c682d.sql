@@ -1,0 +1,1 @@
+ALTER TABLE public.follow_up_settings ADD COLUMN IF NOT EXISTS tone_settings jsonb NOT NULL DEFAULT '{}'::jsonb;

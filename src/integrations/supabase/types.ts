@@ -1713,6 +1713,7 @@ export type Database = {
           skip_if_replied: boolean
           stop_aliases: string[]
           timezone: string | null
+          tone_settings: Json
           updated_at: string
           user_id: string
         }
@@ -1737,6 +1738,7 @@ export type Database = {
           skip_if_replied?: boolean
           stop_aliases?: string[]
           timezone?: string | null
+          tone_settings?: Json
           updated_at?: string
           user_id: string
         }
@@ -1761,6 +1763,7 @@ export type Database = {
           skip_if_replied?: boolean
           stop_aliases?: string[]
           timezone?: string | null
+          tone_settings?: Json
           updated_at?: string
           user_id?: string
         }
@@ -3437,6 +3440,7 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           follow_up_at: string
+          follow_up_history: Json
           graph_message_id: string
           id: string
           internet_message_id: string
@@ -3460,6 +3464,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           follow_up_at: string
+          follow_up_history?: Json
           graph_message_id: string
           id?: string
           internet_message_id: string
@@ -3483,6 +3488,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           follow_up_at?: string
+          follow_up_history?: Json
           graph_message_id?: string
           id?: string
           internet_message_id?: string
@@ -4234,6 +4240,7 @@ export type Database = {
           skip_if_replied: boolean
           stop_aliases: string[]
           timezone: string | null
+          tone_settings: Json
           updated_at: string
           user_id: string
         }
