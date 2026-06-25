@@ -53,7 +53,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const format = body.format === 'xlsx' ? 'xlsx' : 'pdf';
     const conversationId: string | undefined = body.conversation_id;
-    const destination: 'download' | 'onedrive' = body.destination === 'onedrive' ? 'onedrive' : 'download';
+    const destination: 'download' | 'onedrive' | 'email' =
+      body.destination === 'onedrive' ? 'onedrive'
+      : body.destination === 'email' ? 'email'
+      : 'download';
     const connectionId: string | undefined = body.connection_id || body.connectionId;
     const scope: 'one' | 'all' = conversationId ? 'one' : 'all';
 
