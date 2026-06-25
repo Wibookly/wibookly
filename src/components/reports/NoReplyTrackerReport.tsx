@@ -108,6 +108,7 @@ export function NoReplyTrackerReport() {
   const [reloadKey, setReloadKey] = useState(0);
   const [trackingEnabled, setTrackingEnabled] = useState<boolean | null>(null);
   const [lastScanAt, setLastScanAt] = useState<string | null>(null);
+  const [lastScanSummary, setLastScanSummary] = useState<any>(null);
 
   const { start, end } = useMemo(
     () => rangeBounds(preset, { start: customStart, end: customEnd }),
@@ -120,16 +121,18 @@ export function NoReplyTrackerReport() {
     if (!activeConnection?.id) {
       setTrackingEnabled(null);
       setLastScanAt(null);
+      setLastScanSummary(null);
       return;
     }
     supabase
       .from('follow_up_settings')
-      .select('is_enabled, last_audit_at, updated_at')
+      .select('is_enabled, last_audit_at, last_audit_summary, updated_at')
       .eq('connection_id', activeConnection.id)
       .maybeSingle()
       .then(({ data }) => {
         setTrackingEnabled(data?.is_enabled ?? null);
         setLastScanAt((data?.last_audit_at as string | null) ?? (data?.updated_at as string | null) ?? null);
+        setLastScanSummary((data as any)?.last_audit_summary ?? null);
       });
   }, [activeConnection?.id, reloadKey]);
 
@@ -166,16 +169,23 @@ export function NoReplyTrackerReport() {
     try {
       const { data, error } = await supabase.functions.invoke('cron-follow-ups', {
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
-        body: { mode: 'manual', connection_id: activeConnection.id },
+        body: {
+          mode: 'manual',
+          connection_id: activeConnection.id,
+          from_date: start.toISOString(),
+          to_date: end.toISOString(),
+        },
       });
       if (error) throw new Error(await readableFunctionError(error, 'Scan failed'));
       if ((data as any)?.error) throw new Error((data as any).error);
       const added = Number((data as any)?.added ?? 0);
+      const scanned = Number((data as any)?.scanned ?? 0);
+      const matched = Number((data as any)?.matched ?? 0);
       if (!silent) {
         toast.success(
           added > 0
             ? `Found ${added} new tracked email${added === 1 ? '' : 's'}.`
-            : 'Scan complete — no new BCC-tracked emails found.',
+            : `Scan complete — checked ${scanned} sent emails and matched ${matched} tracker alias${matched === 1 ? '' : 'es'}.`,
         );
       }
       setReloadKey((k) => k + 1);
@@ -331,6 +341,12 @@ export function NoReplyTrackerReport() {
             {lastScanAt && (
               <span className="text-muted-foreground">
                 Last scanned {format(new Date(lastScanAt), "MMM d, h:mm a")}
+                {lastScanSummary && typeof lastScanSummary === 'object' && (
+                  <span className="ml-2">
+                    · Checked {Number((lastScanSummary as any).scanned ?? 0)} sent emails
+                    {typeof (lastScanSummary as any).matched !== 'undefined' && ` · ${Number((lastScanSummary as any).matched ?? 0)} matched aliases`}
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -397,8 +413,13 @@ export function NoReplyTrackerReport() {
         {loading ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
-            No tracker records match these filters.
+          <div className="py-12 text-center text-sm text-muted-foreground space-y-2">
+            <p>No tracker records match these filters.</p>
+            {lastScanSummary && typeof lastScanSummary === 'object' && (
+              <p className="text-xs">
+                Last scan checked {Number((lastScanSummary as any).scanned ?? 0)} sent emails in this account and found {Number((lastScanSummary as any).matched ?? 0)} BCC tracker alias{Number((lastScanSummary as any).matched ?? 0) === 1 ? '' : 'es'}.
+              </p>
+            )}
           </div>
         ) : (
           <div className="rounded-md border overflow-hidden">
