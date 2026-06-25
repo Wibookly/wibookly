@@ -1895,7 +1895,7 @@ export default function Chat() {
                       className="relative h-9 w-9 shrink-0"
                       disabled={isStreaming || limitReached || isTranscribing}
                       onClick={startRecording}
-                      title={isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
+                      title={isTranscribing ? 'Converting voice to text…' : `Dictate (${dictateShortcutLabel}) — click or press the shortcut, speak, then pause to convert`}
                       data-tour="chat-mic"
                     >
                       {isTranscribing
@@ -1903,7 +1903,14 @@ export default function Chat() {
                         : <Mic className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
+                  <TooltipContent>
+                    {isTranscribing ? 'Converting your speech to text' : (
+                      <span className="flex items-center gap-2">
+                        Dictate
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">{dictateShortcutLabel}</kbd>
+                      </span>
+                    )}
+                  </TooltipContent>
                 </Tooltip>
               )}
 
