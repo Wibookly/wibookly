@@ -1,6 +1,7 @@
 // flag-followup-cron: every 15 min, scan tracked_emails where follow_up_at <= now()
 // and status='pending'. Check for replies / auto-replies / flag completion, then
-// draft a polite follow-up as a Graph reply DRAFT (never auto-send). Max 2 attempts.
+// draft a polite follow-up as a Graph reply DRAFT. Caps at 3 attempts.
+// Honors user's auto-reply / auto-send preferences (read from agent_settings.metadata).
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { callGraph } from '../_shared/graph-call.ts';
@@ -13,6 +14,7 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '3');
+const MAX_ATTEMPTS = 3;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 
 const AUTO_REPLY_SUBJECT_RE = /^(automatic reply|out of office|auto-?reply)/i;
@@ -34,17 +36,21 @@ function parseGraphInternetHeaders(arr: any[] | undefined): Record<string, strin
 
 async function draftFollowupBody(opts: {
   subject: string; bodyPreview: string; recipientName: string | null; attempt: number;
+  tone?: { style?: string; format?: string; instructions?: string };
 }): Promise<string> {
+  const toneLine = opts.tone
+    ? `Writing style: ${opts.tone.style || 'professional'}. Format: ${opts.tone.format || 'concise'}.${opts.tone.instructions ? ` Custom instructions: ${opts.tone.instructions}` : ''}`
+    : '';
   if (!LOVABLE_API_KEY) {
     return `<p>Hi${opts.recipientName ? ' ' + opts.recipientName.split(' ')[0] : ''},</p>
 <p>Following up on my note about "${opts.subject}". I know you're busy — let me know whenever's convenient.</p>
 <p>Thanks!</p>`;
   }
-  const system = `You are writing a short, polite follow-up email because the recipient has not yet replied to a previous message. Write 3-6 sentences. Be warm and respectful, acknowledge they're busy, restate the original ask or topic in one line, and gently invite a reply or next step. No guilt, no pressure, no "just circling back" clichés. Match the original email's formality. Output only the email body in HTML — no subject line, no signature placeholder.`;
+  const system = `You are writing a short, polite follow-up email because the recipient has not yet replied to a previous message. Write 3-6 sentences. Be warm and respectful, acknowledge they're busy, restate the original ask or topic in one line, and gently invite a reply or next step. No guilt, no pressure, no "just circling back" clichés. ${toneLine} Output only the email body in HTML — no subject line, no signature placeholder.`;
   const userPrompt = `Original subject: ${opts.subject}
 Original preview: ${opts.bodyPreview}
 Recipient: ${opts.recipientName || 'them'}
-Attempt: ${opts.attempt} of 2${opts.attempt === 2 ? ' — soften to a graceful final note; offer to close it out if now isn\'t the right time.' : ''}`;
+Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' — soften to a graceful final note; offer to close it out if now isn\'t the right time.' : ''}`;
   try {
     const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -61,9 +67,20 @@ Attempt: ${opts.attempt} of 2${opts.attempt === 2 ? ' — soften to a graceful f
   return `<p>Hi${opts.recipientName ? ' ' + opts.recipientName.split(' ')[0] : ''},</p><p>Just wanted to circle back on "${opts.subject}" in case my earlier note got buried. Happy to make this easier — let me know what works.</p>`;
 }
 
+async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any }> {
+  const { data } = await admin.from('agent_settings').select('metadata').eq('user_id', userId).maybeSingle();
+  const m = data?.metadata?.flag_tracker || {};
+  return {
+    autoReply: !!m.autoReply,
+    autoSend: !!m.autoSend,
+    tone: m.tone || null,
+  };
+}
+
 async function processOne(admin: any, row: any) {
   const userId = row.user_id;
   const connId = row.connection_id;
+  const prefs = await getPrefs(admin, userId);
 
   // 1. Re-check flag status on source message
   if (row.graph_message_id) {
@@ -91,11 +108,9 @@ async function processOne(admin: any, row: any) {
       for (const m of msgs) {
         const fromAddr = String(m.from?.emailAddress?.address || '').toLowerCase();
         if (!fromAddr) continue;
-        // If sender is the connected user themselves, skip
         const { data: connRow } = await admin.from('provider_connections').select('connected_email').eq('id', connId).maybeSingle();
         const myEmail = String(connRow?.connected_email || '').toLowerCase();
         if (myEmail && fromAddr === myEmail) continue;
-        // Filter auto-replies
         const headers = parseGraphInternetHeaders(m.internetMessageHeaders);
         if (isAutoReply(headers, m.subject)) continue;
         await admin.from('tracked_emails').update({ status: 'replied', last_checked_at: new Date().toISOString() }).eq('id', row.id);
@@ -104,17 +119,24 @@ async function processOne(admin: any, row: any) {
     }
   }
 
-  // 3. Draft a follow-up if attempts < 2
-  if (row.attempts >= 2) {
+  // 3. If auto-reply is off, just mark for review and skip drafting.
+  if (!prefs.autoReply) {
+    await admin.from('tracked_emails').update({ last_checked_at: new Date().toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'skipped_auto_reply_off' };
+  }
+
+  // 4. Cap at MAX_ATTEMPTS
+  if ((row.attempts || 0) >= MAX_ATTEMPTS) {
     await admin.from('tracked_emails').update({ status: 'exhausted', last_checked_at: new Date().toISOString() }).eq('id', row.id);
     return { id: row.id, action: 'exhausted' };
   }
-  const attempt = row.attempts + 1;
+  const attempt = (row.attempts || 0) + 1;
   const bodyHtml = await draftFollowupBody({
     subject: row.subject || '(no subject)',
     bodyPreview: row.body_preview || '',
     recipientName: row.recipient_name,
     attempt,
+    tone: prefs.tone || undefined,
   });
 
   // Create reply draft
@@ -125,7 +147,6 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: draft.error?.message };
   }
   const draftId = draft.data?.id;
-  // PATCH body
   const patch = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}`, {
     method: 'PATCH',
     body: JSON.stringify({ body: { contentType: 'HTML', content: bodyHtml } }),
@@ -135,19 +156,39 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: patch.error?.message };
   }
 
-  const nextStatus = attempt >= 2 ? 'exhausted' : 'pending';
-  const nextFollowUpAt = attempt < 2
+  // Optionally auto-send the draft
+  let sentNow = false;
+  if (prefs.autoSend && draftId) {
+    const send = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}/send`, { method: 'POST', body: '{}' });
+    sentNow = send.ok;
+  }
+
+  const sentAtIso = new Date().toISOString();
+  const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+  history.push({
+    attempt,
+    drafted_at: sentAtIso,
+    sent_at: sentNow ? sentAtIso : null,
+    auto_sent: sentNow,
+    draft_id: draftId,
+  });
+
+  const reachedCap = attempt >= MAX_ATTEMPTS;
+  const nextStatus = reachedCap ? 'exhausted' : 'pending';
+  const nextFollowUpAt = !reachedCap
     ? new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString()
     : row.follow_up_at;
+
   await admin.from('tracked_emails').update({
-    status: nextStatus === 'pending' ? 'pending' : 'exhausted',
+    status: nextStatus,
     attempts: attempt,
     last_draft_id: draftId,
     follow_up_at: nextFollowUpAt,
-    last_checked_at: new Date().toISOString(),
+    last_checked_at: sentAtIso,
+    follow_up_history: history,
   }).eq('id', row.id);
 
-  return { id: row.id, action: 'drafted', attempt, draftId };
+  return { id: row.id, action: sentNow ? 'sent' : 'drafted', attempt, draftId };
 }
 
 Deno.serve(async (req) => {
