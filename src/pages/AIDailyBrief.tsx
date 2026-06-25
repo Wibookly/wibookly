@@ -1086,26 +1086,90 @@ function FlaggedEmailSummarySection() {
           Full report <ExternalLink className="w-3 h-3" />
         </Link>
       </CardHeader>
-      <CardContent className="pt-0">
-        {topRecipients.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No pending follow-ups — all flagged emails have been replied to.</p>
-        ) : (
-          <div className="space-y-2">
-            {topRecipients.map((r) => (
-              <div key={r.email} className="flex items-center justify-between gap-3 p-2.5 rounded-md border bg-card hover:bg-secondary/30 transition-colors">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{r.name || r.email}</p>
-                  {r.name && <p className="text-xs text-muted-foreground truncate">{r.email}</p>}
+      <CardContent className="pt-0 space-y-4">
+        {/* By-recipient summary */}
+        {topRecipients.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Top recipients</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {topRecipients.map((r) => (
+                <div key={r.email} className="flex items-center justify-between gap-3 p-2 rounded-md border bg-card">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{r.name || r.email}</p>
+                    {r.name && <p className="text-xs text-muted-foreground truncate">{r.email}</p>}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Badge variant="secondary" className="text-xs">{r.count}</Badge>
+                    {r.overdue > 0 && <Badge variant="destructive" className="text-xs">{r.overdue} overdue</Badge>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Badge variant="secondary" className="text-xs">{r.count} email{r.count === 1 ? '' : 's'}</Badge>
-                  {r.overdue > 0 && <Badge variant="destructive" className="text-xs">{r.overdue} overdue</Badge>}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Detailed follow-up checklist */}
+        {pending.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">
+              Follow-up checklist ({pending.length})
+            </p>
+            <ul className="space-y-1.5">
+              {pending.slice(0, 12).map((r: any) => {
+                const due = r.follow_up_at ? new Date(r.follow_up_at) : null;
+                const isOverdue = !!(due && due.getTime() < now);
+                return (
+                  <li
+                    key={r.id}
+                    className={cn(
+                      'flex items-start gap-2.5 p-2.5 rounded-md border bg-card',
+                      isOverdue ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-amber-500'
+                    )}
+                  >
+                    <input type="checkbox" className="mt-1 h-4 w-4 accent-primary cursor-pointer" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">{r.subject || '(no subject)'}</p>
+                        {(r.attempts ?? 0) > 0 && (
+                          <Badge variant="outline" className="text-[10px] h-4">
+                            {r.attempts}/3 follow-ups sent
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        To: {r.recipient_name ? `${r.recipient_name} <${r.recipient_address}>` : r.recipient_address}
+                      </p>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs">
+                        {r.sent_at && (
+                          <span className="text-muted-foreground inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Sent {formatDistanceToNow(new Date(r.sent_at), { addSuffix: true })}
+                          </span>
+                        )}
+                        {due && (
+                          <span className={cn('font-medium', isOverdue ? 'text-destructive' : 'text-amber-600')}>
+                            {isOverdue ? 'Overdue' : 'Due'} {formatDistanceToNow(due, { addSuffix: true })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {pending.length > 12 && (
+              <Link to="/flagged-email-reports" className="text-xs text-primary hover:underline mt-2 inline-block">
+                View all {pending.length} in the full report →
+              </Link>
+            )}
+          </div>
+        )}
+
+        {pending.length === 0 && (
+          <p className="text-xs text-muted-foreground">No pending follow-ups — all flagged emails have been replied to. 🎉</p>
+        )}
       </CardContent>
+
     </Card>
   );
 }
