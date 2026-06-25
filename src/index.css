@@ -379,3 +379,8 @@
     animation: training-pulse 2.4s ease-in-out infinite;
   }
 }
+
+@media print {
+  .print\:hidden { display: none !important; }
+  body { background: white !important; color: black !important; }
+}
