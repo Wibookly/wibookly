@@ -68,12 +68,16 @@ Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' â
 }
 
 async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any }> {
-  const { data } = await admin.from('agent_settings').select('metadata').eq('user_id', userId).maybeSingle();
-  const m = data?.metadata?.flag_tracker || {};
+  const { data } = await admin
+    .from('follow_up_settings')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!data || data.is_enabled === false) return { autoReply: false, autoSend: false };
   return {
-    autoReply: !!m.autoReply,
-    autoSend: !!m.autoSend,
-    tone: m.tone || null,
+    autoReply: !!data.auto_draft_enabled,
+    autoSend: !!data.auto_reply_enabled,
+    tone: data.tone_settings || null,
   };
 }
 
