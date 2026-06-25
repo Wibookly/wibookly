@@ -289,27 +289,9 @@ export default function AIDailyBrief() {
       }
     }
 
-    // Today's Schedule
-    if (type === 'all' || type === 'calendar') {
-      const booked = (brief.schedule || []).filter((s) => {
-        const t = (s.type || '').toLowerCase();
-        const ti = (s.title || '').toLowerCase();
-        if (t === 'focus' || t === 'available' || t === 'free') return false;
-        if (ti.includes('available')) return false;
-        return true;
-      });
-      const body = booked.length
-        ? booked.map((s) => `
-            <div class="sch-row">
-              <span class="sch-time">${esc(s.time)}</span>
-              <div class="sch-body">
-                <strong>${esc(s.title)}</strong>
-                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
-              </div>
-            </div>`).join('')
-        : '';
-      pages += buildSection("Today's Schedule", 'Calendar', body, 'No meetings scheduled for today.');
-    }
+    // Today's Schedule intentionally removed from the printable brief —
+    // the live calendar lives on its own page and was creating duplication.
+
 
     // Final Tasks list — one explicit checkbox task per action item
     // (emails to reply, meetings to attend/prep, follow-ups to do).
