@@ -37,6 +37,10 @@ function generateToken(): string {
 
 function isServiceRoleJwt(token: string | null): boolean {
   if (!token) return false;
+  // New Supabase API key format (sb_secret_…) — compare against env directly.
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  if (serviceKey && token === serviceKey) return true;
+  // Legacy JWT format — decode and check role claim.
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return false;
@@ -64,6 +68,7 @@ Deno.serve(async (req) => {
       { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
