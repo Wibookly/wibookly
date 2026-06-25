@@ -55,7 +55,7 @@ type UpcomingMeeting = {
 
 // ---------- PAGE ----------
 export default function MeetingCopilot() {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const navigate = useNavigate();
   const liveSessionAnchorRef = useRef<HTMLDivElement | null>(null);
   const liveRefreshTimerRef = useRef<number | null>(null);
@@ -335,6 +335,7 @@ export default function MeetingCopilot() {
     if (!user) return;
     await supabase.from('meeting_copilot_settings').upsert({
       user_id: user.id,
+      organization_id: organization!.id,
       ...next,
     }, { onConflict: 'user_id' });
   };

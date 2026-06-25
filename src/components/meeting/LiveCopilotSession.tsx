@@ -124,7 +124,7 @@ const SPEAKER_COLORS = ['#22C55E', '#A855F7', '#06B6D4', '#F97316', '#EC4899'];
 const MIC_VISUAL_BARS = 20;
 
 export default function LiveCopilotSession({ meeting, onClose, autoStart = false, durationMinutes, scheduledStartIso, initialAttendees }: Props) {
-  const { user } = useAuth();
+  const { user, organization } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -309,6 +309,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
         .from('meeting_sessions')
         .insert({
           user_id: user.id,
+          organization_id: organization!.id,
           meeting_external_id: meeting.id,
           meeting_title: meeting.title,
           status: 'active',
