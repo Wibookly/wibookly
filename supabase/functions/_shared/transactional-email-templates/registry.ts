@@ -14,6 +14,7 @@ import { template as welcomeTempPassword } from './welcome-temp-password.tsx'
 import { template as welcomeAccessGranted } from './welcome-access-granted.tsx'
 import { template as followUpReminder } from './follow-up-reminder.tsx'
 import { template as integrationAlert } from './integration-alert.tsx'
+import { template as flaggedEmailReport } from './flagged-email-report.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'welcome-sso': welcomeSso,
@@ -21,4 +22,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'welcome-access-granted': welcomeAccessGranted,
   'follow-up-reminder': followUpReminder,
   'integration-alert': integrationAlert,
+  'flagged-email-report': flaggedEmailReport,
 }
