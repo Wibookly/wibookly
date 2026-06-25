@@ -551,6 +551,27 @@ export default function Chat() {
     deviceId: selectedMicId,
   });
 
+  // Detect Mac vs Win/Linux so the dictation shortcut label matches the user's OS.
+  const isMacPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const dictateShortcutLabel = isMacPlatform ? '⌃⇧D' : 'Ctrl+Shift+D';
+
+  // Global hotkey: Ctrl/Cmd + Shift + D toggles voice dictation (mirrors ChatGPT's pattern).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = isMacPlatform ? (e.metaKey || e.ctrlKey) : (e.ctrlKey || e.metaKey);
+      if (mod && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (isTranscribing) return;
+        if (isRecording) stopRecording();
+        else startRecording();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isRecording, isTranscribing, startRecording, stopRecording, isMacPlatform]);
+
+
+
 
 
 
