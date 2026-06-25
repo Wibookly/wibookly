@@ -1124,14 +1124,8 @@ export default function Chat() {
         deep: !deepMode && detected.deep,
         loc: !locationEnabled && detected.loc,
       };
-      // Only flash the auto-badges if the user is still looking at this chat.
+      // Only show the small inline auto badge (above the input). Skip the toast popup.
       if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc) && activeIdRef.current === startingConvId) {
-        const parts = [
-          usedAuto.web ? '🌐 Web' : null,
-          usedAuto.deep ? '🧠 Deep' : null,
-          usedAuto.loc ? '📍 Location' : null,
-        ].filter(Boolean).join(' · ');
-        toast.success(`Auto-enabled: ${parts}`, { duration: 2200 });
         setAutoBadges(usedAuto);
       }
 
