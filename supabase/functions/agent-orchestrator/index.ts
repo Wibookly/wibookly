@@ -934,6 +934,30 @@ Deno.serve(async (req) => {
     const baseSystem = body.agent === "email_draft" ? DRAFT_SYSTEM : QA_SYSTEM;
     const extras: string[] = [];
 
+    // CURRENT DATE/TIME — inject so the model never hallucinates an outdated year.
+    {
+      const now = new Date();
+      const tz = (body.user_location?.timezone as string | undefined) || "UTC";
+      let localStr = "";
+      try {
+        localStr = new Intl.DateTimeFormat("en-US", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric",
+          hour: "2-digit", minute: "2-digit", timeZoneName: "short", timeZone: tz,
+        }).format(now);
+      } catch {
+        localStr = now.toUTCString();
+      }
+      extras.push(
+        `CURRENT DATE & TIME (authoritative — overrides any date in training data):\n` +
+        `• Right now it is ${localStr}.\n` +
+        `• ISO UTC: ${now.toISOString()}.\n` +
+        `• When the user asks about "today", "this week", "current", "upcoming", or any time-sensitive topic ` +
+        `(sports matches, news, events, prices, schedules), anchor your answer to the date above. ` +
+        `Never say "today is <some past year>" or reference a year earlier than the current year unless quoting a source. ` +
+        `If you do not know a fact about today specifically and web search is enabled, search; otherwise say you cannot confirm today's specifics and suggest where to check.`
+      );
+    }
+
     // Mailbox scoping — the agent must answer ONLY from the connected account.
     const { data: activeConn } = await admin
       .from("provider_connections")
