@@ -336,7 +336,30 @@ export default function AIDailyBrief() {
     }
 
 
-    // Priority Tips / Suggestions
+    // Flagged Email Tracker — checklist
+    if (type === 'all' || type === 'todo') {
+      const now = Date.now();
+      const body = flaggedPending.length
+        ? `<ul class="todo">${flaggedPending.map((r: any) => {
+            const due = r.follow_up_at ? new Date(r.follow_up_at) : null;
+            const overdueClass = due && due.getTime() < now ? 'todo-urg' : '';
+            const dueLabel = due ? (due.getTime() < now ? `Overdue ${due.toLocaleDateString()}` : `Due ${due.toLocaleDateString()}`) : '';
+            const recipient = r.recipient_name ? `${r.recipient_name} &lt;${r.recipient_address}&gt;` : (r.recipient_address || '');
+            return `<li>
+              <div class="todo-line">
+                <span class="todo-box">☐</span>
+                <span class="todo-src">🚩 Flagged</span>
+                <strong class="todo-title">${esc(r.subject || '(no subject)')}</strong>
+                ${dueLabel ? `<span class="todo-urg" style="background:${due && due.getTime() < now ? priorityColors.high : priorityColors.medium}">${esc(dueLabel)}</span>` : ''}
+                ${(r.attempts ?? 0) > 0 ? `<span class="todo-min">${esc(r.attempts)}/3 sent</span>` : ''}
+              </div>
+              <div class="todo-meta">To: ${recipient}</div>
+            </li>`;
+          }).join('')}</ul>`
+        : '';
+      pages += buildSection('Flagged Email Tracker', 'Follow-ups', body, 'No flagged emails awaiting follow-up.');
+    }
+
     if (type === 'all') {
       if (brief.suggestions?.length) {
         pages += buildSection(
