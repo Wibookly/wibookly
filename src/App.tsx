@@ -30,6 +30,7 @@ import MeetingLive from "./pages/MeetingLive";
 import ExtensionAuth from "./pages/ExtensionAuth";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
+import FlaggedEmailTracker from "./pages/FlaggedEmailTracker";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 import Chat from "./pages/Chat";
