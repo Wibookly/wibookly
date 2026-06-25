@@ -1770,7 +1770,7 @@ export default function Chat() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'Message InboxIQ...')}
+                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'How can I help you today?')}
                       disabled={isStreaming || limitReached}
                       rows={1}
                       className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
