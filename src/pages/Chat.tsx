@@ -2484,7 +2484,7 @@ function MessageBubble({
       {!isUser && (
         <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
       )}
-      <div className={cn('max-w-[85%] flex flex-col gap-1', isUser ? 'items-end self-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-1', isEditing ? 'w-full max-w-full items-stretch self-stretch' : 'max-w-[85%] items-start')}>
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
@@ -2494,7 +2494,8 @@ function MessageBubble({
         >
           {isUser ? (
             isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[260px]">
+              <div className="flex flex-col gap-2 w-full">
+
                 <textarea
                   ref={editRef}
                   value={draft}
