@@ -372,10 +372,6 @@ function RecipientGroups({
     </div>
   );
 }
-      </div>
-    </div>
-  );
-}
 
 function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'amber' | 'slate' | 'emerald' | 'blue' | 'red' }) {
   const tones: Record<string, string> = {
