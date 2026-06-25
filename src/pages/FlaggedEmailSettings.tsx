@@ -46,6 +46,8 @@ const DEFAULT_TONE: Tone = { style: 'professional', format: 'concise', instructi
 const isToneCustomized = (t: Tone) =>
   t.style !== DEFAULT_TONE.style || t.format !== DEFAULT_TONE.format ||
   (t.instructions || '').trim().length > 0 || (t.example || '').trim().length > 0;
+const styleLabel = (v: string) => WRITING_STYLES.find(s => s.value === v)?.label ?? v;
+const formatLabel = (v: string) => FORMAT_OPTIONS.find(s => s.value === v)?.label ?? v;
 
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
