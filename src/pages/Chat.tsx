@@ -1567,6 +1567,28 @@ export default function Chat() {
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Mail className="h-4 w-4 mr-2" /> Email to me
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-email`}
+                    onClick={() => handleExport(c.id, 'pdf', 'email')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-email`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'email')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
 
             <DropdownMenuSeparator />
             <DropdownMenuItem
