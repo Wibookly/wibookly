@@ -2,14 +2,17 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Loader2, RefreshCw, Flag, Tag as TagIcon, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send } from 'lucide-react';
+import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, FileSpreadsheet, Printer, Mail as MailIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 
+interface HistEntry { attempt: number; drafted_at: string; sent_at: string | null; auto_sent: boolean; }
 interface TrackedEmail {
   id: string;
   recipient_address: string | null;
@@ -24,6 +27,7 @@ interface TrackedEmail {
   last_checked_at: string | null;
   last_error: string | null;
   conversation_id: string | null;
+  follow_up_history: HistEntry[] | null;
 }
 
 const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -31,7 +35,7 @@ const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; va
   replied: { label: 'Replied', icon: CheckCircle2, variant: 'default' },
   drafted: { label: 'Follow-up drafted', icon: FileEdit, variant: 'default' },
   cancelled: { label: 'Cancelled', icon: XCircle, variant: 'outline' },
-  exhausted: { label: 'Missed (2/2 sent)', icon: AlertTriangle, variant: 'destructive' },
+  exhausted: { label: 'Missed (3/3 sent)', icon: AlertTriangle, variant: 'destructive' },
   error: { label: 'Error', icon: AlertTriangle, variant: 'destructive' },
 };
 
@@ -40,11 +44,19 @@ function fmt(d: string | null | undefined) {
   try { return format(new Date(d), 'MMM d, yyyy · h:mm a'); } catch { return '—'; }
 }
 
+function todayStr(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function FlaggedEmailTrackerPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<TrackedEmail[]>([]);
   const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState(false);
+  const [from, setFrom] = useState<string>(todayStr(-30));
+  const [to, setTo] = useState<string>(todayStr(0));
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -52,53 +64,30 @@ export default function FlaggedEmailTrackerPage() {
       .from('tracked_emails' as any)
       .select('*')
       .eq('user_id', user.id)
+      .gte('sent_at', new Date(from).toISOString())
+      .lte('sent_at', new Date(`${to}T23:59:59`).toISOString())
       .order('sent_at', { ascending: false })
-      .limit(200);
-    if (error) {
-      console.error('[tracked_emails]', error);
-      toast.error('Could not load tracked emails');
-    } else {
-      setRows((data as any) || []);
-    }
+      .limit(500);
+    if (error) { toast.error('Could not load tracked emails'); }
+    else { setRows((data as any) || []); }
     setLoading(false);
-  }, [user]);
+  }, [user, from, to]);
 
-  // Auto-pull current data every time page opens, then refresh every 60s
-  useEffect(() => {
-    setLoading(true);
-    load();
-    const interval = setInterval(() => { load(); }, 60_000);
-    return () => clearInterval(interval);
-  }, [load]);
-
-  // Auto-trigger Outlook scan on open so numbers are current
+  // Pull current data + trigger live scan on every open, then refresh every 60s
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     (async () => {
-      try {
-        await supabase.functions.invoke('flag-tracker-ingest', { body: {} });
-        await load();
-      } catch (e) {
-        // silent — manual scan button is always available
-        console.warn('[auto-scan]', e);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  const runScan = async () => {
-    setScanning(true);
-    try {
-      const { error } = await supabase.functions.invoke('flag-tracker-ingest', { body: {} });
-      if (error) throw error;
-      toast.success('Scanned Outlook for flagged sent emails');
+      try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || 'Scan failed');
-    } finally {
-      setScanning(false);
-    }
-  };
+    })();
+    const interval = setInterval(async () => {
+      try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
+      await load();
+    }, 60_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, from, to]);
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -106,24 +95,91 @@ export default function FlaggedEmailTrackerPage() {
     const pending = rows.filter(r => r.status === 'pending').length;
     const replied = rows.filter(r => r.status === 'replied').length;
     const drafted = rows.filter(r => r.status === 'drafted').length;
-    const missed = rows.filter(r => r.status === 'exhausted' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now)).length;
+    const missed = rows.filter(r => r.status === 'exhausted' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now && (r.attempts || 0) >= 3)).length;
     const followUpsSent = rows.reduce((sum, r) => sum + (r.attempts || 0), 0);
     return { total, pending, replied, drafted, missed, followUpsSent };
   }, [rows]);
 
+  const exportCsv = () => {
+    const headers = ['Subject', 'Recipient Name', 'Recipient Email', 'Sent', 'Flag Due', 'Follow-up Due', 'Follow-ups Sent', 'Last AI Send', 'Status'];
+    const lines = [headers.join(',')];
+    for (const r of rows) {
+      const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+      const lastSent = hist.filter(h => h.sent_at).map(h => h.sent_at).pop() || '';
+      const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+      const cells = [
+        r.subject || '', r.recipient_name || '', r.recipient_address || '',
+        r.sent_at, flagDue, r.follow_up_at,
+        `${r.attempts || 0}/3`, lastSent, r.status,
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`);
+      lines.push(cells.join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `flagged-email-report_${from}_to_${to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported CSV (opens in Excel)');
+  };
+
+  const printPdf = () => window.print();
+
+  const emailReport = async () => {
+    if (!user) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.functions.invoke('flag-report-email', {
+        body: { from, to, range_label: `${from} → ${to}` },
+      });
+      if (error) throw error;
+      toast.success(`Report sent to ${user.email}`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to email report');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="page-shell">
-      <div className="page-shell-sticky">
+      <div className="page-shell-sticky print:hidden">
         <PageHero
           eyebrow="Reports"
           title="Flagged Email Reports"
-          description="Live view of every email you've flagged in Outlook — sent date, due date, reply status, and how many polite follow-ups InboxIQ has drafted for you."
+          description="Live view of every email you've flagged in Outlook — pulls fresh data from Microsoft 365 on every open and every minute."
           accent="green"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
       </div>
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
+        {/* Date range + export controls */}
+        <Card className="print:hidden">
+          <CardContent className="p-4 flex flex-wrap items-end gap-3">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-44" />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-44" />
+            </div>
+            <div className="flex gap-2 ml-auto flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-7)); setTo(todayStr(0)); }}>Last 7 days</Button>
+              <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-30)); setTo(todayStr(0)); }}>Last 30 days</Button>
+              <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-90)); setTo(todayStr(0)); }}>Last 90 days</Button>
+              <Button variant="outline" size="sm" onClick={exportCsv}><FileSpreadsheet className="w-4 h-4 mr-1.5" />Excel</Button>
+              <Button variant="outline" size="sm" onClick={printPdf}><Printer className="w-4 h-4 mr-1.5" />PDF / Print</Button>
+              <Button size="sm" onClick={emailReport} disabled={sending}>
+                {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <MailIcon className="w-4 h-4 mr-1.5" />}
+                Email to me
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Live stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <StatCard label="Flagged" value={stats.total} icon={Flag} tone="amber" />
@@ -135,38 +191,17 @@ export default function FlaggedEmailTrackerPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">How to track an email</CardTitle>
-            <CardDescription>Two zero-config gestures — both are private to your mailbox; recipients never see them.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 font-medium mb-1"><Flag className="w-4 h-4 text-amber-500" /> Flag + due date (preferred)</div>
-              <p className="text-muted-foreground">In Outlook, flag the email you just sent and pick a due date. We'll draft a follow-up on that date if no reply comes.</p>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 font-medium mb-1"><TagIcon className="w-4 h-4 text-emerald-500" /> Category fallback</div>
-              <p className="text-muted-foreground">Apply a category named <code className="px-1 rounded bg-muted">FollowUp</code> or <code className="px-1 rounded bg-muted">FollowUp 5d</code> (1–999 days). Default 3 days for a bare <code className="px-1 rounded bg-muted">FollowUp</code>.</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Tracked emails</CardTitle>
-              <CardDescription>Live view — auto-refreshes every minute. Up to 2 polite follow-up drafts per tracked email, always left as drafts for you to review.</CardDescription>
+              <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as missed.</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={runScan} disabled={scanning}>
-              {scanning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              Scan Outlook now
-            </Button>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
             ) : rows.length === 0 ? (
               <div className="text-center py-12 text-sm text-muted-foreground">
-                No tracked emails yet. Flag a sent message in Outlook with a due date, then click "Scan Outlook now".
+                No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -178,7 +213,7 @@ export default function FlaggedEmailTrackerPage() {
                       <TableHead>Sent</TableHead>
                       <TableHead>Flag / Due</TableHead>
                       <TableHead>Follow-up due</TableHead>
-                      <TableHead className="text-center">Follow-ups sent</TableHead>
+                      <TableHead className="text-center">Follow-ups (max 3)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -188,22 +223,22 @@ export default function FlaggedEmailTrackerPage() {
                       const Icon = meta.icon;
                       const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
                       const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
+                      const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
                       return (
                         <TableRow key={r.id}>
-                          <TableCell className="max-w-xs">
-                            <div className="font-medium truncate" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
+                          <TableCell className="max-w-sm">
+                            <div className="font-medium" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              {r.trigger_type === 'flag'
-                                ? <><Flag className="w-3 h-3 text-amber-500" /> Flag trigger</>
-                                : <><TagIcon className="w-3 h-3 text-emerald-500" /> Category trigger</>}
+                              <Flag className="w-3 h-3 text-amber-500" /> Flag trigger
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <span className="truncate max-w-[200px]" title={r.recipient_address || ''}>
-                                {r.recipient_name ? `${r.recipient_name} <${r.recipient_address}>` : r.recipient_address || '—'}
-                              </span>
+                            <div className="flex items-start gap-1.5 text-sm">
+                              <Mail className="w-3 h-3 text-muted-foreground shrink-0 mt-1" />
+                              <div className="break-words">
+                                {r.recipient_name && <div className="font-medium">{r.recipient_name}</div>}
+                                <div className="text-xs text-muted-foreground break-all">{r.recipient_address || '—'}</div>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
@@ -214,7 +249,19 @@ export default function FlaggedEmailTrackerPage() {
                               {formatDistanceToNow(new Date(r.follow_up_at), { addSuffix: true })}
                             </div>
                           </TableCell>
-                          <TableCell className="text-center font-medium">{r.attempts}/2</TableCell>
+                          <TableCell className="text-center">
+                            <div className="font-medium">{r.attempts || 0}/3</div>
+                            {hist.length > 0 && (
+                              <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                                {hist.map((h, i) => (
+                                  <div key={i} title={h.sent_at ? `Sent by AI` : 'Drafted'}>
+                                    #{h.attempt}: {format(new Date(h.sent_at || h.drafted_at), 'MMM d, h:mm a')}
+                                    {h.sent_at ? ' ✓' : ' (draft)'}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={meta.variant} className="gap-1">
                               <Icon className="w-3 h-3" /> {meta.label}
