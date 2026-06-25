@@ -51,16 +51,16 @@ export default function FlaggedEmailSettings() {
     if (!user?.id) return;
     (async () => {
       const { data } = await supabase
-        .from('agent_settings' as any)
-        .select('metadata')
+        .from('follow_up_settings' as any)
+        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings')
         .eq('user_id', user.id)
         .maybeSingle();
-      const m = (data as any)?.metadata?.flag_tracker || {};
+      const row: any = data || {};
       setPrefs({
-        enabled: m.enabled ?? true,
-        autoReply: !!m.autoReply,
-        autoSend: !!m.autoSend,
-        tone: { ...DEFAULTS.tone, ...(m.tone || {}) },
+        enabled: row.is_enabled ?? true,
+        autoReply: !!row.auto_draft_enabled,
+        autoSend: !!row.auto_reply_enabled,
+        tone: { ...DEFAULTS.tone, ...(row.tone_settings || {}) },
       });
       setLoading(false);
     })();
@@ -69,16 +69,23 @@ export default function FlaggedEmailSettings() {
   const persist = async (next: Prefs) => {
     if (!user?.id) return;
     setSaving(true);
+    const payload: any = {
+      user_id: user.id,
+      is_enabled: next.enabled,
+      auto_draft_enabled: next.autoReply,
+      auto_reply_enabled: next.autoSend,
+      tone_settings: next.tone,
+      reminder_max_count: 3,
+    };
     const { data: existing } = await supabase
-      .from('agent_settings' as any)
-      .select('id, metadata')
+      .from('follow_up_settings' as any)
+      .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
-    const meta = { ...((existing as any)?.metadata || {}), flag_tracker: next };
     if (existing) {
-      await supabase.from('agent_settings' as any).update({ metadata: meta }).eq('user_id', user.id);
+      await supabase.from('follow_up_settings' as any).update(payload).eq('user_id', user.id);
     } else {
-      await supabase.from('agent_settings' as any).insert({ user_id: user.id, metadata: meta });
+      await supabase.from('follow_up_settings' as any).insert(payload);
     }
     setSaving(false);
   };
