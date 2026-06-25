@@ -568,7 +568,20 @@ export default function AIDailyBrief() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-24 w-full" />
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-primary/5">
+            <CardContent className="py-10 flex flex-col items-center justify-center gap-3 text-center">
+              <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+              <div>
+                <p className="font-semibold text-base">Loading your daily brief…</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Pulling latest emails, calendar, and AI analysis from Microsoft 365. This usually takes 5–15 seconds.
+                </p>
+              </div>
+              <div className="w-full max-w-md mt-2 h-1 rounded-full bg-muted overflow-hidden">
+                <div className="h-full w-1/3 bg-primary animate-pulse rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Skeleton className="h-[400px] lg:col-span-2" />
             <Skeleton className="h-[400px]" />
@@ -658,7 +671,10 @@ export default function AIDailyBrief() {
             <CalendarPanel connectionId={activeConnection.id} />
           )}
 
-          {/* SECTION 5 — No Reply Tracker (slim if empty) */}
+          {/* SECTION 5 — Flagged Email Tracker summary */}
+          <FlaggedEmailSummarySection />
+
+          {/* SECTION 5b — No Reply Tracker (slim if empty) */}
           <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
           {/* Optional summary line */}
@@ -1011,4 +1027,112 @@ function PendingFromYesterdaySection({ connectionId }: { connectionId?: string }
     </Card>
   );
 }
+
+// Summary card for the Flagged Email Tracker shown inside the Daily Brief.
+function FlaggedEmailSummarySection() {
+  const { user } = useAuth();
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ['daily-brief-flagged-emails', user?.id],
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 60);
+      const { data, error } = await supabase
+        .from('tracked_emails' as any)
+        .select('id, recipient_address, recipient_name, subject, status, follow_up_at, attempts, sent_at')
+        .eq('user_id', user!.id)
+        .gte('sent_at', since.toISOString())
+        .order('follow_up_at', { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  if (isLoading) return null;
+  const list = rows || [];
+  const now = Date.now();
+  const pending = list.filter((r) => r.status === 'pending');
+  const overdue = pending.filter((r) => r.follow_up_at && new Date(r.follow_up_at).getTime() < now);
+  const drafted = list.filter((r) => r.status === 'drafted').length;
+  const missed = list.filter((r) => r.status === 'exhausted').length;
+
+  if (list.length === 0) {
+    return (
+      <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2 rounded-md border bg-muted/30 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 min-w-0">
+          <BellRing className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+          <span className="truncate">
+            <span className="font-medium text-foreground">Flagged Email Tracker:</span>{' '}
+            No flagged emails yet. Flag a sent email in Outlook with a due date to track follow-ups.
+          </span>
+        </div>
+        <Link to="/flagged-email-reports" className="text-primary hover:underline inline-flex items-center gap-1 flex-shrink-0">
+          Open report <ExternalLink className="w-3 h-3" />
+        </Link>
+      </div>
+    );
+  }
+
+  // Top recipients needing follow-up
+  const byRecipient = new Map<string, { name: string; email: string; count: number; overdue: number }>();
+  for (const r of pending) {
+    const email = r.recipient_address || 'unknown';
+    const key = email.toLowerCase();
+    const cur = byRecipient.get(key) || { name: r.recipient_name || '', email, count: 0, overdue: 0 };
+    cur.count += 1;
+    if (r.follow_up_at && new Date(r.follow_up_at).getTime() < now) cur.overdue += 1;
+    byRecipient.set(key, cur);
+  }
+  const topRecipients = Array.from(byRecipient.values()).sort((a, b) => b.count - a.count).slice(0, 5);
+
+  return (
+    <Card className="mb-6 border-amber-500/30">
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-md bg-amber-500/10 text-amber-600 mt-0.5">
+            <BellRing className="w-4 h-4" />
+          </div>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              Flagged Email Tracker
+              <Badge variant="secondary" className="text-xs">{pending.length} pending</Badge>
+              {overdue.length > 0 && <Badge variant="destructive" className="text-xs">{overdue.length} overdue</Badge>}
+              {drafted > 0 && <Badge variant="outline" className="text-xs">{drafted} drafted</Badge>}
+              {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} missed</Badge>}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Outlook-flagged emails grouped by recipient. AI will draft follow-ups when due dates pass.
+            </p>
+          </div>
+        </div>
+        <Link to="/flagged-email-reports" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+          Full report <ExternalLink className="w-3 h-3" />
+        </Link>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {topRecipients.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No pending follow-ups — all flagged emails have been replied to.</p>
+        ) : (
+          <div className="space-y-2">
+            {topRecipients.map((r) => (
+              <div key={r.email} className="flex items-center justify-between gap-3 p-2.5 rounded-md border bg-card hover:bg-secondary/30 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{r.name || r.email}</p>
+                  {r.name && <p className="text-xs text-muted-foreground truncate">{r.email}</p>}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge variant="secondary" className="text-xs">{r.count} email{r.count === 1 ? '' : 's'}</Badge>
+                  {r.overdue > 0 && <Badge variant="destructive" className="text-xs">{r.overdue} overdue</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 

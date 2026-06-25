@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, FileSpreadsheet, Printer, Mail as MailIcon } from 'lucide-react';
+import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, FileSpreadsheet, Printer, Mail as MailIcon, ChevronDown, ChevronRight, Users, List } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
+
 
 interface HistEntry { attempt: number; drafted_at: string; sent_at: string | null; auto_sent: boolean; }
 interface TrackedEmail {
@@ -57,6 +58,8 @@ export default function FlaggedEmailTrackerPage() {
   const [from, setFrom] = useState<string>(todayStr(-30));
   const [to, setTo] = useState<string>(todayStr(0));
   const [sending, setSending] = useState(false);
+  const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -190,10 +193,18 @@ export default function FlaggedEmailTrackerPage() {
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">Tracked emails</CardTitle>
               <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as missed.</CardDescription>
+            </div>
+            <div className="flex gap-1 print:hidden">
+              <Button variant={groupBy === 'recipient' ? 'default' : 'outline'} size="sm" onClick={() => setGroupBy('recipient')}>
+                <Users className="w-4 h-4 mr-1.5" /> Group by recipient
+              </Button>
+              <Button variant={groupBy === 'none' ? 'default' : 'outline'} size="sm" onClick={() => setGroupBy('none')}>
+                <List className="w-4 h-4 mr-1.5" /> Flat list
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -203,6 +214,8 @@ export default function FlaggedEmailTrackerPage() {
               <div className="text-center py-12 text-sm text-muted-foreground">
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
+            ) : groupBy === 'recipient' ? (
+              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -218,58 +231,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => {
-                      const meta = STATUS_META[r.status];
-                      const Icon = meta.icon;
-                      const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
-                      const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
-                      const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-                      return (
-                        <TableRow key={r.id}>
-                          <TableCell className="max-w-sm">
-                            <div className="font-medium" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Flag className="w-3 h-3 text-amber-500" /> Flag trigger
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-start gap-1.5 text-sm">
-                              <Mail className="w-3 h-3 text-muted-foreground shrink-0 mt-1" />
-                              <div className="break-words">
-                                {r.recipient_name && <div className="font-medium">{r.recipient_name}</div>}
-                                <div className="text-xs text-muted-foreground break-all">{r.recipient_address || '—'}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">{flagDue ? fmt(flagDue) : '—'}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
-                            <div>{fmt(r.follow_up_at)}</div>
-                            <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                              {formatDistanceToNow(new Date(r.follow_up_at), { addSuffix: true })}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="font-medium">{r.attempts || 0}/3</div>
-                            {hist.length > 0 && (
-                              <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-                                {hist.map((h, i) => (
-                                  <div key={i} title={h.sent_at ? `Sent by AI` : 'Drafted'}>
-                                    #{h.attempt}: {format(new Date(h.sent_at || h.drafted_at), 'MMM d, h:mm a')}
-                                    {h.sent_at ? ' ✓' : ' (draft)'}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={meta.variant} className="gap-1">
-                              <Icon className="w-3 h-3" /> {meta.label}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {rows.map((r) => <EmailRow key={r.id} r={r} />)}
                   </TableBody>
                 </Table>
               </div>
@@ -277,6 +239,136 @@ export default function FlaggedEmailTrackerPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function EmailRow({ r }: { r: TrackedEmail }) {
+  const meta = STATUS_META[r.status];
+  const Icon = meta.icon;
+  const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
+  const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
+  const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  return (
+    <TableRow>
+      <TableCell className="max-w-sm">
+        <div className="font-medium" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+          <Flag className="w-3 h-3 text-amber-500" /> Flag trigger
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-start gap-1.5 text-sm">
+          <Mail className="w-3 h-3 text-muted-foreground shrink-0 mt-1" />
+          <div className="break-words">
+            {r.recipient_name && <div className="font-medium">{r.recipient_name}</div>}
+            <div className="text-xs text-muted-foreground break-all">{r.recipient_address || '—'}</div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
+      <TableCell className="text-xs whitespace-nowrap">{flagDue ? fmt(flagDue) : '—'}</TableCell>
+      <TableCell className="text-xs whitespace-nowrap">
+        <div>{fmt(r.follow_up_at)}</div>
+        <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+          {formatDistanceToNow(new Date(r.follow_up_at), { addSuffix: true })}
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
+        <div className="font-medium">{r.attempts || 0}/3</div>
+        {hist.length > 0 && (
+          <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+            {hist.map((h, i) => (
+              <div key={i} title={h.sent_at ? `Sent by AI` : 'Drafted'}>
+                #{h.attempt}: {format(new Date(h.sent_at || h.drafted_at), 'MMM d, h:mm a')}
+                {h.sent_at ? ' ✓' : ' (draft)'}
+              </div>
+            ))}
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <Badge variant={meta.variant} className="gap-1">
+          <Icon className="w-3 h-3" /> {meta.label}
+        </Badge>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function RecipientGroups({
+  rows,
+  expanded,
+  setExpanded,
+}: {
+  rows: TrackedEmail[];
+  expanded: Record<string, boolean>;
+  setExpanded: (e: Record<string, boolean>) => void;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; email: string; items: TrackedEmail[] }>();
+    for (const r of rows) {
+      const email = (r.recipient_address || 'unknown').toLowerCase();
+      const cur = map.get(email) || { key: email, name: r.recipient_name || '', email: r.recipient_address || 'unknown', items: [] };
+      cur.items.push(r);
+      if (!cur.name && r.recipient_name) cur.name = r.recipient_name;
+      map.set(email, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length);
+  }, [rows]);
+
+  const toggle = (key: string) => setExpanded({ ...expanded, [key]: !expanded[key] });
+
+  return (
+    <div className="space-y-2">
+      {groups.map((g) => {
+        const open = expanded[g.key] ?? groups.length <= 3;
+        const pending = g.items.filter((r) => r.status === 'pending').length;
+        const replied = g.items.filter((r) => r.status === 'replied').length;
+        const missed = g.items.filter((r) => r.status === 'exhausted').length;
+        return (
+          <div key={g.key} className="rounded-lg border bg-card">
+            <button
+              type="button"
+              onClick={() => toggle(g.key)}
+              className="w-full flex items-center gap-3 p-3 hover:bg-secondary/30 transition-colors text-left"
+            >
+              {open ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{g.name || g.email}</div>
+                {g.name && <div className="text-xs text-muted-foreground truncate">{g.email}</div>}
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Badge variant="secondary" className="text-xs">{g.items.length} email{g.items.length === 1 ? '' : 's'}</Badge>
+                {pending > 0 && <Badge variant="outline" className="text-xs">{pending} pending</Badge>}
+                {replied > 0 && <Badge className="text-xs bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30">{replied} replied</Badge>}
+                {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} missed</Badge>}
+              </div>
+            </button>
+            {open && (
+              <div className="border-t overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead>Sent</TableHead>
+                      <TableHead>Flag / Due</TableHead>
+                      <TableHead>Follow-up due</TableHead>
+                      <TableHead className="text-center">Follow-ups (max 3)</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {g.items.map((r) => <EmailRow key={r.id} r={r} />)}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
