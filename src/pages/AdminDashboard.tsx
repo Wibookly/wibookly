@@ -672,7 +672,9 @@ export default function AdminDashboard() {
             adminInvoke={adminInvoke}
             organizationId={profile?.organization_id ?? null}
           />
+          <ConnectionHealthPanel />
         </TabsContent>
+
 
         <TabsContent value="alerts" className="space-y-6">
           <AlertNotificationsPanel />
