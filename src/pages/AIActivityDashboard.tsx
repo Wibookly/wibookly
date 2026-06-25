@@ -238,8 +238,8 @@ export default function AIActivityDashboard() {
       <div className="page-shell-sticky">
         <PageHero
           eyebrow="Reports"
-          title="AI Intelligence Report"
-          description="Your AI activity — drafts, auto-replies, scheduled events, chats, and meetings. Filter by date range, export, or print. The Flagged Email Tracker now lives in its own report under AI Activity."
+          title="AI Activity Report"
+          description="Your AI activity — drafts, auto-replies, scheduled events, chats, and meetings. Filter by date range, export, or print."
           accent="green"
           icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
         />

@@ -177,7 +177,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                 Email & Calendar Connections
               </MobileNavItem>
 
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence') || hasFeature('feature.follow_up_reminder')) && (
                 <>
                   <SectionLabel title="AI Intelligence" accent={accents.purple} />
                   {(isSuperAdmin || hasFeature('ai_chat')) && (
@@ -185,6 +185,12 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                   )}
                   {(isSuperAdmin || hasFeature('email_intelligence')) && (
                     <MobileNavItem href="/categories" icon={Tag} accent={accents.purple} onClick={handleNavClick}>Email Intelligence</MobileNavItem>
+                  )}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && (
+                    <MobileNavItem href="/flagged-email-settings" icon={BellRing} accent={accents.purple} onClick={handleNavClick}>Flagged Email Tracker</MobileNavItem>
+                  )}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && (
+                    <MobileNavItem href="/ai-daily-brief" icon={Sun} accent={accents.purple} onClick={handleNavClick}>My Daily Brief</MobileNavItem>
                   )}
                 </>
               )}
@@ -198,17 +204,14 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                 </>
               )}
 
-              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
                 <>
                   <SectionLabel title="AI Activity" accent={accents.green} />
                   {(isSuperAdmin || hasFeature('reports')) && (
-                    <MobileNavItem href="/ai-activity" icon={BarChart3} accent={accents.green} onClick={handleNavClick}>AI Activity</MobileNavItem>
+                    <MobileNavItem href="/ai-activity" icon={BarChart3} accent={accents.green} onClick={handleNavClick}>AI Activity Report</MobileNavItem>
                   )}
                   {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && (
-                    <MobileNavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green} onClick={handleNavClick}>Flagged Email Tracker</MobileNavItem>
-                  )}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && (
-                    <MobileNavItem href="/ai-daily-brief" icon={Sun} accent={accents.green} onClick={handleNavClick}>My Daily Brief</MobileNavItem>
+                    <MobileNavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green} onClick={handleNavClick}>Flagged Email Reports</MobileNavItem>
                   )}
                 </>
               )}

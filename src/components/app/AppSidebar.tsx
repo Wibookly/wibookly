@@ -246,10 +246,12 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" icon={BellRing} accent={accents.purple}>Flagged Email Tracker</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.purple}>My Daily Brief</NavItem>}
                 </NavSection>
               )}
 
@@ -264,12 +266,11 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
                 )}
               </NavSection>
 
-              {/* AI Activity (formerly Reports) */}
-              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder')) && (
+              {/* AI Activity Report */}
+              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green}>Flagged Email Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.green}>My Daily Brief</NavItem>}
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity Report</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green}>Flagged Email Reports</NavItem>}
                 </NavSection>
               )}
 
