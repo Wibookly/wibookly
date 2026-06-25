@@ -116,8 +116,8 @@ export default function FlaggedEmailTrackerPage() {
       <div className="page-shell-sticky">
         <PageHero
           eyebrow="Reports"
-          title="Flagged Email Tracker"
-          description="Flag a sent email in Outlook and set a due date. If no reply arrives, InboxIQ drafts a polite follow-up in the same thread — up to 2 attempts, never auto-sent."
+          title="Flagged Email Reports"
+          description="Live view of every email you've flagged in Outlook — sent date, due date, reply status, and how many polite follow-ups InboxIQ has drafted for you."
           accent="green"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />

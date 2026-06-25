@@ -31,6 +31,7 @@ import ExtensionAuth from "./pages/ExtensionAuth";
 
 import FollowUpReminder from "./pages/FollowUpReminder";
 import FlaggedEmailTracker from "./pages/FlaggedEmailTracker";
+import FlaggedEmailSettings from "./pages/FlaggedEmailSettings";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 import Chat from "./pages/Chat";
@@ -98,6 +99,11 @@ const App = () => (
                   <Route path="/flagged-email-tracker" element={
                     <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
                       <FlaggedEmailTracker />
+                    </FeatureRoute>
+                  } />
+                  <Route path="/flagged-email-settings" element={
+                    <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
+                      <FlaggedEmailSettings />
                     </FeatureRoute>
                   } />
                   <Route path="/meeting-copilot" element={
