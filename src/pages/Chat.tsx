@@ -1124,14 +1124,8 @@ export default function Chat() {
         deep: !deepMode && detected.deep,
         loc: !locationEnabled && detected.loc,
       };
-      // Only flash the auto-badges if the user is still looking at this chat.
+      // Only show the small inline auto badge (above the input). Skip the toast popup.
       if (autoMode && (usedAuto.web || usedAuto.deep || usedAuto.loc) && activeIdRef.current === startingConvId) {
-        const parts = [
-          usedAuto.web ? '🌐 Web' : null,
-          usedAuto.deep ? '🧠 Deep' : null,
-          usedAuto.loc ? '📍 Location' : null,
-        ].filter(Boolean).join(' · ');
-        toast.success(`Auto-enabled: ${parts}`, { duration: 2200 });
         setAutoBadges(usedAuto);
       }
 
@@ -1776,7 +1770,7 @@ export default function Chat() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'Message InboxIQ...')}
+                      placeholder={limitReached ? 'Daily limit reached' : (emailWizard ? `Type the ${emailWizard.step}…` : 'How can I help you today?')}
                       disabled={isStreaming || limitReached}
                       rows={1}
                       className="w-full resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent min-h-0 py-2"
@@ -2490,7 +2484,7 @@ function MessageBubble({
       {!isUser && (
         <AgentAvatar active={!!streaming} className="h-9 w-9 shrink-0" />
       )}
-      <div className={cn('max-w-[85%] flex flex-col gap-1', isUser ? 'items-end self-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-1', isEditing ? 'w-full max-w-full items-stretch self-stretch' : 'max-w-[85%] items-start')}>
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
@@ -2500,7 +2494,8 @@ function MessageBubble({
         >
           {isUser ? (
             isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[260px]">
+              <div className="flex flex-col gap-2 w-full">
+
                 <textarea
                   ref={editRef}
                   value={draft}
@@ -2520,7 +2515,7 @@ function MessageBubble({
                     }
                   }}
                   className="w-full resize-none bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/60 rounded-lg px-3 py-2 text-[15px] leading-relaxed outline-none ring-1 ring-primary-foreground/30 focus:ring-2 focus:ring-primary-foreground/60"
-                  rows={2}
+                  rows={4}
                 />
                 <div className="flex items-center justify-end gap-2">
                   <button
