@@ -159,6 +159,7 @@ export default function AIChat() {
       .from('ai_chat_messages')
       .insert({
         conversation_id: conversationId,
+        organization_id: organization!.id,
         role,
         content,
       });
