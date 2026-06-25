@@ -7,6 +7,7 @@ import {
   generatePdf,
   generateXlsx,
 } from '../_shared/document-generators.ts';
+import { getValidAccessToken } from '../_shared/oauth-tokens.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
