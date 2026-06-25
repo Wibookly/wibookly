@@ -39,6 +39,8 @@ import { PageHero } from '@/components/app/PageHero';
 import { MicrosoftStatusPanel } from '@/components/integrations/MicrosoftStatusPanel';
 import IntegrationsTab from '@/components/admin/integrations/IntegrationsTab';
 import AlertNotificationsPanel from '@/components/admin/AlertNotificationsPanel';
+import { ConnectionHealthPanel } from '@/components/follow-up/ConnectionHealthPanel';
+
 
 const FEATURE_KEYS = [
   { key: 'ai_draft', label: 'AI Draft', description: 'AI-powered email draft generation' },
@@ -672,7 +674,9 @@ export default function AdminDashboard() {
             adminInvoke={adminInvoke}
             organizationId={profile?.organization_id ?? null}
           />
+          <ConnectionHealthPanel />
         </TabsContent>
+
 
         <TabsContent value="alerts" className="space-y-6">
           <AlertNotificationsPanel />
