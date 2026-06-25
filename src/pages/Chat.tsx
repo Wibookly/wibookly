@@ -2515,7 +2515,7 @@ function MessageBubble({
                     }
                   }}
                   className="w-full resize-none bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/60 rounded-lg px-3 py-2 text-[15px] leading-relaxed outline-none ring-1 ring-primary-foreground/30 focus:ring-2 focus:ring-primary-foreground/60"
-                  rows={2}
+                  rows={4}
                 />
                 <div className="flex items-center justify-end gap-2">
                   <button
