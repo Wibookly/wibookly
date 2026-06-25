@@ -42,27 +42,38 @@ const FORMAT_OPTIONS = [
   { value: 'highlights', label: 'Key Highlights Only' },
 ];
 
+const DEFAULT_TONE: Tone = { style: 'professional', format: 'concise', instructions: '', example: '' };
+const isToneCustomized = (t: Tone) =>
+  t.style !== DEFAULT_TONE.style || t.format !== DEFAULT_TONE.format ||
+  (t.instructions || '').trim().length > 0 || (t.example || '').trim().length > 0;
+
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toneEditing, setToneEditing] = useState(false);
+  const [toneSavedAt, setToneSavedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
       const { data } = await supabase
         .from('follow_up_settings' as any)
-        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings')
+        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at')
         .eq('user_id', user.id)
         .maybeSingle();
       const row: any = data || {};
+      const tone = { ...DEFAULT_TONE, ...(row.tone_settings || {}) };
       setPrefs({
         enabled: row.is_enabled ?? true,
         autoReply: !!row.auto_draft_enabled,
         autoSend: !!row.auto_reply_enabled,
-        tone: { ...DEFAULTS.tone, ...(row.tone_settings || {}) },
+        tone,
       });
+      const customized = isToneCustomized(tone);
+      setToneEditing(!customized);
+      if (customized && row.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
   }, [user?.id]);
@@ -105,8 +116,22 @@ export default function FlaggedEmailSettings() {
 
   const saveTone = async () => {
     await persist(prefs);
-    toast.success('AI tone saved');
+    setToneSavedAt(new Date());
+    setToneEditing(false);
+    toast.success('AI tone saved', {
+      description: `${styleLabel(prefs.tone.style)} · ${formatLabel(prefs.tone.format)}`,
+    });
   };
+
+  const deleteTone = async () => {
+    const next = { ...prefs, tone: { ...DEFAULT_TONE } };
+    setPrefs(next);
+    await persist(next);
+    setToneSavedAt(null);
+    setToneEditing(true);
+    toast.success('AI tone reset to defaults');
+  };
+
 
   return (
     <div className="page-shell">
