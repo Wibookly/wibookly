@@ -1859,6 +1859,36 @@ export type Database = {
         }
         Relationships: []
       }
+      graph_health: {
+        Row: {
+          checked_at: string
+          connection_id: string | null
+          detail: Json | null
+          id: string
+          probe: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          connection_id?: string | null
+          detail?: Json | null
+          id?: string
+          probe: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          connection_id?: string | null
+          detail?: Json | null
+          id?: string
+          probe?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_cost_caps: {
         Row: {
           group_id: string
@@ -3395,6 +3425,78 @@ export type Database = {
           organization_id?: string | null
           status?: string
           tool?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tracked_emails: {
+        Row: {
+          attempts: number
+          body_preview: string | null
+          connection_id: string | null
+          conversation_id: string | null
+          created_at: string
+          follow_up_at: string
+          graph_message_id: string
+          id: string
+          internet_message_id: string
+          last_checked_at: string | null
+          last_draft_id: string | null
+          last_error: string | null
+          recipient_address: string | null
+          recipient_name: string | null
+          sent_at: string
+          status: string
+          subject: string | null
+          trigger_detail: Json | null
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          body_preview?: string | null
+          connection_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          follow_up_at: string
+          graph_message_id: string
+          id?: string
+          internet_message_id: string
+          last_checked_at?: string | null
+          last_draft_id?: string | null
+          last_error?: string | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          sent_at: string
+          status?: string
+          subject?: string | null
+          trigger_detail?: Json | null
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          body_preview?: string | null
+          connection_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          follow_up_at?: string
+          graph_message_id?: string
+          id?: string
+          internet_message_id?: string
+          last_checked_at?: string | null
+          last_draft_id?: string | null
+          last_error?: string | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          trigger_detail?: Json | null
+          trigger_type?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
