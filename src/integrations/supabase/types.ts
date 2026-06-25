@@ -1713,6 +1713,7 @@ export type Database = {
           skip_if_replied: boolean
           stop_aliases: string[]
           timezone: string | null
+          tone_settings: Json
           updated_at: string
           user_id: string
         }
@@ -1737,6 +1738,7 @@ export type Database = {
           skip_if_replied?: boolean
           stop_aliases?: string[]
           timezone?: string | null
+          tone_settings?: Json
           updated_at?: string
           user_id: string
         }
@@ -1761,6 +1763,7 @@ export type Database = {
           skip_if_replied?: boolean
           stop_aliases?: string[]
           timezone?: string | null
+          tone_settings?: Json
           updated_at?: string
           user_id?: string
         }
@@ -4237,6 +4240,7 @@ export type Database = {
           skip_if_replied: boolean
           stop_aliases: string[]
           timezone: string | null
+          tone_settings: Json
           updated_at: string
           user_id: string
         }
