@@ -189,65 +189,120 @@ export default function FlaggedEmailSettings() {
           </CardContent>
         </Card>
 
-        {/* AI Tone */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Wand2 className="w-4 h-4 text-purple-500" /> AI tone for auto-replies</CardTitle>
-            <CardDescription>Control exactly how the AI writes your follow-up emails — same controls as your category tones.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {loading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
-            ) : (
-              <>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm">Writing style</Label>
-                    <Select value={prefs.tone.style} onValueChange={(v) => updateTone({ style: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {WRITING_STYLES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+        {/* AI Tone — only relevant when tracker + auto-reply are on */}
+        {prefs.enabled && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2"><Wand2 className="w-4 h-4 text-purple-500" /> AI tone for auto-replies</CardTitle>
+                  <CardDescription>Control exactly how the AI writes your follow-up emails — same controls as your category tones.</CardDescription>
+                </div>
+                {toneSavedAt && !toneEditing && (
+                  <Badge variant="secondary" className="gap-1 shrink-0">
+                    <Check className="w-3 h-3 text-emerald-500" /> Saved
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+              ) : !toneEditing ? (
+                <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
+                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Writing style</div>
+                      <div className="font-medium">{styleLabel(prefs.tone.style)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Format</div>
+                      <div className="font-medium">{formatLabel(prefs.tone.format)}</div>
+                    </div>
+                  </div>
+                  {prefs.tone.instructions?.trim() && (
+                    <div className="text-sm">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Custom instructions</div>
+                      <div className="whitespace-pre-wrap text-muted-foreground">{prefs.tone.instructions}</div>
+                    </div>
+                  )}
+                  {prefs.tone.example?.trim() && (
+                    <div className="text-sm">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Example reply</div>
+                      <div className="whitespace-pre-wrap text-muted-foreground">{prefs.tone.example}</div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="text-xs text-muted-foreground">
+                      {toneSavedAt ? `Saved ${toneSavedAt.toLocaleString()}` : 'Using defaults'}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setToneEditing(true)}>
+                        <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={deleteTone} className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm">Writing style</Label>
+                      <Select value={prefs.tone.style} onValueChange={(v) => updateTone({ style: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {WRITING_STYLES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Format</Label>
+                      <Select value={prefs.tone.format} onValueChange={(v) => updateTone({ format: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {FORMAT_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
-                    <Label className="text-sm">Format</Label>
-                    <Select value={prefs.tone.format} onValueChange={(v) => updateTone({ format: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {FORMAT_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-sm">Custom instructions (optional)</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="e.g. Always sign with my first name. Mention I'm based in Pacific Time. Keep under 80 words."
+                      value={prefs.tone.instructions}
+                      onChange={(e) => updateTone({ instructions: e.target.value })}
+                    />
                   </div>
-                </div>
-                <div>
-                  <Label className="text-sm">Custom instructions (optional)</Label>
-                  <Textarea
-                    rows={3}
-                    placeholder="e.g. Always sign with my first name. Mention I'm based in Pacific Time. Keep under 80 words."
-                    value={prefs.tone.instructions}
-                    onChange={(e) => updateTone({ instructions: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm">Example reply template (optional)</Label>
-                  <Textarea
-                    rows={4}
-                    placeholder="Paste a sample follow-up you've written before — the AI will mirror its voice."
-                    value={prefs.tone.example}
-                    onChange={(e) => updateTone({ example: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={saveTone} disabled={saving}>
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                    Save tone
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  <div>
+                    <Label className="text-sm">Example reply template (optional)</Label>
+                    <Textarea
+                      rows={4}
+                      placeholder="Paste a sample follow-up you've written before — the AI will mirror its voice."
+                      value={prefs.tone.example}
+                      onChange={(e) => updateTone({ example: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    {toneSavedAt && (
+                      <Button variant="outline" onClick={() => setToneEditing(false)} disabled={saving}>
+                        Cancel
+                      </Button>
+                    )}
+                    <Button onClick={saveTone} disabled={saving}>
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      Save tone
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* How it works */}
         <Card>
