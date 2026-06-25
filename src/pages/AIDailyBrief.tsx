@@ -36,7 +36,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
-import { CalendarPanel } from '@/components/daily-brief/CalendarPanel';
+// CalendarPanel removed from Daily Brief body per UX redesign — calendar lives on its own page.
 
 import { BellRing, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
