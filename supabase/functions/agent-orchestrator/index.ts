@@ -19,6 +19,30 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 type Msg = { role: "system" | "user" | "assistant" | "tool"; content: any; tool_calls?: any[]; tool_call_id?: string; name?: string };
 
+function normalizeDomain(value: string | null | undefined): string {
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
+}
+
+function parseFollowupAlias(addresses: string[], domains: Array<string | null | undefined>): { alias: string; days: number } | null {
+  const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
+  if (allowedDomains.size === 0) return null;
+  for (const raw of addresses) {
+    const address = String(raw || '').trim().toLowerCase();
+    const match = address.match(/^(\d+)@(.+)$/);
+    if (!match || !allowedDomains.has(normalizeDomain(match[2]))) continue;
+    const days = Number(match[1]);
+    if (Number.isInteger(days) && days >= 1 && days <= 90) return { alias: address, days };
+  }
+  return null;
+}
+
+function graphEmails(value: any): string[] {
+  return (Array.isArray(value) ? value : [])
+    .map((r: any) => r?.emailAddress?.address ?? r?.address ?? '')
+    .map((v: string) => String(v || '').trim())
+    .filter(Boolean);
+}
+
 function normalizeToolCalls(value: unknown): any[] | undefined {
   return Array.isArray(value) && value.length > 0 ? value : undefined;
 }
@@ -463,7 +487,7 @@ const EXTRACTABLE_EXT = /\.(pdf|docx|doc|xlsx|xls|pptx|txt|md|csv|json|rtf|html|
 async function executeTool(
   name: string,
   args: any,
-  ctx: { authHeader: string; connection_id: string; admin: any; user_id: string },
+  ctx: { authHeader: string; connection_id: string; admin: any; user_id: string; organization_id?: string | null; connected_email?: string | null },
 ): Promise<any> {
   if (name === "search_context") {
     return await callRetrieve(ctx.authHeader, ctx.connection_id, String(args.query || ""), Number(args.top_k || 8));
@@ -761,13 +785,34 @@ async function executeTool(
     const body = String(args.body || "").trim();
     if (!subject || !body) return { error: "subject and body required" };
     const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
+    const senderDomain = normalizeDomain(ctx.connected_email?.split('@')[1]);
+    let bcc: string[] = (Array.isArray(args.bcc) ? args.bcc : []).filter((e: any) => typeof e === "string" && e.includes("@"));
+    let trackingDomain = senderDomain;
+    try {
+      const { data: settings } = await ctx.admin
+        .from('follow_up_settings')
+        .select('is_enabled,bcc_domain')
+        .eq('connection_id', ctx.connection_id)
+        .eq('user_id', ctx.user_id)
+        .maybeSingle();
+      const configuredDomain = normalizeDomain((settings as any)?.bcc_domain);
+      trackingDomain = configuredDomain || senderDomain;
+      const alreadyTracked = parseFollowupAlias(bcc, [senderDomain, configuredDomain]);
+      if ((settings as any)?.is_enabled && trackingDomain && !alreadyTracked) {
+        const alias = `3@${trackingDomain}`;
+        bcc = bcc.some((v) => v.toLowerCase() === alias) ? bcc : [...bcc, alias];
+      }
+    } catch (e) {
+      console.warn('send_email follow-up settings lookup failed', e);
+    }
     const message: Record<string, any> = {
       subject,
       body: { contentType: /<\/?[a-z][\s\S]*>/i.test(body) ? "HTML" : "Text", content: body },
       toRecipients: toRecip(to),
     };
     if (Array.isArray(args.cc) && args.cc.length) message.ccRecipients = toRecip(args.cc);
-    if (Array.isArray(args.bcc) && args.bcc.length) message.bccRecipients = toRecip(args.bcc);
+    if (bcc.length) message.bccRecipients = toRecip(bcc);
+    const sentAfterIso = new Date(Date.now() - 2 * 60_000).toISOString();
     // Reply to existing thread if provided
     if (args.reply_to_message_id) {
       const replyRes = await callGraph(ctx.user_id, ctx.connection_id, "mail",
@@ -783,7 +828,45 @@ async function executeTool(
       body: JSON.stringify({ message, saveToSentItems: true }),
     });
     if (!sendRes.ok) return { error: sendRes.error };
-    return { sent: true, to, cc: args.cc || [], bcc: args.bcc || [], subject, sent_at: new Date().toISOString() };
+    const alias = parseFollowupAlias(bcc, [senderDomain, trackingDomain]);
+    if (alias && ctx.organization_id) {
+      try {
+        let sentMessage: any = null;
+        const wantedRecipients = new Set(to.map((email) => email.toLowerCase()));
+        for (const delay of [1000, 1800, 3000]) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          const lookup = await callGraph(ctx.user_id, ctx.connection_id, "mail",
+            `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=15`,
+          );
+          if (!lookup.ok) continue;
+          sentMessage = ((lookup.data as any)?.value || []).find((m: any) => {
+            const recipients = graphEmails(m.toRecipients).map((email) => email.toLowerCase());
+            return String(m.subject || '') === subject && recipients.some((email: string) => wantedRecipients.has(email));
+          });
+          if (sentMessage) break;
+        }
+        const sentAt = new Date(sentMessage?.sentDateTime || new Date().toISOString());
+        await ctx.admin.from('follow_up_trackers').upsert({
+          organization_id: ctx.organization_id,
+          connection_id: ctx.connection_id,
+          user_id: ctx.user_id,
+          message_id: sentMessage?.id || `agent-compose-${crypto.randomUUID()}`,
+          conversation_id: sentMessage?.conversationId ?? null,
+          subject: sentMessage?.subject || subject,
+          to_recipients: sentMessage?.toRecipients || message.toRecipients || [],
+          cc_recipients: sentMessage?.ccRecipients || message.ccRecipients || [],
+          bcc_alias: alias.alias,
+          days_after_send: alias.days,
+          sent_at: sentAt.toISOString(),
+          due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
+          status: 'pending',
+          metadata: sentMessage?.id ? { source: 'agent-orchestrator' } : { source: 'agent-orchestrator-fallback', sent_item_lookup: 'not_found_yet' },
+        }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+      } catch (e) {
+        console.warn('send_email follow-up tracker insert failed', e);
+      }
+    }
+    return { sent: true, to, cc: args.cc || [], bcc, subject, sent_at: new Date().toISOString() };
   }
   if (name === "book_meeting") {
     if (!args.confirmed) {
@@ -1063,7 +1146,7 @@ Deno.serve(async (req) => {
       : (routedModel.startsWith('claude') ? `anthropic/${routedModel}` : `openai/${routedModel}`);
 
     const maxSteps = Math.min(body.max_steps ?? (body.deep ? 12 : 6), 14);
-    const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id };
+    const ctx = { authHeader, connection_id: body.connection_id, admin, user_id: user.id, organization_id, connected_email: mbEmail };
 
     let final: any = null;
     let lastUsage: any = null;

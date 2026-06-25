@@ -104,6 +104,27 @@ function normalizeDomain(value: string | null | undefined): string {
   return String(value || '').trim().replace(/^@+/, '').toLowerCase();
 }
 
+function graphEmailAddressList(value: any): string[] {
+  return (Array.isArray(value) ? value : [])
+    .map((r: any) => r?.emailAddress?.address ?? r?.address ?? '')
+    .map((v: string) => String(v || '').trim())
+    .filter(Boolean);
+}
+
+async function fetchMessageBccRecipients(token: string, messageId: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}?$select=bccRecipients`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    return graphEmailAddressList(json.bccRecipients);
+  } catch {
+    return [];
+  }
+}
+
 function parseFollowupAlias(addresses: string[], domains: string[]): ParsedAlias | null {
   const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
   if (allowedDomains.size === 0) return null;
@@ -175,18 +196,22 @@ async function scanSentForTriggers(
   token: string,
   trackingDomains: string[],
   stopWords: string[],
-): Promise<{ added: number; cancelled: number }> {
+  range?: { fromIso?: string | null; toIso?: string | null },
+): Promise<{ added: number; cancelled: number; scanned: number; matched: number }> {
   // Look back 30 days; the BCC tag survives forever, so we catch anything we missed too.
-  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const since = range?.fromIso || new Date(Date.now() - 30 * 86400000).toISOString();
+  const until = range?.toIso || new Date().toISOString();
   let url: string | null =
     `https://graph.microsoft.com/v1.0/me/mailFolders/SentItems/messages` +
-    `?$filter=sentDateTime ge ${since}` +
+    `?$filter=sentDateTime ge ${since} and sentDateTime le ${until}` +
     `&$select=id,subject,conversationId,toRecipients,ccRecipients,bccRecipients,sentDateTime,bodyPreview` +
-    `&$orderby=sentDateTime desc&$top=50`;
+    `&$orderby=sentDateTime desc&$top=100`;
   let added = 0;
   let cancelled = 0;
+  let scanned = 0;
+  let matched = 0;
   let pages = 0;
-  while (url && pages < 6) {
+  while (url && pages < 20) {
     const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
       console.error(`scan sent failed: ${res.status} ${await res.text()}`);
@@ -194,7 +219,13 @@ async function scanSentForTriggers(
     }
     const json = await res.json();
     for (const m of (json.value ?? [])) {
-      const bccs: string[] = (m.bccRecipients ?? []).map((r: any) => r.emailAddress?.address ?? '').filter(Boolean);
+      scanned++;
+      let bccs: string[] = graphEmailAddressList(m.bccRecipients);
+      // Microsoft Graph can omit/empty BCC on SentItems list rows in some tenants.
+      // Fetch the individual message as a fallback so BCC-triggered trackers are not missed.
+      if (bccs.length === 0 && m.id) {
+        bccs = await fetchMessageBccRecipients(token, m.id);
+      }
       if (bccs.length === 0) continue;
 
       // 1. STOP signal — cancel all open trackers in this conversation and
@@ -227,6 +258,7 @@ async function scanSentForTriggers(
       // 2. Numeric trigger — schedule a tracker.
       const parsed = parseFollowupAlias(bccs, trackingDomains);
       if (!parsed) continue;
+      matched++;
 
       const sentAt = new Date(m.sentDateTime);
       const dueAt = new Date(sentAt.getTime() + parsed.days * 86400000);
@@ -247,12 +279,16 @@ async function scanSentForTriggers(
         due_at: dueAt.toISOString(),
         status: 'pending',
       }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
-      if (!error) added++;
+      if (error) {
+        console.error('follow_up_trackers upsert failed', error);
+      } else {
+        added++;
+      }
     }
     pages++;
     url = json['@odata.nextLink'] ?? null;
   }
-  return { added, cancelled };
+  return { added, cancelled, scanned, matched };
 }
 
 async function conversationHasReply(token: string, conversationId: string, originalSentAt: string, originalRecipients: string[], myEmail: string | null): Promise<boolean> {
@@ -588,8 +624,8 @@ async function processMissedReminders(conn: Connection, settings: FollowUpSettin
   return sent;
 }
 
-async function processConnection(conn: Connection, opts: { forceScan?: boolean } = {}): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; cancelled: number; skipped: boolean }> {
-  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled: 0, skipped: false };
+async function processConnection(conn: Connection, opts: { forceScan?: boolean; fromIso?: string | null; toIso?: string | null } = {}): Promise<{ added: number; drafted: number; replied: number; autoSent: number; labeled: number; reminded: number; cancelled: number; scanned: number; matched: number; skipped: boolean }> {
+  const empty = { added: 0, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled: 0, scanned: 0, matched: 0, skipped: false };
   if (conn.provider !== 'outlook') return { ...empty, skipped: true };
 
   const settings = await loadSettings(conn.id);
@@ -626,12 +662,15 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
   }
 
   const stopWords = (settings.stop_aliases && settings.stop_aliases.length > 0) ? settings.stop_aliases : ['stop', '0'];
-  const { added, cancelled } = await scanSentForTriggers(conn, token, trackingDomains, stopWords);
+  const { added, cancelled, scanned, matched } = await scanSentForTriggers(conn, token, trackingDomains, stopWords, {
+    fromIso: opts.fromIso,
+    toIso: opts.toIso,
+  });
 
   // Skip the rest when tracking is paused — scanning is read-only and safe,
   // but drafting/auto-sending/reminders must respect the user's pause.
   if (!settings.is_enabled) {
-    return { added, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled, skipped: false };
+    return { added, drafted: 0, replied: 0, autoSent: 0, labeled: 0, reminded: 0, cancelled, scanned, matched, skipped: false };
   }
 
   const { drafted, replied, autoSent, labeled } = await processDueTrackers(conn, token, myEmail, settings, effectiveTz);
@@ -640,7 +679,7 @@ async function processConnection(conn: Connection, opts: { forceScan?: boolean }
   const reminded = isWithinBusinessHours(settings, effectiveTz)
     ? await processMissedReminders(conn, settings, myEmail)
     : 0;
-  return { added, drafted, replied, autoSent, labeled, reminded, cancelled, skipped: false };
+  return { added, drafted, replied, autoSent, labeled, reminded, cancelled, scanned, matched, skipped: false };
 }
 
 // Permission check: returns true if the user is allowed to use the
@@ -695,12 +734,16 @@ Deno.serve(async (req) => {
     // heavy cross-tenant work. This is what the "Scan now" button calls.
     let manualConnectionId: string | null = null;
     let callerUserId: string | null = null;
+    let manualFromIso: string | null = null;
+    let manualToIso: string | null = null;
     try {
       const body = await req.json();
       if (body?.mode === "manual" && body?.connection_id) {
         manualConnectionId = String(body.connection_id);
       }
       if (body?.user_id) callerUserId = String(body.user_id);
+      if (manualConnectionId && body?.from_date) manualFromIso = new Date(body.from_date).toISOString();
+      if (manualConnectionId && body?.to_date) manualToIso = new Date(body.to_date).toISOString();
     } catch { /* no body — treat as cron */ }
 
     // Authenticated end-users may ONLY trigger a manual scan of their own
@@ -743,7 +786,7 @@ Deno.serve(async (req) => {
     if (manualConnectionId) connectionsQuery = connectionsQuery.eq('id', manualConnectionId);
     const { data: connections } = await connectionsQuery;
 
-    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, totalAutoSent = 0, totalLabeled = 0, totalReminded = 0, processed = 0, skippedNoPermission = 0;
+    let totalAdded = 0, totalDrafted = 0, totalReplied = 0, totalAutoSent = 0, totalLabeled = 0, totalReminded = 0, totalScanned = 0, totalMatched = 0, processed = 0, skippedNoPermission = 0;
     for (const c of (connections ?? []) as Connection[]) {
       try {
         // Backend enforcement: skip BCC scanning + drafting for users without the feature.
@@ -752,17 +795,33 @@ Deno.serve(async (req) => {
           skippedNoPermission++;
           continue;
         }
-        const r = await processConnection(c, { forceScan: !!manualConnectionId });
+        const r = await processConnection(c, { forceScan: !!manualConnectionId, fromIso: manualFromIso, toIso: manualToIso });
         totalAdded += r.added;
         totalDrafted += r.drafted;
         totalReplied += r.replied;
         totalAutoSent += r.autoSent;
         totalLabeled += r.labeled;
         totalReminded += r.reminded;
+        totalScanned += r.scanned;
+        totalMatched += r.matched;
         processed++;
       } catch (e) {
         console.error(`connection ${c.id} failed:`, e);
       }
+    }
+
+    if (manualConnectionId) {
+      await supabase.from('follow_up_settings').update({
+        last_audit_at: new Date().toISOString(),
+        last_audit_summary: {
+          mode: 'bcc_scan',
+          from: manualFromIso,
+          to: manualToIso,
+          scanned: totalScanned,
+          matched: totalMatched,
+          added: totalAdded,
+        },
+      }).eq('connection_id', manualConnectionId);
     }
 
     // Fire-and-forget: trigger the daily audit pass. The audit function
@@ -791,6 +850,8 @@ Deno.serve(async (req) => {
       paused: paused ?? 0,
       resumed: resumed ?? 0,
       added: totalAdded,
+      scanned: totalScanned,
+      matched: totalMatched,
       drafted: totalDrafted,
       replied: totalReplied,
       auto_sent: totalAutoSent,

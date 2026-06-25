@@ -64,6 +64,13 @@ function normalizeDomain(value: string | null | undefined): string {
   return String(value || '').trim().replace(/^@+/, '').toLowerCase();
 }
 
+function recipientObjectsToEmails(value: any): string[] {
+  return (Array.isArray(value) ? value : [])
+    .map((r: any) => r?.emailAddress?.address ?? r?.address ?? '')
+    .map((v: string) => String(v || '').trim())
+    .filter(Boolean);
+}
+
 function parseFollowupAlias(addresses: string[], domains: Array<string | null | undefined>): { alias: string; days: number } | null {
   const allowedDomains = new Set(domains.map(normalizeDomain).filter(Boolean));
   if (allowedDomains.size === 0) return null;
@@ -99,6 +106,64 @@ async function findRecentSentMessage(userId: string, connectionId: string, subje
     if (match) return match;
   }
   return null;
+}
+
+async function findRecentSentMessageByRecipients(userId: string, connectionId: string, sentAfterIso: string, to: string[], subject?: string) {
+  const wantedRecipients = new Set(to.map((email) => email.toLowerCase()));
+  const res = await callGraph(userId, connectionId, 'mail',
+    `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=25`,
+  );
+  if (!res.ok) return null;
+  return ((res.data as any)?.value || []).find((m: any) => {
+    if (subject && String(m.subject || '') !== subject) return false;
+    const recipients = recipientObjectsToEmails(m.toRecipients).map((email) => email.toLowerCase());
+    return recipients.some((email: string) => wantedRecipients.has(email));
+  }) || null;
+}
+
+async function syncRecentBccTrackers(opts: {
+  admin: any;
+  userId: string;
+  connectionId: string;
+  organizationId: string;
+  senderEmail: string | null;
+  trackingDomains: string[];
+  sentAfterIso: string;
+}) {
+  const res = await callGraph(opts.userId, opts.connectionId, 'mail',
+    `/me/mailFolders/SentItems/messages?$filter=sentDateTime ge ${opts.sentAfterIso}&$select=id,conversationId,subject,toRecipients,ccRecipients,bccRecipients,sentDateTime&$orderby=sentDateTime desc&$top=25`,
+  );
+  if (!res.ok) return { scanned: 0, added: 0 };
+  let scanned = 0;
+  let added = 0;
+  const senderDomain = normalizeDomain(opts.senderEmail?.split('@')[1]);
+  const domains = Array.from(new Set([senderDomain, ...opts.trackingDomains].map(normalizeDomain).filter(Boolean)));
+  for (const m of ((res.data as any)?.value || [])) {
+    scanned++;
+    const bccs = recipientObjectsToEmails(m.bccRecipients);
+    const alias = parseFollowupAlias(bccs, domains);
+    if (!alias) continue;
+    const sentAt = new Date(m.sentDateTime || new Date().toISOString());
+    const { error } = await opts.admin.from('follow_up_trackers').upsert({
+      organization_id: opts.organizationId,
+      connection_id: opts.connectionId,
+      user_id: opts.userId,
+      message_id: m.id,
+      conversation_id: m.conversationId ?? null,
+      subject: m.subject ?? null,
+      to_recipients: m.toRecipients || [],
+      cc_recipients: m.ccRecipients || [],
+      bcc_alias: alias.alias,
+      days_after_send: alias.days,
+      sent_at: sentAt.toISOString(),
+      due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
+      status: 'pending',
+      metadata: { source: 'email-compose-recent-sync' },
+    }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
+    if (!error) added++;
+    else console.warn('recent follow-up tracker sync failed', error);
+  }
+  return { scanned, added };
 }
 
 async function draftWithLLM(prompt: string, senderName: string | null): Promise<{ subject: string; body: string; recipient_name: string; recipient_email: string }> {
@@ -273,25 +338,35 @@ Deno.serve(async (req) => {
         try {
           const sentMessage = await findRecentSentMessage(userId, connectionId, subject, sentAfterIso, to);
           const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-          const sentAt = new Date(sentMessage?.sentDateTime || new Date().toISOString());
-          const messageId = sentMessage?.id || `compose-${crypto.randomUUID()}`;
+          const fallbackMessage = sentMessage || await findRecentSentMessageByRecipients(userId, connectionId, sentAfterIso, to);
+          const sentAt = new Date(fallbackMessage?.sentDateTime || new Date().toISOString());
+          const messageId = fallbackMessage?.id || `compose-${crypto.randomUUID()}`;
           const { error: trackerError } = await admin.from('follow_up_trackers').upsert({
             organization_id: connOrgId,
             connection_id: connectionId,
             user_id: userId,
             message_id: messageId,
-            conversation_id: sentMessage?.conversationId ?? null,
-            subject,
-            to_recipients: sentMessage?.toRecipients || message.toRecipients || [],
-            cc_recipients: sentMessage?.ccRecipients || message.ccRecipients || [],
+            conversation_id: fallbackMessage?.conversationId ?? null,
+            subject: fallbackMessage?.subject || subject,
+            to_recipients: fallbackMessage?.toRecipients || message.toRecipients || [],
+            cc_recipients: fallbackMessage?.ccRecipients || message.ccRecipients || [],
             bcc_alias: alias.alias,
             days_after_send: alias.days,
             sent_at: sentAt.toISOString(),
             due_at: new Date(sentAt.getTime() + alias.days * 86400000).toISOString(),
             status: 'pending',
-            metadata: sentMessage?.id ? {} : { source: 'email-compose-fallback', sent_item_lookup: 'not_found_yet' },
+            metadata: fallbackMessage?.id ? { source: 'email-compose' } : { source: 'email-compose-fallback', sent_item_lookup: 'not_found_yet' },
           }, { onConflict: 'connection_id,message_id,bcc_alias', ignoreDuplicates: true });
           if (trackerError) console.warn('follow-up tracker insert failed', trackerError);
+          await syncRecentBccTrackers({
+            admin,
+            userId,
+            connectionId,
+            organizationId: connOrgId,
+            senderEmail: connEmail,
+            trackingDomains: [senderDomain, trackingDomain],
+            sentAfterIso,
+          });
         } catch (e) {
           console.warn('follow-up tracker insert after send failed', e);
         }
