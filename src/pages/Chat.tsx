@@ -835,14 +835,14 @@ export default function Chat() {
   const handleExport = async (
     conversationId: string | null,
     format: 'pdf' | 'xlsx',
-    destination: 'download' | 'onedrive' = 'download',
+    destination: 'download' | 'onedrive' | 'email' = 'download',
   ) => {
     const key = `${conversationId || 'all'}-${format}-${destination}`;
     setExporting(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
-      if (destination === 'onedrive' && !activeConnection?.id) {
+      if ((destination === 'onedrive' || destination === 'email') && !activeConnection?.id) {
         throw new Error('Connect a Microsoft 365 account first.');
       }
       const { data, error } = await supabase.functions.invoke('export-chat', {
@@ -850,7 +850,7 @@ export default function Chat() {
           conversation_id: conversationId,
           format,
           destination,
-          connection_id: destination === 'onedrive' ? activeConnection?.id : undefined,
+          connection_id: (destination === 'onedrive' || destination === 'email') ? activeConnection?.id : undefined,
         },
       });
       if (error) throw error;
@@ -861,6 +861,10 @@ export default function Chat() {
           res?.webUrl ? `Saved to OneDrive › InboxIQ Chat › Exports` : 'Saved to OneDrive',
           res?.webUrl ? { action: { label: 'Open', onClick: () => window.open(res.webUrl!, '_blank') } } : undefined,
         );
+      } else if (destination === 'email') {
+        const res = data as { to?: string; error?: string };
+        if (res?.error) throw new Error(res.error);
+        toast.success(res?.to ? `Emailed to ${res.to}` : 'Email sent');
       } else {
         const file = data as { filename: string; mime_type: string; base64: string };
         if (!file?.base64) throw new Error('Empty export');
@@ -873,6 +877,7 @@ export default function Chat() {
       setExporting(null);
     }
   };
+
 
 
   // === Summarize current chat + continue in a fresh one ===
