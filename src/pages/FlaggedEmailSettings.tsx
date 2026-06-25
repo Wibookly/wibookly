@@ -1,46 +1,103 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Flag, Tag as TagIcon, Sparkles, Send, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
+type Tone = { style: string; format: string; instructions: string; example: string };
 type Prefs = {
   enabled: boolean;
   autoReply: boolean;
   autoSend: boolean;
+  tone: Tone;
 };
 
-const DEFAULTS: Prefs = { enabled: true, autoReply: false, autoSend: false };
+const DEFAULTS: Prefs = {
+  enabled: true,
+  autoReply: false,
+  autoSend: false,
+  tone: { style: 'professional', format: 'concise', instructions: '', example: '' },
+};
 
-function storageKey(userId: string | undefined) {
-  return `flag-tracker-prefs:${userId || 'anon'}`;
-}
+const WRITING_STYLES = [
+  { value: 'professional', label: 'Professional & Polished' },
+  { value: 'friendly', label: 'Friendly & Approachable' },
+  { value: 'concierge', label: 'Concierge / White-Glove' },
+  { value: 'direct', label: 'Direct & Efficient' },
+  { value: 'empathetic', label: 'Empathetic & Supportive' },
+];
+const FORMAT_OPTIONS = [
+  { value: 'concise', label: 'Concise (Short & Direct)' },
+  { value: 'detailed', label: 'Detailed (Full Explanation)' },
+  { value: 'bullet-points', label: 'Bullet Points' },
+  { value: 'highlights', label: 'Key Highlights Only' },
+];
 
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
-    try {
-      const raw = localStorage.getItem(storageKey(user.id));
-      if (raw) setPrefs({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {/* ignore */}
+    (async () => {
+      const { data } = await supabase
+        .from('agent_settings' as any)
+        .select('metadata')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const m = (data as any)?.metadata?.flag_tracker || {};
+      setPrefs({
+        enabled: m.enabled ?? true,
+        autoReply: !!m.autoReply,
+        autoSend: !!m.autoSend,
+        tone: { ...DEFAULTS.tone, ...(m.tone || {}) },
+      });
+      setLoading(false);
+    })();
   }, [user?.id]);
+
+  const persist = async (next: Prefs) => {
+    if (!user?.id) return;
+    setSaving(true);
+    const { data: existing } = await supabase
+      .from('agent_settings' as any)
+      .select('id, metadata')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const meta = { ...((existing as any)?.metadata || {}), flag_tracker: next };
+    if (existing) {
+      await supabase.from('agent_settings' as any).update({ metadata: meta }).eq('user_id', user.id);
+    } else {
+      await supabase.from('agent_settings' as any).insert({ user_id: user.id, metadata: meta });
+    }
+    setSaving(false);
+  };
 
   const update = (patch: Partial<Prefs>) => {
     const next = { ...prefs, ...patch };
-    // Auto-send requires auto-reply
     if (!next.autoReply) next.autoSend = false;
-    // Disabling the tracker disables both reply behaviors
     if (!next.enabled) { next.autoReply = false; next.autoSend = false; }
     setPrefs(next);
-    try { localStorage.setItem(storageKey(user?.id), JSON.stringify(next)); } catch {/* ignore */}
-    toast.success('Preferences saved');
+    persist(next).then(() => toast.success('Preferences saved'));
+  };
+
+  const updateTone = (patch: Partial<Tone>) => {
+    setPrefs(p => ({ ...p, tone: { ...p.tone, ...patch } }));
+  };
+
+  const saveTone = async () => {
+    await persist(prefs);
+    toast.success('AI tone saved');
   };
 
   return (
@@ -49,7 +106,7 @@ export default function FlaggedEmailSettings() {
         <PageHero
           eyebrow="AI Intelligence"
           title="Flagged Email Tracker"
-          description="Turn the tracker on or off, decide whether AI should automatically draft or even send polite follow-ups, and learn how to flag emails in Outlook."
+          description="Turn the tracker on or off, decide whether AI should automatically draft or even send polite follow-ups, and tune the AI's writing tone."
           accent="purple"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
@@ -60,13 +117,13 @@ export default function FlaggedEmailSettings() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tracker controls</CardTitle>
-            <CardDescription>These settings only affect your account. Recipients never see flags or categories — they're private to your mailbox.</CardDescription>
+            <CardDescription>These settings only affect your account. Recipients never see flags — they're private to your mailbox.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <ToggleRow
               icon={<Sparkles className="w-4 h-4 text-purple-500" />}
               title="Enable Flagged Email Tracker"
-              description="Scan your Outlook Sent Items for flags & FollowUp categories and surface them in the Flagged Email Reports."
+              description="Scan your Outlook Sent Items for flagged messages and surface them in Flagged Email Reports."
               checked={prefs.enabled}
               onCheckedChange={(v) => update({ enabled: v })}
             />
@@ -81,7 +138,7 @@ export default function FlaggedEmailSettings() {
             <ToggleRow
               icon={<Send className="w-4 h-4 text-emerald-500" />}
               title="Auto-send follow-up replies"
-              description="Send the AI-drafted follow-up automatically (max 2 attempts per email, 3 days apart). Use with caution — drafts will be sent without review."
+              description="Send the AI-drafted follow-up automatically. Capped at 3 attempts (3 days apart). After the 3rd attempt the thread is marked Missed and automation stops."
               checked={prefs.autoSend}
               onCheckedChange={(v) => update({ autoSend: v })}
               disabled={!prefs.enabled || !prefs.autoReply}
@@ -92,9 +149,69 @@ export default function FlaggedEmailSettings() {
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle>Auto-send is on</AlertTitle>
                 <AlertDescription>
-                  Follow-ups will be sent on your behalf from your connected Outlook account. Make sure recipients and tone are appropriate. You can turn this off at any time.
+                  Follow-ups will be sent on your behalf from your connected Outlook account, up to 3 times. After 3 attempts the thread is closed as missed and no further automation runs.
                 </AlertDescription>
               </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* AI Tone */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Wand2 className="w-4 h-4 text-purple-500" /> AI tone for auto-replies</CardTitle>
+            <CardDescription>Control exactly how the AI writes your follow-up emails — same controls as your category tones.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Writing style</Label>
+                    <Select value={prefs.tone.style} onValueChange={(v) => updateTone({ style: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {WRITING_STYLES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Format</Label>
+                    <Select value={prefs.tone.format} onValueChange={(v) => updateTone({ format: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FORMAT_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm">Custom instructions (optional)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="e.g. Always sign with my first name. Mention I'm based in Pacific Time. Keep under 80 words."
+                    value={prefs.tone.instructions}
+                    onChange={(e) => updateTone({ instructions: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">Example reply template (optional)</Label>
+                  <Textarea
+                    rows={4}
+                    placeholder="Paste a sample follow-up you've written before — the AI will mirror its voice."
+                    value={prefs.tone.example}
+                    onChange={(e) => updateTone({ example: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={saveTone} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save tone
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -103,24 +220,16 @@ export default function FlaggedEmailSettings() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">How to flag an email</CardTitle>
-            <CardDescription>Two zero-config gestures in Outlook — pick whichever is faster for you.</CardDescription>
+            <CardDescription>One zero-config gesture in Outlook.</CardDescription>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
+          <CardContent className="text-sm">
             <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 font-medium mb-1"><Flag className="w-4 h-4 text-amber-500" /> Flag + due date (preferred)</div>
+              <div className="flex items-center gap-2 font-medium mb-1"><Flag className="w-4 h-4 text-amber-500" /> Flag + due date</div>
               <ol className="list-decimal pl-5 text-muted-foreground space-y-1">
                 <li>Send your email as usual.</li>
                 <li>Open the message in <strong>Sent Items</strong>.</li>
                 <li>Click the flag icon and pick <strong>Custom… → Due date</strong>.</li>
                 <li>InboxIQ drafts a polite follow-up on that date if no reply has arrived.</li>
-              </ol>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 font-medium mb-1"><TagIcon className="w-4 h-4 text-emerald-500" /> Category fallback</div>
-              <ol className="list-decimal pl-5 text-muted-foreground space-y-1">
-                <li>Apply a category to the sent message.</li>
-                <li>Use <code className="px-1 rounded bg-muted">FollowUp</code> (defaults to 3 days), or <code className="px-1 rounded bg-muted">FollowUp 5d</code> for any 1–999 day window.</li>
-                <li>We'll calculate the follow-up date from when you sent the email.</li>
               </ol>
             </div>
           </CardContent>
@@ -134,10 +243,10 @@ export default function FlaggedEmailSettings() {
           <CardContent>
             <ul className="space-y-2 text-sm">
               {[
-                'Polls your Outlook Sent Items every few minutes for flagged / categorized messages.',
+                'Polls your Outlook Sent Items every few minutes for flagged messages.',
                 'Watches the conversation for a real reply (auto-replies and out-of-office are ignored).',
-                'On the due date, drafts a short, polite follow-up in your tone — never pushy, never "just circling back".',
-                'Caps at 2 attempts per email, then marks it as missed deadline.',
+                'On the due date, drafts a short, polite follow-up in your tone — never pushy.',
+                'Caps at 3 attempts per email, then marks it as Missed and stops automation.',
                 'If you complete the flag or the recipient replies, the tracker cancels automatically.',
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2">
