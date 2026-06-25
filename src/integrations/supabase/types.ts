@@ -320,6 +320,7 @@ export type Database = {
           created_at: string
           id: string
           model_used: string | null
+          organization_id: string
           role: string
           tokens_in: number | null
           tokens_out: number | null
@@ -333,6 +334,7 @@ export type Database = {
           created_at?: string
           id?: string
           model_used?: string | null
+          organization_id: string
           role: string
           tokens_in?: number | null
           tokens_out?: number | null
@@ -346,6 +348,7 @@ export type Database = {
           created_at?: string
           id?: string
           model_used?: string | null
+          organization_id?: string
           role?: string
           tokens_in?: number | null
           tokens_out?: number | null
@@ -358,6 +361,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "ai_chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1041,6 +1051,7 @@ export type Database = {
           created_at: string | null
           id: string
           model_used: string | null
+          organization_id: string
           prompt_tokens: number | null
           role: string
           user_id: string
@@ -1055,6 +1066,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           model_used?: string | null
+          organization_id: string
           prompt_tokens?: number | null
           role: string
           user_id: string
@@ -1069,6 +1081,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           model_used?: string | null
+          organization_id?: string
           prompt_tokens?: number | null
           role?: string
           user_id?: string
@@ -1079,6 +1092,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1188,6 +1208,7 @@ export type Database = {
           fingerprint: string
           from_text: string | null
           id: string
+          organization_id: string
           priority: number | null
           received_at: string | null
           reminder_at: string | null
@@ -1215,6 +1236,7 @@ export type Database = {
           fingerprint: string
           from_text?: string | null
           id?: string
+          organization_id: string
           priority?: number | null
           received_at?: string | null
           reminder_at?: string | null
@@ -1242,6 +1264,7 @@ export type Database = {
           fingerprint?: string
           from_text?: string | null
           id?: string
+          organization_id?: string
           priority?: number | null
           received_at?: string | null
           reminder_at?: string | null
@@ -1255,7 +1278,15 @@ export type Database = {
           user_id?: string
           why?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_brief_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       discovered_tenant_users: {
         Row: {
@@ -1494,6 +1525,7 @@ export type Database = {
           id: string
           message_id: string | null
           metadata: Json | null
+          organization_id: string
           recipient_email: string
           status: string
           template_name: string
@@ -1504,6 +1536,7 @@ export type Database = {
           id?: string
           message_id?: string | null
           metadata?: Json | null
+          organization_id: string
           recipient_email: string
           status: string
           template_name: string
@@ -1514,17 +1547,27 @@ export type Database = {
           id?: string
           message_id?: string | null
           metadata?: Json | null
+          organization_id?: string
           recipient_email?: string
           status?: string
           template_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_send_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_state: {
         Row: {
           auth_email_ttl_minutes: number
           batch_size: number
           id: number
+          organization_id: string
           retry_after_until: string | null
           send_delay_ms: number
           transactional_email_ttl_minutes: number
@@ -1534,6 +1577,7 @@ export type Database = {
           auth_email_ttl_minutes?: number
           batch_size?: number
           id?: number
+          organization_id: string
           retry_after_until?: string | null
           send_delay_ms?: number
           transactional_email_ttl_minutes?: number
@@ -1543,12 +1587,21 @@ export type Database = {
           auth_email_ttl_minutes?: number
           batch_size?: number
           id?: number
+          organization_id?: string
           retry_after_until?: string | null
           send_delay_ms?: number
           transactional_email_ttl_minutes?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_send_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_threads: {
         Row: {
@@ -1606,6 +1659,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          organization_id: string
           token: string
           used_at: string | null
         }
@@ -1613,6 +1667,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          organization_id: string
           token: string
           used_at?: string | null
         }
@@ -1620,10 +1675,19 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          organization_id?: string
           token?: string
           used_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_unsubscribe_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       extraction_regression_log: {
         Row: {
@@ -1635,6 +1699,7 @@ export type Database = {
           external_id: string | null
           file_name: string | null
           id: string
+          organization_id: string
           source_type: string
           status: string
           user_id: string
@@ -1648,6 +1713,7 @@ export type Database = {
           external_id?: string | null
           file_name?: string | null
           id?: string
+          organization_id: string
           source_type: string
           status: string
           user_id: string
@@ -1661,11 +1727,20 @@ export type Database = {
           external_id?: string | null
           file_name?: string | null
           id?: string
+          organization_id?: string
           source_type?: string
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "extraction_regression_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feature_model_pricing: {
         Row: {
@@ -1868,6 +1943,7 @@ export type Database = {
           connection_id: string | null
           detail: Json | null
           id: string
+          organization_id: string
           probe: string
           status: string
           user_id: string
@@ -1877,6 +1953,7 @@ export type Database = {
           connection_id?: string | null
           detail?: Json | null
           id?: string
+          organization_id: string
           probe: string
           status: string
           user_id: string
@@ -1886,11 +1963,20 @@ export type Database = {
           connection_id?: string | null
           detail?: Json | null
           id?: string
+          organization_id?: string
           probe?: string
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "graph_health_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       group_cost_caps: {
         Row: {
@@ -2356,6 +2442,7 @@ export type Database = {
           error_code: string | null
           error_message: string | null
           id: string
+          organization_id: string
           response_ms: number | null
           status: string
           user_id: string
@@ -2368,6 +2455,7 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           id?: string
+          organization_id: string
           response_ms?: number | null
           status: string
           user_id: string
@@ -2380,6 +2468,7 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           id?: string
+          organization_id?: string
           response_ms?: number | null
           status?: string
           user_id?: string
@@ -2390,6 +2479,13 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_api_health_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2403,6 +2499,7 @@ export type Database = {
           id: string
           items_failed: number
           items_processed: number
+          organization_id: string
           retry_after: string | null
           source: string
           started_at: string | null
@@ -2418,6 +2515,7 @@ export type Database = {
           id?: string
           items_failed?: number
           items_processed?: number
+          organization_id: string
           retry_after?: string | null
           source: string
           started_at?: string | null
@@ -2433,6 +2531,7 @@ export type Database = {
           id?: string
           items_failed?: number
           items_processed?: number
+          organization_id?: string
           retry_after?: string | null
           source?: string
           started_at?: string | null
@@ -2448,6 +2547,13 @@ export type Database = {
             referencedRelation: "provider_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "m365_sync_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       m365_sync_state: {
@@ -2457,6 +2563,7 @@ export type Database = {
           delta_link: string | null
           id: string
           last_sync_at: string | null
+          organization_id: string
           source: string
           updated_at: string
           user_id: string
@@ -2467,6 +2574,7 @@ export type Database = {
           delta_link?: string | null
           id?: string
           last_sync_at?: string | null
+          organization_id: string
           source: string
           updated_at?: string
           user_id: string
@@ -2477,6 +2585,7 @@ export type Database = {
           delta_link?: string | null
           id?: string
           last_sync_at?: string | null
+          organization_id?: string
           source?: string
           updated_at?: string
           user_id?: string
@@ -2489,6 +2598,13 @@ export type Database = {
             referencedRelation: "provider_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "m365_sync_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       meeting_action_items: {
@@ -2499,6 +2615,7 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
+          organization_id: string
           session_id: string
           user_id: string
         }
@@ -2509,6 +2626,7 @@ export type Database = {
           description: string
           due_date?: string | null
           id?: string
+          organization_id: string
           session_id: string
           user_id: string
         }
@@ -2519,10 +2637,18 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
+          organization_id?: string
           session_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "meeting_action_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "meeting_action_items_session_id_fkey"
             columns: ["session_id"]
@@ -2538,6 +2664,7 @@ export type Database = {
           created_at: string
           id: string
           meeting_external_id: string
+          organization_id: string | null
           tone_override: string | null
           user_id: string
         }
@@ -2546,6 +2673,7 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_external_id: string
+          organization_id?: string | null
           tone_override?: string | null
           user_id: string
         }
@@ -2554,10 +2682,19 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_external_id?: string
+          organization_id?: string | null
           tone_override?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meeting_copilot_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_copilot_settings: {
         Row: {
@@ -2568,6 +2705,7 @@ export type Database = {
           microphone_device_id: string | null
           notify_detected: boolean
           notify_scheduled: boolean
+          organization_id: string
           save_transcripts: boolean
           shortcuts: Json
           show_live_suggestions: boolean
@@ -2584,6 +2722,7 @@ export type Database = {
           microphone_device_id?: string | null
           notify_detected?: boolean
           notify_scheduled?: boolean
+          organization_id: string
           save_transcripts?: boolean
           shortcuts?: Json
           show_live_suggestions?: boolean
@@ -2600,6 +2739,7 @@ export type Database = {
           microphone_device_id?: string | null
           notify_detected?: boolean
           notify_scheduled?: boolean
+          organization_id?: string
           save_transcripts?: boolean
           shortcuts?: Json
           show_live_suggestions?: boolean
@@ -2608,7 +2748,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meeting_copilot_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_sessions: {
         Row: {
@@ -2622,6 +2770,7 @@ export type Database = {
           key_decisions: Json
           meeting_external_id: string | null
           meeting_title: string
+          organization_id: string
           platform: string | null
           recap_email_sent_at: string | null
           recap_email_status: string | null
@@ -2642,6 +2791,7 @@ export type Database = {
           key_decisions?: Json
           meeting_external_id?: string | null
           meeting_title: string
+          organization_id: string
           platform?: string | null
           recap_email_sent_at?: string | null
           recap_email_status?: string | null
@@ -2662,6 +2812,7 @@ export type Database = {
           key_decisions?: Json
           meeting_external_id?: string | null
           meeting_title?: string
+          organization_id?: string
           platform?: string | null
           recap_email_sent_at?: string | null
           recap_email_status?: string | null
@@ -2671,13 +2822,22 @@ export type Database = {
           summary_generated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meeting_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_suggestions: {
         Row: {
           content: string
           generated_at: string
           id: string
+          organization_id: string
           session_id: string
           suggestion_type: string | null
           used: boolean
@@ -2687,6 +2847,7 @@ export type Database = {
           content: string
           generated_at?: string
           id?: string
+          organization_id: string
           session_id: string
           suggestion_type?: string | null
           used?: boolean
@@ -2696,12 +2857,20 @@ export type Database = {
           content?: string
           generated_at?: string
           id?: string
+          organization_id?: string
           session_id?: string
           suggestion_type?: string | null
           used?: boolean
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "meeting_suggestions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "meeting_suggestions_session_id_fkey"
             columns: ["session_id"]
@@ -2716,6 +2885,7 @@ export type Database = {
           created_at: string
           id: string
           is_final: boolean
+          organization_id: string | null
           session_id: string
           speaker: string | null
           speaker_color: string | null
@@ -2727,6 +2897,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_final?: boolean
+          organization_id?: string | null
           session_id: string
           speaker?: string | null
           speaker_color?: string | null
@@ -2738,6 +2909,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_final?: boolean
+          organization_id?: string | null
           session_id?: string
           speaker?: string | null
           speaker_color?: string | null
@@ -2746,6 +2918,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "meeting_transcripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "meeting_transcripts_session_id_fkey"
             columns: ["session_id"]
@@ -2765,6 +2944,7 @@ export type Database = {
           id: string
           last_refresh_at: string | null
           last_refresh_error: string | null
+          organization_id: string
           provider: string
           refresh_failure_count: number
           requires_reauth: boolean
@@ -2780,6 +2960,7 @@ export type Database = {
           id?: string
           last_refresh_at?: string | null
           last_refresh_error?: string | null
+          organization_id: string
           provider: string
           refresh_failure_count?: number
           requires_reauth?: boolean
@@ -2795,6 +2976,7 @@ export type Database = {
           id?: string
           last_refresh_at?: string | null
           last_refresh_error?: string | null
+          organization_id?: string
           provider?: string
           refresh_failure_count?: number
           requires_reauth?: boolean
@@ -2807,6 +2989,13 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oauth_token_vault_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2904,24 +3093,57 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address_city: string | null
+          address_country: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          contact_email: string | null
           created_at: string
+          environment_type: Database["public"]["Enums"]["org_environment_type"]
           id: string
+          legal_name: string | null
           logo_url: string | null
           name: string
+          phone: string | null
+          plan_id: string | null
+          status: Database["public"]["Enums"]["org_status"]
           updated_at: string
         }
         Insert: {
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          contact_email?: string | null
           created_at?: string
+          environment_type?: Database["public"]["Enums"]["org_environment_type"]
           id?: string
+          legal_name?: string | null
           logo_url?: string | null
           name: string
+          phone?: string | null
+          plan_id?: string | null
+          status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
         }
         Update: {
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          contact_email?: string | null
           created_at?: string
+          environment_type?: Database["public"]["Enums"]["org_environment_type"]
           id?: string
+          legal_name?: string | null
           logo_url?: string | null
           name?: string
+          phone?: string | null
+          plan_id?: string | null
+          status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
         }
         Relationships: []
@@ -3399,7 +3621,7 @@ export type Database = {
           error_kind: string | null
           error_message: string | null
           id: string
-          organization_id: string | null
+          organization_id: string
           status: string
           tool: string
           user_id: string
@@ -3412,7 +3634,7 @@ export type Database = {
           error_kind?: string | null
           error_message?: string | null
           id?: string
-          organization_id?: string | null
+          organization_id: string
           status: string
           tool: string
           user_id: string
@@ -3425,7 +3647,7 @@ export type Database = {
           error_kind?: string | null
           error_message?: string | null
           id?: string
-          organization_id?: string | null
+          organization_id?: string
           status?: string
           tool?: string
           user_id?: string
@@ -3513,6 +3735,7 @@ export type Database = {
           created_at: string
           custom_context: string | null
           id: string
+          organization_id: string | null
           responsibilities: string | null
           role: string | null
           updated_at: string
@@ -3523,6 +3746,7 @@ export type Database = {
           created_at?: string
           custom_context?: string | null
           id?: string
+          organization_id?: string | null
           responsibilities?: string | null
           role?: string | null
           updated_at?: string
@@ -3533,12 +3757,21 @@ export type Database = {
           created_at?: string
           custom_context?: string | null
           id?: string
+          organization_id?: string | null
           responsibilities?: string | null
           role?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_ai_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_client_status: {
         Row: {
@@ -4455,6 +4688,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member" | "super_admin" | "org_admin" | "dept_admin"
+      org_environment_type: "microsoft" | "google" | "none"
+      org_status: "active" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4583,6 +4818,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member", "super_admin", "org_admin", "dept_admin"],
+      org_environment_type: ["microsoft", "google", "none"],
+      org_status: ["active", "suspended"],
     },
   },
 } as const
