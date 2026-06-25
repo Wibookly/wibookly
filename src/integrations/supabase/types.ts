@@ -3437,6 +3437,7 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           follow_up_at: string
+          follow_up_history: Json
           graph_message_id: string
           id: string
           internet_message_id: string
@@ -3460,6 +3461,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           follow_up_at: string
+          follow_up_history?: Json
           graph_message_id: string
           id?: string
           internet_message_id: string
@@ -3483,6 +3485,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           follow_up_at?: string
+          follow_up_history?: Json
           graph_message_id?: string
           id?: string
           internet_message_id?: string
