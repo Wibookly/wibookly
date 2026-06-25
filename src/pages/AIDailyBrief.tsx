@@ -666,16 +666,9 @@ export default function AIDailyBrief() {
           </Card>
           )}
 
-          {/* SECTION 4 — Live Outlook schedule (Today / Week / Month, printable) */}
-          {activeConnection?.id && (
-            <CalendarPanel connectionId={activeConnection.id} />
-          )}
-
-          {/* SECTION 5 — Flagged Email Tracker summary */}
+          {/* Flagged Email Tracker — detailed checklist */}
           <FlaggedEmailSummarySection />
 
-          {/* SECTION 5b — No Reply Tracker (slim if empty) */}
-          <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
           {/* Optional summary line */}
           {((brief.schedule && brief.schedule.length > 0) ||
