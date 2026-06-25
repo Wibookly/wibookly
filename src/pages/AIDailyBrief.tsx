@@ -568,7 +568,20 @@ export default function AIDailyBrief() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-24 w-full" />
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-primary/5">
+            <CardContent className="py-10 flex flex-col items-center justify-center gap-3 text-center">
+              <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+              <div>
+                <p className="font-semibold text-base">Loading your daily brief…</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Pulling latest emails, calendar, and AI analysis from Microsoft 365. This usually takes 5–15 seconds.
+                </p>
+              </div>
+              <div className="w-full max-w-md mt-2 h-1 rounded-full bg-muted overflow-hidden">
+                <div className="h-full w-1/3 bg-primary animate-pulse rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Skeleton className="h-[400px] lg:col-span-2" />
             <Skeleton className="h-[400px]" />
