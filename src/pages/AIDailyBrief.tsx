@@ -210,9 +210,28 @@ export default function AIDailyBrief() {
     }
   };
 
-  const handlePrint = (type: 'all' | 'priorities' | 'calendar' | 'todo') => {
+  const handlePrint = async (type: 'all' | 'priorities' | 'calendar' | 'todo') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
+
+    // Pull current flagged-email follow-ups so the printed brief mirrors the UI.
+    let flaggedPending: any[] = [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const since = new Date(); since.setDate(since.getDate() - 60);
+        const { data } = await supabase
+          .from('tracked_emails' as any)
+          .select('id, recipient_address, recipient_name, subject, status, follow_up_at, attempts, sent_at')
+          .eq('user_id', user.id)
+          .gte('sent_at', since.toISOString())
+          .eq('status', 'pending')
+          .order('follow_up_at', { ascending: true })
+          .limit(50);
+        flaggedPending = (data as any[]) || [];
+      }
+    } catch { /* non-fatal */ }
+
 
     const esc = (v: unknown): string => {
       if (v === null || v === undefined) return '';
