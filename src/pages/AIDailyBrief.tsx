@@ -36,7 +36,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import energyForwardLogo from '@/assets/energyforward-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
-import { CalendarPanel } from '@/components/daily-brief/CalendarPanel';
+// CalendarPanel removed from Daily Brief body per UX redesign — calendar lives on its own page.
 
 import { BellRing, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -210,9 +210,28 @@ export default function AIDailyBrief() {
     }
   };
 
-  const handlePrint = (type: 'all' | 'priorities' | 'calendar' | 'todo') => {
+  const handlePrint = async (type: 'all' | 'priorities' | 'calendar' | 'todo') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !brief) return;
+
+    // Pull current flagged-email follow-ups so the printed brief mirrors the UI.
+    let flaggedPending: any[] = [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const since = new Date(); since.setDate(since.getDate() - 60);
+        const { data } = await supabase
+          .from('tracked_emails' as any)
+          .select('id, recipient_address, recipient_name, subject, status, follow_up_at, attempts, sent_at')
+          .eq('user_id', user.id)
+          .gte('sent_at', since.toISOString())
+          .eq('status', 'pending')
+          .order('follow_up_at', { ascending: true })
+          .limit(50);
+        flaggedPending = (data as any[]) || [];
+      }
+    } catch { /* non-fatal */ }
+
 
     const esc = (v: unknown): string => {
       if (v === null || v === undefined) return '';
@@ -289,27 +308,9 @@ export default function AIDailyBrief() {
       }
     }
 
-    // Today's Schedule
-    if (type === 'all' || type === 'calendar') {
-      const booked = (brief.schedule || []).filter((s) => {
-        const t = (s.type || '').toLowerCase();
-        const ti = (s.title || '').toLowerCase();
-        if (t === 'focus' || t === 'available' || t === 'free') return false;
-        if (ti.includes('available')) return false;
-        return true;
-      });
-      const body = booked.length
-        ? booked.map((s) => `
-            <div class="sch-row">
-              <span class="sch-time">${esc(s.time)}</span>
-              <div class="sch-body">
-                <strong>${esc(s.title)}</strong>
-                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
-              </div>
-            </div>`).join('')
-        : '';
-      pages += buildSection("Today's Schedule", 'Calendar', body, 'No meetings scheduled for today.');
-    }
+    // Today's Schedule intentionally removed from the printable brief —
+    // the live calendar lives on its own page and was creating duplication.
+
 
     // Final Tasks list — one explicit checkbox task per action item
     // (emails to reply, meetings to attend/prep, follow-ups to do).
@@ -335,7 +336,30 @@ export default function AIDailyBrief() {
     }
 
 
-    // Priority Tips / Suggestions
+    // Flagged Email Tracker — checklist
+    if (type === 'all' || type === 'todo') {
+      const now = Date.now();
+      const body = flaggedPending.length
+        ? `<ul class="todo">${flaggedPending.map((r: any) => {
+            const due = r.follow_up_at ? new Date(r.follow_up_at) : null;
+            const overdueClass = due && due.getTime() < now ? 'todo-urg' : '';
+            const dueLabel = due ? (due.getTime() < now ? `Overdue ${due.toLocaleDateString()}` : `Due ${due.toLocaleDateString()}`) : '';
+            const recipient = r.recipient_name ? `${r.recipient_name} &lt;${r.recipient_address}&gt;` : (r.recipient_address || '');
+            return `<li>
+              <div class="todo-line">
+                <span class="todo-box">☐</span>
+                <span class="todo-src">🚩 Flagged</span>
+                <strong class="todo-title">${esc(r.subject || '(no subject)')}</strong>
+                ${dueLabel ? `<span class="todo-urg" style="background:${due && due.getTime() < now ? priorityColors.high : priorityColors.medium}">${esc(dueLabel)}</span>` : ''}
+                ${(r.attempts ?? 0) > 0 ? `<span class="todo-min">${esc(r.attempts)}/3 sent</span>` : ''}
+              </div>
+              <div class="todo-meta">To: ${recipient}</div>
+            </li>`;
+          }).join('')}</ul>`
+        : '';
+      pages += buildSection('Flagged Email Tracker', 'Follow-ups', body, 'No flagged emails awaiting follow-up.');
+    }
+
     if (type === 'all') {
       if (brief.suggestions?.length) {
         pages += buildSection(
@@ -666,16 +690,9 @@ export default function AIDailyBrief() {
           </Card>
           )}
 
-          {/* SECTION 4 — Live Outlook schedule (Today / Week / Month, printable) */}
-          {activeConnection?.id && (
-            <CalendarPanel connectionId={activeConnection.id} />
-          )}
-
-          {/* SECTION 5 — Flagged Email Tracker summary */}
+          {/* Flagged Email Tracker — detailed checklist */}
           <FlaggedEmailSummarySection />
 
-          {/* SECTION 5b — No Reply Tracker (slim if empty) */}
-          <PendingFollowUpsSection connectionId={activeConnection?.id} />
 
           {/* Optional summary line */}
           {((brief.schedule && brief.schedule.length > 0) ||
@@ -1111,26 +1128,90 @@ function FlaggedEmailSummarySection() {
           Full report <ExternalLink className="w-3 h-3" />
         </Link>
       </CardHeader>
-      <CardContent className="pt-0">
-        {topRecipients.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No pending follow-ups — all flagged emails have been replied to.</p>
-        ) : (
-          <div className="space-y-2">
-            {topRecipients.map((r) => (
-              <div key={r.email} className="flex items-center justify-between gap-3 p-2.5 rounded-md border bg-card hover:bg-secondary/30 transition-colors">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{r.name || r.email}</p>
-                  {r.name && <p className="text-xs text-muted-foreground truncate">{r.email}</p>}
+      <CardContent className="pt-0 space-y-4">
+        {/* By-recipient summary */}
+        {topRecipients.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Top recipients</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {topRecipients.map((r) => (
+                <div key={r.email} className="flex items-center justify-between gap-3 p-2 rounded-md border bg-card">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{r.name || r.email}</p>
+                    {r.name && <p className="text-xs text-muted-foreground truncate">{r.email}</p>}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Badge variant="secondary" className="text-xs">{r.count}</Badge>
+                    {r.overdue > 0 && <Badge variant="destructive" className="text-xs">{r.overdue} overdue</Badge>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Badge variant="secondary" className="text-xs">{r.count} email{r.count === 1 ? '' : 's'}</Badge>
-                  {r.overdue > 0 && <Badge variant="destructive" className="text-xs">{r.overdue} overdue</Badge>}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Detailed follow-up checklist */}
+        {pending.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">
+              Follow-up checklist ({pending.length})
+            </p>
+            <ul className="space-y-1.5">
+              {pending.slice(0, 12).map((r: any) => {
+                const due = r.follow_up_at ? new Date(r.follow_up_at) : null;
+                const isOverdue = !!(due && due.getTime() < now);
+                return (
+                  <li
+                    key={r.id}
+                    className={cn(
+                      'flex items-start gap-2.5 p-2.5 rounded-md border bg-card',
+                      isOverdue ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-amber-500'
+                    )}
+                  >
+                    <input type="checkbox" className="mt-1 h-4 w-4 accent-primary cursor-pointer" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">{r.subject || '(no subject)'}</p>
+                        {(r.attempts ?? 0) > 0 && (
+                          <Badge variant="outline" className="text-[10px] h-4">
+                            {r.attempts}/3 follow-ups sent
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        To: {r.recipient_name ? `${r.recipient_name} <${r.recipient_address}>` : r.recipient_address}
+                      </p>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs">
+                        {r.sent_at && (
+                          <span className="text-muted-foreground inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Sent {formatDistanceToNow(new Date(r.sent_at), { addSuffix: true })}
+                          </span>
+                        )}
+                        {due && (
+                          <span className={cn('font-medium', isOverdue ? 'text-destructive' : 'text-amber-600')}>
+                            {isOverdue ? 'Overdue' : 'Due'} {formatDistanceToNow(due, { addSuffix: true })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {pending.length > 12 && (
+              <Link to="/flagged-email-reports" className="text-xs text-primary hover:underline mt-2 inline-block">
+                View all {pending.length} in the full report →
+              </Link>
+            )}
+          </div>
+        )}
+
+        {pending.length === 0 && (
+          <p className="text-xs text-muted-foreground">No pending follow-ups — all flagged emails have been replied to. 🎉</p>
+        )}
       </CardContent>
+
     </Card>
   );
 }
