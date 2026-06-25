@@ -551,6 +551,27 @@ export default function Chat() {
     deviceId: selectedMicId,
   });
 
+  // Detect Mac vs Win/Linux so the dictation shortcut label matches the user's OS.
+  const isMacPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const dictateShortcutLabel = isMacPlatform ? '⌃⇧D' : 'Ctrl+Shift+D';
+
+  // Global hotkey: Ctrl/Cmd + Shift + D toggles voice dictation (mirrors ChatGPT's pattern).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = isMacPlatform ? (e.metaKey || e.ctrlKey) : (e.ctrlKey || e.metaKey);
+      if (mod && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (isTranscribing) return;
+        if (isRecording) stopRecording();
+        else startRecording();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isRecording, isTranscribing, startRecording, stopRecording, isMacPlatform]);
+
+
+
 
 
 
@@ -835,14 +856,14 @@ export default function Chat() {
   const handleExport = async (
     conversationId: string | null,
     format: 'pdf' | 'xlsx',
-    destination: 'download' | 'onedrive' = 'download',
+    destination: 'download' | 'onedrive' | 'email' = 'download',
   ) => {
     const key = `${conversationId || 'all'}-${format}-${destination}`;
     setExporting(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
-      if (destination === 'onedrive' && !activeConnection?.id) {
+      if ((destination === 'onedrive' || destination === 'email') && !activeConnection?.id) {
         throw new Error('Connect a Microsoft 365 account first.');
       }
       const { data, error } = await supabase.functions.invoke('export-chat', {
@@ -850,7 +871,7 @@ export default function Chat() {
           conversation_id: conversationId,
           format,
           destination,
-          connection_id: destination === 'onedrive' ? activeConnection?.id : undefined,
+          connection_id: (destination === 'onedrive' || destination === 'email') ? activeConnection?.id : undefined,
         },
       });
       if (error) throw error;
@@ -861,6 +882,10 @@ export default function Chat() {
           res?.webUrl ? `Saved to OneDrive › InboxIQ Chat › Exports` : 'Saved to OneDrive',
           res?.webUrl ? { action: { label: 'Open', onClick: () => window.open(res.webUrl!, '_blank') } } : undefined,
         );
+      } else if (destination === 'email') {
+        const res = data as { to?: string; error?: string };
+        if (res?.error) throw new Error(res.error);
+        toast.success(res?.to ? `Emailed to ${res.to}` : 'Email sent');
       } else {
         const file = data as { filename: string; mime_type: string; base64: string };
         if (!file?.base64) throw new Error('Empty export');
@@ -873,6 +898,7 @@ export default function Chat() {
       setExporting(null);
     }
   };
+
 
 
   // === Summarize current chat + continue in a fresh one ===
@@ -1562,6 +1588,28 @@ export default function Chat() {
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Mail className="h-4 w-4 mr-2" /> Email to me
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-pdf-email`}
+                    onClick={() => handleExport(c.id, 'pdf', 'email')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exporting === `${c.id}-xlsx-email`}
+                    onClick={() => handleExport(c.id, 'xlsx', 'email')}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
 
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -1847,7 +1895,7 @@ export default function Chat() {
                       className="relative h-9 w-9 shrink-0"
                       disabled={isStreaming || limitReached || isTranscribing}
                       onClick={startRecording}
-                      title={isTranscribing ? 'Converting voice to text…' : 'Click to talk — pause for 2 seconds when you are done'}
+                      title={isTranscribing ? 'Converting voice to text…' : `Dictate (${dictateShortcutLabel}) — click or press the shortcut, speak, then pause to convert`}
                       data-tour="chat-mic"
                     >
                       {isTranscribing
@@ -1855,7 +1903,14 @@ export default function Chat() {
                         : <Mic className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{isTranscribing ? 'Converting your speech to text' : 'Voice input — click once, speak, then pause to convert'}</TooltipContent>
+                  <TooltipContent>
+                    {isTranscribing ? 'Converting your speech to text' : (
+                      <span className="flex items-center gap-2">
+                        Dictate
+                        <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">{dictateShortcutLabel}</kbd>
+                      </span>
+                    )}
+                  </TooltipContent>
                 </Tooltip>
               )}
 
