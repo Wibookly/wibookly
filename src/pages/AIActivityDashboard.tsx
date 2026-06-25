@@ -238,8 +238,8 @@ export default function AIActivityDashboard() {
       <div className="page-shell-sticky">
         <PageHero
           eyebrow="Reports"
-          title="AI Intelligence Reports"
-          description="Your AI activity and email follow-up tracking — drafts, auto-replies, scheduled events, chats, meetings, and the No-Reply Tracker. Filter by date range, export, or print."
+          title="AI Intelligence Report"
+          description="Your AI activity — drafts, auto-replies, scheduled events, chats, and meetings. Filter by date range, export, or print. The Flagged Email Tracker now lives in its own report under AI Activity."
           accent="green"
           icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
         />
@@ -249,12 +249,7 @@ export default function AIActivityDashboard() {
         <Tabs defaultValue="activity" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="activity">AI Activity</TabsTrigger>
-            <TabsTrigger value="no-reply">No-Reply Tracker</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="no-reply">
-            <NoReplyTrackerReport />
-          </TabsContent>
 
           <TabsContent value="activity" className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
