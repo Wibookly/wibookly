@@ -246,18 +246,16 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder') || hasFeature('ai_chat') || hasFeature('email_intelligence')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/follow-up-reminder" icon={BellRing} accent={accents.purple}>No Reply Tracker</NavItem>}
                 </NavSection>
               )}
 
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
                 <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
-                {/* AI Draft / Auto Reply settings now live inside Email Intelligence (per-rule tone sheet). */}
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
                   <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
@@ -267,9 +265,10 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Activity (formerly Reports) */}
-              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('daily_brief') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
                   {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green}>Flagged Email Tracker</NavItem>}
                   {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.green}>My Daily Brief</NavItem>}
                 </NavSection>
               )}
