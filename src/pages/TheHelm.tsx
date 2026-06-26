@@ -452,18 +452,39 @@ function BriefView({
               </EmptyHint>
             ) : (
               big3.map((item) => (
-                <HelmCard
-                  key={item.id}
-                  item={item}
-                  onOpen={() => go('detail', item)}
-                  showCheckbox
-                  done={done[item.id]}
-                  onToggleDone={(n) => toggleDone(item.id, n)}
-                />
+                <div key={item.id} className="space-y-2">
+                  <HelmCard
+                    item={item}
+                    onOpen={() => go('detail', item)}
+                    showCheckbox
+                    done={done[item.id]}
+                    onToggleDone={(n) => toggleDone(item.id, n)}
+                  />
+                  <div className="flex gap-2 print:hidden pl-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const { data, error } = await supabase.functions.invoke('helm-big3', {
+                            body: { action: 'block_focus', item_id: item.id, title: item.title },
+                          });
+                          if (error) throw error;
+                          toast.success(data?.web_link ? 'Focus block created in Outlook' : 'Focus block created');
+                        } catch (e: any) {
+                          toast.error(e?.message ?? 'Could not block focus time');
+                        }
+                      }}
+                    >
+                      <Clock className="w-3 h-3 mr-1" /> Block focus time
+                    </Button>
+                  </div>
+                </div>
               ))
             )}
           </div>
         </section>
+
 
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
