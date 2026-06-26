@@ -425,57 +425,76 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const autoActions = data?.autoActions ?? [];
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-10">
-        {/* Hero */}
-        <section aria-labelledby="helm-hero">
-          <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
-            <CardContent className="p-8">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <p className="text-caption uppercase tracking-wider text-primary font-semibold font-mono">
-                  The Helm · Daily Brief
-                </p>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-2 text-caption font-mono tracking-wider uppercase px-2.5 py-1 rounded-full border print:hidden',
-                    (sync.isPending || isLoading)
-                      ? 'border-primary/40 text-primary bg-primary/5'
-                      : 'border-border text-muted-foreground bg-card/50',
-                  )}
-                  title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
-                >
-                  <RefreshCw
-                    className={cn('w-3.5 h-3.5', (sync.isPending || isLoading) && 'animate-spin')}
-                  />
-                  {(sync.isPending || isLoading) ? 'Syncing…' : 'Live · auto-sync'}
-                </span>
-              </div>
+  const today = useMemo(
+    () =>
+      new Date().toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
+    [],
+  );
+  const nowTime = useMemo(
+    () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    [],
+  );
 
-              <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
-                {greeting}
-                {name ? `, ${name}` : ''}.
-              </h1>
-              <p className="text-body-1 text-muted-foreground max-w-2xl">
-                {stats.needsYou === 0
-                  ? 'Calm day. Nothing personally needs you right now.'
-                  : `${stats.needsYou} item${stats.needsYou === 1 ? '' : 's'} need your judgment. Start at the top.`}
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
+      <div className="space-y-12">
+        {/* Hero — borderless, demo-v4 style */}
+        <section aria-labelledby="helm-hero" className="pt-2">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
+              {today} · {nowTime} brief
+            </p>
+            <span
+              className={cn(
+                'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border print:hidden',
+                (sync.isPending || isLoading)
+                  ? 'border-primary/40 text-primary bg-primary/5'
+                  : 'border-border/60 text-muted-foreground bg-transparent',
+              )}
+              title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+            >
+              <RefreshCw
+                className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')}
+              />
+              {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+            </span>
+          </div>
+
+          <h1
+            id="helm-hero"
+            className="text-[44px] md:text-[56px] leading-[1.05] tracking-tight font-semibold text-foreground"
+          >
+            {greeting}
+            {name ? `, ${name}` : ''}.{' '}
+            <span className="text-primary">
+              {stats.needsYou === 0 ? 'You are clear.' : `${stats.needsYou} thing${stats.needsYou === 1 ? '' : 's'} need you today.`}
+            </span>
+          </h1>
+          <p className="text-[15px] md:text-base text-muted-foreground max-w-2xl mt-4 leading-relaxed">
+            Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
+          </p>
+
+          <div className="mt-10 flex items-baseline gap-5 flex-wrap">
+            <span className="text-[72px] md:text-[96px] leading-none font-light text-muted-foreground/40 tabular-nums">
+              {stats.totalInbound}
+            </span>
+            <ArrowRight className="w-7 h-7 text-muted-foreground/60" />
+            <span className="text-[72px] md:text-[96px] leading-none font-light text-primary tabular-nums">
+              {stats.needsYou}
+            </span>
+            <div className="ml-2 pb-2">
+              <p className="text-[15px] text-foreground">items came in overnight</p>
+              <p className="text-[13px] text-muted-foreground mt-1">
+                surfaced to you · the rest handled or held
               </p>
-              <div className="mt-8 flex items-baseline gap-4 flex-wrap">
-                <span className="text-h1 font-bold text-foreground tabular-nums">
-                  {stats.totalInbound}
-                </span>
-                <ArrowRight className="w-6 h-6 text-muted-foreground" />
-                <span className="text-h1 font-bold text-primary tabular-nums">
-                  {stats.needsYou}
-                </span>
-                <span className="text-body-2 text-muted-foreground">
-                  inbound today, only {stats.needsYou} need you
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </section>
+
 
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
