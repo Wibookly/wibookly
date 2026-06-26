@@ -424,22 +424,25 @@ function BriefView({
           <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
             <CardContent className="p-8">
               <div className="flex items-start justify-between gap-4 mb-2">
-                <p className="text-caption uppercase tracking-wider text-primary font-semibold">
-                  The Helm
+                <p className="text-caption uppercase tracking-wider text-primary font-semibold font-mono">
+                  The Helm · Daily Brief
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => sync.mutate()}
-                  disabled={sync.isPending}
-                  className="print:hidden"
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-2 text-caption font-mono tracking-wider uppercase px-2.5 py-1 rounded-full border print:hidden',
+                    (sync.isPending || isLoading)
+                      ? 'border-primary/40 text-primary bg-primary/5'
+                      : 'border-border text-muted-foreground bg-card/50',
+                  )}
+                  title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
                 >
                   <RefreshCw
-                    className={cn('w-4 h-4 mr-1.5', sync.isPending && 'animate-spin')}
+                    className={cn('w-3.5 h-3.5', (sync.isPending || isLoading) && 'animate-spin')}
                   />
-                  {sync.isPending ? 'Syncing…' : 'Sync inbox'}
-                </Button>
+                  {(sync.isPending || isLoading) ? 'Syncing…' : 'Live · auto-sync'}
+                </span>
               </div>
+
               <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
                 {greeting}
                 {name ? `, ${name}` : ''}.
