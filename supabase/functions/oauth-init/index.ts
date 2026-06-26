@@ -110,6 +110,7 @@ serve(async (req) => {
       microsoftTenantId: microsoftTenantId || undefined,
     }));
 
+
     let authUrl: string;
 
     if (provider === 'google') {
