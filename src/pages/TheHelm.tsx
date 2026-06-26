@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,16 +25,18 @@ import {
   Inbox,
   Mail,
   Printer,
+  RefreshCw,
   Send,
   Sparkles,
   AlertTriangle,
   Activity,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 
 /* ------------------------------------------------------------------ */
-/* Placeholder data (Phase 3+ will wire to real sources)              */
+/* Types & data hooks                                                 */
 /* ------------------------------------------------------------------ */
 
 type View = 'brief' | 'inbox' | 'detail' | 'calendar';
@@ -40,85 +46,100 @@ interface HelmItem {
   title: string;
   context: string;
   sender?: string;
+  sender_email?: string;
   due?: string;
+  due_at?: string | null;
   tier?: 'big3' | 'decision' | 'overdue' | 'draft' | 'auto';
+  score?: number;
+  graph_id?: string;
+  conversation_id?: string;
 }
 
-const BIG3: HelmItem[] = [
-  {
-    id: 'b1',
-    title: 'Approve the Q3 capex memo',
-    context: 'Board packet locks tonight. Without your sign-off the meeting slips a week.',
-    sender: 'Priya Anand, CFO',
-    due: 'by 4:00 PM',
-  },
-  {
-    id: 'b2',
-    title: 'Decide on Vendor X renewal',
-    context: 'Current contract ends Friday. Legal flagged two open redlines for you.',
-    sender: 'Legal · contracts@',
-    due: 'today',
-  },
-  {
-    id: 'b3',
-    title: 'Confirm Thursday all-hands narrative',
-    context: 'Comms needs your top-3 talking points to lock the deck and run rehearsal.',
-    sender: 'Maya Lin, Chief of Staff',
-    due: 'today',
-  },
-];
+interface AutoAction {
+  id: string;
+  text: string;
+  time: string;
+}
 
-const DECISIONS: HelmItem[] = [
-  {
-    id: 'd1',
-    title: 'Sign the partnership LOI with Helios',
-    context: 'Counterparty asked for verbal-yes by EOD. Draft is in your DocuSign queue.',
-    sender: 'Helios · ceo@',
-  },
-  {
-    id: 'd2',
-    title: 'Approve role posting: VP Engineering',
-    context: 'Recruiter needs final JD wording before the search opens publicly.',
-    sender: 'Talent · jordan@',
-  },
-  {
-    id: 'd3',
-    title: 'Pick a date for the customer advisory dinner',
-    context: 'Three holds are on your calendar. Pick one so invites can go out.',
-    sender: 'Events',
-  },
-];
+function mapRow(r: any): HelmItem {
+  return {
+    id: r.id,
+    title: r.title ?? '(no subject)',
+    context: r.context ?? '',
+    sender: r.sender_name ?? r.sender_email ?? undefined,
+    sender_email: r.sender_email ?? undefined,
+    due_at: r.due_at ?? null,
+    due: r.due_at
+      ? `due ${formatDistanceToNow(new Date(r.due_at), { addSuffix: true })}`
+      : undefined,
+    tier: r.tier,
+    score: r.score,
+    graph_id: r.graph_id,
+    conversation_id: r.conversation_id,
+  };
+}
 
-const OVERDUE: HelmItem[] = [
-  {
-    id: 'o1',
-    title: 'Re: Series C term sheet — clarifying questions',
-    context: 'Investor follow-up sent 4 days ago, no reply tracked.',
-    sender: 'Northwind Capital',
-    due: '4 days ago',
-  },
-  {
-    id: 'o2',
-    title: 'Re: Bonus pool allocation',
-    context: 'Comp committee is waiting on your response from last week.',
-    sender: 'People Ops',
-    due: '6 days ago',
-  },
-];
+function useHelmData() {
+  return useQuery({
+    queryKey: ['helm-items'],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const [itemsRes, autoRes] = await Promise.all([
+        supabase
+          .from('helm_items')
+          .select(
+            'id,title,context,sender_name,sender_email,due_at,tier,score,graph_id,conversation_id,created_at,status',
+          )
+          .eq('status', 'open')
+          .order('score', { ascending: false })
+          .limit(200),
+        supabase
+          .from('activity_log')
+          .select('id,detail,created_at')
+          .eq('action_type', 'item_filed')
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(20),
+      ]);
 
-const AUTO_ACTIONS = [
-  { id: 'a1', text: 'Filed 38 newsletters into Read Later', time: '6:12 AM' },
-  { id: 'a2', text: 'Acknowledged 14 FYI threads on your behalf', time: '6:12 AM' },
-  { id: 'a3', text: 'Declined 2 calendar holds that overlapped your focus block', time: '6:13 AM' },
-  { id: 'a4', text: 'Drafted polite "noted, thank you" replies to 9 confirmations', time: '6:14 AM' },
-];
+      const rows = (itemsRes.data ?? []).map(mapRow);
+      const decisions = rows.filter((r) => r.tier === 'decision');
+      const drafts = rows.filter((r) => r.tier === 'draft');
+      const overdue = rows.filter((r) => r.tier === 'overdue');
+      const big3 = decisions.slice(0, 3);
+      const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => ({
+        id: a.id,
+        text: a.detail ?? 'Filed',
+        time: new Date(a.created_at).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      }));
 
-const INBOX_HEALTH = [
-  { label: 'Inbound today', value: 487 },
-  { label: 'Needs you', value: 6 },
-  { label: 'Drafted for review', value: 11 },
-  { label: 'Auto-handled', value: 412 },
-];
+      const totalInbound = rows.length + autoActions.length;
+      const needsYou = big3.length + decisions.length + overdue.length;
+
+      return {
+        big3,
+        decisions: decisions.slice(big3.length),
+        drafts,
+        overdue,
+        autoActions,
+        stats: {
+          totalInbound,
+          needsYou,
+          drafted: drafts.length,
+          autoHandled: autoActions.length,
+        },
+      };
+    },
+    staleTime: 30_000,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Fallback static data (calendar — wired in Phase 4)                 */
+/* ------------------------------------------------------------------ */
 
 const WEEK_PREVIEW = [
   { day: 'Mon', summary: '5 meetings · 2 focus blocks' },
@@ -129,7 +150,7 @@ const WEEK_PREVIEW = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* Small building blocks                                              */
+/* Building blocks                                                    */
 /* ------------------------------------------------------------------ */
 
 function SectionHeader({
@@ -147,15 +168,17 @@ function SectionHeader({
     <div className="flex items-start justify-between gap-4 mb-4">
       <div>
         <h2 className="text-h3 text-foreground">{title}</h2>
-        {subtitle && (
-          <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={onPrint} aria-label="Print section">
+        <Button variant="ghost" size="sm" onClick={onPrint ?? (() => window.print())}>
           <Printer className="w-4 h-4 mr-1.5" /> Print
         </Button>
-        <Button variant="ghost" size="sm" onClick={onEmail} aria-label="Email me this section">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEmail ?? (() => toast.info('Email delivery wires in Phase 6.'))}
+        >
           <Send className="w-4 h-4 mr-1.5" /> Email me
         </Button>
       </div>
@@ -220,9 +243,11 @@ function HelmCard({
                 {item.title}
               </h3>
             </div>
-            <p className="text-body-2 text-muted-foreground leading-relaxed">
-              {item.context}
-            </p>
+            {item.context && (
+              <p className="text-body-2 text-muted-foreground leading-relaxed">
+                {item.context}
+              </p>
+            )}
             {(item.sender || item.due) && (
               <div className="flex items-center gap-3 mt-3 text-caption text-muted-foreground">
                 {item.sender && (
@@ -259,6 +284,16 @@ function BackBar({ onBack, label }: { onBack: () => void; label: string }) {
   );
 }
 
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="p-6 text-body-2 text-muted-foreground text-center">
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
@@ -273,6 +308,8 @@ function BriefView({
   toggleDone: (id: string, next: boolean) => void;
 }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
+  const { data, isLoading } = useHelmData();
   const greeting = useMemo(() => {
     const hr = new Date().getHours();
     if (hr < 12) return 'Good morning';
@@ -283,38 +320,73 @@ function BriefView({
     (user?.user_metadata?.full_name as string | undefined)?.split(' ')[0] ??
     user?.email?.split('@')[0] ??
     '';
-  const totalInbound = 487;
-  const needsYou = 6;
+
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { data: res, error } = await supabase.functions.invoke('helm-sync-mail', {
+        body: {},
+      });
+      if (error) throw error;
+      return res;
+    },
+    onSuccess: (res: any) => {
+      toast.success(
+        `Synced: ${res?.surfaced ?? 0} surfaced, ${res?.autoFiled ?? 0} auto-filed`,
+      );
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Sync failed'),
+  });
+
+  const stats = data?.stats ?? { totalInbound: 0, needsYou: 0, drafted: 0, autoHandled: 0 };
+  const big3 = data?.big3 ?? [];
+  const decisions = data?.decisions ?? [];
+  const overdue = data?.overdue ?? [];
+  const autoActions = data?.autoActions ?? [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Main column */}
       <div className="lg:col-span-2 space-y-10">
         {/* Hero */}
         <section aria-labelledby="helm-hero">
           <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
             <CardContent className="p-8">
-              <p className="text-caption uppercase tracking-wider text-primary font-semibold mb-2">
-                The Helm
-              </p>
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <p className="text-caption uppercase tracking-wider text-primary font-semibold">
+                  The Helm
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => sync.mutate()}
+                  disabled={sync.isPending}
+                  className="print:hidden"
+                >
+                  <RefreshCw
+                    className={cn('w-4 h-4 mr-1.5', sync.isPending && 'animate-spin')}
+                  />
+                  {sync.isPending ? 'Syncing…' : 'Sync inbox'}
+                </Button>
+              </div>
               <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
-                {greeting}{name ? `, ${name}` : ''}.
+                {greeting}
+                {name ? `, ${name}` : ''}.
               </h1>
               <p className="text-body-1 text-muted-foreground max-w-2xl">
-                Calm day. The inbox moved a lot overnight but only a handful of
-                items genuinely need you. Start with your Big 3, then glance at
-                the decisions queue.
+                {stats.needsYou === 0
+                  ? 'Calm day. Nothing personally needs you right now.'
+                  : `${stats.needsYou} item${stats.needsYou === 1 ? '' : 's'} need your judgment. Start at the top.`}
               </p>
               <div className="mt-8 flex items-baseline gap-4 flex-wrap">
                 <span className="text-h1 font-bold text-foreground tabular-nums">
-                  {totalInbound}
+                  {stats.totalInbound}
                 </span>
                 <ArrowRight className="w-6 h-6 text-muted-foreground" />
                 <span className="text-h1 font-bold text-primary tabular-nums">
-                  {needsYou}
+                  {stats.needsYou}
                 </span>
                 <span className="text-body-2 text-muted-foreground">
-                  inbound today, only {needsYou} need you
+                  inbound today, only {stats.needsYou} need you
                 </span>
               </div>
             </CardContent>
@@ -325,16 +397,25 @@ function BriefView({
         <section aria-labelledby="big3">
           <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." />
           <div className="grid gap-3">
-            {BIG3.map((item) => (
-              <HelmCard
-                key={item.id}
-                item={item}
-                onOpen={() => go('detail', item)}
-                showCheckbox
-                done={done[item.id]}
-                onToggleDone={(n) => toggleDone(item.id, n)}
-              />
-            ))}
+            {isLoading ? (
+              <Skeleton className="h-24" />
+            ) : big3.length === 0 ? (
+              <EmptyHint>
+                No must-do items right now. Hit <strong>Sync inbox</strong> to pull the
+                latest, or enjoy the calm.
+              </EmptyHint>
+            ) : (
+              big3.map((item) => (
+                <HelmCard
+                  key={item.id}
+                  item={item}
+                  onOpen={() => go('detail', item)}
+                  showCheckbox
+                  done={done[item.id]}
+                  onToggleDone={(n) => toggleDone(item.id, n)}
+                />
+              ))
+            )}
           </div>
         </section>
 
@@ -345,9 +426,15 @@ function BriefView({
             subtitle="Only you can decide or approve these."
           />
           <div className="grid gap-3">
-            {DECISIONS.map((item) => (
-              <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
-            ))}
+            {isLoading ? (
+              <Skeleton className="h-20" />
+            ) : decisions.length === 0 ? (
+              <EmptyHint>No open decisions waiting on you.</EmptyHint>
+            ) : (
+              decisions.map((item) => (
+                <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+              ))
+            )}
           </div>
         </section>
 
@@ -375,8 +462,12 @@ function BriefView({
               </div>
               <div className="flex-1">
                 <div className="flex items-baseline gap-3">
-                  <span className="text-h2 font-bold text-foreground tabular-nums">11</span>
-                  <span className="text-body-1 text-foreground">drafts ready</span>
+                  <span className="text-h2 font-bold text-foreground tabular-nums">
+                    {stats.drafted}
+                  </span>
+                  <span className="text-body-1 text-foreground">
+                    draft{stats.drafted === 1 ? '' : 's'} ready
+                  </span>
                 </div>
                 <p className="text-body-2 text-muted-foreground mt-1">
                   Open the focused inbox to skim, edit, and send.
@@ -394,14 +485,20 @@ function BriefView({
             subtitle="These threads have been sitting too long."
           />
           <div className="grid gap-3">
-            {OVERDUE.map((item) => (
-              <HelmCard
-                key={item.id}
-                item={item}
-                variant="warning"
-                onOpen={() => go('detail', item)}
-              />
-            ))}
+            {isLoading ? (
+              <Skeleton className="h-20" />
+            ) : overdue.length === 0 ? (
+              <EmptyHint>You're caught up on overdue threads.</EmptyHint>
+            ) : (
+              overdue.map((item) => (
+                <HelmCard
+                  key={item.id}
+                  item={item}
+                  variant="warning"
+                  onOpen={() => go('detail', item)}
+                />
+              ))
+            )}
           </div>
         </section>
 
@@ -423,7 +520,8 @@ function BriefView({
                         Done automatically overnight
                       </h2>
                       <p className="text-body-2 text-muted-foreground">
-                        {AUTO_ACTIONS.length} actions handled while you slept.
+                        {autoActions.length} action{autoActions.length === 1 ? '' : 's'}{' '}
+                        handled while you slept.
                       </p>
                     </div>
                   </div>
@@ -433,17 +531,23 @@ function BriefView({
               <CollapsibleContent>
                 <div className="px-5 pb-5">
                   <Separator className="mb-4" />
-                  <ul className="space-y-3">
-                    {AUTO_ACTIONS.map((a) => (
-                      <li key={a.id} className="flex items-start gap-3 text-body-2">
-                        <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                        <span className="flex-1 text-foreground">{a.text}</span>
-                        <span className="text-caption text-muted-foreground tabular-nums">
-                          {a.time}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  {autoActions.length === 0 ? (
+                    <p className="text-body-2 text-muted-foreground">
+                      Nothing auto-filed yet. Run a sync to see the agent work.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {autoActions.map((a) => (
+                        <li key={a.id} className="flex items-start gap-3 text-body-2">
+                          <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                          <span className="flex-1 text-foreground">{a.text}</span>
+                          <span className="text-caption text-muted-foreground tabular-nums">
+                            {a.time}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </CollapsibleContent>
             </Card>
@@ -498,14 +602,30 @@ function BriefView({
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-4">
-              {INBOX_HEALTH.map((s) => (
-                <div key={s.label}>
-                  <dt className="text-caption text-muted-foreground">{s.label}</dt>
-                  <dd className="text-h2 font-bold text-foreground tabular-nums">
-                    {s.value}
-                  </dd>
-                </div>
-              ))}
+              <div>
+                <dt className="text-caption text-muted-foreground">Inbound today</dt>
+                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                  {stats.totalInbound}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-caption text-muted-foreground">Needs you</dt>
+                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                  {stats.needsYou}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-caption text-muted-foreground">Drafted</dt>
+                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                  {stats.drafted}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-caption text-muted-foreground">Auto-handled</dt>
+                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                  {stats.autoHandled}
+                </dd>
+              </div>
             </dl>
           </CardContent>
         </Card>
@@ -515,32 +635,51 @@ function BriefView({
 }
 
 function InboxView({ onBack }: { onBack: () => void }) {
+  const { data, isLoading } = useHelmData();
+  const drafts = data?.drafts ?? [];
   return (
     <div>
       <BackBar onBack={onBack} label="Drafted for you · focused inbox" />
-      <SectionHeader title="11 drafts waiting for your review" subtitle="Skim, edit, send." />
+      <SectionHeader
+        title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
+        subtitle="Skim, edit, send. (Send wires in Phase 3.)"
+      />
       <div className="grid gap-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Card key={i}>
-            <CardContent className="p-5">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <Inbox className="w-5 h-5" />
+        {isLoading ? (
+          <Skeleton className="h-24" />
+        ) : drafts.length === 0 ? (
+          <EmptyHint>No drafts yet. Sync to generate fresh drafts.</EmptyHint>
+        ) : (
+          drafts.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Inbox className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-body-1 font-semibold text-foreground truncate">
+                      {item.title}
+                    </h3>
+                    {item.context && (
+                      <p className="text-body-2 text-muted-foreground mt-1 line-clamp-2">
+                        {item.context}
+                      </p>
+                    )}
+                    {item.sender && (
+                      <p className="text-caption text-muted-foreground mt-2 inline-flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5" /> {item.sender}
+                      </p>
+                    )}
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Open
+                  </Button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-body-1 font-semibold text-foreground">
-                    Re: Draft #{i} — placeholder subject
-                  </h3>
-                  <p className="text-body-2 text-muted-foreground mt-1 line-clamp-2">
-                    Suggested reply preview goes here. Phase 3 wires the real
-                    draft body, recipient, and send action.
-                  </p>
-                </div>
-                <Button size="sm" variant="outline">Open</Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
@@ -564,19 +703,30 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
             {item.tier ?? 'item'}
           </Badge>
           <h1 className="text-h2 text-foreground mb-3">{item.title}</h1>
-          <p className="text-body-1 text-muted-foreground mb-6">{item.context}</p>
+          {item.context && (
+            <p className="text-body-1 text-muted-foreground mb-6">{item.context}</p>
+          )}
           <Separator className="my-6" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-body-2">
             {item.sender && (
               <div>
                 <div className="text-caption text-muted-foreground mb-1">From</div>
                 <div className="text-foreground font-medium">{item.sender}</div>
+                {item.sender_email && (
+                  <div className="text-caption text-muted-foreground">{item.sender_email}</div>
+                )}
               </div>
             )}
             {item.due && (
               <div>
                 <div className="text-caption text-muted-foreground mb-1">Due</div>
                 <div className="text-foreground font-medium">{item.due}</div>
+              </div>
+            )}
+            {typeof item.score === 'number' && (
+              <div>
+                <div className="text-caption text-muted-foreground mb-1">Triage score</div>
+                <div className="text-foreground font-medium tabular-nums">{item.score}</div>
               </div>
             )}
           </div>
@@ -603,9 +753,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
           <Card key={d.day}>
             <CardContent className="p-5 flex items-center gap-5">
               <div className="w-16 text-center">
-                <div className="text-caption text-muted-foreground uppercase">
-                  {d.day}
-                </div>
+                <div className="text-caption text-muted-foreground uppercase">{d.day}</div>
               </div>
               <div className="flex-1">
                 <p className="text-body-1 text-foreground">{d.summary}</p>
@@ -637,9 +785,7 @@ export default function TheHelm() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
-      {view === 'brief' && (
-        <BriefView go={go} done={done} toggleDone={toggleDone} />
-      )}
+      {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
       {view === 'inbox' && <InboxView onBack={back} />}
       {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
       {view === 'calendar' && <CalendarView onBack={back} />}
