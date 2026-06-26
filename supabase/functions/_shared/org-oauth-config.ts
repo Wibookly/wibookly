@@ -48,23 +48,35 @@ function normalizeProvider(p: OAuthProvider): 'microsoft' | 'google' {
   return p === 'outlook' ? 'microsoft' : p;
 }
 
-function globalConfig(provider: 'microsoft' | 'google'): OrgOAuthConfig | null {
+// Organization 1 ("Energyforward") — the only org allowed to use the legacy
+// platform-wide MICROSOFT_*/GOOGLE_* env-var credentials. Every other org MUST
+// have its own row in org_environment_credentials, or it is treated as
+// "not connected" (no silent fallback to the platform app registration).
+const ORG1_ID = '0a91e605-1324-40dd-bdb5-ffa1b39bda44';
+
+function globalConfig(
+  provider: 'microsoft' | 'google',
+  organizationId: string | null | undefined,
+): OrgOAuthConfig | null {
+  if (organizationId !== ORG1_ID) return null;
   if (provider === 'microsoft') {
     const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
     const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET')?.trim();
     if (!clientId || !clientSecret) return null;
-    return { clientId, clientSecret, source: 'global' };
+    const tenantId = Deno.env.get('MICROSOFT_TENANT_ID')?.trim() || undefined;
+    return { clientId, clientSecret, tenantId, source: 'global', organizationId: ORG1_ID };
   }
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID')?.trim();
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')?.trim();
   if (!clientId || !clientSecret) return null;
-  return { clientId, clientSecret, source: 'global' };
+  return { clientId, clientSecret, source: 'global', organizationId: ORG1_ID };
 }
 
 /**
  * Resolve OAuth credentials for an organization.
- * If the org has its own row in org_environment_credentials, use it (decrypted).
- * Otherwise fall back to the platform-wide env-var credentials (Organization 1).
+ * - If the org has its own row in org_environment_credentials, use it (decrypted).
+ * - Else, ONLY Organization 1 (legacy tenant) falls back to platform-wide env vars.
+ * - Any other org with no row returns null → caller must surface "not connected".
  */
 export async function getOrgOAuthConfig(
   organizationId: string | null | undefined,
@@ -94,11 +106,13 @@ export async function getOrgOAuthConfig(
         };
       }
     } catch (e) {
-      console.error('getOrgOAuthConfig lookup failed, falling back to global:', e);
+      console.error('getOrgOAuthConfig lookup failed:', e);
+      // Do NOT silently fall back to global on lookup failure for non-Org-1 orgs.
+      if (organizationId !== ORG1_ID) return null;
     }
   }
 
-  return globalConfig(p);
+  return globalConfig(p, organizationId ?? null);
 }
 
 /** Find the organization_id for a given oauth_token_vault.connection_id. */
