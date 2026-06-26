@@ -122,7 +122,7 @@ export function MicrosoftStatusPanel() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const [vRes, hRes] = await Promise.all([
       supabase
-        .from('oauth_token_vault' as any)
+        .from('oauth_token_status' as any)
         .select('refresh_failure_count, requires_reauth, last_refresh_at, last_refresh_error')
         .eq('user_id', user.id)
         .eq('provider', 'outlook')
