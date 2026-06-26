@@ -2326,6 +2326,39 @@ export type Database = {
           },
         ]
       }
+      helm_mail_sync_state: {
+        Row: {
+          connection_id: string
+          created_at: string
+          delta_link: string | null
+          id: string
+          last_synced_at: string | null
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          delta_link?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          delta_link?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       helm_subscriptions: {
         Row: {
           created_at: string
@@ -2366,6 +2399,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      helm_vips: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          organization_id: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name?: string | null
+          organization_id: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          organization_id?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       help_articles: {
         Row: {
