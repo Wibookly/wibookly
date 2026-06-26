@@ -277,11 +277,11 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               )}
 
               {/* Admin */}
-              {isSuperAdmin && (
+              {(isSuperAdmin || isOrgAdmin) && (
                 <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
-                  <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>
-                  <NavItem href="/super-admin" icon={Shield} accent={accents.red}>Super Admin (Orgs)</NavItem>
-                  <NavItem href="/org-admin" icon={Shield} accent={accents.red}>Org Admin</NavItem>
+                  {isSuperAdmin && <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>}
+                  {isSuperAdmin && <NavItem href="/super-admin" icon={Shield} accent={accents.red}>Super Admin (Orgs)</NavItem>}
+                  {(isSuperAdmin || isOrgAdmin) && <NavItem href="/org-admin" icon={Shield} accent={accents.red}>Org Admin</NavItem>}
                 </NavSection>
               )}
             </>
