@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrgOAuthConfig } from "../_shared/org-oauth-config.ts";
+
 
 // AES-GCM encryption for tokens
 async function encryptToken(token: string, keyString: string): Promise<string> {
