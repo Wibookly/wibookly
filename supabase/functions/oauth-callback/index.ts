@@ -219,6 +219,24 @@ serve(async (req) => {
     const connectionId = connectionData.id;
     console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault, calendar enabled)`);
 
+    // If this org has per-org environment credentials, mark them "connected".
+    try {
+      const providerKey = provider === 'outlook' ? 'microsoft' : provider;
+      await supabase
+        .from('org_environment_credentials')
+        .update({
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          last_error: null,
+          last_test_at: new Date().toISOString(),
+        })
+        .eq('organization_id', organizationId)
+        .eq('provider', providerKey);
+    } catch (e) {
+      console.error('Failed to mark org env credentials connected (non-fatal):', e);
+    }
+
+
     // Link the vault row to this connection (required for multi-account token lookups)
     const { error: vaultLinkError } = await supabase
       .from('oauth_token_vault')
