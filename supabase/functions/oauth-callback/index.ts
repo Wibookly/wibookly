@@ -97,13 +97,16 @@ serve(async (req) => {
     let exchangeError: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null = null;
 
     if (provider === 'google') {
-      const result = await exchangeGoogleCode(code, supabaseUrl);
+      const cfg = await getOrgOAuthConfig(organizationId, 'google');
+      const result = await exchangeGoogleCode(code, supabaseUrl, cfg);
       tokens = result.tokens;
       exchangeError = result.error;
     } else if (provider === 'outlook') {
-      const result = await exchangeMicrosoftCode(code, supabaseUrl, stateData.microsoftTenantId);
+      const cfg = await getOrgOAuthConfig(organizationId, 'microsoft');
+      const result = await exchangeMicrosoftCode(code, supabaseUrl, stateData.microsoftTenantId, cfg);
       tokens = result.tokens;
       exchangeError = result.error;
+
     } else {
       await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'unsupported_provider');
       return redirectWithError(`Unsupported provider: ${provider}`, resolvedAppUrl, provider);
