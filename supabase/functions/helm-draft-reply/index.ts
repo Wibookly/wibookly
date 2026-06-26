@@ -99,12 +99,13 @@ Deno.serve(async (req) => {
   // Pull writing-style preference (best-effort)
   const { data: prof } = await admin
     .from("user_ai_profiles")
-    .select("tone, signature, style_notes")
+    .select("communication_style, custom_context, role")
     .eq("user_id", userId)
     .maybeSingle();
-  const tone = prof?.tone ?? "professional, concise, warm";
-  const signature = prof?.signature ?? userName;
-  const styleNotes = prof?.style_notes ?? "";
+  const tone = prof?.communication_style ?? "professional, concise, warm";
+  const styleNotes = prof?.custom_context ?? "";
+  const roleNote = prof?.role ? ` Role: ${prof.role}.` : "";
+  const signature = userName;
 
   // Fetch the original body for context (only when we don't have it cached)
   let originalText = (item.payload?.bodyPreview as string | undefined) ?? "";
