@@ -147,14 +147,15 @@ serve(async (req) => {
       console.log(`Generated Google OAuth URL with ${calendarOnly ? 'calendar-only' : 'full'} scopes`);
 
     } else if (provider === 'outlook') {
-      const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
-      if (!clientId) {
-        console.error('MICROSOFT_CLIENT_ID not configured');
+      const cfg = await getOrgOAuthConfig(organizationId, 'microsoft');
+      if (!cfg) {
+        console.error('Microsoft OAuth not configured for org', organizationId);
         return new Response(
-          JSON.stringify({ error: 'Microsoft OAuth not configured' }),
+          JSON.stringify({ error: 'Microsoft OAuth is not configured for this organization' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      const clientId = cfg.clientId;
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL');
       const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
@@ -164,7 +165,9 @@ serve(async (req) => {
         ? 'openid email profile offline_access https://graph.microsoft.com/Calendars.ReadWrite'
         : 'openid email profile offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Sites.Read.All';
 
-      const tenantSegment = microsoftTenantId || 'common';
+      // Prefer the org-configured tenant; fall back to the domain mapping; finally "common".
+      const tenantSegment = cfg.tenantId || microsoftTenantId || 'common';
+
 
       const params = new URLSearchParams({
         client_id: clientId,
