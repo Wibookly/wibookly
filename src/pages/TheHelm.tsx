@@ -1023,8 +1023,196 @@ function startOfWeek(d: Date): Date {
   return x;
 }
 
+/* ------------------------------------------------------------------ */
+/* Focus rules + planning types                                       */
+/* ------------------------------------------------------------------ */
+
+type FocusRule = {
+  focus_days: string[];
+  focus_window: 'morning' | 'afternoon';
+  block_minutes: number;
+  autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
+};
+
+type FocusBlock = {
+  day_key: string;
+  weekday: string;
+  start: string;
+  end: string;
+  state: 'free' | 'needs_move' | 'blocked';
+  conflicts: string[];
+};
+
+type Proposal = {
+  id: string;
+  event_id: string;
+  subject: string;
+  day_key: string;
+  old_start: string;
+  old_end: string;
+  new_start: string;
+  new_end: string;
+  is_external: boolean;
+  is_organizer: boolean;
+  attendees: Array<{ name: string; email: string }>;
+  organizer: { name: string; email: string };
+  classification: 'internal' | 'external';
+  reason: string;
+  note?: string;
+};
+
+type PlanResult = {
+  rule: FocusRule;
+  focus_blocks: FocusBlock[];
+  applied: Proposal[];
+  pending_external: Proposal[];
+};
+
+const DAY_CHIPS: { id: string; label: string }[] = [
+  { id: 'mon', label: 'Mon' },
+  { id: 'tue', label: 'Tue' },
+  { id: 'wed', label: 'Wed' },
+  { id: 'thu', label: 'Thu' },
+  { id: 'fri', label: 'Fri' },
+];
+
+const DEFAULT_RULE: FocusRule = {
+  focus_days: ['tue', 'thu'],
+  focus_window: 'morning',
+  block_minutes: 90,
+  autonomy: 'auto_internal_ask_external',
+};
+
+const AUTONOMY_LABEL: Record<FocusRule['autonomy'], string> = {
+  ask_all: 'Ask me before moving anything',
+  auto_internal_ask_external: 'Auto-move internal · ask me for external',
+  auto_all: 'Auto-move both (use with care)',
+};
+
+function FocusRulesCard({
+  rule,
+  saving,
+  onChange,
+}: {
+  rule: FocusRule;
+  saving: boolean;
+  onChange: (next: FocusRule) => void;
+}) {
+  const toggleDay = (d: string) => {
+    const has = rule.focus_days.includes(d);
+    onChange({
+      ...rule,
+      focus_days: has ? rule.focus_days.filter((x) => x !== d) : [...rule.focus_days, d],
+    });
+  };
+  return (
+    <Card className="mb-4 border-primary/30">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" /> My focus rules
+          {saving && (
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+              <RefreshCw className="w-3 h-3 animate-spin" /> recalculating…
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Days</p>
+          <div className="flex flex-wrap gap-2">
+            {DAY_CHIPS.map((d) => {
+              const on = rule.focus_days.includes(d.id);
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => toggleDay(d.id)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs border transition-colors',
+                    on
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background border-border hover:bg-muted',
+                  )}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Block length</p>
+            <div className="flex gap-2">
+              {[60, 90, 120].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => onChange({ ...rule, block_minutes: m })}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs border',
+                    rule.block_minutes === m
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background border-border hover:bg-muted',
+                  )}
+                >
+                  {m} min
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time of day</p>
+            <div className="flex gap-2">
+              {(['morning', 'afternoon'] as const).map((w) => (
+                <button
+                  key={w}
+                  onClick={() => onChange({ ...rule, focus_window: w })}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs border capitalize',
+                    rule.focus_window === w
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background border-border hover:bg-muted',
+                  )}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Autonomy</p>
+            <select
+              value={rule.autonomy}
+              onChange={(e) => onChange({ ...rule, autonomy: e.target.value as FocusRule['autonomy'] })}
+              className="w-full text-xs bg-background border border-border rounded-md px-2 py-2"
+            >
+              {(Object.keys(AUTONOMY_LABEL) as Array<FocusRule['autonomy']>).map((k) => (
+                <option key={k} value={k}>{AUTONOMY_LABEL[k]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function fmtTimeShort(iso: string | null) {
+  if (!iso) return '';
+  const m = iso.match(/T(\d{2}):(\d{2})/);
+  if (!m) return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const h = Number(m[1]); const mm = m[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${mm} ${ampm}`;
+}
+
 function CalendarView({ onBack }: { onBack: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
+  const [ruleLoaded, setRuleLoaded] = useState(false);
+  const qc = useQueryClient();
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: ['helm-calendar', weekStart.toISOString()],
@@ -1043,8 +1231,80 @@ function CalendarView({ onBack }: { onBack: () => void }) {
     },
   });
 
+  // Load rule from DB once
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return;
+      const { data: r } = await supabase
+        .from('helm_focus_rules')
+        .select('focus_days, focus_window, block_minutes, autonomy')
+        .eq('user_id', u.user.id)
+        .maybeSingle();
+      if (r) setRule(r as FocusRule);
+      setRuleLoaded(true);
+    })();
+  }, []);
+
+  // Plan query — debounced via key
+  const [debouncedRule, setDebouncedRule] = useState(rule);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedRule(rule), 600);
+    return () => clearTimeout(t);
+  }, [rule]);
+
+  const planQuery = useQuery({
+    enabled: ruleLoaded,
+    queryKey: ['helm-plan', weekStart.toISOString(), JSON.stringify(debouncedRule)],
+    queryFn: async () => {
+      // Save the rule first
+      const { data: u } = await supabase.auth.getUser();
+      if (u?.user) {
+        const { data: conn } = await supabase
+          .from('provider_connections')
+          .select('organization_id')
+          .eq('user_id', u.user.id)
+          .eq('provider', 'outlook')
+          .eq('is_connected', true)
+          .order('connected_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (conn?.organization_id) {
+          await supabase.from('helm_focus_rules').upsert({
+            user_id: u.user.id,
+            organization_id: conn.organization_id,
+            ...debouncedRule,
+          });
+        }
+      }
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'analyze', week_start: weekStart.toISOString() },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as PlanResult;
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (proposal: Proposal) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'approve_external', proposal },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Moved and notified attendees.');
+      qc.invalidateQueries({ queryKey: ['helm-plan'] });
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not move event.'),
+  });
+
   const days = useMemo(() => {
-    const out: { date: Date; label: string; weekday: string }[] = [];
+    const out: { date: Date; label: string; weekday: string; key: string }[] = [];
     for (let i = 0; i < 5; i++) {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
@@ -1052,6 +1312,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         date: d,
         weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
         label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
       });
     }
     return out;
@@ -1066,12 +1327,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
       if (map[key]) map[key].push(ev);
     }
     for (const key of Object.keys(map)) {
-      map[key].sort(
-        (a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime(),
-      );
+      map[key].sort((a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime());
     }
     return map;
   }, [data, days]);
+
+  const focusByDay = useMemo(() => {
+    const map: Record<string, FocusBlock> = {};
+    for (const b of planQuery.data?.focus_blocks ?? []) map[b.day_key] = b;
+    return map;
+  }, [planQuery.data]);
 
   const shiftWeek = (delta: number) => {
     const d = new Date(weekStart);
@@ -1081,44 +1346,25 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 
   const fmtTime = (iso: string | null) => {
     if (!iso) return '';
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   };
 
   return (
     <div>
       <BackBar onBack={onBack} label="This week" />
+
+      <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <SectionHeader
           title="Your week at a glance"
-          subtitle={
-            data?.timezone
-              ? `Times shown in ${data.timezone}`
-              : 'Loading your calendar…'
-          }
+          subtitle={data?.timezone ? `Times shown in ${data.timezone}` : 'Loading your calendar…'}
         />
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => shiftWeek(-1)}>
-            ← Prev
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
-          >
-            Today
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => shiftWeek(1)}>
-            Next →
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
+          <Button variant="outline" size="sm" onClick={() => shiftWeek(-1)}>← Prev</Button>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Today</Button>
+          <Button variant="outline" size="sm" onClick={() => shiftWeek(1)}>Next →</Button>
+          <Button variant="default" size="sm" onClick={() => { refetch(); planQuery.refetch(); }} disabled={isFetching}>
             <RefreshCw className={cn('w-4 h-4 mr-1', isFetching && 'animate-spin')} />
             Sync
           </Button>
@@ -1137,40 +1383,37 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         {days.map((d) => {
           const evs = grouped[d.date.toDateString()] ?? [];
           const isToday = d.date.toDateString() === new Date().toDateString();
+          const focus = focusByDay[d.key];
           return (
-            <Card
-              key={d.date.toISOString()}
-              className={cn(
-                'min-w-[220px]',
-                isToday && 'border-primary/60 shadow-sm',
-              )}
-            >
+            <Card key={d.date.toISOString()} className={cn('min-w-[220px]', isToday && 'border-primary/60 shadow-sm')}>
               <CardHeader className="pb-2">
                 <div className="flex items-baseline justify-between">
-                  <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">
-                    {d.weekday}
-                  </CardTitle>
-                  <span
-                    className={cn(
-                      'text-xs font-medium',
-                      isToday ? 'text-primary' : 'text-muted-foreground',
-                    )}
-                  >
+                  <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
+                  <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
                     {d.label}
                   </span>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {isLoading && (
-                  <>
-                    <Skeleton className="h-14 w-full" />
-                    <Skeleton className="h-14 w-full" />
-                  </>
+                {focus && (
+                  <div
+                    className={cn(
+                      'rounded-md border-2 border-dashed p-2 text-xs',
+                      focus.state === 'free' && 'border-secondary bg-secondary/10',
+                      focus.state === 'needs_move' && 'border-accent bg-accent/10',
+                      focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
+                    )}
+                  >
+                    <div className="flex items-center gap-1 font-semibold text-foreground">
+                      <Zap className="w-3 h-3" /> Focus block
+                    </div>
+                    <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
+                  </div>
                 )}
-                {!isLoading && evs.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic py-4 text-center">
-                    No meetings
-                  </p>
+                {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
+                {!isLoading && evs.length === 0 && !focus && (
+                  <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
                 )}
                 {evs.map((ev) => (
                   <div
@@ -1178,56 +1421,25 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     className={cn(
                       'rounded-md border p-2 text-xs space-y-1 transition-colors',
                       ev.is_cancelled && 'opacity-60 line-through',
-                      ev.is_external
-                        ? 'border-accent bg-accent/10'
-                        : 'border-border bg-card',
+                      ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
                     )}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-medium text-foreground">
-                        {fmtTime(ev.start)}
-                      </span>
+                      <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
                       <div className="flex gap-1 flex-wrap justify-end">
                         {ev.is_external && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20"
-                          >
-                            External
-                          </Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
                         )}
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1 py-0"
-                        >
-                          {ev.is_organizer ? 'Host' : 'Guest'}
-                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
                       </div>
                     </div>
-                    <p
-                      className="font-semibold text-foreground leading-snug line-clamp-2"
-                      title={ev.subject}
-                    >
-                      {ev.subject}
-                    </p>
-                    {ev.location && (
-                      <p className="text-muted-foreground text-[11px] line-clamp-1">
-                        📍 {ev.location}
-                      </p>
-                    )}
+                    <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                    {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
                     {ev.attendees.length > 0 && (
-                      <p className="text-muted-foreground text-[11px]">
-                        {ev.attendees.length} attendee
-                        {ev.attendees.length === 1 ? '' : 's'}
-                      </p>
+                      <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
                     )}
                     {ev.web_link && (
-                      <a
-                        href={ev.web_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline text-[11px] inline-flex items-center"
-                      >
+                      <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
                         Open <ArrowRight className="w-3 h-3 ml-0.5" />
                       </a>
                     )}
@@ -1238,9 +1450,95 @@ function CalendarView({ onBack }: { onBack: () => void }) {
           );
         })}
       </div>
+
+      {/* ============== Planning panels ============== */}
+      <div className="mt-6 grid md:grid-cols-2 gap-4">
+        {/* Already done — internal */}
+        <Card className="border-secondary/40 bg-secondary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 text-foreground">
+              <CheckCircle2 className="w-4 h-4 text-secondary-foreground" />
+              Already done — internal meetings moved for you
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {planQuery.isLoading ? (
+              <Skeleton className="h-16" />
+            ) : (planQuery.data?.applied?.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No automatic moves needed this week.</p>
+            ) : (
+              <ul className="space-y-2">
+                {planQuery.data!.applied.map((p) => (
+                  <li key={p.id} className="text-xs border border-secondary/30 rounded-md p-2 bg-background/50">
+                    <p className="font-semibold text-foreground">{p.subject}</p>
+                    <p className="text-muted-foreground">
+                      {fmtTimeShort(p.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</span>
+                    </p>
+                    {p.note && (
+                      <Collapsible>
+                        <CollapsibleTrigger className="text-[11px] text-primary hover:underline mt-1 inline-flex items-center gap-1">
+                          View note sent <ChevronDown className="w-3 h-3" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <p className="mt-1 p-2 rounded bg-muted/50 text-[11px] whitespace-pre-wrap text-foreground">{p.note}</p>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Needs your OK — external */}
+        <Card className="border-accent/50 bg-accent/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 text-foreground">
+              <AlertTriangle className="w-4 h-4 text-accent-foreground" />
+              Needs your OK — external meetings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {planQuery.isLoading ? (
+              <Skeleton className="h-16" />
+            ) : (planQuery.data?.pending_external?.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nothing waiting on you. ✨</p>
+            ) : (
+              <ul className="space-y-2">
+                {planQuery.data!.pending_external.map((p) => (
+                  <li key={p.id} className="text-xs border border-accent/40 rounded-md p-2 bg-background/50 space-y-1">
+                    <p className="font-semibold text-foreground">{p.subject}</p>
+                    <p className="text-muted-foreground">
+                      {fmtTimeShort(p.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground italic">{p.reason}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {p.is_organizer ? 'You host this meeting.' : `Hosted by ${p.organizer.name || p.organizer.email}.`}
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={approveMutation.isPending}
+                        onClick={() => approveMutation.mutate(p)}
+                      >
+                        <ThumbsUp className="w-3 h-3 mr-1" />
+                        {p.is_organizer ? 'Approve & move' : 'Propose new time'}
+                      </Button>
+                      <Button size="sm" variant="ghost"><X className="w-3 h-3 mr-1" />Keep it</Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Page shell                                                         */
