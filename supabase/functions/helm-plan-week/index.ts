@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
     userEmail = (u.user.email ?? "").toLowerCase();
   }
 
+  const mode = (body?.mode as string) ?? "analyze";
   // Connection + org
   let connectionId: string | null = body?.connection_id ?? null;
   if (!connectionId) {
