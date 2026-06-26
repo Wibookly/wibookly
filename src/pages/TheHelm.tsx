@@ -1599,12 +1599,33 @@ export default function TheHelm() {
   const toggleDone = (id: string, next: boolean) =>
     setDone((d) => ({ ...d, [id]: next }));
 
+  // Ensure Graph subscriptions exist on first mount (idempotent)
+  useEffect(() => {
+    supabase.functions
+      .invoke('helm-subscribe', { body: { mode: 'create' } })
+      .catch(() => { /* swallow — surfaced later via Sync errors */ });
+  }, []);
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
-      {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
-      {view === 'inbox' && <InboxView onBack={back} />}
-      {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
-      {view === 'calendar' && <CalendarView onBack={back} />}
-    </div>
+    <>
+      <style>{`
+        @media print {
+          body[data-print-section] aside,
+          body[data-print-section] nav,
+          body[data-print-section] header,
+          body[data-print-section] [data-helm-section]:not([data-print-target]),
+          body[data-print-section] .print\\:hidden { display: none !important; }
+          body[data-print-section] [data-helm-section][data-print-target] {
+            break-inside: avoid;
+          }
+        }
+      `}</style>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
+        {view === 'inbox' && <InboxView onBack={back} />}
+        {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
+        {view === 'calendar' && <CalendarView onBack={back} />}
+      </div>
+    </>
   );
 }
