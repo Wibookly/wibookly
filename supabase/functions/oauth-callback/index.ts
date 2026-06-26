@@ -89,6 +89,22 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Defence in depth: even though state is HMAC-signed, re-verify that the
+    // userId in state actually belongs to organizationId. Stops a stolen+replay
+    // state from one org being used to write tokens into another.
+    {
+      const { data: prof } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!prof || prof.organization_id !== organizationId) {
+        console.error('State user/org mismatch', { userId, organizationId, profileOrg: prof?.organization_id });
+        await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'user_org_mismatch');
+        return redirectWithError('User does not belong to the organization in state', resolvedAppUrl, provider);
+      }
+    }
+
     // Log this callback attempt
     await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_received', appOrigin);
 
