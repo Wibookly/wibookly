@@ -90,7 +90,7 @@ const App = () => (
                   } />
                   <Route path="/ai-daily-brief" element={
                     <FeatureRoute featureKeys={['daily_brief', 'ai_assistant']}>
-                      <AIDailyBrief />
+                      <TheHelm />
                     </FeatureRoute>
                   } />
                   <Route path="/follow-up-reminder" element={
