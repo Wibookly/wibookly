@@ -174,6 +174,7 @@ function SectionHeader({
   subtitle,
   sectionKey,
   emailSection,
+  index,
   onPrint,
   onEmail,
 }: {
@@ -181,6 +182,7 @@ function SectionHeader({
   subtitle?: string;
   sectionKey?: string;
   emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
+  index?: number;
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
@@ -214,23 +216,37 @@ function SectionHeader({
       toast.error(e?.message ?? 'Email failed.');
     }
   };
+  const numLabel =
+    typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
-    <div className="flex items-start justify-between gap-4 mb-4">
-      <div>
-        <h2 className="text-h3 text-foreground">{title}</h2>
-        {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
-      </div>
-      <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
-          <Printer className="w-4 h-4 mr-1.5" /> Print
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
-          <Send className="w-4 h-4 mr-1.5" /> Email me
-        </Button>
+    <div className="mb-4 pt-4 border-t border-border/60">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          {numLabel && (
+            <span className="font-mono text-caption tracking-wider text-muted-foreground/70 tabular-nums shrink-0">
+              {numLabel}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-h3 text-foreground">{title}</h2>
+            {subtitle && (
+              <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 print:hidden shrink-0">
+          <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
+            <Printer className="w-4 h-4 mr-1.5" /> Print
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
+            <Send className="w-4 h-4 mr-1.5" /> Email me
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
+
 
 function HelmCard({
   item,
