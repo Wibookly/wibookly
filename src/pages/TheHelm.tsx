@@ -537,7 +537,7 @@ function BriefView({
         </section>
 
         {/* Done automatically overnight */}
-        <section aria-labelledby="auto">
+        <section aria-labelledby="auto" data-helm-section="activity">
           <Collapsible defaultOpen={false}>
             <Card>
               <CollapsibleTrigger asChild>
