@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -635,52 +635,302 @@ function BriefView({
 }
 
 function InboxView({ onBack }: { onBack: () => void }) {
+  const qc = useQueryClient();
   const { data, isLoading } = useHelmData();
   const drafts = data?.drafts ?? [];
+
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState('');
+  const [original, setOriginal] = useState<{
+    subject: string;
+    from: { name?: string; address?: string } | null;
+    body_html: string;
+    body_text: string;
+  } | null>(null);
+  const [reshapeBusy, setReshapeBusy] = useState(false);
+  const [genBusy, setGenBusy] = useState(false);
+  const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | null>(null);
+  const [instruction, setInstruction] = useState('');
+
+  // Auto-select first draft
+  const effectiveId = activeId ?? drafts[0]?.id ?? null;
+  const active = drafts.find((d) => d.id === effectiveId) ?? null;
+
+  // Load original + ensure a draft exists when active item changes
+  useEffect(() => {
+    if (!active) return;
+    setOriginal(null);
+    setDraftText('');
+    (async () => {
+      try {
+        const { data: msg, error } = await supabase.functions.invoke('helm-fetch-message', {
+          body: { item_id: active.id },
+        });
+        if (error) throw error;
+        setOriginal(msg?.message ?? null);
+      } catch (e: any) {
+        toast.error(e?.message ?? 'Failed to load message');
+      }
+      // Fetch the persisted draft from DB
+      const { data: row } = await supabase
+        .from('helm_items')
+        .select('ai_draft')
+        .eq('id', active.id)
+        .maybeSingle();
+      if (row?.ai_draft) {
+        setDraftText(row.ai_draft);
+      } else {
+        // Generate fresh
+        setGenBusy(true);
+        try {
+          const { data: gen, error: genErr } = await supabase.functions.invoke(
+            'helm-draft-reply',
+            { body: { item_id: active.id } },
+          );
+          if (genErr) throw genErr;
+          setDraftText(gen?.draft ?? '');
+        } catch (e: any) {
+          toast.error(e?.message ?? 'Draft generation failed');
+        } finally {
+          setGenBusy(false);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveId]);
+
+  const reshape = async (instr: string) => {
+    if (!active || !draftText) return;
+    setReshapeBusy(true);
+    try {
+      const { data: gen, error } = await supabase.functions.invoke('helm-draft-reply', {
+        body: { item_id: active.id, instruction: instr, base_draft: draftText },
+      });
+      if (error) throw error;
+      setDraftText(gen?.draft ?? draftText);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Reshape failed');
+    } finally {
+      setReshapeBusy(false);
+    }
+  };
+
+  const send = async (mode: 'send' | 'save_draft') => {
+    if (!active || !draftText.trim()) {
+      toast.error('Draft is empty');
+      return;
+    }
+    setSendBusy(mode);
+    try {
+      const { data: res, error } = await supabase.functions.invoke('helm-send-reply', {
+        body: { item_id: active.id, body: draftText, mode },
+      });
+      if (error) throw error;
+      if (res?.already_sent) {
+        toast.info('Already sent — skipped');
+      } else if (mode === 'send') {
+        toast.success('Reply sent');
+      } else {
+        toast.success('Draft saved in Outlook');
+      }
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      // Auto-advance to next unsent
+      const remaining = drafts.filter((d) => d.id !== active.id);
+      setActiveId(remaining[0]?.id ?? null);
+      setDraftText('');
+      setOriginal(null);
+    } catch (e: any) {
+      toast.error(e?.message ?? `${mode} failed`);
+    } finally {
+      setSendBusy(null);
+    }
+  };
+
+  const RESHAPE_CHIPS = ['Shorter', 'More formal', 'Warmer', 'More firm', 'Bullet points'];
+
   return (
     <div>
       <BackBar onBack={onBack} label="Drafted for you · focused inbox" />
       <SectionHeader
         title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
-        subtitle="Skim, edit, send. (Send wires in Phase 3.)"
+        subtitle="Skim, edit, send — replies thread into the original Outlook conversation."
       />
-      <div className="grid gap-3">
-        {isLoading ? (
-          <Skeleton className="h-24" />
-        ) : drafts.length === 0 ? (
-          <EmptyHint>No drafts yet. Sync to generate fresh drafts.</EmptyHint>
-        ) : (
-          drafts.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Inbox className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-body-1 font-semibold text-foreground truncate">
-                      {item.title}
-                    </h3>
-                    {item.context && (
-                      <p className="text-body-2 text-muted-foreground mt-1 line-clamp-2">
-                        {item.context}
-                      </p>
-                    )}
-                    {item.sender && (
-                      <p className="text-caption text-muted-foreground mt-2 inline-flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" /> {item.sender}
-                      </p>
-                    )}
-                  </div>
-                  <Button size="sm" variant="outline">
-                    Open
-                  </Button>
-                </div>
+
+      {isLoading ? (
+        <Skeleton className="h-96" />
+      ) : drafts.length === 0 ? (
+        <EmptyHint>No drafts yet. Sync the inbox to generate fresh drafts.</EmptyHint>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 min-h-[70vh]">
+          {/* Left: list */}
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-border max-h-[80vh] overflow-y-auto">
+              {drafts.map((d) => {
+                const isActive = d.id === effectiveId;
+                return (
+                  <li key={d.id}>
+                    <button
+                      onClick={() => setActiveId(d.id)}
+                      className={cn(
+                        'w-full text-left p-4 transition-colors',
+                        isActive ? 'bg-primary/10' : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span className="text-body-2 font-semibold text-foreground truncate">
+                          {d.sender ?? 'Unknown sender'}
+                        </span>
+                      </div>
+                      <div className="text-body-2 text-foreground truncate">{d.title}</div>
+                      {d.context && (
+                        <div className="text-caption text-muted-foreground mt-1 line-clamp-2">
+                          {d.context}
+                        </div>
+                      )}
+                      <Badge variant="secondary" className="mt-2 text-[10px]">
+                        draft
+                      </Badge>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+
+          {/* Right: reader + composer */}
+          <Card className="overflow-hidden">
+            {!active ? (
+              <CardContent className="p-8 text-body-2 text-muted-foreground">
+                Select a draft to review.
               </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+            ) : (
+              <div className="flex flex-col h-full">
+                <div className="p-5 border-b border-border">
+                  <h3 className="text-h3 text-foreground mb-1">
+                    {original?.subject || active.title}
+                  </h3>
+                  <p className="text-caption text-muted-foreground">
+                    From{' '}
+                    <span className="font-medium text-foreground">
+                      {original?.from?.name ?? active.sender ?? '—'}
+                    </span>{' '}
+                    {original?.from?.address && (
+                      <span className="text-muted-foreground">
+                        &lt;{original.from.address}&gt;
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="p-5 border-b border-border max-h-64 overflow-y-auto bg-muted/20">
+                  <p className="text-caption uppercase tracking-wider text-muted-foreground mb-2">
+                    Original message
+                  </p>
+                  {original ? (
+                    original.body_html ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none text-body-2"
+                        // Outlook HTML is sanitized by Graph for display
+                        dangerouslySetInnerHTML={{ __html: original.body_html }}
+                      />
+                    ) : (
+                      <p className="text-body-2 text-foreground whitespace-pre-wrap">
+                        {original.body_text || '(no body)'}
+                      </p>
+                    )
+                  ) : (
+                    <Skeleton className="h-20" />
+                  )}
+                </div>
+
+                <div className="p-5 flex-1 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-caption uppercase tracking-wider text-muted-foreground">
+                      AI-drafted reply
+                    </p>
+                    {(genBusy || reshapeBusy) && (
+                      <span className="inline-flex items-center text-caption text-muted-foreground">
+                        <RefreshCw className="w-3 h-3 mr-1.5 animate-spin" />
+                        {genBusy ? 'Generating…' : 'Reshaping…'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {RESHAPE_CHIPS.map((c) => (
+                      <Button
+                        key={c}
+                        variant="outline"
+                        size="sm"
+                        disabled={reshapeBusy || genBusy || !draftText}
+                        onClick={() => reshape(c)}
+                      >
+                        {c}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.target.value)}
+                    placeholder={genBusy ? 'Generating draft…' : 'Your reply…'}
+                    className="w-full min-h-[220px] rounded-md border border-input bg-background p-3 text-body-2 text-foreground font-sans resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={instruction}
+                      onChange={(e) => setInstruction(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && instruction.trim()) {
+                          e.preventDefault();
+                          const i = instruction.trim();
+                          setInstruction('');
+                          reshape(i);
+                        }
+                      }}
+                      placeholder="Tell the AI how to change this reply…"
+                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-body-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!instruction.trim() || reshapeBusy || genBusy}
+                      onClick={() => {
+                        const i = instruction.trim();
+                        setInstruction('');
+                        reshape(i);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+
+                  <Separator className="my-2" />
+
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => send('save_draft')}
+                      disabled={!!sendBusy || !draftText.trim()}
+                    >
+                      {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
+                    </Button>
+                    <Button
+                      onClick={() => send('send')}
+                      disabled={!!sendBusy || !draftText.trim()}
+                    >
+                      <Send className="w-4 h-4 mr-1.5" />
+                      {sendBusy === 'send' ? 'Sending…' : 'Send reply'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

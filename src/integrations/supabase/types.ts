@@ -5218,7 +5218,13 @@ export type Database = {
       helm_autonomy: "ask_all" | "auto_internal_ask_external" | "auto_all"
       helm_focus_window: "morning" | "afternoon"
       helm_source: "email" | "calendar" | "commitment" | "task"
-      helm_status: "open" | "resolved" | "sent" | "snoozed" | "auto_done"
+      helm_status:
+        | "open"
+        | "resolved"
+        | "sent"
+        | "snoozed"
+        | "auto_done"
+        | "draft"
       helm_tier: "decision" | "draft" | "overdue" | "big3" | "auto"
       org_environment_type: "microsoft" | "google" | "none"
       org_status: "active" | "suspended"
@@ -5361,7 +5367,14 @@ export const Constants = {
       helm_autonomy: ["ask_all", "auto_internal_ask_external", "auto_all"],
       helm_focus_window: ["morning", "afternoon"],
       helm_source: ["email", "calendar", "commitment", "task"],
-      helm_status: ["open", "resolved", "sent", "snoozed", "auto_done"],
+      helm_status: [
+        "open",
+        "resolved",
+        "sent",
+        "snoozed",
+        "auto_done",
+        "draft",
+      ],
       helm_tier: ["decision", "draft", "overdue", "big3", "auto"],
       org_environment_type: ["microsoft", "google", "none"],
       org_status: ["active", "suspended"],

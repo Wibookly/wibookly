@@ -1,0 +1,1 @@
+ALTER TYPE public.helm_status ADD VALUE IF NOT EXISTS 'draft';
