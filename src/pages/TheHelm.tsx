@@ -512,11 +512,13 @@ function BriefView({
                 <div key={item.id} className="space-y-2">
                   <HelmCard
                     item={item}
+                    index={i + 1}
                     onOpen={() => go('detail', item)}
                     showCheckbox
                     done={done[item.id]}
                     onToggleDone={(n) => toggleDone(item.id, n)}
                   />
+
                   <div className="flex gap-2 print:hidden pl-1">
                     <Button
                       size="sm"
