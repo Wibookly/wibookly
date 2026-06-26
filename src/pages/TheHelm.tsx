@@ -518,6 +518,7 @@ function BriefView({
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
+            index={1}
             title="Your decisions"
             subtitle="Only you can decide or approve these."
             sectionKey="decisions"
