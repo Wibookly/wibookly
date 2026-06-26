@@ -29,6 +29,7 @@ export function AppLayout() {
   const [wizardChecked, setWizardChecked] = useState(false);
   const location = useLocation();
   const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  // Pin lives globally now — applies on every page, not just Chat.
   const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('chat-sidebar-pinned') !== 'false';
