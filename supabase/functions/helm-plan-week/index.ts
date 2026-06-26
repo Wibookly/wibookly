@@ -132,20 +132,30 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth) return json(401, { error: "missing_jwt" });
+  const jwt = auth.replace(/^Bearer\s+/i, "");
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: u, error: ue } = await userClient.auth.getUser();
-  if (ue || !u?.user) return json(401, { error: "invalid_jwt" });
-  const userId = u.user.id;
-  const userEmail = (u.user.email ?? "").toLowerCase();
 
   let body: any = {};
   try { body = await req.json(); } catch { /* */ }
-  const mode = (body?.mode as string) ?? "analyze";
 
+  let userId: string;
+  let userEmail = "";
+  if (jwt === SERVICE_ROLE_KEY && body?.user_id) {
+    userId = body.user_id;
+    const { data: u2 } = await admin.auth.admin.getUserById(userId).catch(() => ({ data: null } as any));
+    userEmail = (u2?.user?.email ?? "").toLowerCase();
+  } else {
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: u, error: ue } = await userClient.auth.getUser();
+    if (ue || !u?.user) return json(401, { error: "invalid_jwt" });
+    userId = u.user.id;
+    userEmail = (u.user.email ?? "").toLowerCase();
+  }
+
+  const mode = (body?.mode as string) ?? "analyze";
   // Connection + org
   let connectionId: string | null = body?.connection_id ?? null;
   if (!connectionId) {

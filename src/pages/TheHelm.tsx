@@ -99,11 +99,23 @@ function useHelmData() {
           .limit(200),
         supabase
           .from('activity_log')
-          .select('id,detail,created_at')
-          .eq('action_type', 'item_filed')
+          .select('id,action_type,detail,created_at')
+          .in('action_type', [
+            'item_filed',
+            'email_sent',
+            'draft_saved',
+            'event_moved',
+            'event_created',
+            'note_sent',
+            'focus_block_created',
+            'subscription_renewed',
+            'subscription_created',
+            'morning_prep',
+            'section_emailed',
+          ])
           .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(80),
       ]);
 
       const rows = (itemsRes.data ?? []).map(mapRow);
@@ -160,14 +172,48 @@ const WEEK_PREVIEW = [
 function SectionHeader({
   title,
   subtitle,
+  sectionKey,
+  emailSection,
   onPrint,
   onEmail,
 }: {
   title: string;
   subtitle?: string;
+  sectionKey?: string;
+  emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
+  const printSection = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (sectionKey) {
+      const target = (e?.currentTarget as HTMLElement | undefined)
+        ?.closest('[data-helm-section]') as HTMLElement | null;
+      target?.setAttribute('data-print-target', 'true');
+      document.body.setAttribute('data-print-section', sectionKey);
+      window.print();
+      setTimeout(() => {
+        document.body.removeAttribute('data-print-section');
+        target?.removeAttribute('data-print-target');
+      }, 500);
+    } else {
+      window.print();
+    }
+  };
+  const emailMe = async () => {
+    if (!emailSection) {
+      toast.info('Nothing to email here.');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('helm-email-section', {
+        body: { section: emailSection, title },
+      });
+      if (error) throw error;
+      toast.success(`Emailed to ${(data as any)?.recipient ?? 'your inbox'}.`);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Email failed.');
+    }
+  };
   return (
     <div className="flex items-start justify-between gap-4 mb-4">
       <div>
@@ -175,14 +221,10 @@ function SectionHeader({
         {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={onPrint ?? (() => window.print())}>
+        <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
           <Printer className="w-4 h-4 mr-1.5" /> Print
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEmail ?? (() => toast.info('Email delivery wires in Phase 6.'))}
-        >
+        <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
           <Send className="w-4 h-4 mr-1.5" /> Email me
         </Button>
       </div>
@@ -398,8 +440,8 @@ function BriefView({
         </section>
 
         {/* Big 3 */}
-        <section aria-labelledby="big3">
-          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." />
+        <section aria-labelledby="big3" data-helm-section="big3">
+          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-24" />
@@ -410,24 +452,47 @@ function BriefView({
               </EmptyHint>
             ) : (
               big3.map((item) => (
-                <HelmCard
-                  key={item.id}
-                  item={item}
-                  onOpen={() => go('detail', item)}
-                  showCheckbox
-                  done={done[item.id]}
-                  onToggleDone={(n) => toggleDone(item.id, n)}
-                />
+                <div key={item.id} className="space-y-2">
+                  <HelmCard
+                    item={item}
+                    onOpen={() => go('detail', item)}
+                    showCheckbox
+                    done={done[item.id]}
+                    onToggleDone={(n) => toggleDone(item.id, n)}
+                  />
+                  <div className="flex gap-2 print:hidden pl-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const { data, error } = await supabase.functions.invoke('helm-big3', {
+                            body: { action: 'block_focus', item_id: item.id, title: item.title },
+                          });
+                          if (error) throw error;
+                          toast.success(data?.web_link ? 'Focus block created in Outlook' : 'Focus block created');
+                        } catch (e: any) {
+                          toast.error(e?.message ?? 'Could not block focus time');
+                        }
+                      }}
+                    >
+                      <Clock className="w-3 h-3 mr-1" /> Block focus time
+                    </Button>
+                  </div>
+                </div>
               ))
             )}
           </div>
         </section>
 
+
         {/* Decisions */}
-        <section aria-labelledby="decisions">
+        <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
             title="Your decisions"
             subtitle="Only you can decide or approve these."
+            sectionKey="decisions"
+            emailSection="brief"
           />
           <div className="grid gap-3">
             {isLoading ? (
@@ -443,10 +508,12 @@ function BriefView({
         </section>
 
         {/* Drafted for you */}
-        <section aria-labelledby="drafted">
+        <section aria-labelledby="drafted" data-helm-section="drafted">
           <SectionHeader
             title="Drafted for you"
             subtitle="Replies ready for a quick read and send."
+            sectionKey="drafted"
+            emailSection="inbox"
           />
           <Card
             role="button"
@@ -483,10 +550,12 @@ function BriefView({
         </section>
 
         {/* Overdue */}
-        <section aria-labelledby="overdue">
+        <section aria-labelledby="overdue" data-helm-section="overdue">
           <SectionHeader
             title="Overdue — waiting on your reply"
             subtitle="These threads have been sitting too long."
+            sectionKey="overdue"
+            emailSection="brief"
           />
           <div className="grid gap-3">
             {isLoading ? (
@@ -507,7 +576,7 @@ function BriefView({
         </section>
 
         {/* Done automatically overnight */}
-        <section aria-labelledby="auto">
+        <section aria-labelledby="auto" data-helm-section="activity">
           <Collapsible defaultOpen={false}>
             <Card>
               <CollapsibleTrigger asChild>
@@ -940,6 +1009,54 @@ function InboxView({ onBack }: { onBack: () => void }) {
 }
 
 function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => void }) {
+  const qc = useQueryClient();
+  const [original, setOriginal] = useState<{
+    subject: string;
+    from: { name?: string; address?: string } | null;
+    body_html: string;
+    body_text: string;
+    web_link?: string;
+  } | null>(null);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState<'gen' | 'send' | 'save' | 'done' | null>(null);
+  const [draftFailed, setDraftFailed] = useState(false);
+
+  useEffect(() => {
+    if (!item?.id || !item?.graph_id) return;
+    setOriginal(null);
+    setDraft('');
+    setDraftFailed(false);
+    (async () => {
+      try {
+        const { data: msg, error } = await supabase.functions.invoke('helm-fetch-message', {
+          body: { item_id: item.id },
+        });
+        if (error) throw error;
+        setOriginal(msg?.message ?? null);
+      } catch (e: any) {
+        toast.error(e?.message ?? 'Failed to load thread');
+      }
+      const { data: row } = await supabase
+        .from('helm_items').select('ai_draft').eq('id', item.id).maybeSingle();
+      if (row?.ai_draft) {
+        setDraft(row.ai_draft);
+      } else {
+        setBusy('gen');
+        try {
+          const { data: gen, error: gErr } = await supabase.functions.invoke('helm-draft-reply', {
+            body: { item_id: item.id },
+          });
+          if (gErr) throw gErr;
+          setDraft(gen?.draft ?? '');
+        } catch {
+          setDraftFailed(true);
+        } finally {
+          setBusy(null);
+        }
+      }
+    })();
+  }, [item?.id]);
+
   if (!item) {
     return (
       <div>
@@ -948,54 +1065,129 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
       </div>
     );
   }
+
+  const send = async (mode: 'send' | 'save_draft') => {
+    if (!draft.trim()) { toast.error('Draft is empty'); return; }
+    setBusy(mode === 'send' ? 'send' : 'save');
+    try {
+      const { data: res, error } = await supabase.functions.invoke('helm-send-reply', {
+        body: { item_id: item.id, body: draft, mode },
+      });
+      if (error) throw error;
+      if (res?.already_sent) toast.info('Already sent — skipped');
+      else toast.success(mode === 'send' ? 'Reply sent' : 'Draft saved in Outlook');
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      onBack();
+    } catch (e: any) {
+      toast.error(e?.message ?? `${mode} failed`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const markDone = async () => {
+    setBusy('done');
+    try {
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', item.id);
+      await supabase.from('activity_log').insert({
+        user_id: (await supabase.auth.getUser()).data.user!.id,
+        organization_id: null as any, // RLS default-sets org
+        action_type: 'item_completed',
+        detail: `Marked done: ${item.title}`,
+        action_key: `done:${item.id}`,
+      } as any);
+      toast.success('Marked done');
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      onBack();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not mark done');
+    } finally { setBusy(null); }
+  };
+
+  const regenerate = async () => {
+    setBusy('gen'); setDraftFailed(false);
+    try {
+      const { data: gen, error } = await supabase.functions.invoke('helm-draft-reply', {
+        body: { item_id: item.id },
+      });
+      if (error) throw error;
+      setDraft(gen?.draft ?? '');
+    } catch { setDraftFailed(true); }
+    finally { setBusy(null); }
+  };
+
   return (
     <div>
       <BackBar onBack={onBack} label="Item detail" />
-      <Card>
-        <CardContent className="p-8">
-          <Badge variant="secondary" className="mb-3">
-            {item.tier ?? 'item'}
-          </Badge>
-          <h1 className="text-h2 text-foreground mb-3">{item.title}</h1>
-          {item.context && (
-            <p className="text-body-1 text-muted-foreground mb-6">{item.context}</p>
-          )}
-          <Separator className="my-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-body-2">
-            {item.sender && (
-              <div>
-                <div className="text-caption text-muted-foreground mb-1">From</div>
-                <div className="text-foreground font-medium">{item.sender}</div>
-                {item.sender_email && (
-                  <div className="text-caption text-muted-foreground">{item.sender_email}</div>
-                )}
-              </div>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <Badge variant="secondary">{item.tier ?? 'item'}</Badge>
+            <h1 className="text-h3 text-foreground">{original?.subject || item.title}</h1>
+            <p className="text-caption text-muted-foreground">
+              From <span className="font-medium text-foreground">{original?.from?.name ?? item.sender ?? '—'}</span>
+              {original?.from?.address && ` <${original.from.address}>`}
+            </p>
+            {original?.web_link && (
+              <a href={original.web_link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center">
+                Open in Outlook <ArrowRight className="w-3 h-3 ml-0.5" />
+              </a>
             )}
-            {item.due && (
-              <div>
-                <div className="text-caption text-muted-foreground mb-1">Due</div>
-                <div className="text-foreground font-medium">{item.due}</div>
+            <Separator />
+            <div className="max-h-[55vh] overflow-y-auto bg-muted/20 -mx-2 px-3 py-2 rounded">
+              {!original ? (
+                <Skeleton className="h-32" />
+              ) : original.body_html ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-body-2"
+                  dangerouslySetInnerHTML={{ __html: original.body_html }} />
+              ) : (
+                <p className="text-body-2 whitespace-pre-wrap">{original.body_text || '(no body)'}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-caption uppercase tracking-wider text-muted-foreground">AI-drafted reply</p>
+              {busy === 'gen' && (
+                <span className="text-caption text-muted-foreground inline-flex items-center">
+                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Generating…
+                </span>
+              )}
+            </div>
+            {draftFailed ? (
+              <div className="text-sm rounded-md border border-destructive/40 bg-destructive/5 p-3 flex items-center justify-between">
+                <span>Draft failed.</span>
+                <Button size="sm" variant="outline" onClick={regenerate}>Retry</Button>
               </div>
+            ) : (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={busy === 'gen' ? 'Generating…' : 'Your reply…'}
+                className="w-full min-h-[260px] rounded-md border border-input bg-background p-3 text-body-2 font-sans resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             )}
-            {typeof item.score === 'number' && (
-              <div>
-                <div className="text-caption text-muted-foreground mb-1">Triage score</div>
-                <div className="text-foreground font-medium tabular-nums">{item.score}</div>
-              </div>
-            )}
-          </div>
-          <div className="mt-8 flex flex-wrap gap-2 print:hidden">
-            <Button>Open in Outlook</Button>
-            <Button variant="outline">Draft reply</Button>
-            <Button variant="ghost">
-              <ClipboardList className="w-4 h-4 mr-1.5" /> Mark done
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
+              <Button variant="ghost" onClick={markDone} disabled={!!busy}>
+                <ClipboardList className="w-4 h-4 mr-1.5" /> Mark done
+              </Button>
+              <Button variant="outline" onClick={() => send('save_draft')} disabled={!!busy || !draft.trim()}>
+                {busy === 'save' ? 'Saving…' : 'Save draft'}
+              </Button>
+              <Button onClick={() => send('send')} disabled={!!busy || !draft.trim()}>
+                <Send className="w-4 h-4 mr-1.5" /> {busy === 'send' ? 'Sending…' : 'Send reply'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
 
 interface CalEvent {
   id: string;
@@ -1557,12 +1749,33 @@ export default function TheHelm() {
   const toggleDone = (id: string, next: boolean) =>
     setDone((d) => ({ ...d, [id]: next }));
 
+  // Ensure Graph subscriptions exist on first mount (idempotent)
+  useEffect(() => {
+    supabase.functions
+      .invoke('helm-subscribe', { body: { mode: 'create' } })
+      .catch(() => { /* swallow — surfaced later via Sync errors */ });
+  }, []);
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
-      {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
-      {view === 'inbox' && <InboxView onBack={back} />}
-      {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
-      {view === 'calendar' && <CalendarView onBack={back} />}
-    </div>
+    <>
+      <style>{`
+        @media print {
+          body[data-print-section] aside,
+          body[data-print-section] nav,
+          body[data-print-section] header,
+          body[data-print-section] [data-helm-section]:not([data-print-target]),
+          body[data-print-section] .print\\:hidden { display: none !important; }
+          body[data-print-section] [data-helm-section][data-print-target] {
+            break-inside: avoid;
+          }
+        }
+      `}</style>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
+        {view === 'inbox' && <InboxView onBack={back} />}
+        {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
+        {view === 'calendar' && <CalendarView onBack={back} />}
+      </div>
+    </>
   );
 }

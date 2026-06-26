@@ -2361,36 +2361,55 @@ export type Database = {
       }
       helm_subscriptions: {
         Row: {
+          change_type: string | null
+          client_state: string | null
+          connection_id: string | null
           created_at: string
           expires_at: string
           graph_subscription_id: string
           id: string
+          notification_url: string | null
           organization_id: string
           resource: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          change_type?: string | null
+          client_state?: string | null
+          connection_id?: string | null
           created_at?: string
           expires_at: string
           graph_subscription_id: string
           id?: string
+          notification_url?: string | null
           organization_id: string
           resource: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          change_type?: string | null
+          client_state?: string | null
+          connection_id?: string | null
           created_at?: string
           expires_at?: string
           graph_subscription_id?: string
           id?: string
+          notification_url?: string | null
           organization_id?: string
           resource?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "helm_subscriptions_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "helm_subscriptions_organization_id_fkey"
             columns: ["organization_id"]
@@ -5215,6 +5234,13 @@ export type Database = {
         | "event_created"
         | "item_filed"
         | "note_sent"
+        | "subscription_renewed"
+        | "subscription_created"
+        | "item_completed"
+        | "section_emailed"
+        | "big3_set"
+        | "focus_block_created"
+        | "morning_prep"
       helm_autonomy: "ask_all" | "auto_internal_ask_external" | "auto_all"
       helm_focus_window: "morning" | "afternoon"
       helm_source: "email" | "calendar" | "commitment" | "task"
@@ -5363,6 +5389,13 @@ export const Constants = {
         "event_created",
         "item_filed",
         "note_sent",
+        "subscription_renewed",
+        "subscription_created",
+        "item_completed",
+        "section_emailed",
+        "big3_set",
+        "focus_block_created",
+        "morning_prep",
       ],
       helm_autonomy: ["ask_all", "auto_internal_ask_external", "auto_all"],
       helm_focus_window: ["morning", "afternoon"],
