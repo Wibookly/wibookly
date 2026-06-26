@@ -275,7 +275,10 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'group relative cursor-pointer overflow-hidden transition-all',
+        'before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary',
+        'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
+        'hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         variant === 'warning' && 'border-destructive/40 bg-destructive/5',
         done && 'opacity-60',
       )}
