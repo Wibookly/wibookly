@@ -328,20 +328,25 @@ type ExchangeResult = {
   error: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null;
 };
 
-async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<ExchangeResult> {
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+async function exchangeGoogleCode(
+  code: string,
+  supabaseUrl: string,
+  cfg: { clientId: string; clientSecret: string; source: string } | null,
+): Promise<ExchangeResult> {
+  if (!cfg) {
+    return { tokens: null, error: { error: 'config_error', error_description: 'Google OAuth not configured for this organization' } };
+  }
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
 
-  console.log('Exchanging Google authorization code');
+  console.log(`Exchanging Google authorization code (creds source: ${cfg.source})`);
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: clientId!,
-      client_secret: clientSecret!,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
       redirect_uri: callbackUrl,
       grant_type: 'authorization_code'
     })
@@ -357,6 +362,7 @@ async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<Ex
 
   return { tokens: await response.json(), error: null };
 }
+
 
 async function exchangeMicrosoftCode(code: string, supabaseUrl: string, tenantId?: string): Promise<ExchangeResult> {
   const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
