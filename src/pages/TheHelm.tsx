@@ -422,8 +422,8 @@ function BriefView({
         </section>
 
         {/* Big 3 */}
-        <section aria-labelledby="big3">
-          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." />
+        <section aria-labelledby="big3" data-helm-section="big3">
+          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-24" />
