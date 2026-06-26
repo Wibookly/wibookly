@@ -540,6 +540,7 @@ function BriefView({
         {/* Drafted for you */}
         <section aria-labelledby="drafted" data-helm-section="drafted">
           <SectionHeader
+            index={2}
             title="Drafted for you"
             subtitle="Replies ready for a quick read and send."
             sectionKey="drafted"
