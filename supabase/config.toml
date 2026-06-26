@@ -59,4 +59,9 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.org-environment-credentials]
     verify_jwt = true
+  [functions.helm-webhook]
+    verify_jwt = false
+  [functions.helm-morning-prep]
+    verify_jwt = false
+
 
