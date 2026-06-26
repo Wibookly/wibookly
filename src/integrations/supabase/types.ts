@@ -4202,7 +4202,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      oauth_token_status: {
+        Row: {
+          created_at: string | null
+          last_refresh_at: string | null
+          last_refresh_error: string | null
+          organization_id: string | null
+          provider: string | null
+          refresh_failure_count: number | null
+          requires_reauth: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          last_refresh_at?: string | null
+          last_refresh_error?: string | null
+          organization_id?: string | null
+          provider?: string | null
+          refresh_failure_count?: number | null
+          requires_reauth?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          last_refresh_at?: string | null
+          last_refresh_error?: string | null
+          organization_id?: string | null
+          provider?: string | null
+          refresh_failure_count?: number | null
+          requires_reauth?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_token_vault_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_activity_report: {
@@ -4395,6 +4435,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_current_org_id: { Args: never; Returns: string }
       get_feature_usage_summary: {
         Args: {
           _feature_keys: string[]
@@ -4550,6 +4591,7 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      is_platform_super_admin: { Args: never; Returns: boolean }
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _email: string }; Returns: boolean }
