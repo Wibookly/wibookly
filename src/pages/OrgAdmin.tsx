@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Building, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHero } from '@/components/app/PageHero';
+import { OrgEnvironmentCard } from '@/components/admin/OrgEnvironmentCard';
+
 
 interface OrgRow { user_id: string; email: string; full_name: string | null; title: string | null; roles: string[]; }
 
