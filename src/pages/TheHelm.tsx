@@ -1,0 +1,648 @@
+import { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  ChevronDown,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  FileEdit,
+  Inbox,
+  Mail,
+  Printer,
+  Send,
+  Sparkles,
+  AlertTriangle,
+  Activity,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
+
+/* ------------------------------------------------------------------ */
+/* Placeholder data (Phase 3+ will wire to real sources)              */
+/* ------------------------------------------------------------------ */
+
+type View = 'brief' | 'inbox' | 'detail' | 'calendar';
+
+interface HelmItem {
+  id: string;
+  title: string;
+  context: string;
+  sender?: string;
+  due?: string;
+  tier?: 'big3' | 'decision' | 'overdue' | 'draft' | 'auto';
+}
+
+const BIG3: HelmItem[] = [
+  {
+    id: 'b1',
+    title: 'Approve the Q3 capex memo',
+    context: 'Board packet locks tonight. Without your sign-off the meeting slips a week.',
+    sender: 'Priya Anand, CFO',
+    due: 'by 4:00 PM',
+  },
+  {
+    id: 'b2',
+    title: 'Decide on Vendor X renewal',
+    context: 'Current contract ends Friday. Legal flagged two open redlines for you.',
+    sender: 'Legal · contracts@',
+    due: 'today',
+  },
+  {
+    id: 'b3',
+    title: 'Confirm Thursday all-hands narrative',
+    context: 'Comms needs your top-3 talking points to lock the deck and run rehearsal.',
+    sender: 'Maya Lin, Chief of Staff',
+    due: 'today',
+  },
+];
+
+const DECISIONS: HelmItem[] = [
+  {
+    id: 'd1',
+    title: 'Sign the partnership LOI with Helios',
+    context: 'Counterparty asked for verbal-yes by EOD. Draft is in your DocuSign queue.',
+    sender: 'Helios · ceo@',
+  },
+  {
+    id: 'd2',
+    title: 'Approve role posting: VP Engineering',
+    context: 'Recruiter needs final JD wording before the search opens publicly.',
+    sender: 'Talent · jordan@',
+  },
+  {
+    id: 'd3',
+    title: 'Pick a date for the customer advisory dinner',
+    context: 'Three holds are on your calendar. Pick one so invites can go out.',
+    sender: 'Events',
+  },
+];
+
+const OVERDUE: HelmItem[] = [
+  {
+    id: 'o1',
+    title: 'Re: Series C term sheet — clarifying questions',
+    context: 'Investor follow-up sent 4 days ago, no reply tracked.',
+    sender: 'Northwind Capital',
+    due: '4 days ago',
+  },
+  {
+    id: 'o2',
+    title: 'Re: Bonus pool allocation',
+    context: 'Comp committee is waiting on your response from last week.',
+    sender: 'People Ops',
+    due: '6 days ago',
+  },
+];
+
+const AUTO_ACTIONS = [
+  { id: 'a1', text: 'Filed 38 newsletters into Read Later', time: '6:12 AM' },
+  { id: 'a2', text: 'Acknowledged 14 FYI threads on your behalf', time: '6:12 AM' },
+  { id: 'a3', text: 'Declined 2 calendar holds that overlapped your focus block', time: '6:13 AM' },
+  { id: 'a4', text: 'Drafted polite "noted, thank you" replies to 9 confirmations', time: '6:14 AM' },
+];
+
+const INBOX_HEALTH = [
+  { label: 'Inbound today', value: 487 },
+  { label: 'Needs you', value: 6 },
+  { label: 'Drafted for review', value: 11 },
+  { label: 'Auto-handled', value: 412 },
+];
+
+const WEEK_PREVIEW = [
+  { day: 'Mon', summary: '5 meetings · 2 focus blocks' },
+  { day: 'Tue', summary: '3 meetings · board prep' },
+  { day: 'Wed', summary: '7 meetings · all-hands' },
+  { day: 'Thu', summary: '4 meetings · investor dinner' },
+  { day: 'Fri', summary: '2 meetings · open afternoon' },
+];
+
+/* ------------------------------------------------------------------ */
+/* Small building blocks                                              */
+/* ------------------------------------------------------------------ */
+
+function SectionHeader({
+  title,
+  subtitle,
+  onPrint,
+  onEmail,
+}: {
+  title: string;
+  subtitle?: string;
+  onPrint?: () => void;
+  onEmail?: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-4">
+      <div>
+        <h2 className="text-h3 text-foreground">{title}</h2>
+        {subtitle && (
+          <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2 print:hidden">
+        <Button variant="ghost" size="sm" onClick={onPrint} aria-label="Print section">
+          <Printer className="w-4 h-4 mr-1.5" /> Print
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onEmail} aria-label="Email me this section">
+          <Send className="w-4 h-4 mr-1.5" /> Email me
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function HelmCard({
+  item,
+  onOpen,
+  variant = 'default',
+  showCheckbox = false,
+  done,
+  onToggleDone,
+}: {
+  item: HelmItem;
+  onOpen: () => void;
+  variant?: 'default' | 'warning';
+  showCheckbox?: boolean;
+  done?: boolean;
+  onToggleDone?: (next: boolean) => void;
+}) {
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={cn(
+        'group cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        variant === 'warning' && 'border-destructive/40 bg-destructive/5',
+        done && 'opacity-60',
+      )}
+    >
+      <CardContent className="p-5">
+        <div className="flex items-start gap-4">
+          {showCheckbox && (
+            <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
+              <Checkbox
+                checked={done}
+                onCheckedChange={(c) => onToggleDone?.(Boolean(c))}
+                aria-label={`Mark "${item.title}" done`}
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              {variant === 'warning' && (
+                <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+              )}
+              <h3
+                className={cn(
+                  'text-body-1 font-semibold text-foreground truncate',
+                  done && 'line-through',
+                )}
+              >
+                {item.title}
+              </h3>
+            </div>
+            <p className="text-body-2 text-muted-foreground leading-relaxed">
+              {item.context}
+            </p>
+            {(item.sender || item.due) && (
+              <div className="flex items-center gap-3 mt-3 text-caption text-muted-foreground">
+                {item.sender && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5" />
+                    {item.sender}
+                  </span>
+                )}
+                {item.due && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    {item.due}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BackBar({ onBack, label }: { onBack: () => void; label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-6 print:hidden">
+      <Button variant="ghost" size="sm" onClick={onBack}>
+        <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to The Helm
+      </Button>
+      <Separator orientation="vertical" className="h-5" />
+      <span className="text-body-2 text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Views                                                              */
+/* ------------------------------------------------------------------ */
+
+function BriefView({
+  go,
+  done,
+  toggleDone,
+}: {
+  go: (v: View, item?: HelmItem) => void;
+  done: Record<string, boolean>;
+  toggleDone: (id: string, next: boolean) => void;
+}) {
+  const { user } = useAuth();
+  const greeting = useMemo(() => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good morning';
+    if (hr < 18) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+  const name =
+    (user?.user_metadata?.full_name as string | undefined)?.split(' ')[0] ??
+    user?.email?.split('@')[0] ??
+    '';
+  const totalInbound = 487;
+  const needsYou = 6;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main column */}
+      <div className="lg:col-span-2 space-y-10">
+        {/* Hero */}
+        <section aria-labelledby="helm-hero">
+          <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
+            <CardContent className="p-8">
+              <p className="text-caption uppercase tracking-wider text-primary font-semibold mb-2">
+                The Helm
+              </p>
+              <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
+                {greeting}{name ? `, ${name}` : ''}.
+              </h1>
+              <p className="text-body-1 text-muted-foreground max-w-2xl">
+                Calm day. The inbox moved a lot overnight but only a handful of
+                items genuinely need you. Start with your Big 3, then glance at
+                the decisions queue.
+              </p>
+              <div className="mt-8 flex items-baseline gap-4 flex-wrap">
+                <span className="text-h1 font-bold text-foreground tabular-nums">
+                  {totalInbound}
+                </span>
+                <ArrowRight className="w-6 h-6 text-muted-foreground" />
+                <span className="text-h1 font-bold text-primary tabular-nums">
+                  {needsYou}
+                </span>
+                <span className="text-body-2 text-muted-foreground">
+                  inbound today, only {needsYou} need you
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Big 3 */}
+        <section aria-labelledby="big3">
+          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." />
+          <div className="grid gap-3">
+            {BIG3.map((item) => (
+              <HelmCard
+                key={item.id}
+                item={item}
+                onOpen={() => go('detail', item)}
+                showCheckbox
+                done={done[item.id]}
+                onToggleDone={(n) => toggleDone(item.id, n)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Decisions */}
+        <section aria-labelledby="decisions">
+          <SectionHeader
+            title="Your decisions"
+            subtitle="Only you can decide or approve these."
+          />
+          <div className="grid gap-3">
+            {DECISIONS.map((item) => (
+              <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+            ))}
+          </div>
+        </section>
+
+        {/* Drafted for you */}
+        <section aria-labelledby="drafted">
+          <SectionHeader
+            title="Drafted for you"
+            subtitle="Replies ready for a quick read and send."
+          />
+          <Card
+            role="button"
+            tabIndex={0}
+            onClick={() => go('inbox')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                go('inbox');
+              }
+            }}
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <CardContent className="p-6 flex items-center gap-5">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <FileEdit className="w-7 h-7" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-h2 font-bold text-foreground tabular-nums">11</span>
+                  <span className="text-body-1 text-foreground">drafts ready</span>
+                </div>
+                <p className="text-body-2 text-muted-foreground mt-1">
+                  Open the focused inbox to skim, edit, and send.
+                </p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Overdue */}
+        <section aria-labelledby="overdue">
+          <SectionHeader
+            title="Overdue — waiting on your reply"
+            subtitle="These threads have been sitting too long."
+          />
+          <div className="grid gap-3">
+            {OVERDUE.map((item) => (
+              <HelmCard
+                key={item.id}
+                item={item}
+                variant="warning"
+                onOpen={() => go('detail', item)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Done automatically overnight */}
+        <section aria-labelledby="auto">
+          <Collapsible defaultOpen={false}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <button
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/40 transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Toggle overnight auto-actions"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 id="auto" className="text-h3 text-foreground">
+                        Done automatically overnight
+                      </h2>
+                      <p className="text-body-2 text-muted-foreground">
+                        {AUTO_ACTIONS.length} actions handled while you slept.
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-5 pb-5">
+                  <Separator className="mb-4" />
+                  <ul className="space-y-3">
+                    {AUTO_ACTIONS.map((a) => (
+                      <li key={a.id} className="flex items-start gap-3 text-body-2">
+                        <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <span className="flex-1 text-foreground">{a.text}</span>
+                        <span className="text-caption text-muted-foreground tabular-nums">
+                          {a.time}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        </section>
+      </div>
+
+      {/* Right rail */}
+      <aside className="space-y-6">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => go('calendar')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              go('calendar');
+            }
+          }}
+          className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-h3 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" /> This week
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {WEEK_PREVIEW.map((d) => (
+                <li
+                  key={d.day}
+                  className="flex items-center justify-between text-body-2 py-1.5 border-b border-border last:border-0"
+                >
+                  <span className="font-semibold text-foreground w-12">{d.day}</span>
+                  <span className="text-muted-foreground text-right flex-1">
+                    {d.summary}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 inline-flex items-center text-caption text-primary font-semibold">
+              Open calendar <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-h3 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" /> Inbox health
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-4">
+              {INBOX_HEALTH.map((s) => (
+                <div key={s.label}>
+                  <dt className="text-caption text-muted-foreground">{s.label}</dt>
+                  <dd className="text-h2 font-bold text-foreground tabular-nums">
+                    {s.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      </aside>
+    </div>
+  );
+}
+
+function InboxView({ onBack }: { onBack: () => void }) {
+  return (
+    <div>
+      <BackBar onBack={onBack} label="Drafted for you · focused inbox" />
+      <SectionHeader title="11 drafts waiting for your review" subtitle="Skim, edit, send." />
+      <div className="grid gap-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Inbox className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-body-1 font-semibold text-foreground">
+                    Re: Draft #{i} — placeholder subject
+                  </h3>
+                  <p className="text-body-2 text-muted-foreground mt-1 line-clamp-2">
+                    Suggested reply preview goes here. Phase 3 wires the real
+                    draft body, recipient, and send action.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline">Open</Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => void }) {
+  if (!item) {
+    return (
+      <div>
+        <BackBar onBack={onBack} label="Detail" />
+        <p className="text-body-2 text-muted-foreground">No item selected.</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <BackBar onBack={onBack} label="Item detail" />
+      <Card>
+        <CardContent className="p-8">
+          <Badge variant="secondary" className="mb-3">
+            {item.tier ?? 'item'}
+          </Badge>
+          <h1 className="text-h2 text-foreground mb-3">{item.title}</h1>
+          <p className="text-body-1 text-muted-foreground mb-6">{item.context}</p>
+          <Separator className="my-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-body-2">
+            {item.sender && (
+              <div>
+                <div className="text-caption text-muted-foreground mb-1">From</div>
+                <div className="text-foreground font-medium">{item.sender}</div>
+              </div>
+            )}
+            {item.due && (
+              <div>
+                <div className="text-caption text-muted-foreground mb-1">Due</div>
+                <div className="text-foreground font-medium">{item.due}</div>
+              </div>
+            )}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-2 print:hidden">
+            <Button>Open in Outlook</Button>
+            <Button variant="outline">Draft reply</Button>
+            <Button variant="ghost">
+              <ClipboardList className="w-4 h-4 mr-1.5" /> Mark done
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CalendarView({ onBack }: { onBack: () => void }) {
+  return (
+    <div>
+      <BackBar onBack={onBack} label="This week" />
+      <SectionHeader title="Your week at a glance" subtitle="Phase 4 wires live Graph events." />
+      <div className="grid gap-3">
+        {WEEK_PREVIEW.map((d) => (
+          <Card key={d.day}>
+            <CardContent className="p-5 flex items-center gap-5">
+              <div className="w-16 text-center">
+                <div className="text-caption text-muted-foreground uppercase">
+                  {d.day}
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-body-1 text-foreground">{d.summary}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page shell                                                         */
+/* ------------------------------------------------------------------ */
+
+export default function TheHelm() {
+  const [view, setView] = useState<View>('brief');
+  const [activeItem, setActiveItem] = useState<HelmItem | null>(null);
+  const [done, setDone] = useState<Record<string, boolean>>({});
+
+  const go = (v: View, item?: HelmItem) => {
+    if (item) setActiveItem(item);
+    setView(v);
+  };
+  const back = () => setView('brief');
+  const toggleDone = (id: string, next: boolean) =>
+    setDone((d) => ({ ...d, [id]: next }));
+
+  return (
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      {view === 'brief' && (
+        <BriefView go={go} done={done} toggleDone={toggleDone} />
+      )}
+      {view === 'inbox' && <InboxView onBack={back} />}
+      {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
+      {view === 'calendar' && <CalendarView onBack={back} />}
+    </div>
+  );
+}
