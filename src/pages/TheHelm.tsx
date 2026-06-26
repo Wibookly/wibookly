@@ -691,7 +691,7 @@ function BriefView({
       </div>
 
       {/* Right rail */}
-      <aside className="space-y-6">
+      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
         <Card
           role="button"
           tabIndex={0}
@@ -702,64 +702,64 @@ function BriefView({
               go('calendar');
             }
           }}
-          className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60"
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-h3 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" /> This week
+          <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Calendar className="w-4 h-4 text-primary" /> This week
             </CardTitle>
+            <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
+          <CardContent className="pt-0">
+            <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
+            <ul className="space-y-0">
               {WEEK_PREVIEW.map((d) => (
                 <li
                   key={d.day}
-                  className="flex items-center justify-between text-body-2 py-1.5 border-b border-border last:border-0"
+                  className="flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0"
                 >
-                  <span className="font-semibold text-foreground w-12">{d.day}</span>
-                  <span className="text-muted-foreground text-right flex-1">
+                  <span className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground w-10 shrink-0">{d.day}</span>
+                  <span className="text-foreground/80 flex-1 leading-snug">
                     {d.summary}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-4 inline-flex items-center text-caption text-primary font-semibold">
-              Open calendar <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60">
           <CardHeader className="pb-3">
-            <CardTitle className="text-h3 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Inbox health
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-4">
+          <CardContent className="pt-0">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
               <div>
-                <dt className="text-caption text-muted-foreground">Inbound today</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.totalInbound}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Needs you</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
+                <dd className="text-3xl font-light text-primary tabular-nums">
                   {stats.needsYou}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Drafted</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.drafted}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Auto-handled</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.autoHandled}
                 </dd>
+
               </div>
             </dl>
           </CardContent>
