@@ -993,24 +993,246 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
   );
 }
 
+interface CalEvent {
+  id: string;
+  subject: string;
+  start: string | null;
+  end: string | null;
+  time_zone: string;
+  organizer: { name: string; email: string };
+  attendees: Array<{ name: string; email: string; type: string; response: string }>;
+  is_organizer: boolean;
+  type: string;
+  is_cancelled: boolean;
+  web_link: string | null;
+  location: string;
+  join_url: string | null;
+  is_external: boolean;
+}
+
+function startOfWeek(d: Date): Date {
+  const x = new Date(d);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
 function CalendarView({ onBack }: { onBack: () => void }) {
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+
+  const { data, isLoading, isFetching, refetch, error } = useQuery({
+    queryKey: ['helm-calendar', weekStart.toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('helm-sync-calendar', {
+        body: { week_start: weekStart.toISOString() },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as {
+        timezone: string;
+        events: CalEvent[];
+        week_start: string;
+        week_end: string;
+      };
+    },
+  });
+
+  const days = useMemo(() => {
+    const out: { date: Date; label: string; weekday: string }[] = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      out.push({
+        date: d,
+        weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      });
+    }
+    return out;
+  }, [weekStart]);
+
+  const grouped = useMemo(() => {
+    const map: Record<string, CalEvent[]> = {};
+    for (const d of days) map[d.date.toDateString()] = [];
+    for (const ev of data?.events ?? []) {
+      if (!ev.start) continue;
+      const key = new Date(ev.start).toDateString();
+      if (map[key]) map[key].push(ev);
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort(
+        (a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime(),
+      );
+    }
+    return map;
+  }, [data, days]);
+
+  const shiftWeek = (delta: number) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + delta * 7);
+    setWeekStart(d);
+  };
+
+  const fmtTime = (iso: string | null) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div>
       <BackBar onBack={onBack} label="This week" />
-      <SectionHeader title="Your week at a glance" subtitle="Phase 4 wires live Graph events." />
-      <div className="grid gap-3">
-        {WEEK_PREVIEW.map((d) => (
-          <Card key={d.day}>
-            <CardContent className="p-5 flex items-center gap-5">
-              <div className="w-16 text-center">
-                <div className="text-caption text-muted-foreground uppercase">{d.day}</div>
-              </div>
-              <div className="flex-1">
-                <p className="text-body-1 text-foreground">{d.summary}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <SectionHeader
+          title="Your week at a glance"
+          subtitle={
+            data?.timezone
+              ? `Times shown in ${data.timezone}`
+              : 'Loading your calendar…'
+          }
+        />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => shiftWeek(-1)}>
+            ← Prev
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWeekStart(startOfWeek(new Date()))}
+          >
+            Today
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => shiftWeek(1)}>
+            Next →
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn('w-4 h-4 mr-1', isFetching && 'animate-spin')} />
+            Sync
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <Card className="mb-4 border-destructive/40">
+          <CardContent className="p-4 text-sm text-destructive">
+            Couldn't load calendar: {(error as Error).message}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+        {days.map((d) => {
+          const evs = grouped[d.date.toDateString()] ?? [];
+          const isToday = d.date.toDateString() === new Date().toDateString();
+          return (
+            <Card
+              key={d.date.toISOString()}
+              className={cn(
+                'min-w-[220px]',
+                isToday && 'border-primary/60 shadow-sm',
+              )}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-baseline justify-between">
+                  <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">
+                    {d.weekday}
+                  </CardTitle>
+                  <span
+                    className={cn(
+                      'text-xs font-medium',
+                      isToday ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  >
+                    {d.label}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {isLoading && (
+                  <>
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                  </>
+                )}
+                {!isLoading && evs.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic py-4 text-center">
+                    No meetings
+                  </p>
+                )}
+                {evs.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className={cn(
+                      'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                      ev.is_cancelled && 'opacity-60 line-through',
+                      ev.is_external
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border bg-card',
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-medium text-foreground">
+                        {fmtTime(ev.start)}
+                      </span>
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {ev.is_external && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20"
+                          >
+                            External
+                          </Badge>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1 py-0"
+                        >
+                          {ev.is_organizer ? 'Host' : 'Guest'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p
+                      className="font-semibold text-foreground leading-snug line-clamp-2"
+                      title={ev.subject}
+                    >
+                      {ev.subject}
+                    </p>
+                    {ev.location && (
+                      <p className="text-muted-foreground text-[11px] line-clamp-1">
+                        📍 {ev.location}
+                      </p>
+                    )}
+                    {ev.attendees.length > 0 && (
+                      <p className="text-muted-foreground text-[11px]">
+                        {ev.attendees.length} attendee
+                        {ev.attendees.length === 1 ? '' : 's'}
+                      </p>
+                    )}
+                    {ev.web_link && (
+                      <a
+                        href={ev.web_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline text-[11px] inline-flex items-center"
+                      >
+                        Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
