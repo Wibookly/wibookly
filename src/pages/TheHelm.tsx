@@ -160,14 +160,42 @@ const WEEK_PREVIEW = [
 function SectionHeader({
   title,
   subtitle,
+  sectionKey,
+  emailSection,
   onPrint,
   onEmail,
 }: {
   title: string;
   subtitle?: string;
+  sectionKey?: string;
+  emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
+  const printSection = () => {
+    if (sectionKey) {
+      document.body.setAttribute('data-print-section', sectionKey);
+      window.print();
+      setTimeout(() => document.body.removeAttribute('data-print-section'), 500);
+    } else {
+      window.print();
+    }
+  };
+  const emailMe = async () => {
+    if (!emailSection) {
+      toast.info('Nothing to email here.');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('helm-email-section', {
+        body: { section: emailSection, title },
+      });
+      if (error) throw error;
+      toast.success(`Emailed to ${(data as any)?.recipient ?? 'your inbox'}.`);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Email failed.');
+    }
+  };
   return (
     <div className="flex items-start justify-between gap-4 mb-4">
       <div>
@@ -175,14 +203,10 @@ function SectionHeader({
         {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={onPrint ?? (() => window.print())}>
+        <Button variant="ghost" size="sm" onClick={onPrint ?? printSection}>
           <Printer className="w-4 h-4 mr-1.5" /> Print
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEmail ?? (() => toast.info('Email delivery wires in Phase 6.'))}
-        >
+        <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
           <Send className="w-4 h-4 mr-1.5" /> Email me
         </Button>
       </div>
