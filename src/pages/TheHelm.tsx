@@ -174,6 +174,7 @@ function SectionHeader({
   subtitle,
   sectionKey,
   emailSection,
+  index,
   onPrint,
   onEmail,
 }: {
@@ -181,6 +182,7 @@ function SectionHeader({
   subtitle?: string;
   sectionKey?: string;
   emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
+  index?: number;
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
@@ -214,23 +216,37 @@ function SectionHeader({
       toast.error(e?.message ?? 'Email failed.');
     }
   };
+  const numLabel =
+    typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
-    <div className="flex items-start justify-between gap-4 mb-4">
-      <div>
-        <h2 className="text-h3 text-foreground">{title}</h2>
-        {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
-      </div>
-      <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
-          <Printer className="w-4 h-4 mr-1.5" /> Print
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
-          <Send className="w-4 h-4 mr-1.5" /> Email me
-        </Button>
+    <div className="mb-4 pt-4 border-t border-border/60">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          {numLabel && (
+            <span className="font-mono text-caption tracking-wider text-muted-foreground/70 tabular-nums shrink-0">
+              {numLabel}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-h3 text-foreground">{title}</h2>
+            {subtitle && (
+              <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 print:hidden shrink-0">
+          <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
+            <Printer className="w-4 h-4 mr-1.5" /> Print
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
+            <Send className="w-4 h-4 mr-1.5" /> Email me
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
+
 
 function HelmCard({
   item,
@@ -259,7 +275,10 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'group relative cursor-pointer overflow-hidden transition-all',
+        'before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary',
+        'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
+        'hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         variant === 'warning' && 'border-destructive/40 bg-destructive/5',
         done && 'opacity-60',
       )}
@@ -375,14 +394,21 @@ function BriefView({
       if (error) throw error;
       return res;
     },
-    onSuccess: (res: any) => {
-      toast.success(
-        `Synced: ${res?.surfaced ?? 0} surfaced, ${res?.autoFiled ?? 0} auto-filed`,
-      );
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['helm-items'] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Sync failed'),
+    // Auto-sync runs silently; surface errors only when a manual retry fails.
+    onError: () => { /* silent — next interval will retry */ },
   });
+
+  // Auto-sync on mount, then every 5 minutes. No manual button required.
+  useEffect(() => {
+    sync.mutate();
+    const id = setInterval(() => sync.mutate(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const stats = data?.stats ?? { totalInbound: 0, needsYou: 0, drafted: 0, autoHandled: 0 };
   const big3 = data?.big3 ?? [];
@@ -398,22 +424,25 @@ function BriefView({
           <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
             <CardContent className="p-8">
               <div className="flex items-start justify-between gap-4 mb-2">
-                <p className="text-caption uppercase tracking-wider text-primary font-semibold">
-                  The Helm
+                <p className="text-caption uppercase tracking-wider text-primary font-semibold font-mono">
+                  The Helm · Daily Brief
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => sync.mutate()}
-                  disabled={sync.isPending}
-                  className="print:hidden"
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-2 text-caption font-mono tracking-wider uppercase px-2.5 py-1 rounded-full border print:hidden',
+                    (sync.isPending || isLoading)
+                      ? 'border-primary/40 text-primary bg-primary/5'
+                      : 'border-border text-muted-foreground bg-card/50',
+                  )}
+                  title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
                 >
                   <RefreshCw
-                    className={cn('w-4 h-4 mr-1.5', sync.isPending && 'animate-spin')}
+                    className={cn('w-3.5 h-3.5', (sync.isPending || isLoading) && 'animate-spin')}
                   />
-                  {sync.isPending ? 'Syncing…' : 'Sync inbox'}
-                </Button>
+                  {(sync.isPending || isLoading) ? 'Syncing…' : 'Live · auto-sync'}
+                </span>
               </div>
+
               <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
                 {greeting}
                 {name ? `, ${name}` : ''}.
@@ -441,7 +470,7 @@ function BriefView({
 
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
-          <SectionHeader title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
+          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-24" />
@@ -489,6 +518,7 @@ function BriefView({
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
+            index={1}
             title="Your decisions"
             subtitle="Only you can decide or approve these."
             sectionKey="decisions"
@@ -510,6 +540,7 @@ function BriefView({
         {/* Drafted for you */}
         <section aria-labelledby="drafted" data-helm-section="drafted">
           <SectionHeader
+            index={2}
             title="Drafted for you"
             subtitle="Replies ready for a quick read and send."
             sectionKey="drafted"
@@ -552,6 +583,7 @@ function BriefView({
         {/* Overdue */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
           <SectionHeader
+            index={3}
             title="Overdue — waiting on your reply"
             subtitle="These threads have been sitting too long."
             sectionKey="overdue"

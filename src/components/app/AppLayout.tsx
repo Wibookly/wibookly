@@ -29,6 +29,7 @@ export function AppLayout() {
   const [wizardChecked, setWizardChecked] = useState(false);
   const location = useLocation();
   const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  // Pin lives globally now — applies on every page, not just Chat.
   const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('chat-sidebar-pinned') !== 'false';
@@ -69,9 +70,10 @@ export function AppLayout() {
     return <Navigate to="/auth" replace />;
   }
 
-  const autoHide = isChatPage && !sidebarPinned;
+  // Auto-hide everywhere when the user unpins the sidebar.
+  const autoHide = !sidebarPinned;
   const sidebarOpen = !autoHide || sidebarHover;
-  const togglePin = isChatPage ? () => setSidebarPinned((v) => !v) : undefined;
+  const togglePin = () => setSidebarPinned((v) => !v);
 
   return (
     <div className="h-[100dvh] overflow-hidden flex flex-col lg:flex-row">
@@ -89,10 +91,18 @@ export function AppLayout() {
       {/* Mobile Sidebar (Sheet) */}
       <MobileSidebar open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
-      {/* Desktop Sidebar — auto-hide on Chat page when unpinned */}
+      {/* Desktop Sidebar — global auto-hide when unpinned */}
       {autoHide ? (
         <>
-          {/* Click-to-open edge trigger (visible tab) — bottom-left, accent-colored */}
+          {/* Invisible hover strip on the very left edge to reveal the sidebar */}
+          {!sidebarHover && (
+            <div
+              className="hidden lg:block fixed left-0 top-0 h-[100dvh] w-2 z-40"
+              onMouseEnter={() => setSidebarHover(true)}
+              aria-hidden
+            />
+          )}
+          {/* Visible draggable accent pill so the sidebar is always reachable */}
           {!sidebarHover && (
             <div className="hidden lg:block">
               <ShowMenuPill onOpen={() => setSidebarHover(true)} storageKey="chat-menu-pill-y-desktop" />
@@ -103,6 +113,7 @@ export function AppLayout() {
               'hidden lg:block fixed left-0 top-0 h-[100dvh] z-40 transition-transform duration-200 ease-out',
               sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
             )}
+            onMouseLeave={() => setSidebarHover(false)}
           >
             <AppSidebar
               pinned={sidebarPinned}
@@ -121,6 +132,7 @@ export function AppLayout() {
       )}
 
       <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+
         <OceanWaves />
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-10">
           <div className="h-full min-h-full flex flex-col">
