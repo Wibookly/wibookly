@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action_key: string | null
+          action_type: Database["public"]["Enums"]["helm_action_type"]
+          created_at: string
+          detail: string | null
+          graph_id: string | null
+          id: string
+          organization_id: string
+          tier: string | null
+          user_id: string
+        }
+        Insert: {
+          action_key?: string | null
+          action_type: Database["public"]["Enums"]["helm_action_type"]
+          created_at?: string
+          detail?: string | null
+          graph_id?: string | null
+          id?: string
+          organization_id: string
+          tier?: string | null
+          user_id: string
+        }
+        Update: {
+          action_key?: string | null
+          action_type?: Database["public"]["Enums"]["helm_action_type"]
+          created_at?: string
+          detail?: string | null
+          graph_id?: string | null
+          id?: string
+          organization_id?: string
+          tier?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_audit_log: {
         Row: {
           action: string
@@ -2113,6 +2157,212 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "permission_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helm_big3: {
+        Row: {
+          created_at: string
+          detail_json: Json
+          done: boolean
+          id: string
+          meta: string | null
+          ordinal: number
+          organization_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail_json?: Json
+          done?: boolean
+          id?: string
+          meta?: string | null
+          ordinal: number
+          organization_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detail_json?: Json
+          done?: boolean
+          id?: string
+          meta?: string | null
+          ordinal?: number
+          organization_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helm_big3_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helm_focus_rules: {
+        Row: {
+          auto_reply_categories: string[]
+          autonomy: Database["public"]["Enums"]["helm_autonomy"]
+          block_minutes: number
+          focus_days: string[]
+          focus_window: Database["public"]["Enums"]["helm_focus_window"]
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_reply_categories?: string[]
+          autonomy?: Database["public"]["Enums"]["helm_autonomy"]
+          block_minutes?: number
+          focus_days?: string[]
+          focus_window?: Database["public"]["Enums"]["helm_focus_window"]
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_reply_categories?: string[]
+          autonomy?: Database["public"]["Enums"]["helm_autonomy"]
+          block_minutes?: number
+          focus_days?: string[]
+          focus_window?: Database["public"]["Enums"]["helm_focus_window"]
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helm_focus_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helm_items: {
+        Row: {
+          action_key: string | null
+          ai_draft: string | null
+          context: string | null
+          conversation_id: string | null
+          created_at: string
+          due_at: string | null
+          graph_id: string | null
+          id: string
+          is_external: boolean
+          organization_id: string
+          payload: Json
+          score: number
+          sender_email: string | null
+          sender_name: string | null
+          source: Database["public"]["Enums"]["helm_source"]
+          status: Database["public"]["Enums"]["helm_status"]
+          tier: Database["public"]["Enums"]["helm_tier"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_key?: string | null
+          ai_draft?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          graph_id?: string | null
+          id?: string
+          is_external?: boolean
+          organization_id: string
+          payload?: Json
+          score?: number
+          sender_email?: string | null
+          sender_name?: string | null
+          source: Database["public"]["Enums"]["helm_source"]
+          status?: Database["public"]["Enums"]["helm_status"]
+          tier?: Database["public"]["Enums"]["helm_tier"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_key?: string | null
+          ai_draft?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          graph_id?: string | null
+          id?: string
+          is_external?: boolean
+          organization_id?: string
+          payload?: Json
+          score?: number
+          sender_email?: string | null
+          sender_name?: string | null
+          source?: Database["public"]["Enums"]["helm_source"]
+          status?: Database["public"]["Enums"]["helm_status"]
+          tier?: Database["public"]["Enums"]["helm_tier"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helm_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      helm_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          graph_subscription_id: string
+          id: string
+          organization_id: string
+          resource: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          graph_subscription_id: string
+          id?: string
+          organization_id: string
+          resource: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          graph_subscription_id?: string
+          id?: string
+          organization_id?: string
+          resource?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "helm_subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4895,6 +5145,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member" | "super_admin" | "org_admin" | "dept_admin"
+      helm_action_type:
+        | "email_sent"
+        | "draft_saved"
+        | "event_moved"
+        | "event_created"
+        | "item_filed"
+        | "note_sent"
+      helm_autonomy: "ask_all" | "auto_internal_ask_external" | "auto_all"
+      helm_focus_window: "morning" | "afternoon"
+      helm_source: "email" | "calendar" | "commitment" | "task"
+      helm_status: "open" | "resolved" | "sent" | "snoozed" | "auto_done"
+      helm_tier: "decision" | "draft" | "overdue" | "big3" | "auto"
       org_environment_type: "microsoft" | "google" | "none"
       org_status: "active" | "suspended"
     }
@@ -5025,6 +5287,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member", "super_admin", "org_admin", "dept_admin"],
+      helm_action_type: [
+        "email_sent",
+        "draft_saved",
+        "event_moved",
+        "event_created",
+        "item_filed",
+        "note_sent",
+      ],
+      helm_autonomy: ["ask_all", "auto_internal_ask_external", "auto_all"],
+      helm_focus_window: ["morning", "afternoon"],
+      helm_source: ["email", "calendar", "commitment", "task"],
+      helm_status: ["open", "resolved", "sent", "snoozed", "auto_done"],
+      helm_tier: ["decision", "draft", "overdue", "big3", "auto"],
       org_environment_type: ["microsoft", "google", "none"],
       org_status: ["active", "suspended"],
     },
