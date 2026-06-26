@@ -583,6 +583,7 @@ function BriefView({
         {/* Overdue */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
           <SectionHeader
+            index={3}
             title="Overdue — waiting on your reply"
             subtitle="These threads have been sitting too long."
             sectionKey="overdue"
