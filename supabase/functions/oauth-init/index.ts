@@ -113,14 +113,16 @@ serve(async (req) => {
     let authUrl: string;
 
     if (provider === 'google') {
-      const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-      if (!clientId) {
-        console.error('GOOGLE_CLIENT_ID not configured');
+      const cfg = await getOrgOAuthConfig(organizationId, 'google');
+      if (!cfg) {
+        console.error('Google OAuth not configured for org', organizationId);
         return new Response(
-          JSON.stringify({ error: 'Google OAuth not configured' }),
+          JSON.stringify({ error: 'Google OAuth is not configured for this organization' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      const clientId = cfg.clientId;
+
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL');
       const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
