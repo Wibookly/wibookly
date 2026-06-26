@@ -657,7 +657,7 @@ function InboxView({ onBack }: { onBack: () => void }) {
   const active = drafts.find((d) => d.id === effectiveId) ?? null;
 
   // Load original + ensure a draft exists when active item changes
-  useMemo(() => {
+  useEffect(() => {
     if (!active) return;
     setOriginal(null);
     setDraftText('');
