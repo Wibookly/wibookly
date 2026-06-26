@@ -3146,7 +3146,15 @@ export type Database = {
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permission_group_domain_assignments: {
         Row: {
@@ -3252,6 +3260,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       processed_emails: {
         Row: {
@@ -4285,6 +4326,28 @@ export type Database = {
           events: number
         }[]
       }
+      admin_create_organization: {
+        Args: {
+          _address_city?: string
+          _address_country?: string
+          _address_state?: string
+          _address_street?: string
+          _address_zip?: string
+          _admin_invite_email?: string
+          _contact_email?: string
+          _environment_type?: string
+          _legal_name?: string
+          _logo_url?: string
+          _name: string
+          _phone?: string
+          _plan_slug?: string
+          _status?: string
+        }
+        Returns: {
+          invitation_token: string
+          organization_id: string
+        }[]
+      }
       admin_list_org_users: {
         Args: { _organization_id: string }
         Returns: {
@@ -4295,6 +4358,24 @@ export type Database = {
           roles: string[]
           user_id: string
         }[]
+      }
+      admin_list_organizations: {
+        Args: never
+        Returns: {
+          created_at: string
+          environment_type: string
+          id: string
+          legal_name: string
+          name: string
+          plan_name: string
+          plan_slug: string
+          status: string
+          user_count: number
+        }[]
+      }
+      admin_set_org_status: {
+        Args: { _org_id: string; _status: string }
+        Returns: undefined
       }
       admin_visible_departments: {
         Args: never
@@ -4583,10 +4664,12 @@ export type Database = {
         Returns: boolean
       }
       is_domain_allowed: { Args: { _email: string }; Returns: boolean }
-      is_org_admin: {
-        Args: { _organization_id: string; _user_id: string }
-        Returns: boolean
-      }
+      is_org_admin:
+        | { Args: { _org_id: string }; Returns: boolean }
+        | {
+            Args: { _organization_id: string; _user_id: string }
+            Returns: boolean
+          }
       is_org_member: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
@@ -4635,6 +4718,20 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      org_admin_list_users: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          roles: string[]
+          title: string
+          user_id: string
+        }[]
+      }
+      org_admin_set_user_role: {
+        Args: { _role: string; _target_user: string }
+        Returns: undefined
       }
       pause_followups_without_permission: { Args: never; Returns: number }
       read_email_batch: {
