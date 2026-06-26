@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgOAuthConfig } from "../_shared/org-oauth-config.ts";
+import { verifyState } from "../_shared/oauth-state.ts";
 
 
 // AES-GCM encryption for tokens
@@ -41,15 +42,15 @@ serve(async (req) => {
 
     console.log('OAuth callback received');
 
-    // Try to extract provider from state early for better error reporting
+    // Try to extract provider from state early (verified) for better error reporting
     let earlyProvider: string | undefined;
     let earlyAppUrl: string | undefined;
     if (stateParam) {
-      try {
-        const earlyState = JSON.parse(atob(stateParam));
+      const earlyState = await verifyState<any>(stateParam);
+      if (earlyState) {
         earlyProvider = earlyState.provider;
         earlyAppUrl = resolveAppUrl(earlyState.appOrigin);
-      } catch {}
+      }
     }
 
     // Handle OAuth errors
@@ -63,13 +64,11 @@ serve(async (req) => {
       return redirectWithError('Missing authorization code or state', earlyAppUrl, earlyProvider);
     }
 
-    // Decode state
-    let stateData;
-    try {
-      stateData = JSON.parse(atob(stateParam));
-    } catch (e) {
-      console.error('Failed to decode state:', e);
-      return redirectWithError('Invalid state parameter');
+    // Verify HMAC-signed state. Rejects tampered / unsigned legacy state.
+    const stateData = await verifyState<any>(stateParam);
+    if (!stateData) {
+      console.error('Invalid or tampered state parameter');
+      return redirectWithError('Invalid state parameter (signature mismatch)', earlyAppUrl, earlyProvider);
     }
 
     const { userId, organizationId, provider, redirectUrl, appOrigin } = stateData;
@@ -89,6 +88,22 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Defence in depth: even though state is HMAC-signed, re-verify that the
+    // userId in state actually belongs to organizationId. Stops a stolen+replay
+    // state from one org being used to write tokens into another.
+    {
+      const { data: prof } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!prof || prof.organization_id !== organizationId) {
+        console.error('State user/org mismatch', { userId, organizationId, profileOrg: prof?.organization_id });
+        await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'user_org_mismatch');
+        return redirectWithError('User does not belong to the organization in state', resolvedAppUrl, provider);
+      }
+    }
 
     // Log this callback attempt
     await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_received', appOrigin);

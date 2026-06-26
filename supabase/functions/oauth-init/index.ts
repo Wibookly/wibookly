@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgOAuthConfig } from "../_shared/org-oauth-config.ts";
+import { signState } from "../_shared/oauth-state.ts";
 
 
 const corsHeaders = {
@@ -94,21 +95,20 @@ serve(async (req) => {
       microsoftTenantId = domainData?.microsoft_tenant_id ?? null;
     }
 
-    // Generate a random state parameter for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Store the state in a simple format to pass to callback
-    const stateData = btoa(JSON.stringify({
-      state,
+    // Build SIGNED state: HMAC-SHA256(payload, TOKEN_ENCRYPTION_KEY).
+    // This prevents an attacker from swapping organizationId / userId in the
+    // round-trip state and tricking the callback into writing tokens into
+    // another org or another user's row.
+    const stateData = await signState({
+      state: crypto.randomUUID(),
       userId,
       organizationId,
       provider,
-      // Remember which web origin started the flow so the callback can return there.
-      // This avoids redirecting to an unpublished/stale domain.
       appOrigin: req.headers.get('origin') || undefined,
       redirectUrl: redirectUrl || '/integrations',
       microsoftTenantId: microsoftTenantId || undefined,
-    }));
+      iat: Date.now(),
+    });
 
 
     let authUrl: string;
