@@ -139,6 +139,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
+  const { isOrgAdmin } = useUserRoles();
 
   // "Chat-only" users: have AI Chat but no email/drafting/reporting features.
   // For these users we collapse the sidebar to just connected emails + AI Chat.
