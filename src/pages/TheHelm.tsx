@@ -255,6 +255,7 @@ function HelmCard({
   showCheckbox = false,
   done,
   onToggleDone,
+  index,
 }: {
   item: HelmItem;
   onOpen: () => void;
@@ -262,7 +263,10 @@ function HelmCard({
   showCheckbox?: boolean;
   done?: boolean;
   onToggleDone?: (next: boolean) => void;
+  index?: number;
 }) {
+  const numLabel =
+    typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
     <Card
       role="button"
@@ -275,16 +279,16 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden transition-all',
-        'before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary',
+        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border-border/60',
+        'before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary',
         'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
-        'hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         variant === 'warning' && 'border-destructive/40 bg-destructive/5',
         done && 'opacity-60',
       )}
     >
-      <CardContent className="p-5">
-        <div className="flex items-start gap-4">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
           {showCheckbox && (
             <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
               <Checkbox
@@ -295,13 +299,18 @@ function HelmCard({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            {numLabel && (
+              <div className="font-mono text-[10px] tracking-[0.15em] text-muted-foreground/60 tabular-nums mb-1.5">
+                {numLabel}
+              </div>
+            )}
+            <div className="flex items-center gap-2 mb-1">
               {variant === 'warning' && (
-                <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
               )}
               <h3
                 className={cn(
-                  'text-body-1 font-semibold text-foreground truncate',
+                  'text-[15px] font-semibold text-foreground leading-snug truncate',
                   done && 'line-through',
                 )}
               >
@@ -309,28 +318,28 @@ function HelmCard({
               </h3>
             </div>
             {item.context && (
-              <p className="text-body-2 text-muted-foreground leading-relaxed">
+              <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-2">
                 {item.context}
               </p>
             )}
             {(item.sender || item.due) && (
-              <div className="flex items-center gap-3 mt-3 text-caption text-muted-foreground">
+              <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground font-mono tracking-wide">
                 {item.sender && (
                   <span className="inline-flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" />
+                    <Mail className="w-3 h-3" />
                     {item.sender}
                   </span>
                 )}
                 {item.due && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1.5 uppercase">
+                    <Clock className="w-3 h-3" />
                     {item.due}
                   </span>
                 )}
               </div>
             )}
           </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
         </div>
       </CardContent>
     </Card>
