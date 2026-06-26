@@ -364,37 +364,41 @@ async function exchangeGoogleCode(
 }
 
 
-async function exchangeMicrosoftCode(code: string, supabaseUrl: string, tenantId?: string): Promise<ExchangeResult> {
-  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
-  const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-  const clientSecret = clientSecretRaw?.trim();
+async function exchangeMicrosoftCode(
+  code: string,
+  supabaseUrl: string,
+  tenantId?: string,
+  cfg?: { clientId: string; clientSecret: string; tenantId?: string; source: string } | null,
+): Promise<ExchangeResult> {
+  const clientId = cfg?.clientId?.trim();
+  const clientSecret = cfg?.clientSecret?.trim();
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
 
   console.log('Exchanging Microsoft authorization code', {
+    credsSource: cfg?.source,
     hasClientId: Boolean(clientId),
     clientIdPrefix: clientId?.slice(0, 8),
     hasClientSecret: Boolean(clientSecret),
     clientSecretLength: clientSecret?.length ?? 0,
-    clientSecretFirstChar: clientSecret?.[0],
-    clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
     callbackUrl,
   });
 
   if (!clientId || !clientSecret) {
-    console.error('Microsoft OAuth credentials are not configured correctly');
+    console.error('Microsoft OAuth credentials are not configured for this organization');
     return {
       tokens: null,
-      error: { error: 'config_error', error_description: 'MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET is not set' },
+      error: { error: 'config_error', error_description: 'Microsoft OAuth is not configured for this organization' },
     };
   }
 
   // Heuristic: client secret VALUE starts with random chars and is ~40 chars; SECRET ID is a UUID (36 chars with dashes)
   const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientSecret);
   if (looksLikeUuid) {
-    console.error('MICROSOFT_CLIENT_SECRET looks like a Secret ID (UUID), not a Secret VALUE!');
+    console.error('Microsoft client secret looks like a Secret ID (UUID), not a Secret VALUE!');
   }
 
-  const tenantSegment = tenantId?.trim() || 'common';
+  const tenantSegment = (cfg?.tenantId || tenantId)?.trim() || 'common';
+
 
   const response = await fetch(`https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/token`, {
     method: 'POST',
