@@ -114,10 +114,11 @@ export default function SuperAdmin() {
   return (
     <div className="p-6 space-y-6">
       <PageHero
-        icon={Building2}
+        icon={<Building2 className="w-6 h-6" />}
         title="Super Admin"
-        subtitle="Platform-level management across all organizations"
+        description="Platform-level management across all organizations"
       />
+
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
