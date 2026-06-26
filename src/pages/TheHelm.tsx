@@ -219,27 +219,27 @@ function SectionHeader({
   const numLabel =
     typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
-    <div className="mb-4 pt-4 border-t border-border/60">
+    <div className="mb-5 pt-5 border-t border-border/50">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
+        <div className="flex items-baseline gap-4 min-w-0">
           {numLabel && (
-            <span className="font-mono text-caption tracking-wider text-muted-foreground/70 tabular-nums shrink-0">
+            <span className="font-mono text-[11px] tracking-[0.15em] text-muted-foreground/60 tabular-nums shrink-0 pt-1">
               {numLabel}
             </span>
           )}
           <div className="min-w-0">
-            <h2 className="text-h3 text-foreground">{title}</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight">{title}</h2>
             {subtitle && (
-              <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{subtitle}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 print:hidden shrink-0">
-          <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+        <div className="flex items-center gap-1 print:hidden shrink-0">
+          <Button variant="ghost" size="sm" className="h-8 text-xs font-mono tracking-wider" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
+            <Printer className="w-3.5 h-3.5 mr-1.5" /> Print
           </Button>
-          <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
-            <Send className="w-4 h-4 mr-1.5" /> Email me
+          <Button variant="ghost" size="sm" className="h-8 text-xs font-mono tracking-wider" onClick={onEmail ?? emailMe}>
+            <Send className="w-3.5 h-3.5 mr-1.5" /> Email me
           </Button>
         </div>
       </div>
