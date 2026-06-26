@@ -153,9 +153,12 @@ export async function getValidAccessToken(
   }
 
   try {
+    // Resolve organization for per-org credentials (falls back to global env in helper)
+    const orgId = td.connection_id ? await getOrgIdForConnection(td.connection_id) : null;
     const fresh = provider === 'outlook'
-      ? await refreshMicrosoftToken(refresh)
-      : await refreshGoogleToken(refresh);
+      ? await refreshMicrosoftToken(refresh, orgId)
+      : await refreshGoogleToken(refresh, orgId);
+
 
     const updates: Record<string, any> = {
       encrypted_access_token: await encryptToken(fresh.access_token, TOKEN_ENCRYPTION_KEY),
