@@ -221,7 +221,7 @@ function SectionHeader({
         {subtitle && <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={onPrint ?? printSection}>
+        <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
           <Printer className="w-4 h-4 mr-1.5" /> Print
         </Button>
         <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
