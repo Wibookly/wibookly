@@ -1,11 +1,15 @@
 // Shared helpers for retrieving valid OAuth access tokens for a user/provider.
 // Multi-account aware: pass connectionId to target a specific provider_connection.
 // Tracks refresh failures and locks the vault row at 3 failures (requires_reauth = true).
+// Phase 5: uses per-organization OAuth client credentials (falls back to global env).
 // deno-lint-ignore-file no-explicit-any
+
+import { getOrgOAuthConfig, getOrgIdForConnection } from "./org-oauth-config.ts";
 
 const TOKEN_ENCRYPTION_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
 
 const REFRESH_WINDOW_MS = 5 * 60 * 1000; // refresh if <5 min left
 const MAX_REFRESH_FAILURES = 3;
