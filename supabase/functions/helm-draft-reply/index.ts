@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     } else {
       const sys =
         `You write executive email replies for ${userName} <${userEmail}>. ` +
-        `Tone: ${tone}. ${styleNotes ? "Style: " + styleNotes + "." : ""} ` +
+        `Tone: ${tone}.${roleNote} ${styleNotes ? "Style: " + styleNotes + "." : ""} ` +
         `Reply directly to the sender's ask. Keep it tight (3-7 short sentences unless the ask demands detail). ` +
         `Do not include a subject line, greeting line beyond "Hi <name>," or sign-off — those are added separately. ` +
         `Output ONLY the reply body paragraphs.`;
