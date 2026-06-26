@@ -253,7 +253,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>}
                   {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" icon={BellRing} accent={accents.purple}>Flagged Email Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.purple}>My Daily Brief</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.purple}>The Helm</NavItem>}
                 </NavSection>
               )}
 
