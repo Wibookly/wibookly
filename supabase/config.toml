@@ -57,3 +57,6 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.extraction-regression-check]
     verify_jwt = false
+  [functions.org-environment-credentials]
+    verify_jwt = true
+

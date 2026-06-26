@@ -3059,6 +3059,62 @@ export type Database = {
           },
         ]
       }
+      org_environment_credentials: {
+        Row: {
+          client_id: string
+          client_secret_encrypted: string
+          connected_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_error: string | null
+          last_test_at: string | null
+          organization_id: string
+          provider: string
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          client_secret_encrypted: string
+          connected_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_test_at?: string | null
+          organization_id: string
+          provider: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          client_secret_encrypted?: string
+          connected_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_test_at?: string | null
+          organization_id?: string
+          provider?: string
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_environment_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string | null
@@ -4605,6 +4661,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_org_environment_status: {
+        Args: { _org_id: string }
+        Returns: {
+          connected_at: string
+          last_error: string
+          last_test_at: string
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }[]
       }
       get_org_user_directory: {
         Args: { _organization_id: string }

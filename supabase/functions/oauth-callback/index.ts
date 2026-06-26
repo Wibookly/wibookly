@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrgOAuthConfig } from "../_shared/org-oauth-config.ts";
+
 
 // AES-GCM encryption for tokens
 async function encryptToken(token: string, keyString: string): Promise<string> {
@@ -95,13 +97,16 @@ serve(async (req) => {
     let exchangeError: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null = null;
 
     if (provider === 'google') {
-      const result = await exchangeGoogleCode(code, supabaseUrl);
+      const cfg = await getOrgOAuthConfig(organizationId, 'google');
+      const result = await exchangeGoogleCode(code, supabaseUrl, cfg);
       tokens = result.tokens;
       exchangeError = result.error;
     } else if (provider === 'outlook') {
-      const result = await exchangeMicrosoftCode(code, supabaseUrl, stateData.microsoftTenantId);
+      const cfg = await getOrgOAuthConfig(organizationId, 'microsoft');
+      const result = await exchangeMicrosoftCode(code, supabaseUrl, stateData.microsoftTenantId, cfg);
       tokens = result.tokens;
       exchangeError = result.error;
+
     } else {
       await logConnectAttempt(supabase, userId, organizationId, provider, 'callback_error', appOrigin, 'unsupported_provider');
       return redirectWithError(`Unsupported provider: ${provider}`, resolvedAppUrl, provider);
@@ -214,6 +219,24 @@ serve(async (req) => {
     const connectionId = connectionData.id;
     console.log(`Connection saved for ${provider} with ID ${connectionId} (tokens encrypted in vault, calendar enabled)`);
 
+    // If this org has per-org environment credentials, mark them "connected".
+    try {
+      const providerKey = provider === 'outlook' ? 'microsoft' : provider;
+      await supabase
+        .from('org_environment_credentials')
+        .update({
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          last_error: null,
+          last_test_at: new Date().toISOString(),
+        })
+        .eq('organization_id', organizationId)
+        .eq('provider', providerKey);
+    } catch (e) {
+      console.error('Failed to mark org env credentials connected (non-fatal):', e);
+    }
+
+
     // Link the vault row to this connection (required for multi-account token lookups)
     const { error: vaultLinkError } = await supabase
       .from('oauth_token_vault')
@@ -323,20 +346,25 @@ type ExchangeResult = {
   error: { error?: string; error_description?: string; error_codes?: number[]; raw?: string } | null;
 };
 
-async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<ExchangeResult> {
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+async function exchangeGoogleCode(
+  code: string,
+  supabaseUrl: string,
+  cfg: { clientId: string; clientSecret: string; source: string } | null,
+): Promise<ExchangeResult> {
+  if (!cfg) {
+    return { tokens: null, error: { error: 'config_error', error_description: 'Google OAuth not configured for this organization' } };
+  }
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
 
-  console.log('Exchanging Google authorization code');
+  console.log(`Exchanging Google authorization code (creds source: ${cfg.source})`);
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: clientId!,
-      client_secret: clientSecret!,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
       redirect_uri: callbackUrl,
       grant_type: 'authorization_code'
     })
@@ -353,37 +381,42 @@ async function exchangeGoogleCode(code: string, supabaseUrl: string): Promise<Ex
   return { tokens: await response.json(), error: null };
 }
 
-async function exchangeMicrosoftCode(code: string, supabaseUrl: string, tenantId?: string): Promise<ExchangeResult> {
-  const clientId = Deno.env.get('MICROSOFT_CLIENT_ID')?.trim();
-  const clientSecretRaw = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-  const clientSecret = clientSecretRaw?.trim();
+
+async function exchangeMicrosoftCode(
+  code: string,
+  supabaseUrl: string,
+  tenantId?: string,
+  cfg?: { clientId: string; clientSecret: string; tenantId?: string; source: string } | null,
+): Promise<ExchangeResult> {
+  const clientId = cfg?.clientId?.trim();
+  const clientSecret = cfg?.clientSecret?.trim();
   const callbackUrl = `${supabaseUrl}/functions/v1/oauth-callback`;
 
   console.log('Exchanging Microsoft authorization code', {
+    credsSource: cfg?.source,
     hasClientId: Boolean(clientId),
     clientIdPrefix: clientId?.slice(0, 8),
     hasClientSecret: Boolean(clientSecret),
     clientSecretLength: clientSecret?.length ?? 0,
-    clientSecretFirstChar: clientSecret?.[0],
-    clientSecretTrimmed: Boolean(clientSecretRaw && clientSecretRaw !== clientSecret),
     callbackUrl,
   });
 
   if (!clientId || !clientSecret) {
-    console.error('Microsoft OAuth credentials are not configured correctly');
+    console.error('Microsoft OAuth credentials are not configured for this organization');
     return {
       tokens: null,
-      error: { error: 'config_error', error_description: 'MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET is not set' },
+      error: { error: 'config_error', error_description: 'Microsoft OAuth is not configured for this organization' },
     };
   }
 
   // Heuristic: client secret VALUE starts with random chars and is ~40 chars; SECRET ID is a UUID (36 chars with dashes)
   const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientSecret);
   if (looksLikeUuid) {
-    console.error('MICROSOFT_CLIENT_SECRET looks like a Secret ID (UUID), not a Secret VALUE!');
+    console.error('Microsoft client secret looks like a Secret ID (UUID), not a Secret VALUE!');
   }
 
-  const tenantSegment = tenantId?.trim() || 'common';
+  const tenantSegment = (cfg?.tenantId || tenantId)?.trim() || 'common';
+
 
   const response = await fetch(`https://login.microsoftonline.com/${tenantSegment}/oauth2/v2.0/token`, {
     method: 'POST',
