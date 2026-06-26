@@ -184,11 +184,17 @@ function SectionHeader({
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
-  const printSection = () => {
+  const printSection = (e?: React.MouseEvent<HTMLButtonElement>) => {
     if (sectionKey) {
+      const target = (e?.currentTarget as HTMLElement | undefined)
+        ?.closest('[data-helm-section]') as HTMLElement | null;
+      target?.setAttribute('data-print-target', 'true');
       document.body.setAttribute('data-print-section', sectionKey);
       window.print();
-      setTimeout(() => document.body.removeAttribute('data-print-section'), 500);
+      setTimeout(() => {
+        document.body.removeAttribute('data-print-section');
+        target?.removeAttribute('data-print-target');
+      }, 500);
     } else {
       window.print();
     }
