@@ -7,6 +7,7 @@ import { OnboardingChecklist } from './OnboardingChecklist';
 import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import energyForwardLogo from '@/assets/ef-logo.png';
 import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
@@ -139,6 +140,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
+  const { isOrgAdmin } = useUserRoles();
 
   // "Chat-only" users: have AI Chat but no email/drafting/reporting features.
   // For these users we collapse the sidebar to just connected emails + AI Chat.
@@ -275,9 +277,11 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               )}
 
               {/* Admin */}
-              {isSuperAdmin && (
+              {(isSuperAdmin || isOrgAdmin) && (
                 <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
-                  <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>
+                  {isSuperAdmin && <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>}
+                  {isSuperAdmin && <NavItem href="/super-admin" icon={Shield} accent={accents.red}>Super Admin (Orgs)</NavItem>}
+                  {(isSuperAdmin || isOrgAdmin) && <NavItem href="/org-admin" icon={Shield} accent={accents.red}>Org Admin</NavItem>}
                 </NavSection>
               )}
             </>
