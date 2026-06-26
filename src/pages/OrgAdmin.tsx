@@ -104,6 +104,12 @@ export default function OrgAdmin() {
         </CardContent>
       </Card>
 
+      {org?.id && profile?.user_id && (
+        <OrgEnvironmentCard organizationId={org.id} userId={profile.user_id} />
+      )}
+
+
+
       <Card>
         <CardHeader><CardTitle>Users in your organization ({users.length})</CardTitle></CardHeader>
         <CardContent>
