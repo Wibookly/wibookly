@@ -20,7 +20,7 @@ import EmailDraft from "./pages/EmailDraft";
 import AIActivityDashboard from "./pages/AIActivityDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import AIDailyBrief from "./pages/AIDailyBrief";
+import TheHelm from "./pages/TheHelm";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";
