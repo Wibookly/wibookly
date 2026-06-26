@@ -35,14 +35,17 @@ async function encryptToken(token: string, keyString: string): Promise<string> {
   return btoa(String.fromCharCode(...combined));
 }
 
-async function refreshMicrosoftToken(refreshToken: string) {
-  const res = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+async function refreshMicrosoftToken(refreshToken: string, organizationId: string | null) {
+  const cfg = await getOrgOAuthConfig(organizationId, 'microsoft');
+  if (!cfg) throw new Error('microsoft_refresh_no_credentials');
+  const tenant = cfg.tenantId?.trim() || 'common';
+  const res = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       refresh_token: refreshToken,
-      client_id: Deno.env.get('MICROSOFT_CLIENT_ID')!,
-      client_secret: Deno.env.get('MICROSOFT_CLIENT_SECRET')!,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
       grant_type: 'refresh_token',
     }),
   });
@@ -53,14 +56,16 @@ async function refreshMicrosoftToken(refreshToken: string) {
   return await res.json() as { access_token: string; refresh_token?: string; expires_in: number };
 }
 
-async function refreshGoogleToken(refreshToken: string) {
+async function refreshGoogleToken(refreshToken: string, organizationId: string | null) {
+  const cfg = await getOrgOAuthConfig(organizationId, 'google');
+  if (!cfg) throw new Error('google_refresh_no_credentials');
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       refresh_token: refreshToken,
-      client_id: Deno.env.get('GOOGLE_CLIENT_ID')!,
-      client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
       grant_type: 'refresh_token',
     }),
   });
@@ -70,6 +75,7 @@ async function refreshGoogleToken(refreshToken: string) {
   }
   return await res.json() as { access_token: string; expires_in: number };
 }
+
 
 const headers = {
   apikey: SERVICE_ROLE_KEY,
