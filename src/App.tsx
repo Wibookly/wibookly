@@ -136,6 +136,8 @@ const App = () => (
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/control-panel" element={<Navigate to="/admin" replace />} />
+                  <Route path="/super-admin" element={<SuperAdmin />} />
+                  <Route path="/org-admin" element={<OrgAdmin />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
