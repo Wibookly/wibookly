@@ -508,7 +508,7 @@ function BriefView({
                 latest, or enjoy the calm.
               </EmptyHint>
             ) : (
-              big3.map((item) => (
+              big3.map((item, i) => (
                 <div key={item.id} className="space-y-2">
                   <HelmCard
                     item={item}
