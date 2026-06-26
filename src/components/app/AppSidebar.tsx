@@ -293,7 +293,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
         <div className="px-3 pt-3 pb-2 border-t border-border" data-tour="sidebar-pin">
           <button
             onClick={onTogglePin}
-            title={pinned ? 'Unpin sidebar (auto-hide on Chat)' : 'Pin sidebar (keep visible)'}
+            title={pinned ? 'Unpin sidebar (auto-hide, hover the left edge to reveal)' : 'Pin sidebar (keep visible)'}
             aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
             className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl transition-colors hover:bg-white/5"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
