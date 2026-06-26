@@ -219,27 +219,27 @@ function SectionHeader({
   const numLabel =
     typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
-    <div className="mb-4 pt-4 border-t border-border/60">
+    <div className="mb-5 pt-5 border-t border-border/50">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
+        <div className="flex items-baseline gap-4 min-w-0">
           {numLabel && (
-            <span className="font-mono text-caption tracking-wider text-muted-foreground/70 tabular-nums shrink-0">
+            <span className="font-mono text-[11px] tracking-[0.15em] text-muted-foreground/60 tabular-nums shrink-0 pt-1">
               {numLabel}
             </span>
           )}
           <div className="min-w-0">
-            <h2 className="text-h3 text-foreground">{title}</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight">{title}</h2>
             {subtitle && (
-              <p className="text-body-2 text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{subtitle}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 print:hidden shrink-0">
-          <Button variant="ghost" size="sm" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+        <div className="flex items-center gap-1 print:hidden shrink-0">
+          <Button variant="ghost" size="sm" className="h-8 text-xs font-mono tracking-wider" onClick={(e) => (onPrint ? onPrint() : printSection(e))}>
+            <Printer className="w-3.5 h-3.5 mr-1.5" /> Print
           </Button>
-          <Button variant="ghost" size="sm" onClick={onEmail ?? emailMe}>
-            <Send className="w-4 h-4 mr-1.5" /> Email me
+          <Button variant="ghost" size="sm" className="h-8 text-xs font-mono tracking-wider" onClick={onEmail ?? emailMe}>
+            <Send className="w-3.5 h-3.5 mr-1.5" /> Email me
           </Button>
         </div>
       </div>
@@ -255,6 +255,7 @@ function HelmCard({
   showCheckbox = false,
   done,
   onToggleDone,
+  index,
 }: {
   item: HelmItem;
   onOpen: () => void;
@@ -262,7 +263,10 @@ function HelmCard({
   showCheckbox?: boolean;
   done?: boolean;
   onToggleDone?: (next: boolean) => void;
+  index?: number;
 }) {
+  const numLabel =
+    typeof index === 'number' ? String(index).padStart(2, '0') : null;
   return (
     <Card
       role="button"
@@ -275,16 +279,16 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden transition-all',
-        'before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary',
+        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border-border/60',
+        'before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary',
         'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
-        'hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         variant === 'warning' && 'border-destructive/40 bg-destructive/5',
         done && 'opacity-60',
       )}
     >
-      <CardContent className="p-5">
-        <div className="flex items-start gap-4">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
           {showCheckbox && (
             <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
               <Checkbox
@@ -295,13 +299,18 @@ function HelmCard({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            {numLabel && (
+              <div className="font-mono text-[10px] tracking-[0.15em] text-muted-foreground/60 tabular-nums mb-1.5">
+                {numLabel}
+              </div>
+            )}
+            <div className="flex items-center gap-2 mb-1">
               {variant === 'warning' && (
-                <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
               )}
               <h3
                 className={cn(
-                  'text-body-1 font-semibold text-foreground truncate',
+                  'text-[15px] font-semibold text-foreground leading-snug truncate',
                   done && 'line-through',
                 )}
               >
@@ -309,28 +318,28 @@ function HelmCard({
               </h3>
             </div>
             {item.context && (
-              <p className="text-body-2 text-muted-foreground leading-relaxed">
+              <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-2">
                 {item.context}
               </p>
             )}
             {(item.sender || item.due) && (
-              <div className="flex items-center gap-3 mt-3 text-caption text-muted-foreground">
+              <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground font-mono tracking-wide">
                 {item.sender && (
                   <span className="inline-flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" />
+                    <Mail className="w-3 h-3" />
                     {item.sender}
                   </span>
                 )}
                 {item.due && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1.5 uppercase">
+                    <Clock className="w-3 h-3" />
                     {item.due}
                   </span>
                 )}
               </div>
             )}
           </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
         </div>
       </CardContent>
     </Card>
@@ -416,57 +425,76 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const autoActions = data?.autoActions ?? [];
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-10">
-        {/* Hero */}
-        <section aria-labelledby="helm-hero">
-          <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card">
-            <CardContent className="p-8">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <p className="text-caption uppercase tracking-wider text-primary font-semibold font-mono">
-                  The Helm · Daily Brief
-                </p>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-2 text-caption font-mono tracking-wider uppercase px-2.5 py-1 rounded-full border print:hidden',
-                    (sync.isPending || isLoading)
-                      ? 'border-primary/40 text-primary bg-primary/5'
-                      : 'border-border text-muted-foreground bg-card/50',
-                  )}
-                  title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
-                >
-                  <RefreshCw
-                    className={cn('w-3.5 h-3.5', (sync.isPending || isLoading) && 'animate-spin')}
-                  />
-                  {(sync.isPending || isLoading) ? 'Syncing…' : 'Live · auto-sync'}
-                </span>
-              </div>
+  const today = useMemo(
+    () =>
+      new Date().toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
+    [],
+  );
+  const nowTime = useMemo(
+    () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    [],
+  );
 
-              <h1 id="helm-hero" className="text-h1 text-foreground mb-3">
-                {greeting}
-                {name ? `, ${name}` : ''}.
-              </h1>
-              <p className="text-body-1 text-muted-foreground max-w-2xl">
-                {stats.needsYou === 0
-                  ? 'Calm day. Nothing personally needs you right now.'
-                  : `${stats.needsYou} item${stats.needsYou === 1 ? '' : 's'} need your judgment. Start at the top.`}
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
+      <div className="space-y-12">
+        {/* Hero — borderless, demo-v4 style */}
+        <section aria-labelledby="helm-hero" className="pt-2">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
+              {today} · {nowTime} brief
+            </p>
+            <span
+              className={cn(
+                'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border print:hidden',
+                (sync.isPending || isLoading)
+                  ? 'border-primary/40 text-primary bg-primary/5'
+                  : 'border-border/60 text-muted-foreground bg-transparent',
+              )}
+              title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+            >
+              <RefreshCw
+                className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')}
+              />
+              {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+            </span>
+          </div>
+
+          <h1
+            id="helm-hero"
+            className="text-[44px] md:text-[56px] leading-[1.05] tracking-tight font-semibold text-foreground"
+          >
+            {greeting}
+            {name ? `, ${name}` : ''}.{' '}
+            <span className="text-primary">
+              {stats.needsYou === 0 ? 'You are clear.' : `${stats.needsYou} thing${stats.needsYou === 1 ? '' : 's'} need you today.`}
+            </span>
+          </h1>
+          <p className="text-[15px] md:text-base text-muted-foreground max-w-2xl mt-4 leading-relaxed">
+            Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
+          </p>
+
+          <div className="mt-10 flex items-baseline gap-5 flex-wrap">
+            <span className="text-[72px] md:text-[96px] leading-none font-light text-muted-foreground/40 tabular-nums">
+              {stats.totalInbound}
+            </span>
+            <ArrowRight className="w-7 h-7 text-muted-foreground/60" />
+            <span className="text-[72px] md:text-[96px] leading-none font-light text-primary tabular-nums">
+              {stats.needsYou}
+            </span>
+            <div className="ml-2 pb-2">
+              <p className="text-[15px] text-foreground">items came in overnight</p>
+              <p className="text-[13px] text-muted-foreground mt-1">
+                surfaced to you · the rest handled or held
               </p>
-              <div className="mt-8 flex items-baseline gap-4 flex-wrap">
-                <span className="text-h1 font-bold text-foreground tabular-nums">
-                  {stats.totalInbound}
-                </span>
-                <ArrowRight className="w-6 h-6 text-muted-foreground" />
-                <span className="text-h1 font-bold text-primary tabular-nums">
-                  {stats.needsYou}
-                </span>
-                <span className="text-body-2 text-muted-foreground">
-                  inbound today, only {stats.needsYou} need you
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </section>
+
 
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
@@ -480,15 +508,17 @@ function BriefView({
                 latest, or enjoy the calm.
               </EmptyHint>
             ) : (
-              big3.map((item) => (
+              big3.map((item, i) => (
                 <div key={item.id} className="space-y-2">
                   <HelmCard
                     item={item}
+                    index={i + 1}
                     onOpen={() => go('detail', item)}
                     showCheckbox
                     done={done[item.id]}
                     onToggleDone={(n) => toggleDone(item.id, n)}
                   />
+
                   <div className="flex gap-2 print:hidden pl-1">
                     <Button
                       size="sm"
@@ -661,7 +691,7 @@ function BriefView({
       </div>
 
       {/* Right rail */}
-      <aside className="space-y-6">
+      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
         <Card
           role="button"
           tabIndex={0}
@@ -672,64 +702,64 @@ function BriefView({
               go('calendar');
             }
           }}
-          className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60"
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-h3 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" /> This week
+          <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Calendar className="w-4 h-4 text-primary" /> This week
             </CardTitle>
+            <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
+          <CardContent className="pt-0">
+            <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
+            <ul className="space-y-0">
               {WEEK_PREVIEW.map((d) => (
                 <li
                   key={d.day}
-                  className="flex items-center justify-between text-body-2 py-1.5 border-b border-border last:border-0"
+                  className="flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0"
                 >
-                  <span className="font-semibold text-foreground w-12">{d.day}</span>
-                  <span className="text-muted-foreground text-right flex-1">
+                  <span className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground w-10 shrink-0">{d.day}</span>
+                  <span className="text-foreground/80 flex-1 leading-snug">
                     {d.summary}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-4 inline-flex items-center text-caption text-primary font-semibold">
-              Open calendar <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60">
           <CardHeader className="pb-3">
-            <CardTitle className="text-h3 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Inbox health
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-4">
+          <CardContent className="pt-0">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
               <div>
-                <dt className="text-caption text-muted-foreground">Inbound today</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.totalInbound}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Needs you</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
+                <dd className="text-3xl font-light text-primary tabular-nums">
                   {stats.needsYou}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Drafted</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.drafted}
                 </dd>
               </div>
               <div>
-                <dt className="text-caption text-muted-foreground">Auto-handled</dt>
-                <dd className="text-h2 font-bold text-foreground tabular-nums">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">
                   {stats.autoHandled}
                 </dd>
+
               </div>
             </dl>
           </CardContent>
