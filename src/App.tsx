@@ -37,6 +37,8 @@ import MicrosoftConsentComplete from "./pages/MicrosoftConsentComplete";
 import Chat from "./pages/Chat";
 import ChatUpgrade from "./pages/ChatUpgrade";
 import HelpAdmin from "./pages/HelpAdmin";
+import SuperAdmin from "./pages/SuperAdmin";
+import OrgAdmin from "./pages/OrgAdmin";
 
 const queryClient = new QueryClient();
 
