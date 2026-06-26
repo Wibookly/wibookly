@@ -278,6 +278,8 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {isSuperAdmin && (
                 <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
                   <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>
+                  <NavItem href="/super-admin" icon={Shield} accent={accents.red}>Super Admin (Orgs)</NavItem>
+                  <NavItem href="/org-admin" icon={Shield} accent={accents.red}>Org Admin</NavItem>
                 </NavSection>
               )}
             </>
