@@ -394,14 +394,21 @@ function BriefView({
       if (error) throw error;
       return res;
     },
-    onSuccess: (res: any) => {
-      toast.success(
-        `Synced: ${res?.surfaced ?? 0} surfaced, ${res?.autoFiled ?? 0} auto-filed`,
-      );
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['helm-items'] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Sync failed'),
+    // Auto-sync runs silently; surface errors only when a manual retry fails.
+    onError: () => { /* silent — next interval will retry */ },
   });
+
+  // Auto-sync on mount, then every 5 minutes. No manual button required.
+  useEffect(() => {
+    sync.mutate();
+    const id = setInterval(() => sync.mutate(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const stats = data?.stats ?? { totalInbound: 0, needsYou: 0, drafted: 0, autoHandled: 0 };
   const big3 = data?.big3 ?? [];
