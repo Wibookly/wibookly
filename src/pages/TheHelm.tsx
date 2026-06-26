@@ -469,10 +469,12 @@ function BriefView({
         </section>
 
         {/* Drafted for you */}
-        <section aria-labelledby="drafted">
+        <section aria-labelledby="drafted" data-helm-section="drafted">
           <SectionHeader
             title="Drafted for you"
             subtitle="Replies ready for a quick read and send."
+            sectionKey="drafted"
+            emailSection="inbox"
           />
           <Card
             role="button"
