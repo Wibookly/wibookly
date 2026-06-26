@@ -99,11 +99,23 @@ function useHelmData() {
           .limit(200),
         supabase
           .from('activity_log')
-          .select('id,detail,created_at')
-          .eq('action_type', 'item_filed')
+          .select('id,action_type,detail,created_at')
+          .in('action_type', [
+            'item_filed',
+            'email_sent',
+            'draft_saved',
+            'event_moved',
+            'event_created',
+            'note_sent',
+            'focus_block_created',
+            'subscription_renewed',
+            'subscription_created',
+            'morning_prep',
+            'section_emailed',
+          ])
           .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(80),
       ]);
 
       const rows = (itemsRes.data ?? []).map(mapRow);
