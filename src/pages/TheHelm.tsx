@@ -1067,7 +1067,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
   const markDone = async () => {
     setBusy('done');
     try {
-      await supabase.from('helm_items').update({ status: 'completed' }).eq('id', item.id);
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', item.id);
       await supabase.from('activity_log').insert({
         user_id: (await supabase.auth.getUser()).data.user!.id,
         organization_id: null as any, // RLS default-sets org
