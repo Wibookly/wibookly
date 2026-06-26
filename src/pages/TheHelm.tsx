@@ -448,10 +448,12 @@ function BriefView({
         </section>
 
         {/* Decisions */}
-        <section aria-labelledby="decisions">
+        <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
             title="Your decisions"
             subtitle="Only you can decide or approve these."
+            sectionKey="decisions"
+            emailSection="brief"
           />
           <div className="grid gap-3">
             {isLoading ? (
