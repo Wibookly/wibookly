@@ -388,3 +388,86 @@
   </div>
   <div class="footer reveal" style="animation-delay:.3s"><b>How this brief is built:</b> Eisenhower triage scores every item · GTD assigns one next action per thread · the Big 3 anchor it to strategy · everything done automatically is logged so nothing happens without a trace.</div>
 </div>
+
+<!-- ===== INBOX (drafts) ===== -->
+<div class="wrap view" id="view-inbox">
+  <div class="fv-bar">
+    <button class="fv-back" onclick="showView('view-brief')">← Back to brief</button>
+    <div class="fv-title">Drafted replies <span>· 11 threads need your approval</span></div>
+    <div class="fv-tools printhide"><button class="iconbtn" onclick="window.print()">⎙ Print all</button><button class="iconbtn" onclick="emailSection('all 11 drafts')">✉ Send to my email</button></div>
+  </div>
+  <div class="fv-grid" id="fvGrid"><div class="fv-list" id="mailList"></div><div class="fv-read" id="readPane"></div></div>
+</div>
+
+<!-- ===== DETAIL (big3 / decisions / overdue) ===== -->
+<div class="wrap view" id="view-detail">
+  <div class="fv-bar">
+    <button class="fv-back" onclick="showView('view-brief')">← Back to brief</button>
+    <div class="fv-title" id="detailHd"></div>
+    <div class="fv-tools printhide"><button class="iconbtn" onclick="window.print()">⎙ Print</button><button class="iconbtn" onclick="emailSection('this item')">✉ Email me</button></div>
+  </div>
+  <div class="detail" id="detailBody"></div>
+</div>
+
+<!-- ===== CALENDAR ===== -->
+<div class="wrap view" id="view-calendar">
+  <div class="fv-bar">
+    <button class="fv-back" onclick="showView('view-brief')">← Back to brief</button>
+    <div class="fv-title">Your week <span>· June 23–27</span></div>
+    <div class="fv-tools printhide"><button class="iconbtn" onclick="window.print()">⎙ Print</button><button class="iconbtn" onclick="emailSection('your week + the time plan')">✉ Email me</button></div>
+  </div>
+  <div class="calwrap">
+
+    <!-- MY FOCUS RULES (user sets their own) -->
+    <div class="rulescard">
+      <div class="rh"><span class="sp">⚙</span> My focus rules <span class="rhint">— you set these; the AI plans around them</span></div>
+      <div class="rulerow">
+        <span class="rl">Focus days</span>
+        <div class="daychips" id="dayChips"></div>
+      </div>
+      <div class="rulerow">
+        <span class="rl">Block length</span>
+        <div class="optchips" id="lenChips"></div>
+      </div>
+      <div class="rulerow">
+        <span class="rl">Time of day</span>
+        <div class="optchips" id="winChips"></div>
+      </div>
+      <div class="ruleline"><span class="lock">🔒</span> Autonomy: <b>auto-move internal meetings</b>, always ask before touching anything with an outside attendee. <span class="rchg" onclick="toast('Opens autonomy settings')">change</span></div>
+    </div>
+
+    <div class="calscroll"><div class="calscroll-inner"><div class="calgrid" id="calGrid"></div></div></div>
+
+    <!-- ALREADY DONE: internal -->
+    <div class="ai-cal" style="background:var(--success-soft);border-color:rgba(146,187,160,.3)">
+      <div class="h"><span class="sp" style="color:var(--success)">✓</span> Already done — internal meetings moved for you</div>
+      <p class="sub">Per your rule, I moved these to open your focus blocks and <strong>already sent each team a warm note</strong>. No action needed — this is just so you can see what changed.</p>
+      <div id="doneList"></div>
+    </div>
+
+    <!-- NEEDS APPROVAL: external -->
+    <div class="ai-cal" id="aiCal">
+      <div class="h"><span class="sp">✦</span> Needs your OK — outside attendees</div>
+      <p class="sub">This one involves a party outside the company, so I won't move it without you. Approving it completes your focus block on that day; I'll send them the note below.</p>
+      <div id="extList"></div>
+    </div>
+
+    <div class="msgstep" id="msgStep" style="display:none">
+      <div class="ai-cal" style="background:var(--success-soft);border-color:rgba(146,187,160,.3)">
+        <div class="h"><span class="sp" style="color:var(--success)">✓</span> Note to the external attendee</div>
+        <p class="sub">Edit if you'd like, then send.</p>
+      </div>
+      <div id="msgList"></div>
+      <div class="calactions" style="margin-top:4px">
+        <button class="btn primary" onclick="sendAllMsgs()">Send note</button>
+        <button class="btn ghost" onclick="showView('view-brief')">Send later</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px"><button class="iconbtn printhide" onclick="toggleSent(this)">▸ Show the 4 notes already sent to internal teams</button>
+      <div id="sentNotes" style="display:none;margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="tk">✓</span><span id="toastMsg"></span></div>
