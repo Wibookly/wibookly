@@ -13,6 +13,7 @@ import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { ThemePicker } from '@/components/ThemePicker';
 
 
 import { useState, useEffect } from 'react';
@@ -386,6 +387,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </span>
             </div>
           </div>
+          <ThemePicker />
           <ModeToggle variant="icon" className="w-9 h-9 shrink-0" />
         </div>
       </div>
