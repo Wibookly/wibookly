@@ -354,15 +354,31 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           </p>
           <HelpQuickActions compact />
         </div>
-        
+
         <div
-          className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl"
+          className="flex items-center gap-3 px-2.5 py-2 rounded-xl"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <UserAvatarDropdown />
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <UserAvatarDropdown />
+            <div className="flex flex-col leading-tight min-w-0 -ml-1">
+              <span
+                className="text-[11px] font-semibold uppercase tracking-wider truncate"
+                style={{
+                  color: 'transparent',
+                  backgroundImage: 'var(--grad-feature-soft)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                }}
+              >
+                {roleLabel}
+              </span>
+            </div>
+          </div>
           <ModeToggle variant="icon" className="w-9 h-9 shrink-0" />
         </div>
       </div>
+
     </aside>
   );
 }
