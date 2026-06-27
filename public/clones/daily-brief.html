@@ -297,3 +297,94 @@
   @media print{body{background:#fff;color:#111}.topbar,.rail,.footer,.fv-tools,.fv-back,.ai-chips,.ai-ask,.send-row,.sectools,.calactions,.printhide{display:none!important}}
 </style>
 </head>
+
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="dot">iQ</div><b>InboxIQ</b><span>· Daily Brief</span></div>
+  <div class="topbar-right"><div class="focusflag"><span class="pulse"></span>Focus block protected · 9:00–11:00</div><div class="avatar">AR</div></div>
+</div>
+
+<!-- ===== BRIEF ===== -->
+<div class="wrap view active" id="view-brief">
+  <header class="hero reveal">
+    <div class="eyebrow">Thursday · June 25 · 6:42 AM brief</div>
+    <h1 class="greeting">Good morning. <em>Six things</em> need you today.</h1>
+    <p class="subline">Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.</p>
+    <div class="reduction"><div class="bignum"><span class="from">487</span><span class="arrow">→</span><span class="to">6</span></div><div class="legend"><span class="l1">items came in overnight</span><span class="l2">surfaced to you · the rest handled or held</span></div></div>
+  </header>
+
+  <div class="grid">
+    <main>
+
+      <!-- BIG 3 -->
+      <section class="section reveal" style="animation-delay:.05s">
+        <div class="sechead"><span class="idx">00</span><h2>Today's Big 3</h2></div>
+        <p class="secsub">Your needle-movers. Tap a card to open the full plan; tap the box to mark it done.</p>
+        <div class="big3" id="big3"></div>
+      </section>
+
+      <!-- YOUR DECISIONS (renamed) -->
+      <section class="section reveal" style="animation-delay:.1s">
+        <div class="sechead"><span class="idx">01</span><h2>Your decisions</h2>
+          <div class="sectools printhide"><button class="iconbtn" onclick="emailSection('your 3 decisions')">✉ Email me</button><span class="count mono">3</span></div>
+        </div>
+        <p class="secsub">Only you can decide or approve these. Tap any one to open the full thread and act.</p>
+        <div id="decisions"></div>
+      </section>
+
+      <!-- DRAFTED -->
+      <section class="section reveal" style="animation-delay:.15s">
+        <div class="sechead"><span class="idx">02</span><h2>Drafted for you</h2>
+          <div class="sectools printhide"><button class="iconbtn" onclick="emailSection('the 11 drafts')">✉ Email me</button></div>
+        </div>
+        <p class="secsub">Replies the AI already wrote. Open the focused inbox, edit, and send — without leaving this page.</p>
+        <div class="opener" onclick="showView('view-inbox');initInbox()">
+          <div class="big">11</div>
+          <div><div class="ot">replies drafted and waiting — open the focused inbox</div><div class="od">Read each thread, adjust the AI draft, send. No Outlook detour.</div></div>
+          <div class="go">Open inbox →</div>
+        </div>
+      </section>
+
+      <!-- OVERDUE (renamed from Slipping) -->
+      <section class="section reveal" style="animation-delay:.2s">
+        <div class="sechead"><span class="idx">03</span><h2>Overdue — waiting on your reply</h2>
+          <div class="sectools printhide"><button class="iconbtn" onclick="emailSection('your 3 overdue items')">✉ Email me</button><span class="count mono">3</span></div>
+        </div>
+        <p class="secsub">You said you'd respond, and haven't yet. Tap to open the thread and send the reply now.</p>
+        <div id="overdue"></div>
+      </section>
+
+      <!-- DONE AUTOMATICALLY (clarified) -->
+      <section class="section reveal" style="animation-delay:.25s">
+        <div class="handled" onclick="this.classList.toggle('open')">
+          <div class="hhead"><span class="ic">●</span><div><div class="t">Done automatically overnight — 41 actions</div><div class="sub">None of these needed you. Tap to see exactly what was sent, sorted, and filed on your behalf.</div></div><span class="chev">›</span></div>
+          <div class="list">
+            <div class="logitem"><span class="time">5:58 AM</span><span class="act">Sent <b>meeting confirmation</b> to 4 attendees</span><span class="tag">Sent</span></div>
+            <div class="logitem"><span class="time">3:20 AM</span><span class="act">Replied to <b>9 scheduling requests</b> with your availability</span><span class="tag">Sent</span></div>
+            <div class="logitem"><span class="time">2:14 AM</span><span class="act">Routed <b>14 invoices</b> to finance, none over your approval limit</span><span class="tag">Routed</span></div>
+            <div class="logitem"><span class="time">1:02 AM</span><span class="act">Filed <b>253 newsletters &amp; CC-only</b> threads out of your inbox</span><span class="tag">Filed</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="rail reveal" style="animation-delay:.1s">
+      <div class="railcard clickable" onclick="showView('view-calendar')">
+        <h3>This week<span class="openhint">open →</span></h3><div class="sub">Tap to see the full week + AI time analysis</div>
+        <div class="evt focus"><div class="tm">9:00</div><div><div class="ev-t">Deep work — Big 3</div><div class="ev-d">Protected today</div></div></div>
+        <div class="evt"><div class="tm">11:00</div><div><div class="ev-t">Staff sync</div><div class="ev-d">3 decisions queued</div></div></div>
+        <div class="evt warn"><div class="tm">11:30</div><div><div class="ev-t">Westline call</div><div class="ev-d">⚠ Not prepped — 20 min needed</div></div></div>
+        <div class="evt"><div class="tm">3:30</div><div><div class="ev-t">Board pre-reads</div><div class="ev-d">Pending your hold</div></div></div>
+      </div>
+      <div class="railcard">
+        <h3>Inbox health</h3><div class="sub">Trailing 7 days</div>
+        <div class="stat"><span class="k">Median reply time</span><span class="v good">3.2h</span></div>
+        <div class="stat"><span class="k">Dropped balls caught</span><span class="v good">7</span></div>
+        <div class="stat"><span class="k">Threads awaiting you</span><span class="v warn">3</span></div>
+        <div class="stat"><span class="k">Drafts approved</span><span class="v">88%</span></div>
+      </div>
+    </aside>
+  </div>
+  <div class="footer reveal" style="animation-delay:.3s"><b>How this brief is built:</b> Eisenhower triage scores every item · GTD assigns one next action per thread · the Big 3 anchor it to strategy · everything done automatically is logged so nothing happens without a trace.</div>
+</div>
