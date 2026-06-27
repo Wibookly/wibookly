@@ -1617,17 +1617,36 @@ function CalendarView({ onBack }: { onBack: () => void }) {
     },
   });
 
-  const approveMutation = useMutation({
-    mutationFn: async (proposal: Proposal) => {
+  // Per-proposal editable note state + dismissed list
+  const [draftByProp, setDraftByProp] = useState<Record<string, { note: string; loading: boolean; revealed: boolean }>>({});
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+
+  const revealApproval = async (p: Proposal) => {
+    setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: true, revealed: true } }));
+    try {
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
-        body: { mode: 'approve_external', proposal },
+        body: { mode: 'preview_note', proposal: p },
+      });
+      if (error) throw error;
+      setDraftByProp((s) => ({ ...s, [p.id]: { note: (data as any)?.note ?? '', loading: false, revealed: true } }));
+    } catch (e: any) {
+      setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: false, revealed: true } }));
+      toast.error(e.message || 'Could not draft note.');
+    }
+  };
+
+  const approveMutation = useMutation({
+    mutationFn: async ({ proposal, note }: { proposal: Proposal; note: string }) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'approve_external', proposal, custom_note: note },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       toast.success('Moved and notified attendees.');
+      setDraftByProp((s) => { const n = { ...s }; delete n[vars.proposal.id]; return n; });
       qc.invalidateQueries({ queryKey: ['helm-plan'] });
       refetch();
     },
