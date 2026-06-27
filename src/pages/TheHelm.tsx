@@ -1026,11 +1026,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
                   <p className="text-caption uppercase tracking-wider text-muted-foreground mb-2">
                     Original message
                   </p>
-                  {original ? (
+                  {bodyError ? (
+                    <div className="text-body-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 flex items-center justify-between">
+                      <span className="text-destructive">Couldn't load this email: {bodyError}</span>
+                      <Button size="sm" variant="outline" onClick={() => setActiveId(active.id)}>
+                        Retry
+                      </Button>
+                    </div>
+                  ) : original ? (
                     original.body_html ? (
                       <div
                         className="prose prose-sm dark:prose-invert max-w-none text-body-2"
-                        // Outlook HTML is sanitized by Graph for display
                         dangerouslySetInnerHTML={{ __html: original.body_html }}
                       />
                     ) : (
