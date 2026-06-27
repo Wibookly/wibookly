@@ -63,6 +63,7 @@ interface AutoAction {
   id: string;
   text: string;
   time: string;
+  tag: 'Sent' | 'Routed' | 'Filed' | 'Booked' | 'Done';
 }
 
 function mapRow(r: any): HelmItem {
@@ -123,14 +124,21 @@ function useHelmData() {
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
       const big3 = decisions.slice(0, 3);
-      const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => ({
-        id: a.id,
-        text: a.detail ?? 'Filed',
-        time: new Date(a.created_at).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      }));
+      const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => {
+        const at = String(a.action_type ?? '');
+        const tag: AutoAction['tag'] =
+          at === 'email_sent' || at === 'note_sent' ? 'Sent'
+          : at === 'item_filed' ? 'Filed'
+          : at === 'event_moved' || at === 'event_created' || at === 'focus_block_created' ? 'Booked'
+          : at === 'draft_saved' ? 'Routed'
+          : 'Done';
+        return {
+          id: a.id,
+          text: a.detail ?? 'Filed',
+          time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          tag,
+        };
+      });
 
       const totalInbound = rows.length + autoActions.length;
       const needsYou = big3.length + decisions.length + overdue.length;
@@ -323,15 +331,18 @@ function HelmCard({
               </p>
             )}
             {(item.sender || item.due) && (
-              <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground font-mono tracking-wide">
+              <div className="flex items-center gap-3 mt-2.5 text-[11px] font-mono tracking-wide">
                 {item.sender && (
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                     <Mail className="w-3 h-3" />
                     {item.sender}
                   </span>
                 )}
                 {item.due && (
-                  <span className="inline-flex items-center gap-1.5 uppercase">
+                  <span className={cn(
+                    'inline-flex items-center gap-1.5 uppercase',
+                    variant === 'warning' ? 'text-destructive font-semibold' : 'text-muted-foreground',
+                  )}>
                     <Clock className="w-3 h-3" />
                     {item.due}
                   </span>
@@ -547,13 +558,22 @@ function BriefView({
 
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
-          <SectionHeader
-            index={1}
-            title="Your decisions"
-            subtitle="Only you can decide or approve these."
-            sectionKey="decisions"
-            emailSection="brief"
-          />
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <SectionHeader
+                index={1}
+                title="Your decisions"
+                subtitle="Only you can decide or approve these."
+                sectionKey="decisions"
+                emailSection="brief"
+              />
+            </div>
+            {decisions.length > 0 && (
+              <Badge variant="secondary" className="font-mono tabular-nums">
+                {decisions.length}
+              </Badge>
+            )}
+          </div>
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-20" />
@@ -566,6 +586,7 @@ function BriefView({
             )}
           </div>
         </section>
+
 
         {/* Drafted for you */}
         <section aria-labelledby="drafted" data-helm-section="drafted">
@@ -676,7 +697,19 @@ function BriefView({
                         <li key={a.id} className="flex items-start gap-3 text-body-2">
                           <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                           <span className="flex-1 text-foreground">{a.text}</span>
-                          <span className="text-caption text-muted-foreground tabular-nums">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-[10px] font-mono uppercase tracking-wider shrink-0',
+                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5',
+                            )}
+                          >
+                            {a.tag}
+                          </Badge>
+                          <span className="text-caption text-muted-foreground tabular-nums shrink-0">
                             {a.time}
                           </span>
                         </li>
@@ -1802,14 +1835,38 @@ export default function TheHelm() {
   const [view, setView] = useState<View>('brief');
   const [activeItem, setActiveItem] = useState<HelmItem | null>(null);
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const qc = useQueryClient();
 
+  const scrollTop = () => {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+  };
   const go = (v: View, item?: HelmItem) => {
     if (item) setActiveItem(item);
     setView(v);
+    scrollTop();
   };
-  const back = () => setView('brief');
-  const toggleDone = (id: string, next: boolean) =>
+  const back = () => { setView('brief'); scrollTop(); };
+
+  const toggleDone = async (id: string, next: boolean) => {
     setDone((d) => ({ ...d, [id]: next }));
+    if (!next) return;
+    try {
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      const u = (await supabase.auth.getUser()).data.user;
+      if (u) {
+        await supabase.from('activity_log').insert({
+          user_id: u.id,
+          action_type: 'item_completed',
+          detail: `Completed Big 3 item`,
+          action_key: `big3_done:${id}:${Date.now()}`,
+        } as any);
+      }
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Marked done');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not mark done');
+    }
+  };
 
   // Ensure Graph subscriptions exist on first mount (idempotent)
   useEffect(() => {
