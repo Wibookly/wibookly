@@ -63,6 +63,7 @@ interface AutoAction {
   id: string;
   text: string;
   time: string;
+  tag: 'Sent' | 'Routed' | 'Filed' | 'Booked' | 'Done';
 }
 
 function mapRow(r: any): HelmItem {
