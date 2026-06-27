@@ -239,7 +239,14 @@ function SectionHeader({
             </span>
           )}
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight">{title}</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight flex items-center gap-2">
+              {title}
+              {typeof count === 'number' && (
+                <Badge variant="secondary" className="font-mono tabular-nums text-[10px] px-1.5 py-0">
+                  {count}
+                </Badge>
+              )}
+            </h2>
             {subtitle && (
               <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{subtitle}</p>
             )}
