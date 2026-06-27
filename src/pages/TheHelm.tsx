@@ -124,14 +124,21 @@ function useHelmData() {
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
       const big3 = decisions.slice(0, 3);
-      const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => ({
-        id: a.id,
-        text: a.detail ?? 'Filed',
-        time: new Date(a.created_at).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      }));
+      const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => {
+        const at = String(a.action_type ?? '');
+        const tag: AutoAction['tag'] =
+          at === 'email_sent' || at === 'note_sent' ? 'Sent'
+          : at === 'item_filed' ? 'Filed'
+          : at === 'event_moved' || at === 'event_created' || at === 'focus_block_created' ? 'Booked'
+          : at === 'draft_saved' ? 'Routed'
+          : 'Done';
+        return {
+          id: a.id,
+          text: a.detail ?? 'Filed',
+          time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          tag,
+        };
+      });
 
       const totalInbound = rows.length + autoActions.length;
       const needsYou = big3.length + decisions.length + overdue.length;
