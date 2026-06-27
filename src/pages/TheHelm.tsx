@@ -463,6 +463,14 @@ function BriefView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
       <div className="space-y-12">
+        {error && (
+          <Card className="border-destructive/40 print:hidden">
+            <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
+              <span className="text-destructive">Couldn't load your brief: {(error as Error).message}</span>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+            </CardContent>
+          </Card>
+        )}
         {/* Hero — borderless, demo-v4 style */}
         <section aria-labelledby="helm-hero" className="pt-2">
           <div className="flex items-center justify-between gap-4 mb-6">
