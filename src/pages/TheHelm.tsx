@@ -404,7 +404,7 @@ function BriefView({
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data, isLoading } = useHelmData();
+  const { data, isLoading, error, refetch } = useHelmData();
   const greeting = useMemo(() => {
     const hr = new Date().getHours();
     if (hr < 12) return 'Good morning';
