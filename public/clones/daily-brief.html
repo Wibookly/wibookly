@@ -550,3 +550,411 @@ function buildDecisions(){
     c.appendChild(el);
   });
 }
+
+/* ===================== OVERDUE ===================== */
+
+const overdue=[
+
+  {t:"Promised follow-up to the regional VP",d:"From your “I'll get back Monday” reply — still unsent.",age:"4 days overdue",
+
+   detail:{hd:"Overdue",title:"Follow-up to the regional VP",meta:["You said: “I'll get back Monday”","4 days overdue"],
+
+    blocks:[{dl:"What you promised",p:["You told the regional VP you'd send revised territory numbers by Monday. It's Thursday and the reply hasn't gone out — they're likely waiting."]}],
+
+    thread:{from:"Regional VP",body:"No rush, but whenever you have those revised territory numbers I'd love to take a look before our next sync.\n\nThanks"},
+
+    draft:"Apologies for the delay getting back to you — this slipped past me in a busy week. Revised territory numbers are attached. The headline: we're shifting two accounts to the coastal region to balance load. Happy to walk through the reasoning on a quick call if useful. Thanks for your patience.",
+
+    actions:[{l:"Send this reply",p:true},{l:"Edit before sending"}]}},
+
+  {t:"Investor intro you offered to make",d:"Connect Priya with the Sandbridge partner.",age:"9 days idle",
+
+   detail:{hd:"Overdue",title:"Investor intro for Priya",meta:["You offered to make this intro","9 days idle"],
+
+    blocks:[{dl:"What you offered",p:["You volunteered to introduce Priya to the Sandbridge partner. Priya followed up politely; the intro hasn't gone out yet."]}],
+
+    draft:"Priya, meet Jordan (Sandbridge) — Jordan, Priya is building something in exactly the space we talked about, and I thought you two should know each other. I'll let you take it from here. Both of you are doing work I admire, so I expect a good conversation.",
+
+    actions:[{l:"Send the intro",p:true},{l:"Edit before sending"}]}},
+
+  {t:"Performance review for Marcus",d:"HR deadline tomorrow. Draft started, not finished.",age:"due tomorrow",
+
+   detail:{hd:"Overdue",title:"Performance review for Marcus",meta:["HR deadline tomorrow","Draft 60% done"],
+
+    blocks:[{dl:"Status",p:["HR needs Marcus's review by tomorrow. You started a draft — the strengths section is done, the development goals are still blank."]}],
+
+    actions:[{l:"Open the draft to finish",p:true},{l:"Block 30 min for this"]}}}
+
+];
+
+function buildOverdue(){
+
+  const c=document.getElementById('overdue');c.innerHTML='';
+
+  overdue.forEach(o=>{
+
+    const el=document.createElement('div');el.className='risk';
+
+    el.innerHTML=`<span class="ic">▲</span><div><div class="t">${o.t}</div><div class="d">${o.d}</div></div><span class="age">${o.age}</span>`;
+
+    el.onclick=()=>openDetail(o.detail);
+
+    c.appendChild(el);
+
+  });
+
+}
+
+ 
+
+/* ===================== DETAIL renderer ===================== */
+
+function openDetail(d){
+
+  document.getElementById('detailHd').innerHTML=`${d.hd}`;
+
+  let html=`<div class="dtop">${d.title}</div><div class="dmeta">${d.meta.map(m=>`<span>${m}</span>`).join('')}</div>`;
+
+  (d.blocks||[]).forEach(b=>{
+
+    html+=`<div class="dblock"><div class="dl">${b.dl}</div>`;
+
+    if(b.p)b.p.forEach(p=>html+=`<p>${p}</p>`);
+
+    if(b.list){html+='<ul class="dlist">';b.list.forEach(li=>html+=`<li><span class="lk">${li[0]}</span><span>${li[1]}</span></li>`);html+='</ul>';}
+
+    html+='</div>';
+
+  });
+
+  if(d.thread)html+=`<div class="dblock"><div class="dl">The email</div><div class="read-meta" style="border:none;padding:0;margin-bottom:10px">From ${d.thread.from}</div><div class="threadq">${d.thread.body}</div></div>`;
+
+  if(d.draft)html+=`<div class="ai-block printhide"><div class="ai-label">✦ AI-drafted reply — edit, or tell it what to change</div><textarea class="ai-draft">${d.draft}</textarea><div class="ai-chips"><span class="chip" onclick="dadjust(this,'shorter')">Shorter</span><span class="chip" onclick="dadjust(this,'formal')">More formal</span><span class="chip" onclick="dadjust(this,'warmer')">Warmer</span></div></div>`;
+
+  html+=`<div class="send-row printhide">${(d.actions||[]).map(a=>`<button class="btn ${a.p?'primary':''}" onclick="detailAct('${a.l.replace(/'/g,"")}')">${a.l}</button>`).join('')}</div>`;
+
+  document.getElementById('detailBody').innerHTML=html;
+
+  showView('view-detail');
+
+}
+
+function dadjust(chip,kind){
+
+  const box=chip.closest('.ai-block').querySelector('.ai-draft');
+
+  const map={shorter:"Approved — go ahead and send. Thanks for the quick turnaround.",formal:"Thank you. I confirm my approval and authorize you to proceed as outlined. Please advise upon completion.",warmer:"This is great — thank you so much for handling it so well! Consider it approved, and truly, nice work getting ahead of it."};
+
+  box.value=map[kind];toast('Reply rewritten — '+kind);
+
+}
+
+function detailAct(label){
+
+  if(/mark complete/i.test(label)){toast('Marked complete · logged');}
+
+  else if(/block/i.test(label)){toast('Focus block added to your calendar');}
+
+  else if(/send|approve|reply/i.test(label)){toast('Sent via Outlook · logged in your activity');}
+
+  else{toast(label);}
+
+  setTimeout(()=>showView('view-brief'),700);
+
+}
+
+/* ===================== INBOX (drafts) ===================== */
+
+const mails=[
+
+  {from:"Sam Reyes · Brightpath",tag:"Vendor",sub:"SLA renewal — 30-day extension?",snip:"Can we get 30 more days…",body:"Hi —\n\nWe're close on procurement but need a little more runway. Can we get 30 more days on current terms while we finalize?\n\nThanks, Sam",draft:"Hi Sam — happy to extend through July 25 on current terms. One ask in return: let's lock the renewal scope by the 18th so we're not negotiating against a deadline again. I'll have Maria send confirmation. Thanks for the heads-up."},
+
+  {from:"Conference Committee",tag:"Invite",sub:"Keynote invitation — October summit",snip:"We'd be honored to have you open…",body:"Dear —\n\nWe'd be honored to have you deliver the opening keynote at our October summit. ~800 attendees, 30 minutes, topic of your choosing.\n\nWarmly, The Committee",draft:"Thank you for thinking of me — it means a lot. I can't commit to the October keynote with the board cycle that same week, but I'd like to find a future date. Could we revisit for spring? Happy to suggest a colleague for this one if it helps."},
+
+  {from:"Tara Mills + 5",tag:"Internal",sub:"Team offsite — venue & dates",snip:"Looping you in on planning…",body:"Hi team —\n\nLooping everyone in on offsite planning. Three venue options, two possible weeks in September. Wanted leadership's steer before committing budget.\n\nTara",draft:"Great initiative. Tara, can you own this end to end? Budget's approved up to the number we discussed. Loop me only if you hit a blocker — otherwise trust your call. Looking forward to it."},
+
+  {from:"Jordan Pratt",tag:"Client",sub:"Re: Q3 deliverables timeline",snip:"Confirming the revised dates work…",body:"Hi —\n\nJust confirming the revised dates still work on your end before I share with my team.\n\nJordan",draft:"Confirmed, Jordan — the revised dates hold on our side. Go ahead and share with your team. We'll have the first milestone a day early. Appreciate the smooth coordination."},
+
+  {from:"Lena Fisher · Recruiting",tag:"People",sub:"Candidate availability — VP Eng",snip:"Final candidate can do Thurs or Fri…",body:"Hi —\n\nOur final VP Eng candidate is available Thursday afternoon or Friday morning for the closing conversation. Which works?\n\nLena",draft:"Thursday afternoon works — let's say 4:00 PM, 30 minutes. Send a calendar invite with video link and I'll review their packet beforehand. Thanks for moving quickly, Lena."},
+
+  {from:"Accounts Payable",tag:"Finance",sub:"Approval — Q3 software renewals",snip:"Bundle under your threshold…",body:"Hi —\n\nThe Q3 software renewal bundle is ready. Total is just under your approval threshold, so this is a courtesy heads-up.\n\nAP",draft:"Thanks — approved. Since it's under threshold no further sign-off needed. Please proceed and file the confirmations in the usual folder."},
+
+  {from:"Marcus Webb",tag:"Internal",sub:"Quick question on the roadmap deck",snip:"Should slide 14 reflect…",body:"Hey —\n\nQuick one: should slide 14 reflect the new priority order from Tuesday, or keep the original for the board?\n\nMarcus",draft:"Use the new priority order from Tuesday — that's what the board needs to see. Keep the original as a backup in the appendix. Nice work pulling this together fast."},
+
+  {from:"Priya Anand",tag:"Network",sub:"Following up on the intro",snip:"No rush, just keeping it warm…",body:"Hi —\n\nNo rush — just keeping our conversation warm. Whenever you have a moment for that intro, I'd be grateful.\n\nPriya",draft:"Priya — thanks for the nudge, and apologies for the lag. I'll make the intro to the Sandbridge partner today. Expect a separate thread connecting you both shortly."},
+
+  {from:"Facilities",tag:"Ops",sub:"Office closure — holiday schedule",snip:"Please confirm closure dates…",body:"Hi —\n\nPlease confirm the office closure dates for the holiday so we can post the schedule and arrange security.\n\nFacilities",draft:"Confirmed — closed the 24th through 26th, reopening the 29th. Please post the schedule and coordinate security coverage. Thanks for getting ahead of this."},
+
+  {from:"Dev Sharma · Partner",tag:"Client",sub:"Re: contract amendment language",snip:"Our legal is comfortable…",body:"Hi —\n\nOur legal is comfortable with the amendment as drafted. Just need confirmation from your side and we can countersign this week.\n\nDev",draft:"Glad to hear it, Dev — confirmed on our side. I'll route for countersignature today so we can close this out this week. Pleasure working through it."},
+
+  {from:"Internal Comms",tag:"Internal",sub:"All-hands talking points — your review",snip:"Draft attached for review…",body:"Hi —\n\nDraft talking points for Friday's all-hands attached for your review. Let us know edits.\n\nComms",draft:"These are strong — two edits: lead with the customer win, not the numbers; and soften the reorg line so it reads as opportunity, not disruption. Otherwise good to finalize. Thanks team."}
+
+];
+
+let active=0;
+
+function initInbox(){active=0;buildList();buildRead();}
+
+function buildList(){
+
+  const mailList=document.getElementById('mailList');mailList.innerHTML='';
+
+  mails.forEach((m,i)=>{
+
+    const el=document.createElement('div');el.className='mailitem'+(i===active?' active':'')+(m.sent?' sent':'');
+
+    el.innerHTML=`<div class="mi-top"><span class="mi-from">${m.from}</span><span class="mi-dot"></span></div><div class="mi-sub">${m.sub}</div><div class="mi-snip"><span class="mi-tag">${m.tag}</span> &nbsp;${m.snip}</div>`;
+
+    el.onclick=()=>{active=i;buildList();buildRead();document.getElementById('fvGrid').classList.add('reading');};
+
+    mailList.appendChild(el);
+
+  });
+
+}
+
+function buildRead(){
+
+  const m=mails[active];
+
+  document.getElementById('readPane').innerHTML=`
+
+    <button class="fv-readback" onclick="document.getElementById('fvGrid').classList.remove('reading')">← List</button>
+
+    <div class="read-sub">${m.sub}</div>
+
+    <div class="read-meta">From ${m.from} · to you${m.sent?' · ✓ replied':''}</div>
+
+    <div class="read-body">${m.body}</div>
+
+    <div class="ai-block printhide">
+
+      <div class="ai-label">✦ InboxIQ drafted this reply — edit anything, or tell it what to change</div>
+
+      <textarea class="ai-draft" id="draftBox">${m.draft}</textarea>
+
+      <div class="ai-chips">
+
+        <span class="chip" onclick="adjust('shorter')">Make it shorter</span><span class="chip" onclick="adjust('formal')">More formal</span><span class="chip" onclick="adjust('warmer')">Warmer</span><span class="chip" onclick="adjust('firm')">More firm</span>
+
+      </div>
+
+      <div class="ai-ask"><input id="askBox" placeholder="Tell the AI how to change this reply…" onkeydown="if(event.key==='Enter')customAdjust()"><button class="btn" onclick="customAdjust()">Revise</button></div>
+
+      <div class="send-row"><button class="btn primary" onclick="sendReply()">Approve &amp; send</button><button class="btn" onclick="toast('Saved to Outlook drafts')">Save draft</button><button class="btn ghost" onclick="toast('Skipped — stays in queue')">Skip</button></div>
+
+    </div>`;
+
+}
+
+function adjust(kind){const box=document.getElementById('draftBox');const map={shorter:"Confirmed — happy to proceed. My team will follow up with specifics today. Thanks.",formal:"Thank you for your note. I am pleased to confirm and will ensure appropriate follow-up today.",warmer:"This is great — thank you so much for getting ahead of it! Consider it confirmed. Really appreciate how smoothly you've handled this!",firm:"Confirmed. Please proceed as outlined and keep this on schedule — closed by end of week, no slippage. Thanks."};box.value=map[kind]||box.value;toast('Reply rewritten — '+kind);}
+
+function customAdjust(){const ask=document.getElementById('askBox');if(!ask.value.trim())return;const box=document.getElementById('draftBox');box.value="[Revised per: “"+ask.value.trim()+"”]\n\n"+box.value;toast('AI revised the draft');ask.value='';}
+
+function sendReply(){mails[active].sent=true;toast('Sent via Outlook · logged');buildList();buildRead();const next=mails.findIndex(m=>!m.sent);if(next>-1){active=next;setTimeout(()=>{buildList();buildRead();},350);}}
+
+/* ===================== CALENDAR ===================== */
+
+/* week already reflects internal auto-moves (per the user's autonomy rule) */
+
+const week=[
+
+  {name:"Mon",date:"Jun 23",evts:[{tm:"2:00",n:"Client call — Pratt",ext:true},{tm:"2:30",n:"Marketing sync",moved:true}]},
+
+  {name:"Tue",date:"Jun 24",evts:[{tm:"11:00",n:"Vendor review",ext:true,id:"ext1"},{tm:"3:00",n:"Design review"}]},
+
+  {name:"Wed",date:"Jun 25",evts:[{tm:"11:30",n:"Westline call",ext:true},{tm:"1:00",n:"Ops standup",moved:true},{tm:"3:30",n:"Board pre-reads"}]},
+
+  {name:"Thu",date:"Jun 26",evts:[{tm:"9:30",n:"1:1 Marcus",moved:true},{tm:"10:00",n:"Finance review"},{tm:"1:00",n:"Partner sync",ext:true}]},
+
+  {name:"Fri",date:"Jun 27",evts:[{tm:"9:00",n:"All-hands"},{tm:"1:00",n:"Recruiting loop"}]}
+
+];
+
+const rule={days:new Set(["Mon","Wed","Fri"]),len:120,win:"Morning"};
+
+const allDays=["Mon","Tue","Wed","Thu","Fri"];
+
+const doneMoves=[
+
+  {main:"Marketing sync",change:["Mon 9:00 AM","Mon 2:30 PM"],who:"Marketing (5)"},
+
+  {main:"Status update",change:["Mon 11:00 AM","Moved to async update"],who:"Project leads (3)"},
+
+  {main:"1:1 with Marcus",change:["Tue 9:30 AM","Thu 9:30 AM"],who:"Marcus Webb"},
+
+  {main:"Ops standup",change:["Wed 9:00 AM","Wed 1:00 PM"],who:"Ops team (4)"}
+
+];
+
+const extMoves=[
+
+  {id:"ext1",main:"Vendor review",change:["Tue 11:00 AM","Tue 3:30 PM"],who:"Brightpath (external)",to:"Tue",toEvt:{tm:"3:30",n:"Vendor review"}}
+
+];
+
+function winTime(){return rule.win==="Morning"?{label:"9:00-"+(rule.len===60?"10:00":rule.len===90?"10:30":"11:00")}:{label:"2:00-"+(rule.len===60?"3:00":rule.len===90?"3:30":"4:00")};}
+
+function buildCal(){
+
+  const g=document.getElementById('calGrid');g.innerHTML='';
+
+  const wt=winTime();
+
+  week.forEach(day=>{
+
+    const col=document.createElement('div');col.className='caldaycol';
+
+    let slots=`<div class="caldayhd"><div class="dname">${day.name}</div><div class="ddate">${day.date}</div></div><div class="slots">`;
+
+    if(rule.days.has(day.name))slots+=`<div class="calevt focus"><div class="ce-t">${wt.label}</div><div class="ce-n">Focus block</div></div>`;
+
+    day.evts.forEach(e=>{
+
+      const cls=e.moved?'movedto':'';
+
+      slots+=`<div class="calevt ${cls}" data-id="${e.id||''}"><div class="ce-t">${e.tm}${e.moved?' · moved':''}${e.ext?' · external':''}</div><div class="ce-n">${e.n}</div></div>`;
+
+    });
+
+    slots+='</div>';col.innerHTML=slots;g.appendChild(col);
+
+  });
+
+  buildDone();buildExt();
+
+}
+
+function buildRuleChips(){
+
+  const d=document.getElementById('dayChips');d.innerHTML='';
+
+  allDays.forEach(day=>{
+
+    const el=document.createElement('div');el.className='dchip'+(rule.days.has(day)?' on':'');el.textContent=day;
+
+    el.onclick=()=>{rule.days.has(day)?rule.days.delete(day):rule.days.add(day);buildRuleChips();buildCal();toast(rule.days.size+' focus day'+(rule.days.size===1?'':'s')+' set');};
+
+    d.appendChild(el);
+
+  });
+
+  const l=document.getElementById('lenChips');l.innerHTML='';
+
+  [[60,"60 min"],[90,"90 min"],[120,"120 min"]].forEach(o=>{
+
+    const el=document.createElement('div');el.className='dchip'+(rule.len===o[0]?' on':'');el.textContent=o[1];
+
+    el.onclick=()=>{rule.len=o[0];buildRuleChips();buildCal();};l.appendChild(el);
+
+  });
+
+  const w=document.getElementById('winChips');w.innerHTML='';
+
+  ["Morning","Afternoon"].forEach(o=>{
+
+    const el=document.createElement('div');el.className='dchip'+(rule.win===o?' on':'');el.textContent=o;
+
+    el.onclick=()=>{rule.win=o;buildRuleChips();buildCal();};w.appendChild(el);
+
+  });
+
+}
+
+function buildDone(){
+
+  const c=document.getElementById('doneList');c.innerHTML='';
+
+  doneMoves.forEach(m=>{
+
+    const el=document.createElement('div');el.className='donerow';
+
+    el.innerHTML=`<span class="di">checkmark</span><div class="mr-main"><b>${m.main}</b><div class="mr-change">${m.change[0]} &nbsp;-&gt;&nbsp; <span class="new">${m.change[1]}</span> · note sent</div></div><span class="who">${m.who}</span>`;
+
+    el.querySelector('.di').textContent='\u2713';
+
+    c.appendChild(el);
+
+  });
+
+}
+
+function buildExt(){
+
+  const c=document.getElementById('extList');c.innerHTML='';
+
+  extMoves.forEach(m=>{
+
+    const el=document.createElement('div');el.className='extrow';el.dataset.id=m.id;
+
+    el.innerHTML=`<span class="ei">?</span><div class="mr-main"><b>${m.main}</b><div class="mr-change">${m.change[0]} &nbsp;-&gt;&nbsp; <span class="new">${m.change[1]}</span></div></div><span class="who">${m.who}</span><div class="ebtns"><button class="btn primary" onclick="approveExt('${m.id}')">Approve move</button><button class="btn ghost" onclick="keepExt(this)">Keep it</button></div>`;
+
+    c.appendChild(el);
+
+  });
+
+}
+
+function approveExt(id){
+
+  const m=extMoves.find(x=>x.id===id);
+
+  const row=document.querySelector('.extrow[data-id="'+id+'"]');if(row)row.classList.add('approved');
+
+  const src=document.querySelector('.calevt[data-id="'+id+'"]');if(src){src.classList.add('moved');src.style.opacity=.5;src.style.textDecoration='line-through';}
+
+  const col=[...document.querySelectorAll('.caldaycol')].find(c=>c.querySelector('.dname').textContent===m.to);
+
+  if(col){const e=document.createElement('div');e.className='calevt movedto';e.innerHTML=`<div class="ce-t">${m.toEvt.tm} · moved</div><div class="ce-n">${m.toEvt.n}</div>`;col.querySelector('.slots').appendChild(e);}
+
+  toast('Moved · drafting the note to '+m.who);
+
+  buildExtMsg(m);
+
+  document.getElementById('msgStep').style.display='block';
+
+  setTimeout(()=>document.getElementById('msgStep').scrollIntoView({behavior:'smooth',block:'start'}),300);
+
+}
+
+function keepExt(btn){btn.closest('.extrow').classList.add('approved');toast('Kept where it is - focus block trimmed that day');}
+
+function buildExtMsg(m){
+
+  const c=document.getElementById('msgList');c.innerHTML='';
+
+  const msg=`Hi - I'm reorganizing my week to protect some focused work time, and I'd like to shift our ${m.main} from ${m.change[0]} to ${m.change[1]}. I hope that still works on your end - if it's a problem, just say the word and we'll find another slot that suits you. Thanks for being flexible.`;
+
+  const el=document.createElement('div');el.className='msgcard';
+
+  el.innerHTML=`<div class="mh"><span class="to">To: ${m.who}</span><span class="sub">${m.main} · reschedule</span></div><textarea>${msg}</textarea>`;
+
+  c.appendChild(el);
+
+}
+
+function sendAllMsgs(){toast('Note sent · logged in your activity');setTimeout(()=>showView('view-brief'),900);}
+
+function toggleSent(btn){
+
+  const box=document.getElementById('sentNotes');
+
+  if(box.style.display==='none'){
+
+    box.style.display='block';btn.textContent='Hide the notes sent to internal teams';
+
+    box.innerHTML=doneMoves.map(m=>`<div class="msgcard"><div class="mh"><span class="to">To: ${m.who}</span><span class="sub">${m.main} · sent 6:14 AM</span></div><textarea readonly>Hi - I'm protecting some focused work time this week and shifted our ${m.main} (${m.change[0]} to ${m.change[1]}). Hope that still works; flag me if not and we'll adjust. Thanks!</textarea></div>`).join('');
+
+  } else {box.style.display='none';btn.textContent='Show the 4 notes already sent to internal teams';}
+
+}
+
+/* ---------- init ---------- */
+
+buildBig3();buildDecisions();buildOverdue();buildRuleChips();buildCal();
+
+</script>
+
+</body>
+
+</html>
