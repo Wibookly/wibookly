@@ -386,6 +386,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </span>
             </div>
           </div>
+          <ThemePicker />
           <ModeToggle variant="icon" className="w-9 h-9 shrink-0" />
         </div>
       </div>
