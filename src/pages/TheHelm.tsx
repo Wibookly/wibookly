@@ -697,7 +697,19 @@ function BriefView({
                         <li key={a.id} className="flex items-start gap-3 text-body-2">
                           <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                           <span className="flex-1 text-foreground">{a.text}</span>
-                          <span className="text-caption text-muted-foreground tabular-nums">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-[10px] font-mono uppercase tracking-wider shrink-0',
+                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5',
+                            )}
+                          >
+                            {a.tag}
+                          </Badge>
+                          <span className="text-caption text-muted-foreground tabular-nums shrink-0">
                             {a.time}
                           </span>
                         </li>
