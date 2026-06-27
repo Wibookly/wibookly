@@ -815,6 +815,8 @@ function InboxView({ onBack }: { onBack: () => void }) {
     body_html: string;
     body_text: string;
   } | null>(null);
+  const [bodyError, setBodyError] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [reshapeBusy, setReshapeBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
   const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | null>(null);
