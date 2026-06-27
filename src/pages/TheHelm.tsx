@@ -519,7 +519,7 @@ function BriefView({
 
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
-          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
+          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-24" />
