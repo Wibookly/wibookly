@@ -471,3 +471,82 @@
 </div>
 
 <div class="toast" id="toast"><span class="tk">✓</span><span id="toastMsg"></span></div>
+
+<script>
+/* ---------- view switching ---------- */
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);}
+function emailSection(what){toast('Sent '+what+' to your connected inbox');}
+
+/* ===================== BIG 3 ===================== */
+const big3=[
+  {t:"Finalize Q3 board deck narrative",meta:"Tied to Friday board review",ord:"01",
+   detail:{hd:"Big 3 · 01",title:"Finalize Q3 board deck narrative",meta:["Due Friday 9:00 AM","Owner: you + Comms","~90 min of focused work"],
+    blocks:[
+      {dl:"Why this is a needle-mover",p:["The board forms its read of the quarter from <strong>your framing</strong>, not the raw numbers. Getting the story right here shapes the funding conversation for Q4."]},
+      {dl:"Where it stands",list:[["Done","Financials and KPIs are locked by Finance"],["Left","Opening narrative + the 'what we learned' slide"],["Risk","Slide 14 still shows the old priority order"]]},
+      {dl:"Linked items InboxIQ pulled together",list:[["Email","Comms sent draft talking points — your review queued in Drafts"],["File","Q3_Board_Deck_v4.pptx — last edited by you"],["Thread","Marcus asked which slide order to use"]]}
+    ],
+    actions:[{l:"Block 90 min tomorrow 9–10:30",p:true},{l:"Open the talking-points draft"},{l:"Mark complete"}]}},
+  {t:"Decision on Westline contract terms",meta:"$1.4M · legal waiting",ord:"02",
+   detail:{hd:"Big 3 · 02",title:"Decision on Westline contract terms",meta:["$1.4M deal","Legal waiting on you","Bid window closes 2:00 PM"],
+    blocks:[
+      {dl:"The decision",p:["Legal redlined the <strong>indemnity clause</strong> overnight. They need your yes/no on the revised language before it goes back to the client, or the bid window closes at 2:00 PM."]},
+      {dl:"What changed",p:["The new clause caps our liability but adds a mutual-notification requirement. Margaret's note says it's <strong>standard and low-risk</strong>, but wanted your eyes on the dollar exposure."]}
+    ],
+    thread:{from:"Margaret Cho, General Counsel",body:"Redline attached. The indemnity cap is now mutual — I'm comfortable, but it's your call given the size. Need a yes by 2 to make the client's window.\n\nMargaret"},
+    actions:[{l:"Approve the revised clause",p:true},{l:"Open the full redline"},{l:"Reply with a question"}]}},
+  {t:"1:1 with Dana — retention",meta:"Flight risk flagged",ord:"03",
+   detail:{hd:"Big 3 · 03",title:"1:1 with Dana — retention conversation",meta:["Flagged 2 weeks ago","Competing offer received","Best handled today"],
+    blocks:[
+      {dl:"Why today matters",p:["Dana disclosed a competing offer. HR rates this a <strong>top-quartile retention risk</strong>. A direct, personal conversation from you today changes the outcome far more than any counter-offer paperwork."]},
+      {dl:"Talking points the AI prepared",list:[["1","Lead with specific recognition — the Q2 launch was hers"],["2","Be candid about growth path: the director track is real"],["3","Ask what would make staying the obvious choice"]]}
+    ],
+    actions:[{l:"Book the 1:1 for today",p:true},{l:"Draft a personal note first"},{l:"Mark complete"}]}}
+];
+function buildBig3(){
+  const c=document.getElementById('big3');c.innerHTML='';
+  big3.forEach((m,i)=>{
+    const el=document.createElement('div');el.className='mit';
+    el.innerHTML=`<span class="ord">${m.ord}</span><div class="check" onclick="event.stopPropagation();this.parentElement.classList.toggle('done')"></div><div class="t">${m.t}</div><div class="meta">${m.meta}</div><div class="open">open plan →</div>`;
+    el.onclick=()=>openDetail(m.detail);
+    c.appendChild(el);
+  });
+}
+
+/* ===================== DECISIONS ===================== */
+const decisions=[
+  {ask:"Approve the revised Westline proposal before it goes to the client?",ctx:"Legal redlined the indemnity clause overnight. Margaret needs sign-off to send by 2:00 PM.",who:["↳ Margaret Cho, General Counsel"],badges:[["key","Key contact"],["due","Due 2:00 PM"]],
+   detail:{hd:"Decision",title:"Approve the revised Westline proposal?",meta:["Margaret Cho · General Counsel","Due 2:00 PM"],
+    blocks:[{dl:"What you're deciding",p:["Whether the revised indemnity language is acceptable to send back to the client. Legal is comfortable; they want your sign-off on the dollar exposure."]}],
+    thread:{from:"Margaret Cho, General Counsel",body:"Redline attached. Indemnity cap is now mutual. Comfortable on my end — need your yes by 2 to make the client's window.\n\nMargaret"},
+    draft:"Approved, Margaret — the mutual cap works for me. Send it back to the client as drafted, and let's confirm receipt before end of day. Thanks for turning this around overnight.",
+    actions:[{l:"Approve & send",p:true},{l:"Open redline"},{l:"Reply with a question"}]}},
+  {ask:"Dana flagged a competing offer — respond personally today?",ctx:"HR marked this a top-quartile retention risk. A same-day personal reply materially changes the outcome.",who:["↳ surfaced from HR thread"],badges:[["key","Team"],["due","Today"]],
+   detail:{hd:"Decision",title:"Respond to Dana's competing offer today?",meta:["Surfaced from HR thread","Best handled today"],
+    blocks:[{dl:"The situation",p:["Dana is a top performer who just disclosed an outside offer. HR recommends a <strong>personal touch from you</strong>, today, before any formal retention process."]}],
+    draft:"Dana — thank you for being open with me about this; it means a lot that you came to me directly. Before you make any decision, I'd like 30 minutes today to talk through where I see your path here. You've earned more than a counter-offer — let's talk about what you actually want. Are you free at 2?",
+    actions:[{l:"Send this note",p:true},{l:"Book a 1:1 instead"},{l:"Defer to HR"}]}},
+  {ask:"CFO needs you to confirm the hiring freeze scope.",ctx:"Three threads converged. Finance wants a yes/no on engineering backfill exemptions before the all-hands.",who:["↳ David Okafor, CFO"],badges:[["key","Key contact"],["due","Before 11 AM"]],
+   detail:{hd:"Decision",title:"Confirm the hiring freeze scope",meta:["David Okafor · CFO","Before 11 AM all-hands"],
+    blocks:[{dl:"The decision",p:["Finance needs one answer: are <strong>engineering backfills exempt</strong> from the freeze, or does it apply across the board? This needs to be settled before the all-hands so messaging is consistent."]}],
+    thread:{from:"David Okafor, CFO",body:"Just need a yes/no on engineering backfills before 11 so we're aligned at the all-hands. Either way works operationally — your call on the signal it sends.\n\nDavid"},
+    draft:"David — engineering backfills are exempt. We can't pause the roadmap, and protecting delivery capacity is the right signal. Everything else holds to the freeze. Let's say it plainly at the all-hands so there's no ambiguity.",
+    actions:[{l:"Reply: engineering exempt",p:true},{l:"Reply: no exemptions"},{l:"Need more context"}]}}
+];
+function buildDecisions(){
+  const c=document.getElementById('decisions');c.innerHTML='';
+  decisions.forEach(d=>{
+    const el=document.createElement('div');el.className='card t1';
+    el.innerHTML=`<div class="ask">${d.ask}</div><div class="ctx">${d.ctx}</div><div class="who">${d.who.map(w=>`<span>${w}</span>`).join('')}${d.badges.map(b=>`<span class="badge ${b[0]}">${b[1]}</span>`).join('')}<span class="openhint">open →</span></div>`;
+    el.onclick=()=>openDetail(d.detail);
+    c.appendChild(el);
+  });
+}
