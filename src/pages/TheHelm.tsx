@@ -323,15 +323,18 @@ function HelmCard({
               </p>
             )}
             {(item.sender || item.due) && (
-              <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground font-mono tracking-wide">
+              <div className="flex items-center gap-3 mt-2.5 text-[11px] font-mono tracking-wide">
                 {item.sender && (
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                     <Mail className="w-3 h-3" />
                     {item.sender}
                   </span>
                 )}
                 {item.due && (
-                  <span className="inline-flex items-center gap-1.5 uppercase">
+                  <span className={cn(
+                    'inline-flex items-center gap-1.5 uppercase',
+                    variant === 'warning' ? 'text-destructive font-semibold' : 'text-muted-foreground',
+                  )}>
                     <Clock className="w-3 h-3" />
                     {item.due}
                   </span>
