@@ -113,6 +113,7 @@ function useHelmData() {
             'subscription_created',
             'morning_prep',
             'section_emailed',
+            'item_completed',
           ])
           .gte('created_at', since)
           .order('created_at', { ascending: false })
