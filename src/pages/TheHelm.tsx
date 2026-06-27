@@ -598,6 +598,7 @@ function BriefView({
             subtitle="Replies ready for a quick read and send."
             sectionKey="drafted"
             emailSection="inbox"
+            count={stats.drafted}
           />
           <Card
             role="button"
