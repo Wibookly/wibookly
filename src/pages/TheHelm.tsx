@@ -1020,8 +1020,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
               })}
             </ul>
           </Card>
+          </div>
 
-          {/* Right: reader + composer */}
+          {/* Right: reader + composer (on mobile, shown only when an item is active) */}
+          <div className={cn(!active && 'hidden lg:block')}>
+            {active && (
+              <div className="lg:hidden mb-2">
+                <Button variant="ghost" size="sm" onClick={() => setActiveId(null)}>
+                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to list
+                </Button>
+              </div>
+            )}
           <Card className="overflow-hidden">
             {!active ? (
               <CardContent className="p-8 text-body-2 text-muted-foreground">
