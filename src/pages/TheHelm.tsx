@@ -905,9 +905,12 @@ function InboxView({ onBack }: { onBack: () => void }) {
       } else {
         toast.success('Draft saved in Outlook');
       }
+      if (mode === 'send') {
+        setSentIds((prev) => new Set(prev).add(active.id));
+      }
       qc.invalidateQueries({ queryKey: ['helm-items'] });
-      // Auto-advance to next unsent
-      const remaining = drafts.filter((d) => d.id !== active.id);
+      // Auto-advance to next unsent (skip sent ones)
+      const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
       setActiveId(remaining[0]?.id ?? null);
       setDraftText('');
       setOriginal(null);
