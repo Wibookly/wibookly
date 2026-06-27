@@ -1174,6 +1174,7 @@ function InboxView({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </Card>
+          </div>
         </div>
       )}
     </div>
