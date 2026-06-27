@@ -816,7 +816,7 @@ function BriefView({
 
 function InboxView({ onBack }: { onBack: () => void }) {
   const qc = useQueryClient();
-  const { data, isLoading } = useHelmData();
+  const { data, isLoading, error, refetch } = useHelmData();
   const drafts = data?.drafts ?? [];
 
   const [activeId, setActiveId] = useState<string | null>(null);
