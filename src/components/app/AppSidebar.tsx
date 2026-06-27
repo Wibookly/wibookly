@@ -283,7 +283,6 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* Account Provisioning */}
               <NavSection title="Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
                 <NavItem href="/integrations" emoji="🔗" accent={accents.cyan}>Email &amp; Calendar</NavItem>
-                <NavItem href="/sync" emoji="🔄" accent={accents.cyan}>Manual Sync</NavItem>
               </NavSection>
 
               {/* AI Intelligence */}
@@ -303,15 +302,21 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
                   <NavItem href="/meeting-copilot" emoji="🎧" accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
+                <NavItem href="/sync" emoji="🔄" accent={accents.orange}>Manual Sync</NavItem>
               </NavSection>
 
               {/* AI Activity Report */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
                   {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>}
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/knowledge" emoji="📚" accent={accents.green}>Knowledge Base</NavItem>}
                 </NavSection>
               )}
+
+              {/* Knowledge Base */}
+              <NavSection title="Knowledge Base" icon={BookOpen} accent={accents.cyan} defaultOpen>
+                {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/knowledge" emoji="📚" accent={accents.cyan}>Knowledge Base</NavItem>}
+                <NavItem href="/settings/help" emoji="🆘" accent={accents.cyan}>User Guidance, Help &amp; Support</NavItem>
+              </NavSection>
 
               {/* Admin */}
               {(isSuperAdmin || isOrgAdmin) && (
@@ -356,36 +361,31 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
         </div>
       )}
 
-      <div className="p-3 border-t border-border space-y-3">
-        <div>
-          <p
-            className="mb-2 px-1"
-            style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}
-          >
-            Guidance
-          </p>
-          <HelpQuickActions compact />
-        </div>
-
+      <div className="p-3 border-t border-border">
         <div
-          className="flex items-center gap-3 px-2.5 py-2 rounded-xl"
+          className="flex items-center gap-2 px-2.5 py-2 rounded-xl"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <UserAvatarDropdown />
-            <div className="flex flex-col leading-tight min-w-0 -ml-1">
-              <span
-                className="text-[11px] font-semibold uppercase tracking-wider truncate"
-                style={{
-                  color: 'transparent',
-                  backgroundImage: 'var(--grad-feature-soft)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                }}
-              >
-                {roleLabel}
-              </span>
-            </div>
+          <UserAvatarDropdown />
+          <div className="flex flex-col leading-tight min-w-0 flex-1">
+            <span
+              className="text-[13px] font-semibold truncate"
+              style={{ color: 'var(--text)' }}
+              title={profile?.full_name || profile?.email || ''}
+            >
+              {profile?.full_name || profile?.email?.split('@')[0] || 'User'}
+            </span>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider truncate mt-0.5"
+              style={{
+                color: 'transparent',
+                backgroundImage: 'var(--grad-feature-soft)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+              }}
+            >
+              {roleLabel}
+            </span>
           </div>
           <ThemePicker />
           <ModeToggle variant="icon" className="w-9 h-9 shrink-0" />
