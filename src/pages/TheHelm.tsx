@@ -1856,30 +1856,79 @@ function CalendarView({ onBack }: { onBack: () => void }) {
               <p className="text-xs text-muted-foreground italic">Nothing waiting on you. ✨</p>
             ) : (
               <ul className="space-y-2">
-                {planQuery.data!.pending_external.map((p) => (
-                  <li key={p.id} className="text-xs border border-accent/40 rounded-md p-2 bg-background/50 space-y-1">
-                    <p className="font-semibold text-foreground">{p.subject}</p>
-                    <p className="text-muted-foreground">
-                      {fmtTimeShort(p.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground italic">{p.reason}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {p.is_organizer ? 'You host this meeting.' : `Hosted by ${p.organizer.name || p.organizer.email}.`}
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        disabled={approveMutation.isPending}
-                        onClick={() => approveMutation.mutate(p)}
-                      >
-                        <ThumbsUp className="w-3 h-3 mr-1" />
-                        {p.is_organizer ? 'Approve & move' : 'Propose new time'}
-                      </Button>
-                      <Button size="sm" variant="ghost"><X className="w-3 h-3 mr-1" />Keep it</Button>
-                    </div>
-                  </li>
-                ))}
+                {planQuery.data!.pending_external.filter((p) => !dismissed[p.id]).map((p) => {
+                  const d = draftByProp[p.id];
+                  const revealed = !!d?.revealed;
+                  return (
+                    <li key={p.id} className="text-xs border border-accent/40 rounded-md p-2 bg-background/50 space-y-1">
+                      <p className="font-semibold text-foreground">{p.subject}</p>
+                      <p className="text-muted-foreground">
+                        {fmtTimeShort(p.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground italic">{p.reason}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {p.is_organizer ? 'You host this meeting.' : `Hosted by ${p.organizer.name || p.organizer.email}.`}
+                      </p>
+                      {!revealed ? (
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" variant="default" onClick={() => revealApproval(p)}>
+                            <ThumbsUp className="w-3 h-3 mr-1" />
+                            {p.is_organizer ? 'Approve move' : 'Propose new time'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setDismissed((s) => ({ ...s, [p.id]: true }));
+                              toast('Kept as-is.');
+                            }}
+                          >
+                            <X className="w-3 h-3 mr-1" />Keep it
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 pt-1">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Note to {p.is_organizer ? 'attendees' : 'organizer'} — edit before sending
+                          </p>
+                          {d?.loading ? (
+                            <Skeleton className="h-20 w-full" />
+                          ) : (
+                            <textarea
+                              className="w-full text-xs bg-background border border-border rounded-md p-2 min-h-[96px]"
+                              value={d?.note ?? ''}
+                              onChange={(e) =>
+                                setDraftByProp((s) => ({
+                                  ...s,
+                                  [p.id]: { note: e.target.value, loading: false, revealed: true },
+                                }))
+                              }
+                            />
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              disabled={approveMutation.isPending || d?.loading || !(d?.note ?? '').trim()}
+                              onClick={() => approveMutation.mutate({ proposal: p, note: d?.note ?? '' })}
+                            >
+                              <ThumbsUp className="w-3 h-3 mr-1" />Send note
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setDraftByProp((s) => ({ ...s, [p.id]: { ...(s[p.id] ?? { note: '', loading: false }), revealed: false } }))
+                              }
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
