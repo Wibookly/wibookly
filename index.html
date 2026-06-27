@@ -29,7 +29,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Apply persisted palette + light/dark BEFORE first paint to prevent FOUC -->
+    <script>
+      (function(){
+        try{
+          var p = localStorage.getItem('inboxiq-palette') || 'aurora';
+          var m = localStorage.getItem('inboxiq-mode');
+          document.documentElement.setAttribute('data-palette', p);
+          document.documentElement.setAttribute('data-theme', p);
+          if (m === 'dark' || (!m && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
+
 
   <body>
     <div id="root"></div>
