@@ -1802,14 +1802,38 @@ export default function TheHelm() {
   const [view, setView] = useState<View>('brief');
   const [activeItem, setActiveItem] = useState<HelmItem | null>(null);
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const qc = useQueryClient();
 
+  const scrollTop = () => {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+  };
   const go = (v: View, item?: HelmItem) => {
     if (item) setActiveItem(item);
     setView(v);
+    scrollTop();
   };
-  const back = () => setView('brief');
-  const toggleDone = (id: string, next: boolean) =>
+  const back = () => { setView('brief'); scrollTop(); };
+
+  const toggleDone = async (id: string, next: boolean) => {
     setDone((d) => ({ ...d, [id]: next }));
+    if (!next) return;
+    try {
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      const u = (await supabase.auth.getUser()).data.user;
+      if (u) {
+        await supabase.from('activity_log').insert({
+          user_id: u.id,
+          action_type: 'item_completed',
+          detail: `Completed Big 3 item`,
+          action_key: `big3_done:${id}:${Date.now()}`,
+        } as any);
+      }
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Marked done');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not mark done');
+    }
+  };
 
   // Ensure Graph subscriptions exist on first mount (idempotent)
   useEffect(() => {
