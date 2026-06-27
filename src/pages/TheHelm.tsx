@@ -950,14 +950,26 @@ function InboxView({ onBack }: { onBack: () => void }) {
       <SectionHeader
         title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
         subtitle="Skim, edit, send — replies thread into the original Outlook conversation."
+        count={drafts.length}
       />
 
-      {isLoading ? (
+      {error ? (
+        <Card className="border-destructive/40">
+          <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
+            <span className="text-destructive">Couldn't load drafts: {(error as Error).message}</span>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <Skeleton className="h-96" />
       ) : drafts.length === 0 ? (
         <EmptyHint>No drafts yet. Sync the inbox to generate fresh drafts.</EmptyHint>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 min-h-[70vh]">
+        <div className={cn(
+          'grid gap-4 min-h-[70vh]',
+          // Mobile: when an item is selected, hide the list and show only the reader.
+          active ? 'grid-cols-1 lg:grid-cols-[320px_1fr]' : 'grid-cols-1 lg:grid-cols-[320px_1fr]',
+        )}><div className={cn(active && 'hidden lg:block')}>
           {/* Left: list */}
           <Card className="overflow-hidden">
             <ul className="divide-y divide-border max-h-[80vh] overflow-y-auto">
