@@ -51,8 +51,11 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-const MODE_KEY = 'inboxiq-theme';
+const MODE_KEY = 'inboxiq-mode';
+const LEGACY_MODE_KEY = 'inboxiq-theme';
 const PALETTE_KEY = 'inboxiq-palette';
+const LEGACY_COLOR_KEY = 'inboxiq-color-theme';
+
 const LEGACY_COLOR_KEY = 'inboxiq-color-theme';
 
 function getSystemTheme(): 'light' | 'dark' {
