@@ -184,6 +184,7 @@ function SectionHeader({
   sectionKey,
   emailSection,
   index,
+  count,
   onPrint,
   onEmail,
 }: {
@@ -192,6 +193,7 @@ function SectionHeader({
   sectionKey?: string;
   emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
   index?: number;
+  count?: number;
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
