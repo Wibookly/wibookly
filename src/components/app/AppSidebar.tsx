@@ -13,6 +13,7 @@ import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { ThemePicker } from '@/components/ThemePicker';
 
 
 import { useState, useEffect } from 'react';
