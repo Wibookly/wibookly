@@ -2025,14 +2025,21 @@ export default function TheHelm() {
     <>
       <style>{`
         @media print {
+          /* Always hide chrome that shouldn't appear on print */
+          [data-sonner-toaster], [data-sidebar], nav[role="navigation"],
+          .print\\:hidden { display: none !important; }
+          /* Section-scoped printing */
           body[data-print-section] aside,
           body[data-print-section] nav,
           body[data-print-section] header,
-          body[data-print-section] [data-helm-section]:not([data-print-target]),
-          body[data-print-section] .print\\:hidden { display: none !important; }
+          body[data-print-section] [data-helm-section]:not([data-print-target]) {
+            display: none !important;
+          }
           body[data-print-section] [data-helm-section][data-print-target] {
             break-inside: avoid;
           }
+          /* Force a clean light look on paper */
+          html, body { background: #ffffff !important; color: #000 !important; }
         }
       `}</style>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
