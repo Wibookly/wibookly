@@ -185,15 +185,29 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
   return (
     <aside className="hidden lg:flex w-[300px] h-[100dvh] flex-col shrink-0 relative overflow-hidden" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
 
-      <div className="px-5 pt-3 pb-2 flex flex-col items-center gap-1 shrink-0" style={{ borderBottom: '1px solid var(--border-soft)' }}>
-        <img
-          src={energyForwardLogo}
-          alt="EnergyForward"
-          className="h-[44px] w-auto object-contain"
-          draggable={false}
-        />
-        <InboxIQLogo className="text-[15px] leading-none" />
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 shrink-0" style={{ borderBottom: '1px solid var(--border-soft)' }}>
+        <div
+          className="flex items-center justify-center shrink-0 rounded-2xl text-white font-bold"
+          style={{
+            width: 44,
+            height: 44,
+            background: 'var(--grad-feature-soft)',
+            boxShadow: 'var(--shadow-glow)',
+            fontSize: 18,
+            letterSpacing: '-0.02em',
+          }}
+          aria-hidden
+        >
+          iQ
+        </div>
+        <div className="flex flex-col leading-tight min-w-0">
+          <InboxIQLogo className="text-[17px] leading-none" />
+          <span className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+            by Energy Forward AI
+          </span>
+        </div>
       </div>
+
 
       {/* Active Email Selector */}
       <div className="p-3" style={{ borderBottom: '1px solid var(--border-soft)' }}>
@@ -250,54 +264,54 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
         <nav className="p-3 space-y-2">
           {isChatOnly ? (
             <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
-              <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>
+              <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>
             </NavSection>
           ) : (
             <>
               {/* Account Provisioning */}
               <NavSection title="Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
-                <NavItem href="/integrations" icon={Link2} accent={accents.cyan}><span style={{ fontSize: '12.5px' }}>Email &amp; Calendar Connections</span></NavItem>
+                <NavItem href="/integrations" emoji="🔗" accent={accents.cyan}>Email &amp; Calendar</NavItem>
+                <NavItem href="/sync" emoji="🔄" accent={accents.cyan}>Manual Sync</NavItem>
               </NavSection>
 
               {/* AI Intelligence */}
               {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
-                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" icon={MessageSquare} accent={accents.purple}>AI Chat</NavItem>}
-                  {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" icon={Tag} accent={accents.purple}>Email Intelligence</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" icon={BellRing} accent={accents.purple}>Flagged Email Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" icon={Sun} accent={accents.purple}>The Helm</NavItem>}
+                  {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="🌞" accent={accents.purple}>The Helm</NavItem>}
+                  {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" emoji="🏷️" accent={accents.purple}>Email Intelligence</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" emoji="🔔" accent={accents.purple}>Flagged Tracker</NavItem>}
+                  {(isSuperAdmin || hasFeature('ai_draft')) && <NavItem href="/email-draft" emoji="✍️" accent={accents.purple}>AI Draft</NavItem>}
                 </NavSection>
               )}
 
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
-                <NavItem href="/settings" icon={User} accent={accents.orange}>My Profile &amp; Signature</NavItem>
+                <NavItem href="/settings" emoji="👤" accent={accents.orange}>Profile &amp; Signature</NavItem>
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
-                  <NavItem href="/meeting-copilot" icon={Headphones} accent={accents.orange}>Meeting Copilot</NavItem>
-                )}
-                {(isSuperAdmin || hasFeature('meeting_copilot')) && (
-                  <NavItem href="/integrations?tab=settings" icon={Clock} accent={accents.orange}>My Availability and Calendar</NavItem>
+                  <NavItem href="/meeting-copilot" emoji="🎧" accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
               </NavSection>
 
               {/* AI Activity Report */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" icon={BarChart3} accent={accents.green}>AI Activity Report</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" icon={BellRing} accent={accents.green}>Flagged Email Reports</NavItem>}
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>}
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/knowledge" emoji="📚" accent={accents.green}>Knowledge Base</NavItem>}
                 </NavSection>
               )}
 
               {/* Admin */}
               {(isSuperAdmin || isOrgAdmin) && (
                 <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
-                  {isSuperAdmin && <NavItem href="/admin" icon={Shield} accent={accents.red}>Admin Dashboard</NavItem>}
-                  {isSuperAdmin && <NavItem href="/super-admin" icon={Shield} accent={accents.red}>Super Admin (Orgs)</NavItem>}
-                  {(isSuperAdmin || isOrgAdmin) && <NavItem href="/org-admin" icon={Shield} accent={accents.red}>Org Admin</NavItem>}
+                  {isSuperAdmin && <NavItem href="/admin" emoji="🛡️" accent={accents.red}>Admin Dashboard</NavItem>}
+                  {isSuperAdmin && <NavItem href="/super-admin" emoji="🏢" accent={accents.red}>Super Admin</NavItem>}
+                  {(isSuperAdmin || isOrgAdmin) && <NavItem href="/org-admin" emoji="🗂️" accent={accents.red}>Org Admin</NavItem>}
                 </NavSection>
               )}
             </>
           )}
+
         </nav>
       </div>
 
