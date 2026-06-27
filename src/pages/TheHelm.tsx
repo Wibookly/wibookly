@@ -831,15 +831,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
     if (!active) return;
     setOriginal(null);
     setDraftText('');
+    setBodyError(null);
     (async () => {
       try {
         const { data: msg, error } = await supabase.functions.invoke('helm-fetch-message', {
           body: { item_id: active.id },
         });
         if (error) throw error;
-        setOriginal(msg?.message ?? null);
+        if (!msg?.message) throw new Error('No message returned');
+        setOriginal(msg.message);
       } catch (e: any) {
-        toast.error(e?.message ?? 'Failed to load message');
+        setBodyError(e?.message ?? 'Failed to load message');
       }
       // Fetch the persisted draft from DB
       const { data: row } = await supabase
