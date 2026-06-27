@@ -568,22 +568,14 @@ function BriefView({
 
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <SectionHeader
-                index={1}
-                title="Your decisions"
-                subtitle="Only you can decide or approve these."
-                sectionKey="decisions"
-                emailSection="brief"
-              />
-            </div>
-            {decisions.length > 0 && (
-              <Badge variant="secondary" className="font-mono tabular-nums">
-                {decisions.length}
-              </Badge>
-            )}
-          </div>
+          <SectionHeader
+            index={1}
+            title="Your decisions"
+            subtitle="Only you can decide or approve these."
+            sectionKey="decisions"
+            emailSection="brief"
+            count={decisions.length}
+          />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-20" />
