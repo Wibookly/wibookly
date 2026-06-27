@@ -101,13 +101,14 @@ function NavSection({ title, accent, children, defaultOpen = true }: NavSectionP
 
 interface NavItemProps {
   href: string;
-  icon: React.ElementType;
+  icon?: React.ElementType;
+  emoji?: string;
   accent: string;
   children: React.ReactNode;
   showUpgradeBadge?: boolean;
 }
 
-function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
+function NavItem({ href, icon: Icon, emoji, accent, children }: NavItemProps) {
   const location = useLocation();
   const currentUrl = location.pathname + location.search;
   const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
@@ -129,11 +130,22 @@ function NavItem({ href, icon: Icon, accent, children }: NavItemProps) {
       onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--nav-hover-bg)'; }}
       onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
     >
-      <Icon className="w-4 h-4 shrink-0" style={{ color: isActive ? '#FFFFFF' : accent }} />
+      {emoji ? (
+        <span
+          aria-hidden
+          className="shrink-0 inline-flex items-center justify-center"
+          style={{ fontSize: '18px', lineHeight: 1, width: '1.25rem', height: '1.25rem', filter: isActive ? 'drop-shadow(0 1px 2px rgba(0,0,0,.25))' : undefined }}
+        >
+          {emoji}
+        </span>
+      ) : Icon ? (
+        <Icon className="w-4 h-4 shrink-0" style={{ color: isActive ? '#FFFFFF' : accent }} />
+      ) : null}
       <span className="flex-1 truncate" style={{ fontSize: '13.5px' }}>{children}</span>
     </NavLink>
   );
 }
+
 export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; onTogglePin?: () => void } = {}) {
   const { organization, profile } = useAuth();
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
