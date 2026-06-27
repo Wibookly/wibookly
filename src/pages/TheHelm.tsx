@@ -921,6 +921,15 @@ function InboxView({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const skip = () => {
+    if (!active) return;
+    const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
+    setActiveId(remaining[0]?.id ?? null);
+    setDraftText('');
+    setOriginal(null);
+    setBodyError(null);
+  };
+
   const RESHAPE_CHIPS = ['Shorter', 'More formal', 'Warmer', 'More firm', 'Bullet points'];
 
   return (
