@@ -201,37 +201,50 @@ Deno.serve(async (req) => {
     if (tz.ok && tz.data?.timeZone) userTz = String(tz.data.timeZone);
   } catch { /* */ }
 
+  // ============ Mode: preview_note (returns a draft warm note without sending) ============
+  if (mode === "preview_note") {
+    const p = body?.proposal as Proposal | undefined;
+    if (!p?.event_id) return json(400, { error: "missing_proposal" });
+    const note = p.is_organizer
+      ? await composeWarmNote(userId, p)
+      : await composeProposeNewTime(userId, p);
+    return json(200, { ok: true, note });
+  }
+
   // ============ Mode: approve_external ============
   if (mode === "approve_external") {
     const p = body?.proposal as Proposal | undefined;
     if (!p?.event_id) return json(400, { error: "missing_proposal" });
+    const customNote = typeof body?.custom_note === "string" && body.custom_note.trim().length > 0
+      ? String(body.custom_note)
+      : null;
 
     if (p.is_organizer) {
       const patched = await patchEventTime(
         userId, connectionId!, p.event_id, p.new_start, p.new_end, userTz,
       );
       if (!patched.ok) return json(502, { error: "patch_failed", details: patched.error });
-      const note = await composeWarmNote(userId, p);
+      const note = customNote ?? await composeWarmNote(userId, p);
       await sendNote(userId, connectionId!, p.attendees, p.organizer, p.subject, note);
       await admin.from("activity_log").insert({
         user_id: userId, organization_id: orgId,
         action_type: "event_moved",
         detail: `Rescheduled external meeting "${p.subject}" → ${p.new_start}`,
         graph_id: p.event_id,
-        tier: "auto",
+        tier: "user",
         action_key: `event_moved:${p.event_id}:${p.new_start}`,
       });
       return json(200, { ok: true, applied: true });
     } else {
       // Not organizer → propose new time via email
-      const note = await composeProposeNewTime(userId, p);
+      const note = customNote ?? await composeProposeNewTime(userId, p);
       await sendNote(userId, connectionId!, [p.organizer], { name: "", email: userEmail }, `Re: ${p.subject}`, note);
       await admin.from("activity_log").insert({
         user_id: userId, organization_id: orgId,
         action_type: "note_sent",
         detail: `Asked organizer to move "${p.subject}"`,
         graph_id: p.event_id,
-        tier: "auto",
+        tier: "user",
         action_key: `propose:${p.event_id}:${p.new_start}`,
       });
       return json(200, { ok: true, proposed: true });
