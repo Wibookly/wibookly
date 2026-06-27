@@ -77,8 +77,11 @@ function applyPalette(p: Palette) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system';
-    return (localStorage.getItem(MODE_KEY) as Theme) || 'system';
+    return (localStorage.getItem(MODE_KEY) as Theme)
+        || (localStorage.getItem(LEGACY_MODE_KEY) as Theme)
+        || 'system';
   });
+
   const [palette, setPaletteState] = useState<Palette>(() => {
     if (typeof window === 'undefined') return 'aurora';
     const saved = localStorage.getItem(PALETTE_KEY) || localStorage.getItem(LEGACY_COLOR_KEY);
