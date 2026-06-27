@@ -1317,7 +1317,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
                 {busy === 'save' ? 'Saving…' : 'Save draft'}
               </Button>
               <Button onClick={() => send('send')} disabled={!!busy || !draft.trim()}>
-                <Send className="w-4 h-4 mr-1.5" /> {busy === 'send' ? 'Sending…' : 'Send reply'}
+                <Send className="w-4 h-4 mr-1.5" /> {busy === 'send' ? 'Sending…' : 'Approve & send'}
               </Button>
             </div>
           </CardContent>
