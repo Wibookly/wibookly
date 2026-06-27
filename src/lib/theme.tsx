@@ -56,7 +56,8 @@ const LEGACY_MODE_KEY = 'inboxiq-theme';
 const PALETTE_KEY = 'inboxiq-palette';
 const LEGACY_COLOR_KEY = 'inboxiq-color-theme';
 
-const LEGACY_COLOR_KEY = 'inboxiq-color-theme';
+
+
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';
