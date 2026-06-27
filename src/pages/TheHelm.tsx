@@ -815,6 +815,8 @@ function InboxView({ onBack }: { onBack: () => void }) {
     body_html: string;
     body_text: string;
   } | null>(null);
+  const [bodyError, setBodyError] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [reshapeBusy, setReshapeBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
   const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | null>(null);
@@ -829,15 +831,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
     if (!active) return;
     setOriginal(null);
     setDraftText('');
+    setBodyError(null);
     (async () => {
       try {
         const { data: msg, error } = await supabase.functions.invoke('helm-fetch-message', {
           body: { item_id: active.id },
         });
         if (error) throw error;
-        setOriginal(msg?.message ?? null);
+        if (!msg?.message) throw new Error('No message returned');
+        setOriginal(msg.message);
       } catch (e: any) {
-        toast.error(e?.message ?? 'Failed to load message');
+        setBodyError(e?.message ?? 'Failed to load message');
       }
       // Fetch the persisted draft from DB
       const { data: row } = await supabase
@@ -901,9 +905,12 @@ function InboxView({ onBack }: { onBack: () => void }) {
       } else {
         toast.success('Draft saved in Outlook');
       }
+      if (mode === 'send') {
+        setSentIds((prev) => new Set(prev).add(active.id));
+      }
       qc.invalidateQueries({ queryKey: ['helm-items'] });
-      // Auto-advance to next unsent
-      const remaining = drafts.filter((d) => d.id !== active.id);
+      // Auto-advance to next unsent (skip sent ones)
+      const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
       setActiveId(remaining[0]?.id ?? null);
       setDraftText('');
       setOriginal(null);
@@ -912,6 +919,15 @@ function InboxView({ onBack }: { onBack: () => void }) {
     } finally {
       setSendBusy(null);
     }
+  };
+
+  const skip = () => {
+    if (!active) return;
+    const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
+    setActiveId(remaining[0]?.id ?? null);
+    setDraftText('');
+    setOriginal(null);
+    setBodyError(null);
   };
 
   const RESHAPE_CHIPS = ['Shorter', 'More formal', 'Warmer', 'More firm', 'Bullet points'];
@@ -935,17 +951,27 @@ function InboxView({ onBack }: { onBack: () => void }) {
             <ul className="divide-y divide-border max-h-[80vh] overflow-y-auto">
               {drafts.map((d) => {
                 const isActive = d.id === effectiveId;
+                const isSent = sentIds.has(d.id);
+                const category =
+                  (d as any).category ??
+                  (d.tier === 'decision' ? 'Decision' : d.tier === 'overdue' ? 'Overdue' : 'Reply');
                 return (
                   <li key={d.id}>
                     <button
                       onClick={() => setActiveId(d.id)}
                       className={cn(
                         'w-full text-left p-4 transition-colors',
-                        isActive ? 'bg-primary/10' : 'hover:bg-muted/40',
+                        isActive ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent',
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span
+                          className={cn(
+                            'w-2 h-2 rounded-full shrink-0',
+                            isSent ? 'bg-primary/30' : 'bg-primary',
+                          )}
+                          aria-label={isSent ? 'sent' : 'unsent'}
+                        />
                         <span className="text-body-2 font-semibold text-foreground truncate">
                           {d.sender ?? 'Unknown sender'}
                         </span>
@@ -956,9 +982,14 @@ function InboxView({ onBack }: { onBack: () => void }) {
                           {d.context}
                         </div>
                       )}
-                      <Badge variant="secondary" className="mt-2 text-[10px]">
-                        draft
-                      </Badge>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {category}
+                        </Badge>
+                        {isSent && (
+                          <Badge variant="secondary" className="text-[10px]">sent</Badge>
+                        )}
+                      </div>
                     </button>
                   </li>
                 );
@@ -995,11 +1026,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
                   <p className="text-caption uppercase tracking-wider text-muted-foreground mb-2">
                     Original message
                   </p>
-                  {original ? (
+                  {bodyError ? (
+                    <div className="text-body-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 flex items-center justify-between">
+                      <span className="text-destructive">Couldn't load this email: {bodyError}</span>
+                      <Button size="sm" variant="outline" onClick={() => setActiveId(active.id)}>
+                        Retry
+                      </Button>
+                    </div>
+                  ) : original ? (
                     original.body_html ? (
                       <div
                         className="prose prose-sm dark:prose-invert max-w-none text-body-2"
-                        // Outlook HTML is sanitized by Graph for display
                         dangerouslySetInnerHTML={{ __html: original.body_html }}
                       />
                     ) : (
@@ -1079,6 +1116,13 @@ function InboxView({ onBack }: { onBack: () => void }) {
 
                   <div className="flex items-center justify-end gap-2">
                     <Button
+                      variant="ghost"
+                      onClick={skip}
+                      disabled={!!sendBusy}
+                    >
+                      Skip
+                    </Button>
+                    <Button
                       variant="outline"
                       onClick={() => send('save_draft')}
                       disabled={!!sendBusy || !draftText.trim()}
@@ -1090,7 +1134,7 @@ function InboxView({ onBack }: { onBack: () => void }) {
                       disabled={!!sendBusy || !draftText.trim()}
                     >
                       <Send className="w-4 h-4 mr-1.5" />
-                      {sendBusy === 'send' ? 'Sending…' : 'Send reply'}
+                      {sendBusy === 'send' ? 'Sending…' : 'Approve & send'}
                     </Button>
                   </div>
                 </div>
@@ -1273,7 +1317,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
                 {busy === 'save' ? 'Saving…' : 'Save draft'}
               </Button>
               <Button onClick={() => send('send')} disabled={!!busy || !draft.trim()}>
-                <Send className="w-4 h-4 mr-1.5" /> {busy === 'send' ? 'Sending…' : 'Send reply'}
+                <Send className="w-4 h-4 mr-1.5" /> {busy === 'send' ? 'Sending…' : 'Approve & send'}
               </Button>
             </div>
           </CardContent>
