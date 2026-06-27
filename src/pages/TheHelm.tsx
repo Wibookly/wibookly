@@ -951,17 +951,27 @@ function InboxView({ onBack }: { onBack: () => void }) {
             <ul className="divide-y divide-border max-h-[80vh] overflow-y-auto">
               {drafts.map((d) => {
                 const isActive = d.id === effectiveId;
+                const isSent = sentIds.has(d.id);
+                const category =
+                  (d as any).category ??
+                  (d.tier === 'decision' ? 'Decision' : d.tier === 'overdue' ? 'Overdue' : 'Reply');
                 return (
                   <li key={d.id}>
                     <button
                       onClick={() => setActiveId(d.id)}
                       className={cn(
                         'w-full text-left p-4 transition-colors',
-                        isActive ? 'bg-primary/10' : 'hover:bg-muted/40',
+                        isActive ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent',
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span
+                          className={cn(
+                            'w-2 h-2 rounded-full shrink-0',
+                            isSent ? 'bg-primary/30' : 'bg-primary',
+                          )}
+                          aria-label={isSent ? 'sent' : 'unsent'}
+                        />
                         <span className="text-body-2 font-semibold text-foreground truncate">
                           {d.sender ?? 'Unknown sender'}
                         </span>
@@ -972,9 +982,14 @@ function InboxView({ onBack }: { onBack: () => void }) {
                           {d.context}
                         </div>
                       )}
-                      <Badge variant="secondary" className="mt-2 text-[10px]">
-                        draft
-                      </Badge>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {category}
+                        </Badge>
+                        {isSent && (
+                          <Badge variant="secondary" className="text-[10px]">sent</Badge>
+                        )}
+                      </div>
                     </button>
                   </li>
                 );
