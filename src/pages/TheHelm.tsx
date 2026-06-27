@@ -1116,6 +1116,13 @@ function InboxView({ onBack }: { onBack: () => void }) {
 
                   <div className="flex items-center justify-end gap-2">
                     <Button
+                      variant="ghost"
+                      onClick={skip}
+                      disabled={!!sendBusy}
+                    >
+                      Skip
+                    </Button>
+                    <Button
                       variant="outline"
                       onClick={() => send('save_draft')}
                       disabled={!!sendBusy || !draftText.trim()}
@@ -1127,7 +1134,7 @@ function InboxView({ onBack }: { onBack: () => void }) {
                       disabled={!!sendBusy || !draftText.trim()}
                     >
                       <Send className="w-4 h-4 mr-1.5" />
-                      {sendBusy === 'send' ? 'Sending…' : 'Send reply'}
+                      {sendBusy === 'send' ? 'Sending…' : 'Approve & send'}
                     </Button>
                   </div>
                 </div>
