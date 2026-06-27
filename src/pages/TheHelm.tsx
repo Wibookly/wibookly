@@ -642,6 +642,7 @@ function BriefView({
             subtitle="These threads have been sitting too long."
             sectionKey="overdue"
             emailSection="brief"
+            count={overdue.length}
           />
           <div className="grid gap-3">
             {isLoading ? (
