@@ -113,6 +113,7 @@ function useHelmData() {
             'subscription_created',
             'morning_prep',
             'section_emailed',
+            'item_completed',
           ])
           .gte('created_at', since)
           .order('created_at', { ascending: false })
@@ -183,6 +184,7 @@ function SectionHeader({
   sectionKey,
   emailSection,
   index,
+  count,
   onPrint,
   onEmail,
 }: {
@@ -191,6 +193,7 @@ function SectionHeader({
   sectionKey?: string;
   emailSection?: 'brief' | 'inbox' | 'calendar' | 'big3' | 'activity';
   index?: number;
+  count?: number;
   onPrint?: () => void;
   onEmail?: () => void;
 }) {
@@ -236,7 +239,14 @@ function SectionHeader({
             </span>
           )}
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight">{title}</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground leading-tight flex items-center gap-2">
+              {title}
+              {typeof count === 'number' && (
+                <Badge variant="secondary" className="font-mono tabular-nums text-[10px] px-1.5 py-0">
+                  {count}
+                </Badge>
+              )}
+            </h2>
             {subtitle && (
               <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{subtitle}</p>
             )}
@@ -394,7 +404,7 @@ function BriefView({
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data, isLoading } = useHelmData();
+  const { data, isLoading, error, refetch } = useHelmData();
   const greeting = useMemo(() => {
     const hr = new Date().getHours();
     if (hr < 12) return 'Good morning';
@@ -453,6 +463,14 @@ function BriefView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
       <div className="space-y-12">
+        {error && (
+          <Card className="border-destructive/40 print:hidden">
+            <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
+              <span className="text-destructive">Couldn't load your brief: {(error as Error).message}</span>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+            </CardContent>
+          </Card>
+        )}
         {/* Hero — borderless, demo-v4 style */}
         <section aria-labelledby="helm-hero" className="pt-2">
           <div className="flex items-center justify-between gap-4 mb-6">
@@ -509,7 +527,7 @@ function BriefView({
 
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
-          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" />
+          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-24" />
@@ -558,22 +576,14 @@ function BriefView({
 
         {/* Decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <SectionHeader
-                index={1}
-                title="Your decisions"
-                subtitle="Only you can decide or approve these."
-                sectionKey="decisions"
-                emailSection="brief"
-              />
-            </div>
-            {decisions.length > 0 && (
-              <Badge variant="secondary" className="font-mono tabular-nums">
-                {decisions.length}
-              </Badge>
-            )}
-          </div>
+          <SectionHeader
+            index={1}
+            title="Your decisions"
+            subtitle="Only you can decide or approve these."
+            sectionKey="decisions"
+            emailSection="brief"
+            count={decisions.length}
+          />
           <div className="grid gap-3">
             {isLoading ? (
               <Skeleton className="h-20" />
@@ -596,6 +606,7 @@ function BriefView({
             subtitle="Replies ready for a quick read and send."
             sectionKey="drafted"
             emailSection="inbox"
+            count={stats.drafted}
           />
           <Card
             role="button"
@@ -639,6 +650,7 @@ function BriefView({
             subtitle="These threads have been sitting too long."
             sectionKey="overdue"
             emailSection="brief"
+            count={overdue.length}
           />
           <div className="grid gap-3">
             {isLoading ? (
@@ -804,7 +816,7 @@ function BriefView({
 
 function InboxView({ onBack }: { onBack: () => void }) {
   const qc = useQueryClient();
-  const { data, isLoading } = useHelmData();
+  const { data, isLoading, error, refetch } = useHelmData();
   const drafts = data?.drafts ?? [];
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -938,14 +950,26 @@ function InboxView({ onBack }: { onBack: () => void }) {
       <SectionHeader
         title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
         subtitle="Skim, edit, send — replies thread into the original Outlook conversation."
+        count={drafts.length}
       />
 
-      {isLoading ? (
+      {error ? (
+        <Card className="border-destructive/40">
+          <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
+            <span className="text-destructive">Couldn't load drafts: {(error as Error).message}</span>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <Skeleton className="h-96" />
       ) : drafts.length === 0 ? (
         <EmptyHint>No drafts yet. Sync the inbox to generate fresh drafts.</EmptyHint>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 min-h-[70vh]">
+        <div className={cn(
+          'grid gap-4 min-h-[70vh]',
+          // Mobile: when an item is selected, hide the list and show only the reader.
+          active ? 'grid-cols-1 lg:grid-cols-[320px_1fr]' : 'grid-cols-1 lg:grid-cols-[320px_1fr]',
+        )}><div className={cn(active && 'hidden lg:block')}>
           {/* Left: list */}
           <Card className="overflow-hidden">
             <ul className="divide-y divide-border max-h-[80vh] overflow-y-auto">
@@ -996,8 +1020,17 @@ function InboxView({ onBack }: { onBack: () => void }) {
               })}
             </ul>
           </Card>
+          </div>
 
-          {/* Right: reader + composer */}
+          {/* Right: reader + composer (on mobile, shown only when an item is active) */}
+          <div className={cn(!active && 'hidden lg:block')}>
+            {active && (
+              <div className="lg:hidden mb-2">
+                <Button variant="ghost" size="sm" onClick={() => setActiveId(null)}>
+                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to list
+                </Button>
+              </div>
+            )}
           <Card className="overflow-hidden">
             {!active ? (
               <CardContent className="p-8 text-body-2 text-muted-foreground">
@@ -1141,6 +1174,7 @@ function InboxView({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </Card>
+          </div>
         </div>
       )}
     </div>
@@ -1991,14 +2025,21 @@ export default function TheHelm() {
     <>
       <style>{`
         @media print {
+          /* Always hide chrome that shouldn't appear on print */
+          [data-sonner-toaster], [data-sidebar], nav[role="navigation"],
+          .print\\:hidden { display: none !important; }
+          /* Section-scoped printing */
           body[data-print-section] aside,
           body[data-print-section] nav,
           body[data-print-section] header,
-          body[data-print-section] [data-helm-section]:not([data-print-target]),
-          body[data-print-section] .print\\:hidden { display: none !important; }
+          body[data-print-section] [data-helm-section]:not([data-print-target]) {
+            display: none !important;
+          }
           body[data-print-section] [data-helm-section][data-print-target] {
             break-inside: avoid;
           }
+          /* Force a clean light look on paper */
+          html, body { background: #ffffff !important; color: #000 !important; }
         }
       `}</style>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
