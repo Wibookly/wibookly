@@ -24,4 +24,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'follow-up-reminder': followUpReminder,
   'integration-alert': integrationAlert,
   'flagged-email-report': flaggedEmailReport,
+  'ai-activity-report': aiActivityReport,
 }
