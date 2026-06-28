@@ -15,6 +15,7 @@ import { template as welcomeAccessGranted } from './welcome-access-granted.tsx'
 import { template as followUpReminder } from './follow-up-reminder.tsx'
 import { template as integrationAlert } from './integration-alert.tsx'
 import { template as flaggedEmailReport } from './flagged-email-report.tsx'
+import { template as aiActivityReport } from './ai-activity-report.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'welcome-sso': welcomeSso,
