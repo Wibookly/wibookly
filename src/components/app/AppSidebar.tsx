@@ -108,9 +108,10 @@ interface NavItemProps {
   accent: string;
   children: React.ReactNode;
   showUpgradeBadge?: boolean;
+  badgeCount?: number;
 }
 
-function NavItem({ href, icon: Icon, emoji, accent, children }: NavItemProps) {
+function NavItem({ href, icon: Icon, emoji, accent, children, badgeCount }: NavItemProps) {
   const location = useLocation();
   const currentUrl = location.pathname + location.search;
   const isActive = currentUrl === href || (location.pathname === href.split('?')[0] && location.search === '?' + href.split('?')[1]);
@@ -125,7 +126,7 @@ function NavItem({ href, icon: Icon, emoji, accent, children }: NavItemProps) {
   return (
     <NavLink
       to={href}
-      className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors"
+      className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors relative"
       style={isActive
         ? activeStyle
         : { color: 'var(--text-body)', fontSize: '13.5px', fontWeight: 500, letterSpacing: '-0.005em' }}
@@ -144,6 +145,19 @@ function NavItem({ href, icon: Icon, emoji, accent, children }: NavItemProps) {
         <Icon className="w-4 h-4 shrink-0" style={{ color: isActive ? '#FFFFFF' : accent }} />
       ) : null}
       <span className="flex-1 truncate" style={{ fontSize: '13.5px' }}>{children}</span>
+      {badgeCount && badgeCount > 0 ? (
+        <span
+          className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold animate-pulse"
+          style={{
+            background: '#ef4444',
+            color: '#fff',
+            boxShadow: '0 0 0 2px var(--sidebar-bg, var(--surface))',
+          }}
+          aria-label={`${badgeCount} unread`}
+        >
+          {badgeCount > 9 ? '9+' : badgeCount}
+        </span>
+      ) : null}
     </NavLink>
   );
 }
