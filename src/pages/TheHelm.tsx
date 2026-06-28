@@ -494,7 +494,7 @@ function BriefView({
 
           <h1
             id="helm-hero"
-            className="text-[44px] md:text-[56px] leading-[1.05] tracking-tight font-semibold text-foreground"
+            className="text-[26px] md:text-[32px] leading-tight tracking-tight font-semibold text-foreground"
           >
             {greeting}
             {name ? `, ${name}` : ''}.{' '}
@@ -502,23 +502,26 @@ function BriefView({
               {stats.needsYou === 0 ? 'You are clear.' : `${stats.needsYou} thing${stats.needsYou === 1 ? '' : 's'} need you today.`}
             </span>
           </h1>
-          <p className="text-[15px] md:text-base text-muted-foreground max-w-2xl mt-4 leading-relaxed">
+          <p className="text-[13px] md:text-sm text-muted-foreground max-w-2xl mt-2 leading-relaxed">
             Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
           </p>
 
-          <div className="mt-10 flex items-baseline gap-5 flex-wrap">
-            <span className="text-[72px] md:text-[96px] leading-none font-light text-muted-foreground/40 tabular-nums">
-              {stats.totalInbound}
-            </span>
-            <ArrowRight className="w-7 h-7 text-muted-foreground/60" />
-            <span className="text-[72px] md:text-[96px] leading-none font-light text-primary tabular-nums">
-              {stats.needsYou}
-            </span>
-            <div className="ml-2 pb-2">
-              <p className="text-[15px] text-foreground">items came in overnight</p>
-              <p className="text-[13px] text-muted-foreground mt-1">
-                surfaced to you · the rest handled or held
-              </p>
+          {/* Executive summary tiles — what each number means */}
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Total inbound</p>
+              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">emails & items received in the last 24h</p>
+            </div>
+            <div className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary/80">Needs you</p>
+              <p className="text-3xl font-light text-primary tabular-nums leading-tight mt-1">{stats.needsYou}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">decisions, approvals & overdue replies</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 col-span-2 md:col-span-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Handled for you</p>
+              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound - stats.needsYou}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">filed, drafted or auto-replied overnight</p>
             </div>
           </div>
         </section>
