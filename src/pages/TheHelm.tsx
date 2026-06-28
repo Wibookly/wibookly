@@ -2170,7 +2170,7 @@ export default function TheHelm() {
       `}</style>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
-        {view === 'inbox' && <InboxView onBack={back} />}
+        {view === 'inbox' && <InboxView onBack={back} scope={inboxScope} />}
         {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
         {view === 'calendar' && <CalendarView onBack={back} />}
       </div>
