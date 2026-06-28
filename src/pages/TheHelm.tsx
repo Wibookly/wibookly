@@ -126,6 +126,12 @@ function useHelmData() {
       const decisionRows = rows.filter((r) => r.tier === 'decision');
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
+      // FYI = anything triaged that does NOT need a reply from the user
+      // (newsletters, marketing, external announcements, notifications).
+      // We capture rows tagged 'fyi' / 'info' explicitly, plus anything the
+      // backend left untagged (no actionable tier).
+      const known = new Set(['big3', 'decision', 'draft', 'overdue']);
+      const fyi = rows.filter((r) => !r.tier || r.tier === ('fyi' as any) || r.tier === ('info' as any) || !known.has(r.tier as string));
       const big3Candidates = [...explicitBig3, ...decisionRows, ...overdue, ...drafts];
       const seenBig3 = new Set<string>();
       const big3 = big3Candidates.filter((item) => {
@@ -160,6 +166,7 @@ function useHelmData() {
         decisions: decisions.slice(big3.length),
         drafts,
         overdue,
+        fyi,
         autoActions,
         stats: {
           totalInbound,
