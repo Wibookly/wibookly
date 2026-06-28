@@ -61,7 +61,7 @@ export default function FlaggedEmailTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState<string>(todayStr(-30));
   const [to, setTo] = useState<string>(todayStr(0));
-  const [sending, setSending] = useState(false);
+  
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
