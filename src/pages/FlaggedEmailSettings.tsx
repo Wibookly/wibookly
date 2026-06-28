@@ -236,9 +236,9 @@ export function FlaggedEmailSettingsBody() {
         timezone: row?.timezone || browserTimezone(),
         tone,
       });
-      const customized = isToneCustomized(tone);
-      setToneEditing(!customized);
-      if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
+      const hasSavedTone = row?.tone_settings != null;
+      setToneEditing(!hasSavedTone);
+      if (hasSavedTone && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
   }, [user?.id, activeConnection?.id]);
