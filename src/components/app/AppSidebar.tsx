@@ -17,6 +17,7 @@ import { ThemePicker } from '@/components/ThemePicker';
 
 
 import { useState, useEffect } from 'react';
+import { useSupportUnread } from '@/hooks/useSupportUnread';
 import {
   Collapsible,
   CollapsibleContent,
