@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { PageHero } from '@/components/app/PageHero';
-import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink } from 'lucide-react';
+import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink, Send, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { HelpIssueForm } from '@/components/help/HelpIssueForm';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface MyTicket {
   id: string;
