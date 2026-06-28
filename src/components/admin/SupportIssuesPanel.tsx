@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, RefreshCw, MessageSquareWarning, ExternalLink, Send, Building2 } from 'lucide-react';
+import { Loader2, RefreshCw, MessageSquareWarning, ExternalLink, Send, Building2, Paperclip, X } from 'lucide-react';
 
 interface SupportIssue {
   id: string;
