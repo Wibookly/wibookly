@@ -194,6 +194,107 @@ export default function FlaggedEmailSettings() {
       </div>
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
+        <FlaggedEmailSettingsBody />
+      </div>
+    </div>
+  );
+}
+
+export function FlaggedEmailSettingsBody() {
+  const { user } = useAuth();
+  const { activeConnection } = useActiveEmail();
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toneEditing, setToneEditing] = useState(false);
+  const [toneSavedAt, setToneSavedAt] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!activeConnection?.id) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.rpc('get_or_create_follow_up_settings', {
+        _connection_id: activeConnection.id,
+      });
+      const row = data as FollowUpSettingsRow | null;
+      setSettingsId(row?.id ?? null);
+      const tone = parseTone(row?.tone_settings ?? null);
+      setPrefs({
+        enabled: row?.is_enabled ?? true,
+        autoReply: !!row?.auto_draft_enabled,
+        autoSend: !!row?.auto_reply_enabled,
+        businessHoursOnly: row?.business_hours_only ?? true,
+        businessHoursStart: row?.business_hours_start ?? 8,
+        businessHoursEnd: row?.business_hours_end ?? 17,
+        businessDays: Array.isArray(row?.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+        timezone: row?.timezone || browserTimezone(),
+        tone,
+      });
+      const customized = isToneCustomized(tone);
+      setToneEditing(!customized);
+      if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
+      setLoading(false);
+    })();
+  }, [user?.id, activeConnection?.id]);
+
+  const persist = async (next: Prefs) => {
+    if (!user?.id || !settingsId) return;
+    setSaving(true);
+    const payload: FollowUpSettingsUpdate = {
+      is_enabled: next.enabled,
+      auto_draft_enabled: next.autoReply,
+      auto_reply_enabled: next.autoSend,
+      business_hours_only: next.businessHoursOnly,
+      business_hours_start: next.businessHoursStart,
+      business_hours_end: next.businessHoursEnd,
+      business_days: next.businessDays,
+      timezone: next.timezone || browserTimezone(),
+      tone_settings: next.tone as unknown as Json,
+      reminder_max_count: 3,
+    };
+    await supabase.from('follow_up_settings').update(payload).eq('id', settingsId);
+    setSaving(false);
+  };
+
+  const update = (patch: Partial<Prefs>) => {
+    const next = { ...prefs, ...patch };
+    if (!next.autoReply) next.autoSend = false;
+    if (!next.enabled) { next.autoReply = false; next.autoSend = false; }
+    setPrefs(next);
+    persist(next).then(() => toast.success('Preferences saved'));
+  };
+
+  const updateTone = (patch: Partial<Tone>) => {
+    setPrefs(p => ({ ...p, tone: { ...p.tone, ...patch } }));
+  };
+
+  const settingsReady = Boolean(activeConnection?.id && settingsId && !loading);
+
+  const saveTone = async () => {
+    await persist(prefs);
+    setToneSavedAt(new Date());
+    setToneEditing(false);
+    toast.success('AI tone saved', {
+      description: `${styleLabel(prefs.tone.style)} · ${formatLabel(prefs.tone.format)}`,
+    });
+  };
+
+  const deleteTone = async () => {
+    const next = { ...prefs, tone: { ...DEFAULT_TONE } };
+    setPrefs(next);
+    await persist(next);
+    setToneSavedAt(null);
+    setToneEditing(true);
+    toast.success('AI tone reset to defaults');
+  };
+
+  return (
+    <div className="space-y-6">
+
         {/* Controls */}
         {!activeConnection?.id && (
           <Alert>
