@@ -110,6 +110,20 @@ async function processOne(admin: any, row: any) {
   const connId = row.connection_id;
   const prefs = await getPrefs(admin, userId);
 
+  // 0. Gate on enabled_at — only process emails that were sent AFTER the user
+  // turned the tracker on. Historical flagged emails are ignored.
+  if (prefs.enabledAt) {
+    const sentMs = new Date(row.sent_at).getTime();
+    const enabledMs = new Date(prefs.enabledAt).getTime();
+    if (Number.isFinite(sentMs) && Number.isFinite(enabledMs) && sentMs < enabledMs) {
+      await admin
+        .from('tracked_emails')
+        .update({ status: 'cancelled', last_error: 'sent before tracker was enabled', last_checked_at: new Date().toISOString() })
+        .eq('id', row.id);
+      return { id: row.id, action: 'skipped_pre_enable' };
+    }
+  }
+
   // 1. Re-check flag status on source message
   if (row.graph_message_id) {
     const cur = await callGraph<any>(userId, connId, 'mail',
@@ -125,7 +139,10 @@ async function processOne(admin: any, row: any) {
     }
   }
 
-  // 2. Check for replies in the conversation after sent_at
+  // 2. Check for replies in the conversation after sent_at.
+  // ANY new message in the conversation after the original sent_at — including
+  // one the user sent themselves via the AI draft flow — means the conversation
+  // has moved on and no AI follow-up should fire.
   if (row.conversation_id) {
     const sentIso = new Date(row.sent_at).toISOString();
     const filter = encodeURIComponent(`conversationId eq '${row.conversation_id}' and receivedDateTime gt ${sentIso}`);
@@ -133,16 +150,30 @@ async function processOne(admin: any, row: any) {
       `/me/messages?$filter=${filter}&$select=id,from,subject,internetMessageHeaders&$top=20`);
     if (conv.ok) {
       const msgs: any[] = conv.data?.value || [];
+      const { data: connRow } = await admin.from('provider_connections').select('connected_email').eq('id', connId).maybeSingle();
+      const myEmail = String(connRow?.connected_email || '').toLowerCase();
+      let sawThirdPartyReply = false;
+      let sawOwnReply = false;
       for (const m of msgs) {
         const fromAddr = String(m.from?.emailAddress?.address || '').toLowerCase();
         if (!fromAddr) continue;
-        const { data: connRow } = await admin.from('provider_connections').select('connected_email').eq('id', connId).maybeSingle();
-        const myEmail = String(connRow?.connected_email || '').toLowerCase();
-        if (myEmail && fromAddr === myEmail) continue;
         const headers = parseGraphInternetHeaders(m.internetMessageHeaders);
         if (isAutoReply(headers, m.subject)) continue;
+        if (myEmail && fromAddr === myEmail) { sawOwnReply = true; continue; }
+        sawThirdPartyReply = true;
+        break;
+      }
+      if (sawThirdPartyReply) {
         await admin.from('tracked_emails').update({ status: 'replied', last_checked_at: new Date().toISOString() }).eq('id', row.id);
         return { id: row.id, action: 'replied' };
+      }
+      if (sawOwnReply) {
+        // User already followed up themselves — don't double-send.
+        await admin
+          .from('tracked_emails')
+          .update({ status: 'cancelled', last_error: 'user replied / followed up manually', last_checked_at: new Date().toISOString() })
+          .eq('id', row.id);
+        return { id: row.id, action: 'cancelled_user_replied' };
       }
     }
   }
