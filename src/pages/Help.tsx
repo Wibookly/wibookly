@@ -290,7 +290,7 @@ function MyTicketsList() {
     setLoading(true);
     const { data } = await supabase
       .from('support_issues')
-      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at, attachments')
+      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at, attachments, organization_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
