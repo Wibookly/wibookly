@@ -189,48 +189,44 @@ export default function AIActivityDashboard() {
     }
   };
 
-  const exportReport = async () => {
-    setExporting(true);
-    try {
-      const { start, end } = getDateRange();
-
-      // Create CSV content
-      const headers = ['Date', 'Category', 'Activity Type', 'Email Subject', 'Email From'];
-
-      const { data: logs } = await supabase
-        .from('ai_activity_logs')
-        .select('*')
-        .eq('organization_id', organization?.id)
-        .eq('user_id', user?.id)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false });
-
-      const rows = logs?.map(log => [
-        format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
-        log.category_name,
-        log.activity_type === 'draft' ? 'AI Draft' : 'AI Auto-Reply',
-        log.email_subject || '',
-        log.email_from || ''
-      ]) || [];
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      ].join('\n');
-
-      // Download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `ai-activity-report-${format(start, 'yyyy-MM-dd')}-to-${format(end, 'yyyy-MM-dd')}.csv`;
-      link.click();
-    } catch (error) {
-      console.error('Export error:', error);
-    } finally {
-      setExporting(false);
-    }
+  const buildExportRows = async () => {
+    const { start, end } = getDateRange();
+    const { data: logs } = await supabase
+      .from('ai_activity_logs')
+      .select('*')
+      .eq('organization_id', organization?.id)
+      .eq('user_id', user?.id)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString())
+      .order('created_at', { ascending: false });
+    return (logs || []).map((log) => ({
+      Date: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
+      Category: log.category_name,
+      'Activity Type': log.activity_type === 'draft' ? 'AI Draft' : log.activity_type === 'auto_reply' ? 'AI Auto-Reply' : log.activity_type,
+      'Email Subject': log.email_subject || '',
+      'Email From': log.email_from || '',
+    }));
   };
+
+  const [exportRows, setExportRows] = useState<Array<Record<string, unknown>>>([]);
+  useEffect(() => {
+    if (!organization?.id || !user?.id) return;
+    buildExportRows().then(setExportRows).catch(() => setExportRows([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organization?.id, user?.id, dateRange, customStartDate, customEndDate]);
+
+  const emailReport = async () => {
+    const { start, end } = getDateRange();
+    const { error } = await supabase.functions.invoke('ai-activity-report-email', {
+      body: {
+        from: format(start, 'yyyy-MM-dd'),
+        to: format(end, 'yyyy-MM-dd'),
+        range_label: `${format(start, 'MMM d, yyyy')} → ${format(end, 'MMM d, yyyy')}`,
+      },
+    });
+    if (error) throw error;
+  };
+
 
   if (authLoading || emailLoading || loading) {
     return (
