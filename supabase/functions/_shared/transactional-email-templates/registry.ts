@@ -16,6 +16,7 @@ import { template as followUpReminder } from './follow-up-reminder.tsx'
 import { template as integrationAlert } from './integration-alert.tsx'
 import { template as flaggedEmailReport } from './flagged-email-report.tsx'
 import { template as aiActivityReport } from './ai-activity-report.tsx'
+import { template as ticketUpdated } from './ticket-updated.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'welcome-sso': welcomeSso,
@@ -25,4 +26,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'integration-alert': integrationAlert,
   'flagged-email-report': flaggedEmailReport,
   'ai-activity-report': aiActivityReport,
+  'ticket-updated': ticketUpdated,
 }
