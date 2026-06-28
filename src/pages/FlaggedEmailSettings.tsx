@@ -1,23 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2, Pencil, Trash2, Check } from 'lucide-react';
+import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2, Pencil, Trash2, Check, AlarmClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 
 type Tone = { style: string; format: string; instructions: string; example: string };
+type FollowUpSettingsRow = Database['public']['Tables']['follow_up_settings']['Row'];
+type FollowUpSettingsUpdate = Database['public']['Tables']['follow_up_settings']['Update'];
 type Prefs = {
   enabled: boolean;
   autoReply: boolean;
   autoSend: boolean;
+  businessHoursOnly: boolean;
+  businessHoursStart: number;
+  businessHoursEnd: number;
+  businessDays: number[];
+  timezone: string;
   tone: Tone;
 };
 
@@ -25,6 +35,11 @@ const DEFAULTS: Prefs = {
   enabled: true,
   autoReply: false,
   autoSend: false,
+  businessHoursOnly: true,
+  businessHoursStart: 8,
+  businessHoursEnd: 17,
+  businessDays: [1, 2, 3, 4, 5],
+  timezone: '',
   tone: { style: 'professional', format: 'concise', instructions: '', example: '' },
 };
 
@@ -43,14 +58,40 @@ const FORMAT_OPTIONS = [
 ];
 
 const DEFAULT_TONE: Tone = { style: 'professional', format: 'concise', instructions: '', example: '' };
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function fmtHour(h: number): string {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hh = ((h + 11) % 12) + 1;
+  return `${hh}:00 ${ampm}`;
+}
+
+function browserTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
+  catch { return 'America/New_York'; }
+}
+
 const isToneCustomized = (t: Tone) =>
   t.style !== DEFAULT_TONE.style || t.format !== DEFAULT_TONE.format ||
   (t.instructions || '').trim().length > 0 || (t.example || '').trim().length > 0;
 const styleLabel = (v: string) => WRITING_STYLES.find(s => s.value === v)?.label ?? v;
 const formatLabel = (v: string) => FORMAT_OPTIONS.find(s => s.value === v)?.label ?? v;
 
+function parseTone(value: Json | null): Tone {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return DEFAULT_TONE;
+  const obj = value as Record<string, Json>;
+  return {
+    style: typeof obj.style === 'string' ? obj.style : DEFAULT_TONE.style,
+    format: typeof obj.format === 'string' ? obj.format : DEFAULT_TONE.format,
+    instructions: typeof obj.instructions === 'string' ? obj.instructions : DEFAULT_TONE.instructions,
+    example: typeof obj.example === 'string' ? obj.example : DEFAULT_TONE.example,
+  };
+}
+
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
+  const { activeConnection } = useActiveEmail();
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,48 +100,51 @@ export default function FlaggedEmailSettings() {
 
   useEffect(() => {
     if (!user?.id) return;
+    if (!activeConnection?.id) {
+      setLoading(false);
+      return;
+    }
     (async () => {
-      const { data } = await supabase
-        .from('follow_up_settings' as any)
-        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const row: any = data || {};
-      const tone = { ...DEFAULT_TONE, ...(row.tone_settings || {}) };
+      const { data } = await supabase.rpc('get_or_create_follow_up_settings', {
+        _connection_id: activeConnection.id,
+      });
+      const row = data as FollowUpSettingsRow | null;
+      setSettingsId(row?.id ?? null);
+      const tone = parseTone(row?.tone_settings ?? null);
       setPrefs({
-        enabled: row.is_enabled ?? true,
-        autoReply: !!row.auto_draft_enabled,
-        autoSend: !!row.auto_reply_enabled,
+        enabled: row?.is_enabled ?? true,
+        autoReply: !!row?.auto_draft_enabled,
+        autoSend: !!row?.auto_reply_enabled,
+        businessHoursOnly: row?.business_hours_only ?? true,
+        businessHoursStart: row?.business_hours_start ?? 8,
+        businessHoursEnd: row?.business_hours_end ?? 17,
+        businessDays: Array.isArray(row?.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+        timezone: row?.timezone || browserTimezone(),
         tone,
       });
       const customized = isToneCustomized(tone);
       setToneEditing(!customized);
-      if (customized && row.updated_at) setToneSavedAt(new Date(row.updated_at));
+      if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
-  }, [user?.id]);
+  }, [user?.id, activeConnection?.id]);
 
   const persist = async (next: Prefs) => {
-    if (!user?.id) return;
+    if (!user?.id || !settingsId) return;
     setSaving(true);
-    const payload: any = {
-      user_id: user.id,
+    const payload: FollowUpSettingsUpdate = {
       is_enabled: next.enabled,
       auto_draft_enabled: next.autoReply,
       auto_reply_enabled: next.autoSend,
-      tone_settings: next.tone,
+      business_hours_only: next.businessHoursOnly,
+      business_hours_start: next.businessHoursStart,
+      business_hours_end: next.businessHoursEnd,
+      business_days: next.businessDays,
+      timezone: next.timezone || browserTimezone(),
+      tone_settings: next.tone as unknown as Json,
       reminder_max_count: 3,
     };
-    const { data: existing } = await supabase
-      .from('follow_up_settings' as any)
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from('follow_up_settings' as any).update(payload).eq('user_id', user.id);
-    } else {
-      await supabase.from('follow_up_settings' as any).insert(payload);
-    }
+    await supabase.from('follow_up_settings').update(payload).eq('id', settingsId);
     setSaving(false);
   };
 
@@ -115,6 +159,8 @@ export default function FlaggedEmailSettings() {
   const updateTone = (patch: Partial<Tone>) => {
     setPrefs(p => ({ ...p, tone: { ...p.tone, ...patch } }));
   };
+
+  const settingsReady = Boolean(activeConnection?.id && settingsId && !loading);
 
   const saveTone = async () => {
     await persist(prefs);
@@ -149,6 +195,16 @@ export default function FlaggedEmailSettings() {
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
         {/* Controls */}
+        {!activeConnection?.id && (
+          <Alert>
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Connect Outlook to manage the tracker</AlertTitle>
+            <AlertDescription>
+              The Flagged Email Tracker uses your active Outlook mailbox for follow-up timing and auto-send rules.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tracker controls</CardTitle>
@@ -161,6 +217,7 @@ export default function FlaggedEmailSettings() {
               description="Scan your Outlook Sent Items for flagged messages and surface them in Flagged Email Reports."
               checked={prefs.enabled}
               onCheckedChange={(v) => update({ enabled: v })}
+              disabled={!settingsReady || saving}
             />
             <ToggleRow
               icon={<BellRing className="w-4 h-4 text-amber-500" />}
@@ -168,7 +225,7 @@ export default function FlaggedEmailSettings() {
               description="When the due date passes with no reply, AI writes a polite follow-up draft in the same thread (left unsent for your review)."
               checked={prefs.autoReply}
               onCheckedChange={(v) => update({ autoReply: v })}
-              disabled={!prefs.enabled}
+              disabled={!settingsReady || saving || !prefs.enabled}
             />
             <ToggleRow
               icon={<Send className="w-4 h-4 text-emerald-500" />}
@@ -176,7 +233,7 @@ export default function FlaggedEmailSettings() {
               description="Send the AI-drafted follow-up automatically. Capped at 3 attempts (3 days apart). After the 3rd attempt the thread is marked Missed and automation stops."
               checked={prefs.autoSend}
               onCheckedChange={(v) => update({ autoSend: v })}
-              disabled={!prefs.enabled || !prefs.autoReply}
+              disabled={!settingsReady || saving || !prefs.enabled || !prefs.autoReply}
             />
 
             {prefs.autoSend && (
@@ -188,6 +245,91 @@ export default function FlaggedEmailSettings() {
                 </AlertDescription>
               </Alert>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlarmClock className="w-4 h-4 text-primary" /> Auto-send schedule
+                  {prefs.businessHoursOnly ? <Badge variant="secondary">Business-hours guard on</Badge> : <Badge variant="outline">Anytime sending</Badge>}
+                </CardTitle>
+                <CardDescription>
+                  Default is ON: auto-sent follow-ups wait for your work hours and skip weekends/off-days. Turn it OFF to send immediately when a due date arrives and no reply is found.
+                </CardDescription>
+              </div>
+              <Switch
+                checked={prefs.businessHoursOnly}
+                disabled={!settingsReady || !prefs.enabled || saving}
+                onCheckedChange={(v) => update({ businessHoursOnly: v })}
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className={`grid md:grid-cols-3 gap-3 ${!prefs.businessHoursOnly ? 'opacity-60' : ''}`}>
+              <div className="space-y-1.5">
+                <Label>Start</Label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefs.businessHoursStart}
+                  disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
+                  onChange={(e) => update({ businessHoursStart: parseInt(e.target.value, 10) })}
+                >
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h} disabled={h >= prefs.businessHoursEnd}>{fmtHour(h)}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>End</Label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefs.businessHoursEnd}
+                  disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
+                  onChange={(e) => update({ businessHoursEnd: parseInt(e.target.value, 10) })}
+                >
+                  {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h} disabled={h <= prefs.businessHoursStart}>{h === 24 ? '12:00 AM (next day)' : fmtHour(h)}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Timezone</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={prefs.timezone}
+                    disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
+                    placeholder="America/New_York"
+                    onChange={(e) => setPrefs((p) => ({ ...p, timezone: e.target.value }))}
+                    onBlur={() => update({ timezone: prefs.timezone || browserTimezone() })}
+                  />
+                  <Button variant="outline" size="sm" disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving} onClick={() => update({ timezone: browserTimezone() })}>Use mine</Button>
+                </div>
+              </div>
+            </div>
+            <div className={`${!prefs.businessHoursOnly ? 'opacity-60' : ''}`}>
+              <Label>Business days</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {DAY_LABELS.map((label, idx) => {
+                  const active = prefs.businessDays.includes(idx);
+                  return (
+                    <Button
+                      key={label}
+                      type="button"
+                      size="sm"
+                      variant={active ? 'default' : 'outline'}
+                      disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
+                      onClick={() => update({ businessDays: active ? prefs.businessDays.filter((d) => d !== idx) : [...prefs.businessDays, idx].sort() })}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Current rule: {prefs.businessHoursOnly
+                ? `queued follow-ups send during ${fmtHour(prefs.businessHoursStart)}–${prefs.businessHoursEnd === 24 ? '12:00 AM' : fmtHour(prefs.businessHoursEnd)}${prefs.timezone ? ` (${prefs.timezone})` : ''}; off-hours and weekends stay queued.`
+                : 'auto-send runs immediately at the due date once no recipient reply is found.'}
+            </p>
           </CardContent>
         </Card>
 
