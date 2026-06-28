@@ -226,7 +226,7 @@ export default function SupportIssuesPanel() {
 
       setThreadById((prev) => ({
         ...prev,
-        [issue.id]: [...(prev[issue.id] || []), inserted as ThreadMessage],
+        [issue.id]: [...(prev[issue.id] || []), inserted as unknown as ThreadMessage],
       }));
       setDraftReplies((prev) => ({ ...prev, [issue.id]: '' }));
       toast({ title: 'Reply sent to user' });
