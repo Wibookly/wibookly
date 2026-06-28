@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { PageHero } from '@/components/app/PageHero';
 import { BarChart3 } from 'lucide-react';
 import { FeatureUsageGrid } from '@/components/app/FeatureUsageGrid';
+import { ReportExportMenu } from '@/components/reports/ReportExportMenu';
 import {
   PieChart,
   Pie,
