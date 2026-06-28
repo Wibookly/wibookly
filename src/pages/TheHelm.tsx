@@ -44,6 +44,7 @@ import { useAuth } from '@/lib/auth';
 /* ------------------------------------------------------------------ */
 
 type View = 'brief' | 'inbox' | 'detail' | 'calendar';
+type InboxScope = 'drafts' | 'big3' | 'decisions';
 
 interface HelmItem {
   id: string;
