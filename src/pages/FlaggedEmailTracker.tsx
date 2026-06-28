@@ -37,16 +37,6 @@ interface TrackedEmail {
   queued_reason?: string | null;
 }
 
-interface TrackerSettings {
-  id: string;
-  is_enabled: boolean;
-  auto_reply_enabled: boolean;
-  business_hours_only: boolean;
-  business_hours_start: number;
-  business_hours_end: number;
-  business_days: number[];
-  timezone: string | null;
-}
 
 const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string }> = {
   pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
