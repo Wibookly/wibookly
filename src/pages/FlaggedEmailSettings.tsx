@@ -14,10 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
+import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 
 type Tone = { style: string; format: string; instructions: string; example: string };
 type FollowUpSettingsRow = Database['public']['Tables']['follow_up_settings']['Row'];
-type FollowUpSettingsInsert = Database['public']['Tables']['follow_up_settings']['Insert'];
+type FollowUpSettingsUpdate = Database['public']['Tables']['follow_up_settings']['Update'];
 type Prefs = {
   enabled: boolean;
   autoReply: boolean;
@@ -89,6 +90,8 @@ function parseTone(value: Json | null): Tone {
 
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
+  const { activeConnection } = useActiveEmail();
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,14 +99,13 @@ export default function FlaggedEmailSettings() {
   const [toneSavedAt, setToneSavedAt] = useState<Date | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !activeConnection?.id) return;
     (async () => {
-      const { data } = await supabase
-        .from('follow_up_settings')
-        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const row = data as Pick<FollowUpSettingsRow, 'is_enabled' | 'auto_draft_enabled' | 'auto_reply_enabled' | 'tone_settings' | 'updated_at' | 'business_hours_only' | 'business_hours_start' | 'business_hours_end' | 'business_days' | 'timezone'> | null;
+      const { data } = await supabase.rpc('get_or_create_follow_up_settings', {
+        _connection_id: activeConnection.id,
+      });
+      const row = data as FollowUpSettingsRow | null;
+      setSettingsId(row?.id ?? null);
       const tone = parseTone(row?.tone_settings ?? null);
       setPrefs({
         enabled: row?.is_enabled ?? true,
@@ -121,13 +123,12 @@ export default function FlaggedEmailSettings() {
       if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
-  }, [user?.id]);
+  }, [user?.id, activeConnection?.id]);
 
   const persist = async (next: Prefs) => {
-    if (!user?.id) return;
+    if (!user?.id || !settingsId) return;
     setSaving(true);
-    const payload: FollowUpSettingsInsert = {
-      user_id: user.id,
+    const payload: FollowUpSettingsUpdate = {
       is_enabled: next.enabled,
       auto_draft_enabled: next.autoReply,
       auto_reply_enabled: next.autoSend,
@@ -139,16 +140,7 @@ export default function FlaggedEmailSettings() {
       tone_settings: next.tone as unknown as Json,
       reminder_max_count: 3,
     };
-    const { data: existing } = await supabase
-      .from('follow_up_settings')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from('follow_up_settings').update(payload).eq('user_id', user.id);
-    } else {
-      await supabase.from('follow_up_settings').insert(payload);
-    }
+    await supabase.from('follow_up_settings').update(payload).eq('id', settingsId);
     setSaving(false);
   };
 
