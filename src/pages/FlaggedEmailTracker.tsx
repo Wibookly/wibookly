@@ -162,12 +162,13 @@ export default function FlaggedEmailTrackerPage() {
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-7)); setTo(todayStr(0)); }}>Last 7 days</Button>
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-30)); setTo(todayStr(0)); }}>Last 30 days</Button>
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-90)); setTo(todayStr(0)); }}>Last 90 days</Button>
-              <Button variant="outline" size="sm" onClick={exportCsv}><FileSpreadsheet className="w-4 h-4 mr-1.5" />Excel</Button>
-              <Button variant="outline" size="sm" onClick={printPdf}><Printer className="w-4 h-4 mr-1.5" />PDF / Print</Button>
-              <Button size="sm" onClick={emailReport} disabled={sending}>
-                {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <MailIcon className="w-4 h-4 mr-1.5" />}
-                Email to me
-              </Button>
+              <ReportExportMenu
+                fileName={`flagged-email-report_${from}_to_${to}`}
+                sheetName="Flagged Emails"
+                rows={exportRows}
+                onEmail={emailReport}
+                emailRecipientLabel={user?.email}
+              />
             </div>
           </CardContent>
         </Card>
