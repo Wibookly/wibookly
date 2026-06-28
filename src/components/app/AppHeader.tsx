@@ -93,6 +93,7 @@ export function AppHeader() {
         {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
       </button>
 
+      <SupportBell />
       <UserAvatarDropdown />
     </header>
   );
