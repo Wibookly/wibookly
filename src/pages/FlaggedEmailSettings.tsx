@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2, Pencil, Trash2, Check } from 'lucide-react';
+import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2, Pencil, Trash2, Check, AlarmClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,6 +19,11 @@ type Prefs = {
   enabled: boolean;
   autoReply: boolean;
   autoSend: boolean;
+  businessHoursOnly: boolean;
+  businessHoursStart: number;
+  businessHoursEnd: number;
+  businessDays: number[];
+  timezone: string;
   tone: Tone;
 };
 
@@ -25,6 +31,11 @@ const DEFAULTS: Prefs = {
   enabled: true,
   autoReply: false,
   autoSend: false,
+  businessHoursOnly: true,
+  businessHoursStart: 8,
+  businessHoursEnd: 17,
+  businessDays: [1, 2, 3, 4, 5],
+  timezone: '',
   tone: { style: 'professional', format: 'concise', instructions: '', example: '' },
 };
 
@@ -43,6 +54,19 @@ const FORMAT_OPTIONS = [
 ];
 
 const DEFAULT_TONE: Tone = { style: 'professional', format: 'concise', instructions: '', example: '' };
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function fmtHour(h: number): string {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hh = ((h + 11) % 12) + 1;
+  return `${hh}:00 ${ampm}`;
+}
+
+function browserTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
+  catch { return 'America/New_York'; }
+}
+
 const isToneCustomized = (t: Tone) =>
   t.style !== DEFAULT_TONE.style || t.format !== DEFAULT_TONE.format ||
   (t.instructions || '').trim().length > 0 || (t.example || '').trim().length > 0;
@@ -62,7 +86,7 @@ export default function FlaggedEmailSettings() {
     (async () => {
       const { data } = await supabase
         .from('follow_up_settings' as any)
-        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at')
+        .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone')
         .eq('user_id', user.id)
         .maybeSingle();
       const row: any = data || {};
@@ -71,6 +95,11 @@ export default function FlaggedEmailSettings() {
         enabled: row.is_enabled ?? true,
         autoReply: !!row.auto_draft_enabled,
         autoSend: !!row.auto_reply_enabled,
+        businessHoursOnly: row.business_hours_only ?? true,
+        businessHoursStart: row.business_hours_start ?? 8,
+        businessHoursEnd: row.business_hours_end ?? 17,
+        businessDays: Array.isArray(row.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+        timezone: row.timezone || browserTimezone(),
         tone,
       });
       const customized = isToneCustomized(tone);
@@ -88,6 +117,11 @@ export default function FlaggedEmailSettings() {
       is_enabled: next.enabled,
       auto_draft_enabled: next.autoReply,
       auto_reply_enabled: next.autoSend,
+      business_hours_only: next.businessHoursOnly,
+      business_hours_start: next.businessHoursStart,
+      business_hours_end: next.businessHoursEnd,
+      business_days: next.businessDays,
+      timezone: next.timezone || browserTimezone(),
       tone_settings: next.tone,
       reminder_max_count: 3,
     };
@@ -188,6 +222,91 @@ export default function FlaggedEmailSettings() {
                 </AlertDescription>
               </Alert>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlarmClock className="w-4 h-4 text-primary" /> Auto-send schedule
+                  {prefs.businessHoursOnly ? <Badge variant="secondary">Business-hours guard on</Badge> : <Badge variant="outline">Anytime sending</Badge>}
+                </CardTitle>
+                <CardDescription>
+                  Default is ON: auto-sent follow-ups wait for your work hours and skip weekends/off-days. Turn it OFF to send immediately when a due date arrives and no reply is found.
+                </CardDescription>
+              </div>
+              <Switch
+                checked={prefs.businessHoursOnly}
+                disabled={!prefs.enabled || saving}
+                onCheckedChange={(v) => update({ businessHoursOnly: v })}
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className={`grid md:grid-cols-3 gap-3 ${!prefs.businessHoursOnly ? 'opacity-60' : ''}`}>
+              <div className="space-y-1.5">
+                <Label>Start</Label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefs.businessHoursStart}
+                  disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                  onChange={(e) => update({ businessHoursStart: parseInt(e.target.value, 10) })}
+                >
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h} disabled={h >= prefs.businessHoursEnd}>{fmtHour(h)}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>End</Label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefs.businessHoursEnd}
+                  disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                  onChange={(e) => update({ businessHoursEnd: parseInt(e.target.value, 10) })}
+                >
+                  {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h} disabled={h <= prefs.businessHoursStart}>{h === 24 ? '12:00 AM (next day)' : fmtHour(h)}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Timezone</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={prefs.timezone}
+                    disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                    placeholder="America/New_York"
+                    onChange={(e) => setPrefs((p) => ({ ...p, timezone: e.target.value }))}
+                    onBlur={() => update({ timezone: prefs.timezone || browserTimezone() })}
+                  />
+                  <Button variant="outline" size="sm" disabled={!prefs.enabled || !prefs.businessHoursOnly || saving} onClick={() => update({ timezone: browserTimezone() })}>Use mine</Button>
+                </div>
+              </div>
+            </div>
+            <div className={`${!prefs.businessHoursOnly ? 'opacity-60' : ''}`}>
+              <Label>Business days</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {DAY_LABELS.map((label, idx) => {
+                  const active = prefs.businessDays.includes(idx);
+                  return (
+                    <Button
+                      key={label}
+                      type="button"
+                      size="sm"
+                      variant={active ? 'default' : 'outline'}
+                      disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                      onClick={() => update({ businessDays: active ? prefs.businessDays.filter((d) => d !== idx) : [...prefs.businessDays, idx].sort() })}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Current rule: {prefs.businessHoursOnly
+                ? `queued follow-ups send during ${fmtHour(prefs.businessHoursStart)}–${prefs.businessHoursEnd === 24 ? '12:00 AM' : fmtHour(prefs.businessHoursEnd)}${prefs.timezone ? ` (${prefs.timezone})` : ''}; off-hours and weekends stay queued.`
+                : 'auto-send runs immediately at the due date once no recipient reply is found.'}
+            </p>
           </CardContent>
         </Card>
 
