@@ -206,19 +206,6 @@ function TicketDetailDialog({
   };
 
 
-  const setStatus = async (status: string) => {
-    if (!ticket) return;
-    const patch: any = { status };
-    if (status === 'resolved') patch.resolved_at = new Date().toISOString();
-    else patch.resolved_at = null;
-    const { error } = await supabase.from('support_issues').update(patch as never).eq('id', ticket.id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success(status === 'resolved' ? 'Marked resolved' : 'Re-opened');
-      onOpenChange(false);
-    }
-  };
-
   if (!ticket) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
