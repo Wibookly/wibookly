@@ -286,29 +286,28 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('email_intelligence') || hasFeature('feature.follow_up_reminder')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="🌞" accent={accents.purple}>The Helm</NavItem>}
-                  {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" emoji="🏷️" accent={accents.purple}>Email Intelligence</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" emoji="🔔" accent={accents.purple}>Flagged Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('ai_draft')) && <NavItem href="/email-draft" emoji="✍️" accent={accents.purple}>AI Draft</NavItem>}
                 </NavSection>
               )}
 
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
                 <NavItem href="/settings" emoji="👤" accent={accents.orange}>Profile &amp; Signature</NavItem>
+                {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" emoji="🏷️" accent={accents.orange}>Email Intelligence</NavItem>}
+                {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" emoji="🔔" accent={accents.orange}>Flagged Tracker</NavItem>}
+                {(isSuperAdmin || hasFeature('ai_draft')) && <NavItem href="/email-draft" emoji="✍️" accent={accents.orange}>AI Draft</NavItem>}
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
                   <NavItem href="/meeting-copilot" emoji="🎧" accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
-                <NavItem href="/sync" emoji="🔄" accent={accents.orange}>Manual Sync</NavItem>
               </NavSection>
 
-              {/* AI Activity Report */}
+              {/* AI Intelligence Report */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
-                <NavSection title="AI Activity" icon={BarChart3} accent={accents.green} defaultOpen>
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>}
+                <NavSection title="AI Intelligence Report" icon={BarChart3} accent={accents.green} defaultOpen>
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Intelligence Report</NavItem>}
                 </NavSection>
               )}
 
@@ -321,9 +320,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* Admin */}
               {(isSuperAdmin || isOrgAdmin) && (
                 <NavSection title="Administration" icon={Shield} accent={accents.red} defaultOpen>
-                  {isSuperAdmin && <NavItem href="/admin" emoji="🛡️" accent={accents.red}>Admin Dashboard</NavItem>}
-                  {isSuperAdmin && <NavItem href="/super-admin" emoji="🏢" accent={accents.red}>Super Admin</NavItem>}
-                  {(isSuperAdmin || isOrgAdmin) && <NavItem href="/org-admin" emoji="🗂️" accent={accents.red}>Org Admin</NavItem>}
+                  <NavItem href="/admin" emoji="🛡️" accent={accents.red}>Admin Dashboard</NavItem>
                 </NavSection>
               )}
             </>
@@ -366,7 +363,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           className="flex items-center gap-2 px-2.5 py-2 rounded-xl"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <UserAvatarDropdown />
+          <UserAvatarDropdown showName={false} />
           <div className="flex flex-col leading-tight min-w-0 flex-1">
             <span
               className="text-[13px] font-semibold truncate"

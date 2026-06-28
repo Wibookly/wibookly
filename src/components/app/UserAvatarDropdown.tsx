@@ -15,7 +15,7 @@ import { LogOut, User, Sun, Moon, Monitor, Volume2, AlertCircle, Loader2 } from 
 import { useEffect, useState } from 'react';
 import { ttsService, type TtsState } from '@/lib/ttsService';
 
-export function UserAvatarDropdown() {
+export function UserAvatarDropdown({ showName = true }: { showName?: boolean } = {}) {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [tts, setTts] = useState<TtsState>(() => ttsService.getState());
@@ -60,7 +60,7 @@ export function UserAvatarDropdown() {
               {initials}
             </div>
           )}
-          <span className="hidden sm:inline text-sm font-medium text-foreground truncate">{fullName}</span>
+          {showName && <span className="hidden sm:inline text-sm font-medium text-foreground truncate">{fullName}</span>}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
