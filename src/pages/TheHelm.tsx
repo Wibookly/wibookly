@@ -44,6 +44,7 @@ import { useAuth } from '@/lib/auth';
 /* ------------------------------------------------------------------ */
 
 type View = 'brief' | 'inbox' | 'detail' | 'calendar';
+type InboxScope = 'drafts' | 'big3' | 'decisions';
 
 interface HelmItem {
   id: string;
@@ -408,14 +409,16 @@ function firstNameFromEmail(email?: string | null): string {
 
 function preferredFirstName(user: any, profile: { full_name?: string | null } | null): string {
   const meta = user?.user_metadata ?? {};
+  // Prefer the human-entered profile name ("Ali Rahimi" → "Ali") over the
+  // email local part ("arahimi@…" → "Arahimi"), which mangles concatenated names.
   const candidates = [
     meta.first_name,
     meta.given_name,
     meta.preferred_name,
-    firstNameFromEmail(user?.email),
     profile?.full_name,
     meta.full_name,
     meta.name,
+    firstNameFromEmail(user?.email),
   ];
   for (const candidate of candidates) {
     const name = cleanFirstName(candidate);
@@ -470,6 +473,49 @@ function ExpandableSummary({
   );
 }
 
+function InboxLauncherCard({
+  icon: Icon,
+  count,
+  label,
+  description,
+  onOpen,
+}: {
+  icon: React.ElementType;
+  count: number;
+  label: string;
+  description: string;
+  onOpen: () => void;
+}) {
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <CardContent className="p-6 flex items-center gap-5">
+        <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+          <Icon className="w-7 h-7" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-baseline gap-3">
+            <span className="text-h2 font-bold text-foreground tabular-nums">{count}</span>
+            <span className="text-body-1 text-foreground">{label}</span>
+          </div>
+          <p className="text-body-2 text-muted-foreground mt-1">{description}</p>
+        </div>
+        <ArrowRight className="w-5 h-5 text-muted-foreground" />
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
@@ -479,7 +525,7 @@ function BriefView({
   done,
   toggleDone,
 }: {
-  go: (v: View, item?: HelmItem) => void;
+  go: (v: View, item?: HelmItem, scope?: InboxScope) => void;
   done: Record<string, boolean>;
   toggleDone: (id: string, next: boolean) => void;
 }) {
@@ -643,48 +689,20 @@ function BriefView({
         </section>
 
 
-        {/* Big 3 */}
+        {/* Big 3 — opens the inbox-style reader scoped to today's priorities */}
         <section aria-labelledby="big3" data-helm-section="big3">
           <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
-          <ExpandableSummary
+          <InboxLauncherCard
             icon={ClipboardList}
-            title="Open today's priorities"
-            subtitle="Expand to review the three priority slots, then open any email or task for the full thread and AI draft."
-            countLabel={`${big3.length}/3 ready`}
-          >
-            {isLoading ? (
-              <Skeleton className="h-24" />
-            ) : big3.length === 0 ? (
-              <EmptyHint>
-                No must-do items right now. The three priority slots are clear.
-              </EmptyHint>
-            ) : (
-              Array.from({ length: 3 }, (_, i) => big3[i] ?? null).map((item, i) => (
-                item ? (
-                  <HelmCard
-                    key={item.id}
-                    item={item}
-                    index={i + 1}
-                    onOpen={() => go('detail', item)}
-                    showCheckbox
-                    done={done[item.id]}
-                    onToggleDone={(n) => toggleDone(item.id, n)}
-                  />
-                ) : (
-                  <Card key={`empty-big3-${i}`} className="border-dashed border-border/70 bg-muted/20">
-                    <CardContent className="p-4 flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="font-mono text-[10px] tracking-[0.15em] tabular-nums">{String(i + 1).padStart(2, '0')}</span>
-                      <span>No third priority found yet.</span>
-                    </CardContent>
-                  </Card>
-                )
-              ))
-            )}
-          </ExpandableSummary>
+            count={big3.length}
+            label={`priorit${big3.length === 1 ? 'y' : 'ies'} for today`}
+            description="Open the focused reader — emails on the left, the thread on top, AI draft on the bottom. Same tone as your auto-draft settings."
+            onOpen={() => go('inbox', undefined, 'big3')}
+          />
         </section>
 
 
-        {/* Decisions */}
+        {/* Decisions — same inbox reader, scoped to approvals/decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
             index={1}
@@ -694,22 +712,13 @@ function BriefView({
             emailSection="brief"
             count={decisions.length}
           />
-          <ExpandableSummary
+          <InboxLauncherCard
             icon={AlertTriangle}
-            title="Open decisions waiting on you"
-            subtitle="Expand to see approval threads, open the original email, and use the AI draft tools."
-            countLabel={`${decisions.length} waiting`}
-          >
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : decisions.length === 0 ? (
-              <EmptyHint>No open decisions waiting on you.</EmptyHint>
-            ) : (
-              decisions.map((item) => (
-                <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
-              ))
-            )}
-          </ExpandableSummary>
+            count={decisions.length}
+            label={`decision${decisions.length === 1 ? '' : 's'} waiting on you`}
+            description="Open the focused reader to review each thread and approve, edit, or send the AI reply."
+            onOpen={() => go('inbox', undefined, 'decisions')}
+          />
         </section>
 
 
@@ -723,39 +732,15 @@ function BriefView({
             emailSection="inbox"
             count={stats.drafted}
           />
-          <Card
-            role="button"
-            tabIndex={0}
-            onClick={() => go('inbox')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                go('inbox');
-              }
-            }}
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <CardContent className="p-6 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <FileEdit className="w-7 h-7" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-h2 font-bold text-foreground tabular-nums">
-                    {stats.drafted}
-                  </span>
-                  <span className="text-body-1 text-foreground">
-                    draft{stats.drafted === 1 ? '' : 's'} ready
-                  </span>
-                </div>
-                <p className="text-body-2 text-muted-foreground mt-1">
-                  Open the focused inbox to skim, edit, and send.
-                </p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
+          <InboxLauncherCard
+            icon={FileEdit}
+            count={stats.drafted}
+            label={`draft${stats.drafted === 1 ? '' : 's'} ready`}
+            description="Open the focused inbox to skim, edit, and send."
+            onOpen={() => go('inbox', undefined, 'drafts')}
+          />
         </section>
+
 
         {/* Overdue */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
@@ -800,11 +785,10 @@ function BriefView({
                     </div>
                     <div>
                       <h2 id="auto" className="text-h3 text-foreground">
-                        Done automatically overnight
+                        Handled by your AI agent
                       </h2>
                       <p className="text-body-2 text-muted-foreground">
-                        {autoActions.length} action{autoActions.length === 1 ? '' : 's'}{' '}
-                        handled while you slept.
+                        {autoActions.length} email{autoActions.length === 1 ? '' : 's'}, meeting{autoActions.length === 1 ? '' : 's'} or task{autoActions.length === 1 ? '' : 's'} the agent filed, drafted, booked or replied to in the last 24 hours.
                       </p>
                     </div>
                   </div>
@@ -944,10 +928,17 @@ function BriefView({
   );
 }
 
-function InboxView({ onBack }: { onBack: () => void }) {
+function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
   const { data, isLoading, error, refetch } = useHelmData();
-  const drafts = data?.drafts ?? [];
+  const drafts =
+    scope === 'big3' ? (data?.big3 ?? []) :
+    scope === 'decisions' ? (data?.decisions ?? []) :
+    (data?.drafts ?? []);
+  const scopeLabel =
+    scope === 'big3' ? "Today's Big 3" :
+    scope === 'decisions' ? 'Your decisions' :
+    'Drafted for you';
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
@@ -1076,10 +1067,10 @@ function InboxView({ onBack }: { onBack: () => void }) {
 
   return (
     <div>
-      <BackBar onBack={onBack} label="Drafted for you · focused inbox" />
+      <BackBar onBack={onBack} label={`${scopeLabel} · focused inbox`} />
       <SectionHeader
-        title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
-        subtitle="Skim, edit, send — replies thread into the original Outlook conversation."
+        title={`${drafts.length} ${scope === 'big3' ? 'priorit' + (drafts.length === 1 ? 'y' : 'ies') : scope === 'decisions' ? 'decision' + (drafts.length === 1 ? '' : 's') : 'draft' + (drafts.length === 1 ? '' : 's')} ready for review`}
+        subtitle="Pick one on the left, read the thread on top, edit and send the AI reply at the bottom — same tone as your auto-draft."
         count={drafts.length}
       />
 
@@ -1891,81 +1882,122 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
-        {days.map((d) => {
-          const evs = grouped[d.date.toDateString()] ?? [];
-          const isToday = d.date.toDateString() === new Date().toDateString();
-          const focus = focusByDay[d.key];
-          return (
-            <Card key={d.date.toISOString()} className={cn('min-w-[220px]', isToday && 'border-primary/60 shadow-sm')}>
-              <CardHeader className="pb-2">
-                <div className="flex items-baseline justify-between">
-                  <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                  <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
-                    {d.label}
-                  </span>
+      {/* Current calendar — collapsible */}
+      <Collapsible defaultOpen={true}>
+        <Card className="mb-4 overflow-hidden border-border/60">
+          <CollapsibleTrigger asChild>
+            <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Your current calendar</p>
+                  <p className="text-[12px] text-muted-foreground">Live view of meetings already on your Outlook for this week.</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {focus && (
-                  <div
-                    className={cn(
-                      'rounded-md border-2 border-dashed p-2 text-xs',
-                      focus.state === 'free' && 'border-secondary bg-secondary/10',
-                      focus.state === 'needs_move' && 'border-accent bg-accent/10',
-                      focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
-                    )}
-                  >
-                    <div className="flex items-center gap-1 font-semibold text-foreground">
-                      <Zap className="w-3 h-3" /> Focus block
-                    </div>
-                    <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
-                  </div>
-                )}
-                {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                {!isLoading && evs.length === 0 && !focus && (
-                  <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
-                )}
-                {evs.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={cn(
-                      'rounded-md border p-2 text-xs space-y-1 transition-colors',
-                      ev.is_cancelled && 'opacity-60 line-through',
-                      ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
-                      <div className="flex gap-1 flex-wrap justify-end">
-                        {ev.is_external && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t border-border/60 p-3">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+                {days.map((d) => {
+                  const evs = grouped[d.date.toDateString()] ?? [];
+                  const isToday = d.date.toDateString() === new Date().toDateString();
+                  const focus = focusByDay[d.key];
+                  return (
+                    <Card key={d.date.toISOString()} className={cn('min-w-[200px]', isToday && 'border-primary/60 shadow-sm')}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-baseline justify-between">
+                          <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
+                          <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
+                            {d.label}
+                          </span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {focus && (
+                          <div
+                            className={cn(
+                              'rounded-md border-2 border-dashed p-2 text-xs',
+                              focus.state === 'free' && 'border-secondary bg-secondary/10',
+                              focus.state === 'needs_move' && 'border-accent bg-accent/10',
+                              focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
+                            )}
+                          >
+                            <div className="flex items-center gap-1 font-semibold text-foreground">
+                              <Zap className="w-3 h-3" /> Focus block (proposed)
+                            </div>
+                            <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
+                          </div>
                         )}
-                        <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
-                      </div>
-                    </div>
-                    <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                    {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
-                    {ev.attendees.length > 0 && (
-                      <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
-                    )}
-                    {ev.web_link && (
-                      <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
-                        Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                        {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
+                        {!isLoading && evs.length === 0 && !focus && (
+                          <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
+                        )}
+                        {evs.map((ev) => (
+                          <div
+                            key={ev.id}
+                            className={cn(
+                              'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                              ev.is_cancelled && 'opacity-60 line-through',
+                              ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
+                              <div className="flex gap-1 flex-wrap justify-end">
+                                {ev.is_external && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+                                )}
+                                <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
+                              </div>
+                            </div>
+                            <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                            {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
+                            {ev.attendees.length > 0 && (
+                              <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
+                            )}
+                            {ev.web_link && (
+                              <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
+                                Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      <div className="mt-4">
-        <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
-      </div>
+      {/* AI intelligence preview — collapsible */}
+      <Collapsible defaultOpen={true}>
+        <Card className="overflow-hidden border-primary/30">
+          <CollapsibleTrigger asChild>
+            <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">AI intelligence — proposed calendar changes</p>
+                  <p className="text-[12px] text-muted-foreground">Preview the focus blocks the AI wants to add and the meetings it would move. Approve to apply.</p>
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t border-border/60 p-4 space-y-4">
+              <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
 
       {/* ============== Planning panels ============== */}
       <div className="mt-6 grid md:grid-cols-2 gap-4">
@@ -2112,14 +2144,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 export default function TheHelm() {
   const [view, setView] = useState<View>('brief');
   const [activeItem, setActiveItem] = useState<HelmItem | null>(null);
+  const [inboxScope, setInboxScope] = useState<InboxScope>('drafts');
   const [done, setDone] = useState<Record<string, boolean>>({});
   const qc = useQueryClient();
 
   const scrollTop = () => {
     try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
   };
-  const go = (v: View, item?: HelmItem) => {
+  const go = (v: View, item?: HelmItem, scope?: InboxScope) => {
     if (item) setActiveItem(item);
+    if (v === 'inbox') setInboxScope(scope ?? 'drafts');
     setView(v);
     scrollTop();
   };
@@ -2176,7 +2210,7 @@ export default function TheHelm() {
       `}</style>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
-        {view === 'inbox' && <InboxView onBack={back} />}
+        {view === 'inbox' && <InboxView onBack={back} scope={inboxScope} />}
         {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
         {view === 'calendar' && <CalendarView onBack={back} />}
       </div>
