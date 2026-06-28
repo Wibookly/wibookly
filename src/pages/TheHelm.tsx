@@ -1882,81 +1882,122 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
-        {days.map((d) => {
-          const evs = grouped[d.date.toDateString()] ?? [];
-          const isToday = d.date.toDateString() === new Date().toDateString();
-          const focus = focusByDay[d.key];
-          return (
-            <Card key={d.date.toISOString()} className={cn('min-w-[220px]', isToday && 'border-primary/60 shadow-sm')}>
-              <CardHeader className="pb-2">
-                <div className="flex items-baseline justify-between">
-                  <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                  <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
-                    {d.label}
-                  </span>
+      {/* Current calendar — collapsible */}
+      <Collapsible defaultOpen={true}>
+        <Card className="mb-4 overflow-hidden border-border/60">
+          <CollapsibleTrigger asChild>
+            <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Your current calendar</p>
+                  <p className="text-[12px] text-muted-foreground">Live view of meetings already on your Outlook for this week.</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {focus && (
-                  <div
-                    className={cn(
-                      'rounded-md border-2 border-dashed p-2 text-xs',
-                      focus.state === 'free' && 'border-secondary bg-secondary/10',
-                      focus.state === 'needs_move' && 'border-accent bg-accent/10',
-                      focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
-                    )}
-                  >
-                    <div className="flex items-center gap-1 font-semibold text-foreground">
-                      <Zap className="w-3 h-3" /> Focus block
-                    </div>
-                    <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
-                  </div>
-                )}
-                {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                {!isLoading && evs.length === 0 && !focus && (
-                  <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
-                )}
-                {evs.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={cn(
-                      'rounded-md border p-2 text-xs space-y-1 transition-colors',
-                      ev.is_cancelled && 'opacity-60 line-through',
-                      ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
-                      <div className="flex gap-1 flex-wrap justify-end">
-                        {ev.is_external && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t border-border/60 p-3">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+                {days.map((d) => {
+                  const evs = grouped[d.date.toDateString()] ?? [];
+                  const isToday = d.date.toDateString() === new Date().toDateString();
+                  const focus = focusByDay[d.key];
+                  return (
+                    <Card key={d.date.toISOString()} className={cn('min-w-[200px]', isToday && 'border-primary/60 shadow-sm')}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-baseline justify-between">
+                          <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
+                          <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
+                            {d.label}
+                          </span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {focus && (
+                          <div
+                            className={cn(
+                              'rounded-md border-2 border-dashed p-2 text-xs',
+                              focus.state === 'free' && 'border-secondary bg-secondary/10',
+                              focus.state === 'needs_move' && 'border-accent bg-accent/10',
+                              focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
+                            )}
+                          >
+                            <div className="flex items-center gap-1 font-semibold text-foreground">
+                              <Zap className="w-3 h-3" /> Focus block (proposed)
+                            </div>
+                            <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
+                          </div>
                         )}
-                        <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
-                      </div>
-                    </div>
-                    <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                    {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
-                    {ev.attendees.length > 0 && (
-                      <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
-                    )}
-                    {ev.web_link && (
-                      <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
-                        Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                        {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
+                        {!isLoading && evs.length === 0 && !focus && (
+                          <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
+                        )}
+                        {evs.map((ev) => (
+                          <div
+                            key={ev.id}
+                            className={cn(
+                              'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                              ev.is_cancelled && 'opacity-60 line-through',
+                              ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
+                              <div className="flex gap-1 flex-wrap justify-end">
+                                {ev.is_external && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+                                )}
+                                <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
+                              </div>
+                            </div>
+                            <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                            {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
+                            {ev.attendees.length > 0 && (
+                              <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
+                            )}
+                            {ev.web_link && (
+                              <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
+                                Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      <div className="mt-4">
-        <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
-      </div>
+      {/* AI intelligence preview — collapsible */}
+      <Collapsible defaultOpen={true}>
+        <Card className="overflow-hidden border-primary/30">
+          <CollapsibleTrigger asChild>
+            <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">AI intelligence — proposed calendar changes</p>
+                  <p className="text-[12px] text-muted-foreground">Preview the focus blocks the AI wants to add and the meetings it would move. Approve to apply.</p>
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t border-border/60 p-4 space-y-4">
+              <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
 
       {/* ============== Planning panels ============== */}
       <div className="mt-6 grid md:grid-cols-2 gap-4">
