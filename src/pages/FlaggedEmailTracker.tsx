@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, FileSpreadsheet, Printer, Mail as MailIcon, ChevronDown, ChevronRight, Users, List } from 'lucide-react';
+import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, ChevronDown, ChevronRight, Users, List } from 'lucide-react';
+import { ReportExportMenu } from '@/components/reports/ReportExportMenu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +61,7 @@ export default function FlaggedEmailTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState<string>(todayStr(-30));
   const [to, setTo] = useState<string>(todayStr(0));
-  const [sending, setSending] = useState(false);
+  
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -107,46 +108,30 @@ export default function FlaggedEmailTrackerPage() {
     return { total, pending, queued, replied, drafted, missed, followUpsSent };
   }, [rows]);
 
-  const exportCsv = () => {
-    const headers = ['Subject', 'Recipient Name', 'Recipient Email', 'Sent', 'Flag Due', 'Follow-up Due', 'Follow-ups Sent', 'Last AI Send', 'Status'];
-    const lines = [headers.join(',')];
-    for (const r of rows) {
-      const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-      const lastSent = hist.filter(h => h.sent_at).map(h => h.sent_at).pop() || '';
-      const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
-      const cells = [
-        r.subject || '', r.recipient_name || '', r.recipient_address || '',
-        r.sent_at, flagDue, r.follow_up_at,
-        `${r.attempts || 0}/3`, lastSent, r.status,
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(cells.join(','));
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `flagged-email-report_${from}_to_${to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Exported CSV (opens in Excel)');
-  };
-
-  const printPdf = () => window.print();
+  const exportRows = useMemo(() => rows.map((r) => {
+    const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+    const lastSent = hist.filter(h => h.sent_at).map(h => h.sent_at).pop() || '';
+    const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+    return {
+      Subject: r.subject || '',
+      'Recipient Name': r.recipient_name || '',
+      'Recipient Email': r.recipient_address || '',
+      Sent: r.sent_at,
+      'Flag Due': flagDue,
+      'Follow-up Due': r.follow_up_at,
+      'Next Send': r.scheduled_send_at || '',
+      'Follow-ups Sent': `${r.attempts || 0}/3`,
+      'Last AI Send': lastSent,
+      Status: r.status,
+    };
+  }), [rows]);
 
   const emailReport = async () => {
     if (!user) return;
-    setSending(true);
-    try {
-      const { error } = await supabase.functions.invoke('flag-report-email', {
-        body: { from, to, range_label: `${from} → ${to}` },
-      });
-      if (error) throw error;
-      toast.success(`Report sent to ${user.email}`);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to email report');
-    } finally {
-      setSending(false);
-    }
+    const { error } = await supabase.functions.invoke('flag-report-email', {
+      body: { from, to, range_label: `${from} → ${to}` },
+    });
+    if (error) throw error;
   };
 
   return (
@@ -177,12 +162,13 @@ export default function FlaggedEmailTrackerPage() {
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-7)); setTo(todayStr(0)); }}>Last 7 days</Button>
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-30)); setTo(todayStr(0)); }}>Last 30 days</Button>
               <Button variant="outline" size="sm" onClick={() => { setFrom(todayStr(-90)); setTo(todayStr(0)); }}>Last 90 days</Button>
-              <Button variant="outline" size="sm" onClick={exportCsv}><FileSpreadsheet className="w-4 h-4 mr-1.5" />Excel</Button>
-              <Button variant="outline" size="sm" onClick={printPdf}><Printer className="w-4 h-4 mr-1.5" />PDF / Print</Button>
-              <Button size="sm" onClick={emailReport} disabled={sending}>
-                {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <MailIcon className="w-4 h-4 mr-1.5" />}
-                Email to me
-              </Button>
+              <ReportExportMenu
+                fileName={`flagged-email-report_${from}_to_${to}`}
+                sheetName="Flagged Emails"
+                rows={exportRows}
+                onEmail={emailReport}
+                emailRecipientLabel={user?.email}
+              />
             </div>
           </CardContent>
         </Card>
