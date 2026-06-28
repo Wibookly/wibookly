@@ -13,6 +13,16 @@ import { cn } from '@/lib/utils';
 import { PageHero } from '@/components/app/PageHero';
 import { BarChart3 } from 'lucide-react';
 import { FeatureUsageGrid } from '@/components/app/FeatureUsageGrid';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
+  RadialBarChart,
+  RadialBar,
+  Legend,
+} from 'recharts';
 
 
 
