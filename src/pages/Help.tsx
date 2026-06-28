@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHero } from '@/components/app/PageHero';
-import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink, Send, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink, Send, RotateCcw, CheckCircle2, Paperclip, X, ImageIcon } from 'lucide-react';
 import { HelpIssueForm } from '@/components/help/HelpIssueForm';
+import { useSupportUnread } from '@/hooks/useSupportUnread';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
