@@ -169,6 +169,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
   const { isOrgAdmin, roles } = useUserRoles();
+  const supportUnread = useSupportUnread();
 
   const roleLabel = (() => {
     if (isSuperAdmin) return 'Global Admin';
