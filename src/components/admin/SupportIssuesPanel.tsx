@@ -194,9 +194,27 @@ export default function SupportIssuesPanel() {
 
   const sendReply = async (issue: SupportIssue) => {
     const body = (draftReplies[issue.id] ?? '').trim();
-    if (!body || !user?.id) return;
+    const files = replyFiles[issue.id] ?? [];
+    if ((!body && files.length === 0) || !user?.id) return;
     setSavingId(issue.id);
     try {
+      // Upload attachments
+      const attachments: Array<{ path: string; name: string; size: number; type: string }> = [];
+      if (files.length) {
+        const stamp = Date.now();
+        for (const f of files) {
+          if (!f.type.startsWith('image/')) continue;
+          if (f.size > 10 * 1024 * 1024) continue;
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+          const path = `${user.id}/${issue.id}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from('support-attachments')
+            .upload(path, f, { contentType: f.type, upsert: false });
+          if (upErr) throw upErr;
+          attachments.push({ path, name: f.name, size: f.size, type: f.type });
+        }
+      }
+
       const { data: inserted, error } = await supabase
         .from('support_issue_messages' as any)
         .insert({
@@ -205,12 +223,13 @@ export default function SupportIssuesPanel() {
           author_user_id: user.id,
           author_role: isSuperAdmin ? 'super_admin' : 'admin',
           body,
+          attachments,
         } as any)
         .select()
         .maybeSingle();
       if (error) throw error;
 
-      // Move ticket to in_progress if currently open
+      // Move ticket to in_progress if currently open (does NOT close/resolve the ticket)
       if (issue.status === 'open') {
         await supabase
           .from('support_issues')
@@ -219,12 +238,8 @@ export default function SupportIssuesPanel() {
         setIssues((prev) => prev.map((i) => i.id === issue.id ? { ...i, status: 'in_progress' } : i));
       }
 
-      // Fire ticket-updated email (best-effort; ignore failure)
       supabase.functions.invoke('ticket-updated-email', {
-        body: {
-          issue_id: issue.id,
-          reply_excerpt: body.slice(0, 280),
-        },
+        body: { issue_id: issue.id, reply_excerpt: body.slice(0, 280) },
       }).catch(() => {});
 
       setThreadById((prev) => ({
@@ -232,6 +247,7 @@ export default function SupportIssuesPanel() {
         [issue.id]: [...(prev[issue.id] || []), inserted as unknown as ThreadMessage],
       }));
       setDraftReplies((prev) => ({ ...prev, [issue.id]: '' }));
+      setReplyFiles((prev) => ({ ...prev, [issue.id]: [] }));
       toast({ title: 'Reply sent to user' });
     } catch (err) {
       toast({
@@ -242,6 +258,22 @@ export default function SupportIssuesPanel() {
     } finally {
       setSavingId(null);
     }
+  };
+
+  const addAdminReplyFiles = (issueId: string, incoming: FileList | File[] | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming).filter((f) => {
+      if (!f.type.startsWith('image/')) {
+        toast({ title: `${f.name} isn't an image`, variant: 'destructive' });
+        return false;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        toast({ title: `${f.name} is over 10 MB`, variant: 'destructive' });
+        return false;
+      }
+      return true;
+    });
+    setReplyFiles((prev) => ({ ...prev, [issueId]: [...(prev[issueId] || []), ...arr].slice(0, 5) }));
   };
 
   const counts = useMemo(() => ({
