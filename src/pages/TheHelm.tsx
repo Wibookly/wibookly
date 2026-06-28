@@ -166,13 +166,6 @@ function useHelmData() {
 /* Fallback static data (calendar — wired in Phase 4)                 */
 /* ------------------------------------------------------------------ */
 
-const WEEK_PREVIEW = [
-  { day: 'Mon', summary: '5 meetings · 2 focus blocks' },
-  { day: 'Tue', summary: '3 meetings · board prep' },
-  { day: 'Wed', summary: '7 meetings · all-hands' },
-  { day: 'Thu', summary: '4 meetings · investor dinner' },
-  { day: 'Fri', summary: '2 meetings · open afternoon' },
-];
 
 /* ------------------------------------------------------------------ */
 /* Building blocks                                                    */
@@ -297,11 +290,10 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border-border/60',
-        'before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary',
-        'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
-        'hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        variant === 'warning' && 'border-destructive/40 bg-destructive/5',
+        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border border-border/60',
+        'hover:border-primary hover:ring-2 hover:ring-primary/30 hover:ring-offset-1 hover:ring-offset-background hover:bg-muted/20 hover:shadow-md',
+        'focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        variant === 'warning' && 'border-destructive/40 bg-destructive/5 hover:border-destructive hover:ring-destructive/30',
         done && 'opacity-60',
       )}
     >
@@ -446,6 +438,43 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const autoActions = data?.autoActions ?? [];
 
+  // Live week preview for the right rail
+  const weekPreview = useQuery({
+    queryKey: ['helm-week-preview'],
+    queryFn: async () => {
+      const ws = new Date();
+      const day = ws.getDay();
+      const diff = day === 0 ? -6 : 1 - day; // Monday start
+      ws.setDate(ws.getDate() + diff);
+      ws.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase.functions.invoke('helm-sync-calendar', {
+        body: { week_start: ws.toISOString() },
+      });
+      if (error) throw error;
+      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; subject: string }>;
+      const byDay: Record<string, number> = {};
+      for (const ev of events) {
+        if (!ev.start) continue;
+        const k = new Date(ev.start).toDateString();
+        byDay[k] = (byDay[k] ?? 0) + 1;
+      }
+      const out: { day: string; date: Date; count: number; isToday: boolean }[] = [];
+      const todayKey = new Date().toDateString();
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(ws);
+        d.setDate(ws.getDate() + i);
+        out.push({
+          day: d.toLocaleDateString(undefined, { weekday: 'short' }),
+          date: d,
+          count: byDay[d.toDateString()] ?? 0,
+          isToday: d.toDateString() === todayKey,
+        });
+      }
+      return out;
+    },
+    staleTime: 5 * 60_000,
+  });
+
   const today = useMemo(
     () =>
       new Date().toLocaleDateString([], {
@@ -495,7 +524,7 @@ function BriefView({
 
           <h1
             id="helm-hero"
-            className="text-[44px] md:text-[56px] leading-[1.05] tracking-tight font-semibold text-foreground"
+            className="text-[26px] md:text-[32px] leading-tight tracking-tight font-semibold text-foreground"
           >
             {greeting}
             {name ? `, ${name}` : ''}.{' '}
@@ -503,23 +532,26 @@ function BriefView({
               {stats.needsYou === 0 ? 'You are clear.' : `${stats.needsYou} thing${stats.needsYou === 1 ? '' : 's'} need you today.`}
             </span>
           </h1>
-          <p className="text-[15px] md:text-base text-muted-foreground max-w-2xl mt-4 leading-relaxed">
+          <p className="text-[13px] md:text-sm text-muted-foreground max-w-2xl mt-2 leading-relaxed">
             Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
           </p>
 
-          <div className="mt-10 flex items-baseline gap-5 flex-wrap">
-            <span className="text-[72px] md:text-[96px] leading-none font-light text-muted-foreground/40 tabular-nums">
-              {stats.totalInbound}
-            </span>
-            <ArrowRight className="w-7 h-7 text-muted-foreground/60" />
-            <span className="text-[72px] md:text-[96px] leading-none font-light text-primary tabular-nums">
-              {stats.needsYou}
-            </span>
-            <div className="ml-2 pb-2">
-              <p className="text-[15px] text-foreground">items came in overnight</p>
-              <p className="text-[13px] text-muted-foreground mt-1">
-                surfaced to you · the rest handled or held
-              </p>
+          {/* Executive summary tiles — what each number means */}
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Total inbound</p>
+              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">emails & items received in the last 24h</p>
+            </div>
+            <div className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary/80">Needs you</p>
+              <p className="text-3xl font-light text-primary tabular-nums leading-tight mt-1">{stats.needsYou}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">decisions, approvals & overdue replies</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 col-span-2 md:col-span-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Handled for you</p>
+              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound - stats.needsYou}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">filed, drafted or auto-replied overnight</p>
             </div>
           </div>
         </section>
@@ -758,17 +790,32 @@ function BriefView({
           <CardContent className="pt-0">
             <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
             <ul className="space-y-0">
-              {WEEK_PREVIEW.map((d) => (
+              {(weekPreview.data ?? []).map((d) => (
                 <li
                   key={d.day}
-                  className="flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0"
+                  className={cn(
+                    'flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0',
+                    d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
+                  )}
                 >
-                  <span className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground w-10 shrink-0">{d.day}</span>
+                  <span className={cn(
+                    'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
+                    d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                  )}>{d.day}</span>
                   <span className="text-foreground/80 flex-1 leading-snug">
-                    {d.summary}
+                    {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
                   </span>
+                  {d.isToday && (
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
+                  )}
                 </li>
               ))}
+              {weekPreview.isLoading && (
+                <li className="text-[12px] text-muted-foreground italic py-2">Loading your week…</li>
+              )}
+              {!weekPreview.isLoading && (weekPreview.data?.length ?? 0) === 0 && (
+                <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
+              )}
             </ul>
           </CardContent>
         </Card>
