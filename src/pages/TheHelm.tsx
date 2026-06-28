@@ -445,6 +445,43 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const autoActions = data?.autoActions ?? [];
 
+  // Live week preview for the right rail
+  const weekPreview = useQuery({
+    queryKey: ['helm-week-preview'],
+    queryFn: async () => {
+      const ws = new Date();
+      const day = ws.getDay();
+      const diff = day === 0 ? -6 : 1 - day; // Monday start
+      ws.setDate(ws.getDate() + diff);
+      ws.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase.functions.invoke('helm-sync-calendar', {
+        body: { week_start: ws.toISOString() },
+      });
+      if (error) throw error;
+      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; subject: string }>;
+      const byDay: Record<string, number> = {};
+      for (const ev of events) {
+        if (!ev.start) continue;
+        const k = new Date(ev.start).toDateString();
+        byDay[k] = (byDay[k] ?? 0) + 1;
+      }
+      const out: { day: string; date: Date; count: number; isToday: boolean }[] = [];
+      const todayKey = new Date().toDateString();
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(ws);
+        d.setDate(ws.getDate() + i);
+        out.push({
+          day: d.toLocaleDateString(undefined, { weekday: 'short' }),
+          date: d,
+          count: byDay[d.toDateString()] ?? 0,
+          isToday: d.toDateString() === todayKey,
+        });
+      }
+      return out;
+    },
+    staleTime: 5 * 60_000,
+  });
+
   const today = useMemo(
     () =>
       new Date().toLocaleDateString([], {
