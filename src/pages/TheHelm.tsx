@@ -649,20 +649,50 @@ function BriefView({
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
               {today} · {nowTime} brief
             </p>
-            <span
-              className={cn(
-                'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border print:hidden',
-                (sync.isPending || isLoading)
-                  ? 'border-primary/40 text-primary bg-primary/5'
-                  : 'border-border/60 text-muted-foreground bg-transparent',
-              )}
-              title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
-            >
-              <RefreshCw
-                className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')}
-              />
-              {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
-            </span>
+            <div className="flex items-center gap-2 print:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
+                onClick={() => {
+                  document.body.removeAttribute('data-print-section');
+                  window.print();
+                }}
+                title="Print today's full brief — meetings, Big 3, decisions, drafts, overdue, FYI."
+              >
+                <Printer className="w-3 h-3 mr-1.5" /> Print today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
+                onClick={async () => {
+                  try {
+                    const { data, error } = await supabase.functions.invoke('helm-email-section', {
+                      body: { section: 'brief', title: "Today's full brief" },
+                    });
+                    if (error) throw error;
+                    toast.success(`Emailed to ${(data as any)?.recipient ?? 'your inbox'}.`);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? 'Email failed.');
+                  }
+                }}
+              >
+                <Send className="w-3 h-3 mr-1.5" /> Email today
+              </Button>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border',
+                  (sync.isPending || isLoading)
+                    ? 'border-primary/40 text-primary bg-primary/5'
+                    : 'border-border/60 text-muted-foreground bg-transparent',
+                )}
+                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+              >
+                <RefreshCw className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')} />
+                {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+              </span>
+            </div>
           </div>
 
           <h1
