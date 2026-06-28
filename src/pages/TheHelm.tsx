@@ -1085,8 +1085,11 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [reshapeBusy, setReshapeBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
-  const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | null>(null);
+  const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | 'schedule' | null>(null);
   const [instruction, setInstruction] = useState('');
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<string>(''); // yyyy-MM-dd
+  const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:mm
 
   // Auto-select first draft
   const effectiveId = activeId ?? drafts[0]?.id ?? null;
