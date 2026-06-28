@@ -40,6 +40,8 @@ import HelpAdmin from "./pages/HelpAdmin";
 import SuperAdmin from "./pages/SuperAdmin";
 import OrgAdmin from "./pages/OrgAdmin";
 import Knowledge from "./pages/Knowledge";
+import Help from "./pages/Help";
+import UserGuide from "./pages/UserGuide";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +81,8 @@ const App = () => (
                   <Route path="/sync" element={<Sync />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/knowledge" element={<Knowledge />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/user-guide" element={<UserGuide />} />
                   <Route path="/settings/help" element={<HelpAdmin />} />
                   <Route path="/email-draft" element={
                     <FeatureRoute featureKeys={['ai_draft', 'ai_auto_reply']}>
