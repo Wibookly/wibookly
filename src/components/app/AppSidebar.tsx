@@ -306,7 +306,8 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* AI Intelligence Report */}
               {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Intelligence Report" icon={BarChart3} accent={accents.green} defaultOpen>
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Intelligence Report</NavItem>}
+                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" emoji="🚩" accent={accents.green}>Flagged Email Tracker Report</NavItem>}
                 </NavSection>
               )}
 

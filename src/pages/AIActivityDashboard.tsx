@@ -11,10 +11,9 @@ import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as Ma
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PageHero } from '@/components/app/PageHero';
-import { BarChart3, Flag } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { FeatureUsageGrid } from '@/components/app/FeatureUsageGrid';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import FlaggedEmailTracker from './FlaggedEmailTracker';
+
 
 
 interface ActivityStats {
@@ -239,21 +238,16 @@ export default function AIActivityDashboard() {
       <div className="page-shell-sticky">
         <PageHero
           eyebrow="Reports"
-          title="AI Intelligence Report"
-          description="Your AI activity — drafts, auto-replies, scheduled events, chats, meetings, and flagged-email follow-ups. Filter by date range, export, or print."
+          title="AI Activity Report"
+          description="Your AI activity — drafts, auto-replies, scheduled events, chats, and meetings. Filter by date range, export, or print."
           accent="green"
           icon={<BarChart3 className="w-5 h-5 text-white" strokeWidth={2} />}
         />
       </div>
 
       <div className="page-shell-content w-full animate-fade-in">
-        <Tabs defaultValue="activity" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="activity"><BarChart3 className="w-4 h-4 mr-1.5" />AI Activity</TabsTrigger>
-            <TabsTrigger value="flagged"><Flag className="w-4 h-4 mr-1.5" />Flagged Email Tracker Report</TabsTrigger>
-          </TabsList>
+        <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
 
-          <TabsContent value="activity" className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div />
 
@@ -490,13 +484,9 @@ export default function AIActivityDashboard() {
           )}
         </>
       )}
-          </TabsContent>
-
-          <TabsContent value="flagged" className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-2">
-            <FlaggedEmailTracker />
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </div>
   );
 }
+
