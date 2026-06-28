@@ -189,7 +189,7 @@ export default function FlaggedEmailSettings() {
         <PageHero
           eyebrow="AI Intelligence"
           title="Flagged Email Tracker"
-          description="Turn the tracker on or off, decide whether AI should automatically draft or even send polite follow-ups, and tune the AI's writing tone."
+          description="Turn the tracker on or off, decide whether AI should automatically send polite follow-ups when a flag's due date passes, and tune the AI's writing tone."
           accent="purple"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
@@ -246,9 +246,12 @@ export function FlaggedEmailSettingsBody() {
   const persist = async (next: Prefs) => {
     if (!user?.id || !settingsId) return;
     setSaving(true);
+    // Auto-draft is always kept in lock-step with auto-send: there is no
+    // separate "draft only" mode any more — the only switch the user sees is
+    // "automatically send follow-up replies".
     const payload: FollowUpSettingsUpdate = {
       is_enabled: next.enabled,
-      auto_draft_enabled: next.autoReply,
+      auto_draft_enabled: next.autoSend,
       auto_reply_enabled: next.autoSend,
       business_hours_only: next.businessHoursOnly,
       business_hours_start: next.businessHoursStart,
@@ -264,7 +267,7 @@ export function FlaggedEmailSettingsBody() {
 
   const update = (patch: Partial<Prefs>) => {
     const next = { ...prefs, ...patch };
-    if (!next.autoReply) next.autoSend = false;
+    next.autoReply = next.autoSend;
     if (!next.enabled) { next.autoReply = false; next.autoSend = false; }
     setPrefs(next);
     persist(next).then(() => toast.success('Preferences saved'));
@@ -311,32 +314,24 @@ export function FlaggedEmailSettingsBody() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tracker controls</CardTitle>
-            <CardDescription>These settings only affect your account. Recipients never see flags — they're private to your mailbox.</CardDescription>
+            <CardDescription>These settings only affect your account. Recipients never see flags — they're private to your mailbox. There is no separate "auto-draft" mode: the tracker either auto-sends a polite follow-up when a flag's due date passes with no reply, or it stays off.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <ToggleRow
               icon={<Sparkles className="w-4 h-4 text-purple-500" />}
               title="Enable Flagged Email Tracker"
-              description="Scan your Outlook Sent Items for flagged messages and surface them in Flagged Email Reports."
+              description="Scan your Outlook Sent Items for flagged messages and surface them in the tracker."
               checked={prefs.enabled}
               onCheckedChange={(v) => update({ enabled: v })}
               disabled={!settingsReady || saving}
             />
             <ToggleRow
-              icon={<BellRing className="w-4 h-4 text-amber-500" />}
-              title="Auto-draft follow-up replies"
-              description="When the due date passes with no reply, AI writes a polite follow-up draft in the same thread (left unsent for your review)."
-              checked={prefs.autoReply}
-              onCheckedChange={(v) => update({ autoReply: v })}
-              disabled={!settingsReady || saving || !prefs.enabled}
-            />
-            <ToggleRow
               icon={<Send className="w-4 h-4 text-emerald-500" />}
-              title="Auto-send follow-up replies"
-              description="Send the AI-drafted follow-up automatically. Capped at 3 attempts (3 days apart). After the 3rd attempt the thread is marked Missed and automation stops."
+              title="Automatically send follow-up replies"
+              description="When the flag's due date passes and the recipient has not replied, AI writes a polite follow-up in your tone and sends it on your behalf. Capped at 3 attempts (3 days apart). After the 3rd attempt the thread is marked Missed and automation stops."
               checked={prefs.autoSend}
               onCheckedChange={(v) => update({ autoSend: v })}
-              disabled={!settingsReady || saving || !prefs.enabled || !prefs.autoReply}
+              disabled={!settingsReady || saving || !prefs.enabled}
             />
 
             {prefs.autoSend && (
@@ -564,7 +559,7 @@ export function FlaggedEmailSettingsBody() {
                 <li>Send your email as usual.</li>
                 <li>Open the message in <strong>Sent Items</strong>.</li>
                 <li>Click the flag icon and pick <strong>Custom… → Due date</strong>.</li>
-                <li>InboxIQ drafts a polite follow-up on that date if no reply has arrived.</li>
+                <li>If auto-send is on and no reply has arrived by that date, InboxIQ sends a polite follow-up for you.</li>
               </ol>
             </div>
           </CardContent>
@@ -580,9 +575,9 @@ export function FlaggedEmailSettingsBody() {
               {[
                 'Polls your Outlook Sent Items every few minutes for flagged messages.',
                 'Watches the conversation for a real reply (auto-replies and out-of-office are ignored).',
-                'On the due date, drafts a short, polite follow-up in your tone — never pushy.',
+                'On the due date — if auto-send is on — sends a short, polite follow-up in your tone on your behalf. Never pushy.',
                 'Caps at 3 attempts per email, then marks it as Missed and stops automation.',
-                'If you complete the flag or the recipient replies, the tracker cancels automatically.',
+                'If you complete the flag, cancel the row, or the recipient replies, the tracker stops automatically.',
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />

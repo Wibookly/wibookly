@@ -143,14 +143,29 @@ export default function FlaggedEmailTrackerPage() {
     if (error) throw error;
   };
 
+  const cancelRow = useCallback(async (id: string) => {
+    const prev = rows;
+    setRows(rs => rs.map(r => r.id === id ? { ...r, status: 'cancelled', scheduled_send_at: null } : r));
+    const { error } = await supabase
+      .from('tracked_emails' as any)
+      .update({ status: 'cancelled', scheduled_send_at: null, queued_reason: 'user_cancelled' })
+      .eq('id', id);
+    if (error) {
+      setRows(prev);
+      toast.error('Could not cancel — try again');
+    } else {
+      toast.success('Follow-up cancelled');
+    }
+  }, [rows]);
+
   return (
     <div className="page-shell">
       <div className="page-shell-sticky print:hidden">
         <PageHero
-          eyebrow="AI Intelligence Report"
-          title="Flagged Email Tracker Report"
-          description="Live view of every email you've flagged in Outlook — pulls fresh data from Microsoft 365 on every open and every minute."
-          accent="green"
+          eyebrow="AI Intelligence"
+          title="Flagged Email Tracker"
+          description="Live view of every email you've flagged in Outlook. If auto-send is on, AI sends a polite follow-up when the flag's due date passes with no reply — up to 3 attempts. Cancel any row before its next send."
+          accent="purple"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
       </div>
@@ -169,10 +184,10 @@ export default function FlaggedEmailTrackerPage() {
                     <div>
                       <CardTitle className="text-base flex items-center gap-2">
                         Tracker settings
-                        <Badge variant="outline" className="text-[10px]">Tracker · auto-draft · schedule · tone</Badge>
+                        <Badge variant="outline" className="text-[10px]">Tracker · auto-send · schedule · tone</Badge>
                       </CardTitle>
                       <CardDescription>
-                        Turn the tracker on/off, choose auto-draft vs auto-send, set business hours, and tune your AI writing tone.
+                        Turn the tracker on/off, choose whether AI auto-sends the follow-up, set business hours, and tune your AI writing tone.
                       </CardDescription>
                     </div>
                   </div>
@@ -250,7 +265,7 @@ export default function FlaggedEmailTrackerPage() {
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} />
+              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -267,7 +282,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => <EmailRow key={r.id} r={r} />)}
+                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} />)}
                   </TableBody>
                 </Table>
               </div>
@@ -279,12 +294,13 @@ export default function FlaggedEmailTrackerPage() {
   );
 }
 
-function EmailRow({ r }: { r: TrackedEmail }) {
+function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => void }) {
   const meta = STATUS_META[r.status];
   const Icon = meta.icon;
   const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
   const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted';
   return (
     <TableRow>
       <TableCell className="max-w-sm">
@@ -332,9 +348,23 @@ function EmailRow({ r }: { r: TrackedEmail }) {
         )}
       </TableCell>
       <TableCell>
-        <Badge variant={meta.variant} className="gap-1">
-          <Icon className="w-3 h-3" /> {meta.label}
-        </Badge>
+        <div className="flex flex-col items-start gap-1.5">
+          <Badge variant={meta.variant} className="gap-1">
+            <Icon className="w-3 h-3" /> {meta.label}
+          </Badge>
+          {canCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 print:hidden"
+              onClick={() => onCancel(r.id)}
+              title="Cancel this follow-up — no further AI sends for this email"
+            >
+              <XCircle className="w-3 h-3 mr-1" /> Cancel
+            </Button>
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -344,10 +374,12 @@ function RecipientGroups({
   rows,
   expanded,
   setExpanded,
+  onCancel,
 }: {
   rows: TrackedEmail[];
   expanded: Record<string, boolean>;
   setExpanded: (e: Record<string, boolean>) => void;
+  onCancel: (id: string) => void;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; name: string; email: string; items: TrackedEmail[] }>();
@@ -406,7 +438,7 @@ function RecipientGroups({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.items.map((r) => <EmailRow key={r.id} r={r} />)}
+                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} />)}
                   </TableBody>
                 </Table>
               </div>
