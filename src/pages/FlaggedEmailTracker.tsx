@@ -438,7 +438,7 @@ function RecipientGroups({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.items.map((r) => <EmailRow key={r.id} r={r} />)}
+                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} />)}
                   </TableBody>
                 </Table>
               </div>
