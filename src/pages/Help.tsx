@@ -480,8 +480,22 @@ function MyTicketsList() {
   );
 }
 
+function UnreadPill({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span
+      className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold animate-pulse"
+      style={{ background: '#ef4444', color: '#fff' }}
+      aria-label={`${count} unread`}
+    >
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
+
 export default function Help() {
   const { isOrgAdmin } = useUserRoles();
+  const unread = useSupportUnread();
 
   return (
     <div className="page-shell">
@@ -499,8 +513,8 @@ export default function Help() {
         {isOrgAdmin ? (
           <Tabs defaultValue="all" className="w-full">
             <TabsList>
-              <TabsTrigger value="all">All tickets (admin)</TabsTrigger>
-              <TabsTrigger value="mine">My tickets</TabsTrigger>
+              <TabsTrigger value="all">All tickets (admin)<UnreadPill count={unread.all} /></TabsTrigger>
+              <TabsTrigger value="mine">My tickets<UnreadPill count={unread.mine} /></TabsTrigger>
               <TabsTrigger value="submit">Submit an issue</TabsTrigger>
             </TabsList>
             <TabsContent value="all" className="mt-4">
