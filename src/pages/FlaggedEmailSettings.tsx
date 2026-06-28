@@ -160,6 +160,8 @@ export default function FlaggedEmailSettings() {
     setPrefs(p => ({ ...p, tone: { ...p.tone, ...patch } }));
   };
 
+  const settingsReady = Boolean(activeConnection?.id && settingsId && !loading);
+
   const saveTone = async () => {
     await persist(prefs);
     setToneSavedAt(new Date());
@@ -215,6 +217,7 @@ export default function FlaggedEmailSettings() {
               description="Scan your Outlook Sent Items for flagged messages and surface them in Flagged Email Reports."
               checked={prefs.enabled}
               onCheckedChange={(v) => update({ enabled: v })}
+              disabled={!settingsReady || saving}
             />
             <ToggleRow
               icon={<BellRing className="w-4 h-4 text-amber-500" />}
@@ -222,7 +225,7 @@ export default function FlaggedEmailSettings() {
               description="When the due date passes with no reply, AI writes a polite follow-up draft in the same thread (left unsent for your review)."
               checked={prefs.autoReply}
               onCheckedChange={(v) => update({ autoReply: v })}
-              disabled={!prefs.enabled}
+              disabled={!settingsReady || saving || !prefs.enabled}
             />
             <ToggleRow
               icon={<Send className="w-4 h-4 text-emerald-500" />}
@@ -230,7 +233,7 @@ export default function FlaggedEmailSettings() {
               description="Send the AI-drafted follow-up automatically. Capped at 3 attempts (3 days apart). After the 3rd attempt the thread is marked Missed and automation stops."
               checked={prefs.autoSend}
               onCheckedChange={(v) => update({ autoSend: v })}
-              disabled={!prefs.enabled || !prefs.autoReply}
+              disabled={!settingsReady || saving || !prefs.enabled || !prefs.autoReply}
             />
 
             {prefs.autoSend && (
@@ -259,7 +262,7 @@ export default function FlaggedEmailSettings() {
               </div>
               <Switch
                 checked={prefs.businessHoursOnly}
-                disabled={!prefs.enabled || saving}
+                disabled={!settingsReady || !prefs.enabled || saving}
                 onCheckedChange={(v) => update({ businessHoursOnly: v })}
               />
             </div>
@@ -271,7 +274,7 @@ export default function FlaggedEmailSettings() {
                 <select
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefs.businessHoursStart}
-                  disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                  disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
                   onChange={(e) => update({ businessHoursStart: parseInt(e.target.value, 10) })}
                 >
                   {Array.from({ length: 24 }, (_, h) => <option key={h} value={h} disabled={h >= prefs.businessHoursEnd}>{fmtHour(h)}</option>)}
@@ -282,7 +285,7 @@ export default function FlaggedEmailSettings() {
                 <select
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefs.businessHoursEnd}
-                  disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                  disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
                   onChange={(e) => update({ businessHoursEnd: parseInt(e.target.value, 10) })}
                 >
                   {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h} disabled={h <= prefs.businessHoursStart}>{h === 24 ? '12:00 AM (next day)' : fmtHour(h)}</option>)}
@@ -293,12 +296,12 @@ export default function FlaggedEmailSettings() {
                 <div className="flex gap-2">
                   <Input
                     value={prefs.timezone}
-                    disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                    disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
                     placeholder="America/New_York"
                     onChange={(e) => setPrefs((p) => ({ ...p, timezone: e.target.value }))}
                     onBlur={() => update({ timezone: prefs.timezone || browserTimezone() })}
                   />
-                  <Button variant="outline" size="sm" disabled={!prefs.enabled || !prefs.businessHoursOnly || saving} onClick={() => update({ timezone: browserTimezone() })}>Use mine</Button>
+                  <Button variant="outline" size="sm" disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving} onClick={() => update({ timezone: browserTimezone() })}>Use mine</Button>
                 </div>
               </div>
             </div>
@@ -313,7 +316,7 @@ export default function FlaggedEmailSettings() {
                       type="button"
                       size="sm"
                       variant={active ? 'default' : 'outline'}
-                      disabled={!prefs.enabled || !prefs.businessHoursOnly || saving}
+                      disabled={!settingsReady || !prefs.enabled || !prefs.businessHoursOnly || saving}
                       onClick={() => update({ businessDays: active ? prefs.businessDays.filter((d) => d !== idx) : [...prefs.businessDays, idx].sort() })}
                     >
                       {label}
