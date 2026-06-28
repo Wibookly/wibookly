@@ -485,13 +485,9 @@ export default function AIActivityDashboard() {
           )}
         </>
       )}
-          </TabsContent>
-
-          <TabsContent value="flagged" className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-2">
-            <FlaggedEmailTracker />
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </div>
   );
 }
+
