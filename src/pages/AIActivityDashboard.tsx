@@ -493,8 +493,8 @@ export default function AIActivityDashboard() {
                         cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
                       />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="drafts" name="AI Drafts" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="autoReplies" name="AI Auto-Replies" stackId="a" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="drafts" name="AI Drafts" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="autoReplies" name="AI Auto-Replies" stackId="a" fill="#f97316" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
