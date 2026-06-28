@@ -83,7 +83,12 @@ async function callOpenAI(opts: {
   if (supportsTemperature) {
     body.temperature = opts.temperature ?? 0.7;
   }
-  if (opts.max_tokens) body.max_tokens = opts.max_tokens;
+  if (opts.max_tokens) {
+    // GPT-5 / o-series only accept `max_completion_tokens`. Older chat models use `max_tokens`.
+    const usesCompletionTokens = /^gpt-5/i.test(modelName) || /^o\d/i.test(modelName);
+    if (usesCompletionTokens) body.max_completion_tokens = opts.max_tokens;
+    else body.max_tokens = opts.max_tokens;
+  }
   if (opts.tools?.length) {
     body.tools = opts.tools;
     if (opts.tool_choice) body.tool_choice = opts.tool_choice;
