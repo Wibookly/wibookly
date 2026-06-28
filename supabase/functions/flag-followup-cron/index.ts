@@ -247,6 +247,45 @@ async function processOne(admin: any, row: any) {
     await admin.from('tracked_emails').update({ status: 'exhausted', last_checked_at: new Date().toISOString() }).eq('id', row.id);
     return { id: row.id, action: 'exhausted' };
   }
+
+  const now = new Date();
+  const inWindow = isInWindow(now, prefs);
+
+  // Queued path: a previous run already drafted; only need to send when window opens.
+  if (row.status === 'queued' && row.last_draft_id) {
+    if (!inWindow) {
+      const next = nextWindowStart(now, prefs);
+      await admin.from('tracked_emails').update({
+        scheduled_send_at: next.toISOString(),
+        last_checked_at: now.toISOString(),
+      }).eq('id', row.id);
+      return { id: row.id, action: 'still_queued' };
+    }
+    if (prefs.autoSend) {
+      const send = await callGraph(userId, connId, 'mail', `/me/messages/${row.last_draft_id}/send`, { method: 'POST', body: '{}' });
+      if (send.ok) {
+        const attempt = (row.attempts || 0) + 1;
+        const sentAtIso = now.toISOString();
+        const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+        history.push({ attempt, drafted_at: sentAtIso, sent_at: sentAtIso, auto_sent: true, draft_id: row.last_draft_id });
+        const reachedCap = attempt >= MAX_ATTEMPTS;
+        await admin.from('tracked_emails').update({
+          status: reachedCap ? 'exhausted' : 'pending',
+          attempts: attempt,
+          scheduled_send_at: null,
+          queued_reason: null,
+          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString(),
+          last_checked_at: sentAtIso,
+          follow_up_history: history,
+        }).eq('id', row.id);
+        return { id: row.id, action: 'sent_from_queue' };
+      }
+    }
+    // auto-send turned off while queued → leave as drafted for user review.
+    await admin.from('tracked_emails').update({ status: 'drafted', scheduled_send_at: null, queued_reason: null, last_checked_at: now.toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'released_to_drafted' };
+  }
+
   const attempt = (row.attempts || 0) + 1;
   const bodyHtml = await draftFollowupBody({
     subject: row.subject || '(no subject)',
@@ -273,7 +312,20 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: patch.error?.message };
   }
 
-  // Optionally auto-send the draft
+  // If auto-send is enabled but we're outside business hours → queue.
+  if (prefs.autoSend && !inWindow) {
+    const next = nextWindowStart(now, prefs);
+    await admin.from('tracked_emails').update({
+      status: 'queued',
+      last_draft_id: draftId,
+      scheduled_send_at: next.toISOString(),
+      queued_reason: 'outside_business_hours',
+      last_checked_at: now.toISOString(),
+    }).eq('id', row.id);
+    return { id: row.id, action: 'queued', draftId, scheduled_send_at: next.toISOString() };
+  }
+
+  // Optionally auto-send the draft (we're either in window, or auto-send is off)
   let sentNow = false;
   if (prefs.autoSend && draftId) {
     const send = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}/send`, { method: 'POST', body: '{}' });
@@ -291,7 +343,7 @@ async function processOne(admin: any, row: any) {
   });
 
   const reachedCap = attempt >= MAX_ATTEMPTS;
-  const nextStatus = reachedCap ? 'exhausted' : 'pending';
+  const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
     ? new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString()
     : row.follow_up_at;
