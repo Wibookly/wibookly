@@ -177,95 +177,40 @@ export default function FlaggedEmailTrackerPage() {
       </div>
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
-        {settings && (
+        {/* Collapsible settings panel — full tracker settings inline */}
+        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
           <Card className="print:hidden border-primary/30">
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlarmClock className="w-4 h-4 text-primary" /> Auto-send schedule
-                  {settings.business_hours_only ? <Badge variant="secondary">Business-hours guard on</Badge> : <Badge variant="outline">Anytime sending</Badge>}
-                </CardTitle>
-                <CardDescription>
-                  When Auto-send is on, queued follow-ups send only inside this window. Turn this off if you want due follow-ups to send immediately at any hour.
-                </CardDescription>
-              </div>
-              <Switch
-                checked={settings.business_hours_only}
-                disabled={savingSettings}
-                onCheckedChange={(v) => patchSettings({ business_hours_only: v })}
-              />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className={`grid md:grid-cols-3 gap-3 ${!settings.business_hours_only ? 'opacity-60' : ''}`}>
-                <div className="space-y-1.5">
-                  <Label>Start</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    value={settings.business_hours_start}
-                    disabled={!settings.business_hours_only || savingSettings}
-                    onChange={(e) => patchSettings({ business_hours_start: parseInt(e.target.value, 10) })}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h} disabled={h >= settings.business_hours_end}>{fmtHour(h)}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>End</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    value={settings.business_hours_end}
-                    disabled={!settings.business_hours_only || savingSettings}
-                    onChange={(e) => patchSettings({ business_hours_end: parseInt(e.target.value, 10) })}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h} disabled={h <= settings.business_hours_start}>{h === 24 ? '12:00 AM (next day)' : fmtHour(h)}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Timezone</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings.timezone || ''}
-                      disabled={!settings.business_hours_only || savingSettings}
-                      placeholder="America/New_York"
-                      onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                      onBlur={() => patchSettings({ timezone: settings.timezone || browserTimezone() })}
-                    />
-                    <Button variant="outline" size="sm" disabled={!settings.business_hours_only || savingSettings} onClick={() => patchSettings({ timezone: browserTimezone() })}>Use mine</Button>
+            <CollapsibleTrigger asChild>
+              <button type="button" className="w-full text-left">
+                <CardHeader className="flex flex-row items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <SettingsIcon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        Tracker settings
+                        <Badge variant="outline" className="text-[10px]">Tracker · auto-draft · schedule · tone</Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Turn the tracker on/off, choose auto-draft vs auto-send, set business hours, and tune your AI writing tone.
+                      </CardDescription>
+                    </div>
                   </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform shrink-0 ${settingsOpen ? 'rotate-180' : ''}`} />
+                </CardHeader>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 border-t">
+                <div className="pt-5">
+                  <FlaggedEmailSettingsBody />
                 </div>
-              </div>
-              <div className={`${!settings.business_hours_only ? 'opacity-60' : ''}`}>
-                <Label>Business days</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {DAY_LABELS.map((label, idx) => {
-                    const active = (settings.business_days || []).includes(idx);
-                    return (
-                      <Button
-                        key={label}
-                        type="button"
-                        size="sm"
-                        variant={active ? 'default' : 'outline'}
-                        disabled={!settings.business_hours_only || savingSettings}
-                        onClick={() => {
-                          const days = active
-                            ? (settings.business_days || []).filter((d) => d !== idx)
-                            : [...(settings.business_days || []), idx].sort();
-                          patchSettings({ business_days: days });
-                        }}
-                      >
-                        {label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Current rule: {settings.business_hours_only
-                  ? `send Monday–Friday style windows you select (${fmtHour(settings.business_hours_start)}–${settings.business_hours_end === 24 ? '12:00 AM' : fmtHour(settings.business_hours_end)}${settings.timezone ? `, ${settings.timezone}` : ''}). Weekends/off-hours stay queued.`
-                  : 'send automatically as soon as the due date arrives and no recipient reply is found.'}
-              </p>
-            </CardContent>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        )}
+        </Collapsible>
+
 
         {/* Date range + export controls */}
         <Card className="print:hidden">
