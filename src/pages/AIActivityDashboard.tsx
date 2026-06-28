@@ -454,7 +454,7 @@ export default function AIActivityDashboard() {
 
 
 
-          {/* Category Breakdown */}
+          {/* Category Breakdown — themed stacked bars */}
           <Card data-tour="aa-category" className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -469,70 +469,66 @@ export default function AIActivityDashboard() {
                   No AI activity recorded yet. Enable AI Draft or AI Auto-Reply on your categories to start tracking.
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {categoryBreakdown.map((cat) => {
-                    const total = cat.drafts + cat.autoReplies;
-                    const maxTotal = Math.max(...categoryBreakdown.map(c => c.drafts + c.autoReplies));
-                    const widthPercent = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-                    
-                    return (
-                      <div key={cat.categoryName} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{cat.categoryName}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {cat.drafts} drafts, {cat.autoReplies} auto-replies
-                          </span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-blue-500 to-orange-500 rounded-full transition-all duration-500"
-                            style={{ width: `${widthPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div style={{ width: '100%', height: Math.max(220, categoryBreakdown.length * 36) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryBreakdown} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                      <CartesianGrid horizontal={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                      <YAxis type="category" dataKey="categoryName" stroke="hsl(var(--muted-foreground))" fontSize={11} width={120} />
+                      <RTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                        cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="drafts" name="AI Drafts" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="autoReplies" name="AI Auto-Replies" stackId="a" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Daily Activity Chart (Simple) */}
+          {/* Daily Activity — themed area chart */}
           {dailyActivity.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Daily Activity</CardTitle>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Daily Activity</CardTitle>
                 <CardDescription>AI drafts and auto-replies over time</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-48 flex items-end gap-1">
-                  {dailyActivity.slice(-30).map((day) => {
-                    const total = day.drafts + day.autoReplies;
-                    const maxTotal = Math.max(...dailyActivity.map(d => d.drafts + d.autoReplies));
-                    const heightPercent = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-                    
-                    return (
-                      <div key={day.date} className="flex-1 flex flex-col items-center group">
-                        <div className="relative w-full flex flex-col items-center">
-                          <div 
-                            className="w-full bg-gradient-to-t from-blue-500 to-orange-400 rounded-t transition-all duration-300 hover:opacity-80"
-                            style={{ height: `${Math.max(heightPercent, 2)}%`, minHeight: '4px' }}
-                          />
-                          <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
-                            {format(new Date(day.date), 'MMM dd')}: {day.drafts}D, {day.autoReplies}AR
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                  <span>{dailyActivity.length > 0 && format(new Date(dailyActivity[Math.max(0, dailyActivity.length - 30)].date), 'MMM dd')}</span>
-                  <span>{dailyActivity.length > 0 && format(new Date(dailyActivity[dailyActivity.length - 1].date), 'MMM dd')}</span>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={dailyActivity.slice(-30).map(d => ({ ...d, label: format(new Date(d.date), 'MMM dd') }))}
+                      margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+                    >
+                      <defs>
+                        <linearGradient id="gradDrafts" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="gradAuto" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                      <RTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Area type="monotone" dataKey="drafts" name="AI Drafts" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#gradDrafts)" />
+                      <Area type="monotone" dataKey="autoReplies" name="AI Auto-Replies" stroke="hsl(var(--accent))" strokeWidth={2} fill="url(#gradAuto)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           )}
+
         </>
       )}
         </div>
