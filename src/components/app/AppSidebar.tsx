@@ -313,7 +313,8 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* Knowledge Base */}
               <NavSection title="Knowledge Base" icon={BookOpen} accent={accents.cyan} defaultOpen>
                 {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/knowledge" emoji="📚" accent={accents.cyan}>Knowledge Base</NavItem>}
-                <NavItem href="/settings/help" emoji="🆘" accent={accents.cyan}>User Guidance, Help &amp; Support</NavItem>
+                <NavItem href="/user-guide" emoji="🧭" accent={accents.cyan}>User Guide</NavItem>
+                <NavItem href="/help" emoji="🆘" accent={accents.cyan}>Help &amp; Support</NavItem>
               </NavSection>
 
               {/* Admin */}
