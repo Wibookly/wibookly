@@ -578,6 +578,7 @@ function BriefView({
   const big3 = data?.big3 ?? [];
   const decisions = data?.decisions ?? [];
   const overdue = data?.overdue ?? [];
+  const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
 
   // Live week preview for the right rail
