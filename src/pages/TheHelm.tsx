@@ -646,48 +646,20 @@ function BriefView({
         </section>
 
 
-        {/* Big 3 */}
+        {/* Big 3 — opens the inbox-style reader scoped to today's priorities */}
         <section aria-labelledby="big3" data-helm-section="big3">
           <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
-          <ExpandableSummary
+          <InboxLauncherCard
             icon={ClipboardList}
-            title="Open today's priorities"
-            subtitle="Expand to review the three priority slots, then open any email or task for the full thread and AI draft."
-            countLabel={`${big3.length}/3 ready`}
-          >
-            {isLoading ? (
-              <Skeleton className="h-24" />
-            ) : big3.length === 0 ? (
-              <EmptyHint>
-                No must-do items right now. The three priority slots are clear.
-              </EmptyHint>
-            ) : (
-              Array.from({ length: 3 }, (_, i) => big3[i] ?? null).map((item, i) => (
-                item ? (
-                  <HelmCard
-                    key={item.id}
-                    item={item}
-                    index={i + 1}
-                    onOpen={() => go('detail', item)}
-                    showCheckbox
-                    done={done[item.id]}
-                    onToggleDone={(n) => toggleDone(item.id, n)}
-                  />
-                ) : (
-                  <Card key={`empty-big3-${i}`} className="border-dashed border-border/70 bg-muted/20">
-                    <CardContent className="p-4 flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="font-mono text-[10px] tracking-[0.15em] tabular-nums">{String(i + 1).padStart(2, '0')}</span>
-                      <span>No third priority found yet.</span>
-                    </CardContent>
-                  </Card>
-                )
-              ))
-            )}
-          </ExpandableSummary>
+            count={big3.length}
+            label={`priorit${big3.length === 1 ? 'y' : 'ies'} for today`}
+            description="Open the focused reader — emails on the left, the thread on top, AI draft on the bottom. Same tone as your auto-draft settings."
+            onOpen={() => go('inbox', undefined, 'big3')}
+          />
         </section>
 
 
-        {/* Decisions */}
+        {/* Decisions — same inbox reader, scoped to approvals/decisions */}
         <section aria-labelledby="decisions" data-helm-section="decisions">
           <SectionHeader
             index={1}
@@ -697,22 +669,13 @@ function BriefView({
             emailSection="brief"
             count={decisions.length}
           />
-          <ExpandableSummary
+          <InboxLauncherCard
             icon={AlertTriangle}
-            title="Open decisions waiting on you"
-            subtitle="Expand to see approval threads, open the original email, and use the AI draft tools."
-            countLabel={`${decisions.length} waiting`}
-          >
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : decisions.length === 0 ? (
-              <EmptyHint>No open decisions waiting on you.</EmptyHint>
-            ) : (
-              decisions.map((item) => (
-                <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
-              ))
-            )}
-          </ExpandableSummary>
+            count={decisions.length}
+            label={`decision${decisions.length === 1 ? '' : 's'} waiting on you`}
+            description="Open the focused reader to review each thread and approve, edit, or send the AI reply."
+            onOpen={() => go('inbox', undefined, 'decisions')}
+          />
         </section>
 
 
@@ -726,39 +689,15 @@ function BriefView({
             emailSection="inbox"
             count={stats.drafted}
           />
-          <Card
-            role="button"
-            tabIndex={0}
-            onClick={() => go('inbox')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                go('inbox');
-              }
-            }}
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <CardContent className="p-6 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <FileEdit className="w-7 h-7" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-h2 font-bold text-foreground tabular-nums">
-                    {stats.drafted}
-                  </span>
-                  <span className="text-body-1 text-foreground">
-                    draft{stats.drafted === 1 ? '' : 's'} ready
-                  </span>
-                </div>
-                <p className="text-body-2 text-muted-foreground mt-1">
-                  Open the focused inbox to skim, edit, and send.
-                </p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
+          <InboxLauncherCard
+            icon={FileEdit}
+            count={stats.drafted}
+            label={`draft${stats.drafted === 1 ? '' : 's'} ready`}
+            description="Open the focused inbox to skim, edit, and send."
+            onOpen={() => go('inbox', undefined, 'drafts')}
+          />
         </section>
+
 
         {/* Overdue */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
