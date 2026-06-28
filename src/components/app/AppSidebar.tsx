@@ -295,10 +295,9 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
 
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
-                <NavItem href="/settings" emoji="👤" accent={accents.orange}>Profile &amp; Signature</NavItem>
                 {(isSuperAdmin || hasFeature('email_intelligence')) && <NavItem href="/categories" emoji="🏷️" accent={accents.orange}>Email Intelligence</NavItem>}
-                {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" emoji="🔔" accent={accents.orange}>Flagged Tracker</NavItem>}
-                {(isSuperAdmin || hasFeature('ai_draft')) && <NavItem href="/email-draft" emoji="✍️" accent={accents.orange}>AI Draft</NavItem>}
+                {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-settings" emoji="🔔" accent={accents.orange}>Flagged Email Tracker</NavItem>}
+                <NavItem href="/settings" emoji="👤" accent={accents.orange}>Profile &amp; Signature</NavItem>
                 {(isSuperAdmin || hasFeature('meeting_copilot')) && (
                   <NavItem href="/meeting-copilot" emoji="🎧" accent={accents.orange}>Meeting Copilot</NavItem>
                 )}
