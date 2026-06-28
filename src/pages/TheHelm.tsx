@@ -121,10 +121,19 @@ function useHelmData() {
       ]);
 
       const rows = (itemsRes.data ?? []).map(mapRow);
-      const decisions = rows.filter((r) => r.tier === 'decision');
+      const explicitBig3 = rows.filter((r) => r.tier === 'big3');
+      const decisionRows = rows.filter((r) => r.tier === 'decision');
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
-      const big3 = decisions.slice(0, 3);
+      const big3Candidates = [...explicitBig3, ...decisionRows, ...overdue, ...drafts];
+      const seenBig3 = new Set<string>();
+      const big3 = big3Candidates.filter((item) => {
+        if (seenBig3.has(item.id)) return false;
+        seenBig3.add(item.id);
+        return true;
+      }).slice(0, 3);
+      const big3Ids = new Set(big3.map((item) => item.id));
+      const decisions = decisionRows.filter((item) => !big3Ids.has(item.id));
       const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => {
         const at = String(a.action_type ?? '');
         const tag: AutoAction['tag'] =
@@ -142,7 +151,8 @@ function useHelmData() {
       });
 
       const totalInbound = rows.length + autoActions.length;
-      const needsYou = big3.length + decisions.length + overdue.length;
+      const needsYouIds = new Set([...big3, ...decisions, ...overdue].map((item) => item.id));
+      const needsYou = needsYouIds.size;
 
       return {
         big3,
