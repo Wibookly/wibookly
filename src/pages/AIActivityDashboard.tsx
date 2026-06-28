@@ -23,6 +23,13 @@ import {
   RadialBarChart,
   RadialBar,
   Legend,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from 'recharts';
 
 
@@ -315,24 +322,35 @@ export default function AIActivityDashboard() {
         </div>
       ) : (
         <>
-          {/* Email AI activity */}
-          <div className="mb-3 flex items-center gap-2">
-            <MailIcon className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Email AI</h3>
-          </div>
-          <div data-tour="aa-email-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* 4 Hero KPIs — themed */}
+          <div data-tour="aa-hero-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI for your review', Icon: FileText, color: 'text-blue-500' },
-              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Replies sent automatically by AI', Icon: Send, color: 'text-orange-500' },
-              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'Calendar events booked from emails', Icon: CalendarCheck, color: 'text-purple-500' },
-              { title: 'Total AI-Processed Emails', value: stats.totalEmails, sub: 'All inbound emails handled by AI', Icon: MailIcon, color: 'text-primary' },
-            ].map(({ title, value, sub, Icon, color }) => (
-              <Card key={title} className="h-full">
+              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Replies drafted for your review', Icon: FileText, token: 'primary' },
+              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Auto-sent on your behalf', Icon: Send, token: 'accent' },
+              { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} chat conversation${stats.totalChatConversations === 1 ? '' : 's'}`, Icon: MessageSquare, token: 'secondary' },
+              { title: 'Meetings with Copilot', value: stats.totalMeetings, sub: 'Transcribed & summarized', Icon: Video, token: 'muted' },
+            ].map(({ title, value, sub, Icon, token }) => (
+              <Card
+                key={title}
+                className="h-full overflow-hidden relative border-border/60"
+                style={{
+                  background: `linear-gradient(135deg, hsl(var(--${token}) / 0.12), hsl(var(--card)) 70%)`,
+                }}
+              >
+                <div
+                  className="absolute inset-x-0 top-0 h-1"
+                  style={{ background: `hsl(var(--${token}))` }}
+                />
                 <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
                   <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
                     {title}
                   </CardTitle>
-                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+                  <div
+                    className="grid place-items-center w-8 h-8 rounded-lg shrink-0"
+                    style={{ background: `hsl(var(--${token}) / 0.18)`, color: `hsl(var(--${token}))` }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
@@ -342,30 +360,27 @@ export default function AIActivityDashboard() {
             ))}
           </div>
 
-          {/* Conversational & meeting AI */}
-          <div className="mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-green-500" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Chat & Meetings</h3>
-          </div>
-          <div data-tour="aa-chat-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
+          {/* Secondary metrics — slim row */}
+          <div className="grid grid-cols-2 gap-4 mb-8">
             {[
-              { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'} with InboxIQ`, Icon: MessageSquare, color: 'text-green-500' },
-              { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Live meetings transcribed & summarized', Icon: Video, color: 'text-pink-500' },
-            ].map(({ title, value, sub, Icon, color }) => (
+              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'Calendar events booked from emails', Icon: CalendarCheck },
+              { title: 'Total AI-Processed Emails', value: stats.totalEmails, sub: 'All inbound emails handled by AI', Icon: MailIcon },
+            ].map(({ title, value, sub, Icon }) => (
               <Card key={title} className="h-full">
-                <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
-                    {title}
-                  </CardTitle>
-                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
-                  <p className="text-xs text-muted-foreground mt-2 min-h-[2rem] line-clamp-2">{sub}</p>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="grid place-items-center w-9 h-9 rounded-lg bg-muted text-foreground/70 shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground">{title}</div>
+                    <div className="text-xl font-bold tabular-nums leading-tight">{value}</div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground text-right max-w-[40%] hidden sm:block">{sub}</div>
                 </CardContent>
               </Card>
             ))}
           </div>
+
 
           {/* AI usage by feature — donut + radial */}
           <Card className="mb-8">
@@ -439,7 +454,7 @@ export default function AIActivityDashboard() {
 
 
 
-          {/* Category Breakdown */}
+          {/* Category Breakdown — themed stacked bars */}
           <Card data-tour="aa-category" className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -454,70 +469,66 @@ export default function AIActivityDashboard() {
                   No AI activity recorded yet. Enable AI Draft or AI Auto-Reply on your categories to start tracking.
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {categoryBreakdown.map((cat) => {
-                    const total = cat.drafts + cat.autoReplies;
-                    const maxTotal = Math.max(...categoryBreakdown.map(c => c.drafts + c.autoReplies));
-                    const widthPercent = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-                    
-                    return (
-                      <div key={cat.categoryName} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{cat.categoryName}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {cat.drafts} drafts, {cat.autoReplies} auto-replies
-                          </span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-blue-500 to-orange-500 rounded-full transition-all duration-500"
-                            style={{ width: `${widthPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div style={{ width: '100%', height: Math.max(220, categoryBreakdown.length * 36) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryBreakdown} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                      <CartesianGrid horizontal={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                      <YAxis type="category" dataKey="categoryName" stroke="hsl(var(--muted-foreground))" fontSize={11} width={120} />
+                      <RTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                        cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="drafts" name="AI Drafts" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="autoReplies" name="AI Auto-Replies" stackId="a" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Daily Activity Chart (Simple) */}
+          {/* Daily Activity — themed area chart */}
           {dailyActivity.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Daily Activity</CardTitle>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />Daily Activity</CardTitle>
                 <CardDescription>AI drafts and auto-replies over time</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-48 flex items-end gap-1">
-                  {dailyActivity.slice(-30).map((day) => {
-                    const total = day.drafts + day.autoReplies;
-                    const maxTotal = Math.max(...dailyActivity.map(d => d.drafts + d.autoReplies));
-                    const heightPercent = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-                    
-                    return (
-                      <div key={day.date} className="flex-1 flex flex-col items-center group">
-                        <div className="relative w-full flex flex-col items-center">
-                          <div 
-                            className="w-full bg-gradient-to-t from-blue-500 to-orange-400 rounded-t transition-all duration-300 hover:opacity-80"
-                            style={{ height: `${Math.max(heightPercent, 2)}%`, minHeight: '4px' }}
-                          />
-                          <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
-                            {format(new Date(day.date), 'MMM dd')}: {day.drafts}D, {day.autoReplies}AR
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                  <span>{dailyActivity.length > 0 && format(new Date(dailyActivity[Math.max(0, dailyActivity.length - 30)].date), 'MMM dd')}</span>
-                  <span>{dailyActivity.length > 0 && format(new Date(dailyActivity[dailyActivity.length - 1].date), 'MMM dd')}</span>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={dailyActivity.slice(-30).map(d => ({ ...d, label: format(new Date(d.date), 'MMM dd') }))}
+                      margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+                    >
+                      <defs>
+                        <linearGradient id="gradDrafts" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="gradAuto" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                      <RTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Area type="monotone" dataKey="drafts" name="AI Drafts" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#gradDrafts)" />
+                      <Area type="monotone" dataKey="autoReplies" name="AI Auto-Replies" stroke="hsl(var(--accent))" strokeWidth={2} fill="url(#gradAuto)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           )}
+
         </>
       )}
         </div>
