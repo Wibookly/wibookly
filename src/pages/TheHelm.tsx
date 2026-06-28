@@ -23,6 +23,7 @@ import {
   Clock,
   FileEdit,
   Inbox,
+  Info,
   Mail,
   Printer,
   RefreshCw,
@@ -34,10 +35,12 @@ import {
   Zap,
   ThumbsUp,
   X,
+  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 
 /* ------------------------------------------------------------------ */
 /* Types & data hooks                                                 */
