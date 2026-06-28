@@ -4177,8 +4177,10 @@ export type Database = {
           last_checked_at: string | null
           last_draft_id: string | null
           last_error: string | null
+          queued_reason: string | null
           recipient_address: string | null
           recipient_name: string | null
+          scheduled_send_at: string | null
           sent_at: string
           status: string
           subject: string | null
@@ -4201,8 +4203,10 @@ export type Database = {
           last_checked_at?: string | null
           last_draft_id?: string | null
           last_error?: string | null
+          queued_reason?: string | null
           recipient_address?: string | null
           recipient_name?: string | null
+          scheduled_send_at?: string | null
           sent_at: string
           status?: string
           subject?: string | null
@@ -4225,8 +4229,10 @@ export type Database = {
           last_checked_at?: string | null
           last_draft_id?: string | null
           last_error?: string | null
+          queued_reason?: string | null
           recipient_address?: string | null
           recipient_name?: string | null
+          scheduled_send_at?: string | null
           sent_at?: string
           status?: string
           subject?: string | null
