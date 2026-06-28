@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { PageHero } from '@/components/app/PageHero';
 import { BellRing, Flag, Sparkles, Send, ShieldAlert, CheckCircle2, Wand2, Save, Loader2, Pencil, Trash2, Check, AlarmClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
 type Tone = { style: string; format: string; instructions: string; example: string };
+type FollowUpSettingsRow = Database['public']['Tables']['follow_up_settings']['Row'];
+type FollowUpSettingsInsert = Database['public']['Tables']['follow_up_settings']['Insert'];
 type Prefs = {
   enabled: boolean;
   autoReply: boolean;
@@ -73,6 +76,17 @@ const isToneCustomized = (t: Tone) =>
 const styleLabel = (v: string) => WRITING_STYLES.find(s => s.value === v)?.label ?? v;
 const formatLabel = (v: string) => FORMAT_OPTIONS.find(s => s.value === v)?.label ?? v;
 
+function parseTone(value: Json | null): Tone {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return DEFAULT_TONE;
+  const obj = value as Record<string, Json>;
+  return {
+    style: typeof obj.style === 'string' ? obj.style : DEFAULT_TONE.style,
+    format: typeof obj.format === 'string' ? obj.format : DEFAULT_TONE.format,
+    instructions: typeof obj.instructions === 'string' ? obj.instructions : DEFAULT_TONE.instructions,
+    example: typeof obj.example === 'string' ? obj.example : DEFAULT_TONE.example,
+  };
+}
+
 export default function FlaggedEmailSettings() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
@@ -85,26 +99,26 @@ export default function FlaggedEmailSettings() {
     if (!user?.id) return;
     (async () => {
       const { data } = await supabase
-        .from('follow_up_settings' as any)
+        .from('follow_up_settings')
         .select('is_enabled, auto_draft_enabled, auto_reply_enabled, tone_settings, updated_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone')
         .eq('user_id', user.id)
         .maybeSingle();
-      const row: any = data || {};
-      const tone = { ...DEFAULT_TONE, ...(row.tone_settings || {}) };
+      const row = data as Pick<FollowUpSettingsRow, 'is_enabled' | 'auto_draft_enabled' | 'auto_reply_enabled' | 'tone_settings' | 'updated_at' | 'business_hours_only' | 'business_hours_start' | 'business_hours_end' | 'business_days' | 'timezone'> | null;
+      const tone = parseTone(row?.tone_settings ?? null);
       setPrefs({
-        enabled: row.is_enabled ?? true,
-        autoReply: !!row.auto_draft_enabled,
-        autoSend: !!row.auto_reply_enabled,
-        businessHoursOnly: row.business_hours_only ?? true,
-        businessHoursStart: row.business_hours_start ?? 8,
-        businessHoursEnd: row.business_hours_end ?? 17,
-        businessDays: Array.isArray(row.business_days) ? row.business_days : [1, 2, 3, 4, 5],
-        timezone: row.timezone || browserTimezone(),
+        enabled: row?.is_enabled ?? true,
+        autoReply: !!row?.auto_draft_enabled,
+        autoSend: !!row?.auto_reply_enabled,
+        businessHoursOnly: row?.business_hours_only ?? true,
+        businessHoursStart: row?.business_hours_start ?? 8,
+        businessHoursEnd: row?.business_hours_end ?? 17,
+        businessDays: Array.isArray(row?.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+        timezone: row?.timezone || browserTimezone(),
         tone,
       });
       const customized = isToneCustomized(tone);
       setToneEditing(!customized);
-      if (customized && row.updated_at) setToneSavedAt(new Date(row.updated_at));
+      if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
   }, [user?.id]);
@@ -112,7 +126,7 @@ export default function FlaggedEmailSettings() {
   const persist = async (next: Prefs) => {
     if (!user?.id) return;
     setSaving(true);
-    const payload: any = {
+    const payload: FollowUpSettingsInsert = {
       user_id: user.id,
       is_enabled: next.enabled,
       auto_draft_enabled: next.autoReply,
@@ -122,18 +136,18 @@ export default function FlaggedEmailSettings() {
       business_hours_end: next.businessHoursEnd,
       business_days: next.businessDays,
       timezone: next.timezone || browserTimezone(),
-      tone_settings: next.tone,
+      tone_settings: next.tone as unknown as Json,
       reminder_max_count: 3,
     };
     const { data: existing } = await supabase
-      .from('follow_up_settings' as any)
+      .from('follow_up_settings')
       .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
     if (existing) {
-      await supabase.from('follow_up_settings' as any).update(payload).eq('user_id', user.id);
+      await supabase.from('follow_up_settings').update(payload).eq('user_id', user.id);
     } else {
-      await supabase.from('follow_up_settings' as any).insert(payload);
+      await supabase.from('follow_up_settings').insert(payload);
     }
     setSaving(false);
   };
