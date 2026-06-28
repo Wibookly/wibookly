@@ -101,9 +101,10 @@ export default function FlaggedEmailTrackerPage() {
     const pending = rows.filter(r => r.status === 'pending').length;
     const replied = rows.filter(r => r.status === 'replied').length;
     const drafted = rows.filter(r => r.status === 'drafted').length;
+    const queued = rows.filter(r => r.status === 'queued').length;
     const missed = rows.filter(r => r.status === 'exhausted' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now && (r.attempts || 0) >= 3)).length;
     const followUpsSent = rows.reduce((sum, r) => sum + (r.attempts || 0), 0);
-    return { total, pending, replied, drafted, missed, followUpsSent };
+    return { total, pending, queued, replied, drafted, missed, followUpsSent };
   }, [rows]);
 
   const exportCsv = () => {
