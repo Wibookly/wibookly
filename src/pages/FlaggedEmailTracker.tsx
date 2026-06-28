@@ -61,17 +61,8 @@ function todayStr(offsetDays = 0) {
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+void DAY_LABELS;
 
-function fmtHour(h: number): string {
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hh = ((h + 11) % 12) + 1;
-  return `${hh}:00 ${ampm}`;
-}
-
-function browserTimezone(): string {
-  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
-  catch { return 'America/New_York'; }
-}
 
 export default function FlaggedEmailTrackerPage() {
   const { user } = useAuth();
