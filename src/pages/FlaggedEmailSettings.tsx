@@ -99,7 +99,11 @@ export default function FlaggedEmailSettings() {
   const [toneSavedAt, setToneSavedAt] = useState<Date | null>(null);
 
   useEffect(() => {
-    if (!user?.id || !activeConnection?.id) return;
+    if (!user?.id) return;
+    if (!activeConnection?.id) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       const { data } = await supabase.rpc('get_or_create_follow_up_settings', {
         _connection_id: activeConnection.id,
@@ -189,6 +193,16 @@ export default function FlaggedEmailSettings() {
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
         {/* Controls */}
+        {!activeConnection?.id && (
+          <Alert>
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Connect Outlook to manage the tracker</AlertTitle>
+            <AlertDescription>
+              The Flagged Email Tracker uses your active Outlook mailbox for follow-up timing and auto-send rules.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tracker controls</CardTitle>
