@@ -3877,6 +3877,62 @@ export type Database = {
           },
         ]
       }
+      scheduled_outbox: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          draft_id: string | null
+          id: string
+          item_id: string | null
+          last_error: string | null
+          organization_id: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          item_id?: string | null
+          last_error?: string | null
+          organization_id?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          item_id?: string | null
+          last_error?: string | null
+          organization_id?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_outbox_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "helm_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_provider_config: {
         Row: {
           account_sid_hint: string | null
