@@ -363,6 +363,46 @@ export default function AIActivityDashboard() {
             ))}
           </div>
 
+          {/* AI usage by feature — quick visual */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />AI usage by feature</CardTitle>
+              <CardDescription>Which features you used the most AI on for this date range</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const items = [
+                  { name: 'AI Drafts', value: stats.totalDrafts, color: 'bg-blue-500' },
+                  { name: 'AI Auto-Replies', value: stats.totalAutoReplies, color: 'bg-orange-500' },
+                  { name: 'Scheduled Events', value: stats.totalScheduledEvents, color: 'bg-purple-500' },
+                  { name: 'Emails AI Processed', value: stats.totalEmails, color: 'bg-primary' },
+                  { name: 'AI Chat Messages', value: stats.totalChatMessages, color: 'bg-green-500' },
+                  { name: 'Meeting Copilot', value: stats.totalMeetings, color: 'bg-pink-500' },
+                ].sort((a, b) => b.value - a.value);
+                const max = Math.max(1, ...items.map((i) => i.value));
+                const total = items.reduce((s, i) => s + i.value, 0);
+                if (total === 0) {
+                  return <p className="text-sm text-muted-foreground text-center py-6">No AI activity recorded in this range yet.</p>;
+                }
+                return (
+                  <div className="space-y-3">
+                    {items.map((i) => (
+                      <div key={i.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">{i.name}</span>
+                          <span className="text-muted-foreground tabular-nums">{i.value}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className={`${i.color} h-full rounded-full transition-all duration-500`} style={{ width: `${(i.value / max) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Plan Usage & Limits — per-feature quota tiles */}
           <FeatureUsageGrid />
 
