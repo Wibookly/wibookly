@@ -152,8 +152,8 @@ export default function FlaggedEmailTrackerPage() {
     <div className="page-shell">
       <div className="page-shell-sticky print:hidden">
         <PageHero
-          eyebrow="Reports"
-          title="Flagged Email Reports"
+          eyebrow="AI Intelligence Report"
+          title="Flagged Email Tracker Report"
           description="Live view of every email you've flagged in Outlook — pulls fresh data from Microsoft 365 on every open and every minute."
           accent="green"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
