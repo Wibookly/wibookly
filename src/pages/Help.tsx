@@ -266,6 +266,7 @@ function TicketDetailDialog({
               <Separator />
               {messages.map((m) => {
                 const isMine = m.author_user_id === user?.id;
+                const atts: Array<{ path: string; name: string }> = Array.isArray(m.attachments) ? m.attachments : [];
                 return (
                   <div
                     key={m.id}
@@ -277,7 +278,27 @@ function TicketDetailDialog({
                       <span>{isMine ? 'You' : m.author_role === 'admin' || m.author_role === 'super_admin' ? 'Support team' : 'Reply'}</span>
                       <span>{format(new Date(m.created_at), 'PPp')}</span>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                    {m.body && <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>}
+                    {atts.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {atts.map((a) => (
+                          <a
+                            key={a.path}
+                            href={urls[a.path] || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block w-24 h-16 rounded border bg-muted overflow-hidden hover:ring-2 hover:ring-primary"
+                            title={a.name}
+                          >
+                            {urls[a.path] ? (
+                              <img src={urls[a.path]} alt={a.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">…</div>
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
