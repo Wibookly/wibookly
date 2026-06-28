@@ -61,7 +61,7 @@ export default function AIActivityDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('30days');
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(subDays(new Date(), 30));
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
-  const [exporting, setExporting] = useState(false);
+  
 
   const getDateRange = () => {
     const end = endOfDay(new Date());
