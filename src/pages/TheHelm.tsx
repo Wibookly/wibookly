@@ -482,7 +482,7 @@ function BriefView({
   done,
   toggleDone,
 }: {
-  go: (v: View, item?: HelmItem) => void;
+  go: (v: View, item?: HelmItem, scope?: InboxScope) => void;
   done: Record<string, boolean>;
   toggleDone: (id: string, next: boolean) => void;
 }) {
