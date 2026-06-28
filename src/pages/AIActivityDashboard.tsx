@@ -298,10 +298,13 @@ export default function AIActivityDashboard() {
             </div>
           )}
 
-          <Button data-tour="aa-export" onClick={exportReport} disabled={exporting} variant="outline">
-            {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-            Export Report
-          </Button>
+          <ReportExportMenu
+            fileName={`ai-activity-report-${format(getDateRange().start, 'yyyy-MM-dd')}-to-${format(getDateRange().end, 'yyyy-MM-dd')}`}
+            sheetName="AI Activity"
+            rows={exportRows}
+            onEmail={emailReport}
+            emailRecipientLabel={user?.email}
+          />
         </div>
       </div>
 
