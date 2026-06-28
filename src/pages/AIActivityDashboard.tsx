@@ -23,6 +23,13 @@ import {
   RadialBarChart,
   RadialBar,
   Legend,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from 'recharts';
 
 
