@@ -226,7 +226,7 @@ export default function EmailDraft() {
         } as Record<string, unknown>;
 
         if (aiSettingsId) {
-          await supabase.from("ai_settings").update(payload).eq("id", aiSettingsId);
+          await supabase.from("ai_settings").update(payload as never).eq("id", aiSettingsId);
         } else {
           const { data } = await supabase
             .from("ai_settings")

@@ -174,7 +174,7 @@ export default function Integrations() {
     try {
       await supabase
         .from('email_profiles')
-        .update({ default_meeting_duration: meetingDuration } as Record<string, unknown>)
+        .update({ default_meeting_duration: meetingDuration } as never)
         .eq('connection_id', activeConnection.id);
       
       toast({ title: 'Duration saved', description: 'Default meeting duration has been updated.' });
