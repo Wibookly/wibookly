@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, RefreshCw, MessageSquareWarning, ExternalLink, Send, Building2 } from 'lucide-react';
+import { Loader2, RefreshCw, MessageSquareWarning, ExternalLink, Send, Building2, Paperclip, X } from 'lucide-react';
 
 interface SupportIssue {
   id: string;
@@ -41,6 +41,7 @@ interface ThreadMessage {
   author_user_id: string | null;
   author_role: string | null;
   body: string;
+  attachments?: Array<{ path: string; name: string; size?: number; type?: string }> | null;
   created_at: string;
 }
 
@@ -69,6 +70,8 @@ export default function SupportIssuesPanel() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({});
+  const [replyFiles, setReplyFiles] = useState<Record<string, File[]>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [threadById, setThreadById] = useState<Record<string, ThreadMessage[]>>({});
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [orgFilter, setOrgFilter] = useState<string>('all');
@@ -191,9 +194,27 @@ export default function SupportIssuesPanel() {
 
   const sendReply = async (issue: SupportIssue) => {
     const body = (draftReplies[issue.id] ?? '').trim();
-    if (!body || !user?.id) return;
+    const files = replyFiles[issue.id] ?? [];
+    if ((!body && files.length === 0) || !user?.id) return;
     setSavingId(issue.id);
     try {
+      // Upload attachments
+      const attachments: Array<{ path: string; name: string; size: number; type: string }> = [];
+      if (files.length) {
+        const stamp = Date.now();
+        for (const f of files) {
+          if (!f.type.startsWith('image/')) continue;
+          if (f.size > 10 * 1024 * 1024) continue;
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+          const path = `${user.id}/${issue.id}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from('support-attachments')
+            .upload(path, f, { contentType: f.type, upsert: false });
+          if (upErr) throw upErr;
+          attachments.push({ path, name: f.name, size: f.size, type: f.type });
+        }
+      }
+
       const { data: inserted, error } = await supabase
         .from('support_issue_messages' as any)
         .insert({
@@ -202,12 +223,13 @@ export default function SupportIssuesPanel() {
           author_user_id: user.id,
           author_role: isSuperAdmin ? 'super_admin' : 'admin',
           body,
+          attachments,
         } as any)
         .select()
         .maybeSingle();
       if (error) throw error;
 
-      // Move ticket to in_progress if currently open
+      // Move ticket to in_progress if currently open (does NOT close/resolve the ticket)
       if (issue.status === 'open') {
         await supabase
           .from('support_issues')
@@ -216,12 +238,8 @@ export default function SupportIssuesPanel() {
         setIssues((prev) => prev.map((i) => i.id === issue.id ? { ...i, status: 'in_progress' } : i));
       }
 
-      // Fire ticket-updated email (best-effort; ignore failure)
       supabase.functions.invoke('ticket-updated-email', {
-        body: {
-          issue_id: issue.id,
-          reply_excerpt: body.slice(0, 280),
-        },
+        body: { issue_id: issue.id, reply_excerpt: body.slice(0, 280) },
       }).catch(() => {});
 
       setThreadById((prev) => ({
@@ -229,6 +247,7 @@ export default function SupportIssuesPanel() {
         [issue.id]: [...(prev[issue.id] || []), inserted as unknown as ThreadMessage],
       }));
       setDraftReplies((prev) => ({ ...prev, [issue.id]: '' }));
+      setReplyFiles((prev) => ({ ...prev, [issue.id]: [] }));
       toast({ title: 'Reply sent to user' });
     } catch (err) {
       toast({
@@ -239,6 +258,22 @@ export default function SupportIssuesPanel() {
     } finally {
       setSavingId(null);
     }
+  };
+
+  const addAdminReplyFiles = (issueId: string, incoming: FileList | File[] | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming).filter((f) => {
+      if (!f.type.startsWith('image/')) {
+        toast({ title: `${f.name} isn't an image`, variant: 'destructive' });
+        return false;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        toast({ title: `${f.name} is over 10 MB`, variant: 'destructive' });
+        return false;
+      }
+      return true;
+    });
+    setReplyFiles((prev) => ({ ...prev, [issueId]: [...(prev[issueId] || []), ...arr].slice(0, 5) }));
   };
 
   const counts = useMemo(() => ({
@@ -397,6 +432,7 @@ export default function SupportIssuesPanel() {
                       <Separator />
                       {thread.map((m) => {
                         const isStaff = m.author_role === 'admin' || m.author_role === 'super_admin';
+                        const atts = Array.isArray(m.attachments) ? m.attachments : [];
                         return (
                           <div
                             key={m.id}
@@ -406,7 +442,8 @@ export default function SupportIssuesPanel() {
                               <span>{isStaff ? 'Support team' : it.user_email}</span>
                               <span>{new Date(m.created_at).toLocaleString()}</span>
                             </div>
-                            <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                            {m.body && <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>}
+                            {atts.length > 0 && <div className="mt-2"><AttachmentsStrip attachments={atts} /></div>}
                           </div>
                         );
                       })}
@@ -426,10 +463,46 @@ export default function SupportIssuesPanel() {
                       placeholder={`Write a reply to ${it.user_email}…`}
                       className="text-sm"
                     />
-                    <div className="flex justify-end">
+                    {(replyFiles[it.id]?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {replyFiles[it.id]!.map((f, i) => {
+                          const url = URL.createObjectURL(f);
+                          return (
+                            <div key={i} className="relative w-20 h-16 rounded border overflow-hidden bg-muted">
+                              <img src={url} alt={f.name} className="w-full h-full object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                              <button
+                                type="button"
+                                onClick={() => setReplyFiles((prev) => ({ ...prev, [it.id]: (prev[it.id] || []).filter((_, idx) => idx !== i) }))}
+                                className="absolute top-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => { fileInputRefs.current[it.id] = el; }}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { addAdminReplyFiles(it.id, e.target.files); if (e.target) e.target.value = ''; }}
+                    />
+                    <div className="flex justify-between items-center">
                       <Button
                         size="sm"
-                        disabled={!reply.trim() || savingId === it.id}
+                        variant="outline"
+                        type="button"
+                        onClick={() => fileInputRefs.current[it.id]?.click()}
+                        disabled={(replyFiles[it.id]?.length ?? 0) >= 5}
+                      >
+                        <Paperclip className="w-3 h-3 mr-1.5" /> Attach
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={(!reply.trim() && (replyFiles[it.id]?.length ?? 0) === 0) || savingId === it.id}
                         onClick={() => sendReply(it)}
                       >
                         {savingId === it.id ? (
