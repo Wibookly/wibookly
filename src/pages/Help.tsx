@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react';
 import { PageHero } from '@/components/app/PageHero';
-import { LifeBuoy, Loader2, RefreshCw, Inbox } from 'lucide-react';
+import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink } from 'lucide-react';
 import { HelpIssueForm } from '@/components/help/HelpIssueForm';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { supabase } from '@/integrations/supabase/client';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface MyTicket {
   id: string;
@@ -21,6 +28,7 @@ interface MyTicket {
   admin_notes: string | null;
   created_at: string;
   resolved_at: string | null;
+  attachments?: Array<{ path: string; name: string; size?: number; type?: string }> | null;
 }
 
 const STATUS_TONE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -36,17 +44,122 @@ const STATUS_LABEL: Record<string, string> = {
   wont_fix: "Won't fix",
 };
 
+function TicketDetailDialog({
+  ticket,
+  open,
+  onOpenChange,
+}: {
+  ticket: MyTicket | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const atts = ticket?.attachments;
+    if (!open || !Array.isArray(atts) || atts.length === 0) {
+      setUrls({});
+      return;
+    }
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const a of atts) {
+        const { data } = await supabase.storage
+          .from('support-attachments')
+          .createSignedUrl(a.path, 60 * 60);
+        if (data?.signedUrl) next[a.path] = data.signedUrl;
+      }
+      if (!cancelled) setUrls(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, ticket?.id, ticket?.attachments]);
+
+  if (!ticket) return null;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={STATUS_TONE[ticket.status] ?? 'secondary'} className="text-[10px]">
+              {STATUS_LABEL[ticket.status] ?? ticket.status}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(ticket.created_at), 'PPpp')}
+            </span>
+          </div>
+          <DialogTitle className="break-words">{ticket.subject}</DialogTitle>
+          {ticket.page_url && (
+            <DialogDescription className="text-xs inline-flex items-center gap-1">
+              <ExternalLink className="w-3 h-3" />
+              <code className="font-mono">{ticket.page_url}</code>
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="rounded-md border bg-muted/30 px-3 py-2">
+            <p className="text-sm whitespace-pre-wrap break-words">{ticket.description}</p>
+          </div>
+          {Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                Attachments ({ticket.attachments.length})
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {ticket.attachments.map((a) => (
+                  <a
+                    key={a.path}
+                    href={urls[a.path] || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative block w-28 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-primary transition"
+                    title={a.name}
+                  >
+                    {urls[a.path] ? (
+                      <img src={urls[a.path]} alt={a.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+                        loading…
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {ticket.admin_notes && (
+            <div className="rounded bg-muted/40 border px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                Note from admin
+              </div>
+              <p className="text-sm whitespace-pre-wrap break-words">{ticket.admin_notes}</p>
+            </div>
+          )}
+          {ticket.resolved_at && (
+            <p className="text-[11px] text-muted-foreground">
+              Resolved {formatDistanceToNow(new Date(ticket.resolved_at), { addSuffix: true })}
+            </p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MyTicketsList() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<MyTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<MyTicket | null>(null);
 
   const load = async () => {
     if (!user?.id) return;
     setLoading(true);
     const { data } = await supabase
       .from('support_issues')
-      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at')
+      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at, attachments')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -67,7 +180,7 @@ function MyTicketsList() {
             <Inbox className="w-4 h-4" /> My tickets
           </CardTitle>
           <CardDescription className="text-xs">
-            Everything you've submitted, with the latest status from your admin team.
+            Click any ticket to see the full details and admin reply.
           </CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -86,44 +199,40 @@ function MyTicketsList() {
         ) : (
           <div className="space-y-2">
             {tickets.map((t) => (
-              <div key={t.id} className="rounded-md border bg-card p-3 space-y-1.5">
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelected(t)}
+                className="w-full text-left rounded-md border bg-card p-3 space-y-1.5 hover:bg-muted/40 hover:border-primary/40 transition cursor-pointer"
+              >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="font-medium text-sm break-words min-w-0 flex-1">{t.subject}</div>
                   <Badge variant={STATUS_TONE[t.status] ?? 'secondary'} className="text-[10px]">
                     {STATUS_LABEL[t.status] ?? t.status}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3 break-words">
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-2 break-words">
                   {t.description}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
                   <span>Submitted {formatDistanceToNow(new Date(t.created_at), { addSuffix: true })}</span>
-                  {t.page_url && (
+                  {t.admin_notes && (
                     <>
                       <span>·</span>
-                      <code className="font-mono">{t.page_url}</code>
-                    </>
-                  )}
-                  {t.resolved_at && (
-                    <>
-                      <span>·</span>
-                      <span>Resolved {formatDistanceToNow(new Date(t.resolved_at), { addSuffix: true })}</span>
+                      <span className="text-primary font-medium">Admin replied</span>
                     </>
                   )}
                 </div>
-                {t.admin_notes && (
-                  <div className="rounded bg-muted/40 border px-2 py-1.5 text-xs">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
-                      Note from admin
-                    </div>
-                    <p className="whitespace-pre-wrap break-words">{t.admin_notes}</p>
-                  </div>
-                )}
-              </div>
+              </button>
             ))}
           </div>
         )}
       </CardContent>
+      <TicketDetailDialog
+        ticket={selected}
+        open={!!selected}
+        onOpenChange={(v) => !v && setSelected(null)}
+      />
     </Card>
   );
 }
@@ -143,16 +252,22 @@ export default function Help() {
         />
       </div>
 
-      <div className="page-shell-content w-full animate-fade-in max-w-6xl space-y-6">
+      <div className="page-shell-content w-full animate-fade-in space-y-6">
         {isOrgAdmin ? (
-          <Tabs defaultValue="submit" className="w-full">
+          <Tabs defaultValue="all" className="w-full">
             <TabsList>
-              <TabsTrigger value="submit">Submit an issue</TabsTrigger>
               <TabsTrigger value="all">All tickets (admin)</TabsTrigger>
               <TabsTrigger value="mine">My tickets</TabsTrigger>
+              <TabsTrigger value="submit">Submit an issue</TabsTrigger>
             </TabsList>
+            <TabsContent value="all" className="mt-4">
+              <SupportIssuesPanel />
+            </TabsContent>
+            <TabsContent value="mine" className="mt-4">
+              <MyTicketsList />
+            </TabsContent>
             <TabsContent value="submit" className="mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <Card>
                   <CardContent className="p-6">
                     <HelpIssueForm />
@@ -161,15 +276,9 @@ export default function Help() {
                 <MyTicketsList />
               </div>
             </TabsContent>
-            <TabsContent value="all" className="mt-4">
-              <SupportIssuesPanel />
-            </TabsContent>
-            <TabsContent value="mine" className="mt-4">
-              <MyTicketsList />
-            </TabsContent>
           </Tabs>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-6">
                 <HelpIssueForm />
