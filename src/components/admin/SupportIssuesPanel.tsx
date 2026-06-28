@@ -119,7 +119,7 @@ export default function SupportIssuesPanel() {
           .in('issue_id', rows.map((r) => r.id))
           .order('created_at', { ascending: true });
         const grouped: Record<string, ThreadMessage[]> = {};
-        for (const m of (msgs ?? []) as ThreadMessage[]) {
+        for (const m of (msgs ?? []) as unknown as ThreadMessage[]) {
           (grouped[m.issue_id] ||= []).push(m);
         }
         setThreadById(grouped);
