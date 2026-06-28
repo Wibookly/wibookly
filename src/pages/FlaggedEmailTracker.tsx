@@ -188,12 +188,13 @@ export default function FlaggedEmailTrackerPage() {
         </Card>
 
         {/* Live stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard label="Flagged" value={stats.total} icon={Flag} tone="amber" />
-          <StatCard label="Pending" value={stats.pending} icon={AlarmClock} tone="slate" />
+          <StatCard label="Waiting" value={stats.pending} icon={AlarmClock} tone="slate" />
+          <StatCard label="Queued (off-hours)" value={stats.queued} icon={AlarmClock} tone="indigo" />
           <StatCard label="Replied" value={stats.replied} icon={CheckCircle2} tone="emerald" />
           <StatCard label="Follow-ups sent" value={stats.followUpsSent} icon={Send} tone="blue" />
-          <StatCard label="Missed deadline" value={stats.missed} icon={AlertTriangle} tone="red" />
+          <StatCard label="Missed (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
         </div>
 
         <Card>
