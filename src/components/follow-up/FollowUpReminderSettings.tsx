@@ -527,6 +527,40 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <Label>Holidays (skip days)</Label>
+            <div className="flex gap-2 flex-wrap items-center">
+              <Input
+                type="date"
+                className="w-44"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  const cur = ((settings as any).holidays as string[] | null) || [];
+                  if (cur.includes(v)) return;
+                  patch({ ...({ holidays: [...cur, v].sort() } as any) });
+                  e.currentTarget.value = '';
+                }}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {(((settings as any).holidays as string[] | null) || []).map((d) => (
+                  <Badge key={d} variant="secondary" className="gap-1">
+                    {d}
+                    <button
+                      type="button"
+                      className="ml-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        const cur = ((settings as any).holidays as string[] | null) || [];
+                        patch({ ...({ holidays: cur.filter((x) => x !== d) } as any) });
+                      }}
+                    >×</button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">AI follow-ups won't send on these dates; they'll roll to the next business hour.</p>
+          </div>
+
           <div className="text-xs text-muted-foreground">
             Current window: <strong>{fmtHour(settings.business_hours_start)}</strong> – <strong>{settings.business_hours_end === 24 ? '12:00 AM' : fmtHour(settings.business_hours_end)}</strong>
             {settings.timezone ? <> ({settings.timezone})</> : null}

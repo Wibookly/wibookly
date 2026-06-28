@@ -79,13 +79,23 @@ function stripCodeFences(s: string): string {
   return out.trim();
 }
 
-async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any; enabledAt?: string | null }> {
-  // Some users have multiple follow_up_settings rows from earlier migrations.
-  // Pick the most recently-updated *enabled* row so a fresh "Enable" doesn't
-  // get masked by an older disabled row.
+interface PrefsResult {
+  autoReply: boolean;
+  autoSend: boolean;
+  tone?: any;
+  enabledAt?: string | null;
+  businessHoursOnly?: boolean;
+  bhStart?: number;
+  bhEnd?: number;
+  businessDays?: number[];
+  timezone?: string | null;
+  holidays?: string[];
+}
+
+async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
   const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
@@ -102,7 +112,55 @@ async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolea
     autoSend: !!data.auto_reply_enabled,
     tone: data.tone_settings || null,
     enabledAt: data.enabled_at || null,
+    businessHoursOnly: !!data.business_hours_only,
+    bhStart: typeof data.business_hours_start === 'number' ? data.business_hours_start : 8,
+    bhEnd: typeof data.business_hours_end === 'number' ? data.business_hours_end : 17,
+    businessDays: Array.isArray(data.business_days) ? data.business_days : [1, 2, 3, 4, 5],
+    timezone: data.timezone || 'America/New_York',
+    holidays: Array.isArray(data.holidays) ? data.holidays : [],
   };
+}
+
+function tzParts(date: Date, tz: string): { hour: number; day: number; ymd: string } {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false, hour: '2-digit', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    const parts = dtf.formatToParts(date).reduce((acc: any, p) => { acc[p.type] = p.value; return acc; }, {});
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return {
+      hour: parseInt(parts.hour, 10) || 0,
+      day: dayMap[parts.weekday] ?? 1,
+      ymd: `${parts.year}-${parts.month}-${parts.day}`,
+    };
+  } catch {
+    return { hour: date.getUTCHours(), day: date.getUTCDay(), ymd: date.toISOString().slice(0, 10) };
+  }
+}
+
+function isInWindow(now: Date, prefs: PrefsResult): boolean {
+  if (!prefs.businessHoursOnly) return true;
+  const tz = prefs.timezone || 'America/New_York';
+  const { hour, day, ymd } = tzParts(now, tz);
+  if ((prefs.holidays || []).includes(ymd)) return false;
+  if (!(prefs.businessDays || [1, 2, 3, 4, 5]).includes(day)) return false;
+  return hour >= (prefs.bhStart ?? 8) && hour < (prefs.bhEnd ?? 17);
+}
+
+function nextWindowStart(from: Date, prefs: PrefsResult): Date {
+  if (!prefs.businessHoursOnly) return from;
+  const tz = prefs.timezone || 'America/New_York';
+  const days = prefs.businessDays || [1, 2, 3, 4, 5];
+  const holidays = prefs.holidays || [];
+  let cur = new Date(from.getTime());
+  for (let i = 0; i < 14 * 48; i++) {
+    const { hour, day, ymd } = tzParts(cur, tz);
+    if (days.includes(day) && !holidays.includes(ymd) && hour >= (prefs.bhStart ?? 8) && hour < (prefs.bhEnd ?? 17)) {
+      return cur;
+    }
+    cur = new Date(cur.getTime() + 30 * 60_000);
+  }
+  return new Date(from.getTime() + 24 * 3600_000);
 }
 
 async function processOne(admin: any, row: any) {
@@ -189,6 +247,45 @@ async function processOne(admin: any, row: any) {
     await admin.from('tracked_emails').update({ status: 'exhausted', last_checked_at: new Date().toISOString() }).eq('id', row.id);
     return { id: row.id, action: 'exhausted' };
   }
+
+  const now = new Date();
+  const inWindow = isInWindow(now, prefs);
+
+  // Queued path: a previous run already drafted; only need to send when window opens.
+  if (row.status === 'queued' && row.last_draft_id) {
+    if (!inWindow) {
+      const next = nextWindowStart(now, prefs);
+      await admin.from('tracked_emails').update({
+        scheduled_send_at: next.toISOString(),
+        last_checked_at: now.toISOString(),
+      }).eq('id', row.id);
+      return { id: row.id, action: 'still_queued' };
+    }
+    if (prefs.autoSend) {
+      const send = await callGraph(userId, connId, 'mail', `/me/messages/${row.last_draft_id}/send`, { method: 'POST', body: '{}' });
+      if (send.ok) {
+        const attempt = (row.attempts || 0) + 1;
+        const sentAtIso = now.toISOString();
+        const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+        history.push({ attempt, drafted_at: sentAtIso, sent_at: sentAtIso, auto_sent: true, draft_id: row.last_draft_id });
+        const reachedCap = attempt >= MAX_ATTEMPTS;
+        await admin.from('tracked_emails').update({
+          status: reachedCap ? 'exhausted' : 'pending',
+          attempts: attempt,
+          scheduled_send_at: null,
+          queued_reason: null,
+          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString(),
+          last_checked_at: sentAtIso,
+          follow_up_history: history,
+        }).eq('id', row.id);
+        return { id: row.id, action: 'sent_from_queue' };
+      }
+    }
+    // auto-send turned off while queued → leave as drafted for user review.
+    await admin.from('tracked_emails').update({ status: 'drafted', scheduled_send_at: null, queued_reason: null, last_checked_at: now.toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'released_to_drafted' };
+  }
+
   const attempt = (row.attempts || 0) + 1;
   const bodyHtml = await draftFollowupBody({
     subject: row.subject || '(no subject)',
@@ -215,7 +312,20 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: patch.error?.message };
   }
 
-  // Optionally auto-send the draft
+  // If auto-send is enabled but we're outside business hours → queue.
+  if (prefs.autoSend && !inWindow) {
+    const next = nextWindowStart(now, prefs);
+    await admin.from('tracked_emails').update({
+      status: 'queued',
+      last_draft_id: draftId,
+      scheduled_send_at: next.toISOString(),
+      queued_reason: 'outside_business_hours',
+      last_checked_at: now.toISOString(),
+    }).eq('id', row.id);
+    return { id: row.id, action: 'queued', draftId, scheduled_send_at: next.toISOString() };
+  }
+
+  // Optionally auto-send the draft (we're either in window, or auto-send is off)
   let sentNow = false;
   if (prefs.autoSend && draftId) {
     const send = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}/send`, { method: 'POST', body: '{}' });
@@ -233,7 +343,7 @@ async function processOne(admin: any, row: any) {
   });
 
   const reachedCap = attempt >= MAX_ATTEMPTS;
-  const nextStatus = reachedCap ? 'exhausted' : 'pending';
+  const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
     ? new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString()
     : row.follow_up_at;
@@ -255,12 +365,11 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const nowIso = new Date().toISOString();
-    const { data: due } = await admin
-      .from('tracked_emails')
-      .select('*')
-      .eq('status', 'pending')
-      .lte('follow_up_at', nowIso)
-      .limit(50);
+    const [pendingRes, queuedRes] = await Promise.all([
+      admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
+      admin.from('tracked_emails').select('*').eq('status', 'queued').lte('scheduled_send_at', nowIso).limit(50),
+    ]);
+    const due = [...(pendingRes.data || []), ...(queuedRes.data || [])];
 
     const results: any[] = [];
     for (const row of (due || [])) {

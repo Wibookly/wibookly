@@ -231,6 +231,7 @@ export default function FlaggedEmailTrackerPage() {
                       <TableHead>Sent</TableHead>
                       <TableHead>Flag / Due</TableHead>
                       <TableHead>Follow-up due</TableHead>
+                      <TableHead>Next send</TableHead>
                       <TableHead className="text-center">Follow-ups (max 3)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -278,6 +279,14 @@ function EmailRow({ r }: { r: TrackedEmail }) {
         <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
           {formatDistanceToNow(new Date(r.follow_up_at), { addSuffix: true })}
         </div>
+      </TableCell>
+      <TableCell className="text-xs whitespace-nowrap">
+        {r.scheduled_send_at ? (
+          <div>
+            <div className="text-indigo-600 font-medium">{fmt(r.scheduled_send_at)}</div>
+            <div className="text-[10px] text-muted-foreground">queued · business hours</div>
+          </div>
+        ) : '—'}
       </TableCell>
       <TableCell className="text-center">
         <div className="font-medium">{r.attempts || 0}/3</div>
@@ -361,6 +370,7 @@ function RecipientGroups({
                       <TableHead>Sent</TableHead>
                       <TableHead>Flag / Due</TableHead>
                       <TableHead>Follow-up due</TableHead>
+                      <TableHead>Next send</TableHead>
                       <TableHead className="text-center">Follow-ups (max 3)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
