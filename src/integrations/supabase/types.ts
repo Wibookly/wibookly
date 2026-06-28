@@ -1823,6 +1823,7 @@ export type Database = {
           created_at: string
           daily_audit_enabled: boolean
           enabled_at: string | null
+          holidays: Json
           id: string
           is_enabled: boolean
           last_audit_at: string | null
@@ -1849,6 +1850,7 @@ export type Database = {
           created_at?: string
           daily_audit_enabled?: boolean
           enabled_at?: string | null
+          holidays?: Json
           id?: string
           is_enabled?: boolean
           last_audit_at?: string | null
@@ -1875,6 +1877,7 @@ export type Database = {
           created_at?: string
           daily_audit_enabled?: boolean
           enabled_at?: string | null
+          holidays?: Json
           id?: string
           is_enabled?: boolean
           last_audit_at?: string | null
@@ -1912,8 +1915,10 @@ export type Database = {
           metadata: Json
           next_reminder_at: string | null
           organization_id: string
+          queued_reason: string | null
           reminder_count: number
           replied_at: string | null
+          scheduled_send_at: string | null
           sent_at: string
           skip_reason: string | null
           status: string
@@ -1942,8 +1947,10 @@ export type Database = {
           metadata?: Json
           next_reminder_at?: string | null
           organization_id: string
+          queued_reason?: string | null
           reminder_count?: number
           replied_at?: string | null
+          scheduled_send_at?: string | null
           sent_at: string
           skip_reason?: string | null
           status?: string
@@ -1972,8 +1979,10 @@ export type Database = {
           metadata?: Json
           next_reminder_at?: string | null
           organization_id?: string
+          queued_reason?: string | null
           reminder_count?: number
           replied_at?: string | null
+          scheduled_send_at?: string | null
           sent_at?: string
           skip_reason?: string | null
           status?: string
@@ -3948,6 +3957,73 @@ export type Database = {
           },
         ]
       }
+      support_issue_messages: {
+        Row: {
+          attachments: Json
+          author_role: string
+          author_user_id: string
+          body: string
+          created_at: string
+          id: string
+          issue_id: string
+          organization_id: string
+        }
+        Insert: {
+          attachments?: Json
+          author_role?: string
+          author_user_id: string
+          body: string
+          created_at?: string
+          id?: string
+          issue_id: string
+          organization_id: string
+        }
+        Update: {
+          attachments?: Json
+          author_role?: string
+          author_user_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          issue_id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_issue_messages_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "support_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_issue_reads: {
+        Row: {
+          issue_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          issue_id: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          issue_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_issue_reads_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "support_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_issues: {
         Row: {
           admin_notes: string | null
@@ -4977,6 +5053,7 @@ export type Database = {
           created_at: string
           daily_audit_enabled: boolean
           enabled_at: string | null
+          holidays: Json
           id: string
           is_enabled: boolean
           last_audit_at: string | null

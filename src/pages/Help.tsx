@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { PageHero } from '@/components/app/PageHero';
-import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink } from 'lucide-react';
+import { LifeBuoy, Loader2, RefreshCw, Inbox, ExternalLink, Send, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { HelpIssueForm } from '@/components/help/HelpIssueForm';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface MyTicket {
   id: string;
@@ -53,29 +56,101 @@ function TicketDetailDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { user } = useAuth();
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [messages, setMessages] = useState<any[]>([]);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
 
+  const loadMessages = async () => {
+    if (!ticket?.id) return;
+    const { data } = await supabase
+      .from('support_issue_messages' as any)
+      .select('*')
+      .eq('issue_id', ticket.id)
+      .order('created_at', { ascending: true });
+    setMessages((data ?? []) as any[]);
+  };
+
+  // Load attachments + messages + mark-as-read when dialog opens
   useEffect(() => {
     let cancelled = false;
     const atts = ticket?.attachments;
-    if (!open || !Array.isArray(atts) || atts.length === 0) {
+    if (!open || !ticket) {
       setUrls({});
+      setMessages([]);
       return;
     }
     (async () => {
-      const next: Record<string, string> = {};
-      for (const a of atts) {
-        const { data } = await supabase.storage
-          .from('support-attachments')
-          .createSignedUrl(a.path, 60 * 60);
-        if (data?.signedUrl) next[a.path] = data.signedUrl;
+      // Attachments
+      if (Array.isArray(atts) && atts.length > 0) {
+        const next: Record<string, string> = {};
+        for (const a of atts) {
+          const { data } = await supabase.storage
+            .from('support-attachments')
+            .createSignedUrl(a.path, 60 * 60);
+          if (data?.signedUrl) next[a.path] = data.signedUrl;
+        }
+        if (!cancelled) setUrls(next);
       }
-      if (!cancelled) setUrls(next);
+      // Messages
+      await loadMessages();
+      // Mark as read for unread-bell badge
+      if (user?.id) {
+        await supabase
+          .from('support_issue_reads' as any)
+          .upsert({ issue_id: ticket.id, user_id: user.id, last_read_at: new Date().toISOString() } as any);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, ticket?.id, ticket?.attachments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ticket?.id]);
+
+  const postReply = async () => {
+    if (!ticket || !user?.id || !reply.trim()) return;
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('support_issue_messages' as any)
+        .insert({
+          issue_id: ticket.id,
+          organization_id: (ticket as any).organization_id ?? null,
+          author_user_id: user.id,
+          author_role: 'user',
+          body: reply.trim(),
+        } as any);
+      if (error) throw error;
+      // Reopen if resolved
+      if (ticket.status === 'resolved') {
+        await supabase
+          .from('support_issues')
+          .update({ status: 'open', resolved_at: null } as never)
+          .eq('id', ticket.id);
+      }
+      setReply('');
+      toast.success('Reply sent');
+      await loadMessages();
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not send reply');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const setStatus = async (status: string) => {
+    if (!ticket) return;
+    const patch: any = { status };
+    if (status === 'resolved') patch.resolved_at = new Date().toISOString();
+    else patch.resolved_at = null;
+    const { error } = await supabase.from('support_issues').update(patch as never).eq('id', ticket.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(status === 'resolved' ? 'Marked resolved' : 'Re-opened');
+      onOpenChange(false);
+    }
+  };
 
   if (!ticket) return null;
   return (
@@ -100,6 +175,7 @@ function TicketDetailDialog({
         </DialogHeader>
         <div className="space-y-3 max-h-[60vh] overflow-y-auto">
           <div className="rounded-md border bg-muted/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">You · original</div>
             <p className="text-sm whitespace-pre-wrap break-words">{ticket.description}</p>
           </div>
           {Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
@@ -129,10 +205,35 @@ function TicketDetailDialog({
               </div>
             </div>
           )}
+
+          {/* Threaded messages */}
+          {messages.length > 0 && (
+            <div className="space-y-2">
+              <Separator />
+              {messages.map((m) => {
+                const isMine = m.author_user_id === user?.id;
+                return (
+                  <div
+                    key={m.id}
+                    className={`rounded-md border px-3 py-2 ${
+                      isMine ? 'bg-muted/30' : 'bg-primary/5 border-primary/30'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 flex items-center justify-between">
+                      <span>{isMine ? 'You' : m.author_role === 'admin' || m.author_role === 'super_admin' ? 'Support team' : 'Reply'}</span>
+                      <span>{format(new Date(m.created_at), 'PPp')}</span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {ticket.admin_notes && (
             <div className="rounded bg-muted/40 border px-3 py-2">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Note from admin
+                Internal note (admin)
               </div>
               <p className="text-sm whitespace-pre-wrap break-words">{ticket.admin_notes}</p>
             </div>
@@ -142,6 +243,36 @@ function TicketDetailDialog({
               Resolved {formatDistanceToNow(new Date(ticket.resolved_at), { addSuffix: true })}
             </p>
           )}
+
+          {/* Reply composer */}
+          <Separator />
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Add a reply or update</label>
+            <Textarea
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              rows={3}
+              placeholder="Type a message to support…"
+              className="text-sm"
+            />
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex gap-1.5">
+                {ticket.status !== 'resolved' ? (
+                  <Button variant="outline" size="sm" onClick={() => setStatus('resolved')}>
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mark resolved
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setStatus('open')}>
+                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Re-open
+                  </Button>
+                )}
+              </div>
+              <Button size="sm" onClick={postReply} disabled={!reply.trim() || sending}>
+                {sending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+                Send reply
+              </Button>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -159,7 +290,7 @@ function MyTicketsList() {
     setLoading(true);
     const { data } = await supabase
       .from('support_issues')
-      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at, attachments')
+      .select('id, subject, description, status, page_url, admin_notes, created_at, resolved_at, attachments, organization_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);

@@ -24,20 +24,23 @@ interface TrackedEmail {
   trigger_detail: any;
   follow_up_at: string;
   attempts: number;
-  status: 'pending' | 'replied' | 'drafted' | 'cancelled' | 'exhausted' | 'error';
+  status: 'pending' | 'replied' | 'drafted' | 'queued' | 'cancelled' | 'exhausted' | 'error';
   last_checked_at: string | null;
   last_error: string | null;
   conversation_id: string | null;
   follow_up_history: HistEntry[] | null;
+  scheduled_send_at?: string | null;
+  queued_reason?: string | null;
 }
 
-const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  pending: { label: 'Pending', icon: AlarmClock, variant: 'secondary' },
-  replied: { label: 'Replied', icon: CheckCircle2, variant: 'default' },
-  drafted: { label: 'Follow-up drafted', icon: FileEdit, variant: 'default' },
-  cancelled: { label: 'Cancelled', icon: XCircle, variant: 'outline' },
-  exhausted: { label: 'Missed (3/3 sent)', icon: AlertTriangle, variant: 'destructive' },
-  error: { label: 'Error', icon: AlertTriangle, variant: 'destructive' },
+const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string }> = {
+  pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
+  replied: { label: 'Replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — tracker auto-resolved.' },
+  drafted: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  queued: { label: 'Queued (business hours)', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
+  cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You unflagged the email or cancelled the follow-up.' },
+  exhausted: { label: 'Max attempts (3/3)', icon: AlertTriangle, variant: 'destructive', tooltip: 'Sent 3 follow-ups with no reply — tracker closed.' },
+  error: { label: 'Send error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
 };
 
 function fmt(d: string | null | undefined) {
@@ -98,9 +101,10 @@ export default function FlaggedEmailTrackerPage() {
     const pending = rows.filter(r => r.status === 'pending').length;
     const replied = rows.filter(r => r.status === 'replied').length;
     const drafted = rows.filter(r => r.status === 'drafted').length;
+    const queued = rows.filter(r => r.status === 'queued').length;
     const missed = rows.filter(r => r.status === 'exhausted' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now && (r.attempts || 0) >= 3)).length;
     const followUpsSent = rows.reduce((sum, r) => sum + (r.attempts || 0), 0);
-    return { total, pending, replied, drafted, missed, followUpsSent };
+    return { total, pending, queued, replied, drafted, missed, followUpsSent };
   }, [rows]);
 
   const exportCsv = () => {
@@ -149,8 +153,8 @@ export default function FlaggedEmailTrackerPage() {
     <div className="page-shell">
       <div className="page-shell-sticky print:hidden">
         <PageHero
-          eyebrow="Reports"
-          title="Flagged Email Reports"
+          eyebrow="AI Intelligence Report"
+          title="Flagged Email Tracker Report"
           description="Live view of every email you've flagged in Outlook — pulls fresh data from Microsoft 365 on every open and every minute."
           accent="green"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
@@ -184,12 +188,13 @@ export default function FlaggedEmailTrackerPage() {
         </Card>
 
         {/* Live stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard label="Flagged" value={stats.total} icon={Flag} tone="amber" />
-          <StatCard label="Pending" value={stats.pending} icon={AlarmClock} tone="slate" />
+          <StatCard label="Waiting" value={stats.pending} icon={AlarmClock} tone="slate" />
+          <StatCard label="Queued (off-hours)" value={stats.queued} icon={AlarmClock} tone="indigo" />
           <StatCard label="Replied" value={stats.replied} icon={CheckCircle2} tone="emerald" />
           <StatCard label="Follow-ups sent" value={stats.followUpsSent} icon={Send} tone="blue" />
-          <StatCard label="Missed deadline" value={stats.missed} icon={AlertTriangle} tone="red" />
+          <StatCard label="Missed (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
         </div>
 
         <Card>
@@ -373,13 +378,14 @@ function RecipientGroups({
   );
 }
 
-function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'amber' | 'slate' | 'emerald' | 'blue' | 'red' }) {
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'amber' | 'slate' | 'emerald' | 'blue' | 'red' | 'indigo' }) {
   const tones: Record<string, string> = {
     amber: 'text-amber-600 bg-amber-500/10',
     slate: 'text-slate-600 bg-slate-500/10',
     emerald: 'text-emerald-600 bg-emerald-500/10',
     blue: 'text-blue-600 bg-blue-500/10',
     red: 'text-red-600 bg-red-500/10',
+    indigo: 'text-indigo-600 bg-indigo-500/10',
   };
   return (
     <Card>

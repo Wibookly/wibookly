@@ -1,5 +1,6 @@
 import { Sun, Moon, Check, Palette as PaletteIcon } from 'lucide-react';
 import { UserAvatarDropdown } from './UserAvatarDropdown';
+import { SupportBell } from '@/components/help/SupportBell';
 import { useTheme, PALETTES, type Palette } from '@/lib/theme';
 import {
   DropdownMenu,
@@ -92,6 +93,7 @@ export function AppHeader() {
         {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
       </button>
 
+      <SupportBell />
       <UserAvatarDropdown />
     </header>
   );
