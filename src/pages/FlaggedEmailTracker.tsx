@@ -92,8 +92,8 @@ export default function FlaggedEmailTrackerPage() {
   
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [settings, setSettings] = useState<TrackerSettings | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   const load = useCallback(async () => {
     if (!user) return;
