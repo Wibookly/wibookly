@@ -1162,7 +1162,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     }
   };
 
-  const send = async (mode: 'send' | 'save_draft') => {
+  const send = async (mode: 'send' | 'save_draft' | 'schedule', opts?: { scheduled_for?: string }) => {
     if (!active || !draftText.trim()) {
       toast.error('Draft is empty');
       return;
@@ -1170,17 +1170,27 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     setSendBusy(mode);
     try {
       const { data: res, error } = await supabase.functions.invoke('helm-send-reply', {
-        body: { item_id: active.id, body: draftText, mode },
+        body: {
+          item_id: active.id,
+          body: draftText,
+          mode,
+          ...(mode === 'schedule' && opts?.scheduled_for ? { scheduled_for: opts.scheduled_for } : {}),
+        },
       });
       if (error) throw error;
       if (res?.already_sent) {
         toast.info('Already sent — skipped');
       } else if (mode === 'send') {
         toast.success('Reply sent');
+      } else if (mode === 'schedule') {
+        const when = res?.scheduled_for ? new Date(res.scheduled_for) : null;
+        toast.success(
+          when ? `Scheduled for ${when.toLocaleString()}` : 'Scheduled',
+        );
       } else {
         toast.success('Draft saved in Outlook');
       }
-      if (mode === 'send') {
+      if (mode === 'send' || mode === 'schedule') {
         setSentIds((prev) => new Set(prev).add(active.id));
       }
       qc.invalidateQueries({ queryKey: ['helm-items'] });
@@ -1189,11 +1199,32 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       setActiveId(remaining[0]?.id ?? null);
       setDraftText('');
       setOriginal(null);
+      setScheduleOpen(false);
+      setScheduleDate('');
+      setScheduleTime('');
     } catch (e: any) {
       toast.error(e?.message ?? `${mode} failed`);
     } finally {
       setSendBusy(null);
     }
+  };
+
+  const submitSchedule = () => {
+    if (!scheduleDate || !scheduleTime) {
+      toast.error('Pick a date and time');
+      return;
+    }
+    // Build a local-time Date and convert to ISO
+    const local = new Date(`${scheduleDate}T${scheduleTime}`);
+    if (Number.isNaN(local.getTime())) {
+      toast.error('Invalid date/time');
+      return;
+    }
+    if (local.getTime() < Date.now() + 30_000) {
+      toast.error('Pick a time at least 1 minute in the future');
+      return;
+    }
+    send('schedule', { scheduled_for: local.toISOString() });
   };
 
   const skip = () => {
