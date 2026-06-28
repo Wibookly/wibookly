@@ -367,40 +367,66 @@ export default function AIActivityDashboard() {
             ))}
           </div>
 
-          {/* AI usage by feature — quick visual */}
+          {/* AI usage by feature — donut + radial */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />AI usage by feature</CardTitle>
-              <CardDescription>Which features you used the most AI on for this date range</CardDescription>
+              <CardDescription>Which features used the most AI for this date range</CardDescription>
             </CardHeader>
             <CardContent>
               {(() => {
+                const palette = ['#3b82f6', '#f97316', '#a855f7', '#06b6d4', '#22c55e', '#ec4899'];
                 const items = [
-                  { name: 'AI Drafts', value: stats.totalDrafts, color: 'bg-blue-500' },
-                  { name: 'AI Auto-Replies', value: stats.totalAutoReplies, color: 'bg-orange-500' },
-                  { name: 'Scheduled Events', value: stats.totalScheduledEvents, color: 'bg-purple-500' },
-                  { name: 'Emails AI Processed', value: stats.totalEmails, color: 'bg-primary' },
-                  { name: 'AI Chat Messages', value: stats.totalChatMessages, color: 'bg-green-500' },
-                  { name: 'Meeting Copilot', value: stats.totalMeetings, color: 'bg-pink-500' },
-                ].sort((a, b) => b.value - a.value);
-                const max = Math.max(1, ...items.map((i) => i.value));
+                  { name: 'AI Drafts', value: stats.totalDrafts },
+                  { name: 'AI Auto-Replies', value: stats.totalAutoReplies },
+                  { name: 'Scheduled Events', value: stats.totalScheduledEvents },
+                  { name: 'Emails AI Processed', value: stats.totalEmails },
+                  { name: 'AI Chat Messages', value: stats.totalChatMessages },
+                  { name: 'Meeting Copilot', value: stats.totalMeetings },
+                ]
+                  .map((i, idx) => ({ ...i, fill: palette[idx % palette.length] }))
+                  .sort((a, b) => b.value - a.value);
                 const total = items.reduce((s, i) => s + i.value, 0);
                 if (total === 0) {
-                  return <p className="text-sm text-muted-foreground text-center py-6">No AI activity recorded in this range yet.</p>;
+                  return <p className="text-sm text-muted-foreground text-center py-10">No AI activity recorded in this range yet.</p>;
                 }
+                const top = items[0];
                 return (
-                  <div className="space-y-3">
-                    {items.map((i) => (
-                      <div key={i.name} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium">{i.name}</span>
-                          <span className="text-muted-foreground tabular-nums">{i.value}</span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div className={`${i.color} h-full rounded-full transition-all duration-500`} style={{ width: `${(i.value / max) * 100}%` }} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    {/* Donut */}
+                    <div className="relative h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <RTooltip
+                            contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                            formatter={(v: number, n: string) => [`${v} (${((v/total)*100).toFixed(0)}%)`, n]}
+                          />
+                          <Pie data={items} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2} stroke="hsl(var(--background))" strokeWidth={2}>
+                            {items.map((it) => <Cell key={it.name} fill={it.fill} />)}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <div className="text-3xl font-bold tabular-nums leading-none">{total}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total AI actions</div>
+                        <div className="text-xs text-muted-foreground mt-2 text-center max-w-[140px]">
+                          Top: <span className="font-medium text-foreground">{top.name}</span>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                    {/* Radial ranking */}
+                    <div className="h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart innerRadius="20%" outerRadius="100%" data={items} startAngle={90} endAngle={-270}>
+                          <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={6} />
+                          <RTooltip
+                            contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                            formatter={(v: number, _n: string, p: { payload?: { name?: string } }) => [v, p?.payload?.name ?? '']}
+                          />
+                          <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, lineHeight: '16px' }} />
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 );
               })()}
