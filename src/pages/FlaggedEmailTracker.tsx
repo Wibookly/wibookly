@@ -24,20 +24,23 @@ interface TrackedEmail {
   trigger_detail: any;
   follow_up_at: string;
   attempts: number;
-  status: 'pending' | 'replied' | 'drafted' | 'cancelled' | 'exhausted' | 'error';
+  status: 'pending' | 'replied' | 'drafted' | 'queued' | 'cancelled' | 'exhausted' | 'error';
   last_checked_at: string | null;
   last_error: string | null;
   conversation_id: string | null;
   follow_up_history: HistEntry[] | null;
+  scheduled_send_at?: string | null;
+  queued_reason?: string | null;
 }
 
-const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  pending: { label: 'Pending', icon: AlarmClock, variant: 'secondary' },
-  replied: { label: 'Replied', icon: CheckCircle2, variant: 'default' },
-  drafted: { label: 'Follow-up drafted', icon: FileEdit, variant: 'default' },
-  cancelled: { label: 'Cancelled', icon: XCircle, variant: 'outline' },
-  exhausted: { label: 'Missed (3/3 sent)', icon: AlertTriangle, variant: 'destructive' },
-  error: { label: 'Error', icon: AlertTriangle, variant: 'destructive' },
+const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string }> = {
+  pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
+  replied: { label: 'Replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — tracker auto-resolved.' },
+  drafted: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  queued: { label: 'Queued (business hours)', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
+  cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You unflagged the email or cancelled the follow-up.' },
+  exhausted: { label: 'Max attempts (3/3)', icon: AlertTriangle, variant: 'destructive', tooltip: 'Sent 3 follow-ups with no reply — tracker closed.' },
+  error: { label: 'Send error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
 };
 
 function fmt(d: string | null | undefined) {
