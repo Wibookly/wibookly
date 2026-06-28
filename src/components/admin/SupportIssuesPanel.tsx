@@ -41,6 +41,7 @@ interface ThreadMessage {
   author_user_id: string | null;
   author_role: string | null;
   body: string;
+  attachments?: Array<{ path: string; name: string; size?: number; type?: string }> | null;
   created_at: string;
 }
 
