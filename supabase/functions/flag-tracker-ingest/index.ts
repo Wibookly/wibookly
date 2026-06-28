@@ -48,6 +48,21 @@ function flagDueUtc(flag: any): Date | null {
   } catch { return null; }
 }
 
+async function getEnabledAt(admin: any, userId: string): Promise<Date | null> {
+  const { data } = await admin
+    .from('follow_up_settings')
+    .select('is_enabled, enabled_at, updated_at, created_at')
+    .eq('user_id', userId)
+    .order('is_enabled', { ascending: false })
+    .order('updated_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const row = (data && data[0]) || null;
+  if (!row || row.is_enabled === false) return null;
+  const t = row.enabled_at ? new Date(row.enabled_at) : null;
+  return t && !isNaN(t.getTime()) ? t : null;
+}
+
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const since = new Date(Date.now() - SCAN_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
   const filter = encodeURIComponent(`sentDateTime ge ${since}`);
@@ -56,9 +71,12 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
   if (!res.ok) return { ok: false, error: res.error?.message, scanned: 0, upserted: 0 };
 
+  const enabledAt = await getEnabledAt(admin, userId);
+
   const items: any[] = res.data?.value || [];
   let upserted = 0;
   let cancelled = 0;
+  let skippedPreEnable = 0;
 
   for (const m of items) {
     const internetMessageId = m.internetMessageId;
@@ -124,6 +142,17 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       .eq('internet_message_id', internetMessageId)
       .maybeSingle();
 
+    // Gate on enabled_at — never INGEST emails sent before the tracker was
+    // turned on. (Existing rows stay untouched; only brand-new tracker rows
+    // are skipped.)
+    if (!existing && enabledAt) {
+      const sentMs = new Date(m.sentDateTime || 0).getTime();
+      if (Number.isFinite(sentMs) && sentMs < enabledAt.getTime()) {
+        skippedPreEnable++;
+        continue;
+      }
+    }
+
     if (!existing) {
       const { error } = await admin.from('tracked_emails').insert({ ...row, attempts: 0, status: 'pending' });
       if (!error) upserted++;
@@ -140,7 +169,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
-  return { ok: true, scanned: items.length, upserted, cancelled };
+  return { ok: true, scanned: items.length, upserted, cancelled, skipped_pre_enable: skippedPreEnable };
 }
 
 Deno.serve(async (req) => {
