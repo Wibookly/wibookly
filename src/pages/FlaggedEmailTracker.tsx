@@ -374,10 +374,12 @@ function RecipientGroups({
   rows,
   expanded,
   setExpanded,
+  onCancel,
 }: {
   rows: TrackedEmail[];
   expanded: Record<string, boolean>;
   setExpanded: (e: Record<string, boolean>) => void;
+  onCancel: (id: string) => void;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; name: string; email: string; items: TrackedEmail[] }>();
