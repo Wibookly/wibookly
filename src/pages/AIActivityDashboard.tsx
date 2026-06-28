@@ -250,7 +250,7 @@ export default function AIActivityDashboard() {
         <Tabs defaultValue="activity" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="activity"><BarChart3 className="w-4 h-4 mr-1.5" />AI Activity</TabsTrigger>
-            <TabsTrigger value="flagged"><Flag className="w-4 h-4 mr-1.5" />Flagged Tracker Report</TabsTrigger>
+            <TabsTrigger value="flagged"><Flag className="w-4 h-4 mr-1.5" />Flagged Email Tracker Report</TabsTrigger>
           </TabsList>
 
           <TabsContent value="activity" className="bg-card/80 backdrop-blur-sm rounded-xl border border-border shadow-lg p-6">
