@@ -58,8 +58,9 @@ Deno.serve(async (req) => {
   const payload = (await req.json().catch(() => ({}))) as {
     item_id?: string;
     body?: string;
-    mode?: "send" | "save_draft";
+    mode?: "send" | "save_draft" | "schedule";
     auto?: boolean;
+    scheduled_for?: string; // ISO timestamp, required when mode === "schedule"
   };
   const mode = payload.mode ?? "send";
   if (!payload.item_id || !payload.body || !payload.body.trim()) {
@@ -80,6 +81,49 @@ Deno.serve(async (req) => {
   if (item.status === "sent") {
     return json(200, { ok: true, already_sent: true });
   }
+
+  // Schedule-send: enqueue and return — actual send happens via cron.
+  if (mode === "schedule") {
+    const when = payload.scheduled_for ? new Date(payload.scheduled_for) : null;
+    if (!when || Number.isNaN(when.getTime())) {
+      return json(400, { error: "invalid_scheduled_for" });
+    }
+    if (when.getTime() < Date.now() - 60_000) {
+      return json(400, { error: "scheduled_for_in_past" });
+    }
+    const { data: row, error: insErr } = await admin
+      .from("scheduled_outbox")
+      .insert({
+        user_id: userId,
+        organization_id: item.organization_id,
+        item_id: item.id,
+        body: payload.body,
+        scheduled_for: when.toISOString(),
+        status: "queued",
+      })
+      .select("id, scheduled_for")
+      .maybeSingle();
+    if (insErr) return json(500, { error: "queue_failed", details: insErr.message });
+    await admin
+      .from("helm_items")
+      .update({
+        ai_draft: payload.body,
+        status: "draft",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", item.id);
+    await admin.from("activity_log").insert({
+      user_id: userId,
+      organization_id: item.organization_id,
+      action_type: "email_scheduled",
+      detail: `Scheduled reply to "${(item.title ?? "(no subject)").slice(0, 120)}" for ${when.toISOString()}`,
+      graph_id: item.graph_id,
+      tier: "draft",
+      action_key: `scheduled:${item.graph_id}:${row?.id ?? ""}`,
+    });
+    return json(200, { ok: true, mode, scheduled_for: row?.scheduled_for, queue_id: row?.id });
+  }
+
 
   // Autonomy gate — auto-send requires explicit per-category opt-in
   if (mode === "send" && payload.auto === true) {

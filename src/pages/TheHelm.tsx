@@ -13,6 +13,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft,
   ArrowRight,
@@ -1084,8 +1085,11 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [reshapeBusy, setReshapeBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
-  const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | null>(null);
+  const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | 'schedule' | null>(null);
   const [instruction, setInstruction] = useState('');
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<string>(''); // yyyy-MM-dd
+  const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:mm
 
   // Auto-select first draft
   const effectiveId = activeId ?? drafts[0]?.id ?? null;
@@ -1137,11 +1141,17 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   }, [effectiveId]);
 
   const reshape = async (instr: string) => {
-    if (!active || !draftText) return;
+    if (!active) return;
     setReshapeBusy(true);
     try {
       const { data: gen, error } = await supabase.functions.invoke('helm-draft-reply', {
-        body: { item_id: active.id, instruction: instr, base_draft: draftText },
+        body: {
+          item_id: active.id,
+          instruction: instr,
+          // If we have no draft yet, the server will fall back to a fresh draft
+          // with the same tone instruction folded in.
+          base_draft: draftText || undefined,
+        },
       });
       if (error) throw error;
       setDraftText(gen?.draft ?? draftText);
@@ -1152,7 +1162,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     }
   };
 
-  const send = async (mode: 'send' | 'save_draft') => {
+  const send = async (mode: 'send' | 'save_draft' | 'schedule', opts?: { scheduled_for?: string }) => {
     if (!active || !draftText.trim()) {
       toast.error('Draft is empty');
       return;
@@ -1160,17 +1170,27 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     setSendBusy(mode);
     try {
       const { data: res, error } = await supabase.functions.invoke('helm-send-reply', {
-        body: { item_id: active.id, body: draftText, mode },
+        body: {
+          item_id: active.id,
+          body: draftText,
+          mode,
+          ...(mode === 'schedule' && opts?.scheduled_for ? { scheduled_for: opts.scheduled_for } : {}),
+        },
       });
       if (error) throw error;
       if (res?.already_sent) {
         toast.info('Already sent — skipped');
       } else if (mode === 'send') {
         toast.success('Reply sent');
+      } else if (mode === 'schedule') {
+        const when = res?.scheduled_for ? new Date(res.scheduled_for) : null;
+        toast.success(
+          when ? `Scheduled for ${when.toLocaleString()}` : 'Scheduled',
+        );
       } else {
         toast.success('Draft saved in Outlook');
       }
-      if (mode === 'send') {
+      if (mode === 'send' || mode === 'schedule') {
         setSentIds((prev) => new Set(prev).add(active.id));
       }
       qc.invalidateQueries({ queryKey: ['helm-items'] });
@@ -1179,11 +1199,32 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       setActiveId(remaining[0]?.id ?? null);
       setDraftText('');
       setOriginal(null);
+      setScheduleOpen(false);
+      setScheduleDate('');
+      setScheduleTime('');
     } catch (e: any) {
       toast.error(e?.message ?? `${mode} failed`);
     } finally {
       setSendBusy(null);
     }
+  };
+
+  const submitSchedule = () => {
+    if (!scheduleDate || !scheduleTime) {
+      toast.error('Pick a date and time');
+      return;
+    }
+    // Build a local-time Date and convert to ISO
+    const local = new Date(`${scheduleDate}T${scheduleTime}`);
+    if (Number.isNaN(local.getTime())) {
+      toast.error('Invalid date/time');
+      return;
+    }
+    if (local.getTime() < Date.now() + 30_000) {
+      toast.error('Pick a time at least 1 minute in the future');
+      return;
+    }
+    send('schedule', { scheduled_for: local.toISOString() });
   };
 
   const skip = () => {
@@ -1354,7 +1395,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                         key={c}
                         variant="outline"
                         size="sm"
-                        disabled={reshapeBusy || genBusy || !draftText}
+                        disabled={reshapeBusy || genBusy}
                         onClick={() => reshape(c)}
                       >
                         {c}
@@ -1415,6 +1456,98 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                     >
                       {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
                     </Button>
+                    <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          disabled={!!sendBusy || !draftText.trim()}
+                          onClick={() => {
+                            // Default to today + 1h, in the user's local timezone
+                            if (!scheduleDate || !scheduleTime) {
+                              const d = new Date(Date.now() + 60 * 60 * 1000);
+                              const pad = (n: number) => String(n).padStart(2, '0');
+                              setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                              setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                            }
+                          }}
+                        >
+                          <CalendarClock className="w-4 h-4 mr-1.5" />
+                          {sendBusy === 'schedule' ? 'Scheduling…' : 'Schedule send'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72" align="end">
+                        <div className="space-y-3">
+                          <p className="text-caption uppercase tracking-wider text-muted-foreground">
+                            Send this reply later
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-caption text-muted-foreground">Date</label>
+                              <input
+                                type="date"
+                                value={scheduleDate}
+                                onChange={(e) => setScheduleDate(e.target.value)}
+                                className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-body-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-caption text-muted-foreground">Time</label>
+                              <input
+                                type="time"
+                                value={scheduleTime}
+                                onChange={(e) => setScheduleTime(e.target.value)}
+                                className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-body-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: 'In 1 hour', mins: 60 },
+                              { label: 'In 3 hours', mins: 180 },
+                              { label: 'Tomorrow 8am', custom: 'tomorrow_8' },
+                              { label: 'Monday 8am', custom: 'monday_8' },
+                            ].map((p) => (
+                              <Button
+                                key={p.label}
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 text-caption"
+                                onClick={() => {
+                                  const pad = (n: number) => String(n).padStart(2, '0');
+                                  let d: Date;
+                                  if (p.custom === 'tomorrow_8') {
+                                    d = new Date();
+                                    d.setDate(d.getDate() + 1);
+                                    d.setHours(8, 0, 0, 0);
+                                  } else if (p.custom === 'monday_8') {
+                                    d = new Date();
+                                    const day = d.getDay();
+                                    const add = ((1 - day + 7) % 7) || 7;
+                                    d.setDate(d.getDate() + add);
+                                    d.setHours(8, 0, 0, 0);
+                                  } else {
+                                    d = new Date(Date.now() + (p.mins ?? 60) * 60_000);
+                                  }
+                                  setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                                  setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                                }}
+                              >
+                                {p.label}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <Button variant="ghost" size="sm" onClick={() => setScheduleOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button size="sm" onClick={submitSchedule} disabled={sendBusy === 'schedule'}>
+                              {sendBusy === 'schedule' ? 'Scheduling…' : 'Schedule'}
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       onClick={() => send('send')}
                       disabled={!!sendBusy || !draftText.trim()}
