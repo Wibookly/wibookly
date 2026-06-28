@@ -61,19 +61,31 @@ Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' �
       }),
     });
     const j = await r.json();
-    const txt = j?.choices?.[0]?.message?.content || '';
+    let txt: string = j?.choices?.[0]?.message?.content || '';
+    // LLMs sometimes wrap HTML in ```html ... ``` fences — strip them so the
+    // raw fence text doesn't show up at the top of the email draft.
+    txt = stripCodeFences(txt);
     if (txt && txt.trim()) return txt;
   } catch (e) { console.error('draft LLM error', e); }
   return `<p>Hi${opts.recipientName ? ' ' + opts.recipientName.split(' ')[0] : ''},</p><p>Just wanted to circle back on "${opts.subject}" in case my earlier note got buried. Happy to make this easier — let me know what works.</p>`;
 }
 
-async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any }> {
+function stripCodeFences(s: string): string {
+  if (!s) return s;
+  let out = s.trim();
+  // Remove leading ```html / ```HTML / ``` and a matching trailing ```
+  out = out.replace(/^```(?:html|HTML)?\s*\n?/, '');
+  out = out.replace(/\n?```\s*$/, '');
+  return out.trim();
+}
+
+async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any; enabledAt?: string | null }> {
   // Some users have multiple follow_up_settings rows from earlier migrations.
   // Pick the most recently-updated *enabled* row so a fresh "Enable" doesn't
   // get masked by an older disabled row.
   const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
@@ -89,6 +101,7 @@ async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolea
     autoReply: !!data.auto_draft_enabled,
     autoSend: !!data.auto_reply_enabled,
     tone: data.tone_settings || null,
+    enabledAt: data.enabled_at || null,
   };
 }
 
