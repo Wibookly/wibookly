@@ -797,17 +797,32 @@ function BriefView({
           <CardContent className="pt-0">
             <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
             <ul className="space-y-0">
-              {WEEK_PREVIEW.map((d) => (
+              {(weekPreview.data ?? []).map((d) => (
                 <li
                   key={d.day}
-                  className="flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0"
+                  className={cn(
+                    'flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0',
+                    d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
+                  )}
                 >
-                  <span className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground w-10 shrink-0">{d.day}</span>
+                  <span className={cn(
+                    'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
+                    d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                  )}>{d.day}</span>
                   <span className="text-foreground/80 flex-1 leading-snug">
-                    {d.summary}
+                    {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
                   </span>
+                  {d.isToday && (
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
+                  )}
                 </li>
               ))}
+              {weekPreview.isLoading && (
+                <li className="text-[12px] text-muted-foreground italic py-2">Loading your week…</li>
+              )}
+              {!weekPreview.isLoading && (weekPreview.data?.length ?? 0) === 0 && (
+                <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
+              )}
             </ul>
           </CardContent>
         </Card>
