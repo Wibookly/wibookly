@@ -1068,10 +1068,10 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
 
   return (
     <div>
-      <BackBar onBack={onBack} label="Drafted for you · focused inbox" />
+      <BackBar onBack={onBack} label={`${scopeLabel} · focused inbox`} />
       <SectionHeader
-        title={`${drafts.length} draft${drafts.length === 1 ? '' : 's'} waiting for your review`}
-        subtitle="Skim, edit, send — replies thread into the original Outlook conversation."
+        title={`${drafts.length} ${scope === 'big3' ? 'priorit' + (drafts.length === 1 ? 'y' : 'ies') : scope === 'decisions' ? 'decision' + (drafts.length === 1 ? '' : 's') : 'draft' + (drafts.length === 1 ? '' : 's')} ready for review`}
+        subtitle="Pick one on the left, read the thread on top, edit and send the AI reply at the bottom — same tone as your auto-draft."
         count={drafts.length}
       />
 
