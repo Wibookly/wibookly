@@ -79,13 +79,23 @@ function stripCodeFences(s: string): string {
   return out.trim();
 }
 
-async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any; enabledAt?: string | null }> {
-  // Some users have multiple follow_up_settings rows from earlier migrations.
-  // Pick the most recently-updated *enabled* row so a fresh "Enable" doesn't
-  // get masked by an older disabled row.
+interface PrefsResult {
+  autoReply: boolean;
+  autoSend: boolean;
+  tone?: any;
+  enabledAt?: string | null;
+  businessHoursOnly?: boolean;
+  bhStart?: number;
+  bhEnd?: number;
+  businessDays?: number[];
+  timezone?: string | null;
+  holidays?: string[];
+}
+
+async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
   const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
@@ -102,7 +112,55 @@ async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolea
     autoSend: !!data.auto_reply_enabled,
     tone: data.tone_settings || null,
     enabledAt: data.enabled_at || null,
+    businessHoursOnly: !!data.business_hours_only,
+    bhStart: typeof data.business_hours_start === 'number' ? data.business_hours_start : 8,
+    bhEnd: typeof data.business_hours_end === 'number' ? data.business_hours_end : 17,
+    businessDays: Array.isArray(data.business_days) ? data.business_days : [1, 2, 3, 4, 5],
+    timezone: data.timezone || 'America/New_York',
+    holidays: Array.isArray(data.holidays) ? data.holidays : [],
   };
+}
+
+function tzParts(date: Date, tz: string): { hour: number; day: number; ymd: string } {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false, hour: '2-digit', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    const parts = dtf.formatToParts(date).reduce((acc: any, p) => { acc[p.type] = p.value; return acc; }, {});
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return {
+      hour: parseInt(parts.hour, 10) || 0,
+      day: dayMap[parts.weekday] ?? 1,
+      ymd: `${parts.year}-${parts.month}-${parts.day}`,
+    };
+  } catch {
+    return { hour: date.getUTCHours(), day: date.getUTCDay(), ymd: date.toISOString().slice(0, 10) };
+  }
+}
+
+function isInWindow(now: Date, prefs: PrefsResult): boolean {
+  if (!prefs.businessHoursOnly) return true;
+  const tz = prefs.timezone || 'America/New_York';
+  const { hour, day, ymd } = tzParts(now, tz);
+  if ((prefs.holidays || []).includes(ymd)) return false;
+  if (!(prefs.businessDays || [1, 2, 3, 4, 5]).includes(day)) return false;
+  return hour >= (prefs.bhStart ?? 8) && hour < (prefs.bhEnd ?? 17);
+}
+
+function nextWindowStart(from: Date, prefs: PrefsResult): Date {
+  if (!prefs.businessHoursOnly) return from;
+  const tz = prefs.timezone || 'America/New_York';
+  const days = prefs.businessDays || [1, 2, 3, 4, 5];
+  const holidays = prefs.holidays || [];
+  let cur = new Date(from.getTime());
+  for (let i = 0; i < 14 * 48; i++) {
+    const { hour, day, ymd } = tzParts(cur, tz);
+    if (days.includes(day) && !holidays.includes(ymd) && hour >= (prefs.bhStart ?? 8) && hour < (prefs.bhEnd ?? 17)) {
+      return cur;
+    }
+    cur = new Date(cur.getTime() + 30 * 60_000);
+  }
+  return new Date(from.getTime() + 24 * 3600_000);
 }
 
 async function processOne(admin: any, row: any) {
