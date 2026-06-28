@@ -378,13 +378,14 @@ function RecipientGroups({
   );
 }
 
-function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'amber' | 'slate' | 'emerald' | 'blue' | 'red' }) {
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'amber' | 'slate' | 'emerald' | 'blue' | 'red' | 'indigo' }) {
   const tones: Record<string, string> = {
     amber: 'text-amber-600 bg-amber-500/10',
     slate: 'text-slate-600 bg-slate-500/10',
     emerald: 'text-emerald-600 bg-emerald-500/10',
     blue: 'text-blue-600 bg-blue-500/10',
     red: 'text-red-600 bg-red-500/10',
+    indigo: 'text-indigo-600 bg-indigo-500/10',
   };
   return (
     <Card>
