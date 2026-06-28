@@ -265,7 +265,7 @@ export default function FlaggedEmailTrackerPage() {
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} />
+              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -282,7 +282,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => <EmailRow key={r.id} r={r} />)}
+                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} />)}
                   </TableBody>
                 </Table>
               </div>
@@ -294,12 +294,13 @@ export default function FlaggedEmailTrackerPage() {
   );
 }
 
-function EmailRow({ r }: { r: TrackedEmail }) {
+function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => void }) {
   const meta = STATUS_META[r.status];
   const Icon = meta.icon;
   const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
   const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted';
   return (
     <TableRow>
       <TableCell className="max-w-sm">
@@ -347,9 +348,23 @@ function EmailRow({ r }: { r: TrackedEmail }) {
         )}
       </TableCell>
       <TableCell>
-        <Badge variant={meta.variant} className="gap-1">
-          <Icon className="w-3 h-3" /> {meta.label}
-        </Badge>
+        <div className="flex flex-col items-start gap-1.5">
+          <Badge variant={meta.variant} className="gap-1">
+            <Icon className="w-3 h-3" /> {meta.label}
+          </Badge>
+          {canCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 print:hidden"
+              onClick={() => onCancel(r.id)}
+              title="Cancel this follow-up — no further AI sends for this email"
+            >
+              <XCircle className="w-3 h-3 mr-1" /> Cancel
+            </Button>
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );
