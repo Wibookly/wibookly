@@ -783,33 +783,91 @@ function BriefView({
         </section>
 
 
-        {/* Overdue */}
+        {/* Overdue — collapsible */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
-          <SectionHeader
-            index={3}
-            title="Overdue — waiting on your reply"
-            subtitle="These threads have been sitting too long."
-            sectionKey="overdue"
-            emailSection="brief"
-            count={overdue.length}
-          />
-          <div className="grid gap-3">
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : overdue.length === 0 ? (
-              <EmptyHint>You're caught up on overdue threads.</EmptyHint>
-            ) : (
-              overdue.map((item) => (
-                <HelmCard
-                  key={item.id}
-                  item={item}
-                  variant="warning"
-                  onOpen={() => go('detail', item)}
-                />
-              ))
-            )}
-          </div>
+          <Collapsible defaultOpen={overdue.length > 0 && overdue.length <= 5}>
+            <SectionHeader
+              index={3}
+              title="Overdue — waiting on your reply"
+              subtitle="Threads where you owe a reply and the clock has run out. Anything here that's only FYI gets moved down."
+              sectionKey="overdue"
+              emailSection="brief"
+              count={overdue.length}
+            />
+            <CollapsibleTrigger asChild>
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Toggle overdue threads"
+              >
+                <span className="text-sm text-foreground/80">
+                  {overdue.length === 0 ? "You're caught up on overdue threads." : `Show ${overdue.length} overdue thread${overdue.length === 1 ? '' : 's'}`}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-3">
+                {isLoading ? (
+                  <Skeleton className="h-20" />
+                ) : overdue.length === 0 ? (
+                  <EmptyHint>You're caught up on overdue threads.</EmptyHint>
+                ) : (
+                  overdue.map((item) => (
+                    <HelmCard
+                      key={item.id}
+                      item={item}
+                      variant="warning"
+                      onOpen={() => go('detail', item)}
+                    />
+                  ))
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </section>
+
+        {/* FYI — no action needed (newsletters, announcements, external notices) */}
+        <section aria-labelledby="fyi" data-helm-section="fyi">
+          <Collapsible defaultOpen={false}>
+            <SectionHeader
+              index={4}
+              title="FYI — no reply needed"
+              subtitle="Newsletters, marketing, automated notices and external announcements. Skim only if you want to."
+              sectionKey="fyi"
+              emailSection="brief"
+              count={fyi.length}
+            />
+            <CollapsibleTrigger asChild>
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Toggle FYI items"
+              >
+                <span className="text-sm text-foreground/80 inline-flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  {fyi.length === 0 ? 'Nothing FYI today.' : `Show ${fyi.length} FYI item${fyi.length === 1 ? '' : 's'}`}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-3">
+                {fyi.length === 0 ? (
+                  <EmptyHint>You're all caught up — nothing informational waiting.</EmptyHint>
+                ) : (
+                  fyi.slice(0, 25).map((item) => (
+                    <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+                  ))
+                )}
+                {fyi.length > 25 && (
+                  <p className="text-[11px] text-muted-foreground text-center italic">
+                    + {fyi.length - 25} more filed in your inbox.
+                  </p>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </section>
+
 
         {/* Done automatically overnight */}
         <section aria-labelledby="auto" data-helm-section="activity">
