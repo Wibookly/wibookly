@@ -423,20 +423,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                 <StepBadge n={3} /> <Clock className="w-4 h-4" /> Business hours
               </CardTitle>
               <CardDescription className="mt-1.5">
-                When on, <strong>Auto Draft</strong>, <strong>Auto Reply</strong> and the
-                daily auto-audit only run during your local working hours. Outside hours,
-                emails are still <em>moved</em> to your No Reply Tracker category — drafts and sends
-                wait until business hours resume.
-                {settings.is_enabled ? (
-                  <span className="block mt-1 text-xs text-muted-foreground">
-                    Locked ON while No Reply Tracker is active.
-                  </span>
-                ) : null}
+                Default is ON: AI follow-ups wait until your selected work hours and skip weekends/off-days.
+                If you turn it OFF, Auto Reply sends as soon as the due date arrives and no recipient reply is found.
               </CardDescription>
             </div>
             <Switch
               checked={settings.business_hours_only}
-              disabled={saving || settings.is_enabled}
+              disabled={saving || !settings.is_enabled}
               onCheckedChange={(v) => patch({ business_hours_only: v })}
             />
           </div>
