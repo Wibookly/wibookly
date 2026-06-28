@@ -297,11 +297,10 @@ function HelmCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border-border/60',
-        'before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary',
-        'before:scale-y-0 before:origin-top hover:before:scale-y-100 before:transition-transform before:duration-300',
-        'hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        variant === 'warning' && 'border-destructive/40 bg-destructive/5',
+        'group relative cursor-pointer overflow-hidden transition-all rounded-lg border border-border/60',
+        'hover:border-primary hover:ring-2 hover:ring-primary/30 hover:ring-offset-1 hover:ring-offset-background hover:bg-muted/20 hover:shadow-md',
+        'focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        variant === 'warning' && 'border-destructive/40 bg-destructive/5 hover:border-destructive hover:ring-destructive/30',
         done && 'opacity-60',
       )}
     >
