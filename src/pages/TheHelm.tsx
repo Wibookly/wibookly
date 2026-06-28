@@ -1395,7 +1395,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                         key={c}
                         variant="outline"
                         size="sm"
-                        disabled={reshapeBusy || genBusy || !draftText}
+                        disabled={reshapeBusy || genBusy}
                         onClick={() => reshape(c)}
                       >
                         {c}
