@@ -23,6 +23,7 @@ import {
   Clock,
   FileEdit,
   Inbox,
+  Info,
   Mail,
   Printer,
   RefreshCw,
@@ -34,10 +35,12 @@ import {
   Zap,
   ThumbsUp,
   X,
+  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
 
 /* ------------------------------------------------------------------ */
 /* Types & data hooks                                                 */
@@ -126,6 +129,12 @@ function useHelmData() {
       const decisionRows = rows.filter((r) => r.tier === 'decision');
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
+      // FYI = anything triaged that does NOT need a reply from the user
+      // (newsletters, marketing, external announcements, notifications).
+      // We capture rows tagged 'fyi' / 'info' explicitly, plus anything the
+      // backend left untagged (no actionable tier).
+      const known = new Set(['big3', 'decision', 'draft', 'overdue']);
+      const fyi = rows.filter((r) => !r.tier || r.tier === ('fyi' as any) || r.tier === ('info' as any) || !known.has(r.tier as string));
       const big3Candidates = [...explicitBig3, ...decisionRows, ...overdue, ...drafts];
       const seenBig3 = new Set<string>();
       const big3 = big3Candidates.filter((item) => {
@@ -160,6 +169,7 @@ function useHelmData() {
         decisions: decisions.slice(big3.length),
         drafts,
         overdue,
+        fyi,
         autoActions,
         stats: {
           totalInbound,
@@ -568,6 +578,7 @@ function BriefView({
   const big3 = data?.big3 ?? [];
   const decisions = data?.decisions ?? [];
   const overdue = data?.overdue ?? [];
+  const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
 
   // Live week preview for the right rail
@@ -638,20 +649,50 @@ function BriefView({
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
               {today} · {nowTime} brief
             </p>
-            <span
-              className={cn(
-                'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border print:hidden',
-                (sync.isPending || isLoading)
-                  ? 'border-primary/40 text-primary bg-primary/5'
-                  : 'border-border/60 text-muted-foreground bg-transparent',
-              )}
-              title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
-            >
-              <RefreshCw
-                className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')}
-              />
-              {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
-            </span>
+            <div className="flex items-center gap-2 print:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
+                onClick={() => {
+                  document.body.removeAttribute('data-print-section');
+                  window.print();
+                }}
+                title="Print today's full brief — meetings, Big 3, decisions, drafts, overdue, FYI."
+              >
+                <Printer className="w-3 h-3 mr-1.5" /> Print today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
+                onClick={async () => {
+                  try {
+                    const { data, error } = await supabase.functions.invoke('helm-email-section', {
+                      body: { section: 'brief', title: "Today's full brief" },
+                    });
+                    if (error) throw error;
+                    toast.success(`Emailed to ${(data as any)?.recipient ?? 'your inbox'}.`);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? 'Email failed.');
+                  }
+                }}
+              >
+                <Send className="w-3 h-3 mr-1.5" /> Email today
+              </Button>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border',
+                  (sync.isPending || isLoading)
+                    ? 'border-primary/40 text-primary bg-primary/5'
+                    : 'border-border/60 text-muted-foreground bg-transparent',
+                )}
+                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+              >
+                <RefreshCw className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')} />
+                {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+              </span>
+            </div>
           </div>
 
           <h1
@@ -742,33 +783,91 @@ function BriefView({
         </section>
 
 
-        {/* Overdue */}
+        {/* Overdue — collapsible */}
         <section aria-labelledby="overdue" data-helm-section="overdue">
-          <SectionHeader
-            index={3}
-            title="Overdue — waiting on your reply"
-            subtitle="These threads have been sitting too long."
-            sectionKey="overdue"
-            emailSection="brief"
-            count={overdue.length}
-          />
-          <div className="grid gap-3">
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : overdue.length === 0 ? (
-              <EmptyHint>You're caught up on overdue threads.</EmptyHint>
-            ) : (
-              overdue.map((item) => (
-                <HelmCard
-                  key={item.id}
-                  item={item}
-                  variant="warning"
-                  onOpen={() => go('detail', item)}
-                />
-              ))
-            )}
-          </div>
+          <Collapsible defaultOpen={overdue.length > 0 && overdue.length <= 5}>
+            <SectionHeader
+              index={3}
+              title="Overdue — waiting on your reply"
+              subtitle="Threads where you owe a reply and the clock has run out. Anything here that's only FYI gets moved down."
+              sectionKey="overdue"
+              emailSection="brief"
+              count={overdue.length}
+            />
+            <CollapsibleTrigger asChild>
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Toggle overdue threads"
+              >
+                <span className="text-sm text-foreground/80">
+                  {overdue.length === 0 ? "You're caught up on overdue threads." : `Show ${overdue.length} overdue thread${overdue.length === 1 ? '' : 's'}`}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-3">
+                {isLoading ? (
+                  <Skeleton className="h-20" />
+                ) : overdue.length === 0 ? (
+                  <EmptyHint>You're caught up on overdue threads.</EmptyHint>
+                ) : (
+                  overdue.map((item) => (
+                    <HelmCard
+                      key={item.id}
+                      item={item}
+                      variant="warning"
+                      onOpen={() => go('detail', item)}
+                    />
+                  ))
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </section>
+
+        {/* FYI — no action needed (newsletters, announcements, external notices) */}
+        <section aria-labelledby="fyi" data-helm-section="fyi">
+          <Collapsible defaultOpen={false}>
+            <SectionHeader
+              index={4}
+              title="FYI — no reply needed"
+              subtitle="Newsletters, marketing, automated notices and external announcements. Skim only if you want to."
+              sectionKey="fyi"
+              emailSection="brief"
+              count={fyi.length}
+            />
+            <CollapsibleTrigger asChild>
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Toggle FYI items"
+              >
+                <span className="text-sm text-foreground/80 inline-flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  {fyi.length === 0 ? 'Nothing FYI today.' : `Show ${fyi.length} FYI item${fyi.length === 1 ? '' : 's'}`}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-3">
+                {fyi.length === 0 ? (
+                  <EmptyHint>You're all caught up — nothing informational waiting.</EmptyHint>
+                ) : (
+                  fyi.slice(0, 25).map((item) => (
+                    <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+                  ))
+                )}
+                {fyi.length > 25 && (
+                  <p className="text-[11px] text-muted-foreground text-center italic">
+                    + {fyi.length - 25} more filed in your inbox.
+                  </p>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </section>
+
 
         {/* Done automatically overnight */}
         <section aria-labelledby="auto" data-helm-section="activity">
@@ -832,7 +931,43 @@ function BriefView({
             </Card>
           </Collapsible>
         </section>
+
+        {/* Home email notifications — schedule when this brief lands in your inbox */}
+        <section aria-labelledby="schedule" data-helm-section="schedule" className="print:hidden">
+          <Collapsible defaultOpen={false}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <button
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/40 transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Toggle home email schedule"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <CalendarClock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 id="schedule" className="text-h3 text-foreground">
+                        Home email notifications · schedule
+                      </h2>
+                      <p className="text-body-2 text-muted-foreground">
+                        Pick the days and times your full Helm brief lands in your inbox — same layout as this page and the print view.
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-5 pb-5">
+                  <Separator className="mb-4" />
+                  <DailyBriefSchedule />
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        </section>
       </div>
+
 
       {/* Right rail */}
       <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
