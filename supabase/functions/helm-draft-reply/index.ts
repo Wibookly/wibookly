@@ -161,43 +161,54 @@ Deno.serve(async (req) => {
     }
   }
 
-  let draftText = "";
+  const senderFirst = (item.sender_name ?? item.sender_email ?? "there").split(
+    /[\s,@]/,
+  )[0];
+  const greeting = `Hi ${senderFirst},`;
+
+  // Strip greeting + signature out of base_draft so the LLM only reshapes the middle.
+  function stripFrame(text: string): string {
+    let t = text;
+    if (signatureBlock) {
+      const idx = t.lastIndexOf(signatureBlock);
+      if (idx >= 0) t = t.slice(0, idx).trimEnd();
+    }
+    // Drop leading "Hi <name>," greeting if present
+    t = t.replace(/^\s*(hi|hello|hey|dear)\s+[^\n,]{1,40},?\s*\n+/i, "");
+    return t.trim();
+  }
+
+  let draftMiddle = "";
   try {
     if (body.instruction && body.base_draft) {
       const sys =
         `You revise email replies. Apply the user's instruction to the CURRENT DRAFT. ` +
-        `Preserve meaning and any names. Output ONLY the new reply body — no subject line, no preamble, no quotes, no signature.`;
+        `Preserve meaning and any names. Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature.`;
       const usr =
-        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${body.base_draft}`;
-      draftText = await callLLM(userId, sys, usr);
+        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${stripFrame(body.base_draft)}`;
+      draftMiddle = await callLLM(userId, sys, usr);
     } else {
       const sys =
-        `You write executive email replies for ${userName} <${userEmail}>. ` +
+        `You write executive email replies for ${displayName} <${userEmail}>. ` +
         `Tone: ${tone}.${roleNote} ${styleNotes ? "Style: " + styleNotes + "." : ""} ` +
         `Reply directly to the sender's ask. Keep it tight (3-7 short sentences unless the ask demands detail). ` +
-        `Do not include a subject line, greeting line beyond "Hi <name>," or sign-off — those are added separately. ` +
+        `Do not include a subject line, greeting line, or sign-off — those are added separately. ` +
         `Output ONLY the reply body paragraphs.`;
-      const senderFirst = (item.sender_name ?? item.sender_email ?? "there").split(
-        /[\s,@]/,
-      )[0];
       const usr =
         `From: ${item.sender_name ?? ""} <${item.sender_email ?? ""}>\n` +
         `Subject: ${item.subject ?? ""}\n` +
         `Triage note: ${item.context ?? ""}\n\n` +
         `Original message:\n${originalText.slice(0, 4000)}\n\n` +
         `Write a reply addressed to ${senderFirst}.`;
-      draftText = await callLLM(userId, sys, usr);
+      draftMiddle = await callLLM(userId, sys, usr);
     }
   } catch (e: any) {
     return json(502, { error: "llm_failed", message: String(e?.message ?? e) });
   }
 
-  draftText = draftText.replace(/^["']|["']$/g, "").trim();
+  draftMiddle = draftMiddle.replace(/^["']|["']$/g, "").trim();
 
-  // Compose final body (greeting + draft + signature)
-  const greeting = `Hi ${(item.sender_name ?? item.sender_email ?? "there")
-    .split(/[\s,@]/)[0]},`;
-  const fullBody = `${greeting}\n\n${draftText}\n\n${signature}`;
+  const fullBody = `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`;
 
   await admin
     .from("helm_items")
