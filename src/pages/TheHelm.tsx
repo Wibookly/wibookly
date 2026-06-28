@@ -785,11 +785,10 @@ function BriefView({
                     </div>
                     <div>
                       <h2 id="auto" className="text-h3 text-foreground">
-                        Done automatically overnight
+                        Handled by your AI agent
                       </h2>
                       <p className="text-body-2 text-muted-foreground">
-                        {autoActions.length} action{autoActions.length === 1 ? '' : 's'}{' '}
-                        handled while you slept.
+                        {autoActions.length} email{autoActions.length === 1 ? '' : 's'}, meeting{autoActions.length === 1 ? '' : 's'} or task{autoActions.length === 1 ? '' : 's'} the agent filed, drafted, booked or replied to in the last 24 hours.
                       </p>
                     </div>
                   </div>
