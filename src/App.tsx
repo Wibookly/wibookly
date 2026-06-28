@@ -81,6 +81,8 @@ const App = () => (
                   <Route path="/sync" element={<Sync />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/knowledge" element={<Knowledge />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/user-guide" element={<UserGuide />} />
                   <Route path="/settings/help" element={<HelpAdmin />} />
                   <Route path="/email-draft" element={
                     <FeatureRoute featureKeys={['ai_draft', 'ai_auto_reply']}>
