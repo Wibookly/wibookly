@@ -409,12 +409,13 @@ function firstNameFromEmail(email?: string | null): string {
 function preferredFirstName(user: any, profile: { full_name?: string | null } | null): string {
   const meta = user?.user_metadata ?? {};
   const candidates = [
-    profile?.full_name,
     meta.first_name,
     meta.given_name,
     meta.preferred_name,
-    meta.name,
+    firstNameFromEmail(user?.email),
+    profile?.full_name,
     meta.full_name,
+    meta.name,
   ];
   for (const candidate of candidates) {
     const name = cleanFirstName(candidate);
