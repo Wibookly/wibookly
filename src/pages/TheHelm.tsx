@@ -932,40 +932,37 @@ function BriefView({
           </Collapsible>
         </section>
 
-        {/* Home email notifications — schedule when this brief lands in your inbox */}
+        {/* Home email notifications — compact pop-out (full editor lives in Settings) */}
         <section aria-labelledby="schedule" data-helm-section="schedule" className="print:hidden">
           <Collapsible defaultOpen={false}>
-            <Card>
+            <Card className="border-border/60">
               <CollapsibleTrigger asChild>
                 <button
-                  className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/40 transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Toggle home email schedule"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                      <CalendarClock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 id="schedule" className="text-h3 text-foreground">
-                        Home email notifications · schedule
-                      </h2>
-                      <p className="text-body-2 text-muted-foreground">
-                        Pick the days and times your full Helm brief lands in your inbox — same layout as this page and the print view.
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+                    <span id="schedule" className="text-sm font-medium text-foreground truncate">
+                      Home email schedule
+                    </span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline truncate">
+                      · choose days &amp; times this brief lands in your inbox
+                    </span>
                   </div>
-                  <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-180" />
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="px-5 pb-5">
-                  <Separator className="mb-4" />
+                <div className="px-4 pb-4">
+                  <Separator className="mb-3" />
                   <DailyBriefSchedule />
                 </div>
               </CollapsibleContent>
             </Card>
           </Collapsible>
         </section>
+
       </div>
 
 
