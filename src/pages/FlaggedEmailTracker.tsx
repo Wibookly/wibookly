@@ -2,17 +2,19 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, ChevronDown, ChevronRight, Users, List } from 'lucide-react';
+import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, ChevronDown, ChevronRight, Users, List, Settings as SettingsIcon } from 'lucide-react';
 import { ReportExportMenu } from '@/components/reports/ReportExportMenu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { FlaggedEmailSettingsBody } from './FlaggedEmailSettings';
+
 
 
 interface HistEntry { attempt: number; drafted_at: string; sent_at: string | null; auto_sent: boolean; }
@@ -35,16 +37,6 @@ interface TrackedEmail {
   queued_reason?: string | null;
 }
 
-interface TrackerSettings {
-  id: string;
-  is_enabled: boolean;
-  auto_reply_enabled: boolean;
-  business_hours_only: boolean;
-  business_hours_start: number;
-  business_hours_end: number;
-  business_days: number[];
-  timezone: string | null;
-}
 
 const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string }> = {
   pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
@@ -68,18 +60,7 @@ function todayStr(offsetDays = 0) {
   return d.toISOString().slice(0, 10);
 }
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function fmtHour(h: number): string {
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hh = ((h + 11) % 12) + 1;
-  return `${hh}:00 ${ampm}`;
-}
-
-function browserTimezone(): string {
-  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; }
-  catch { return 'America/New_York'; }
-}
 
 export default function FlaggedEmailTrackerPage() {
   const { user } = useAuth();
@@ -90,8 +71,8 @@ export default function FlaggedEmailTrackerPage() {
   
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [settings, setSettings] = useState<TrackerSettings | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -108,45 +89,12 @@ export default function FlaggedEmailTrackerPage() {
     setLoading(false);
   }, [user, from, to]);
 
-  const loadSettings = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('follow_up_settings' as any)
-      .select('id,is_enabled,auto_reply_enabled,business_hours_only,business_hours_start,business_hours_end,business_days,timezone,updated_at')
-      .eq('user_id', user.id)
-      .order('is_enabled', { ascending: false })
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    setSettings((data as any) || null);
-  }, [user]);
-
-  const patchSettings = async (updates: Partial<TrackerSettings>) => {
-    if (!settings) return;
-    setSavingSettings(true);
-    const prev = settings;
-    const next = { ...settings, ...updates };
-    setSettings(next);
-    const { error } = await supabase
-      .from('follow_up_settings' as any)
-      .update(updates as any)
-      .eq('id', settings.id);
-    if (error) {
-      setSettings(prev);
-      toast.error('Could not save business-hours settings');
-    } else {
-      toast.success('Business-hours settings saved');
-    }
-    setSavingSettings(false);
-  };
-
   // Pull current data + trigger live scan on every open, then refresh every 60s
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     (async () => {
       try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
-      await loadSettings();
       await load();
     })();
     const interval = setInterval(async () => {
@@ -208,95 +156,40 @@ export default function FlaggedEmailTrackerPage() {
       </div>
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
-        {settings && (
+        {/* Collapsible settings panel — full tracker settings inline */}
+        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
           <Card className="print:hidden border-primary/30">
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlarmClock className="w-4 h-4 text-primary" /> Auto-send schedule
-                  {settings.business_hours_only ? <Badge variant="secondary">Business-hours guard on</Badge> : <Badge variant="outline">Anytime sending</Badge>}
-                </CardTitle>
-                <CardDescription>
-                  When Auto-send is on, queued follow-ups send only inside this window. Turn this off if you want due follow-ups to send immediately at any hour.
-                </CardDescription>
-              </div>
-              <Switch
-                checked={settings.business_hours_only}
-                disabled={savingSettings}
-                onCheckedChange={(v) => patchSettings({ business_hours_only: v })}
-              />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className={`grid md:grid-cols-3 gap-3 ${!settings.business_hours_only ? 'opacity-60' : ''}`}>
-                <div className="space-y-1.5">
-                  <Label>Start</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    value={settings.business_hours_start}
-                    disabled={!settings.business_hours_only || savingSettings}
-                    onChange={(e) => patchSettings({ business_hours_start: parseInt(e.target.value, 10) })}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h} disabled={h >= settings.business_hours_end}>{fmtHour(h)}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>End</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    value={settings.business_hours_end}
-                    disabled={!settings.business_hours_only || savingSettings}
-                    onChange={(e) => patchSettings({ business_hours_end: parseInt(e.target.value, 10) })}
-                  >
-                    {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h} disabled={h <= settings.business_hours_start}>{h === 24 ? '12:00 AM (next day)' : fmtHour(h)}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Timezone</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings.timezone || ''}
-                      disabled={!settings.business_hours_only || savingSettings}
-                      placeholder="America/New_York"
-                      onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                      onBlur={() => patchSettings({ timezone: settings.timezone || browserTimezone() })}
-                    />
-                    <Button variant="outline" size="sm" disabled={!settings.business_hours_only || savingSettings} onClick={() => patchSettings({ timezone: browserTimezone() })}>Use mine</Button>
+            <CollapsibleTrigger asChild>
+              <button type="button" className="w-full text-left">
+                <CardHeader className="flex flex-row items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <SettingsIcon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        Tracker settings
+                        <Badge variant="outline" className="text-[10px]">Tracker · auto-draft · schedule · tone</Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Turn the tracker on/off, choose auto-draft vs auto-send, set business hours, and tune your AI writing tone.
+                      </CardDescription>
+                    </div>
                   </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform shrink-0 ${settingsOpen ? 'rotate-180' : ''}`} />
+                </CardHeader>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 border-t">
+                <div className="pt-5">
+                  <FlaggedEmailSettingsBody />
                 </div>
-              </div>
-              <div className={`${!settings.business_hours_only ? 'opacity-60' : ''}`}>
-                <Label>Business days</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {DAY_LABELS.map((label, idx) => {
-                    const active = (settings.business_days || []).includes(idx);
-                    return (
-                      <Button
-                        key={label}
-                        type="button"
-                        size="sm"
-                        variant={active ? 'default' : 'outline'}
-                        disabled={!settings.business_hours_only || savingSettings}
-                        onClick={() => {
-                          const days = active
-                            ? (settings.business_days || []).filter((d) => d !== idx)
-                            : [...(settings.business_days || []), idx].sort();
-                          patchSettings({ business_days: days });
-                        }}
-                      >
-                        {label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Current rule: {settings.business_hours_only
-                  ? `send Monday–Friday style windows you select (${fmtHour(settings.business_hours_start)}–${settings.business_hours_end === 24 ? '12:00 AM' : fmtHour(settings.business_hours_end)}${settings.timezone ? `, ${settings.timezone}` : ''}). Weekends/off-hours stay queued.`
-                  : 'send automatically as soon as the due date arrives and no recipient reply is found.'}
-              </p>
-            </CardContent>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        )}
+        </Collapsible>
+
 
         {/* Date range + export controls */}
         <Card className="print:hidden">
