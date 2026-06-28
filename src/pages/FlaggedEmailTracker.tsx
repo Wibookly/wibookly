@@ -143,14 +143,29 @@ export default function FlaggedEmailTrackerPage() {
     if (error) throw error;
   };
 
+  const cancelRow = useCallback(async (id: string) => {
+    const prev = rows;
+    setRows(rs => rs.map(r => r.id === id ? { ...r, status: 'cancelled', scheduled_send_at: null } : r));
+    const { error } = await supabase
+      .from('tracked_emails' as any)
+      .update({ status: 'cancelled', scheduled_send_at: null, queued_reason: 'user_cancelled' })
+      .eq('id', id);
+    if (error) {
+      setRows(prev);
+      toast.error('Could not cancel — try again');
+    } else {
+      toast.success('Follow-up cancelled');
+    }
+  }, [rows]);
+
   return (
     <div className="page-shell">
       <div className="page-shell-sticky print:hidden">
         <PageHero
-          eyebrow="AI Intelligence Report"
-          title="Flagged Email Tracker Report"
-          description="Live view of every email you've flagged in Outlook — pulls fresh data from Microsoft 365 on every open and every minute."
-          accent="green"
+          eyebrow="AI Intelligence"
+          title="Flagged Email Tracker"
+          description="Live view of every email you've flagged in Outlook. If auto-send is on, AI sends a polite follow-up when the flag's due date passes with no reply — up to 3 attempts. Cancel any row before its next send."
+          accent="purple"
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
       </div>
@@ -169,10 +184,10 @@ export default function FlaggedEmailTrackerPage() {
                     <div>
                       <CardTitle className="text-base flex items-center gap-2">
                         Tracker settings
-                        <Badge variant="outline" className="text-[10px]">Tracker · auto-draft · schedule · tone</Badge>
+                        <Badge variant="outline" className="text-[10px]">Tracker · auto-send · schedule · tone</Badge>
                       </CardTitle>
                       <CardDescription>
-                        Turn the tracker on/off, choose auto-draft vs auto-send, set business hours, and tune your AI writing tone.
+                        Turn the tracker on/off, choose whether AI auto-sends the follow-up, set business hours, and tune your AI writing tone.
                       </CardDescription>
                     </div>
                   </div>
