@@ -62,6 +62,39 @@ function TicketDetailDialog({
   const [messages, setMessages] = useState<any[]>([]);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const MAX_FILES = 5;
+  const MAX_BYTES = 10 * 1024 * 1024;
+
+  const addReplyFiles = (incoming: FileList | File[] | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming).filter((f) => {
+      if (!f.type.startsWith('image/')) {
+        toast.error(`${f.name} isn't an image`);
+        return false;
+      }
+      if (f.size > MAX_BYTES) {
+        toast.error(`${f.name} is over 10 MB`);
+        return false;
+      }
+      return true;
+    });
+    setReplyFiles((prev) => [...prev, ...arr].slice(0, MAX_FILES));
+  };
+
+  const loadSignedUrls = async (attachments: Array<{ path: string; name: string }>) => {
+    const next: Record<string, string> = {};
+    for (const a of attachments) {
+      if (urls[a.path]) { next[a.path] = urls[a.path]; continue; }
+      const { data } = await supabase.storage
+        .from('support-attachments')
+        .createSignedUrl(a.path, 60 * 60);
+      if (data?.signedUrl) next[a.path] = data.signedUrl;
+    }
+    return next;
+  };
 
   const loadMessages = async () => {
     if (!ticket?.id) return;
@@ -70,7 +103,17 @@ function TicketDetailDialog({
       .select('*')
       .eq('issue_id', ticket.id)
       .order('created_at', { ascending: true });
-    setMessages((data ?? []) as any[]);
+    const rows = (data ?? []) as any[];
+    setMessages(rows);
+    // Sign attachment URLs for messages
+    const allAtts: Array<{ path: string; name: string }> = [];
+    for (const m of rows) {
+      if (Array.isArray(m.attachments)) allAtts.push(...m.attachments);
+    }
+    if (allAtts.length) {
+      const signed = await loadSignedUrls(allAtts);
+      setUrls((prev) => ({ ...prev, ...signed }));
+    }
   };
 
   // Load attachments + messages + mark-as-read when dialog opens
@@ -80,39 +123,45 @@ function TicketDetailDialog({
     if (!open || !ticket) {
       setUrls({});
       setMessages([]);
+      setReply('');
+      setReplyFiles([]);
       return;
     }
     (async () => {
-      // Attachments
       if (Array.isArray(atts) && atts.length > 0) {
-        const next: Record<string, string> = {};
-        for (const a of atts) {
-          const { data } = await supabase.storage
-            .from('support-attachments')
-            .createSignedUrl(a.path, 60 * 60);
-          if (data?.signedUrl) next[a.path] = data.signedUrl;
-        }
-        if (!cancelled) setUrls(next);
+        const signed = await loadSignedUrls(atts);
+        if (!cancelled) setUrls((prev) => ({ ...prev, ...signed }));
       }
-      // Messages
       await loadMessages();
-      // Mark as read for unread-bell badge
       if (user?.id) {
         await supabase
           .from('support_issue_reads' as any)
           .upsert({ issue_id: ticket.id, user_id: user.id, last_read_at: new Date().toISOString() } as any);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ticket?.id]);
 
   const postReply = async () => {
-    if (!ticket || !user?.id || !reply.trim()) return;
+    if (!ticket || !user?.id || (!reply.trim() && replyFiles.length === 0)) return;
     setSending(true);
     try {
+      // Upload attachments first
+      const attachments: Array<{ path: string; name: string; size: number; type: string }> = [];
+      if (replyFiles.length) {
+        const stamp = Date.now();
+        for (const f of replyFiles) {
+          const safe = f.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+          const path = `${user.id}/${ticket.id}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from('support-attachments')
+            .upload(path, f, { contentType: f.type, upsert: false });
+          if (upErr) throw upErr;
+          attachments.push({ path, name: f.name, size: f.size, type: f.type });
+        }
+      }
+
       const { error } = await supabase
         .from('support_issue_messages' as any)
         .insert({
@@ -121,9 +170,10 @@ function TicketDetailDialog({
           author_user_id: user.id,
           author_role: 'user',
           body: reply.trim(),
+          attachments,
         } as any);
       if (error) throw error;
-      // Reopen if resolved
+      // Re-open if resolved (user is following up)
       if (ticket.status === 'resolved') {
         await supabase
           .from('support_issues')
@@ -131,14 +181,30 @@ function TicketDetailDialog({
           .eq('id', ticket.id);
       }
       setReply('');
+      setReplyFiles([]);
       toast.success('Reply sent');
       await loadMessages();
+      // Stay on the ticket — user closes manually when done.
     } catch (e: any) {
       toast.error(e?.message || 'Could not send reply');
     } finally {
       setSending(false);
     }
   };
+
+  const setStatus = async (status: string) => {
+    if (!ticket) return;
+    const patch: any = { status };
+    if (status === 'resolved') patch.resolved_at = new Date().toISOString();
+    else patch.resolved_at = null;
+    const { error } = await supabase.from('support_issues').update(patch as never).eq('id', ticket.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(status === 'resolved' ? 'Marked resolved' : 'Re-opened');
+      // Do NOT close the dialog — user closes manually.
+    }
+  };
+
 
   const setStatus = async (status: string) => {
     if (!ticket) return;
