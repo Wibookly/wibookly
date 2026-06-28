@@ -473,6 +473,49 @@ function ExpandableSummary({
   );
 }
 
+function InboxLauncherCard({
+  icon: Icon,
+  count,
+  label,
+  description,
+  onOpen,
+}: {
+  icon: React.ElementType;
+  count: number;
+  label: string;
+  description: string;
+  onOpen: () => void;
+}) {
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <CardContent className="p-6 flex items-center gap-5">
+        <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+          <Icon className="w-7 h-7" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-baseline gap-3">
+            <span className="text-h2 font-bold text-foreground tabular-nums">{count}</span>
+            <span className="text-body-1 text-foreground">{label}</span>
+          </div>
+          <p className="text-body-2 text-muted-foreground mt-1">{description}</p>
+        </div>
+        <ArrowRight className="w-5 h-5 text-muted-foreground" />
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
