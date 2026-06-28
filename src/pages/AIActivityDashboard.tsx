@@ -322,24 +322,35 @@ export default function AIActivityDashboard() {
         </div>
       ) : (
         <>
-          {/* Email AI activity */}
-          <div className="mb-3 flex items-center gap-2">
-            <MailIcon className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Email AI</h3>
-          </div>
-          <div data-tour="aa-email-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* 4 Hero KPIs — themed */}
+          <div data-tour="aa-hero-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Emails drafted by AI for your review', Icon: FileText, color: 'text-blue-500' },
-              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Replies sent automatically by AI', Icon: Send, color: 'text-orange-500' },
-              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'Calendar events booked from emails', Icon: CalendarCheck, color: 'text-purple-500' },
-              { title: 'Total AI-Processed Emails', value: stats.totalEmails, sub: 'All inbound emails handled by AI', Icon: MailIcon, color: 'text-primary' },
-            ].map(({ title, value, sub, Icon, color }) => (
-              <Card key={title} className="h-full">
+              { title: 'AI Drafts Created', value: stats.totalDrafts, sub: 'Replies drafted for your review', Icon: FileText, token: 'primary' },
+              { title: 'AI Auto-Replies Sent', value: stats.totalAutoReplies, sub: 'Auto-sent on your behalf', Icon: Send, token: 'accent' },
+              { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} chat conversation${stats.totalChatConversations === 1 ? '' : 's'}`, Icon: MessageSquare, token: 'secondary' },
+              { title: 'Meetings with Copilot', value: stats.totalMeetings, sub: 'Transcribed & summarized', Icon: Video, token: 'muted' },
+            ].map(({ title, value, sub, Icon, token }) => (
+              <Card
+                key={title}
+                className="h-full overflow-hidden relative border-border/60"
+                style={{
+                  background: `linear-gradient(135deg, hsl(var(--${token}) / 0.12), hsl(var(--card)) 70%)`,
+                }}
+              >
+                <div
+                  className="absolute inset-x-0 top-0 h-1"
+                  style={{ background: `hsl(var(--${token}))` }}
+                />
                 <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
                   <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
                     {title}
                   </CardTitle>
-                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+                  <div
+                    className="grid place-items-center w-8 h-8 rounded-lg shrink-0"
+                    style={{ background: `hsl(var(--${token}) / 0.18)`, color: `hsl(var(--${token}))` }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
@@ -349,30 +360,27 @@ export default function AIActivityDashboard() {
             ))}
           </div>
 
-          {/* Conversational & meeting AI */}
-          <div className="mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-green-500" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Chat & Meetings</h3>
-          </div>
-          <div data-tour="aa-chat-stats" className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
+          {/* Secondary metrics — slim row */}
+          <div className="grid grid-cols-2 gap-4 mb-8">
             {[
-              { title: 'AI Chat Messages', value: stats.totalChatMessages, sub: `${stats.totalChatConversations} conversation${stats.totalChatConversations === 1 ? '' : 's'} with InboxIQ`, Icon: MessageSquare, color: 'text-green-500' },
-              { title: 'Meeting Copilot', value: stats.totalMeetings, sub: 'Live meetings transcribed & summarized', Icon: Video, color: 'text-pink-500' },
-            ].map(({ title, value, sub, Icon, color }) => (
+              { title: 'Events Scheduled', value: stats.totalScheduledEvents, sub: 'Calendar events booked from emails', Icon: CalendarCheck },
+              { title: 'Total AI-Processed Emails', value: stats.totalEmails, sub: 'All inbound emails handled by AI', Icon: MailIcon },
+            ].map(({ title, value, sub, Icon }) => (
               <Card key={title} className="h-full">
-                <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2 space-y-0">
-                  <CardTitle className="text-xs font-medium text-muted-foreground leading-snug min-h-[2.5rem] line-clamp-2">
-                    {title}
-                  </CardTitle>
-                  <Icon className={`h-4 w-4 shrink-0 ${color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tabular-nums leading-none">{value}</div>
-                  <p className="text-xs text-muted-foreground mt-2 min-h-[2rem] line-clamp-2">{sub}</p>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="grid place-items-center w-9 h-9 rounded-lg bg-muted text-foreground/70 shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground">{title}</div>
+                    <div className="text-xl font-bold tabular-nums leading-tight">{value}</div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground text-right max-w-[40%] hidden sm:block">{sub}</div>
                 </CardContent>
               </Card>
             ))}
           </div>
+
 
           {/* AI usage by feature — donut + radial */}
           <Card className="mb-8">
