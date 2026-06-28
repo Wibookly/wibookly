@@ -68,11 +68,22 @@ Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' â
 }
 
 async function getPrefs(admin: any, userId: string): Promise<{ autoReply: boolean; autoSend: boolean; tone?: any }> {
-  const { data } = await admin
+  // Some users have multiple follow_up_settings rows from earlier migrations.
+  // Pick the most recently-updated *enabled* row so a fresh "Enable" doesn't
+  // get masked by an older disabled row.
+  const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at')
     .eq('user_id', userId)
-    .maybeSingle();
+    .order('is_enabled', { ascending: false })
+    .order('updated_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error('getPrefs error', userId, error.message);
+    return { autoReply: false, autoSend: false };
+  }
+  const data = (rows && rows[0]) || null;
   if (!data || data.is_enabled === false) return { autoReply: false, autoSend: false };
   return {
     autoReply: !!data.auto_draft_enabled,
