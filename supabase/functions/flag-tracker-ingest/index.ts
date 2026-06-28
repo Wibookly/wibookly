@@ -142,6 +142,17 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       .eq('internet_message_id', internetMessageId)
       .maybeSingle();
 
+    // Gate on enabled_at — never INGEST emails sent before the tracker was
+    // turned on. (Existing rows stay untouched; only brand-new tracker rows
+    // are skipped.)
+    if (!existing && enabledAt) {
+      const sentMs = new Date(m.sentDateTime || 0).getTime();
+      if (Number.isFinite(sentMs) && sentMs < enabledAt.getTime()) {
+        skippedPreEnable++;
+        continue;
+      }
+    }
+
     if (!existing) {
       const { error } = await admin.from('tracked_emails').insert({ ...row, attempts: 0, status: 'pending' });
       if (!error) upserted++;
@@ -158,7 +169,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
-  return { ok: true, scanned: items.length, upserted, cancelled };
+  return { ok: true, scanned: items.length, upserted, cancelled, skipped_pre_enable: skippedPreEnable };
 }
 
 Deno.serve(async (req) => {
