@@ -1141,11 +1141,17 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   }, [effectiveId]);
 
   const reshape = async (instr: string) => {
-    if (!active || !draftText) return;
+    if (!active) return;
     setReshapeBusy(true);
     try {
       const { data: gen, error } = await supabase.functions.invoke('helm-draft-reply', {
-        body: { item_id: active.id, instruction: instr, base_draft: draftText },
+        body: {
+          item_id: active.id,
+          instruction: instr,
+          // If we have no draft yet, the server will fall back to a fresh draft
+          // with the same tone instruction folded in.
+          base_draft: draftText || undefined,
+        },
       });
       if (error) throw error;
       setDraftText(gen?.draft ?? draftText);
