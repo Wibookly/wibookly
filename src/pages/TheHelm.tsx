@@ -381,6 +381,84 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
   );
 }
 
+function cleanFirstName(value?: string | null): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const first = raw.split(/\s+/)[0]?.replace(/[,.]+$/g, '') ?? '';
+  if (!first || /^[A-Z]\.??$/i.test(first)) return '';
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+function firstNameFromEmail(email?: string | null): string {
+  const local = String(email ?? '').split('@')[0] ?? '';
+  const token = local.split(/[._-]/)[0] ?? '';
+  if (!token || /^[a-z]$/i.test(token)) return '';
+  return token.charAt(0).toUpperCase() + token.slice(1);
+}
+
+function preferredFirstName(user: any, profile: { full_name?: string | null } | null): string {
+  const meta = user?.user_metadata ?? {};
+  const candidates = [
+    profile?.full_name,
+    meta.first_name,
+    meta.given_name,
+    meta.preferred_name,
+    meta.name,
+    meta.full_name,
+  ];
+  for (const candidate of candidates) {
+    const name = cleanFirstName(candidate);
+    if (name) return name;
+  }
+  return firstNameFromEmail(user?.email);
+}
+
+function ExpandableSummary({
+  icon: Icon,
+  title,
+  subtitle,
+  countLabel,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  countLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible defaultOpen={false}>
+      <Card className="overflow-hidden border-border/60">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="group w-full flex items-center justify-between gap-4 p-5 text-left transition-all hover:border-primary hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Icon className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h3 className="text-base md:text-lg font-bold text-foreground leading-tight">{title}</h3>
+                  <Badge variant="secondary" className="font-mono tabular-nums">{countLabel}</Badge>
+                </div>
+                <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{subtitle}</p>
+              </div>
+            </div>
+            <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 shrink-0" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t border-border/60 p-4 space-y-3">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
@@ -394,7 +472,7 @@ function BriefView({
   done: Record<string, boolean>;
   toggleDone: (id: string, next: boolean) => void;
 }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const qc = useQueryClient();
   const { data, isLoading, error, refetch } = useHelmData();
   const greeting = useMemo(() => {
@@ -403,10 +481,7 @@ function BriefView({
     if (hr < 18) return 'Good afternoon';
     return 'Good evening';
   }, []);
-  const name =
-    (user?.user_metadata?.full_name as string | undefined)?.split(' ')[0] ??
-    user?.email?.split('@')[0] ??
-    '';
+  const name = preferredFirstName(user, profile);
 
   const sync = useMutation({
     mutationFn: async () => {
@@ -539,18 +614,18 @@ function BriefView({
           {/* Executive summary tiles — what each number means */}
           <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Total inbound</p>
-              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound}</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Total inbound</p>
+              <p className="text-4xl md:text-[42px] font-extrabold text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound}</p>
               <p className="text-[11px] text-muted-foreground mt-1">emails & items received in the last 24h</p>
             </div>
             <div className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary/80">Needs you</p>
-              <p className="text-3xl font-light text-primary tabular-nums leading-tight mt-1">{stats.needsYou}</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-primary font-bold">Needs you</p>
+              <p className="text-4xl md:text-[42px] font-extrabold text-primary tabular-nums leading-tight mt-1">{stats.needsYou}</p>
               <p className="text-[11px] text-muted-foreground mt-1">decisions, approvals & overdue replies</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 col-span-2 md:col-span-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Handled for you</p>
-              <p className="text-3xl font-light text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound - stats.needsYou}</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Handled for you</p>
+              <p className="text-4xl md:text-[42px] font-extrabold text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound - stats.needsYou}</p>
               <p className="text-[11px] text-muted-foreground mt-1">filed, drafted or auto-replied overnight</p>
             </div>
           </div>
@@ -560,18 +635,23 @@ function BriefView({
         {/* Big 3 */}
         <section aria-labelledby="big3" data-helm-section="big3">
           <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
-          <div className="grid gap-3">
+          <ExpandableSummary
+            icon={ClipboardList}
+            title="Open today's priorities"
+            subtitle="Expand to review the three priority slots, then open any email or task for the full thread and AI draft."
+            countLabel={`${big3.length}/3 ready`}
+          >
             {isLoading ? (
               <Skeleton className="h-24" />
             ) : big3.length === 0 ? (
               <EmptyHint>
-                No must-do items right now. Hit <strong>Sync inbox</strong> to pull the
-                latest, or enjoy the calm.
+                No must-do items right now. The three priority slots are clear.
               </EmptyHint>
             ) : (
-              big3.map((item, i) => (
-                <div key={item.id} className="space-y-2">
+              Array.from({ length: 3 }, (_, i) => big3[i] ?? null).map((item, i) => (
+                item ? (
                   <HelmCard
+                    key={item.id}
                     item={item}
                     index={i + 1}
                     onOpen={() => go('detail', item)}
@@ -579,30 +659,17 @@ function BriefView({
                     done={done[item.id]}
                     onToggleDone={(n) => toggleDone(item.id, n)}
                   />
-
-                  <div className="flex gap-2 print:hidden pl-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          const { data, error } = await supabase.functions.invoke('helm-big3', {
-                            body: { action: 'block_focus', item_id: item.id, title: item.title },
-                          });
-                          if (error) throw error;
-                          toast.success(data?.web_link ? 'Focus block created in Outlook' : 'Focus block created');
-                        } catch (e: any) {
-                          toast.error(e?.message ?? 'Could not block focus time');
-                        }
-                      }}
-                    >
-                      <Clock className="w-3 h-3 mr-1" /> Block focus time
-                    </Button>
-                  </div>
-                </div>
+                ) : (
+                  <Card key={`empty-big3-${i}`} className="border-dashed border-border/70 bg-muted/20">
+                    <CardContent className="p-4 flex items-center gap-3 text-sm text-muted-foreground">
+                      <span className="font-mono text-[10px] tracking-[0.15em] tabular-nums">{String(i + 1).padStart(2, '0')}</span>
+                      <span>No third priority found yet.</span>
+                    </CardContent>
+                  </Card>
+                )
               ))
             )}
-          </div>
+          </ExpandableSummary>
         </section>
 
 
@@ -616,7 +683,12 @@ function BriefView({
             emailSection="brief"
             count={decisions.length}
           />
-          <div className="grid gap-3">
+          <ExpandableSummary
+            icon={AlertTriangle}
+            title="Open decisions waiting on you"
+            subtitle="Expand to see approval threads, open the original email, and use the AI draft tools."
+            countLabel={`${decisions.length} waiting`}
+          >
             {isLoading ? (
               <Skeleton className="h-20" />
             ) : decisions.length === 0 ? (
@@ -626,7 +698,7 @@ function BriefView({
                 <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
               ))
             )}
-          </div>
+          </ExpandableSummary>
         </section>
 
 
@@ -1784,8 +1856,6 @@ function CalendarView({ onBack }: { onBack: () => void }) {
     <div>
       <BackBar onBack={onBack} label="This week" />
 
-      <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
-
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <SectionHeader
           title="Your week at a glance"
@@ -1880,6 +1950,10 @@ function CalendarView({ onBack }: { onBack: () => void }) {
             </Card>
           );
         })}
+      </div>
+
+      <div className="mt-4">
+        <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
       </div>
 
       {/* ============== Planning panels ============== */}
