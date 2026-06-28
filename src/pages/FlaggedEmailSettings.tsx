@@ -122,9 +122,11 @@ export default function FlaggedEmailSettings() {
         timezone: row?.timezone || browserTimezone(),
         tone,
       });
-      const customized = isToneCustomized(tone);
-      setToneEditing(!customized);
-      if (customized && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
+      // Treat tone as "saved" whenever a tone_settings row exists in the DB,
+      // even if values equal the defaults — otherwise reopening looks like a reset.
+      const hasSavedTone = row?.tone_settings != null;
+      setToneEditing(!hasSavedTone);
+      if (hasSavedTone && row?.updated_at) setToneSavedAt(new Date(row.updated_at));
       setLoading(false);
     })();
   }, [user?.id, activeConnection?.id]);
