@@ -70,6 +70,8 @@ export default function SupportIssuesPanel() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({});
+  const [replyFiles, setReplyFiles] = useState<Record<string, File[]>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [threadById, setThreadById] = useState<Record<string, ThreadMessage[]>>({});
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [orgFilter, setOrgFilter] = useState<string>('all');
