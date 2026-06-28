@@ -1822,6 +1822,7 @@ export type Database = {
           connection_id: string
           created_at: string
           daily_audit_enabled: boolean
+          enabled_at: string | null
           id: string
           is_enabled: boolean
           last_audit_at: string | null
@@ -1847,6 +1848,7 @@ export type Database = {
           connection_id: string
           created_at?: string
           daily_audit_enabled?: boolean
+          enabled_at?: string | null
           id?: string
           is_enabled?: boolean
           last_audit_at?: string | null
@@ -1872,6 +1874,7 @@ export type Database = {
           connection_id?: string
           created_at?: string
           daily_audit_enabled?: boolean
+          enabled_at?: string | null
           id?: string
           is_enabled?: boolean
           last_audit_at?: string | null
@@ -4973,6 +4976,7 @@ export type Database = {
           connection_id: string
           created_at: string
           daily_audit_enabled: boolean
+          enabled_at: string | null
           id: string
           is_enabled: boolean
           last_audit_at: string | null
