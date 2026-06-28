@@ -330,8 +330,45 @@ function TicketDetailDialog({
               placeholder="Type a message to support…"
               className="text-sm"
             />
+            {replyFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {replyFiles.map((f, i) => {
+                  const url = URL.createObjectURL(f);
+                  return (
+                    <div key={i} className="relative w-20 h-16 rounded border overflow-hidden bg-muted">
+                      <img src={url} alt={f.name} className="w-full h-full object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                      <button
+                        type="button"
+                        onClick={() => setReplyFiles((p) => p.filter((_, idx) => idx !== i))}
+                        className="absolute top-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                        aria-label={`Remove ${f.name}`}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => { addReplyFiles(e.target.files); if (e.target) e.target.value = ''; }}
+            />
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex gap-1.5">
+              <div className="flex gap-1.5 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={replyFiles.length >= MAX_FILES}
+                >
+                  <Paperclip className="w-3.5 h-3.5 mr-1.5" /> Attach
+                </Button>
                 {ticket.status !== 'resolved' ? (
                   <Button variant="outline" size="sm" onClick={() => setStatus('resolved')}>
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mark resolved
@@ -342,7 +379,7 @@ function TicketDetailDialog({
                   </Button>
                 )}
               </div>
-              <Button size="sm" onClick={postReply} disabled={!reply.trim() || sending}>
+              <Button size="sm" onClick={postReply} disabled={(!reply.trim() && replyFiles.length === 0) || sending}>
                 {sending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
                 Send reply
               </Button>
