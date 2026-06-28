@@ -929,10 +929,17 @@ function BriefView({
   );
 }
 
-function InboxView({ onBack }: { onBack: () => void }) {
+function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
   const { data, isLoading, error, refetch } = useHelmData();
-  const drafts = data?.drafts ?? [];
+  const drafts =
+    scope === 'big3' ? (data?.big3 ?? []) :
+    scope === 'decisions' ? (data?.decisions ?? []) :
+    (data?.drafts ?? []);
+  const scopeLabel =
+    scope === 'big3' ? "Today's Big 3" :
+    scope === 'decisions' ? 'Your decisions' :
+    'Drafted for you';
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
