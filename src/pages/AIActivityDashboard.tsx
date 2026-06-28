@@ -429,18 +429,31 @@ export default function AIActivityDashboard() {
                         </div>
                       </div>
                     </div>
-                    {/* Radial ranking */}
-                    <div className="h-[280px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadialBarChart innerRadius="20%" outerRadius="100%" data={items} startAngle={90} endAngle={-270}>
-                          <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={6} />
-                          <RTooltip
-                            contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                            formatter={(v: number, _n: string, p: { payload?: { name?: string } }) => [v, p?.payload?.name ?? '']}
-                          />
-                          <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, lineHeight: '16px' }} />
-                        </RadialBarChart>
-                      </ResponsiveContainer>
+                    {/* Ranking list — clean, readable */}
+                    <div className="h-[280px] flex flex-col justify-center gap-2.5 px-2">
+                      {items.map((it) => {
+                        const pct = total > 0 ? (it.value / total) * 100 : 0;
+                        return (
+                          <div key={it.name} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: it.fill }} />
+                                <span className="font-medium text-foreground truncate">{it.name}</span>
+                              </div>
+                              <div className="tabular-nums text-muted-foreground shrink-0 ml-2">
+                                <span className="font-semibold text-foreground">{it.value}</span>
+                                <span className="ml-1 text-[10px]">({pct.toFixed(0)}%)</span>
+                              </div>
+                            </div>
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{ width: `${pct}%`, background: it.fill }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
