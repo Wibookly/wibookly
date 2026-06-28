@@ -302,9 +302,10 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>}
+                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" emoji="🚩" accent={accents.purple}>Flagged Email Tracker</NavItem>}
                   {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="🌞" accent={accents.purple}>The Helm</NavItem>}
                 </NavSection>
               )}
@@ -319,10 +320,9 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence Report */}
-              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('feature.follow_up_reminder')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('reports')) && (
                 <NavSection title="AI Intelligence Report" icon={BarChart3} accent={accents.green} defaultOpen>
-                  {(isSuperAdmin || hasFeature('reports')) && <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>}
-                  {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" emoji="🚩" accent={accents.green}>Flagged Email Tracker Report</NavItem>}
+                  <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>
                 </NavSection>
               )}
 
