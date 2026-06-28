@@ -590,7 +590,6 @@ export function FlaggedEmailSettingsBody() {
             </ul>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }
