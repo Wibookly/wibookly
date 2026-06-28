@@ -222,8 +222,14 @@ async function processOne(admin: any, row: any) {
         break;
       }
       if (sawThirdPartyReply) {
-        await admin.from('tracked_emails').update({ status: 'replied', last_checked_at: new Date().toISOString() }).eq('id', row.id);
-        return { id: row.id, action: 'replied' };
+        await admin.from('tracked_emails').update({
+          status: 'completed',
+          scheduled_send_at: null,
+          queued_reason: null,
+          last_error: 'recipient replied — tracker completed',
+          last_checked_at: new Date().toISOString(),
+        }).eq('id', row.id);
+        return { id: row.id, action: 'completed_recipient_replied' };
       }
       if (sawOwnReply) {
         // User already followed up themselves — don't double-send.
@@ -253,6 +259,11 @@ async function processOne(admin: any, row: any) {
 
   // Queued path: a previous run already drafted; only need to send when window opens.
   if (row.status === 'queued' && row.last_draft_id) {
+    const scheduledMs = row.scheduled_send_at ? new Date(row.scheduled_send_at).getTime() : 0;
+    if (Number.isFinite(scheduledMs) && scheduledMs > now.getTime()) {
+      await admin.from('tracked_emails').update({ last_checked_at: now.toISOString() }).eq('id', row.id);
+      return { id: row.id, action: 'queued_waiting_for_window' };
+    }
     if (!inWindow) {
       const next = nextWindowStart(now, prefs);
       await admin.from('tracked_emails').update({
@@ -367,7 +378,9 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     const [pendingRes, queuedRes] = await Promise.all([
       admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
-      admin.from('tracked_emails').select('*').eq('status', 'queued').lte('scheduled_send_at', nowIso).limit(50),
+      // Check every queued item, even before its scheduled send time, so a
+      // recipient reply immediately clears it from the queue and prevents send.
+      admin.from('tracked_emails').select('*').eq('status', 'queued').order('scheduled_send_at', { ascending: true }).limit(50),
     ]);
     const due = [...(pendingRes.data || []), ...(queuedRes.data || [])];
 
