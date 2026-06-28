@@ -166,13 +166,6 @@ function useHelmData() {
 /* Fallback static data (calendar — wired in Phase 4)                 */
 /* ------------------------------------------------------------------ */
 
-const WEEK_PREVIEW = [
-  { day: 'Mon', summary: '5 meetings · 2 focus blocks' },
-  { day: 'Tue', summary: '3 meetings · board prep' },
-  { day: 'Wed', summary: '7 meetings · all-hands' },
-  { day: 'Thu', summary: '4 meetings · investor dinner' },
-  { day: 'Fri', summary: '2 meetings · open afternoon' },
-];
 
 /* ------------------------------------------------------------------ */
 /* Building blocks                                                    */
