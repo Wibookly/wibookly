@@ -365,12 +365,11 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const nowIso = new Date().toISOString();
-    const { data: due } = await admin
-      .from('tracked_emails')
-      .select('*')
-      .eq('status', 'pending')
-      .lte('follow_up_at', nowIso)
-      .limit(50);
+    const [pendingRes, queuedRes] = await Promise.all([
+      admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
+      admin.from('tracked_emails').select('*').eq('status', 'queued').lte('scheduled_send_at', nowIso).limit(50),
+    ]);
+    const due = [...(pendingRes.data || []), ...(queuedRes.data || [])];
 
     const results: any[] = [];
     for (const row of (due || [])) {
