@@ -432,6 +432,7 @@ export default function SupportIssuesPanel() {
                       <Separator />
                       {thread.map((m) => {
                         const isStaff = m.author_role === 'admin' || m.author_role === 'super_admin';
+                        const atts = Array.isArray(m.attachments) ? m.attachments : [];
                         return (
                           <div
                             key={m.id}
@@ -441,7 +442,8 @@ export default function SupportIssuesPanel() {
                               <span>{isStaff ? 'Support team' : it.user_email}</span>
                               <span>{new Date(m.created_at).toLocaleString()}</span>
                             </div>
-                            <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                            {m.body && <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>}
+                            {atts.length > 0 && <div className="mt-2"><AttachmentsStrip attachments={atts} /></div>}
                           </div>
                         );
                       })}
@@ -461,10 +463,46 @@ export default function SupportIssuesPanel() {
                       placeholder={`Write a reply to ${it.user_email}…`}
                       className="text-sm"
                     />
-                    <div className="flex justify-end">
+                    {(replyFiles[it.id]?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {replyFiles[it.id]!.map((f, i) => {
+                          const url = URL.createObjectURL(f);
+                          return (
+                            <div key={i} className="relative w-20 h-16 rounded border overflow-hidden bg-muted">
+                              <img src={url} alt={f.name} className="w-full h-full object-cover" onLoad={() => URL.revokeObjectURL(url)} />
+                              <button
+                                type="button"
+                                onClick={() => setReplyFiles((prev) => ({ ...prev, [it.id]: (prev[it.id] || []).filter((_, idx) => idx !== i) }))}
+                                className="absolute top-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => { fileInputRefs.current[it.id] = el; }}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { addAdminReplyFiles(it.id, e.target.files); if (e.target) e.target.value = ''; }}
+                    />
+                    <div className="flex justify-between items-center">
                       <Button
                         size="sm"
-                        disabled={!reply.trim() || savingId === it.id}
+                        variant="outline"
+                        type="button"
+                        onClick={() => fileInputRefs.current[it.id]?.click()}
+                        disabled={(replyFiles[it.id]?.length ?? 0) >= 5}
+                      >
+                        <Paperclip className="w-3 h-3 mr-1.5" /> Attach
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={(!reply.trim() && (replyFiles[it.id]?.length ?? 0) === 0) || savingId === it.id}
                         onClick={() => sendReply(it)}
                       >
                         {savingId === it.id ? (
