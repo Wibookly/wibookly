@@ -2104,14 +2104,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 export default function TheHelm() {
   const [view, setView] = useState<View>('brief');
   const [activeItem, setActiveItem] = useState<HelmItem | null>(null);
+  const [inboxScope, setInboxScope] = useState<InboxScope>('drafts');
   const [done, setDone] = useState<Record<string, boolean>>({});
   const qc = useQueryClient();
 
   const scrollTop = () => {
     try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
   };
-  const go = (v: View, item?: HelmItem) => {
+  const go = (v: View, item?: HelmItem, scope?: InboxScope) => {
     if (item) setActiveItem(item);
+    if (v === 'inbox') setInboxScope(scope ?? 'drafts');
     setView(v);
     scrollTop();
   };
