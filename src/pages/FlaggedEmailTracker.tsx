@@ -110,45 +110,12 @@ export default function FlaggedEmailTrackerPage() {
     setLoading(false);
   }, [user, from, to]);
 
-  const loadSettings = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('follow_up_settings' as any)
-      .select('id,is_enabled,auto_reply_enabled,business_hours_only,business_hours_start,business_hours_end,business_days,timezone,updated_at')
-      .eq('user_id', user.id)
-      .order('is_enabled', { ascending: false })
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    setSettings((data as any) || null);
-  }, [user]);
-
-  const patchSettings = async (updates: Partial<TrackerSettings>) => {
-    if (!settings) return;
-    setSavingSettings(true);
-    const prev = settings;
-    const next = { ...settings, ...updates };
-    setSettings(next);
-    const { error } = await supabase
-      .from('follow_up_settings' as any)
-      .update(updates as any)
-      .eq('id', settings.id);
-    if (error) {
-      setSettings(prev);
-      toast.error('Could not save business-hours settings');
-    } else {
-      toast.success('Business-hours settings saved');
-    }
-    setSavingSettings(false);
-  };
-
   // Pull current data + trigger live scan on every open, then refresh every 60s
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     (async () => {
       try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
-      await loadSettings();
       await load();
     })();
     const interval = setInterval(async () => {
