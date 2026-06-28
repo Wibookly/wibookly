@@ -45,7 +45,7 @@ function urgencyHex(u: ActionItem['urgency'], colors: Props['priorityColors']) {
 }
 
 async function updateTask(taskId: string, patch: Record<string, unknown>) {
-  const { error } = await supabase.from('daily_brief_tasks').update(patch).eq('id', taskId);
+  const { error } = await supabase.from('daily_brief_tasks').update(patch as never).eq('id', taskId);
   if (error) throw error;
 }
 

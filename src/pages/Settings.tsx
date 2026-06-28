@@ -560,7 +560,7 @@ export default function Settings() {
             ai_draft_label_color: aiSettings.ai_draft_label_color,
             ai_sent_label_color: aiSettings.ai_sent_label_color,
             ai_calendar_event_color: aiSettings.ai_calendar_event_color
-          } as Record<string, unknown>)
+          } as never)
           .eq('id', existingAI.id);
       } else {
         await supabase

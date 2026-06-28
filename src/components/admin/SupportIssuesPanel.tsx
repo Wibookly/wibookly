@@ -95,7 +95,7 @@ export default function SupportIssuesPanel() {
 
       const { error } = await supabase
         .from('support_issues')
-        .update(update)
+        .update(update as never)
         .eq('id', id);
       if (error) throw error;
 

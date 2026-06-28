@@ -124,7 +124,7 @@ export function SetupWizard({ open, onOpenChange, onComplete }: SetupWizardProps
 
       const { error } = await supabase
         .from('user_profiles')
-        .update(updates)
+        .update(updates as never)
         .eq('user_id', user.id);
 
       if (error) throw error;
