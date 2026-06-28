@@ -1456,6 +1456,98 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                     >
                       {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
                     </Button>
+                    <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          disabled={!!sendBusy || !draftText.trim()}
+                          onClick={() => {
+                            // Default to today + 1h, in the user's local timezone
+                            if (!scheduleDate || !scheduleTime) {
+                              const d = new Date(Date.now() + 60 * 60 * 1000);
+                              const pad = (n: number) => String(n).padStart(2, '0');
+                              setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                              setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                            }
+                          }}
+                        >
+                          <CalendarClock className="w-4 h-4 mr-1.5" />
+                          {sendBusy === 'schedule' ? 'Scheduling…' : 'Schedule send'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72" align="end">
+                        <div className="space-y-3">
+                          <p className="text-caption uppercase tracking-wider text-muted-foreground">
+                            Send this reply later
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-caption text-muted-foreground">Date</label>
+                              <input
+                                type="date"
+                                value={scheduleDate}
+                                onChange={(e) => setScheduleDate(e.target.value)}
+                                className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-body-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-caption text-muted-foreground">Time</label>
+                              <input
+                                type="time"
+                                value={scheduleTime}
+                                onChange={(e) => setScheduleTime(e.target.value)}
+                                className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-body-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: 'In 1 hour', mins: 60 },
+                              { label: 'In 3 hours', mins: 180 },
+                              { label: 'Tomorrow 8am', custom: 'tomorrow_8' },
+                              { label: 'Monday 8am', custom: 'monday_8' },
+                            ].map((p) => (
+                              <Button
+                                key={p.label}
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 text-caption"
+                                onClick={() => {
+                                  const pad = (n: number) => String(n).padStart(2, '0');
+                                  let d: Date;
+                                  if (p.custom === 'tomorrow_8') {
+                                    d = new Date();
+                                    d.setDate(d.getDate() + 1);
+                                    d.setHours(8, 0, 0, 0);
+                                  } else if (p.custom === 'monday_8') {
+                                    d = new Date();
+                                    const day = d.getDay();
+                                    const add = ((1 - day + 7) % 7) || 7;
+                                    d.setDate(d.getDate() + add);
+                                    d.setHours(8, 0, 0, 0);
+                                  } else {
+                                    d = new Date(Date.now() + (p.mins ?? 60) * 60_000);
+                                  }
+                                  setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                                  setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                                }}
+                              >
+                                {p.label}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <Button variant="ghost" size="sm" onClick={() => setScheduleOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button size="sm" onClick={submitSchedule} disabled={sendBusy === 'schedule'}>
+                              {sendBusy === 'schedule' ? 'Scheduling…' : 'Schedule'}
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       onClick={() => send('send')}
                       disabled={!!sendBusy || !draftText.trim()}
