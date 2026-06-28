@@ -11,10 +11,9 @@ import { Loader2, FileText, Send, Download, CalendarIcon, TrendingUp, Mail as Ma
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PageHero } from '@/components/app/PageHero';
-import { BarChart3, Flag } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { FeatureUsageGrid } from '@/components/app/FeatureUsageGrid';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import FlaggedEmailTracker from './FlaggedEmailTracker';
+
 
 
 interface ActivityStats {
