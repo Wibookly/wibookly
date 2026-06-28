@@ -60,8 +60,6 @@ function todayStr(offsetDays = 0) {
   return d.toISOString().slice(0, 10);
 }
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-void DAY_LABELS;
 
 
 export default function FlaggedEmailTrackerPage() {
