@@ -199,6 +199,16 @@ function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, 
   return new Date(baseMs + cadenceFor(row)).toISOString();
 }
 
+function isKnownAiFollowup(row: any, sentMs: number): boolean {
+  if (!Number.isFinite(sentMs)) return false;
+  const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+  return history.some((h: any) => {
+    if (!h?.sent_at) return false;
+    const histMs = new Date(h.sent_at).getTime();
+    return Number.isFinite(histMs) && Math.abs(histMs - sentMs) <= 5 * 60_000;
+  });
+}
+
 async function processOne(admin: any, row: any) {
   const userId = row.user_id;
   const connId = row.connection_id;
@@ -292,6 +302,7 @@ async function processOne(admin: any, row: any) {
           // inbox-side copy of a self-addressed email and must be ignored.
           const sentMs = m.sentDateTime ? new Date(m.sentDateTime).getTime() : NaN;
           const inSentFolder = sentItemsId && m.parentFolderId === sentItemsId;
+          if (inSentFolder && isKnownAiFollowup(row, sentMs)) continue;
           if (inSentFolder && Number.isFinite(sentMs) && sentMs > sentAtMs + 60_000) {
             sawOwnReply = true;
           }
