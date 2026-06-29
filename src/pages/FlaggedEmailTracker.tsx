@@ -141,6 +141,38 @@ function rowStatusMeta(r: TrackedEmail): StatusMeta {
   return STATUS_META[r.status] || FALLBACK_STATUS_META;
 }
 
+function buildSendSchedule(r: TrackedEmail) {
+  const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  const byAttempt = new Map<number, HistEntry>();
+  hist.forEach((h) => {
+    if (typeof h?.attempt === 'number') byAttempt.set(h.attempt, h);
+  });
+
+  const firstDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+  const gap = cadenceMs(r);
+  const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
+
+  return [1, 2, 3].map((attempt) => {
+    const h = byAttempt.get(attempt);
+    if (h?.sent_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Sent', date: h.sent_at };
+    }
+    if (h?.drafted_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Draft ready', date: h.drafted_at };
+    }
+    if (r.status === 'queued' && attempt === currentPendingAttempt && r.scheduled_send_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Queued', date: r.scheduled_send_at };
+    }
+    if ((r.status === 'pending' || r.status === 'queued') && attempt === currentPendingAttempt) {
+      return { attempt, label: `Send ${attempt}`, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
+    }
+    if (attempt > currentPendingAttempt && !['completed', 'replied', 'cancelled', 'exhausted', 'no_response'].includes(r.status)) {
+      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: addMs(firstDue, gap * (attempt - 1)) };
+    }
+    return { attempt, label: `Send ${attempt}`, status: '—', date: null };
+  });
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, ms = 12000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('Tracker data is taking too long to respond. Please retry.')), ms);
