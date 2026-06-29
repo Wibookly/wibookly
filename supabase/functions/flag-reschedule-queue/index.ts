@@ -109,23 +109,29 @@ Deno.serve(async (req) => {
   for (const r of (rows || []) as any[]) {
     const updates: Record<string, any> = {};
 
-    // 1) Queued sends (have a scheduled_send_at) — re-anchor to next allowed slot.
-    if (r.status === 'queued' && r.scheduled_send_at) {
+    // 1) Any row with a scheduled_send_at — re-anchor to next allowed slot
+    //    if it currently lands outside the window (or is in the past).
+    if (r.scheduled_send_at && prefs.businessHoursOnly) {
       const target = new Date(r.scheduled_send_at);
-      const anchor = target.getTime() > now.getTime() ? target : now;
-      const next = nextWindowStart(anchor, prefs);
-      if (next.getTime() !== target.getTime()) {
-        updates.scheduled_send_at = next.toISOString();
-        updates.queued_reason = prefs.businessHoursOnly ? 'outside_business_hours' : null;
+      if (!isInWindow(target, prefs) || target.getTime() < now.getTime()) {
+        const anchor = target.getTime() > now.getTime() ? target : now;
+        const next = nextWindowStart(anchor, prefs);
+        if (next.getTime() !== target.getTime()) {
+          updates.scheduled_send_at = next.toISOString();
+          updates.queued_reason = 'outside_business_hours';
+          if (r.status === 'pending') updates.status = 'queued';
+        }
       }
     }
 
-    // 2) Pending rows whose follow_up_at falls in a now-blocked slot — push to
-    //    the next allowed slot so the cron picks them up at the right time.
-    if (r.status === 'pending' && r.follow_up_at && prefs.businessHoursOnly) {
+    // 2) Any row with a follow_up_at landing in a now-blocked slot — push to
+    //    the next allowed slot so the cron picks it up at the right time.
+    //    Also shifts past-due rows so they fire at the next open window.
+    if (r.follow_up_at && prefs.businessHoursOnly) {
       const target = new Date(r.follow_up_at);
-      if (target.getTime() > now.getTime() && !isInWindow(target, prefs)) {
-        const next = nextWindowStart(target, prefs);
+      if (!isInWindow(target, prefs)) {
+        const anchor = target.getTime() > now.getTime() ? target : now;
+        const next = nextWindowStart(anchor, prefs);
         if (next.getTime() !== target.getTime()) {
           updates.follow_up_at = next.toISOString();
         }
