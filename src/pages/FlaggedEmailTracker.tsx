@@ -167,23 +167,24 @@ function buildSendSchedule(r: TrackedEmail, intervalsDays: number[] = []) {
   const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
 
   return [1, 2, 3].map((attempt) => {
+    const labelBase = attempt === 1 ? 'Follow-up 1' : `Follow-up ${attempt}`;
     const h = byAttempt.get(attempt);
     if (h?.sent_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Sent', date: h.sent_at };
+      return { attempt, label: labelBase, status: 'Sent', date: h.sent_at };
     }
     if (h?.drafted_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Draft ready', date: h.drafted_at };
+      return { attempt, label: labelBase, status: 'Draft ready', date: h.drafted_at };
     }
     if (r.status === 'queued' && attempt === currentPendingAttempt && r.scheduled_send_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Queued', date: r.scheduled_send_at };
+      return { attempt, label: labelBase, status: 'Scheduled', date: r.scheduled_send_at };
     }
     if ((r.status === 'pending' || r.status === 'queued') && attempt === currentPendingAttempt) {
-      return { attempt, label: `Send ${attempt}`, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
+      return { attempt, label: labelBase, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
     }
     if (attempt > currentPendingAttempt && !['completed', 'replied', 'cancelled', 'exhausted', 'no_response'].includes(r.status)) {
-      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
+      return { attempt, label: labelBase, status: 'Pending', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
     }
-    return { attempt, label: `Send ${attempt}`, status: '—', date: null };
+    return { attempt, label: labelBase, status: '—', date: null };
   });
 }
 
