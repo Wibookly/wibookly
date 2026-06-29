@@ -736,7 +736,7 @@ function BriefView({
               { key: 'decisions', label: 'Decisions', count: decisions.length, accent: true, onClick: () => go('inbox', undefined, 'decisions') },
               { key: 'overdue', label: 'Overdue', count: overdue.length, accent: true, onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), onClick: () => go('inbox', undefined, 'drafts') },
-              { key: 'auto', label: 'Auto-handled', count: autoActions.length, onClick: () => document.getElementById('handled-by-ai')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'auto', label: 'Auto-handled', count: autoActions.length, onClick: () => document.getElementById('auto')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'fyi', label: 'FYI', count: fyi.length, onClick: () => document.querySelector('[data-helm-section="fyi"]')?.scrollIntoView({ behavior: 'smooth' }) },
             ].map((t) => (
               <button
