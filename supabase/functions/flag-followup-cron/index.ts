@@ -14,6 +14,18 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '3');
+
+// Cadence = the original gap between when the user sent the email and the flag
+// due date they chose. Subsequent follow-ups repeat at that same interval.
+// Fallback to FOLLOWUP_GAP_DAYS if we can't compute one (or the gap is tiny).
+function cadenceFor(row: any): number {
+  const flagDueIso = row?.trigger_detail?.dueDateTime || null;
+  const sentMs = row?.sent_at ? new Date(row.sent_at).getTime() : NaN;
+  const dueMs = flagDueIso ? new Date(flagDueIso).getTime() : NaN;
+  const gap = (Number.isFinite(sentMs) && Number.isFinite(dueMs)) ? (dueMs - sentMs) : NaN;
+  if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
+  return FOLLOWUP_GAP_DAYS * 86400000;
+}
 const MAX_ATTEMPTS = 3;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 
@@ -285,7 +297,7 @@ async function processOne(admin: any, row: any) {
           attempts: attempt,
           scheduled_send_at: null,
           queued_reason: null,
-          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString(),
+          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + cadenceFor(row)).toISOString(),
           last_checked_at: sentAtIso,
           follow_up_history: history,
         }).eq('id', row.id);
@@ -356,7 +368,7 @@ async function processOne(admin: any, row: any) {
   const reachedCap = attempt >= MAX_ATTEMPTS;
   const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
-    ? new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString()
+    ? new Date(Date.now() + cadenceFor(row)).toISOString()
     : row.follow_up_at;
 
   await admin.from('tracked_emails').update({
