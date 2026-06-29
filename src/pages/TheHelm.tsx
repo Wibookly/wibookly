@@ -764,24 +764,10 @@ function BriefView({
         </section>
 
 
-        {/* Drafted for you */}
-        <section aria-labelledby="drafted" data-helm-section="drafted">
-          <SectionHeader
-            index={2}
-            title="Drafted for you"
-            subtitle="Replies ready for a quick read and send."
-            sectionKey="drafted"
-            emailSection="inbox"
-            count={stats.drafted}
-          />
-          <InboxLauncherCard
-            icon={FileEdit}
-            count={stats.drafted}
-            label={`draft${stats.drafted === 1 ? '' : 's'} ready`}
-            description="Open the focused inbox to skim, edit, and send."
-            onOpen={() => go('inbox', undefined, 'drafts')}
-          />
-        </section>
+        {/* "Drafted for you" removed — auto-drafts surface under "Handled by your AI agent" below.
+            Anything that needs your review now lives in Today's Big 3 and Your decisions above. */}
+
+
 
 
         {/* Overdue — collapsible */}
