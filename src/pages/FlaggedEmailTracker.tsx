@@ -400,14 +400,14 @@ export default function FlaggedEmailTrackerPage() {
           <StatCard label="Queued (off-hours)" value={stats.queued} icon={AlarmClock} tone="indigo" />
           <StatCard label="Replied" value={stats.replied} icon={CheckCircle2} tone="emerald" />
           <StatCard label="Follow-ups sent" value={stats.followUpsSent} icon={Send} tone="blue" />
-          <StatCard label="Missed (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
+          <StatCard label="No response (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
         </div>
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">Tracked emails</CardTitle>
-              <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as missed.</CardDescription>
+              <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as no response.</CardDescription>
             </div>
             <div className="flex gap-1 print:hidden">
               <Button variant={groupBy === 'recipient' ? 'default' : 'outline'} size="sm" onClick={() => setGroupBy('recipient')}>
@@ -585,7 +585,7 @@ function RecipientGroups({
         const open = expanded[g.key] ?? groups.length <= 3;
         const pending = g.items.filter((r) => r.status === 'pending').length;
         const replied = g.items.filter((r) => r.status === 'replied').length;
-        const missed = g.items.filter((r) => r.status === 'exhausted').length;
+        const missed = g.items.filter((r) => r.status === 'exhausted' || r.status === 'no_response').length;
         return (
           <div key={g.key} className="rounded-lg border bg-card">
             <button
@@ -603,7 +603,7 @@ function RecipientGroups({
                 <Badge variant="secondary" className="text-xs">{g.items.length} email{g.items.length === 1 ? '' : 's'}</Badge>
                 {pending > 0 && <Badge variant="outline" className="text-xs">{pending} pending</Badge>}
                 {replied > 0 && <Badge className="text-xs bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30">{replied} replied</Badge>}
-                {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} missed</Badge>}
+                {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} no response</Badge>}
               </div>
             </button>
             {open && (
