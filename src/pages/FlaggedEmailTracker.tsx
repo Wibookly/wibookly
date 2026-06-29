@@ -28,7 +28,7 @@ interface TrackedEmail {
   trigger_detail: any;
   follow_up_at: string;
   attempts: number;
-  status: 'pending' | 'replied' | 'completed' | 'drafted' | 'queued' | 'cancelled' | 'exhausted' | 'error';
+  status: 'pending' | 'replied' | 'completed' | 'drafted' | 'draft_ready' | 'sent' | 'queued' | 'cancelled' | 'exhausted' | 'error' | string;
   last_checked_at: string | null;
   last_error: string | null;
   conversation_id: string | null;
@@ -43,15 +43,45 @@ const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; va
   replied: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
   completed: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
   drafted: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  draft_ready: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  sent: { label: 'Follow-up sent', icon: Send, variant: 'default', tooltip: 'AI sent the scheduled follow-up and is waiting for a recipient reply.' },
   queued: { label: 'Queued (business hours)', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
   cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You unflagged the email or cancelled the follow-up.' },
   exhausted: { label: 'Max attempts (3/3)', icon: AlertTriangle, variant: 'destructive', tooltip: 'Sent 3 follow-ups with no reply — tracker closed.' },
   error: { label: 'Send error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
 };
 
+const FALLBACK_STATUS_META = {
+  label: 'Tracking',
+  icon: AlarmClock,
+  variant: 'outline' as const,
+  tooltip: 'This email is being tracked.',
+};
+
 function fmt(d: string | null | undefined) {
   if (!d) return '—';
   try { return format(new Date(d), 'MMM d, yyyy · h:mm a'); } catch { return '—'; }
+}
+
+function dateValue(value: unknown): Date | null {
+  if (!value) return null;
+  const raw = typeof value === 'object' && value !== null && 'dateTime' in value
+    ? (value as { dateTime?: unknown }).dateTime
+    : value;
+  if (typeof raw !== 'string' && typeof raw !== 'number' && !(raw instanceof Date)) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function fmtAny(value: unknown) {
+  const d = dateValue(value);
+  return d ? format(d, 'MMM d, yyyy · h:mm a') : '—';
+}
+
+function distanceAny(value: unknown) {
+  const d = dateValue(value);
+  if (!d) return '—';
+  try { return formatDistanceToNow(d, { addSuffix: true }); } catch { return '—'; }
 }
 
 function todayStr(offsetDays = 0) {
@@ -332,12 +362,13 @@ export default function FlaggedEmailTrackerPage() {
 }
 
 function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => void }) {
-  const meta = STATUS_META[r.status];
+  const meta = STATUS_META[r.status] || FALLBACK_STATUS_META;
   const Icon = meta.icon;
-  const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : null;
-  const overdue = r.status === 'pending' && new Date(r.follow_up_at).getTime() < Date.now();
+  const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+  const dueDate = dateValue(flagDue || r.follow_up_at);
+  const overdue = r.status === 'pending' && !!dueDate && dueDate.getTime() < Date.now();
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-  const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted';
+  const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted' || r.status === 'draft_ready';
   return (
     <TableRow>
       <TableCell className="max-w-sm">
@@ -357,9 +388,9 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
       <TableCell className="text-xs whitespace-nowrap">
-        <div>{flagDue ? fmt(flagDue) : fmt(r.follow_up_at)}</div>
+        <div>{fmtAny(flagDue || r.follow_up_at)}</div>
         <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-          {formatDistanceToNow(new Date(flagDue || r.follow_up_at), { addSuffix: true })}
+          {distanceAny(flagDue || r.follow_up_at)}
         </div>
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">
@@ -381,7 +412,7 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
           <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
             {hist.map((h, i) => (
               <div key={i} title={h.sent_at ? `Sent by AI` : 'Drafted'}>
-                #{h.attempt}: {format(new Date(h.sent_at || h.drafted_at), 'MMM d, h:mm a')}
+                #{h.attempt}: {fmtAny(h.sent_at || h.drafted_at)}
                 {h.sent_at ? ' ✓' : ' (draft)'}
               </div>
             ))}
