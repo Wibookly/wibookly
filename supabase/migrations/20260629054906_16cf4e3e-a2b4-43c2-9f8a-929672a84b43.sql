@@ -1,0 +1,2 @@
+ALTER TABLE public.tracked_emails DROP CONSTRAINT IF EXISTS tracked_emails_status_check;
+ALTER TABLE public.tracked_emails ADD CONSTRAINT tracked_emails_status_check CHECK (status = ANY (ARRAY['pending','replied','drafted','queued','processing','completed','cancelled','exhausted','no_response','error']));
