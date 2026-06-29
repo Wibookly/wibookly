@@ -658,7 +658,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-      if (shifted > 0) console.log('flag-followup-cron: window sweep shifted', shifted, 'rows');
+      console.log('flag-followup-cron: window sweep done; shifted', shifted, 'of', (upcoming || []).length);
     } catch (e: any) {
       console.error('flag-followup-cron: window sweep failed', e?.message || e);
     }
