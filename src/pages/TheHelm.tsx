@@ -1050,7 +1050,7 @@ function BriefView({
 function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
   const { data, isLoading, error, refetch } = useHelmData();
-  const drafts =
+  const allDrafts =
     scope === 'big3' ? (data?.big3 ?? []) :
     scope === 'decisions' ? (data?.decisions ?? []) :
     (data?.drafts ?? []);
@@ -1077,8 +1077,11 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   const [scheduleDate, setScheduleDate] = useState<string>(''); // yyyy-MM-dd
   const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:mm
 
-  // Auto-select first draft
-  const effectiveId = activeId ?? drafts[0]?.id ?? null;
+  // Sent items disappear from the list and from all counts immediately.
+  const drafts = allDrafts.filter((d) => !sentIds.has(d.id));
+
+  // Auto-select first unsent draft
+  const effectiveId = activeId && drafts.some((d) => d.id === activeId) ? activeId : (drafts[0]?.id ?? null);
   const active = drafts.find((d) => d.id === effectiveId) ?? null;
 
   // Load original + ensure a draft exists when active item changes
