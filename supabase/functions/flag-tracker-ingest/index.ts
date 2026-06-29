@@ -181,7 +181,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     .from('tracked_emails')
     .select('id, graph_message_id')
     .eq('user_id', userId)
-    .in('status', ['pending', 'queued', 'drafted'])
+    .in('status', ['pending', 'queued', 'drafted', 'cancelled', 'error', 'exhausted'])
     .not('graph_message_id', 'is', null);
 
   for (const row of (openRows || []) as any[]) {
