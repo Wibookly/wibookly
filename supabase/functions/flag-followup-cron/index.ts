@@ -194,7 +194,9 @@ async function processOne(admin: any, row: any) {
     }
   }
 
-  // 1. Re-check flag status on source message
+  // 1. Re-check flag status on source message. If the user unflagged or marked
+  // the flag complete in Outlook, hard-delete the tracker so it stops the
+  // queue and disappears from the report immediately.
   if (row.graph_message_id) {
     const cur = await callGraph<any>(userId, connId, 'mail',
       `/me/messages/${row.graph_message_id}?$select=flag,categories`);
@@ -203,8 +205,17 @@ async function processOne(admin: any, row: any) {
       const cats: string[] = cur.data?.categories || [];
       const hasCat = cats.some((c) => /^FollowUp(?:\s*\d{1,3}d)?$/i.test(c));
       if (fs === 'complete' || (fs === 'notFlagged' && !hasCat)) {
-        await admin.from('tracked_emails').update({ status: 'cancelled', last_checked_at: new Date().toISOString() }).eq('id', row.id);
-        return { id: row.id, action: 'cancelled' };
+        await admin.from('tracked_emails').delete().eq('id', row.id);
+        return { id: row.id, action: 'deleted_flag_removed' };
+      }
+    } else {
+      // Source message gone (404 from a deleted email) → hard-delete tracker.
+      const status = (cur as any)?.status ?? (cur as any)?.error?.status;
+      const errCode = String((cur as any)?.error?.code || '').toLowerCase();
+      const isNotFound = status === 404 || errCode === 'itemnotfound' || /not.?found/i.test(String((cur as any)?.error?.message || ''));
+      if (isNotFound) {
+        await admin.from('tracked_emails').delete().eq('id', row.id);
+        return { id: row.id, action: 'deleted_source_missing' };
       }
     }
   }
