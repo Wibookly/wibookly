@@ -68,7 +68,11 @@ const App = () => (
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />
                 {/* Protected app routes */}
-                <Route element={<AppLayout />}>
+                <Route element={
+                  <PageErrorBoundary label="AppLayout">
+                    <AppLayout />
+                  </PageErrorBoundary>
+                }>
                   <Route path="/chat" element={<Chat />} />
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />

@@ -36,6 +36,17 @@ const ALL_FEATURES: FeatureKey[] = [
 ];
 
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';
+const FEATURE_ACCESS_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: PromiseLike<T>, ms = FEATURE_ACCESS_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Feature access check timed out')), ms);
+    Promise.resolve(promise)
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timer));
+  });
+}
 
 interface FeatureAccessState {
   features: Record<string, boolean>;
@@ -78,16 +89,24 @@ export function useFeatureAccess() {
 
       const featureResults = await Promise.all(
         ALL_FEATURES.map(async (key) => {
-          const { data, error } = await supabase.rpc('has_feature', {
-            _user_id: user.id,
-            _feature_key: key,
-          });
+          try {
+            const { data, error } = await withTimeout(
+              supabase.rpc('has_feature', {
+                _user_id: user.id,
+                _feature_key: key,
+              }),
+            );
 
-          if (error) {
-            throw error;
+            if (error) {
+              console.warn(`Feature access check failed for ${key}:`, error.message);
+              return [key, false] as const;
+            }
+
+            return [key, data === true] as const;
+          } catch (error) {
+            console.warn(`Feature access check timed out for ${key}:`, error);
+            return [key, false] as const;
           }
-
-          return [key, data === true] as const;
         }),
       );
 
