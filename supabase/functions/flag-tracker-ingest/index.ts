@@ -85,7 +85,9 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     const dueFromFlag = flagDueUtc(m.flag);
     const catTrigger = parseCategoryInterval(m.categories);
 
-    // If flag is completed or removed, cancel any pending tracker for this message
+    // If flag is completed or removed in Outlook, hard-delete the tracker row
+    // entirely (across any open status) so it disappears from the report and
+    // never sends a follow-up. Matches the "Cancel = full removal" behavior.
     if (m.flag?.flagStatus === 'complete' || (m.flag?.flagStatus === 'notFlagged' && !catTrigger)) {
       const { data: existing } = await admin
         .from('tracked_emails')
@@ -93,8 +95,8 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
         .eq('user_id', userId)
         .eq('internet_message_id', internetMessageId)
         .maybeSingle();
-      if (existing && existing.status === 'pending') {
-        await admin.from('tracked_emails').update({ status: 'cancelled' }).eq('id', existing.id);
+      if (existing && existing.status !== 'completed' && existing.status !== 'exhausted') {
+        await admin.from('tracked_emails').delete().eq('id', existing.id);
         cancelled++;
       }
       continue;
