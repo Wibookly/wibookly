@@ -135,9 +135,14 @@ Deno.serve(async (req) => {
     signatureBlock = lines.join("\n");
   }
 
-  // Fetch the original body for context (only when we don't have it cached)
+  // ----- Pull full Outlook thread so the LLM has real context -----
+  // We fetch (a) the active message body, then (b) up to 5 most-recent
+  // messages on the same conversationId — newest first — and stitch them
+  // into a single transcript. If anything fails we still fall back to the
+  // cached bodyPreview so a draft always renders.
   let originalText = (item.payload?.bodyPreview as string | undefined) ?? "";
-  if (originalText.length < 200 && item.graph_id) {
+  let threadTranscript = "";
+  if (item.graph_id) {
     const { data: conn } = await admin
       .from("provider_connections")
       .select("id")
@@ -148,18 +153,44 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     if (conn?.id) {
+      // (a) full body of the active message
       const g = await callGraph<any>(
         userId,
         conn.id,
         "mail",
-        `/me/messages/${encodeURIComponent(item.graph_id)}?$select=body,bodyPreview`,
+        `/me/messages/${encodeURIComponent(item.graph_id)}?$select=body,bodyPreview,conversationId,from,subject,receivedDateTime`,
       );
+      let conversationId: string | undefined;
       if (g.ok) {
         const bb = g.data?.body?.content ?? g.data?.bodyPreview ?? "";
-        originalText = String(bb).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const plain = String(bb).replace(/<style[\s\S]*?<\/style>/gi, " ")
+          .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (plain.length > originalText.length) originalText = plain;
+        conversationId = g.data?.conversationId;
+      }
+      // (b) sibling messages in the same conversation, newest first
+      if (conversationId) {
+        const filter = encodeURIComponent(`conversationId eq '${conversationId}'`);
+        const sel = encodeURIComponent("from,subject,receivedDateTime,bodyPreview,body");
+        const t = await callGraph<any>(
+          userId, conn.id, "mail",
+          `/me/messages?$filter=${filter}&$top=5&$orderby=receivedDateTime desc&$select=${sel}`,
+        );
+        if (t.ok && Array.isArray(t.data?.value)) {
+          const msgs = (t.data.value as any[]).slice(0, 5).reverse();
+          threadTranscript = msgs.map((m) => {
+            const who = m?.from?.emailAddress?.address ?? "unknown";
+            const when = m?.receivedDateTime ?? "";
+            const bb = m?.body?.content ?? m?.bodyPreview ?? "";
+            const plain = String(bb).replace(/<style[\s\S]*?<\/style>/gi, " ")
+              .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+            return `[${when}] ${who}:\n${plain.slice(0, 1500)}`;
+          }).join("\n\n---\n\n");
+        }
       }
     }
   }
+  if (!threadTranscript) threadTranscript = originalText;
 
   const senderFirst = (item.sender_name ?? item.sender_email ?? "there").split(
     /[\s,@]/,
@@ -178,37 +209,56 @@ Deno.serve(async (req) => {
     return t.trim();
   }
 
-  let draftMiddle = "";
-  try {
+  async function tryDraft(): Promise<string> {
     if (body.instruction && body.base_draft) {
       const sys =
         `You revise email replies. Apply the user's instruction to the CURRENT DRAFT. ` +
         `Preserve meaning and any names. Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature.`;
       const usr =
-        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${stripFrame(body.base_draft)}`;
-      draftMiddle = await callLLM(userId, sys, usr);
-    } else {
-      const sys =
-        `You write executive email replies for ${displayName} <${userEmail}>. ` +
-        `Tone: ${tone}.${roleNote} ${styleNotes ? "Style: " + styleNotes + "." : ""} ` +
-        `Reply directly to the sender's ask. Keep it tight (3-7 short sentences unless the ask demands detail). ` +
-        `Do not include a subject line, greeting line, or sign-off — those are added separately. ` +
-        `Output ONLY the reply body paragraphs.`;
-      const usr =
-        `From: ${item.sender_name ?? ""} <${item.sender_email ?? ""}>\n` +
-        `Subject: ${item.subject ?? ""}\n` +
-        `Triage note: ${item.context ?? ""}\n\n` +
-        `Original message:\n${originalText.slice(0, 4000)}\n\n` +
-        `Write a reply addressed to ${senderFirst}.`;
-      draftMiddle = await callLLM(userId, sys, usr);
+        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${stripFrame(body.base_draft)}\n\n` +
+        (threadTranscript ? `THREAD CONTEXT (for reference only, do not quote):\n${threadTranscript.slice(0, 5000)}` : "");
+      return await callLLM(userId, sys, usr);
+    }
+    const sys =
+      `You are writing an email reply on behalf of ${displayName} <${userEmail}>. ` +
+      `Tone: ${tone}.${roleNote} ${styleNotes ? "Style: " + styleNotes + "." : ""} ` +
+      `READ THE FULL THREAD BELOW and respond directly to the sender's most-recent ask. ` +
+      `Reference concrete details from the thread (dates, names, numbers, decisions) — do not write a generic acknowledgement. ` +
+      `Keep it tight (3-7 short sentences unless the ask demands detail). ` +
+      `Do NOT include a subject line, greeting line, or sign-off — those are added separately. ` +
+      `Output ONLY the reply body paragraphs.`;
+    const usr =
+      `Subject: ${item.subject ?? ""}\n` +
+      `Reply addressed to: ${item.sender_name ?? ""} <${item.sender_email ?? ""}>\n` +
+      (item.context ? `Triage note: ${item.context}\n` : "") +
+      `\nTHREAD (oldest → newest):\n${(threadTranscript || originalText).slice(0, 6000)}\n\n` +
+      `Write ${senderFirst}'s reply now.`;
+    return await callLLM(userId, sys, usr);
+  }
+
+  let draftMiddle = "";
+  try {
+    draftMiddle = await tryDraft();
+    if (!draftMiddle || draftMiddle.length < 20) {
+      // Retry once with a stronger nudge — happens when the model returns empty
+      console.log("helm-draft-reply: empty draft, retrying");
+      draftMiddle = await callLLM(
+        userId,
+        `Write a 3-5 sentence email reply in ${displayName}'s voice. No greeting, no sign-off. Reference details from the thread.`,
+        `Reply to ${senderFirst} about "${item.subject ?? ""}".\n\nThread:\n${(threadTranscript || originalText).slice(0, 5000)}`,
+      );
     }
   } catch (e: any) {
     return json(502, { error: "llm_failed", message: String(e?.message ?? e) });
   }
 
-  draftMiddle = draftMiddle.replace(/^["']|["']$/g, "").trim();
+  draftMiddle = (draftMiddle || "").replace(/^["']|["']$/g, "").trim();
+  if (!draftMiddle) {
+    draftMiddle = "Thanks for the note — I'll review the thread and follow up shortly.";
+  }
 
   const fullBody = `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`;
+
 
   await admin
     .from("helm_items")
