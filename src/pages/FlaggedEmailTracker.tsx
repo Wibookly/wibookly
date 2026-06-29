@@ -65,11 +65,30 @@ function fmt(d: string | null | undefined) {
 
 function dateValue(value: unknown): Date | null {
   if (!value) return null;
-  const raw = typeof value === 'object' && value !== null && 'dateTime' in value
-    ? (value as { dateTime?: unknown }).dateTime
-    : value;
-  if (typeof raw !== 'string' && typeof raw !== 'number' && !(raw instanceof Date)) return null;
-  const d = new Date(raw);
+  // Graph dueDateTime: { dateTime: "2026-06-29T03:30:00.0000000", timeZone: "UTC" }
+  // The dateTime string has no zone suffix, so new Date() interprets it as
+  // local time and silently shifts the displayed value. Honor timeZone.
+  if (typeof value === 'object' && value !== null && 'dateTime' in value) {
+    const obj = value as { dateTime?: unknown; timeZone?: unknown };
+    const raw = obj.dateTime;
+    if (typeof raw !== 'string') return null;
+    const tz = String(obj.timeZone || 'UTC');
+    const trimmed = raw.replace(/(\.\d{3})\d+$/, '$1'); // trim sub-ms
+    const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
+    if (hasZone) {
+      const d = new Date(trimmed);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (/^utc$/i.test(tz)) {
+      const d = new Date(trimmed + 'Z');
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    // Best-effort: treat unspecified zone strings as UTC so the display is stable.
+    const d = new Date(trimmed + 'Z');
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) return null;
+  const d = new Date(value as string | number | Date);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
