@@ -71,6 +71,8 @@ Original preview: ${opts.bodyPreview}
 Recipient: ${opts.recipientName || 'them'}
 Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' — soften to a graceful final note; offer to close it out if now isn\'t the right time.' : ''}`;
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 25_000);
     const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LOVABLE_API_KEY}` },
@@ -78,7 +80,9 @@ Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' �
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }],
       }),
+      signal: ctrl.signal,
     });
+    clearTimeout(t);
     const j = await r.json();
     let txt: string = j?.choices?.[0]?.message?.content || '';
     // LLMs sometimes wrap HTML in ```html ... ``` fences — strip them so the
