@@ -575,15 +575,18 @@ Deno.serve(async (req) => {
     // every subsequent tick reports "skipped_already_processing". Anything
     // claimed more than 5 minutes ago is considered stale → revert to pending
     // so the next tick can retry. Without this, follow-ups silently stop.
-    const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    // Anything claimed more than 90 seconds ago is considered stale → revert.
+    // Edge functions cap at ~150s execution, and a healthy processOne should
+    // finish in well under a minute. 90s is enough headroom to avoid races
+    // while ensuring crashed runs are recovered before the next 5-min tick.
+    const staleCutoff = new Date(Date.now() - 90_000).toISOString();
     const { data: stale } = await admin
       .from('tracked_emails')
-      .select('id, last_draft_id')
+      .select('id, last_draft_id, last_checked_at')
       .eq('status', 'processing')
-      .lt('last_checked_at', staleCutoff);
+      .or(`last_checked_at.lt.${staleCutoff},last_checked_at.is.null`);
     if (stale && stale.length) {
       for (const s of stale) {
-        // Restore to 'queued' if a draft was already created, else 'pending'.
         const restored = s.last_draft_id ? 'queued' : 'pending';
         await admin
           .from('tracked_emails')
@@ -591,7 +594,7 @@ Deno.serve(async (req) => {
           .eq('id', s.id)
           .eq('status', 'processing');
       }
-      console.log('flag-followup-cron: cleared stale locks', stale.length);
+      console.log('flag-followup-cron: cleared stale locks', stale.length, stale.map((s) => s.id));
     }
 
     const [pendingRes, queuedRes] = await Promise.all([
