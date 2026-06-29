@@ -319,11 +319,10 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
         </div>
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
-      <TableCell className="text-xs whitespace-nowrap">{flagDue ? fmt(flagDue) : '—'}</TableCell>
       <TableCell className="text-xs whitespace-nowrap">
-        <div>{fmt(r.follow_up_at)}</div>
+        <div>{flagDue ? fmt(flagDue) : fmt(r.follow_up_at)}</div>
         <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-          {formatDistanceToNow(new Date(r.follow_up_at), { addSuffix: true })}
+          {formatDistanceToNow(new Date(flagDue || r.follow_up_at), { addSuffix: true })}
         </div>
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">
@@ -331,6 +330,11 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
           <div>
             <div className="text-indigo-600 font-medium">{fmt(r.scheduled_send_at)}</div>
             <div className="text-[10px] text-muted-foreground">queued · business hours</div>
+          </div>
+        ) : r.status === 'pending' ? (
+          <div>
+            <div className="font-medium">{fmt(r.follow_up_at)}</div>
+            <div className="text-[10px] text-muted-foreground">next follow-up</div>
           </div>
         ) : '—'}
       </TableCell>
