@@ -604,6 +604,7 @@ Deno.serve(async (req) => {
       admin.from('tracked_emails').select('*').eq('status', 'queued').order('scheduled_send_at', { ascending: true }).limit(50),
     ]);
     const due = [...(pendingRes.data || []), ...(queuedRes.data || [])];
+    console.log('flag-followup-cron: due rows', due.length, due.map((r: any) => ({ id: r.id, status: r.status, follow_up_at: r.follow_up_at })));
 
     const results: any[] = [];
     for (const row of (due || [])) {
