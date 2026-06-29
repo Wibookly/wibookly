@@ -417,9 +417,17 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: draft.error?.message };
   }
   const draftId = draft.data?.id;
+  // createReply on a message YOU sent puts YOU back into toRecipients (Graph
+  // replies to the From address). We need to force the To list back to the
+  // original recipient so the follow-up actually reaches them.
+  const toList = row.recipient_address
+    ? [{ emailAddress: { address: row.recipient_address, ...(row.recipient_name ? { name: row.recipient_name } : {}) } }]
+    : undefined;
+  const patchBody: any = { body: { contentType: 'HTML', content: bodyHtml } };
+  if (toList) patchBody.toRecipients = toList;
   const patch = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ body: { contentType: 'HTML', content: bodyHtml } }),
+    body: JSON.stringify(patchBody),
   });
   if (!patch.ok) {
     await admin.from('tracked_emails').update({ status: 'error', last_error: patch.error?.message || 'PATCH body failed', last_draft_id: draftId, last_checked_at: new Date().toISOString() }).eq('id', row.id);

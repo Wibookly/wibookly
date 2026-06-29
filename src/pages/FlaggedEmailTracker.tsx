@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { PageHero } from '@/components/app/PageHero';
-import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, ChevronDown, ChevronRight, Users, List, Settings as SettingsIcon } from 'lucide-react';
+import { BellRing, Loader2, Flag, CheckCircle2, XCircle, AlarmClock, FileEdit, AlertTriangle, Mail, Send, ChevronDown, ChevronRight, Users, List, Settings as SettingsIcon, Circle, Clock } from 'lucide-react';
 import { ReportExportMenu } from '@/components/reports/ReportExportMenu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -167,23 +167,24 @@ function buildSendSchedule(r: TrackedEmail, intervalsDays: number[] = []) {
   const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
 
   return [1, 2, 3].map((attempt) => {
+    const labelBase = attempt === 1 ? 'Follow-up 1' : `Follow-up ${attempt}`;
     const h = byAttempt.get(attempt);
     if (h?.sent_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Sent', date: h.sent_at };
+      return { attempt, label: labelBase, status: 'Sent', date: h.sent_at };
     }
     if (h?.drafted_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Draft ready', date: h.drafted_at };
+      return { attempt, label: labelBase, status: 'Draft ready', date: h.drafted_at };
     }
     if (r.status === 'queued' && attempt === currentPendingAttempt && r.scheduled_send_at) {
-      return { attempt, label: `Send ${attempt}`, status: 'Queued', date: r.scheduled_send_at };
+      return { attempt, label: labelBase, status: 'Scheduled', date: r.scheduled_send_at };
     }
     if ((r.status === 'pending' || r.status === 'queued') && attempt === currentPendingAttempt) {
-      return { attempt, label: `Send ${attempt}`, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
+      return { attempt, label: labelBase, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
     }
     if (attempt > currentPendingAttempt && !['completed', 'replied', 'cancelled', 'exhausted', 'no_response'].includes(r.status)) {
-      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
+      return { attempt, label: labelBase, status: 'Pending', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
     }
-    return { attempt, label: `Send ${attempt}`, status: '—', date: null };
+    return { attempt, label: labelBase, status: '—', date: null };
   });
 }
 
@@ -474,10 +475,9 @@ export default function FlaggedEmailTrackerPage() {
                     <TableRow>
                       <TableHead>Subject</TableHead>
                       <TableHead>To (recipient)</TableHead>
-                      <TableHead>Original send</TableHead>
+                      <TableHead>User sent</TableHead>
                       <TableHead>Flag due</TableHead>
-                      <TableHead>AI sends</TableHead>
-                      <TableHead className="text-center">Sent</TableHead>
+                      <TableHead>Follow-up schedule</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -524,7 +524,7 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">
         <div className="font-medium">{fmt(r.sent_at)}</div>
-        <div className="text-[10px] text-muted-foreground">original send</div>
+        <div className="text-[10px] text-muted-foreground">user sent</div>
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">
         <div className={dueUrgent ? 'text-red-600 font-medium' : ''}>{fmtAny(flagDue || r.follow_up_at)}</div>
@@ -532,36 +532,42 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
           {distanceAny(flagDue || r.follow_up_at)}
         </div>
       </TableCell>
-      <TableCell className="text-xs min-w-[230px]">
+      <TableCell className="text-xs min-w-[260px]">
         <div className="space-y-1.5">
           {sendSchedule.map((send) => {
             const urgent = send.status === 'Scheduled' && scheduleUrgent(send.date);
+            const isSent = send.status === 'Sent';
+            const isScheduled = send.status === 'Scheduled' || send.status === 'Queued';
+            const isPending = send.status === 'Pending' || send.status === 'Draft ready';
+            const StatusIcon = isSent ? CheckCircle2 : isScheduled ? Circle : isPending ? Clock : null;
+            const iconColor = isSent
+              ? 'text-emerald-600'
+              : isScheduled
+                ? 'text-orange-500'
+                : isPending
+                  ? 'text-muted-foreground'
+                  : 'text-muted-foreground';
+            const statusColor = urgent
+              ? 'text-red-600 font-semibold'
+              : isSent
+                ? 'text-emerald-700 font-medium'
+                : isScheduled
+                  ? 'text-orange-600 font-medium'
+                  : 'text-muted-foreground';
             return (
               <div key={send.attempt} className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
-                <div className="font-medium whitespace-nowrap">{send.label}</div>
+                <div className="font-medium whitespace-nowrap flex items-center gap-1.5">
+                  {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 ${iconColor} ${isScheduled ? 'fill-orange-100' : ''}`} />}
+                  {send.label}
+                </div>
                 <div className="text-right min-w-0">
-                  <div className={urgent ? 'text-red-600 font-semibold' : send.status === 'Sent' ? 'text-emerald-700 font-medium' : send.status === 'Queued' ? 'text-indigo-700 font-medium' : 'text-muted-foreground'}>
-                    {send.status}
-                  </div>
+                  <div className={statusColor}>{send.status}</div>
                   <div className={urgent ? 'text-red-600 font-medium whitespace-nowrap' : 'text-muted-foreground whitespace-nowrap'}>{send.date ? fmtAny(send.date) : '—'}</div>
                 </div>
               </div>
             );
           })}
         </div>
-      </TableCell>
-      <TableCell className="text-center">
-        <div className="font-medium">{r.attempts || 0}/3</div>
-        {hist.length > 0 && (
-          <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-            {hist.map((h, i) => (
-              <div key={i} title={h.sent_at ? `Sent by AI` : 'Drafted'}>
-                #{h.attempt}: {fmtAny(h.sent_at || h.drafted_at)}
-                {h.sent_at ? ' ✓' : ' (draft)'}
-              </div>
-            ))}
-          </div>
-        )}
       </TableCell>
       <TableCell>
         <div className="flex flex-col items-start gap-1.5">
@@ -647,10 +653,9 @@ function RecipientGroups({
                     <TableRow>
                       <TableHead>Subject</TableHead>
                       <TableHead>Recipient</TableHead>
-                      <TableHead>Original send</TableHead>
+                      <TableHead>User sent</TableHead>
                       <TableHead>Flag due</TableHead>
-                      <TableHead>AI sends</TableHead>
-                      <TableHead className="text-center">Sent</TableHead>
+                      <TableHead>Follow-up schedule</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
