@@ -17,7 +17,7 @@ import { FlaggedEmailSettingsBody } from './FlaggedEmailSettings';
 
 
 
-interface HistEntry { attempt: number; drafted_at: string; sent_at: string | null; auto_sent: boolean; }
+interface HistEntry { attempt: number; drafted_at: string; sent_at: string | null; auto_sent: boolean; draft_id?: string | null; }
 interface TrackedEmail {
   id: string;
   recipient_address: string | null;
@@ -38,7 +38,9 @@ interface TrackedEmail {
 }
 
 
-const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string }> = {
+type StatusMeta = { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string };
+
+const STATUS_META: Record<string, StatusMeta> = {
   pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
   replied: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
   completed: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
@@ -46,8 +48,9 @@ const STATUS_META: Record<TrackedEmail['status'], { label: string; icon: any; va
   draft_ready: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
   sent: { label: 'Follow-up sent', icon: Send, variant: 'default', tooltip: 'AI sent the scheduled follow-up and is waiting for a recipient reply.' },
   queued: { label: 'Queued (business hours)', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
-  cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You unflagged the email or cancelled the follow-up.' },
-  exhausted: { label: 'Max attempts (3/3)', icon: AlertTriangle, variant: 'destructive', tooltip: 'Sent 3 follow-ups with no reply — tracker closed.' },
+  cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You cancelled this tracker.' },
+  exhausted: { label: 'No response · 3 sent', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
+  no_response: { label: 'No response · 3 sent', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
   error: { label: 'Send error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
 };
 
@@ -103,6 +106,87 @@ function distanceAny(value: unknown) {
   try { return formatDistanceToNow(d, { addSuffix: true }); } catch { return '—'; }
 }
 
+function addMs(value: unknown, ms: number): Date | null {
+  const d = dateValue(value);
+  if (!d || !Number.isFinite(ms)) return null;
+  return new Date(d.getTime() + ms);
+}
+
+function cadenceMs(r: TrackedEmail): number {
+  const sent = dateValue(r.sent_at);
+  const firstDue = dateValue(r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at);
+  if (sent && firstDue) {
+    const gap = firstDue.getTime() - sent.getTime();
+    if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
+  }
+  return 3 * 86400000;
+}
+
+function scheduleUrgent(value: unknown) {
+  const d = dateValue(value);
+  if (!d) return false;
+  const diff = d.getTime() - Date.now();
+  return diff <= 60 * 60 * 1000;
+}
+
+function rowStatusMeta(r: TrackedEmail): StatusMeta {
+  if (r.status === 'pending' && (r.attempts || 0) > 0) {
+    return {
+      label: 'Pending reply',
+      icon: AlarmClock,
+      variant: 'secondary',
+      tooltip: 'AI follow-up was sent — waiting for the recipient to reply or for the next send date.',
+    };
+  }
+  return STATUS_META[r.status] || FALLBACK_STATUS_META;
+}
+
+function plannedDateFromCurrent(r: TrackedEmail, targetAttempt: number, intervalsDays: number[]) {
+  const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
+  const base = dateValue(r.scheduled_send_at || r.follow_up_at);
+  if (!base || targetAttempt <= currentPendingAttempt) return base;
+
+  let ms = base.getTime();
+  const fallbackGap = cadenceMs(r);
+  for (let completedAttempt = currentPendingAttempt; completedAttempt < targetAttempt; completedAttempt += 1) {
+    const days = intervalsDays[completedAttempt - 1];
+    ms += Number.isFinite(days) && days > 0 ? days * 86400000 : fallbackGap;
+  }
+  return new Date(ms);
+}
+
+function buildSendSchedule(r: TrackedEmail, intervalsDays: number[] = []) {
+  const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  const byAttempt = new Map<number, HistEntry>();
+  hist.forEach((h) => {
+    if (typeof h?.attempt === 'number') byAttempt.set(h.attempt, h);
+  });
+
+  const firstDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+  const gap = cadenceMs(r);
+  const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
+
+  return [1, 2, 3].map((attempt) => {
+    const h = byAttempt.get(attempt);
+    if (h?.sent_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Sent', date: h.sent_at };
+    }
+    if (h?.drafted_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Draft ready', date: h.drafted_at };
+    }
+    if (r.status === 'queued' && attempt === currentPendingAttempt && r.scheduled_send_at) {
+      return { attempt, label: `Send ${attempt}`, status: 'Queued', date: r.scheduled_send_at };
+    }
+    if ((r.status === 'pending' || r.status === 'queued') && attempt === currentPendingAttempt) {
+      return { attempt, label: `Send ${attempt}`, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
+    }
+    if (attempt > currentPendingAttempt && !['completed', 'replied', 'cancelled', 'exhausted', 'no_response'].includes(r.status)) {
+      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
+    }
+    return { attempt, label: `Send ${attempt}`, status: '—', date: null };
+  });
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, ms = 12000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('Tracker data is taking too long to respond. Please retry.')), ms);
@@ -132,6 +216,7 @@ export default function FlaggedEmailTrackerPage() {
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reminderIntervalsDays, setReminderIntervalsDays] = useState<number[]>([]);
 
 
   const load = useCallback(async () => {
@@ -171,6 +256,23 @@ export default function FlaggedEmailTrackerPage() {
     }
   }, [user, from, to]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('follow_up_settings' as any)
+      .select('reminder_intervals_days')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const vals = Array.isArray((data as any)?.reminder_intervals_days)
+          ? (data as any).reminder_intervals_days.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
+          : [];
+        setReminderIntervalsDays(vals);
+      });
+  }, [user?.id]);
+
   // Render cached rows immediately; run the Graph sweep in the background and
   // refresh when it finishes. Avoids a long "Loading…" state when the Graph
   // ingest is slow (e.g., large mailbox or per-row deletion sweep).
@@ -198,7 +300,7 @@ export default function FlaggedEmailTrackerPage() {
     const replied = rows.filter(r => r.status === 'replied' || r.status === 'completed').length;
     const drafted = rows.filter(r => r.status === 'drafted').length;
     const queued = rows.filter(r => r.status === 'queued').length;
-    const missed = rows.filter(r => r.status === 'exhausted' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now && (r.attempts || 0) >= 3)).length;
+    const missed = rows.filter(r => r.status === 'exhausted' || r.status === 'no_response' || (r.status === 'pending' && new Date(r.follow_up_at).getTime() < now && (r.attempts || 0) >= 3)).length;
     const followUpsSent = rows.reduce((sum, r) => sum + (r.attempts || 0), 0);
     return { total, pending, queued, replied, drafted, missed, followUpsSent };
   }, [rows]);
@@ -214,12 +316,12 @@ export default function FlaggedEmailTrackerPage() {
       Sent: r.sent_at,
       'Flag Due': flagDue,
       'Follow-up Due': r.follow_up_at,
-      'Next Send': r.scheduled_send_at || '',
+      'AI Sends': buildSendSchedule(r, reminderIntervalsDays).map((s) => `${s.label}: ${s.status} ${s.date ? fmtAny(s.date) : ''}`.trim()).join(' | '),
       'Follow-ups Sent': `${r.attempts || 0}/3`,
       'Last AI Send': lastSent,
       Status: r.status,
     };
-  }), [rows]);
+  }), [rows, reminderIntervalsDays]);
 
   const emailReport = async () => {
     if (!user) return;
@@ -330,14 +432,14 @@ export default function FlaggedEmailTrackerPage() {
           <StatCard label="Queued (off-hours)" value={stats.queued} icon={AlarmClock} tone="indigo" />
           <StatCard label="Replied" value={stats.replied} icon={CheckCircle2} tone="emerald" />
           <StatCard label="Follow-ups sent" value={stats.followUpsSent} icon={Send} tone="blue" />
-          <StatCard label="Missed (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
+          <StatCard label="No response (3/3)" value={stats.missed} icon={AlertTriangle} tone="red" />
         </div>
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">Tracked emails</CardTitle>
-              <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as missed.</CardDescription>
+              <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as no response.</CardDescription>
             </div>
             <div className="flex gap-1 print:hidden">
               <Button variant={groupBy === 'recipient' ? 'default' : 'outline'} size="sm" onClick={() => setGroupBy('recipient')}>
@@ -364,7 +466,7 @@ export default function FlaggedEmailTrackerPage() {
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} />
+              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -372,15 +474,15 @@ export default function FlaggedEmailTrackerPage() {
                     <TableRow>
                       <TableHead>Subject</TableHead>
                       <TableHead>To (recipient)</TableHead>
-                      <TableHead>Sent</TableHead>
+                      <TableHead>Original send</TableHead>
                       <TableHead>Flag due</TableHead>
-                      <TableHead>Next send</TableHead>
-                      <TableHead className="text-center">Follow-ups (max 3)</TableHead>
+                      <TableHead>AI sends</TableHead>
+                      <TableHead className="text-center">Sent</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} />)}
+                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
@@ -392,8 +494,8 @@ export default function FlaggedEmailTrackerPage() {
   );
 }
 
-function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => void }) {
-  const meta = STATUS_META[r.status] || FALLBACK_STATUS_META;
+function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail; onCancel: (id: string) => void; reminderIntervalsDays?: number[] }) {
+  const meta = rowStatusMeta(r);
   const Icon = meta.icon;
   const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
   const dueDate = dateValue(flagDue || r.follow_up_at);
@@ -401,6 +503,7 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
   const dueSoon = !!dueDate && dueDate.getTime() > Date.now() && dueDate.getTime() - Date.now() <= 60 * 60 * 1000;
   const dueUrgent = overdue || dueSoon;
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+  const sendSchedule = buildSendSchedule(r, reminderIntervalsDays);
   const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted' || r.status === 'draft_ready';
   return (
     <TableRow>
@@ -419,25 +522,33 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
+      <TableCell className="text-xs whitespace-nowrap">
+        <div className="font-medium">{fmt(r.sent_at)}</div>
+        <div className="text-[10px] text-muted-foreground">original send</div>
+      </TableCell>
       <TableCell className="text-xs whitespace-nowrap">
         <div className={dueUrgent ? 'text-red-600 font-medium' : ''}>{fmtAny(flagDue || r.follow_up_at)}</div>
         <div className={`text-[10px] ${dueUrgent ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
           {distanceAny(flagDue || r.follow_up_at)}
         </div>
       </TableCell>
-      <TableCell className="text-xs whitespace-nowrap">
-        {r.scheduled_send_at ? (
-          <div>
-            <div className="text-indigo-600 font-medium">{fmt(r.scheduled_send_at)}</div>
-            <div className="text-[10px] text-muted-foreground">queued · business hours</div>
-          </div>
-        ) : r.status === 'pending' ? (
-          <div>
-            <div className="font-medium">{fmt(r.follow_up_at)}</div>
-            <div className="text-[10px] text-muted-foreground">next follow-up</div>
-          </div>
-        ) : '—'}
+      <TableCell className="text-xs min-w-[230px]">
+        <div className="space-y-1.5">
+          {sendSchedule.map((send) => {
+            const urgent = send.status === 'Scheduled' && scheduleUrgent(send.date);
+            return (
+              <div key={send.attempt} className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
+                <div className="font-medium whitespace-nowrap">{send.label}</div>
+                <div className="text-right min-w-0">
+                  <div className={urgent ? 'text-red-600 font-semibold' : send.status === 'Sent' ? 'text-emerald-700 font-medium' : send.status === 'Queued' ? 'text-indigo-700 font-medium' : 'text-muted-foreground'}>
+                    {send.status}
+                  </div>
+                  <div className={urgent ? 'text-red-600 font-medium whitespace-nowrap' : 'text-muted-foreground whitespace-nowrap'}>{send.date ? fmtAny(send.date) : '—'}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </TableCell>
       <TableCell className="text-center">
         <div className="font-medium">{r.attempts || 0}/3</div>
@@ -480,11 +591,13 @@ function RecipientGroups({
   expanded,
   setExpanded,
   onCancel,
+  reminderIntervalsDays,
 }: {
   rows: TrackedEmail[];
   expanded: Record<string, boolean>;
   setExpanded: (e: Record<string, boolean>) => void;
   onCancel: (id: string) => void;
+  reminderIntervalsDays?: number[];
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; name: string; email: string; items: TrackedEmail[] }>();
@@ -506,7 +619,7 @@ function RecipientGroups({
         const open = expanded[g.key] ?? groups.length <= 3;
         const pending = g.items.filter((r) => r.status === 'pending').length;
         const replied = g.items.filter((r) => r.status === 'replied').length;
-        const missed = g.items.filter((r) => r.status === 'exhausted').length;
+        const missed = g.items.filter((r) => r.status === 'exhausted' || r.status === 'no_response').length;
         return (
           <div key={g.key} className="rounded-lg border bg-card">
             <button
@@ -524,7 +637,7 @@ function RecipientGroups({
                 <Badge variant="secondary" className="text-xs">{g.items.length} email{g.items.length === 1 ? '' : 's'}</Badge>
                 {pending > 0 && <Badge variant="outline" className="text-xs">{pending} pending</Badge>}
                 {replied > 0 && <Badge className="text-xs bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30">{replied} replied</Badge>}
-                {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} missed</Badge>}
+                {missed > 0 && <Badge variant="destructive" className="text-xs">{missed} no response</Badge>}
               </div>
             </button>
             {open && (
@@ -534,15 +647,15 @@ function RecipientGroups({
                     <TableRow>
                       <TableHead>Subject</TableHead>
                       <TableHead>Recipient</TableHead>
-                      <TableHead>Sent</TableHead>
+                      <TableHead>Original send</TableHead>
                       <TableHead>Flag due</TableHead>
-                      <TableHead>Next send</TableHead>
-                      <TableHead className="text-center">Follow-ups (max 3)</TableHead>
+                      <TableHead>AI sends</TableHead>
+                      <TableHead className="text-center">Sent</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} />)}
+                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>

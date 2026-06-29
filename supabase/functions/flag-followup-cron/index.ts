@@ -15,17 +15,29 @@ const json = (b: unknown, s = 200) =>
 
 const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '3');
 
+function graphDateMs(value: any): number {
+  if (!value) return NaN;
+  if (typeof value === 'object' && value.dateTime) {
+    const raw = String(value.dateTime).replace(/(\.\d{3})\d+$/, '$1');
+    const tz = String(value.timeZone || 'UTC');
+    const d = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : /^utc$/i.test(tz) ? `${raw}Z` : `${raw}Z`);
+    return d.getTime();
+  }
+  return new Date(value).getTime();
+}
+
 // Cadence = the original gap between when the user sent the email and the flag
 // due date they chose. Subsequent follow-ups repeat at that same interval.
 // Fallback to FOLLOWUP_GAP_DAYS if we can't compute one (or the gap is tiny).
 function cadenceFor(row: any): number {
   const flagDueIso = row?.trigger_detail?.dueDateTime || null;
   const sentMs = row?.sent_at ? new Date(row.sent_at).getTime() : NaN;
-  const dueMs = flagDueIso ? new Date(flagDueIso).getTime() : NaN;
+  const dueMs = graphDateMs(flagDueIso);
   const gap = (Number.isFinite(sentMs) && Number.isFinite(dueMs)) ? (dueMs - sentMs) : NaN;
   if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
   return FOLLOWUP_GAP_DAYS * 86400000;
 }
+
 const MAX_ATTEMPTS = 3;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 
@@ -96,6 +108,7 @@ interface PrefsResult {
   autoSend: boolean;
   tone?: any;
   enabledAt?: string | null;
+  reminderIntervalsDays?: number[];
   businessHoursOnly?: boolean;
   bhStart?: number;
   bhEnd?: number;
@@ -107,7 +120,7 @@ interface PrefsResult {
 async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
   const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, reminder_intervals_days, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
@@ -124,6 +137,7 @@ async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
     autoSend: !!data.auto_reply_enabled,
     tone: data.tone_settings || null,
     enabledAt: data.enabled_at || null,
+    reminderIntervalsDays: Array.isArray(data.reminder_intervals_days) ? data.reminder_intervals_days.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0) : [],
     businessHoursOnly: !!data.business_hours_only,
     bhStart: typeof data.business_hours_start === 'number' ? data.business_hours_start : 8,
     bhEnd: typeof data.business_hours_end === 'number' ? data.business_hours_end : 17,
@@ -173,6 +187,26 @@ function nextWindowStart(from: Date, prefs: PrefsResult): Date {
     cur = new Date(cur.getTime() + 30 * 60_000);
   }
   return new Date(from.getTime() + 24 * 3600_000);
+}
+
+function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, completedAttempt: number): string {
+  const intervals = prefs.reminderIntervalsDays || [];
+  const intervalDays = intervals[Math.max(0, completedAttempt - 1)];
+  const baseMs = new Date(sentAtIso).getTime();
+  if (Number.isFinite(baseMs) && Number.isFinite(intervalDays) && intervalDays > 0) {
+    return new Date(baseMs + intervalDays * 86400000).toISOString();
+  }
+  return new Date(baseMs + cadenceFor(row)).toISOString();
+}
+
+function isKnownAiFollowup(row: any, sentMs: number): boolean {
+  if (!Number.isFinite(sentMs)) return false;
+  const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+  return history.some((h: any) => {
+    if (!h?.sent_at) return false;
+    const histMs = new Date(h.sent_at).getTime();
+    return Number.isFinite(histMs) && Math.abs(histMs - sentMs) <= 5 * 60_000;
+  });
 }
 
 async function processOne(admin: any, row: any) {
@@ -268,6 +302,7 @@ async function processOne(admin: any, row: any) {
           // inbox-side copy of a self-addressed email and must be ignored.
           const sentMs = m.sentDateTime ? new Date(m.sentDateTime).getTime() : NaN;
           const inSentFolder = sentItemsId && m.parentFolderId === sentItemsId;
+          if (inSentFolder && isKnownAiFollowup(row, sentMs)) continue;
           if (inSentFolder && Number.isFinite(sentMs) && sentMs > sentAtMs + 60_000) {
             sawOwnReply = true;
           }
@@ -287,12 +322,25 @@ async function processOne(admin: any, row: any) {
         return { id: row.id, action: 'completed_recipient_replied' };
       }
       if (sawOwnReply) {
-        // User already followed up themselves — don't double-send.
+        // User already followed up themselves — don't double-send, but don't
+        // label it "cancelled by you". Keep the tracker open and waiting for a
+        // recipient reply / next follow-up date.
+        const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+        const lastSentAt = history.filter((h: any) => h?.sent_at).map((h: any) => String(h.sent_at)).pop();
+        const baseSentAt = lastSentAt || new Date().toISOString();
+        const nextAt = nextFollowUpAfterSend(row, prefs, baseSentAt, Math.max(row.attempts || 0, 1));
         await admin
           .from('tracked_emails')
-          .update({ status: 'cancelled', last_error: 'user replied / followed up manually', last_checked_at: new Date().toISOString() })
+          .update({
+            status: 'pending',
+            follow_up_at: nextAt,
+            scheduled_send_at: null,
+            queued_reason: null,
+            last_error: 'user followed up manually — waiting for recipient reply',
+            last_checked_at: new Date().toISOString(),
+          })
           .eq('id', row.id);
-        return { id: row.id, action: 'cancelled_user_replied' };
+        return { id: row.id, action: 'manual_followup_detected_pending', next_follow_up_at: nextAt };
       }
     }
   }
@@ -305,8 +353,8 @@ async function processOne(admin: any, row: any) {
 
   // 4. Cap at MAX_ATTEMPTS
   if ((row.attempts || 0) >= MAX_ATTEMPTS) {
-    await admin.from('tracked_emails').update({ status: 'exhausted', last_checked_at: new Date().toISOString() }).eq('id', row.id);
-    return { id: row.id, action: 'exhausted' };
+    await admin.from('tracked_emails').update({ status: 'no_response', last_checked_at: new Date().toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'no_response' };
   }
 
   const now = new Date();
@@ -336,11 +384,11 @@ async function processOne(admin: any, row: any) {
         history.push({ attempt, drafted_at: sentAtIso, sent_at: sentAtIso, auto_sent: true, draft_id: row.last_draft_id });
         const reachedCap = attempt >= MAX_ATTEMPTS;
         await admin.from('tracked_emails').update({
-          status: reachedCap ? 'exhausted' : 'pending',
+          status: reachedCap ? 'no_response' : 'pending',
           attempts: attempt,
           scheduled_send_at: null,
           queued_reason: null,
-          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + cadenceFor(row)).toISOString(),
+          follow_up_at: reachedCap ? row.follow_up_at : nextFollowUpAfterSend(row, prefs, sentAtIso, attempt),
           last_checked_at: sentAtIso,
           follow_up_history: history,
         }).eq('id', row.id);
@@ -409,9 +457,9 @@ async function processOne(admin: any, row: any) {
   });
 
   const reachedCap = attempt >= MAX_ATTEMPTS;
-  const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
+  const nextStatus = reachedCap ? 'no_response' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
-    ? new Date(Date.now() + cadenceFor(row)).toISOString()
+    ? nextFollowUpAfterSend(row, prefs, sentAtIso, attempt)
     : row.follow_up_at;
 
   await admin.from('tracked_emails').update({
