@@ -3,6 +3,18 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { organizationNameSchema, emailSchema, passwordSchema, validateField } from '@/lib/validation';
 
+const AUTH_REQUEST_TIMEOUT_MS = 10000;
+
+function withTimeout<T>(promise: PromiseLike<T>, ms = AUTH_REQUEST_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Authentication request timed out')), ms);
+    Promise.resolve(promise)
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timer));
+  });
+}
+
 interface UserProfile {
   id: string;
   user_id: string;
@@ -55,15 +67,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      } else {
+    withTimeout(supabase.auth.getSession())
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserData(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        console.error('Error restoring session:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setOrganization(null);
         setLoading(false);
-      }
-    });
+      });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -71,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (userId: string) => {
     try {
       // Use secure RPC function instead of direct table access
-      const { data: profileRows } = await supabase.rpc('get_my_profile');
+      const { data: profileRows } = await withTimeout(supabase.rpc('get_my_profile'));
       const profileData = profileRows?.[0];
 
       if (profileData) {
@@ -82,11 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // pulled from their Microsoft 365 tenant directory (discovered_tenant_users).
         if (!photoUrl && profileData.email) {
           try {
-            const { data: directoryRow } = await supabase
-              .from('discovered_tenant_users')
-              .select('profile_photo_url')
-              .eq('email', profileData.email)
-              .maybeSingle();
+            const { data: directoryRow } = await withTimeout(
+              supabase
+                .from('discovered_tenant_users')
+                .select('profile_photo_url')
+                .eq('email', profileData.email)
+                .maybeSingle(),
+              5000,
+            );
             if (directoryRow?.profile_photo_url) {
               photoUrl = directoryRow.profile_photo_url;
             }
@@ -128,11 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', profileData.organization_id)
-          .maybeSingle();
+        const { data: orgData } = await withTimeout(
+          supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', profileData.organization_id)
+            .maybeSingle(),
+        );
 
         if (orgData) {
           setOrganization(orgData as Organization);
