@@ -353,10 +353,19 @@ async function processOne(admin: any, row: any) {
     draft_id: draftId,
   });
 
+  // Cadence = original gap between sent_at and the user's flag due date.
+  // Subsequent follow-ups repeat at the same interval. Fallback to FOLLOWUP_GAP_DAYS.
+  const flagDueIso = (row.trigger_detail && row.trigger_detail.dueDateTime) || null;
+  const sentMs = new Date(row.sent_at).getTime();
+  const flagDueMs = flagDueIso ? new Date(flagDueIso).getTime() : NaN;
+  let cadenceMs = Number.isFinite(flagDueMs) ? (flagDueMs - sentMs) : NaN;
+  if (!Number.isFinite(cadenceMs) || cadenceMs < 60 * 60 * 1000) {
+    cadenceMs = FOLLOWUP_GAP_DAYS * 86400000;
+  }
   const reachedCap = attempt >= MAX_ATTEMPTS;
   const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
-    ? new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString()
+    ? new Date(Date.now() + cadenceMs).toISOString()
     : row.follow_up_at;
 
   await admin.from('tracked_emails').update({
