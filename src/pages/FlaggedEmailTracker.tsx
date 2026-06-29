@@ -84,10 +84,10 @@ function distanceAny(value: unknown) {
   try { return formatDistanceToNow(d, { addSuffix: true }); } catch { return '—'; }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms = 12000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error('Tracker data is taking too long to respond. Please retry.')), ms);
-    promise
+    Promise.resolve(promise)
       .then(resolve)
       .catch(reject)
       .finally(() => window.clearTimeout(timer));
