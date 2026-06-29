@@ -209,6 +209,64 @@ function isKnownAiFollowup(row: any, sentMs: number): boolean {
   });
 }
 
+function normalizeEmail(value: unknown): string {
+  return String(value || '').trim().toLowerCase();
+}
+
+function recipientListFor(row: any): Array<{ emailAddress: { address: string; name?: string } }> | null {
+  const address = String(row?.recipient_address || '').trim();
+  if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return null;
+  return [{ emailAddress: { address, ...(row?.recipient_name ? { name: String(row.recipient_name) } : {}) } }];
+}
+
+async function ensureDraftRecipient(admin: any, row: any, draftId: string, bodyHtml?: string) {
+  const toRecipients = recipientListFor(row);
+  if (!toRecipients) {
+    await admin.from('tracked_emails').update({
+      status: 'error',
+      last_error: 'Missing original recipient address — follow-up was not sent',
+      last_checked_at: new Date().toISOString(),
+    }).eq('id', row.id);
+    return { ok: false, error: 'missing_recipient' };
+  }
+
+  const patchBody: any = { toRecipients };
+  if (bodyHtml) patchBody.body = { contentType: 'HTML', content: bodyHtml };
+
+  const patch = await callGraph(row.user_id, row.connection_id, 'mail', `/me/messages/${draftId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patchBody),
+  });
+  if (!patch.ok) {
+    await admin.from('tracked_emails').update({
+      status: 'error',
+      last_error: patch.error?.message || 'Could not set follow-up recipient — follow-up was not sent',
+      last_draft_id: draftId,
+      last_checked_at: new Date().toISOString(),
+    }).eq('id', row.id);
+    return { ok: false, error: patch.error?.message || 'patch_recipient_failed' };
+  }
+
+  // Hard safety check: never send until Graph confirms the draft is addressed
+  // to the original recipient. This also fixes older queued drafts created
+  // before recipient-forcing existed.
+  const check = await callGraph<any>(row.user_id, row.connection_id, 'mail',
+    `/me/messages/${draftId}?$select=toRecipients`);
+  const expected = normalizeEmail(row.recipient_address);
+  const actual = (check.data?.toRecipients || []).map((r: any) => normalizeEmail(r?.emailAddress?.address));
+  if (!check.ok || !actual.includes(expected)) {
+    await admin.from('tracked_emails').update({
+      status: 'error',
+      last_error: `Recipient safety check failed — expected ${row.recipient_address || 'original recipient'}, found ${actual.join(', ') || 'none'}`,
+      last_draft_id: draftId,
+      last_checked_at: new Date().toISOString(),
+    }).eq('id', row.id);
+    return { ok: false, error: 'recipient_safety_check_failed' };
+  }
+
+  return { ok: true };
+}
+
 async function processOne(admin: any, row: any) {
   const userId = row.user_id;
   const connId = row.connection_id;
@@ -376,6 +434,8 @@ async function processOne(admin: any, row: any) {
       return { id: row.id, action: 'still_queued' };
     }
     if (prefs.autoSend) {
+      const safe = await ensureDraftRecipient(admin, row, row.last_draft_id);
+      if (!safe.ok) return { id: row.id, action: 'blocked_recipient_safety_check', err: safe.error };
       const send = await callGraph(userId, connId, 'mail', `/me/messages/${row.last_draft_id}/send`, { method: 'POST', body: '{}' });
       if (send.ok) {
         const attempt = (row.attempts || 0) + 1;
@@ -417,22 +477,10 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'error', err: draft.error?.message };
   }
   const draftId = draft.data?.id;
-  // createReply on a message YOU sent puts YOU back into toRecipients (Graph
-  // replies to the From address). We need to force the To list back to the
-  // original recipient so the follow-up actually reaches them.
-  const toList = row.recipient_address
-    ? [{ emailAddress: { address: row.recipient_address, ...(row.recipient_name ? { name: row.recipient_name } : {}) } }]
-    : undefined;
-  const patchBody: any = { body: { contentType: 'HTML', content: bodyHtml } };
-  if (toList) patchBody.toRecipients = toList;
-  const patch = await callGraph(userId, connId, 'mail', `/me/messages/${draftId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(patchBody),
-  });
-  if (!patch.ok) {
-    await admin.from('tracked_emails').update({ status: 'error', last_error: patch.error?.message || 'PATCH body failed', last_draft_id: draftId, last_checked_at: new Date().toISOString() }).eq('id', row.id);
-    return { id: row.id, action: 'error', err: patch.error?.message };
-  }
+  // createReply on a sent message replies to the From address (the user). Force
+  // the draft back to the original recipient and verify it before any send.
+  const safeDraft = await ensureDraftRecipient(admin, row, draftId, bodyHtml);
+  if (!safeDraft.ok) return { id: row.id, action: 'blocked_recipient_safety_check', err: safeDraft.error };
 
   // If auto-send is enabled but we're outside business hours → queue.
   if (prefs.autoSend && !inWindow) {
