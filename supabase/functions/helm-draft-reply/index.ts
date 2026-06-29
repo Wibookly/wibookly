@@ -218,13 +218,27 @@ Deno.serve(async (req) => {
     return t.trim();
   }
 
+  // Per-chip directives so tone reshapes produce a visibly different draft.
+  function toneDirective(instr: string): string {
+    const k = instr.trim().toLowerCase();
+    if (k === "shorter") return "Cut the draft to AT MOST 2 short sentences. Remove every non-essential clause, hedging word, and adjective. The new draft MUST be visibly shorter than the current draft.";
+    if (k === "more formal") return "Rewrite in a formal, executive register. Use complete sentences, no contractions, no exclamation marks, no casual phrases ('thanks!', 'happy to', 'cool'). Open with a direct statement of intent. The new draft MUST sound noticeably more formal than the current draft.";
+    if (k === "warmer") return "Rewrite with a warmer, more personable tone. Add a brief human acknowledgement (one sentence), keep professionalism, prefer 'happy to', 'glad to', 'appreciate'. The new draft MUST feel noticeably warmer than the current draft.";
+    if (k === "more firm") return "Rewrite with a firm, decisive executive tone. State the position or decision in the first sentence with no hedging. Remove 'maybe', 'I think', 'perhaps', 'just', 'sort of'. Use direct verbs.";
+    if (k === "bullet points") return "Restructure the reply as 3–5 concise bullet points using '-' markers, preceded by ONE short lead-in sentence. Each bullet ≤ 12 words. Do NOT return a paragraph.";
+    return `Apply this instruction precisely: ${instr}`;
+  }
+
   async function tryDraft(): Promise<string> {
-    if (body.instruction && body.base_draft) {
+    if (body.instruction) {
+      const directive = toneDirective(body.instruction);
       const sys =
-        `You revise email replies. Apply the user's instruction to the CURRENT DRAFT. ` +
-        `Preserve meaning and any names. Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature.`;
+        `You revise email replies. You MUST produce a draft that is materially different from the current one when an instruction is given — never echo it back. ` +
+        `Preserve meaning, facts, names, dates and numbers from the current draft. ` +
+        `Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature, no commentary.`;
       const usr =
-        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${stripFrame(body.base_draft)}\n\n` +
+        `INSTRUCTION (must be applied): ${directive}\n\n` +
+        `CURRENT DRAFT (rewrite this):\n${stripFrame(body.base_draft ?? "")}\n\n` +
         (threadTranscript ? `THREAD CONTEXT (for reference only, do not quote):\n${threadTranscript.slice(0, 5000)}` : "");
       return await callLLM(userId, sys, usr);
     }
@@ -266,7 +280,10 @@ Deno.serve(async (req) => {
     draftMiddle = "Thanks for the note — I'll review the thread and follow up shortly.";
   }
 
-  const fullBody = `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`;
+  const fullBody = signatureBlock
+    ? `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`
+    : `${greeting}\n\n${draftMiddle}`;
+
 
 
   await admin
