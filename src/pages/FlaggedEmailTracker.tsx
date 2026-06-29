@@ -89,19 +89,23 @@ export default function FlaggedEmailTrackerPage() {
     setLoading(false);
   }, [user, from, to]);
 
-  // Pull current data + trigger live scan on every open, then refresh every 60s
+  // Render cached rows immediately; run the Graph sweep in the background and
+  // refresh when it finishes. Avoids a long "Loading…" state when the Graph
+  // ingest is slow (e.g., large mailbox or per-row deletion sweep).
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     setLoading(true);
-    (async () => {
+    // 1) Immediate load from DB so the page is never blank.
+    load();
+    // 2) Background ingest + reload.
+    const runIngest = async () => {
       try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
-      await load();
-    })();
-    const interval = setInterval(async () => {
-      try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
-      await load();
-    }, 60_000);
-    return () => clearInterval(interval);
+      if (!cancelled) await load();
+    };
+    runIngest();
+    const interval = setInterval(runIngest, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, from, to]);
 
