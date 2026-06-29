@@ -13,7 +13,7 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '3');
+const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '1');
 
 function graphDateMs(value: any): number {
   if (!value) return NaN;
@@ -26,16 +26,11 @@ function graphDateMs(value: any): number {
   return new Date(value).getTime();
 }
 
-// Cadence = the original gap between when the user sent the email and the flag
-// due date they chose. Subsequent follow-ups repeat at that same interval.
-// Fallback to FOLLOWUP_GAP_DAYS if we can't compute one (or the gap is tiny).
-function cadenceFor(row: any): number {
-  const flagDueIso = row?.trigger_detail?.dueDateTime || null;
-  const sentMs = row?.sent_at ? new Date(row.sent_at).getTime() : NaN;
-  const dueMs = graphDateMs(flagDueIso);
-  const gap = (Number.isFinite(sentMs) && Number.isFinite(dueMs)) ? (dueMs - sentMs) : NaN;
-  if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
-  return FOLLOWUP_GAP_DAYS * 86400000;
+// Follow-up cadence defaults to 24 hours after the previous actual send.
+// If the user configured reminder intervals, those override this per attempt.
+function cadenceFor(_row: any): number {
+  const days = Number.isFinite(FOLLOWUP_GAP_DAYS) && FOLLOWUP_GAP_DAYS > 0 ? FOLLOWUP_GAP_DAYS : 1;
+  return days * 86400000;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -197,6 +192,29 @@ function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, 
     return new Date(baseMs + intervalDays * 86400000).toISOString();
   }
   return new Date(baseMs + cadenceFor(row)).toISOString();
+}
+
+function effectiveAttemptCount(row: any): number {
+  const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+  const maxHistoryAttempt = history.reduce((max: number, h: any) => {
+    const n = Number(h?.attempt || 0);
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0);
+  const sentCount = history.filter((h: any) => h?.sent_at || h?.auto_sent).length;
+  return Math.max(Number(row?.attempts || 0), maxHistoryAttempt, sentCount);
+}
+
+async function claimForWork(admin: any, row: any) {
+  const originalStatus = String(row.status || 'pending');
+  const { data, error } = await admin
+    .from('tracked_emails')
+    .update({ status: 'processing', last_checked_at: new Date().toISOString() })
+    .eq('id', row.id)
+    .eq('status', originalStatus)
+    .select('*')
+    .maybeSingle();
+  if (error || !data) return null;
+  return { ...data, status: originalStatus };
 }
 
 function isKnownAiFollowup(row: any, sentMs: number): boolean {
@@ -410,7 +428,7 @@ async function processOne(admin: any, row: any) {
   }
 
   // 4. Cap at MAX_ATTEMPTS
-  if ((row.attempts || 0) >= MAX_ATTEMPTS) {
+  if (effectiveAttemptCount(row) >= MAX_ATTEMPTS) {
     await admin.from('tracked_emails').update({ status: 'no_response', last_checked_at: new Date().toISOString() }).eq('id', row.id);
     return { id: row.id, action: 'no_response' };
   }
@@ -434,11 +452,18 @@ async function processOne(admin: any, row: any) {
       return { id: row.id, action: 'still_queued' };
     }
     if (prefs.autoSend) {
+      const claimed = await claimForWork(admin, row);
+      if (!claimed) return { id: row.id, action: 'skipped_already_processing' };
+      row = claimed;
+      if (effectiveAttemptCount(row) >= MAX_ATTEMPTS) {
+        await admin.from('tracked_emails').update({ status: 'no_response', last_checked_at: now.toISOString() }).eq('id', row.id);
+        return { id: row.id, action: 'no_response' };
+      }
       const safe = await ensureDraftRecipient(admin, row, row.last_draft_id);
       if (!safe.ok) return { id: row.id, action: 'blocked_recipient_safety_check', err: safe.error };
       const send = await callGraph(userId, connId, 'mail', `/me/messages/${row.last_draft_id}/send`, { method: 'POST', body: '{}' });
       if (send.ok) {
-        const attempt = (row.attempts || 0) + 1;
+        const attempt = effectiveAttemptCount(row) + 1;
         const sentAtIso = now.toISOString();
         const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
         history.push({ attempt, drafted_at: sentAtIso, sent_at: sentAtIso, auto_sent: true, draft_id: row.last_draft_id });
@@ -460,7 +485,16 @@ async function processOne(admin: any, row: any) {
     return { id: row.id, action: 'released_to_drafted' };
   }
 
-  const attempt = (row.attempts || 0) + 1;
+  const claimed = await claimForWork(admin, row);
+  if (!claimed) return { id: row.id, action: 'skipped_already_processing' };
+  row = claimed;
+
+  if (effectiveAttemptCount(row) >= MAX_ATTEMPTS) {
+    await admin.from('tracked_emails').update({ status: 'no_response', last_checked_at: new Date().toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'no_response' };
+  }
+
+  const attempt = effectiveAttemptCount(row) + 1;
   const bodyHtml = await draftFollowupBody({
     subject: row.subject || '(no subject)',
     bodyPreview: row.body_preview || '',

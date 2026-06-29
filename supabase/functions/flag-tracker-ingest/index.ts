@@ -136,7 +136,10 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       follow_up_at,
     };
 
-    // Upsert on (user_id, internet_message_id). Only update follow_up_at/trigger if still pending.
+    // Upsert on (user_id, internet_message_id). Only update follow_up_at/trigger
+    // before the first AI follow-up is attempted. After attempt 1, the cron owns
+    // the 24-hour cadence; re-ingest must not reset the row back to the original
+    // Outlook flag due date or it will send again every scan.
     const { data: existing } = await admin
       .from('tracked_emails')
       .select('id, status, attempts')
@@ -158,7 +161,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     if (!existing) {
       const { error } = await admin.from('tracked_emails').insert({ ...row, attempts: 0, status: 'pending' });
       if (!error) upserted++;
-    } else if (existing.status === 'pending') {
+    } else if (existing.status === 'pending' && (existing.attempts || 0) === 0) {
       await admin.from('tracked_emails').update({
         follow_up_at: row.follow_up_at,
         trigger_type: row.trigger_type,
