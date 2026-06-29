@@ -66,6 +66,7 @@ export default function FlaggedEmailTrackerPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<TrackedEmail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [from, setFrom] = useState<string>(todayStr(-30));
   const [to, setTo] = useState<string>(todayStr(0));
   
@@ -75,18 +76,38 @@ export default function FlaggedEmailTrackerPage() {
 
 
   const load = useCallback(async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('tracked_emails' as any)
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('sent_at', new Date(from).toISOString())
-      .lte('sent_at', new Date(`${to}T23:59:59`).toISOString())
-      .order('sent_at', { ascending: false })
-      .limit(500);
-    if (error) { toast.error('Could not load tracked emails'); }
-    else { setRows((data as any) || []); }
-    setLoading(false);
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    setLoadError(null);
+    try {
+      const fromDate = new Date(`${from}T00:00:00`);
+      const toDate = new Date(`${to}T23:59:59`);
+      const safeFrom = Number.isNaN(fromDate.getTime()) ? todayStr(-30) : fromDate.toISOString();
+      const safeTo = Number.isNaN(toDate.getTime()) ? new Date(`${todayStr(0)}T23:59:59`).toISOString() : toDate.toISOString();
+
+      const { data, error } = await supabase
+        .from('tracked_emails' as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('sent_at', safeFrom)
+        .lte('sent_at', safeTo)
+        .order('sent_at', { ascending: false })
+        .limit(500);
+      if (error) {
+        setLoadError(error.message || 'Could not load tracked emails.');
+        toast.error('Could not load tracked emails');
+      } else {
+        setRows((data as any) || []);
+      }
+    } catch (error: any) {
+      setLoadError(error?.message || 'Could not load tracked emails.');
+      toast.error('Could not load tracked emails');
+    } finally {
+      setLoading(false);
+    }
   }, [user, from, to]);
 
   // Render cached rows immediately; run the Graph sweep in the background and
@@ -98,7 +119,7 @@ export default function FlaggedEmailTrackerPage() {
     setLoading(true);
     // 1) Immediate load from DB so the page is never blank.
     load();
-    // 2) Background ingest + reload.
+    // 2) Background ingest + reload. Never let a slow/failed function block rendering.
     const runIngest = async () => {
       try { await supabase.functions.invoke('flag-tracker-ingest', { body: {} }); } catch {/* silent */}
       if (!cancelled) await load();
@@ -269,6 +290,14 @@ export default function FlaggedEmailTrackerPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+            ) : loadError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-5 text-sm">
+                <div className="font-medium text-destructive flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Could not load tracker data
+                </div>
+                <p className="mt-1 text-muted-foreground">{loadError}</p>
+                <Button className="mt-3" variant="outline" size="sm" onClick={load}>Retry</Button>
+              </div>
             ) : rows.length === 0 ? (
               <div className="text-center py-12 text-sm text-muted-foreground">
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.

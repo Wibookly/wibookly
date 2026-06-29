@@ -106,9 +106,11 @@ const App = () => (
                     </FeatureRoute>
                   } />
                   <Route path="/flagged-email-tracker" element={
-                    <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
-                      <PageErrorBoundary label="FlaggedEmailTracker"><FlaggedEmailTracker /></PageErrorBoundary>
-                    </FeatureRoute>
+                    <PageErrorBoundary label="FlaggedEmailTracker">
+                      <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
+                        <FlaggedEmailTracker />
+                      </FeatureRoute>
+                    </PageErrorBoundary>
                   } />
                   <Route path="/flagged-email-settings" element={
                     <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
