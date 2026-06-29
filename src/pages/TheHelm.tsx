@@ -1206,6 +1206,21 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       }
       if (mode === 'send' || mode === 'schedule') {
         setSentIds((prev) => new Set(prev).add(active.id));
+        // Also prune from the cached helm-items result so every count tile,
+        // section and chip in The Helm reflects the new total immediately —
+        // before the background refetch finishes.
+        qc.setQueryData<any>(['helm-items'], (cur: any) => {
+          if (!cur) return cur;
+          const prune = (arr: any[] = []) => arr.filter((x) => x.id !== active.id);
+          return {
+            ...cur,
+            big3: prune(cur.big3),
+            decisions: prune(cur.decisions),
+            drafts: prune(cur.drafts),
+            overdue: prune(cur.overdue),
+            fyi: prune(cur.fyi),
+          };
+        });
       }
       qc.invalidateQueries({ queryKey: ['helm-items'] });
       // Auto-advance to next unsent (skip sent ones)
