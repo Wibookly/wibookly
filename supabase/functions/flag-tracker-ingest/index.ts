@@ -169,7 +169,51 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
-  return { ok: true, scanned: items.length, upserted, cancelled, skipped_pre_enable: skippedPreEnable };
+  // ─── Deletion sweep ──────────────────────────────────────────────────
+  // For every still-open tracker (pending/queued/drafted) whose source
+  // message wasn't returned by the recent Sent scan, verify it still
+  // exists in the mailbox. If Graph returns 404 (user deleted it from
+  // Sent / emptied Deleted Items), remove the tracker entirely so it
+  // stops showing in the report and never auto-sends a follow-up.
+  let removedDeleted = 0;
+  const seenIds = new Set(items.map((m: any) => m.id).filter(Boolean));
+  const { data: openRows } = await admin
+    .from('tracked_emails')
+    .select('id, graph_message_id')
+    .eq('user_id', userId)
+    .in('status', ['pending', 'queued', 'drafted'])
+    .not('graph_message_id', 'is', null);
+
+  for (const row of (openRows || []) as any[]) {
+    if (seenIds.has(row.graph_message_id)) continue;
+    const check = await callGraph<any>(
+      userId,
+      connectionId,
+      'mail',
+      `/me/messages/${row.graph_message_id}?$select=id`,
+    );
+    // Only act on definitive 404 (message gone). Transient errors are skipped.
+    const status = (check as any)?.status ?? (check as any)?.error?.status;
+    const errCode = String((check as any)?.error?.code || '').toLowerCase();
+    const isNotFound =
+      status === 404 ||
+      errCode === 'errorIteminotfound'.toLowerCase() ||
+      errCode === 'itemnotfound' ||
+      /not.?found/i.test(String((check as any)?.error?.message || ''));
+    if (!check.ok && isNotFound) {
+      await admin.from('tracked_emails').delete().eq('id', row.id);
+      removedDeleted++;
+    }
+  }
+
+  return {
+    ok: true,
+    scanned: items.length,
+    upserted,
+    cancelled,
+    removed_deleted: removedDeleted,
+    skipped_pre_enable: skippedPreEnable,
+  };
 }
 
 Deno.serve(async (req) => {
