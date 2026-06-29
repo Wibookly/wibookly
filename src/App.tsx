@@ -42,6 +42,7 @@ import OrgAdmin from "./pages/OrgAdmin";
 import Knowledge from "./pages/Knowledge";
 import Help from "./pages/Help";
 import UserGuide from "./pages/UserGuide";
+import { PageErrorBoundary } from "@/components/app/PageErrorBoundary";
 
 const queryClient = new QueryClient();
 
