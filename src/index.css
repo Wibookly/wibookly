@@ -383,7 +383,21 @@
 @media print {
   .print\:hidden { display: none !important; }
   body { background: white !important; color: black !important; }
+  /* Print page setup with running header + page numbers on every page */
+  @page {
+    size: A4 landscape;
+    margin: 14mm 12mm 16mm 12mm;
+    @top-left { content: string(reportTitle); font-family: 'Inter', sans-serif; font-size: 11pt; font-weight: 600; color: #14365C; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
+    @bottom-left { content: "InboxIQ"; font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
+  }
+  /* Any element with [data-print-title] sets the running page header. */
+  [data-print-title] { string-set: reportTitle attr(data-print-title); }
+  /* Keep table headers on every printed page. */
+  thead { display: table-header-group; }
+  tr, td, th { page-break-inside: avoid; }
 }
+
 
 /* ===== APP-WIDE PALETTES — data-palette on <html>, combine with .dark ===== */
 [data-palette="aurora"]{--primary:#2C6BEF;--primary-hover:#1F54C9;--primary-soft:#DCE6FF;--primary-softer:#ECF1FF;--accent:#A855F7;--bg:#EAF0FF;--bg-elev:#F0F4FF;--shadow-glow:0 12px 32px -8px rgba(44,107,239,.35);--grad-feature-soft:linear-gradient(135deg,#2C6BEF,#A855F7);--blob-2:rgba(44,107,239,.12)}
