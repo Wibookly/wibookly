@@ -96,11 +96,12 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, draft: item.ai_draft ?? "", already_sent: true });
   }
 
-  // Pull writing-style preference + signature fields (best-effort)
+  // Pull writing-style preference + signature fields (best-effort).
+  // `signature_enabled` is the user's master switch in /settings.
   const { data: prof } = await admin
     .from("user_ai_profiles")
     .select(
-      "communication_style, custom_context, role, full_name, title, email_signature, phone, mobile, website, company",
+      "communication_style, custom_context, role, full_name, title, email_signature, phone, mobile, website, company, signature_enabled",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -108,31 +109,39 @@ Deno.serve(async (req) => {
   const styleNotes = prof?.custom_context ?? "";
   const roleNote = prof?.role ? ` Role: ${prof.role}.` : "";
 
-  // Build a plain-text signature block.
-  // Prefer the user's saved email_signature; otherwise compose Best,\n<name>\n<title>\n<company>\n<phone>.
   const displayName =
     (prof?.full_name as string | undefined) ??
     (u.user.user_metadata?.full_name as string | undefined) ??
     userName;
-  let signatureBlock: string;
-  if (prof?.email_signature && String(prof.email_signature).trim()) {
-    // Strip HTML to plain text for the textarea draft.
-    signatureBlock = String(prof.email_signature)
-      .replace(/<br\s*\/?\s*>/gi, "\n")
-      .replace(/<\/(p|div|li|tr)>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\u00a0/g, " ")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  } else {
-    const lines: string[] = ["Best,", displayName];
-    if (prof?.title) lines.push(String(prof.title));
-    if (prof?.company) lines.push(String(prof.company));
-    if (prof?.phone) lines.push(String(prof.phone));
-    else if (prof?.mobile) lines.push(String(prof.mobile));
-    if (prof?.website) lines.push(String(prof.website));
-    signatureBlock = lines.join("\n");
+
+  // Build a plain-text signature block.
+  // 1) signature_enabled === false  -> no signature
+  // 2) signature_enabled !== false AND email_signature set -> use the saved one (stripped to text)
+  // 3) otherwise compose a rich block from profile fields (name / title / company / phone / mobile / website / email)
+  const sigOn = prof?.signature_enabled !== false; // default ON unless explicitly disabled
+  let signatureBlock = "";
+  if (sigOn) {
+    if (prof?.email_signature && String(prof.email_signature).trim()) {
+      signatureBlock = String(prof.email_signature)
+        .replace(/<br\s*\/?\s*>/gi, "\n")
+        .replace(/<\/(p|div|li|tr)>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\u00a0/g, " ")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    } else {
+      const lines: string[] = ["Best regards,", displayName];
+      if (prof?.title) lines.push(String(prof.title));
+      if (prof?.company) lines.push(String(prof.company));
+      const phones: string[] = [];
+      if (prof?.phone) phones.push(`Main: ${prof.phone}`);
+      if (prof?.mobile) phones.push(`Mobile: ${prof.mobile}`);
+      if (phones.length) lines.push(phones.join(" · "));
+      if (userEmail) lines.push(userEmail);
+      if (prof?.website) lines.push(String(prof.website));
+      signatureBlock = lines.join("\n");
+    }
   }
 
   // ----- Pull full Outlook thread so the LLM has real context -----
