@@ -653,10 +653,9 @@ function RecipientGroups({
                     <TableRow>
                       <TableHead>Subject</TableHead>
                       <TableHead>Recipient</TableHead>
-                      <TableHead>Original send</TableHead>
+                      <TableHead>User sent</TableHead>
                       <TableHead>Flag due</TableHead>
-                      <TableHead>AI sends</TableHead>
-                      <TableHead className="text-center">Sent</TableHead>
+                      <TableHead>Follow-up schedule</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
