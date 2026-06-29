@@ -564,6 +564,32 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const nowIso = new Date().toISOString();
+
+    // ── Stale-lock sweep ───────────────────────────────────────────────
+    // If a previous invocation crashed mid-processOne (LLM timeout, Graph
+    // hiccup, function shutdown), the row is left as status='processing' and
+    // every subsequent tick reports "skipped_already_processing". Anything
+    // claimed more than 5 minutes ago is considered stale → revert to pending
+    // so the next tick can retry. Without this, follow-ups silently stop.
+    const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    const { data: stale } = await admin
+      .from('tracked_emails')
+      .select('id, last_draft_id')
+      .eq('status', 'processing')
+      .lt('last_checked_at', staleCutoff);
+    if (stale && stale.length) {
+      for (const s of stale) {
+        // Restore to 'queued' if a draft was already created, else 'pending'.
+        const restored = s.last_draft_id ? 'queued' : 'pending';
+        await admin
+          .from('tracked_emails')
+          .update({ status: restored, last_error: 'recovered from stale processing lock' })
+          .eq('id', s.id)
+          .eq('status', 'processing');
+      }
+      console.log('flag-followup-cron: cleared stale locks', stale.length);
+    }
+
     const [pendingRes, queuedRes] = await Promise.all([
       admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
       // Check every queued item, even before its scheduled send time, so a
@@ -574,11 +600,27 @@ Deno.serve(async (req) => {
 
     const results: any[] = [];
     for (const row of (due || [])) {
+      const originalStatus = String(row.status || 'pending');
       try {
         const r = await processOne(admin, row);
         results.push(r);
       } catch (e: any) {
         console.error('processOne error', row.id, e);
+        // Release the lock so the next tick can retry instead of leaving the
+        // row stranded as 'processing'.
+        try {
+          await admin
+            .from('tracked_emails')
+            .update({
+              status: originalStatus,
+              last_error: `processOne crashed: ${String(e?.message ?? e).slice(0, 300)}`,
+              last_checked_at: new Date().toISOString(),
+            })
+            .eq('id', row.id)
+            .eq('status', 'processing');
+        } catch (releaseErr) {
+          console.error('failed to release lock', row.id, releaseErr);
+        }
         results.push({ id: row.id, action: 'error', err: String(e?.message ?? e) });
       }
     }
