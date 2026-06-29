@@ -42,6 +42,7 @@ import OrgAdmin from "./pages/OrgAdmin";
 import Knowledge from "./pages/Knowledge";
 import Help from "./pages/Help";
 import UserGuide from "./pages/UserGuide";
+import { PageErrorBoundary } from "@/components/app/PageErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -106,7 +107,7 @@ const App = () => (
                   } />
                   <Route path="/flagged-email-tracker" element={
                     <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
-                      <FlaggedEmailTracker />
+                      <PageErrorBoundary label="FlaggedEmailTracker"><FlaggedEmailTracker /></PageErrorBoundary>
                     </FeatureRoute>
                   } />
                   <Route path="/flagged-email-settings" element={
