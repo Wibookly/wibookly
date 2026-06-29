@@ -141,7 +141,21 @@ function rowStatusMeta(r: TrackedEmail): StatusMeta {
   return STATUS_META[r.status] || FALLBACK_STATUS_META;
 }
 
-function buildSendSchedule(r: TrackedEmail) {
+function plannedDateFromCurrent(r: TrackedEmail, targetAttempt: number, intervalsDays: number[]) {
+  const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
+  const base = dateValue(r.scheduled_send_at || r.follow_up_at);
+  if (!base || targetAttempt <= currentPendingAttempt) return base;
+
+  let ms = base.getTime();
+  const fallbackGap = cadenceMs(r);
+  for (let completedAttempt = currentPendingAttempt; completedAttempt < targetAttempt; completedAttempt += 1) {
+    const days = intervalsDays[completedAttempt - 1];
+    ms += Number.isFinite(days) && days > 0 ? days * 86400000 : fallbackGap;
+  }
+  return new Date(ms);
+}
+
+function buildSendSchedule(r: TrackedEmail, intervalsDays: number[] = []) {
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
   const byAttempt = new Map<number, HistEntry>();
   hist.forEach((h) => {
@@ -167,7 +181,7 @@ function buildSendSchedule(r: TrackedEmail) {
       return { attempt, label: `Send ${attempt}`, status: 'Scheduled', date: r.scheduled_send_at || r.follow_up_at };
     }
     if (attempt > currentPendingAttempt && !['completed', 'replied', 'cancelled', 'exhausted', 'no_response'].includes(r.status)) {
-      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: addMs(firstDue, gap * (attempt - 1)) };
+      return { attempt, label: `Send ${attempt}`, status: 'Planned', date: plannedDateFromCurrent(r, attempt, intervalsDays) || addMs(firstDue, gap * (attempt - 1)) };
     }
     return { attempt, label: `Send ${attempt}`, status: '—', date: null };
   });
@@ -202,6 +216,7 @@ export default function FlaggedEmailTrackerPage() {
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reminderIntervalsDays, setReminderIntervalsDays] = useState<number[]>([]);
 
 
   const load = useCallback(async () => {
@@ -240,6 +255,23 @@ export default function FlaggedEmailTrackerPage() {
       setLoading(false);
     }
   }, [user, from, to]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('follow_up_settings' as any)
+      .select('reminder_intervals_days')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const vals = Array.isArray((data as any)?.reminder_intervals_days)
+          ? (data as any).reminder_intervals_days.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0)
+          : [];
+        setReminderIntervalsDays(vals);
+      });
+  }, [user?.id]);
 
   // Render cached rows immediately; run the Graph sweep in the background and
   // refresh when it finishes. Avoids a long "Loading…" state when the Graph
@@ -284,12 +316,12 @@ export default function FlaggedEmailTrackerPage() {
       Sent: r.sent_at,
       'Flag Due': flagDue,
       'Follow-up Due': r.follow_up_at,
-      'AI Sends': buildSendSchedule(r).map((s) => `${s.label}: ${s.status} ${s.date ? fmtAny(s.date) : ''}`.trim()).join(' | '),
+      'AI Sends': buildSendSchedule(r, reminderIntervalsDays).map((s) => `${s.label}: ${s.status} ${s.date ? fmtAny(s.date) : ''}`.trim()).join(' | '),
       'Follow-ups Sent': `${r.attempts || 0}/3`,
       'Last AI Send': lastSent,
       Status: r.status,
     };
-  }), [rows]);
+  }), [rows, reminderIntervalsDays]);
 
   const emailReport = async () => {
     if (!user) return;
@@ -434,7 +466,7 @@ export default function FlaggedEmailTrackerPage() {
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} />
+              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -450,7 +482,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} />)}
+                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
@@ -462,7 +494,7 @@ export default function FlaggedEmailTrackerPage() {
   );
 }
 
-function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => void }) {
+function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail; onCancel: (id: string) => void; reminderIntervalsDays?: number[] }) {
   const meta = rowStatusMeta(r);
   const Icon = meta.icon;
   const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
@@ -471,7 +503,7 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
   const dueSoon = !!dueDate && dueDate.getTime() > Date.now() && dueDate.getTime() - Date.now() <= 60 * 60 * 1000;
   const dueUrgent = overdue || dueSoon;
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-  const sendSchedule = buildSendSchedule(r);
+  const sendSchedule = buildSendSchedule(r, reminderIntervalsDays);
   const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted' || r.status === 'draft_ready';
   return (
     <TableRow>
@@ -559,11 +591,13 @@ function RecipientGroups({
   expanded,
   setExpanded,
   onCancel,
+  reminderIntervalsDays,
 }: {
   rows: TrackedEmail[];
   expanded: Record<string, boolean>;
   setExpanded: (e: Record<string, boolean>) => void;
   onCancel: (id: string) => void;
+  reminderIntervalsDays?: number[];
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; name: string; email: string; items: TrackedEmail[] }>();
@@ -621,7 +655,7 @@ function RecipientGroups({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} />)}
+                    {g.items.map((r) => <EmailRow key={r.id} r={r} onCancel={onCancel} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
