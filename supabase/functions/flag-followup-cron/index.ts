@@ -26,6 +26,11 @@ function cadenceFor(row: any): number {
   if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
   return FOLLOWUP_GAP_DAYS * 86400000;
 }
+
+function nextFollowUpAfterSend(row: any, sentAtIso: string): string {
+  return new Date(new Date(sentAtIso).getTime() + cadenceFor(row)).toISOString();
+}
+
 const MAX_ATTEMPTS = 3;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 
@@ -287,12 +292,25 @@ async function processOne(admin: any, row: any) {
         return { id: row.id, action: 'completed_recipient_replied' };
       }
       if (sawOwnReply) {
-        // User already followed up themselves — don't double-send.
+        // User already followed up themselves — don't double-send, but don't
+        // label it "cancelled by you". Keep the tracker open and waiting for a
+        // recipient reply / next follow-up date.
+        const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
+        const lastSentAt = history.filter((h: any) => h?.sent_at).map((h: any) => String(h.sent_at)).pop();
+        const baseSentAt = lastSentAt || new Date().toISOString();
+        const nextAt = nextFollowUpAfterSend(row, baseSentAt);
         await admin
           .from('tracked_emails')
-          .update({ status: 'cancelled', last_error: 'user replied / followed up manually', last_checked_at: new Date().toISOString() })
+          .update({
+            status: 'pending',
+            follow_up_at: nextAt,
+            scheduled_send_at: null,
+            queued_reason: null,
+            last_error: 'user followed up manually — waiting for recipient reply',
+            last_checked_at: new Date().toISOString(),
+          })
           .eq('id', row.id);
-        return { id: row.id, action: 'cancelled_user_replied' };
+        return { id: row.id, action: 'manual_followup_detected_pending', next_follow_up_at: nextAt };
       }
     }
   }
@@ -305,8 +323,8 @@ async function processOne(admin: any, row: any) {
 
   // 4. Cap at MAX_ATTEMPTS
   if ((row.attempts || 0) >= MAX_ATTEMPTS) {
-    await admin.from('tracked_emails').update({ status: 'exhausted', last_checked_at: new Date().toISOString() }).eq('id', row.id);
-    return { id: row.id, action: 'exhausted' };
+    await admin.from('tracked_emails').update({ status: 'no_response', last_checked_at: new Date().toISOString() }).eq('id', row.id);
+    return { id: row.id, action: 'no_response' };
   }
 
   const now = new Date();
@@ -336,11 +354,11 @@ async function processOne(admin: any, row: any) {
         history.push({ attempt, drafted_at: sentAtIso, sent_at: sentAtIso, auto_sent: true, draft_id: row.last_draft_id });
         const reachedCap = attempt >= MAX_ATTEMPTS;
         await admin.from('tracked_emails').update({
-          status: reachedCap ? 'exhausted' : 'pending',
+          status: reachedCap ? 'no_response' : 'pending',
           attempts: attempt,
           scheduled_send_at: null,
           queued_reason: null,
-          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + cadenceFor(row)).toISOString(),
+          follow_up_at: reachedCap ? row.follow_up_at : nextFollowUpAfterSend(row, sentAtIso),
           last_checked_at: sentAtIso,
           follow_up_history: history,
         }).eq('id', row.id);
@@ -409,9 +427,9 @@ async function processOne(admin: any, row: any) {
   });
 
   const reachedCap = attempt >= MAX_ATTEMPTS;
-  const nextStatus = reachedCap ? 'exhausted' : (sentNow ? 'pending' : 'drafted');
+  const nextStatus = reachedCap ? 'no_response' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
-    ? new Date(Date.now() + cadenceFor(row)).toISOString()
+    ? nextFollowUpAfterSend(row, sentAtIso)
     : row.follow_up_at;
 
   await admin.from('tracked_emails').update({
