@@ -285,7 +285,7 @@ async function processOne(admin: any, row: any) {
           attempts: attempt,
           scheduled_send_at: null,
           queued_reason: null,
-          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + FOLLOWUP_GAP_DAYS * 86400000).toISOString(),
+          follow_up_at: reachedCap ? row.follow_up_at : new Date(Date.now() + cadenceFor(row)).toISOString(),
           last_checked_at: sentAtIso,
           follow_up_history: history,
         }).eq('id', row.id);
