@@ -147,15 +147,19 @@ export default function FlaggedEmailTrackerPage() {
     const prev = rows;
     // Remove from view immediately — user wants it out of the queue entirely.
     setRows(rs => rs.filter(r => r.id !== id));
-    const { error } = await supabase
-      .from('tracked_emails' as any)
-      .delete()
-      .eq('id', id);
-    if (error) {
+    // Edge function clears the Outlook flag AND deletes the tracker row so
+    // (a) it disappears from the report, (b) the AI follow-up queue stops,
+    // and (c) the flag in Outlook is removed so the next ingest won't re-add it.
+    const { data, error } = await supabase.functions.invoke('flag-tracker-cancel', {
+      body: { id },
+    });
+    if (error || (data && (data as any).error)) {
       setRows(prev);
       toast.error('Could not cancel — try again');
+    } else if ((data as any)?.flag_cleared === false && (data as any)?.flag_error) {
+      toast.success('Removed from queue — flag in Outlook could not be cleared automatically');
     } else {
-      toast.success('Removed from queue — no further follow-ups will be sent');
+      toast.success('Removed from queue and unflagged in Outlook');
     }
   }, [rows]);
 
