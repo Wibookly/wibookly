@@ -112,7 +112,7 @@ function addMs(value: unknown, ms: number): Date | null {
   return new Date(d.getTime() + ms);
 }
 
-function cadenceMs(r: TrackedEmail): number {
+function cadenceMs(_r: TrackedEmail): number {
   return 86400000;
 }
 

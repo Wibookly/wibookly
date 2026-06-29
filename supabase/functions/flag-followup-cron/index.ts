@@ -184,7 +184,7 @@ function nextWindowStart(from: Date, prefs: PrefsResult): Date {
   return new Date(from.getTime() + 24 * 3600_000);
 }
 
-function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, completedAttempt: number): string {
+function nextFollowUpAfterSend(row: any, _prefs: PrefsResult, sentAtIso: string, _completedAttempt: number): string {
   const baseMs = new Date(sentAtIso).getTime();
   return new Date(baseMs + cadenceFor(row)).toISOString();
 }
