@@ -145,16 +145,17 @@ export default function FlaggedEmailTrackerPage() {
 
   const cancelRow = useCallback(async (id: string) => {
     const prev = rows;
-    setRows(rs => rs.map(r => r.id === id ? { ...r, status: 'cancelled', scheduled_send_at: null } : r));
+    // Remove from view immediately — user wants it out of the queue entirely.
+    setRows(rs => rs.filter(r => r.id !== id));
     const { error } = await supabase
       .from('tracked_emails' as any)
-      .update({ status: 'cancelled', scheduled_send_at: null, queued_reason: 'user_cancelled' })
+      .delete()
       .eq('id', id);
     if (error) {
       setRows(prev);
       toast.error('Could not cancel — try again');
     } else {
-      toast.success('Follow-up cancelled');
+      toast.success('Removed from queue — no further follow-ups will be sent');
     }
   }, [rows]);
 
