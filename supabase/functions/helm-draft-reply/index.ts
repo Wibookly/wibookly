@@ -105,13 +105,32 @@ Deno.serve(async (req) => {
     )
     .eq("user_id", userId)
     .maybeSingle();
+  // Fallback name sources when user_ai_profiles.full_name is empty.
+  const prof2: any = await admin
+    .from("profiles")
+    .select("full_name, first_name, last_name")
+    .eq("id", userId)
+    .maybeSingle()
+    .then((r) => r.data, () => null);
+  const prof3: any = await admin
+    .from("user_profiles")
+    .select("full_name")
+    .eq("user_id", userId)
+    .maybeSingle()
+    .then((r) => r.data, () => null);
   const tone = prof?.communication_style ?? "professional, concise, warm";
   const styleNotes = prof?.custom_context ?? "";
   const roleNote = prof?.role ? ` Role: ${prof.role}.` : "";
 
+  const composedFromParts = prof2?.first_name
+    ? `${prof2.first_name}${prof2.last_name ? " " + prof2.last_name : ""}`
+    : "";
   const displayName =
-    (prof?.full_name as string | undefined) ??
-    (u.user.user_metadata?.full_name as string | undefined) ??
+    (prof?.full_name as string | undefined) ||
+    (prof2?.full_name as string | undefined) ||
+    (prof3?.full_name as string | undefined) ||
+    composedFromParts ||
+    (u.user.user_metadata?.full_name as string | undefined) ||
     userName;
 
   // Build a plain-text signature block.
