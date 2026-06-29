@@ -611,6 +611,7 @@ Deno.serve(async (req) => {
       const originalStatus = String(row.status || 'pending');
       try {
         const r = await processOne(admin, row);
+        console.log('flag-followup-cron: processed', row.id, JSON.stringify(r));
         results.push(r);
       } catch (e: any) {
         console.error('processOne error', row.id, e);
