@@ -300,20 +300,20 @@ export default function FlaggedEmailTrackerPage() {
   }, [rows]);
 
   const exportRows = useMemo(() => rows.map((r) => {
-    const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-    const lastSent = hist.filter(h => h.sent_at).map(h => h.sent_at).pop() || '';
     const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
+    const schedule = buildSendSchedule(r, reminderIntervalsDays)
+      .map((s) => `${s.label} — ${s.status}${s.date ? ` · ${fmtAny(s.date)}` : ''}`)
+      .join('\n');
+    const recipient = r.recipient_name
+      ? `${r.recipient_name} <${r.recipient_address || ''}>`
+      : (r.recipient_address || '');
     return {
-      Subject: r.subject || '',
-      'Recipient Name': r.recipient_name || '',
-      'Recipient Email': r.recipient_address || '',
-      Sent: r.sent_at,
-      'Flag Due': flagDue,
-      'Follow-up Due': r.follow_up_at,
-      'AI Sends': buildSendSchedule(r, reminderIntervalsDays).map((s) => `${s.label}: ${s.status} ${s.date ? fmtAny(s.date) : ''}`.trim()).join(' | '),
-      'Follow-ups Sent': `${r.attempts || 0}/3`,
-      'Last AI Send': lastSent,
-      Status: r.status,
+      'Subject': r.subject || '(no subject)',
+      'To (recipient)': recipient,
+      'User sent': fmt(r.sent_at),
+      'Flag due': fmtAny(flagDue || r.follow_up_at),
+      'Follow-up schedule': schedule || '—',
+      'Status': r.status,
     };
   }), [rows, reminderIntervalsDays]);
 
@@ -346,7 +346,7 @@ export default function FlaggedEmailTrackerPage() {
   }, [rows]);
 
   return (
-    <div className="page-shell">
+    <div className="page-shell" data-print-title="Flagged Email Tracker">
       <div className="page-shell-sticky print:hidden">
         <PageHero
           eyebrow="AI Intelligence"
@@ -411,6 +411,8 @@ export default function FlaggedEmailTrackerPage() {
               <ReportExportMenu
                 fileName={`flagged-email-report_${from}_to_${to}`}
                 sheetName="Flagged Emails"
+                title="Flagged Email Tracker"
+                subtitle={`Range: ${from} → ${to}`}
                 rows={exportRows}
                 onEmail={emailReport}
                 emailRecipientLabel={user?.email}
