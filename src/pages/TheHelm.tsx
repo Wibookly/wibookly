@@ -2354,10 +2354,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                   return (
                     <li key={p.id} className="text-xs border border-accent/40 rounded-md p-2 bg-background/50 space-y-1">
                       <p className="font-semibold text-foreground">{p.subject}</p>
-                      <p className="text-muted-foreground">
-                        {fmtTimeShort(p.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</span>
-                      </p>
-                      <p className="text-[11px] text-muted-foreground italic">{p.reason}</p>
+                      <div className="grid grid-cols-2 gap-2 my-1">
+                        <div className="rounded-md border border-border bg-muted/30 p-2">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Current</p>
+                          <p className="text-foreground font-medium">{fmtTimeShort(p.old_start)}</p>
+                        </div>
+                        <div className="rounded-md border border-primary/40 bg-primary/5 p-2">
+                          <p className="text-[10px] uppercase tracking-wide text-primary mb-0.5">AI proposed</p>
+                          <p className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</p>
+                        </div>
+                      </div>
                       <p className="text-[11px] text-muted-foreground">
                         {p.is_organizer ? 'You host this meeting.' : `Hosted by ${p.organizer.name || p.organizer.email}.`}
                       </p>
