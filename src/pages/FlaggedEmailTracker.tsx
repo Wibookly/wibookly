@@ -411,6 +411,8 @@ export default function FlaggedEmailTrackerPage() {
               <ReportExportMenu
                 fileName={`flagged-email-report_${from}_to_${to}`}
                 sheetName="Flagged Emails"
+                title="Flagged Email Tracker"
+                subtitle={`Range: ${from} → ${to}`}
                 rows={exportRows}
                 onEmail={emailReport}
                 emailRecipientLabel={user?.email}
