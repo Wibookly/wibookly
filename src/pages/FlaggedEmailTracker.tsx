@@ -84,6 +84,16 @@ function distanceAny(value: unknown) {
   try { return formatDistanceToNow(d, { addSuffix: true }); } catch { return '—'; }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Tracker data is taking too long to respond. Please retry.')), ms);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timer));
+  });
+}
+
 function todayStr(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -118,14 +128,16 @@ export default function FlaggedEmailTrackerPage() {
       const safeFrom = Number.isNaN(fromDate.getTime()) ? todayStr(-30) : fromDate.toISOString();
       const safeTo = Number.isNaN(toDate.getTime()) ? new Date(`${todayStr(0)}T23:59:59`).toISOString() : toDate.toISOString();
 
-      const { data, error } = await supabase
-        .from('tracked_emails' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('sent_at', safeFrom)
-        .lte('sent_at', safeTo)
-        .order('sent_at', { ascending: false })
-        .limit(500);
+      const { data, error } = await withTimeout(
+        supabase
+          .from('tracked_emails' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('sent_at', safeFrom)
+          .lte('sent_at', safeTo)
+          .order('sent_at', { ascending: false })
+          .limit(500),
+      );
       if (error) {
         setLoadError(error.message || 'Could not load tracked emails.');
         toast.error('Could not load tracked emails');
