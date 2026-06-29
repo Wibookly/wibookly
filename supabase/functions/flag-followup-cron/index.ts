@@ -228,19 +228,51 @@ async function processOne(admin: any, row: any) {
     const sentIso = new Date(row.sent_at).toISOString();
     const filter = encodeURIComponent(`conversationId eq '${row.conversation_id}' and receivedDateTime gt ${sentIso}`);
     const conv = await callGraph<any>(userId, connId, 'mail',
-      `/me/messages?$filter=${filter}&$select=id,from,subject,internetMessageHeaders&$top=20`);
+      `/me/messages?$filter=${filter}&$select=id,from,subject,internetMessageHeaders,sentDateTime,internetMessageId,parentFolderId&$top=20`);
     if (conv.ok) {
       const msgs: any[] = conv.data?.value || [];
       const { data: connRow } = await admin.from('provider_connections').select('connected_email').eq('id', connId).maybeSingle();
       const myEmail = String(connRow?.connected_email || '').toLowerCase();
+
+      // Fetch the original message's internetMessageId so we can ignore
+      // self-to-self deliveries that surface the same RFC message in the inbox.
+      let originalIMID = '';
+      if (row.graph_message_id) {
+        const orig = await callGraph<any>(userId, connId, 'mail',
+          `/me/messages/${row.graph_message_id}?$select=internetMessageId`);
+        originalIMID = String(orig.data?.internetMessageId || '').toLowerCase();
+      }
+
+      // Resolve Sent Items folder id once — only own messages that actually
+      // live in Sent Items count as a real manual follow-up.
+      let sentItemsId = '';
+      const sentFolder = await callGraph<any>(userId, connId, 'mail',
+        `/me/mailFolders/sentitems?$select=id`);
+      sentItemsId = String(sentFolder.data?.id || '');
+
+      const sentAtMs = new Date(row.sent_at).getTime();
       let sawThirdPartyReply = false;
       let sawOwnReply = false;
       for (const m of msgs) {
         const fromAddr = String(m.from?.emailAddress?.address || '').toLowerCase();
         if (!fromAddr) continue;
+        // Skip the original message itself (same Graph id, or same RFC message-id from a self-send copy).
+        if (m.id && row.graph_message_id && m.id === row.graph_message_id) continue;
+        const imid = String(m.internetMessageId || '').toLowerCase();
+        if (originalIMID && imid && imid === originalIMID) continue;
         const headers = parseGraphInternetHeaders(m.internetMessageHeaders);
         if (isAutoReply(headers, m.subject)) continue;
-        if (myEmail && fromAddr === myEmail) { sawOwnReply = true; continue; }
+        if (myEmail && fromAddr === myEmail) {
+          // Only treat as a manual follow-up if it's a NEW Sent Items message
+          // that was actually sent after the original. Otherwise it's just the
+          // inbox-side copy of a self-addressed email and must be ignored.
+          const sentMs = m.sentDateTime ? new Date(m.sentDateTime).getTime() : NaN;
+          const inSentFolder = sentItemsId && m.parentFolderId === sentItemsId;
+          if (inSentFolder && Number.isFinite(sentMs) && sentMs > sentAtMs + 60_000) {
+            sawOwnReply = true;
+          }
+          continue;
+        }
         sawThirdPartyReply = true;
         break;
       }
