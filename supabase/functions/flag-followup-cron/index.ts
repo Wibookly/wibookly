@@ -210,10 +210,18 @@ async function claimForWork(admin: any, row: any) {
     .update({ status: 'processing', last_checked_at: new Date().toISOString() })
     .eq('id', row.id)
     .eq('status', originalStatus)
-    .select('*')
-    .maybeSingle();
-  if (error || !data) return null;
-  return { ...data, status: originalStatus };
+    .select('*');
+  if (error) {
+    console.log('claimForWork error', row.id, error.message);
+    return null;
+  }
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  if (rows.length === 0) {
+    console.log('claimForWork no rows (race)', row.id, 'expected status', originalStatus);
+    return null;
+  }
+  console.log('claimForWork claimed', row.id, 'was', originalStatus);
+  return { ...rows[0], status: originalStatus };
 }
 
 function isKnownAiFollowup(row: any, sentMs: number): boolean {
