@@ -605,6 +605,64 @@ Deno.serve(async (req) => {
       console.log('flag-followup-cron: cleared stale locks', stale.length, stale.map((s) => s.id));
     }
 
+    // ── Out-of-window sweep ───────────────────────────────────────────
+    // When the user tightens their business-hours / business-days / timezone,
+    // any already-scheduled follow-up that now lands outside the allowed
+    // window must shift forward to the next allowed slot — both so the UI
+    // shows the correct upcoming time and so the cron picks it up only when
+    // the window actually opens. We sweep every pending/queued/drafted row
+    // here (not just due ones) and re-anchor `scheduled_send_at` /
+    // `follow_up_at` per the row owner's current preferences.
+    try {
+      const { data: upcoming } = await admin
+        .from('tracked_emails')
+        .select('id, user_id, status, scheduled_send_at, follow_up_at')
+        .in('status', ['pending', 'queued', 'drafted'])
+        .limit(500);
+      const byUser = new Map<string, any[]>();
+      for (const r of (upcoming || [])) {
+        if (!r.user_id) continue;
+        const arr = byUser.get(r.user_id) || [];
+        arr.push(r);
+        byUser.set(r.user_id, arr);
+      }
+      let shifted = 0;
+      for (const [uid, rows] of byUser) {
+        const prefs = await getPrefs(admin, uid);
+        if (!prefs.businessHoursOnly) continue;
+        for (const r of rows) {
+          const updates: Record<string, any> = {};
+          if (r.scheduled_send_at) {
+            const t = new Date(r.scheduled_send_at);
+            if (!isInWindow(t, prefs)) {
+              const next = nextWindowStart(t.getTime() > Date.now() ? t : new Date(), prefs);
+              if (next.getTime() !== t.getTime()) {
+                updates.scheduled_send_at = next.toISOString();
+                updates.queued_reason = 'outside_business_hours';
+                if (r.status === 'pending') updates.status = 'queued';
+              }
+            }
+          }
+          if (r.follow_up_at) {
+            const t = new Date(r.follow_up_at);
+            if (!isInWindow(t, prefs)) {
+              const next = nextWindowStart(t.getTime() > Date.now() ? t : new Date(), prefs);
+              if (next.getTime() !== t.getTime()) {
+                updates.follow_up_at = next.toISOString();
+              }
+            }
+          }
+          if (Object.keys(updates).length) {
+            await admin.from('tracked_emails').update(updates).eq('id', r.id);
+            shifted++;
+          }
+        }
+      }
+      console.log('flag-followup-cron: window sweep done; shifted', shifted, 'of', (upcoming || []).length);
+    } catch (e: any) {
+      console.error('flag-followup-cron: window sweep failed', e?.message || e);
+    }
+
     const [pendingRes, queuedRes] = await Promise.all([
       admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
       // Check every queued item, even before its scheduled send time, so a
