@@ -208,6 +208,34 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
+  // If any tracked email is already past its follow-up due time, kick the
+  // follow-up cron immediately so the AI drafts/sends without waiting for
+  // the next scheduled tick.
+  const nowIso = new Date().toISOString();
+  const { data: dueNow } = await admin
+    .from('tracked_emails')
+    .select('id')
+    .eq('user_id', userId)
+    .in('status', ['pending', 'queued'])
+    .lte('follow_up_at', nowIso)
+    .limit(1);
+  let kickedFollowup = false;
+  if ((dueNow || []).length > 0) {
+    try {
+      const supaUrl = Deno.env.get('SUPABASE_URL')!;
+      const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
+      // Fire-and-forget; don't await the body to avoid blocking the response.
+      fetch(`${supaUrl}/functions/v1/flag-followup-cron`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: anon, Authorization: `Bearer ${anon}` },
+        body: '{}',
+      }).catch((e) => console.error('kick flag-followup-cron failed', e));
+      kickedFollowup = true;
+    } catch (e) {
+      console.error('kick flag-followup-cron error', e);
+    }
+  }
+
   return {
     ok: true,
     scanned: items.length,
@@ -215,6 +243,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     cancelled,
     removed_deleted: removedDeleted,
     skipped_pre_enable: skippedPreEnable,
+    kicked_followup: kickedFollowup,
   };
 }
 
