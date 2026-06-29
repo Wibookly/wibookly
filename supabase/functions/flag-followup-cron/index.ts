@@ -38,10 +38,6 @@ function cadenceFor(row: any): number {
   return FOLLOWUP_GAP_DAYS * 86400000;
 }
 
-function nextFollowUpAfterSend(row: any, sentAtIso: string): string {
-  return new Date(new Date(sentAtIso).getTime() + cadenceFor(row)).toISOString();
-}
-
 const MAX_ATTEMPTS = 3;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 
@@ -321,7 +317,7 @@ async function processOne(admin: any, row: any) {
         const history = Array.isArray(row.follow_up_history) ? row.follow_up_history : [];
         const lastSentAt = history.filter((h: any) => h?.sent_at).map((h: any) => String(h.sent_at)).pop();
         const baseSentAt = lastSentAt || new Date().toISOString();
-        const nextAt = nextFollowUpAfterSend(row, baseSentAt);
+        const nextAt = nextFollowUpAfterSend(row, prefs, baseSentAt, Math.max(row.attempts || 0, 1));
         await admin
           .from('tracked_emails')
           .update({
@@ -381,7 +377,7 @@ async function processOne(admin: any, row: any) {
           attempts: attempt,
           scheduled_send_at: null,
           queued_reason: null,
-          follow_up_at: reachedCap ? row.follow_up_at : nextFollowUpAfterSend(row, sentAtIso),
+          follow_up_at: reachedCap ? row.follow_up_at : nextFollowUpAfterSend(row, prefs, sentAtIso, attempt),
           last_checked_at: sentAtIso,
           follow_up_history: history,
         }).eq('id', row.id);
@@ -452,7 +448,7 @@ async function processOne(admin: any, row: any) {
   const reachedCap = attempt >= MAX_ATTEMPTS;
   const nextStatus = reachedCap ? 'no_response' : (sentNow ? 'pending' : 'drafted');
   const nextFollowUpAt = !reachedCap
-    ? nextFollowUpAfterSend(row, sentAtIso)
+    ? nextFollowUpAfterSend(row, prefs, sentAtIso, attempt)
     : row.follow_up_at;
 
   await admin.from('tracked_emails').update({
