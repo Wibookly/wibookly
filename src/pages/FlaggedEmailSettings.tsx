@@ -280,7 +280,17 @@ export function FlaggedEmailSettingsBody() {
     next.autoReply = next.autoSend;
     if (!next.enabled) { next.autoReply = false; next.autoSend = false; }
     setPrefs(next);
-    persist(next).then(() => toast.success('Preferences saved'));
+    const scheduleChanged = ['businessHoursOnly','businessHoursStart','businessHoursEnd','businessDays','timezone']
+      .some((k) => k in patch);
+    persist(next).then(async () => {
+      toast.success('Preferences saved');
+      if (scheduleChanged) {
+        const { data, error } = await supabase.functions.invoke('flag-reschedule-queue', { body: {} });
+        if (!error && (data as any)?.rescheduled > 0) {
+          toast.success(`Re-queued ${(data as any).rescheduled} follow-up${(data as any).rescheduled === 1 ? '' : 's'} for the next allowed window`);
+        }
+      }
+    });
   };
 
   const updateTone = (patch: Partial<Tone>) => {
