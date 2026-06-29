@@ -45,21 +45,32 @@ Deno.serve(async (req) => {
       ).length || 0,
     };
 
-    const reportRows = (rows || []).map((r: any) => {
-      const history = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
-      const lastSent = history.filter((h: any) => h.sent_at).pop();
-      return {
-        subject: r.subject || '(no subject)',
-        recipient_name: r.recipient_name || '',
-        recipient_address: r.recipient_address || '',
-        sent_at: r.sent_at,
-        flag_due: r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at,
-        follow_up_due: r.follow_up_at,
-        attempts: r.attempts || 0,
-        status: r.status,
-        last_sent_at: lastSent?.sent_at || null,
-      };
-    });
+    const buildSchedule = (r: any) => {
+      const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
+      const out: { label: string; status: string; date: string | null }[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const h = hist[i - 1];
+        if (h?.sent_at) out.push({ label: `Follow-up ${i}`, status: 'Sent', date: h.sent_at });
+        else if (i === (r.attempts || 0) + 1 && r.status === 'pending') {
+          out.push({ label: `Follow-up ${i}`, status: 'Scheduled', date: r.follow_up_at });
+        } else if (i <= (r.attempts || 0)) {
+          out.push({ label: `Follow-up ${i}`, status: 'Sent', date: h?.sent_at || null });
+        } else {
+          out.push({ label: `Follow-up ${i}`, status: 'Pending', date: null });
+        }
+      }
+      return out;
+    };
+
+    const reportRows = (rows || []).map((r: any) => ({
+      subject: r.subject || '(no subject)',
+      recipient_name: r.recipient_name || '',
+      recipient_address: r.recipient_address || '',
+      sent_at: r.sent_at,
+      flag_due: r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at,
+      follow_up_schedule: buildSchedule(r),
+      status: r.status,
+    }));
 
     const recipientEmail = recipient_override || user.email;
     if (!recipientEmail) return json({ error: 'no_recipient' }, 400);
