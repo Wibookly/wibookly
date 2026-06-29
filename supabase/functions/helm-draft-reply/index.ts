@@ -96,11 +96,12 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, draft: item.ai_draft ?? "", already_sent: true });
   }
 
-  // Pull writing-style preference + signature fields (best-effort)
+  // Pull writing-style preference + signature fields (best-effort).
+  // `signature_enabled` is the user's master switch in /settings.
   const { data: prof } = await admin
     .from("user_ai_profiles")
     .select(
-      "communication_style, custom_context, role, full_name, title, email_signature, phone, mobile, website, company",
+      "communication_style, custom_context, role, full_name, title, email_signature, phone, mobile, website, company, signature_enabled",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -108,31 +109,39 @@ Deno.serve(async (req) => {
   const styleNotes = prof?.custom_context ?? "";
   const roleNote = prof?.role ? ` Role: ${prof.role}.` : "";
 
-  // Build a plain-text signature block.
-  // Prefer the user's saved email_signature; otherwise compose Best,\n<name>\n<title>\n<company>\n<phone>.
   const displayName =
     (prof?.full_name as string | undefined) ??
     (u.user.user_metadata?.full_name as string | undefined) ??
     userName;
-  let signatureBlock: string;
-  if (prof?.email_signature && String(prof.email_signature).trim()) {
-    // Strip HTML to plain text for the textarea draft.
-    signatureBlock = String(prof.email_signature)
-      .replace(/<br\s*\/?\s*>/gi, "\n")
-      .replace(/<\/(p|div|li|tr)>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\u00a0/g, " ")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  } else {
-    const lines: string[] = ["Best,", displayName];
-    if (prof?.title) lines.push(String(prof.title));
-    if (prof?.company) lines.push(String(prof.company));
-    if (prof?.phone) lines.push(String(prof.phone));
-    else if (prof?.mobile) lines.push(String(prof.mobile));
-    if (prof?.website) lines.push(String(prof.website));
-    signatureBlock = lines.join("\n");
+
+  // Build a plain-text signature block.
+  // 1) signature_enabled === false  -> no signature
+  // 2) signature_enabled !== false AND email_signature set -> use the saved one (stripped to text)
+  // 3) otherwise compose a rich block from profile fields (name / title / company / phone / mobile / website / email)
+  const sigOn = prof?.signature_enabled !== false; // default ON unless explicitly disabled
+  let signatureBlock = "";
+  if (sigOn) {
+    if (prof?.email_signature && String(prof.email_signature).trim()) {
+      signatureBlock = String(prof.email_signature)
+        .replace(/<br\s*\/?\s*>/gi, "\n")
+        .replace(/<\/(p|div|li|tr)>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\u00a0/g, " ")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    } else {
+      const lines: string[] = ["Best regards,", displayName];
+      if (prof?.title) lines.push(String(prof.title));
+      if (prof?.company) lines.push(String(prof.company));
+      const phones: string[] = [];
+      if (prof?.phone) phones.push(`Main: ${prof.phone}`);
+      if (prof?.mobile) phones.push(`Mobile: ${prof.mobile}`);
+      if (phones.length) lines.push(phones.join(" · "));
+      if (userEmail) lines.push(userEmail);
+      if (prof?.website) lines.push(String(prof.website));
+      signatureBlock = lines.join("\n");
+    }
   }
 
   // ----- Pull full Outlook thread so the LLM has real context -----
@@ -209,13 +218,27 @@ Deno.serve(async (req) => {
     return t.trim();
   }
 
+  // Per-chip directives so tone reshapes produce a visibly different draft.
+  function toneDirective(instr: string): string {
+    const k = instr.trim().toLowerCase();
+    if (k === "shorter") return "Cut the draft to AT MOST 2 short sentences. Remove every non-essential clause, hedging word, and adjective. The new draft MUST be visibly shorter than the current draft.";
+    if (k === "more formal") return "Rewrite in a formal, executive register. Use complete sentences, no contractions, no exclamation marks, no casual phrases ('thanks!', 'happy to', 'cool'). Open with a direct statement of intent. The new draft MUST sound noticeably more formal than the current draft.";
+    if (k === "warmer") return "Rewrite with a warmer, more personable tone. Add a brief human acknowledgement (one sentence), keep professionalism, prefer 'happy to', 'glad to', 'appreciate'. The new draft MUST feel noticeably warmer than the current draft.";
+    if (k === "more firm") return "Rewrite with a firm, decisive executive tone. State the position or decision in the first sentence with no hedging. Remove 'maybe', 'I think', 'perhaps', 'just', 'sort of'. Use direct verbs.";
+    if (k === "bullet points") return "Restructure the reply as 3–5 concise bullet points using '-' markers, preceded by ONE short lead-in sentence. Each bullet ≤ 12 words. Do NOT return a paragraph.";
+    return `Apply this instruction precisely: ${instr}`;
+  }
+
   async function tryDraft(): Promise<string> {
-    if (body.instruction && body.base_draft) {
+    if (body.instruction) {
+      const directive = toneDirective(body.instruction);
       const sys =
-        `You revise email replies. Apply the user's instruction to the CURRENT DRAFT. ` +
-        `Preserve meaning and any names. Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature.`;
+        `You revise email replies. You MUST produce a draft that is materially different from the current one when an instruction is given — never echo it back. ` +
+        `Preserve meaning, facts, names, dates and numbers from the current draft. ` +
+        `Output ONLY the new reply body — no greeting line, no subject line, no preamble, no quotes, no signature, no commentary.`;
       const usr =
-        `INSTRUCTION:\n${body.instruction}\n\nCURRENT DRAFT:\n${stripFrame(body.base_draft)}\n\n` +
+        `INSTRUCTION (must be applied): ${directive}\n\n` +
+        `CURRENT DRAFT (rewrite this):\n${stripFrame(body.base_draft ?? "")}\n\n` +
         (threadTranscript ? `THREAD CONTEXT (for reference only, do not quote):\n${threadTranscript.slice(0, 5000)}` : "");
       return await callLLM(userId, sys, usr);
     }
@@ -257,7 +280,10 @@ Deno.serve(async (req) => {
     draftMiddle = "Thanks for the note — I'll review the thread and follow up shortly.";
   }
 
-  const fullBody = `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`;
+  const fullBody = signatureBlock
+    ? `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`
+    : `${greeting}\n\n${draftMiddle}`;
+
 
 
   await admin

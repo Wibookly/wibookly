@@ -728,7 +728,32 @@ function BriefView({
               <p className="text-[11px] text-muted-foreground mt-1">filed, drafted or auto-replied overnight</p>
             </div>
           </div>
+
+          {/* Executive breakdown — where every item went. Click to jump. */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {[
+              { key: 'big3', label: 'Big 3', count: big3.length, accent: true, onClick: () => go('inbox', undefined, 'big3') },
+              { key: 'decisions', label: 'Decisions', count: decisions.length, accent: true, onClick: () => go('inbox', undefined, 'decisions') },
+              { key: 'overdue', label: 'Overdue', count: overdue.length, accent: true, onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), onClick: () => go('inbox', undefined, 'drafts') },
+              { key: 'auto', label: 'Auto-handled', count: autoActions.length, onClick: () => document.getElementById('auto')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'fyi', label: 'FYI', count: fyi.length, onClick: () => document.querySelector('[data-helm-section="fyi"]')?.scrollIntoView({ behavior: 'smooth' }) },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={t.onClick}
+                className={cn(
+                  'rounded-lg border px-3 py-2.5 text-left transition-all hover:border-primary hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  t.accent ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-muted/10',
+                )}
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold">{t.label}</p>
+                <p className={cn('text-2xl font-extrabold tabular-nums leading-tight mt-0.5', t.accent ? 'text-primary' : 'text-foreground')}>{t.count}</p>
+              </button>
+            ))}
+          </div>
         </section>
+
 
 
         {/* Big 3 — opens the inbox-style reader scoped to today's priorities */}
@@ -1050,7 +1075,7 @@ function BriefView({
 function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
   const { data, isLoading, error, refetch } = useHelmData();
-  const drafts =
+  const allDrafts =
     scope === 'big3' ? (data?.big3 ?? []) :
     scope === 'decisions' ? (data?.decisions ?? []) :
     (data?.drafts ?? []);
@@ -1077,8 +1102,11 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   const [scheduleDate, setScheduleDate] = useState<string>(''); // yyyy-MM-dd
   const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:mm
 
-  // Auto-select first draft
-  const effectiveId = activeId ?? drafts[0]?.id ?? null;
+  // Sent items disappear from the list and from all counts immediately.
+  const drafts = allDrafts.filter((d) => !sentIds.has(d.id));
+
+  // Auto-select first unsent draft
+  const effectiveId = activeId && drafts.some((d) => d.id === activeId) ? activeId : (drafts[0]?.id ?? null);
   const active = drafts.find((d) => d.id === effectiveId) ?? null;
 
   // Load original + ensure a draft exists when active item changes
