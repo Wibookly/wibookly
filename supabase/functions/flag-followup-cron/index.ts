@@ -15,13 +15,24 @@ const json = (b: unknown, s = 200) =>
 
 const FOLLOWUP_GAP_DAYS = Number(Deno.env.get('FOLLOWUP_GAP_DAYS') || '3');
 
+function graphDateMs(value: any): number {
+  if (!value) return NaN;
+  if (typeof value === 'object' && value.dateTime) {
+    const raw = String(value.dateTime).replace(/(\.\d{3})\d+$/, '$1');
+    const tz = String(value.timeZone || 'UTC');
+    const d = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : /^utc$/i.test(tz) ? `${raw}Z` : `${raw}Z`);
+    return d.getTime();
+  }
+  return new Date(value).getTime();
+}
+
 // Cadence = the original gap between when the user sent the email and the flag
 // due date they chose. Subsequent follow-ups repeat at that same interval.
 // Fallback to FOLLOWUP_GAP_DAYS if we can't compute one (or the gap is tiny).
 function cadenceFor(row: any): number {
   const flagDueIso = row?.trigger_detail?.dueDateTime || null;
   const sentMs = row?.sent_at ? new Date(row.sent_at).getTime() : NaN;
-  const dueMs = flagDueIso ? new Date(flagDueIso).getTime() : NaN;
+  const dueMs = graphDateMs(flagDueIso);
   const gap = (Number.isFinite(sentMs) && Number.isFinite(dueMs)) ? (dueMs - sentMs) : NaN;
   if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
   return FOLLOWUP_GAP_DAYS * 86400000;
