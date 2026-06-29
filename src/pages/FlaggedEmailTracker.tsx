@@ -398,6 +398,8 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
   const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
   const dueDate = dateValue(flagDue || r.follow_up_at);
   const overdue = r.status === 'pending' && !!dueDate && dueDate.getTime() < Date.now();
+  const dueSoon = !!dueDate && dueDate.getTime() > Date.now() && dueDate.getTime() - Date.now() <= 60 * 60 * 1000;
+  const dueUrgent = overdue || dueSoon;
   const hist = Array.isArray(r.follow_up_history) ? r.follow_up_history : [];
   const canCancel = r.status === 'pending' || r.status === 'queued' || r.status === 'drafted' || r.status === 'draft_ready';
   return (
@@ -419,8 +421,8 @@ function EmailRow({ r, onCancel }: { r: TrackedEmail; onCancel: (id: string) => 
       </TableCell>
       <TableCell className="text-xs whitespace-nowrap">{fmt(r.sent_at)}</TableCell>
       <TableCell className="text-xs whitespace-nowrap">
-        <div>{fmtAny(flagDue || r.follow_up_at)}</div>
-        <div className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+        <div className={dueUrgent ? 'text-red-600 font-medium' : ''}>{fmtAny(flagDue || r.follow_up_at)}</div>
+        <div className={`text-[10px] ${dueUrgent ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
           {distanceAny(flagDue || r.follow_up_at)}
         </div>
       </TableCell>
