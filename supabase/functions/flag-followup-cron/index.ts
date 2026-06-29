@@ -112,6 +112,7 @@ interface PrefsResult {
   autoSend: boolean;
   tone?: any;
   enabledAt?: string | null;
+  reminderIntervalsDays?: number[];
   businessHoursOnly?: boolean;
   bhStart?: number;
   bhEnd?: number;
@@ -123,7 +124,7 @@ interface PrefsResult {
 async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
   const { data: rows, error } = await admin
     .from('follow_up_settings')
-    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
+    .select('auto_draft_enabled, auto_reply_enabled, tone_settings, is_enabled, updated_at, created_at, enabled_at, reminder_intervals_days, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
@@ -140,6 +141,7 @@ async function getPrefs(admin: any, userId: string): Promise<PrefsResult> {
     autoSend: !!data.auto_reply_enabled,
     tone: data.tone_settings || null,
     enabledAt: data.enabled_at || null,
+    reminderIntervalsDays: Array.isArray(data.reminder_intervals_days) ? data.reminder_intervals_days.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0) : [],
     businessHoursOnly: !!data.business_hours_only,
     bhStart: typeof data.business_hours_start === 'number' ? data.business_hours_start : 8,
     bhEnd: typeof data.business_hours_end === 'number' ? data.business_hours_end : 17,
@@ -189,6 +191,16 @@ function nextWindowStart(from: Date, prefs: PrefsResult): Date {
     cur = new Date(cur.getTime() + 30 * 60_000);
   }
   return new Date(from.getTime() + 24 * 3600_000);
+}
+
+function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, completedAttempt: number): string {
+  const intervals = prefs.reminderIntervalsDays || [];
+  const intervalDays = intervals[Math.max(0, completedAttempt - 1)];
+  const baseMs = new Date(sentAtIso).getTime();
+  if (Number.isFinite(baseMs) && Number.isFinite(intervalDays) && intervalDays > 0) {
+    return new Date(baseMs + intervalDays * 86400000).toISOString();
+  }
+  return new Date(baseMs + cadenceFor(row)).toISOString();
 }
 
 async function processOne(admin: any, row: any) {
