@@ -275,8 +275,7 @@ export default function FlaggedEmailTrackerPage() {
                       <TableHead>Subject</TableHead>
                       <TableHead>To (recipient)</TableHead>
                       <TableHead>Sent</TableHead>
-                      <TableHead>Flag / Due</TableHead>
-                      <TableHead>Follow-up due</TableHead>
+                      <TableHead>Flag due</TableHead>
                       <TableHead>Next send</TableHead>
                       <TableHead className="text-center">Follow-ups (max 3)</TableHead>
                       <TableHead>Status</TableHead>
