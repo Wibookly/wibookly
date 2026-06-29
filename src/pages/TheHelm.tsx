@@ -2364,6 +2364,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                           <p className="text-foreground font-medium">{fmtTimeShort(p.new_start)}</p>
                         </div>
                       </div>
+                      <p className="text-[11px] text-muted-foreground italic">{p.reason}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {p.is_organizer ? 'You host this meeting.' : `Hosted by ${p.organizer.name || p.organizer.email}.`}
                       </p>
