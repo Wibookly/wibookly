@@ -113,13 +113,7 @@ function addMs(value: unknown, ms: number): Date | null {
 }
 
 function cadenceMs(r: TrackedEmail): number {
-  const sent = dateValue(r.sent_at);
-  const firstDue = dateValue(r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at);
-  if (sent && firstDue) {
-    const gap = firstDue.getTime() - sent.getTime();
-    if (Number.isFinite(gap) && gap >= 60 * 60 * 1000) return gap;
-  }
-  return 3 * 86400000;
+  return 86400000;
 }
 
 function scheduleUrgent(value: unknown) {
@@ -141,7 +135,7 @@ function rowStatusMeta(r: TrackedEmail): StatusMeta {
   return STATUS_META[r.status] || FALLBACK_STATUS_META;
 }
 
-function plannedDateFromCurrent(r: TrackedEmail, targetAttempt: number, intervalsDays: number[]) {
+function plannedDateFromCurrent(r: TrackedEmail, targetAttempt: number, _intervalsDays: number[]) {
   const currentPendingAttempt = Math.min((r.attempts || 0) + 1, 3);
   const base = dateValue(r.scheduled_send_at || r.follow_up_at);
   if (!base || targetAttempt <= currentPendingAttempt) return base;
@@ -149,8 +143,7 @@ function plannedDateFromCurrent(r: TrackedEmail, targetAttempt: number, interval
   let ms = base.getTime();
   const fallbackGap = cadenceMs(r);
   for (let completedAttempt = currentPendingAttempt; completedAttempt < targetAttempt; completedAttempt += 1) {
-    const days = intervalsDays[completedAttempt - 1];
-    ms += Number.isFinite(days) && days > 0 ? days * 86400000 : fallbackGap;
+    ms += fallbackGap;
   }
   return new Date(ms);
 }

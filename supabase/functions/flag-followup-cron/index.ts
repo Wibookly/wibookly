@@ -185,12 +185,7 @@ function nextWindowStart(from: Date, prefs: PrefsResult): Date {
 }
 
 function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, completedAttempt: number): string {
-  const intervals = prefs.reminderIntervalsDays || [];
-  const intervalDays = intervals[Math.max(0, completedAttempt - 1)];
   const baseMs = new Date(sentAtIso).getTime();
-  if (Number.isFinite(baseMs) && Number.isFinite(intervalDays) && intervalDays > 0) {
-    return new Date(baseMs + intervalDays * 86400000).toISOString();
-  }
   return new Date(baseMs + cadenceFor(row)).toISOString();
 }
 
