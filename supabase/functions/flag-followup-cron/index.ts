@@ -71,6 +71,8 @@ Original preview: ${opts.bodyPreview}
 Recipient: ${opts.recipientName || 'them'}
 Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' — soften to a graceful final note; offer to close it out if now isn\'t the right time.' : ''}`;
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 25_000);
     const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LOVABLE_API_KEY}` },
@@ -78,7 +80,9 @@ Attempt: ${opts.attempt} of ${MAX_ATTEMPTS}${opts.attempt === MAX_ATTEMPTS ? ' �
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }],
       }),
+      signal: ctrl.signal,
     });
+    clearTimeout(t);
     const j = await r.json();
     let txt: string = j?.choices?.[0]?.message?.content || '';
     // LLMs sometimes wrap HTML in ```html ... ``` fences — strip them so the
@@ -206,10 +210,18 @@ async function claimForWork(admin: any, row: any) {
     .update({ status: 'processing', last_checked_at: new Date().toISOString() })
     .eq('id', row.id)
     .eq('status', originalStatus)
-    .select('*')
-    .maybeSingle();
-  if (error || !data) return null;
-  return { ...data, status: originalStatus };
+    .select('*');
+  if (error) {
+    console.log('claimForWork error', row.id, error.message);
+    return null;
+  }
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  if (rows.length === 0) {
+    console.log('claimForWork no rows (race)', row.id, 'expected status', originalStatus);
+    return null;
+  }
+  console.log('claimForWork claimed', row.id, 'was', originalStatus);
+  return { ...rows[0], status: originalStatus };
 }
 
 function isKnownAiFollowup(row: any, sentMs: number): boolean {
@@ -564,6 +576,35 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const nowIso = new Date().toISOString();
+
+    // ── Stale-lock sweep ───────────────────────────────────────────────
+    // If a previous invocation crashed mid-processOne (LLM timeout, Graph
+    // hiccup, function shutdown), the row is left as status='processing' and
+    // every subsequent tick reports "skipped_already_processing". Anything
+    // claimed more than 5 minutes ago is considered stale → revert to pending
+    // so the next tick can retry. Without this, follow-ups silently stop.
+    // Anything claimed more than 90 seconds ago is considered stale → revert.
+    // Edge functions cap at ~150s execution, and a healthy processOne should
+    // finish in well under a minute. 90s is enough headroom to avoid races
+    // while ensuring crashed runs are recovered before the next 5-min tick.
+    const staleCutoff = new Date(Date.now() - 90_000).toISOString();
+    const { data: stale } = await admin
+      .from('tracked_emails')
+      .select('id, last_draft_id, last_checked_at')
+      .eq('status', 'processing')
+      .or(`last_checked_at.lt.${staleCutoff},last_checked_at.is.null`);
+    if (stale && stale.length) {
+      for (const s of stale) {
+        const restored = s.last_draft_id ? 'queued' : 'pending';
+        await admin
+          .from('tracked_emails')
+          .update({ status: restored, last_error: 'recovered from stale processing lock' })
+          .eq('id', s.id)
+          .eq('status', 'processing');
+      }
+      console.log('flag-followup-cron: cleared stale locks', stale.length, stale.map((s) => s.id));
+    }
+
     const [pendingRes, queuedRes] = await Promise.all([
       admin.from('tracked_emails').select('*').eq('status', 'pending').lte('follow_up_at', nowIso).limit(50),
       // Check every queued item, even before its scheduled send time, so a
@@ -571,14 +612,32 @@ Deno.serve(async (req) => {
       admin.from('tracked_emails').select('*').eq('status', 'queued').order('scheduled_send_at', { ascending: true }).limit(50),
     ]);
     const due = [...(pendingRes.data || []), ...(queuedRes.data || [])];
+    console.log('flag-followup-cron: due rows', due.length, due.map((r: any) => ({ id: r.id, status: r.status, follow_up_at: r.follow_up_at })));
 
     const results: any[] = [];
     for (const row of (due || [])) {
+      const originalStatus = String(row.status || 'pending');
       try {
         const r = await processOne(admin, row);
+        console.log('flag-followup-cron: processed', row.id, JSON.stringify(r));
         results.push(r);
       } catch (e: any) {
         console.error('processOne error', row.id, e);
+        // Release the lock so the next tick can retry instead of leaving the
+        // row stranded as 'processing'.
+        try {
+          await admin
+            .from('tracked_emails')
+            .update({
+              status: originalStatus,
+              last_error: `processOne crashed: ${String(e?.message ?? e).slice(0, 300)}`,
+              last_checked_at: new Date().toISOString(),
+            })
+            .eq('id', row.id)
+            .eq('status', 'processing');
+        } catch (releaseErr) {
+          console.error('failed to release lock', row.id, releaseErr);
+        }
         results.push({ id: row.id, action: 'error', err: String(e?.message ?? e) });
       }
     }

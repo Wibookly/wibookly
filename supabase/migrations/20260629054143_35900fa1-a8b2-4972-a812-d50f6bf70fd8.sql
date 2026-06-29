@@ -1,0 +1,1 @@
+UPDATE public.tracked_emails SET status='pending', last_error='manual reset — stale processing lock' WHERE status='processing';
