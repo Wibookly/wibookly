@@ -346,7 +346,7 @@ export default function FlaggedEmailTrackerPage() {
   }, [rows]);
 
   return (
-    <div className="page-shell">
+    <div className="page-shell" data-print-title="Flagged Email Tracker">
       <div className="page-shell-sticky print:hidden">
         <PageHero
           eyebrow="AI Intelligence"
