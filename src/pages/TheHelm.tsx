@@ -728,21 +728,39 @@ function PillarBlock({
 function LedgerRow({ item, variant, expanded, onToggle }: {
   item: HelmItem; variant?: 'warning'; expanded: boolean; onToggle: () => void;
 }) {
+  const replied = (item as any)?.payload?.recipientReplied === true || (item as any)?.status === 'replied';
   return (
     <button
       onClick={onToggle}
       className={cn(
-        'w-full text-left rounded-lg border bg-card p-4 transition-all hover:border-primary/50 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        variant === 'warning' ? 'border-destructive/30 bg-destructive/5' : 'border-border/60',
-        expanded && 'border-primary/50 shadow-sm',
+        // Base: 2px border, themed shadow, smooth hover lift for clear tile separation in both themes.
+        'group relative w-full text-left rounded-xl border-2 bg-card p-4 transition-all duration-200',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_6px_rgba(0,0,0,0.35)]',
+        'hover:-translate-y-0.5 hover:shadow-lg hover:bg-muted/40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        // Variant tints — stronger borders so the box is visible in dark mode too.
+        replied
+          ? 'border-emerald-500/50 dark:border-emerald-400/50 bg-emerald-500/[0.06] hover:border-emerald-500 dark:hover:border-emerald-400'
+          : variant === 'warning'
+            ? 'border-destructive/45 dark:border-destructive/55 bg-destructive/[0.04] hover:border-destructive/75'
+            : 'border-border dark:border-border/80 hover:border-primary/60 dark:hover:border-primary/70',
+        // Expanded
+        expanded && 'border-primary dark:border-primary shadow-lg ring-2 ring-primary/25 -translate-y-0.5',
       )}
     >
       <div className="flex items-start gap-3">
-        {variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
+        {replied
+          ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+          : variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
         <div className="flex-1 min-w-0">
           {/* Line 1: subject */}
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{item.title}</h3>
+            {replied && (
+              <Badge className="text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/20">
+                Recipient replied
+              </Badge>
+            )}
             <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-180')} />
           </div>
           {/* Line 2: sender (name + email) + due */}
@@ -756,7 +774,7 @@ function LedgerRow({ item, variant, expanded, onToggle }: {
               <>
                 <span className="text-muted-foreground/40">·</span>
                 <Clock className="w-3 h-3" />
-                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span>
+                <span className={!replied && variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span>
               </>
             )}
           </p>
