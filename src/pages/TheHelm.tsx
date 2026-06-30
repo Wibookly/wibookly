@@ -1251,6 +1251,17 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       }
       if (mode === 'send' || mode === 'schedule') {
         setSentIds((prev) => new Set(prev).add(active.id));
+        // Drop from today's pinned Big 3 — never refill on next render.
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const KEY = `helm:big3-pinned:${today}`;
+          const raw = window.localStorage.getItem(KEY);
+          if (raw) {
+            const ids: string[] = JSON.parse(raw);
+            window.localStorage.setItem(KEY, JSON.stringify(ids.filter((id) => id !== active.id)));
+          }
+        } catch { /* ignore */ }
+
         // Also prune from the cached helm-items result so every count tile,
         // section and chip in The Helm reflects the new total immediately —
         // before the background refetch finishes.
