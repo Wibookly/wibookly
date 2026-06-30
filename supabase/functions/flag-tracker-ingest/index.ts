@@ -587,12 +587,26 @@ Deno.serve(async (req) => {
 
   // Cron mode: scan all active Outlook connections
   if (body?.mode === 'cron') {
-    const { data: conns } = await admin
+    const activeUserIds = new Set<string>();
+    const { data: trackerUsers } = await admin
+      .from('tracked_emails')
+      .select('user_id')
+      .in('status', ['pending', 'queued', 'drafted', 'draft_ready', 'sent', 'processing', 'completed', 'replied'])
+      .order('updated_at', { ascending: false })
+      .limit(100);
+    for (const r of (trackerUsers || []) as any[]) {
+      if (r.user_id) activeUserIds.add(String(r.user_id));
+    }
+
+    const connsQuery = admin
       .from('provider_connections')
       .select('id, user_id')
       .eq('provider', 'outlook')
       .not('connected_email', 'is', null)
       .limit(500);
+    const { data: conns } = activeUserIds.size > 0
+      ? await connsQuery.in('user_id', Array.from(activeUserIds))
+      : await connsQuery;
     const summary: any[] = [];
     for (const c of (conns || [])) {
       const r = await ingestForUser(admin, c.user_id, c.id);
