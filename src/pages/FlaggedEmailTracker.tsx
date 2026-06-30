@@ -242,6 +242,9 @@ export default function FlaggedEmailTrackerPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reminderIntervalsDays, setReminderIntervalsDays] = useState<number[]>([]);
   const [search, setSearch] = useState('');
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+
+
 
 
 
