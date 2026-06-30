@@ -269,8 +269,13 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
         subject: row.subject,
         conversation_id: row.conversation_id,
         graph_message_id: row.graph_message_id,
+        web_link: row.web_link,
       }).eq('id', existing.id);
       upserted++;
+    } else if (row.web_link) {
+      // Backfill web_link on existing rows that don't have it yet (one-shot).
+      await admin.from('tracked_emails').update({ web_link: row.web_link })
+        .eq('id', existing.id).is('web_link', null);
     }
   }
 
