@@ -2452,8 +2452,8 @@ function CalendarView({ onBack }: { onBack: () => void }) {
   }, [rule]);
 
   const planQuery = useQuery({
-    enabled: ruleLoaded,
-    queryKey: ['helm-plan', weekStart.toISOString(), JSON.stringify(debouncedRule)],
+    enabled: ruleLoaded && autoFocusOn,
+    queryKey: ['helm-plan', weekStart.toISOString(), strategy, JSON.stringify(debouncedRule)],
     queryFn: async () => {
       // Save the rule first
       const { data: u } = await supabase.auth.getUser();
@@ -2476,7 +2476,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         }
       }
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
-        body: { mode: 'analyze', week_start: weekStart.toISOString() },
+        body: { mode: 'analyze', week_start: weekStart.toISOString(), strategy },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
