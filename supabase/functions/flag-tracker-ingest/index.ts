@@ -458,6 +458,30 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
+  // ─── 90-day retention sweep ──────────────────────────────────────────
+  // Remove tracked emails older than 90 days UNLESS they have an active
+  // schedule (pending/queued/drafted/draft_ready with a future follow-up
+  // or scheduled send). Active items past 90 days are kept so the user
+  // never loses a scheduled follow-up.
+  let removedAged = 0;
+  const cutoffIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const nowIsoR = new Date().toISOString();
+  const { data: agedRows } = await admin
+    .from('tracked_emails')
+    .select('id, status, scheduled_send_at, follow_up_at')
+    .eq('user_id', userId)
+    .lt('sent_at', cutoffIso)
+    .limit(500);
+  for (const r of (agedRows || []) as any[]) {
+    const activeStatus = ['pending', 'queued', 'drafted', 'draft_ready'].includes(String(r.status));
+    const futureSend = r.scheduled_send_at && r.scheduled_send_at > nowIsoR;
+    const futureFollow = r.follow_up_at && r.follow_up_at > nowIsoR;
+    const hasActiveSchedule = activeStatus && (futureSend || futureFollow);
+    if (hasActiveSchedule) continue;
+    await admin.from('tracked_emails').delete().eq('id', r.id);
+    removedAged++;
+  }
+
   // If any tracked email is already past its follow-up due time, kick the
   // follow-up cron immediately so the AI drafts/sends without waiting for
   // the next scheduled tick.
@@ -564,6 +588,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     upserted,
     cancelled,
     removed_deleted: removedDeleted,
+    removed_aged_90d: removedAged,
     replied_closed: repliedClosed,
     skipped_pre_enable: skippedPreEnable,
     kicked_followup: kickedFollowup,
