@@ -986,9 +986,9 @@ function BriefView({
               <p className="text-[11px] text-muted-foreground mt-1.5">decisions, approvals & overdue replies</p>
             </div>
             <div className="helm-tile" data-accent="emerald">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Handled for you</p>
-              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{Math.max(0, stats.totalInbound - stats.needsYou)}</p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied overnight</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Sent by AI</p>
+              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{stats.autoHandled}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied by AI</p>
             </div>
           </div>
 
