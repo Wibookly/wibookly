@@ -592,7 +592,7 @@ function PillarBlock({
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
       {/* Header with huge number */}
       <div className="flex items-end gap-4 mb-4">
-        <span className={cn('font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums select-none', numberColor)}>
+        <span className={cn('font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums select-none', numberColor)}>
           {number}
         </span>
         <div className="pb-2 flex-1 min-w-0">
@@ -980,7 +980,7 @@ function BriefView({
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
         <section aria-labelledby="ledger" data-helm-section="ledger">
           <div className="flex items-end gap-4 mb-4">
-            <span className="font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums text-foreground/10 select-none">03</span>
+            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-foreground/20 select-none">03</span>
             <div className="pb-2">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
               <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
@@ -2430,23 +2430,20 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         </Card>
       </Collapsible>
 
-      {/* AI intelligence preview — collapsible */}
-      <Collapsible defaultOpen={true}>
+      {/* AI intelligence preview — compact, collapsed by default */}
+      <Collapsible defaultOpen={false}>
         <Card className="overflow-hidden border-primary/30">
           <CollapsibleTrigger asChild>
-            <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">AI intelligence — proposed calendar changes</p>
-                  <p className="text-[12px] text-muted-foreground">Preview the focus blocks the AI wants to add and the meetings it would move. Approve to apply.</p>
-                </div>
+            <button className="group w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                <p className="text-[12px] font-medium text-foreground truncate">AI intelligence · proposed calendar changes</p>
               </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="border-t border-border/60 p-4 space-y-4">
+            <div className="border-t border-border/60 p-3 space-y-3">
               <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
             </div>
           </CollapsibleContent>
