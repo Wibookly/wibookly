@@ -562,7 +562,7 @@ export default function FlaggedEmailTrackerPage() {
                 No emails in the queue match “{search}”. Try a different recipient or subject keyword.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={filteredRows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
+              <RecipientGroups rows={filteredRows} expanded={expanded} setExpanded={setExpanded} onCancel={requestCancel} reminderIntervalsDays={reminderIntervalsDays} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
