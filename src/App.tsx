@@ -105,6 +105,11 @@ const App = () => (
                       <TheHelm />
                     </FeatureRoute>
                   } />
+                  <Route path="/helm-calendar" element={
+                    <FeatureRoute featureKeys={['daily_brief', 'ai_assistant']}>
+                      <TheHelmCalendar />
+                    </FeatureRoute>
+                  } />
                   <Route path="/follow-up-reminder" element={
                     <FeatureRoute featureKeys={['feature.follow_up_reminder']}>
                       <FollowUpReminder />
