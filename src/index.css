@@ -751,13 +751,13 @@
 /* ============== Helm calendar — visible tiles & dividers ============== */
 .helm-cal-tile {
   position: relative;
-  border: 2px solid hsl(var(--border)) !important;
+  border: 2px solid var(--border-strong) !important;
   border-radius: 0.85rem;
-  background: hsl(var(--card));
+  background: var(--surface-elevated);
   box-shadow:
-    0 0 0 1px hsl(var(--primary) / 0.08),
-    0 2px 0 hsl(var(--border) / 0.7),
-    0 12px 28px -18px hsl(var(--primary) / 0.5);
+    0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent),
+    0 2px 0 color-mix(in srgb, var(--border-strong) 85%, transparent),
+    0 12px 28px -18px color-mix(in srgb, var(--primary) 70%, transparent);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -765,11 +765,11 @@
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .helm-cal-tile:hover {
-  border-color: hsl(var(--primary) / 0.5) !important;
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border-strong)) !important;
   box-shadow:
-    0 0 0 1px hsl(var(--primary) / 0.18),
-    0 2px 0 hsl(var(--border) / 0.7),
-    0 14px 32px -16px hsl(var(--primary) / 0.65);
+    0 0 0 2px color-mix(in srgb, var(--primary) 24%, transparent),
+    0 2px 0 color-mix(in srgb, var(--border-strong) 85%, transparent),
+    0 14px 32px -16px color-mix(in srgb, var(--primary) 80%, transparent);
 }
 .helm-cal-tile::before {
   content: "";
@@ -778,59 +778,59 @@
   width: 100%;
   background: linear-gradient(
     90deg,
-    hsl(var(--primary)) 0%,
-    #10B981 35%,
-    #F59E0B 70%,
-    hsl(var(--destructive)) 100%
+    var(--primary) 0%,
+    var(--success) 35%,
+    var(--warning) 70%,
+    var(--danger) 100%
   );
   opacity: .95;
 }
 .dark .helm-cal-tile {
-  background: hsl(var(--card));
-  border-color: hsl(var(--border)) !important;
+  background: var(--surface-elevated);
+  border-color: var(--border-strong) !important;
   box-shadow:
-    0 0 0 1px hsl(var(--primary) / 0.14),
+    0 0 0 1px color-mix(in srgb, var(--primary) 24%, transparent),
     0 2px 0 hsl(0 0% 100% / 0.04),
-    0 14px 32px -18px hsl(var(--primary) / 0.7);
+    0 14px 32px -18px color-mix(in srgb, var(--primary) 85%, transparent);
 }
 .helm-cal-tile[data-today="true"] {
-  border-color: hsl(var(--primary) / 0.75) !important;
+  border-color: var(--primary) !important;
   box-shadow:
-    0 0 0 2px hsl(var(--primary) / 0.25),
-    0 12px 28px -14px hsl(var(--primary) / 0.7);
+    0 0 0 2px color-mix(in srgb, var(--primary) 32%, transparent),
+    0 12px 28px -14px color-mix(in srgb, var(--primary) 85%, transparent);
 }
 .helm-cal-tile[data-today="true"]::before {
   height: 6px;
-  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.55) 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, var(--success)) 100%);
   opacity: 1;
 }
 
 /* Header row inside tile — dashed divider below weekday/date */
 .helm-cal-tile [class*="pb-2"]:first-of-type {
-  border-bottom: 1px dashed hsl(var(--border));
+  border-bottom: 2px dashed var(--border-strong);
   padding-bottom: .5rem;
   margin-bottom: .25rem;
 }
 
 /* Event tiles inside day column — bold border, colored left accent */
 .helm-cal-event {
-  border: 1.5px solid hsl(var(--border)) !important;
-  border-left: 4px solid hsl(var(--primary)) !important;
-  background: hsl(var(--card)) !important;
-  box-shadow: 0 1px 2px hsl(var(--border) / 0.6);
+  border: 1.5px solid var(--border-strong) !important;
+  border-left: 4px solid var(--primary) !important;
+  background: var(--surface) !important;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--border-strong) 70%, transparent);
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .helm-cal-event:hover {
-  border-color: hsl(var(--primary) / 0.5) !important;
-  box-shadow: 0 2px 8px -2px hsl(var(--primary) / 0.35);
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border-strong)) !important;
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--primary) 55%, transparent);
 }
 .dark .helm-cal-event {
-  background: hsl(var(--card)) !important;
-  border-color: hsl(var(--border)) !important;
+  background: var(--surface) !important;
+  border-color: var(--border-strong) !important;
 }
 .helm-cal-event[data-external="true"] {
-  border-left-color: #F59E0B !important;
-  background: color-mix(in srgb, #F59E0B 10%, hsl(var(--card))) !important;
+  border-left-color: var(--warning) !important;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface)) !important;
 }
 
 /* Soft divider between stacked event tiles within a day */
@@ -844,38 +844,38 @@
   left: 12%;
   right: 12%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
 
 /* ===== AI proposed calendar — distinct violet/indigo theme ===== */
 .helm-cal-tile-proposed {
-  border-color: hsl(262 60% 55% / 0.55) !important;
-  background: color-mix(in srgb, hsl(262 60% 55%) 4%, hsl(var(--card))) !important;
+  border-color: color-mix(in srgb, var(--c-violet) 75%, var(--border-strong)) !important;
+  background: color-mix(in srgb, var(--c-violet) 6%, var(--surface-elevated)) !important;
   box-shadow:
-    0 0 0 1px hsl(262 60% 55% / 0.18),
-    0 12px 28px -16px hsl(262 60% 55% / 0.55);
+    0 0 0 2px color-mix(in srgb, var(--c-violet) 24%, transparent),
+    0 12px 28px -16px color-mix(in srgb, var(--c-violet) 75%, transparent);
 }
 .helm-cal-tile-proposed:hover {
-  border-color: hsl(262 60% 55% / 0.85) !important;
+  border-color: var(--c-violet) !important;
 }
 .helm-cal-tile-proposed::before {
   background: linear-gradient(
     90deg,
-    hsl(262 75% 60%) 0%,
-    hsl(286 70% 60%) 50%,
-    hsl(220 80% 60%) 100%
+    var(--c-violet) 0%,
+    var(--c-magenta) 50%,
+    var(--primary) 100%
   ) !important;
   height: 6px;
   opacity: 1;
 }
 .dark .helm-cal-tile-proposed {
-  background: color-mix(in srgb, hsl(262 70% 55%) 10%, hsl(var(--card))) !important;
+  background: color-mix(in srgb, var(--c-violet) 12%, var(--surface-elevated)) !important;
 }
 .helm-cal-tile-proposed[data-today="true"] {
-  border-color: hsl(262 75% 60%) !important;
+  border-color: var(--c-violet) !important;
   box-shadow:
-    0 0 0 2px hsl(262 70% 55% / 0.35),
-    0 12px 28px -12px hsl(262 70% 55% / 0.75);
+    0 0 0 2px color-mix(in srgb, var(--c-violet) 42%, transparent),
+    0 12px 28px -12px color-mix(in srgb, var(--c-violet) 85%, transparent);
 }
 
 /* Drag affordance (reschedule wiring follows in next step) */
