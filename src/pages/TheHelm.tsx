@@ -794,224 +794,261 @@ function BriefView({
 
 
 
-        {/* Big 3 — opens the inbox-style reader scoped to today's priorities */}
-        <section aria-labelledby="big3" data-helm-section="big3">
-          <SectionHeader index={0} title="Today's Big 3" subtitle="If you do nothing else, do these." sectionKey="big3" emailSection="big3" count={big3.length} />
-          <InboxLauncherCard
-            icon={ClipboardList}
-            count={big3.length}
-            label={`priorit${big3.length === 1 ? 'y' : 'ies'} for today`}
-            description="Open the focused reader — emails on the left, the thread on top, AI draft on the bottom. Same tone as your auto-draft settings."
-            onOpen={() => go('inbox', undefined, 'big3')}
-          />
+        {/* ════════════════════════════════════════════════════════════════
+            COMMAND DECK — redesigned executive workspace
+            Pillars (Big 3 + Decisions) → Ledger (Overdue / FYI / Done) → Footer
+            ════════════════════════════════════════════════════════════════ */}
+
+        {/* ── Action Pillars ──────────────────────────────────────────── */}
+        <section aria-labelledby="pillars" data-helm-section="pillars">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">01 · Act now</p>
+              <h2 id="pillars" className="text-[20px] font-semibold tracking-tight text-foreground">Your two action pillars</h2>
+            </div>
+            <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">
+              click any card → focused reader
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Big 3 Pillar */}
+            <button
+              onClick={() => go('inbox', undefined, 'big3')}
+              data-helm-section="big3"
+              className="group relative text-left rounded-xl border border-border/60 bg-card overflow-hidden transition-all hover:border-primary/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 via-orange-500 to-rose-500" />
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                      <Flame className="w-4.5 h-4.5" strokeWidth={2.25} />
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-500/80 font-bold">Pillar A</p>
+                      <h3 className="text-[15px] font-semibold text-foreground leading-tight">Today's Big 3</h3>
+                    </div>
+                  </div>
+                  <span className="text-[44px] font-extrabold leading-none tabular-nums text-foreground">{big3.length}</span>
+                </div>
+                <ul className="space-y-1.5 min-h-[120px]">
+                  {big3.length === 0 ? (
+                    <li className="text-[12px] italic text-muted-foreground py-8 text-center">
+                      Nothing urgent. Your day is yours.
+                    </li>
+                  ) : (
+                    big3.slice(0, 3).map((it, i) => (
+                      <li key={it.id} className="flex items-start gap-2.5 text-[12.5px] text-foreground/85 leading-snug">
+                        <span className="font-mono text-[10px] text-amber-500/70 mt-0.5 w-3 shrink-0">0{i + 1}</span>
+                        <span className="flex-1 truncate">{it.title}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                    Open focused reader
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </div>
+              </div>
+            </button>
+
+            {/* Decisions Pillar */}
+            <button
+              onClick={() => go('inbox', undefined, 'decisions')}
+              data-helm-section="decisions"
+              className="group relative text-left rounded-xl border border-border/60 bg-card overflow-hidden transition-all hover:border-primary/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-violet-400 via-indigo-500 to-blue-500" />
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
+                      <ThumbsUp className="w-4.5 h-4.5" strokeWidth={2.25} />
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-violet-500/80 font-bold">Pillar B</p>
+                      <h3 className="text-[15px] font-semibold text-foreground leading-tight">Your decisions</h3>
+                    </div>
+                  </div>
+                  <span className="text-[44px] font-extrabold leading-none tabular-nums text-foreground">{decisions.length}</span>
+                </div>
+                <ul className="space-y-1.5 min-h-[120px]">
+                  {decisions.length === 0 ? (
+                    <li className="text-[12px] italic text-muted-foreground py-8 text-center">
+                      No approvals waiting on you.
+                    </li>
+                  ) : (
+                    decisions.slice(0, 3).map((it, i) => (
+                      <li key={it.id} className="flex items-start gap-2.5 text-[12.5px] text-foreground/85 leading-snug">
+                        <span className="font-mono text-[10px] text-violet-500/70 mt-0.5 w-3 shrink-0">0{i + 1}</span>
+                        <span className="flex-1 truncate">{it.title}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                    Review &amp; approve
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </div>
+              </div>
+            </button>
+          </div>
         </section>
 
 
-        {/* Decisions — same inbox reader, scoped to approvals/decisions */}
-        <section aria-labelledby="decisions" data-helm-section="decisions">
-          <SectionHeader
-            index={1}
-            title="Your decisions"
-            subtitle="Only you can decide or approve these."
-            sectionKey="decisions"
-            emailSection="brief"
-            count={decisions.length}
-          />
-          <InboxLauncherCard
-            icon={AlertTriangle}
-            count={decisions.length}
-            label={`decision${decisions.length === 1 ? '' : 's'} waiting on you`}
-            description="Open the focused reader to review each thread and approve, edit, or send the AI reply."
-            onOpen={() => go('inbox', undefined, 'decisions')}
-          />
-        </section>
+        {/* ── Operations Ledger — tabbed: Overdue / FYI / Auto-handled ─ */}
+        <section aria-labelledby="ledger" data-helm-section="ledger">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">02 · Sweep</p>
+              <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
+            </div>
+          </div>
 
+          <Card className="border-border/60 overflow-hidden">
+            <Tabs defaultValue={overdue.length > 0 ? 'overdue' : 'auto'} className="w-full">
+              <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
+                <TabsTrigger
+                  value="overdue"
+                  data-helm-section="overdue"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                  Overdue
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{overdue.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="fyi"
+                  data-helm-section="fyi"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
+                >
+                  <Eye className="w-3.5 h-3.5 text-sky-500" />
+                  FYI
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{fyi.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="auto"
+                  data-helm-section="activity"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  Handled by AI
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{autoActions.length}</Badge>
+                </TabsTrigger>
+              </TabsList>
 
-        {/* "Drafted for you" removed — auto-drafts surface under "Handled by your AI agent" below.
-            Anything that needs your review now lives in Today's Big 3 and Your decisions above. */}
-
-
-
-
-        {/* Overdue — collapsible */}
-        <section aria-labelledby="overdue" data-helm-section="overdue">
-          <Collapsible defaultOpen={overdue.length > 0 && overdue.length <= 5}>
-            <SectionHeader
-              index={3}
-              title="Overdue — waiting on your reply"
-              subtitle="Threads where you owe a reply and the clock has run out. Anything here that's only FYI gets moved down."
-              sectionKey="overdue"
-              emailSection="brief"
-              count={overdue.length}
-            />
-            <CollapsibleTrigger asChild>
-              <button
-                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                aria-label="Toggle overdue threads"
-              >
-                <span className="text-sm text-foreground/80">
-                  {overdue.length === 0 ? "You're caught up on overdue threads." : `Show ${overdue.length} overdue thread${overdue.length === 1 ? '' : 's'}`}
-                </span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="grid gap-3">
+              <TabsContent value="overdue" className="m-0 p-5">
+                <p className="text-[12px] text-muted-foreground mb-3">
+                  Threads where you owe a reply and the clock has run out.
+                </p>
                 {isLoading ? (
                   <Skeleton className="h-20" />
                 ) : overdue.length === 0 ? (
-                  <EmptyHint>You're caught up on overdue threads.</EmptyHint>
+                  <div className="py-10 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
+                  </div>
                 ) : (
-                  overdue.map((item) => (
-                    <HelmCard
-                      key={item.id}
-                      item={item}
-                      variant="warning"
-                      onOpen={() => go('detail', item)}
-                    />
-                  ))
+                  <div className="grid gap-2.5">
+                    {overdue.map((item) => (
+                      <HelmCard key={item.id} item={item} variant="warning" onOpen={() => go('detail', item)} />
+                    ))}
+                  </div>
                 )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </section>
+              </TabsContent>
 
-        {/* FYI — no action needed (newsletters, announcements, external notices) */}
-        <section aria-labelledby="fyi" data-helm-section="fyi">
-          <Collapsible defaultOpen={false}>
-            <SectionHeader
-              index={4}
-              title="FYI — no reply needed"
-              subtitle="Newsletters, marketing, automated notices and external announcements. Skim only if you want to."
-              sectionKey="fyi"
-              emailSection="brief"
-              count={fyi.length}
-            />
-            <CollapsibleTrigger asChild>
-              <button
-                className="w-full flex items-center justify-between px-4 py-2.5 rounded-md border border-border/60 hover:border-primary hover:bg-muted/30 transition-colors text-left mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                aria-label="Toggle FYI items"
-              >
-                <span className="text-sm text-foreground/80 inline-flex items-center gap-2">
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                  {fyi.length === 0 ? 'Nothing FYI today.' : `Show ${fyi.length} FYI item${fyi.length === 1 ? '' : 's'}`}
-                </span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="grid gap-3">
+              <TabsContent value="fyi" className="m-0 p-5">
+                <p className="text-[12px] text-muted-foreground mb-3">
+                  Newsletters, marketing, automated notices and external announcements — skim only if you want to.
+                </p>
                 {fyi.length === 0 ? (
-                  <EmptyHint>You're all caught up — nothing informational waiting.</EmptyHint>
+                  <div className="py-10 text-center">
+                    <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                    <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
+                  </div>
                 ) : (
-                  fyi.slice(0, 25).map((item) => (
-                    <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
-                  ))
-                )}
-                {fyi.length > 25 && (
-                  <p className="text-[11px] text-muted-foreground text-center italic">
-                    + {fyi.length - 25} more filed in your inbox.
-                  </p>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </section>
-
-
-        {/* Done automatically overnight */}
-        <section aria-labelledby="auto" data-helm-section="activity">
-          <Collapsible defaultOpen={false}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <button
-                  className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/40 transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label="Toggle overnight auto-actions"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 id="auto" className="text-h3 text-foreground">
-                        Handled by your AI agent
-                      </h2>
-                      <p className="text-body-2 text-muted-foreground">
-                        {autoActions.length} email{autoActions.length === 1 ? '' : 's'}, meeting{autoActions.length === 1 ? '' : 's'} or task{autoActions.length === 1 ? '' : 's'} the agent filed, drafted, booked or replied to in the last 24 hours.
+                  <div className="grid gap-2.5">
+                    {fyi.slice(0, 25).map((item) => (
+                      <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+                    ))}
+                    {fyi.length > 25 && (
+                      <p className="text-[11px] text-muted-foreground text-center italic pt-2">
+                        + {fyi.length - 25} more filed in your inbox.
                       </p>
-                    </div>
+                    )}
                   </div>
-                  <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-5 pb-5">
-                  <Separator className="mb-4" />
-                  {autoActions.length === 0 ? (
-                    <p className="text-body-2 text-muted-foreground">
-                      Nothing auto-filed yet. Run a sync to see the agent work.
-                    </p>
-                  ) : (
-                    <ul className="space-y-3">
-                      {autoActions.map((a) => (
-                        <li key={a.id} className="flex items-start gap-3 text-body-2">
-                          <Activity className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                          <span className="flex-1 text-foreground">{a.text}</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              'text-[10px] font-mono uppercase tracking-wider shrink-0',
-                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
-                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
-                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
-                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5',
-                            )}
-                          >
-                            {a.tag}
-                          </Badge>
-                          <span className="text-caption text-muted-foreground tabular-nums shrink-0">
-                            {a.time}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+                )}
+              </TabsContent>
+
+              <TabsContent value="auto" className="m-0 p-5">
+                <p className="text-[12px] text-muted-foreground mb-3">
+                  Emails, meetings and tasks the agent filed, drafted, booked or replied to in the last 24 hours.
+                </p>
+                {autoActions.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                    <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border/40">
+                    {autoActions.map((a) => (
+                      <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
+                        <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
+                        <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-[10px] font-mono uppercase tracking-wider shrink-0',
+                            a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                            a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                            a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                            a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5',
+                          )}
+                        >
+                          {a.tag}
+                        </Badge>
+                        <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">
+                          {a.time}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </TabsContent>
+            </Tabs>
+          </Card>
         </section>
 
-        {/* Home email notifications — compact pop-out (full editor lives in Settings) */}
+
+        {/* ── Briefing Controls — slim footer chip ─────────────────────── */}
         <section aria-labelledby="schedule" data-helm-section="schedule" className="print:hidden">
-          <Collapsible defaultOpen={false}>
-            <Card className="border-border/60">
-              <CollapsibleTrigger asChild>
-                <button
-                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label="Toggle home email schedule"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <CalendarClock className="w-4 h-4 text-primary shrink-0" />
-                    <span id="schedule" className="text-sm font-medium text-foreground truncate">
-                      Home email schedule
-                    </span>
-                    <span className="text-xs text-muted-foreground hidden sm:inline truncate">
-                      · choose days &amp; times this brief lands in your inbox
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 transition-transform [[data-state=open]_&]:rotate-180" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-4 pb-4">
-                  <Separator className="mb-3" />
-                  <DailyBriefSchedule />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-dashed border-border/60 hover:border-primary/50 hover:bg-muted/30 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+                  <span id="schedule" className="text-[13px] font-medium text-foreground">
+                    Home email schedule
+                  </span>
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                    · pick days &amp; times this brief lands in your inbox
+                  </span>
                 </div>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">configure →</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[min(640px,90vw)] p-4" align="end" sideOffset={8}>
+              <DailyBriefSchedule />
+            </PopoverContent>
+          </Popover>
         </section>
+
+
 
       </div>
 
