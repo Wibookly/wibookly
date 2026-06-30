@@ -436,7 +436,7 @@ export default function FlaggedEmailTrackerPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Tracked emails</CardTitle>
+              <CardTitle className="text-base">Tracked emails queue</CardTitle>
               <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as no response.</CardDescription>
             </div>
             <div className="flex gap-1 print:hidden">
