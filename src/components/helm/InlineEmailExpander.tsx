@@ -269,10 +269,10 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
           <Button
             variant="ghost"
             size="sm"
-            className="shrink-0 whitespace-nowrap text-destructive hover:text-destructive hover:bg-destructive/10 mr-auto"
+            className="shrink-0 whitespace-nowrap text-destructive hover:text-destructive hover:bg-destructive/10 mr-auto min-w-[110px] justify-center"
             disabled={!!sendBusy}
             onClick={async () => {
-              if (!confirm('Remove this email from The Helm? It stays in your inbox.')) return;
+              if (!confirm('Disregard this email? It is removed from The Helm but stays in your inbox.')) return;
               setSendBusy('delete');
               try {
                 const { error } = await supabase
@@ -295,25 +295,32 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
                   return { ...cur, big3: prune(cur.big3), decisions: prune(cur.decisions), drafts: prune(cur.drafts), overdue: prune(cur.overdue), fyi: prune(cur.fyi) };
                 });
                 qc.invalidateQueries({ queryKey: ['helm-items'] });
-                toast.success('Removed from The Helm');
+                toast.success('Disregarded — removed from The Helm');
                 onClose();
               } catch (e: any) {
-                toast.error(e?.message ?? 'Delete failed');
+                toast.error(e?.message ?? 'Disregard failed');
               } finally {
                 setSendBusy(null);
               }
             }}
           >
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            {sendBusy === 'delete' ? 'Removing…' : 'Delete'}
+            {sendBusy === 'delete'
+              ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+              : <Trash2 className="w-4 h-4 mr-1.5" />}
+            Disregard
           </Button>
-          <Button variant="ghost" size="sm" className="shrink-0 whitespace-nowrap" onClick={onClose} disabled={!!sendBusy}>Close</Button>
-          <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
-            {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
+          <Button variant="ghost" size="sm" className="shrink-0 whitespace-nowrap min-w-[80px] justify-center" onClick={onClose} disabled={!!sendBusy}>
+            Close
+          </Button>
+          <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap min-w-[110px] justify-center" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
+            {sendBusy === 'save_draft'
+              ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+              : null}
+            Save draft
           </Button>
           <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" disabled={!!sendBusy || !draftText.trim()}
+              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap min-w-[140px] justify-center" disabled={!!sendBusy || !draftText.trim()}
                 onClick={() => {
                   if (!scheduleDate || !scheduleTime) {
                     const d = new Date(Date.now() + 60 * 60 * 1000);
@@ -322,8 +329,10 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
                     setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
                   }
                 }}>
-                <CalendarClock className="w-4 h-4 mr-1.5" />
-                {sendBusy === 'schedule' ? 'Scheduling…' : 'Schedule send'}
+                {sendBusy === 'schedule'
+                  ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <CalendarClock className="w-4 h-4 mr-1.5" />}
+                Schedule send
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-72" align="end">
@@ -347,9 +356,11 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
               </div>
             </PopoverContent>
           </Popover>
-          <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => send('send')} disabled={!!sendBusy || !draftText.trim()}>
-            <Send className="w-4 h-4 mr-1.5" />
-            {sendBusy === 'send' ? 'Sending…' : 'Approve & send'}
+          <Button size="sm" className="shrink-0 whitespace-nowrap min-w-[150px] justify-center" onClick={() => send('send')} disabled={!!sendBusy || !draftText.trim()}>
+            {sendBusy === 'send'
+              ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+              : <Send className="w-4 h-4 mr-1.5" />}
+            Approve &amp; send
           </Button>
         </div>
       </section>
