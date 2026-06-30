@@ -165,7 +165,12 @@ export function HelpIssueForm() {
       }
 
       const taggedSubject = `[${feature}] ${s}`.slice(0, 200);
-      const taggedDescription = `Feature: ${feature}\n\n${d}`;
+      const collabs = collaborators
+        .split(/[,;\s]+/)
+        .map((x) => x.trim())
+        .filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+      const collabLine = collabs.length ? `\n\nCollaborators (please CC on replies): ${collabs.join(', ')}` : '';
+      const taggedDescription = `Feature: ${feature}\n\n${d}${collabLine}`;
       const { data, error } = await supabase
         .from('support_issues')
         .insert({
@@ -188,6 +193,8 @@ export function HelpIssueForm() {
       setDescription('');
       setFeature('');
       setFiles([]);
+      setCollaborators('');
+
       toast({
         title: 'Issue submitted',
         description: 'Your admin team has been notified.',
