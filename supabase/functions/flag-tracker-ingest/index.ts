@@ -330,17 +330,91 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
+  // ─── Reply sweep ─────────────────────────────────────────────────────
+  // For every still-open tracker, check the conversation for a NEW message
+  // from someone other than the user that arrived after sent_at. If found,
+  // mark the tracker as 'replied', clear the scheduled queue, and clear
+  // the Outlook follow-up flag so it disappears from the report queue.
+  let repliedClosed = 0;
+  const { data: connRow } = await admin
+    .from('provider_connections')
+    .select('connected_email')
+    .eq('id', connectionId)
+    .maybeSingle();
+  const myEmail = String(connRow?.connected_email || '').toLowerCase();
+
+  const { data: openForReply } = await admin
+    .from('tracked_emails')
+    .select('id, conversation_id, sent_at, graph_message_id, recipient_address')
+    .eq('user_id', userId)
+    .in('status', ['pending', 'queued', 'drafted', 'draft_ready', 'sent'])
+    .not('conversation_id', 'is', null)
+    .limit(200);
+
+  for (const r of (openForReply || []) as any[]) {
+    const sentIso = new Date(r.sent_at || 0).toISOString();
+    const filter = encodeURIComponent(`conversationId eq '${r.conversation_id}' and receivedDateTime gt ${sentIso}`);
+    const conv = await callGraph<any>(
+      userId, connectionId, 'mail',
+      `/me/messages?$filter=${filter}&$select=id,from,subject,internetMessageHeaders,sentDateTime,internetMessageId&$top=10`,
+    );
+    if (!conv.ok) continue;
+    const msgs: any[] = conv.data?.value || [];
+    let replied = false;
+    for (const m of msgs) {
+      const fromAddr = String(m.from?.emailAddress?.address || '').toLowerCase();
+      if (!fromAddr) continue;
+      if (myEmail && fromAddr === myEmail) continue;
+      // Skip auto-replies / OOO
+      const subj = String(m.subject || '');
+      if (/^(automatic reply|out of office|auto-?reply)/i.test(subj)) continue;
+      const headers: Record<string, string> = {};
+      for (const h of (m.internetMessageHeaders || [])) if (h?.name) headers[String(h.name).toLowerCase()] = String(h.value || '');
+      if ((headers['auto-submitted'] || '').toLowerCase().includes('auto-replied')) continue;
+      if (headers['x-auto-response-suppress']) continue;
+      replied = true;
+      break;
+    }
+    if (!replied) continue;
+
+    // Clear Outlook flag (best-effort) so it leaves the active queue
+    if (r.graph_message_id) {
+      const cur = await callGraph<any>(userId, connectionId, 'mail',
+        `/me/messages/${r.graph_message_id}?$select=categories`);
+      const cleanedCategories: string[] = Array.isArray(cur.data?.categories)
+        ? cur.data.categories.filter((c: string) => !/^FollowUp(?:\s*\d{1,3}d)?$/i.test(String(c || '')))
+        : [];
+      await callGraph<any>(userId, connectionId, 'mail',
+        `/me/messages/${r.graph_message_id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ flag: { flagStatus: 'complete' }, categories: cleanedCategories }),
+        });
+    }
+
+    await admin.from('tracked_emails').update({
+      status: 'replied',
+      scheduled_send_at: null,
+      queued_reason: null,
+      follow_up_at: null,
+      last_error: 'recipient replied — tracker auto-closed',
+      last_checked_at: new Date().toISOString(),
+    }).eq('id', r.id);
+    repliedClosed++;
+  }
+
   return {
     ok: true,
     scanned: items.length,
     upserted,
     cancelled,
     removed_deleted: removedDeleted,
+    replied_closed: repliedClosed,
     skipped_pre_enable: skippedPreEnable,
     kicked_followup: kickedFollowup,
     snapped_to_business_hours: snapped,
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
