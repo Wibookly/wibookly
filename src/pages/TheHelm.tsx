@@ -633,7 +633,7 @@ function PillarBlock({
       </div>
 
 
-      <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
+      <div className="relative rounded-xl border-2 border-border bg-card overflow-hidden shadow-sm dark:shadow-none dark:border-border/80">
         {items.length === 0 ? (
           <div className="p-8 text-center">
             <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3', iconBg)}>
@@ -643,18 +643,19 @@ function PillarBlock({
           </div>
         ) : (
           <>
-            <ul className="divide-y divide-border/40">
+            <ul className="divide-y-2 divide-border/70 dark:divide-border/60">
               {visible.map((it, i) => {
                 const isOpen = expandedId === it.id;
                 return (
-                  <li key={it.id}>
+                  <li key={it.id} className={cn(isOpen && 'ring-2 ring-inset ring-primary/40 dark:ring-primary/50 rounded-md')}>
                     <button
                       onClick={() => setExpandedId(isOpen ? null : it.id)}
                       className={cn(
-                        'w-full text-left p-4 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        isOpen && 'bg-muted/40',
+                        'w-full text-left p-4 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        isOpen && 'bg-muted/60 dark:bg-muted/30',
                       )}
                     >
+
                       <div className="flex items-start gap-3">
                         <span className={cn('font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5', numberColor)}>
                           {String(i + 1).padStart(2, '0')}
