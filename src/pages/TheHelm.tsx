@@ -1377,7 +1377,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                   </p>
                 </div>
 
-                <div className="p-5 border-b border-border max-h-64 overflow-y-auto bg-muted/20">
+                <div className="p-5 border-b border-border max-h-72 overflow-y-auto bg-card/40">
                   <p className="text-caption uppercase tracking-wider text-muted-foreground mb-2">
                     Original message
                   </p>
@@ -1391,11 +1391,11 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                   ) : original ? (
                     original.body_html ? (
                       <div
-                        className="prose prose-sm dark:prose-invert max-w-none text-body-2"
+                        className="helm-email-body text-[13px] leading-relaxed"
                         dangerouslySetInnerHTML={{ __html: original.body_html }}
                       />
                     ) : (
-                      <p className="text-body-2 text-foreground whitespace-pre-wrap">
+                      <p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">
                         {original.body_text || '(no body)'}
                       </p>
                     )
