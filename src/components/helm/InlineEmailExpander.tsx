@@ -270,7 +270,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
 
         <Separator className="my-3" />
 
-        <div className="flex items-center justify-end gap-2 flex-wrap">
+        <div className="flex items-center justify-end gap-2 flex-wrap [&>button]:whitespace-nowrap [&>div>button]:whitespace-nowrap">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={!!sendBusy}>Close</Button>
           <Button variant="outline" size="sm" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
             {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
