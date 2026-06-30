@@ -1266,7 +1266,7 @@ function BriefView({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 print:hidden">
+      <section className="print:hidden">
         <Popover>
           <PopoverTrigger asChild>
             <button className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-dashed border-border/70 hover:border-primary/60 hover:bg-muted/30 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -1282,8 +1282,6 @@ function BriefView({
             <DailyBriefSchedule />
           </PopoverContent>
         </Popover>
-
-        <CalendarRail data={weekPreview.data ?? []} isLoading={weekPreview.isLoading} onOpen={() => go('calendar')} />
       </section>
     </div>
   );
@@ -2475,7 +2473,7 @@ function fmtTimeShort(iso: string | null) {
   return `${h12}:${mm} ${ampm}`;
 }
 
-function CalendarView({ onBack }: { onBack: () => void }) {
+export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
   const [ruleLoaded, setRuleLoaded] = useState(false);

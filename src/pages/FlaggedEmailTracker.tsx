@@ -69,11 +69,18 @@ function fmt(d: string | null | undefined) {
 }
 
 function outlookLink(r: TrackedEmail): string | null {
-  // Open the message *inside* the full Outlook on the web shell
-  // (left nav + folder list + reading pane) instead of the standalone
-  // /deeplink/read popup viewer that Graph's `webLink` returns.
+  // Open the exact message inside the full Outlook on the web shell
+  // (left nav + folder list + reading pane). The folder segment must match
+  // where the message actually lives, otherwise Outlook drops you on the
+  // folder root without the message selected.
   if (r.graph_message_id) {
-    return `https://outlook.office.com/mail/inbox/id/${encodeURIComponent(r.graph_message_id)}`;
+    const folderHint = String(r.trigger_detail?.folder || '').toLowerCase();
+    const folderSeg =
+      folderHint === 'sent' ? 'sentitems'
+      : folderHint === 'inbox' ? 'inbox'
+      // Default: if WE were the sender (we have a recipient_address), it's in Sent Items.
+      : (r.recipient_address ? 'sentitems' : 'inbox');
+    return `https://outlook.office.com/mail/${folderSeg}/id/${encodeURIComponent(r.graph_message_id)}`;
   }
   if (r.web_link) return r.web_link;
   return null;
