@@ -18,11 +18,17 @@ const json = (b: unknown, s = 200) =>
 
 const DEFAULT_INTERVAL_DAYS = 3;
 const SCAN_LOOKBACK_HOURS = 24 * 30; // 30 days
-const FOLDER_PATH = "/me/mailFolders('sentitems')/messages";
+// Scan BOTH Sent Items AND Inbox so flags placed on received emails also
+// land in the tracker (user flags an email someone sent them → AI follows
+// up with that sender once the flag's due date arrives).
+const FOLDER_PATHS: Array<{ folder: 'sent' | 'inbox'; path: string; dateField: string }> = [
+  { folder: 'sent',  path: "/me/mailFolders('sentitems')/messages", dateField: 'sentDateTime' },
+  { folder: 'inbox', path: "/me/mailFolders('inbox')/messages",     dateField: 'receivedDateTime' },
+];
 
 const SELECT_FIELDS = [
-  'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients',
-  'sentDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
+  'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients', 'from',
+  'sentDateTime', 'receivedDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
 ].join(',');
 
 function parseCategoryInterval(cats: string[] | undefined): { days: number } | null {
