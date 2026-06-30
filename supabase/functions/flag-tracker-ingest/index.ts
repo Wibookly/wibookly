@@ -191,8 +191,16 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
         .eq('user_id', userId)
         .eq('internet_message_id', internetMessageId)
         .maybeSingle();
-      if (existing && existing.status !== 'completed' && existing.status !== 'exhausted') {
-        await admin.from('tracked_emails').delete().eq('id', existing.id);
+      if (existing && !['completed', 'replied', 'exhausted', 'no_response', 'cancelled'].includes(String(existing.status))) {
+        // Keep the row — mark as completed so the user can see it was closed
+        // (recipient replied, user marked complete, or user removed the flag).
+        await admin.from('tracked_emails').update({
+          status: 'completed',
+          scheduled_send_at: null,
+          queued_reason: null,
+          last_error: 'flag closed in Outlook — tracker completed',
+          last_checked_at: new Date().toISOString(),
+        }).eq('id', existing.id);
         cancelled++;
       }
       continue;
