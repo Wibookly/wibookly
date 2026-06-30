@@ -1050,7 +1050,7 @@ function BriefView({
               iconBg="bg-sky-500/10 text-sky-500"
               numberColor="text-sky-500/90"
               Icon={Clock}
-              label="Pillar B · Today — due today, AI-prioritized"
+              label="Pillar B · Today Priority — due today, AI-prioritized"
               count={todayItems.length}
               items={todayItems}
               expandedId={expandedId}
