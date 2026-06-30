@@ -748,59 +748,70 @@
 }
 .dark .helm-day-row::after { opacity: .75; }
 
-/* Themed bordered tile for Helm calendar day columns */
+/* Themed bordered tile for Helm calendar day columns
+   Uses a real solid border + a colored top accent strip so it
+   renders identically across browsers, themes, and tile widths.
+   (The previous mask-composite trick was unreliable.) */
 .helm-cal-tile {
   position: relative;
   border: 1.5px solid hsl(var(--border)) !important;
   border-radius: 0.75rem;
-  background: hsl(var(--card) / 0.85);
-  box-shadow: 0 1px 0 hsl(var(--border) / 0.4), 0 6px 18px -14px hsl(var(--primary) / 0.45);
-  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 0 hsl(var(--border) / 0.5), 0 8px 20px -16px hsl(var(--primary) / 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 .helm-cal-tile::before {
   content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: 0.85rem;
-  padding: 1.5px;
+  display: block;
+  height: 4px;
+  width: 100%;
   background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--primary) 55%, transparent) 0%,
-    color-mix(in srgb, var(--success) 40%, transparent) 45%,
-    color-mix(in srgb, #F59E0B 50%, transparent) 75%,
-    color-mix(in srgb, var(--danger) 55%, transparent) 100%
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  opacity: .55;
-  pointer-events: none;
-}
-.dark .helm-cal-tile { background: hsl(var(--card) / 0.5); }
-.dark .helm-cal-tile::before { opacity: .8; }
-.helm-cal-tile[data-today="true"]::before {
-  opacity: .9;
-  background: linear-gradient(
-    135deg,
+    90deg,
     hsl(var(--primary)) 0%,
-    color-mix(in srgb, var(--primary) 60%, transparent) 100%
+    #10B981 35%,
+    #F59E0B 70%,
+    hsl(var(--destructive)) 100%
   );
+  opacity: .85;
+}
+.dark .helm-cal-tile {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border) / 0.9) !important;
+}
+.dark .helm-cal-tile::before { opacity: 1; }
+.helm-cal-tile[data-today="true"] {
+  border-color: hsl(var(--primary) / 0.55) !important;
+  box-shadow: 0 1px 0 hsl(var(--primary) / 0.4), 0 10px 24px -16px hsl(var(--primary) / 0.6);
+}
+.helm-cal-tile[data-today="true"]::before {
+  height: 5px;
+  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.6) 100%);
+  opacity: 1;
 }
 
 /* Themed bordered event tile inside a day column */
 .helm-cal-event {
-  border: 1.5px solid hsl(var(--border)) !important;
+  border: 1px solid hsl(var(--border)) !important;
   border-left: 3px solid hsl(var(--primary)) !important;
   background: hsl(var(--card)) !important;
   box-shadow: 0 1px 0 hsl(var(--border) / 0.5);
 }
 .dark .helm-cal-event {
-  background: hsl(var(--card) / 0.6) !important;
-  border-color: hsl(var(--border) / 0.8) !important;
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border) / 0.9) !important;
 }
 .helm-cal-event[data-external="true"] {
   border-left-color: #F59E0B !important;
   background: color-mix(in srgb, #F59E0B 8%, hsl(var(--card))) !important;
+}
+
+/* Proposed-calendar variants — same shell as current calendar */
+.helm-cal-tile-proposed::before {
+  background: linear-gradient(90deg, hsl(var(--primary)) 0%, #10B981 50%, #F59E0B 100%);
 }
 
 
