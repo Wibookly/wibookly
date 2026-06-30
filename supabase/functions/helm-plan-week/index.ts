@@ -251,6 +251,7 @@ Deno.serve(async (req) => {
     }
   }
 
+  const strategy = (body?.strategy as string) === "reorganize" ? "reorganize" : "focus";
   // ============ Mode: analyze ============
 
   // 1) Load focus rule (insert default if missing)
