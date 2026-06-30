@@ -2723,7 +2723,7 @@ export default function TheHelm() {
           html, body { background: #ffffff !important; color: #000 !important; }
         }
       `}</style>
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 max-w-[1600px] w-[95vw] max-w-full">
         {view === 'brief' && <BriefView go={go} done={done} toggleDone={toggleDone} />}
         {view === 'inbox' && <InboxView onBack={back} scope={inboxScope} />}
         {view === 'detail' && <DetailView item={activeItem} onBack={back} />}
