@@ -127,6 +127,40 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
 
   const { enabledAt, bh } = await getUserPrefs(admin, userId);
 
+  // ─── Retroactive snap ────────────────────────────────────────────────
+  // Existing open rows may have follow_up_at / scheduled_send_at landing
+  // outside the user's allowed window (e.g. ingested before this fix, or
+  // before the user tightened their hours). Push every out-of-window
+  // timestamp forward to the next allowed slot so nothing fires at night.
+  let snapped = 0;
+  if (bh.on) {
+    const { data: openRows } = await admin
+      .from('tracked_emails')
+      .select('id, status, follow_up_at, scheduled_send_at')
+      .eq('user_id', userId)
+      .in('status', ['pending', 'queued', 'drafted']);
+    for (const r of (openRows || []) as any[]) {
+      const updates: Record<string, any> = {};
+      if (r.follow_up_at) {
+        const t = new Date(r.follow_up_at);
+        if (!isInWindow(t, bh)) {
+          updates.follow_up_at = nextWindowStart(t, bh).toISOString();
+        }
+      }
+      if (r.scheduled_send_at) {
+        const t = new Date(r.scheduled_send_at);
+        if (!isInWindow(t, bh)) {
+          updates.scheduled_send_at = nextWindowStart(t, bh).toISOString();
+          updates.queued_reason = 'outside_business_hours';
+        }
+      }
+      if (Object.keys(updates).length) {
+        await admin.from('tracked_emails').update(updates).eq('id', r.id);
+        snapped++;
+      }
+    }
+  }
+
   const items: any[] = res.data?.value || [];
   let upserted = 0;
   let cancelled = 0;
