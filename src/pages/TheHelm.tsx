@@ -1040,99 +1040,142 @@ function BriefView({
 
 
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
-        <LedgerSection
-          overdue={overdue}
-          fyi={fyi}
-          autoActions={autoActions}
-          expandedId={expandedId}
-          setExpandedId={setExpandedId}
-          expandedItem={expandedItem}
-          isLoading={isLoading}
-        />
+        {(() => {
+          const tabColor =
+            ledgerTab === 'overdue' ? 'text-rose-500' :
+            ledgerTab === 'fyi' ? 'text-sky-500' :
+            'text-emerald-500';
+          const tabLabel =
+            ledgerTab === 'overdue' ? 'Overdue' :
+            ledgerTab === 'fyi' ? 'FYI' : 'Handled';
+          const tabCount =
+            ledgerTab === 'overdue' ? overdue.length :
+            ledgerTab === 'fyi' ? fyi.length : autoActions.length;
+          const tabBadge =
+            ledgerTab === 'overdue' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' :
+            ledgerTab === 'fyi' ? 'bg-sky-500/15 text-sky-600 border-sky-500/30' :
+            'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
+          return (
+            <section aria-labelledby="ledger" data-helm-section="ledger">
+              <div className="flex items-baseline gap-3 mb-4">
+                <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none transition-colors', tabColor)}>03</span>
+                <div className="pb-0 flex-1 min-w-0">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
+                  <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
+                    Operations ledger
+                    <span className="text-muted-foreground/60 font-normal text-[14px]">· {tabLabel}</span>
+                    <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors', tabBadge)}>{tabCount}</Badge>
+                  </h2>
+                </div>
+              </div>
 
-
-              <TabsContent value="overdue" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
-                {isLoading ? (
-                  <Skeleton className="h-20" />
-                ) : overdue.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {overdue.map((item) => (
-                      <div key={item.id}>
-                        <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                        {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
-                        )}
+              <Card className="border-border/60 overflow-hidden">
+                <Tabs value={ledgerTab} onValueChange={(v) => setLedgerTab(v as any)} className="w-full">
+                  <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
+                    <TabsTrigger value="overdue" data-helm-section="overdue"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                      Overdue
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-rose-500/15 text-rose-600 border-rose-500/30">{overdue.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="fyi" data-helm-section="fyi"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <Eye className="w-3.5 h-3.5 text-sky-500" />
+                      FYI
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-sky-500/15 text-sky-600 border-sky-500/30">{fyi.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="auto" data-helm-section="activity"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      Handled by AI
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-emerald-500/15 text-emerald-600 border-emerald-500/30">{autoActions.length}</Badge>
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="overdue" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
+                    {isLoading ? (
+                      <Skeleton className="h-20" />
+                    ) : overdue.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="fyi" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
-                {fyi.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {fyi.slice(0, 25).map((item) => (
-                      <div key={item.id}>
-                        <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                        {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
-                        )}
+                    ) : (
+                      <div className="space-y-2.5">
+                        {overdue.map((item) => (
+                          <div key={item.id}>
+                            <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                            {expandedId === item.id && expandedItem && (
+                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                    {fyi.length > 25 && (
-                      <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
                     )}
-                  </div>
-                )}
-              </TabsContent>
+                  </TabsContent>
 
-              <TabsContent value="auto" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
-                <p className="text-[11px] text-muted-foreground/80 mb-3">
-                  <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
-                  <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
-                  <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
-                  <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
-                </p>
-                {autoActions.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border/40">
-                    {autoActions.map((a) => (
-                      <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
-                        <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
-                        <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
-                        <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
-                          a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
-                          a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
-                          a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
-                          a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
-                          {a.tag}
-                        </Badge>
-                        <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </TabsContent>
-            </Tabs>
-          </Card>
-        </section>
+                  <TabsContent value="fyi" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
+                    {fyi.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {fyi.slice(0, 25).map((item) => (
+                          <div key={item.id}>
+                            <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                            {expandedId === item.id && expandedItem && (
+                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
+                            )}
+                          </div>
+                        ))}
+                        {fyi.length > 25 && (
+                          <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="auto" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
+                    <p className="text-[11px] text-muted-foreground/80 mb-3">
+                      <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
+                      <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
+                      <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
+                      <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
+                    </p>
+                    {autoActions.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-border/40">
+                        {autoActions.map((a) => (
+                          <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
+                            <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
+                            <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
+                            <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
+                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
+                              {a.tag}
+                            </Badge>
+                            <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            </section>
+          );
+        })()}
+
 
 
 
