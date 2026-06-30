@@ -200,13 +200,34 @@ function useHelmData() {
         };
       });
 
+      // --- Today: AI-detected items due today (content-driven, not sender-driven)
+      const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+      const TODAY_RX = /\b(today|eod|cob|end of day|by (5|6|noon|tonight)|this afternoon|this morning|by ?eob)\b/i;
+      const isDueToday = (r: HelmItem) => {
+        if (r.due_at) {
+          const d = new Date(r.due_at).getTime();
+          if (d >= startOfToday.getTime() && d <= endOfToday.getTime()) return true;
+        }
+        return TODAY_RX.test(`${r.context ?? ''} ${r.title ?? ''}`);
+      };
+      const dedupeIds = new Set([...big3Ids]);
+      const todayItems = [...decisionRows, ...overdue, ...fyi]
+        .filter((r) => !dedupeIds.has(r.id) && isDueToday(r))
+        .filter((item, idx, arr) => arr.findIndex((x) => x.id === item.id) === idx)
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, 10);
+      const todayIds = new Set(todayItems.map((t) => t.id));
+      const decisionsFiltered = decisions.filter((d) => !todayIds.has(d.id));
+
       const totalInbound = rows.length + autoActions.length;
-      const needsYouIds = new Set([...big3, ...decisions, ...overdue].map((item) => item.id));
+      const needsYouIds = new Set([...big3, ...todayItems, ...decisionsFiltered, ...overdue].map((item) => item.id));
       const needsYou = needsYouIds.size;
 
       return {
         big3,
-        decisions,
+        today: todayItems,
+        decisions: decisionsFiltered,
         drafts,
         overdue,
         fyi,
@@ -222,6 +243,7 @@ function useHelmData() {
     staleTime: 30_000,
   });
 }
+
 
 
 /* ------------------------------------------------------------------ */
@@ -799,6 +821,7 @@ function BriefView({
 
   const stats = data?.stats ?? { totalInbound: 0, needsYou: 0, drafted: 0, autoHandled: 0 };
   const big3 = data?.big3 ?? [];
+  const todayItems = (data as any)?.today ?? [];
   const decisions = data?.decisions ?? [];
   const overdue = data?.overdue ?? [];
   const fyi = data?.fyi ?? [];
@@ -963,16 +986,17 @@ function BriefView({
               <p className="text-[11px] text-muted-foreground mt-1.5">decisions, approvals & overdue replies</p>
             </div>
             <div className="helm-tile" data-accent="emerald">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Handled for you</p>
-              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{Math.max(0, stats.totalInbound - stats.needsYou)}</p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied overnight</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Sent by AI</p>
+              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{stats.autoHandled}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied by AI</p>
             </div>
           </div>
 
           {/* Executive breakdown — click to open that scope's focused reader */}
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             {([
-              { key: 'big3', label: 'Top Priorities', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
+              { key: 'big3', label: 'Top Priorities', count: big3.length, accent: 'sky',     onClick: () => document.querySelector('[data-helm-section="pillar-big3"]')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'today', label: 'Today', count: todayItems.length, accent: 'amber', onClick: () => document.querySelector('[data-helm-section="pillar-today"]')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'decisions', label: 'Decisions', count: decisions.length, accent: 'violet', onClick: () => go('inbox', undefined, 'decisions') },
               { key: 'overdue', label: 'Overdue', count: overdue.length, accent: 'red', onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), accent: 'cyan', onClick: () => go('inbox', undefined, 'drafts') },
@@ -1002,28 +1026,47 @@ function BriefView({
 
         {/* ── 01 · Action Pillars — stacked vertically, inline-expand ── */}
         <section aria-labelledby="pillars" data-helm-section="pillars" className="space-y-8">
+          <div data-helm-section="pillar-big3">
+            <PillarBlock
+              number="01"
+              accentClass="from-amber-400 via-orange-500 to-rose-500"
+              iconBg="bg-amber-500/10 text-amber-500"
+              numberColor="text-amber-500/90"
+              Icon={Flame}
+              label="Pillar A · Top Priorities"
+              count={big3.length}
+              items={big3}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              emptyText="Nothing urgent. Your day is yours."
+              openReader={() => go('inbox', undefined, 'big3')}
+              accent="amber"
+            />
+          </div>
+          <div data-helm-section="pillar-today">
+            <PillarBlock
+              number="02"
+              accentClass="from-sky-400 via-cyan-500 to-blue-500"
+              iconBg="bg-sky-500/10 text-sky-500"
+              numberColor="text-sky-500/90"
+              Icon={Clock}
+              label="Pillar B · Today — due today, AI-prioritized"
+              count={todayItems.length}
+              items={todayItems}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              emptyText="Nothing is hard-due today."
+              openReader={() => go('inbox', undefined, 'big3')}
+              accent="sky"
+            />
+          </div>
           <PillarBlock
-            number="01"
-            accentClass="from-amber-400 via-orange-500 to-rose-500"
-            iconBg="bg-amber-500/10 text-amber-500"
-            numberColor="text-amber-500/90"
-            Icon={Flame}
-            label="Pillar A · Top Priorities"
-            count={big3.length}
-            items={big3}
-            expandedId={expandedId}
-            setExpandedId={setExpandedId}
-            emptyText="Nothing urgent. Your day is yours."
-            openReader={() => go('inbox', undefined, 'big3')}
-            accent="amber"
-          />
-          <PillarBlock
-            number="02"
+            number="03"
             accentClass="from-violet-400 via-indigo-500 to-blue-500"
             iconBg="bg-violet-500/10 text-violet-500"
             numberColor="text-violet-500/90"
             Icon={ThumbsUp}
-            label="Pillar B · Your decisions"
+            label="Pillar C · Your decisions"
             count={decisions.length}
             items={decisions}
             expandedId={expandedId}
@@ -1033,6 +1076,7 @@ function BriefView({
             accent="violet"
           />
         </section>
+
 
 
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
@@ -1055,7 +1099,7 @@ function BriefView({
             <section aria-labelledby="ledger" data-helm-section="ledger">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
-                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>03</span>
+                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>04</span>
                   <span className="truncate">Operations ledger</span>
                   <span className="text-muted-foreground/60 font-normal text-[14px] shrink-0">· {tabLabel}</span>
                   <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors shrink-0', tabBadge)}>{tabCount}</Badge>
@@ -1342,7 +1386,7 @@ function CalendarRail({
                     key={i}
                     className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
                   >
-                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-12 pt-0.5">
+                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-[58px] pt-0.5 whitespace-nowrap">
                       {fmtTime(ev.start)}
                     </div>
                     <div className="min-w-0 flex-1">
