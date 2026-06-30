@@ -1099,7 +1099,7 @@ function BriefView({
             <section aria-labelledby="ledger" data-helm-section="ledger">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
-                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>03</span>
+                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>04</span>
                   <span className="truncate">Operations ledger</span>
                   <span className="text-muted-foreground/60 font-normal text-[14px] shrink-0">· {tabLabel}</span>
                   <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors shrink-0', tabBadge)}>{tabCount}</Badge>
