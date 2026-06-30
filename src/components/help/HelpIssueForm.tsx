@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Send, CheckCircle2, Paperclip, X, ImageIcon } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, Paperclip, X, ImageIcon, Mic, MicOff, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -58,9 +58,44 @@ export function HelpIssueForm() {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [collaborators, setCollaborators] = useState('');
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const MAX_FILES = 5;
   const MAX_BYTES = 10 * 1024 * 1024; // 10 MB each
+
+  const toggleMic = () => {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast({ title: 'Voice input not supported', description: 'Try Chrome, Edge, or Safari on desktop.', variant: 'destructive' });
+      return;
+    }
+    if (listening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = navigator.language || 'en-US';
+    rec.onresult = (e: any) => {
+      let chunk = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) chunk += e.results[i][0].transcript;
+      }
+      if (chunk) setDescription((d) => (d ? d.trim() + ' ' : '') + chunk.trim());
+    };
+    rec.onerror = (e: any) => {
+      toast({ title: 'Voice input error', description: e?.error || 'Mic permission denied.', variant: 'destructive' });
+      setListening(false);
+    };
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+  };
+
 
   const addFiles = (incoming: FileList | File[] | null) => {
     if (!incoming) return;
