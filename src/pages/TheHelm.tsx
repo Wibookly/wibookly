@@ -592,7 +592,7 @@ function PillarBlock({
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
       {/* Header with huge number */}
       <div className="flex items-end gap-4 mb-4">
-        <span className={cn('font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums select-none', numberColor)}>
+        <span className={cn('font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums select-none', numberColor)}>
           {number}
         </span>
         <div className="pb-2 flex-1 min-w-0">
