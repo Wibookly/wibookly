@@ -704,3 +704,47 @@
 }
 .helm-email-body table { border-collapse: collapse; }
 .helm-email-body td, .helm-email-body th { padding: 4px 8px; }
+
+/* Visible gradient divider between email highlight rows */
+.helm-row-divided > * + * {
+  position: relative;
+  margin-top: .35rem;
+  padding-top: .35rem;
+}
+.helm-row-divided > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: .5rem;
+  right: .5rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 55%, transparent) 0%,
+    color-mix(in srgb, var(--success) 45%, transparent) 35%,
+    color-mix(in srgb, #F59E0B 55%, transparent) 70%,
+    color-mix(in srgb, var(--danger) 55%, transparent) 100%
+  );
+  opacity: .55;
+}
+.dark .helm-row-divided > * + *::before { opacity: .7; }
+
+/* Visible day divider on Helm calendar rail */
+.helm-day-row { position: relative; }
+.helm-day-row::after {
+  content: "";
+  display: block;
+  height: 2px;
+  margin: .25rem .25rem 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 60%, transparent),
+    color-mix(in srgb, var(--border) 35%, transparent) 50%,
+    color-mix(in srgb, var(--primary) 60%, transparent)
+  );
+  opacity: .55;
+}
+.dark .helm-day-row::after { opacity: .75; }
+
