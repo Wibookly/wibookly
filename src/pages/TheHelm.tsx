@@ -2701,22 +2701,48 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        {autoFocusOn && focus && (
+                        {focusEnabled && focus && !dismissedFocus[focus.day_key] && (
                           <div
                             className={cn(
-                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]',
+                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
                               focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
                               focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
                               focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
+                              appliedFocus[focus.day_key] && 'opacity-70',
                             )}
                           >
                             <div className="flex items-center gap-1 font-semibold text-foreground">
                               <Zap className="w-3 h-3" /> Focus block
+                              {appliedFocus[focus.day_key] && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10 ml-auto">Added</Badge>
+                              )}
                             </div>
                             <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {focus.state === 'free' && 'Open spot — approve to add to your calendar.'}
+                              {focus.state === 'needs_move' && 'Needs to move a meeting — see proposed calendar below.'}
+                              {focus.state === 'blocked' && 'No space — try a different day or shorter block.'}
+                            </p>
+                            {focus.state === 'free' && !appliedFocus[focus.day_key] && (
+                              <div className="flex gap-1.5 mt-1.5">
+                                <button
+                                  disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
+                                  onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
+                                </button>
+                                <button
+                                  onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                                  className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
+
                         {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
                         {!isLoading && evs.length === 0 && !focus && (
                           <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
