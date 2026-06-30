@@ -1168,8 +1168,36 @@ function BriefView({
       </div>
 
 
-      {/* Right rail */}
-      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+      {/* Right rail — Inbox health pinned on top, This week grows below */}
+      <aside className="space-y-5">
+        <Card className="border-border/60 lg:sticky lg:top-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.totalInbound}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
+                <dd className="text-3xl font-light text-primary tabular-nums">{stats.needsYou}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.drafted}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.autoHandled}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
         <Card
           role="button"
           tabIndex={0}
@@ -1218,43 +1246,6 @@ function BriefView({
                 <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
               )}
             </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
-              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.totalInbound}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
-                <dd className="text-3xl font-light text-primary tabular-nums">
-                  {stats.needsYou}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.drafted}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.autoHandled}
-                </dd>
-
-              </div>
-            </dl>
           </CardContent>
         </Card>
       </aside>
