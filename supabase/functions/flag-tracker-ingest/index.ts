@@ -18,11 +18,17 @@ const json = (b: unknown, s = 200) =>
 
 const DEFAULT_INTERVAL_DAYS = 3;
 const SCAN_LOOKBACK_HOURS = 24 * 30; // 30 days
-const FOLDER_PATH = "/me/mailFolders('sentitems')/messages";
+// Scan BOTH Sent Items AND Inbox so flags placed on received emails also
+// land in the tracker (user flags an email someone sent them → AI follows
+// up with that sender once the flag's due date arrives).
+const FOLDER_PATHS: Array<{ folder: 'sent' | 'inbox'; path: string; dateField: string }> = [
+  { folder: 'sent',  path: "/me/mailFolders('sentitems')/messages", dateField: 'sentDateTime' },
+  { folder: 'inbox', path: "/me/mailFolders('inbox')/messages",     dateField: 'receivedDateTime' },
+];
 
 const SELECT_FIELDS = [
-  'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients',
-  'sentDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
+  'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients', 'from',
+  'sentDateTime', 'receivedDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
 ].join(',');
 
 function parseCategoryInterval(cats: string[] | undefined): { days: number } | null {
@@ -119,11 +125,21 @@ async function getUserPrefs(admin: any, userId: string): Promise<{ enabledAt: Da
 
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const since = new Date(Date.now() - SCAN_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
-  const filter = encodeURIComponent(`sentDateTime ge ${since}`);
-  const endpoint = `${FOLDER_PATH}?$top=50&$orderby=sentDateTime desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
 
-  const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
-  if (!res.ok) return { ok: false, error: res.error?.message, scanned: 0, upserted: 0 };
+  // Fetch from BOTH Sent Items and Inbox in parallel and merge the results.
+  const folderResults = await Promise.all(FOLDER_PATHS.map(async (f) => {
+    const filter = encodeURIComponent(`${f.dateField} ge ${since}`);
+    const endpoint = `${f.path}?$top=50&$orderby=${f.dateField} desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
+    const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
+    const items: any[] = res.ok ? (res.data?.value || []) : [];
+    return { folder: f.folder, ok: res.ok, error: res.error?.message, items };
+  }));
+
+  const firstError = folderResults.find((r) => !r.ok)?.error;
+  if (folderResults.every((r) => !r.ok)) {
+    return { ok: false, error: firstError, scanned: 0, upserted: 0 };
+  }
+  const res = { ok: true, data: { value: [] as any[] } } as any;
 
   const { enabledAt, bh } = await getUserPrefs(admin, userId);
 
@@ -161,7 +177,20 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
-  const items: any[] = res.data?.value || [];
+  // Tag each item with its source folder, then dedupe by internetMessageId
+  // (Sent wins if a message somehow appears in both — preserves outbound recipient).
+  const tagged: any[] = [];
+  const seenIMI = new Set<string>();
+  const sentFirst = [...folderResults].sort((a, b) => (a.folder === 'sent' ? -1 : 1));
+  for (const fr of sentFirst) {
+    for (const m of fr.items) {
+      const imi = m.internetMessageId;
+      if (!imi || seenIMI.has(imi)) continue;
+      seenIMI.add(imi);
+      tagged.push({ ...m, __folder: fr.folder });
+    }
+  }
+  const items: any[] = tagged;
   let upserted = 0;
   let cancelled = 0;
   let skippedPreEnable = 0;
@@ -218,7 +247,8 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       trigger_detail = { dueDateTime: m.flag.dueDateTime, original_due_utc: dueFromFlag.toISOString() };
     } else if (catTrigger) {
       trigger_type = 'category';
-      const base = new Date(m.sentDateTime || Date.now()).getTime();
+      const baseIso = m.__folder === 'inbox' ? (m.receivedDateTime || m.sentDateTime) : (m.sentDateTime || m.receivedDateTime);
+      const base = new Date(baseIso || Date.now()).getTime();
       const raw = new Date(base + catTrigger.days * 86400000);
       follow_up_at = nextWindowStart(raw, bh).toISOString();
       trigger_detail = { interval_days: catTrigger.days, categories: m.categories, original_due_utc: raw.toISOString() };
@@ -226,7 +256,14 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       continue; // Not tracked
     }
 
-    const recipient = m.toRecipients?.[0]?.emailAddress || null;
+    // For Sent items the "recipient" we're chasing is the TO address.
+    // For Inbox items it's the SENDER (who emailed us — we'll follow up with them).
+    const recipient = m.__folder === 'inbox'
+      ? (m.from?.emailAddress || null)
+      : (m.toRecipients?.[0]?.emailAddress || null);
+    const sentAt = m.__folder === 'inbox'
+      ? (m.receivedDateTime || m.sentDateTime)
+      : (m.sentDateTime || m.receivedDateTime);
     const row = {
       user_id: userId,
       connection_id: connectionId,
@@ -237,9 +274,9 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       recipient_name: recipient?.name || null,
       subject: m.subject || null,
       body_preview: (m.bodyPreview || '').slice(0, 500),
-      sent_at: m.sentDateTime,
+      sent_at: sentAt,
       trigger_type,
-      trigger_detail,
+      trigger_detail: { ...trigger_detail, folder: m.__folder },
       follow_up_at,
       web_link: m.webLink || null,
     };
