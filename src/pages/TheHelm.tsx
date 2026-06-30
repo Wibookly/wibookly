@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
+import { InlineEmailExpander } from '@/components/helm/InlineEmailExpander';
 
 /* ------------------------------------------------------------------ */
 /* Types & data hooks                                                 */
