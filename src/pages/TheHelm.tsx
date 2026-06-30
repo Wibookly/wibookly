@@ -2388,6 +2388,78 @@ function FocusRulesCard({
   );
 }
 
+function FocusRulesCompact({
+  rule,
+  saving,
+  onChange,
+}: {
+  rule: FocusRule;
+  saving: boolean;
+  onChange: (next: FocusRule) => void;
+}) {
+  const toggleDay = (d: string) => {
+    const has = rule.focus_days.includes(d);
+    onChange({
+      ...rule,
+      focus_days: has ? rule.focus_days.filter((x) => x !== d) : [...rule.focus_days, d],
+    });
+  };
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">My focus rules</p>
+        {saving && (
+          <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 animate-spin" /> recalculating…
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {DAY_CHIPS.map((d) => {
+          const on = rule.focus_days.includes(d.id);
+          return (
+            <button
+              key={d.id}
+              onClick={() => toggleDay(d.id)}
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                on ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted',
+              )}
+            >
+              {d.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">Length</span>
+          <select
+            value={rule.block_minutes}
+            onChange={(e) => onChange({ ...rule, block_minutes: Number(e.target.value) })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
+          >
+            {[30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m}m</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">When</span>
+          <select
+            value={rule.focus_window}
+            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as 'morning' | 'afternoon' })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 capitalize"
+          >
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
 function fmtTimeShort(iso: string | null) {
   if (!iso) return '';
   const m = iso.match(/T(\d{2}):(\d{2})/);
@@ -2402,14 +2474,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
   const [ruleLoaded, setRuleLoaded] = useState(false);
-  const [autoFocusOn, setAutoFocusOn] = useState<boolean>(() => {
-    try { return window.localStorage.getItem('helm:auto-focus') !== 'off'; } catch { return true; }
+  const [focusEnabled, setFocusEnabled] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('helm:focus-enabled') !== 'off'; } catch { return true; }
   });
-  const [strategy, setStrategy] = useState<'focus' | 'reorganize'>(() => {
-    try { return (window.localStorage.getItem('helm:plan-strategy') as any) || 'focus'; } catch { return 'focus'; }
+  const [reorganizeEnabled, setReorganizeEnabled] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('helm:reorganize-enabled') === 'on'; } catch { return false; }
   });
-  useEffect(() => { try { window.localStorage.setItem('helm:auto-focus', autoFocusOn ? 'on' : 'off'); } catch {} }, [autoFocusOn]);
-  useEffect(() => { try { window.localStorage.setItem('helm:plan-strategy', strategy); } catch {} }, [strategy]);
+  const autoFocusOn = focusEnabled || reorganizeEnabled;
+  const strategy: 'focus' | 'reorganize' = reorganizeEnabled ? 'reorganize' : 'focus';
+  useEffect(() => { try { window.localStorage.setItem('helm:focus-enabled', focusEnabled ? 'on' : 'off'); } catch {} }, [focusEnabled]);
+  useEffect(() => { try { window.localStorage.setItem('helm:reorganize-enabled', reorganizeEnabled ? 'on' : 'off'); } catch {} }, [reorganizeEnabled]);
   const qc = useQueryClient();
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
@@ -2487,6 +2561,25 @@ function CalendarView({ onBack }: { onBack: () => void }) {
   // Per-proposal editable note state + dismissed list
   const [draftByProp, setDraftByProp] = useState<Record<string, { note: string; loading: boolean; revealed: boolean }>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const [dismissedFocus, setDismissedFocus] = useState<Record<string, boolean>>({});
+  const [appliedFocus, setAppliedFocus] = useState<Record<string, boolean>>({});
+
+  const createFocusMutation = useMutation({
+    mutationFn: async ({ day_key, start, end }: { day_key: string; start: string; end: string }) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'create_focus_block', day_key, start, end, block_minutes: rule.block_minutes },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      setAppliedFocus((s) => ({ ...s, [vars.day_key]: true }));
+      toast.success('Focus block added to your calendar.');
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
+  });
 
   const revealApproval = async (p: Proposal) => {
     setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: true, revealed: true } }));
@@ -2627,22 +2720,48 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        {autoFocusOn && focus && (
+                        {focusEnabled && focus && !dismissedFocus[focus.day_key] && (
                           <div
                             className={cn(
-                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]',
+                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
                               focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
                               focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
                               focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
+                              appliedFocus[focus.day_key] && 'opacity-70',
                             )}
                           >
                             <div className="flex items-center gap-1 font-semibold text-foreground">
                               <Zap className="w-3 h-3" /> Focus block
+                              {appliedFocus[focus.day_key] && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10 ml-auto">Added</Badge>
+                              )}
                             </div>
                             <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {focus.state === 'free' && 'Open spot — approve to add to your calendar.'}
+                              {focus.state === 'needs_move' && 'Needs to move a meeting — see proposed calendar below.'}
+                              {focus.state === 'blocked' && 'No space — try a different day or shorter block.'}
+                            </p>
+                            {focus.state === 'free' && !appliedFocus[focus.day_key] && (
+                              <div className="flex gap-1.5 mt-1.5">
+                                <button
+                                  disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
+                                  onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
+                                </button>
+                                <button
+                                  onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                                  className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
+
                         {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
                         {!isLoading && evs.length === 0 && !focus && (
                           <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
@@ -2687,7 +2806,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         </Card>
       </Collapsible>
 
-      {/* AI intelligence — master toggle + strategy + rules */}
+      {/* AI intelligence — two independent strategies */}
       <Card className="overflow-hidden border-primary/30 mb-4">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/60 bg-muted/20">
           <div className="flex items-center gap-2 min-w-0">
@@ -2697,60 +2816,71 @@ function CalendarView({ onBack }: { onBack: () => void }) {
               <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-600">ON</Badge>
             )}
           </div>
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <span className="text-[11px] text-muted-foreground">Auto-focus</span>
-            <input
-              type="checkbox"
-              checked={autoFocusOn}
-              onChange={(e) => setAutoFocusOn(e.target.checked)}
-              className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
-            />
-          </label>
+          <p className="text-[11px] text-muted-foreground">Internal moves auto-apply · external always asks you</p>
         </div>
-        {!autoFocusOn ? (
-          <div className="p-4 text-[12px] text-muted-foreground italic">
-            Auto-focus is OFF. AI proposals, focus blocks, and scheduled moves are hidden until you turn it back on.
-          </div>
-        ) : (
-          <div className="p-4 space-y-4">
-            {/* Strategy chooser */}
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">AI strategy</p>
-              <div className="grid sm:grid-cols-2 gap-2">
-                <button
-                  onClick={() => setStrategy('focus')}
-                  className={cn(
-                    'text-left rounded-lg border p-3 transition-colors',
-                    strategy === 'focus' ? 'border-primary bg-primary/5 ring-1 ring-primary/40' : 'border-border hover:bg-muted/30',
-                  )}
-                >
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Zap className="w-3.5 h-3.5 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Add focus times</p>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Protect deep-work blocks on your chosen days and move only conflicting meetings.</p>
-                </button>
-                <button
-                  onClick={() => setStrategy('reorganize')}
-                  className={cn(
-                    'text-left rounded-lg border p-3 transition-colors',
-                    strategy === 'reorganize' ? 'border-primary bg-primary/5 ring-1 ring-primary/40' : 'border-border hover:bg-muted/30',
-                  )}
-                >
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Reorganize my week</p>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Let AI restructure the whole week for better performance and time management.</p>
-                </button>
+        <div className="p-4 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {/* Add focus times card */}
+            <div className={cn(
+              'rounded-lg border p-3 transition-colors',
+              focusEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
+            )}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">Add focus times</p>
+                </div>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={focusEnabled}
+                    onChange={(e) => setFocusEnabled(e.target.checked)}
+                    className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+                  />
+                </label>
               </div>
+              <p className="text-[11px] text-muted-foreground">AI finds an open gap on your chosen days and proposes a focus block — you approve before it lands on your calendar.</p>
+              {focusEnabled && (
+                <div className="mt-3 pt-3 border-t border-border/40">
+                  <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+                </div>
+              )}
             </div>
-            {strategy === 'focus' && (
-              <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
-            )}
+
+            {/* Reorganize my week card */}
+            <div className={cn(
+              'rounded-lg border p-3 transition-colors',
+              reorganizeEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
+            )}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">Reorganize my week</p>
+                </div>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={reorganizeEnabled}
+                    onChange={(e) => setReorganizeEnabled(e.target.checked)}
+                    className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">AI restructures the week — auto-moves internal meetings to consolidate free time, and asks you before touching anything external.</p>
+              {reorganizeEnabled && (
+                <p className="text-[10px] text-muted-foreground italic mt-2">All proposed shifts appear in the AI proposed calendar below with check-boxes to approve.</p>
+              )}
+            </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" /> Free slot found
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-500 ml-3" /> Needs to move a meeting
+            <span className="inline-block w-2 h-2 rounded-full bg-destructive ml-3" /> No space — blocked
+          </div>
+        </div>
       </Card>
+
 
       {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}
       {autoFocusOn && ((planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0)) > 0 && (
