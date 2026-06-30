@@ -182,15 +182,22 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
 
       {/* TOP — original email */}
       <section className="px-5 py-4 border-b border-border/40 bg-muted/20">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">Original message</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Original message</p>
+          {original?.subject && (
+            <p className="text-[11px] text-muted-foreground/80 italic truncate max-w-[60%]">{original.subject}</p>
+          )}
+        </div>
         {bodyError ? (
           <div className="text-[12px] rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive">{bodyError}</div>
         ) : original ? (
-          original.body_html ? (
-            <div className="helm-email-body text-[13px] leading-relaxed max-h-64 overflow-y-auto" dangerouslySetInnerHTML={{ __html: original.body_html }} />
-          ) : (
-            <p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">{original.body_text || '(no body)'}</p>
-          )
+          <div className="rounded-lg border border-border/40 bg-background p-4 max-h-72 overflow-y-auto">
+            {original.body_html ? (
+              <div className="helm-email-body text-[13px] leading-[1.65] text-foreground/90" dangerouslySetInnerHTML={{ __html: original.body_html }} />
+            ) : (
+              <p className="text-[13px] text-foreground/90 whitespace-pre-wrap leading-[1.65]">{original.body_text || '(no body)'}</p>
+            )}
+          </div>
         ) : (
           <Skeleton className="h-20" />
         )}
