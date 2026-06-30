@@ -516,7 +516,7 @@ export default function Help() {
               <TabsTrigger value="all">All tickets (admin)<UnreadPill count={unread.all} /></TabsTrigger>
               <TabsTrigger value="mine">My tickets<UnreadPill count={unread.mine} /></TabsTrigger>
               <TabsTrigger value="submit">Submit an issue</TabsTrigger>
-              <TabsTrigger value="channels">Channels</TabsTrigger>
+              
             </TabsList>
             <TabsContent value="all" className="mt-4">
               <SupportIssuesPanel />
