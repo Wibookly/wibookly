@@ -177,7 +177,20 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     }
   }
 
-  const items: any[] = res.data?.value || [];
+  // Tag each item with its source folder, then dedupe by internetMessageId
+  // (Sent wins if a message somehow appears in both — preserves outbound recipient).
+  const tagged: any[] = [];
+  const seenIMI = new Set<string>();
+  const sentFirst = [...folderResults].sort((a, b) => (a.folder === 'sent' ? -1 : 1));
+  for (const fr of sentFirst) {
+    for (const m of fr.items) {
+      const imi = m.internetMessageId;
+      if (!imi || seenIMI.has(imi)) continue;
+      seenIMI.add(imi);
+      tagged.push({ ...m, __folder: fr.folder });
+    }
+  }
+  const items: any[] = tagged;
   let upserted = 0;
   let cancelled = 0;
   let skippedPreEnable = 0;
