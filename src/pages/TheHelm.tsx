@@ -590,24 +590,31 @@ function PillarBlock({
 }) {
   const [limit, setLimit] = useState<number>(10);
   const visible = items.slice(0, limit);
+  const badgeClass =
+    accent === 'amber' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' :
+    accent === 'violet' ? 'bg-violet-500/15 text-violet-600 border-violet-500/30' :
+    accent === 'rose' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' :
+    accent === 'sky' ? 'bg-sky-500/15 text-sky-600 border-sky-500/30' :
+    'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
   return (
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
       {/* Header — unified styling with "03 Operations ledger" */}
-      <div className="flex items-end gap-4 mb-4">
-        <span className={cn('font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums select-none', numberColor)}>
+      <div className="flex items-baseline gap-3 mb-4">
+        <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none', numberColor)}>
           {number}
         </span>
-        <div className="pb-2 flex-1 min-w-0">
+        <div className="pb-0 flex-1 min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
           <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
             {label}
-            <Badge variant="secondary" className="font-mono tabular-nums text-[11px]">{count}</Badge>
+            <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px]', badgeClass)}>{count}</Badge>
           </h2>
         </div>
-        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary pb-2">
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary self-end pb-1">
           Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
       </div>
+
 
       <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
         {items.length === 0 ? (
@@ -802,6 +809,7 @@ function BriefView({
   const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ledgerTab, setLedgerTab] = useState<'overdue' | 'fyi' | 'auto'>('overdue');
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
@@ -809,7 +817,7 @@ function BriefView({
     fyi.find((x) => x.id === expandedId) ||
     null;
 
-  // Live week preview for the right rail
+  // Live week preview for the right rail (returns per-day list of events with times)
   const weekPreview = useQuery({
     queryKey: ['helm-week-preview'],
     queryFn: async () => {
@@ -822,23 +830,30 @@ function BriefView({
         body: { week_start: ws.toISOString() },
       });
       if (error) throw error;
-      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; subject: string }>;
-      const byDay: Record<string, number> = {};
+      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; end?: string | null; subject: string }>;
+      const byDay: Record<string, Array<{ start: Date; end: Date | null; subject: string }>> = {};
       for (const ev of events) {
         if (!ev.start) continue;
-        const k = new Date(ev.start).toDateString();
-        byDay[k] = (byDay[k] ?? 0) + 1;
+        const sd = new Date(ev.start);
+        const k = sd.toDateString();
+        (byDay[k] ??= []).push({
+          start: sd,
+          end: ev.end ? new Date(ev.end) : null,
+          subject: ev.subject || '(no subject)',
+        });
       }
-      const out: { day: string; date: Date; count: number; isToday: boolean }[] = [];
+      const out: { day: string; date: Date; count: number; isToday: boolean; events: Array<{ start: Date; end: Date | null; subject: string }> }[] = [];
       const todayKey = new Date().toDateString();
       for (let i = 0; i < 5; i++) {
         const d = new Date(ws);
         d.setDate(ws.getDate() + i);
+        const list = (byDay[d.toDateString()] ?? []).sort((a, b) => a.start.getTime() - b.start.getTime());
         out.push({
           day: d.toLocaleDateString(undefined, { weekday: 'short' }),
           date: d,
-          count: byDay[d.toDateString()] ?? 0,
+          count: list.length,
           isToday: d.toDateString() === todayKey,
+          events: list,
         });
       }
       return out;
@@ -1026,120 +1041,142 @@ function BriefView({
 
 
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
-        <section aria-labelledby="ledger" data-helm-section="ledger">
-          <div className="flex items-end gap-4 mb-4">
-            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-emerald-500/90 select-none">03</span>
-            <div className="pb-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
-              <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
-            </div>
-          </div>
+        {(() => {
+          const tabColor =
+            ledgerTab === 'overdue' ? 'text-rose-500' :
+            ledgerTab === 'fyi' ? 'text-sky-500' :
+            'text-emerald-500';
+          const tabLabel =
+            ledgerTab === 'overdue' ? 'Overdue' :
+            ledgerTab === 'fyi' ? 'FYI' : 'Handled';
+          const tabCount =
+            ledgerTab === 'overdue' ? overdue.length :
+            ledgerTab === 'fyi' ? fyi.length : autoActions.length;
+          const tabBadge =
+            ledgerTab === 'overdue' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' :
+            ledgerTab === 'fyi' ? 'bg-sky-500/15 text-sky-600 border-sky-500/30' :
+            'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
+          return (
+            <section aria-labelledby="ledger" data-helm-section="ledger">
+              <div className="flex items-baseline gap-3 mb-4">
+                <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none transition-colors', tabColor)}>03</span>
+                <div className="pb-0 flex-1 min-w-0">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
+                  <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
+                    Operations ledger
+                    <span className="text-muted-foreground/60 font-normal text-[14px]">· {tabLabel}</span>
+                    <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors', tabBadge)}>{tabCount}</Badge>
+                  </h2>
+                </div>
+              </div>
 
-          <Card className="border-border/60 overflow-hidden">
-            <Tabs defaultValue={overdue.length > 0 ? 'overdue' : 'auto'} className="w-full">
-              <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
-                <TabsTrigger value="overdue" data-helm-section="overdue"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                  Overdue
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{overdue.length}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="fyi" data-helm-section="fyi"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <Eye className="w-3.5 h-3.5 text-sky-500" />
-                  FYI
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{fyi.length}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="auto" data-helm-section="activity"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  Handled by AI
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{autoActions.length}</Badge>
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overdue" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
-                {isLoading ? (
-                  <Skeleton className="h-20" />
-                ) : overdue.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {overdue.map((item) => (
-                      <div key={item.id}>
-                        <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                        {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
-                        )}
+              <Card className="border-border/60 overflow-hidden">
+                <Tabs value={ledgerTab} onValueChange={(v) => setLedgerTab(v as any)} className="w-full">
+                  <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
+                    <TabsTrigger value="overdue" data-helm-section="overdue"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                      Overdue
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-rose-500/15 text-rose-600 border-rose-500/30">{overdue.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="fyi" data-helm-section="fyi"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <Eye className="w-3.5 h-3.5 text-sky-500" />
+                      FYI
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-sky-500/15 text-sky-600 border-sky-500/30">{fyi.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="auto" data-helm-section="activity"
+                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      Handled by AI
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-emerald-500/15 text-emerald-600 border-emerald-500/30">{autoActions.length}</Badge>
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="overdue" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
+                    {isLoading ? (
+                      <Skeleton className="h-20" />
+                    ) : overdue.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="fyi" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
-                {fyi.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {fyi.slice(0, 25).map((item) => (
-                      <div key={item.id}>
-                        <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                        {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
-                        )}
+                    ) : (
+                      <div className="space-y-2.5">
+                        {overdue.map((item) => (
+                          <div key={item.id}>
+                            <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                            {expandedId === item.id && expandedItem && (
+                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                    {fyi.length > 25 && (
-                      <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
                     )}
-                  </div>
-                )}
-              </TabsContent>
+                  </TabsContent>
 
-              <TabsContent value="auto" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
-                <p className="text-[11px] text-muted-foreground/80 mb-3">
-                  <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
-                  <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
-                  <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
-                  <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
-                </p>
-                {autoActions.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                    <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border/40">
-                    {autoActions.map((a) => (
-                      <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
-                        <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
-                        <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
-                        <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
-                          a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
-                          a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
-                          a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
-                          a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
-                          {a.tag}
-                        </Badge>
-                        <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </TabsContent>
-            </Tabs>
-          </Card>
-        </section>
+                  <TabsContent value="fyi" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
+                    {fyi.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {fyi.slice(0, 25).map((item) => (
+                          <div key={item.id}>
+                            <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                            {expandedId === item.id && expandedItem && (
+                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
+                            )}
+                          </div>
+                        ))}
+                        {fyi.length > 25 && (
+                          <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="auto" className="m-0 p-5">
+                    <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
+                    <p className="text-[11px] text-muted-foreground/80 mb-3">
+                      <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
+                      <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
+                      <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
+                      <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
+                    </p>
+                    {autoActions.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
+                        <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-border/40">
+                        {autoActions.map((a) => (
+                          <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
+                            <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
+                            <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
+                            <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
+                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
+                              {a.tag}
+                            </Badge>
+                            <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            </section>
+          );
+        })()}
+
 
 
 
@@ -1201,60 +1238,171 @@ function BriefView({
           </CardContent>
         </Card>
 
-        <Card
-          role="button"
-          tabIndex={0}
-          onClick={() => go('calendar')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              go('calendar');
-            }
-          }}
-          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60 flex-1 flex flex-col"
-        >
-          <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
-            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
-              <Calendar className="w-4 h-4 text-primary" /> This week
-            </CardTitle>
-            <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
-          </CardHeader>
-          <CardContent className="pt-0 flex-1 flex flex-col">
-            <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
-            <ul className="space-y-0 flex-1">
-              {(weekPreview.data ?? []).map((d) => (
-                <li
-                  key={d.day}
-                  className={cn(
-                    'flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0',
-                    d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
-                  )}
-                >
-                  <span className={cn(
-                    'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
-                    d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
-                  )}>{d.day}</span>
-                  <span className="text-foreground/80 flex-1 leading-snug">
-                    {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
-                  </span>
-                  {d.isToday && (
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
-                  )}
-                </li>
-              ))}
-              {weekPreview.isLoading && (
-                <li className="text-[12px] text-muted-foreground italic py-2">Loading your week…</li>
-              )}
-              {!weekPreview.isLoading && (weekPreview.data?.length ?? 0) === 0 && (
-                <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
+        <CalendarRail
+          data={weekPreview.data ?? []}
+          isLoading={weekPreview.isLoading}
+          onOpen={() => go('calendar')}
+        />
       </aside>
     </div>
   );
 }
+
+function CalendarRail({
+  data,
+  isLoading,
+  onOpen,
+}: {
+  data: Array<{ day: string; date: Date; count: number; isToday: boolean; events: Array<{ start: Date; end: Date | null; subject: string }> }>;
+  isLoading: boolean;
+  onOpen: () => void;
+}) {
+  const [view, setView] = useState<'today' | 'week'>('today');
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const today = data.find((d) => d.isToday);
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const todayDateLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [],
+  );
+
+  return (
+    <Card className="border-border/60 flex-1 flex flex-col">
+      <CardHeader className="pb-3 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+            <Calendar className="w-4 h-4 text-primary" />
+            {view === 'today' ? 'Today' : 'This week'}
+          </CardTitle>
+          <button
+            onClick={onOpen}
+            className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-primary"
+          >
+            open →
+          </button>
+        </div>
+        <div className="inline-flex rounded-md border border-border/60 p-0.5 bg-muted/30 w-fit">
+          <button
+            onClick={() => setView('today')}
+            className={cn(
+              'px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.15em] rounded-sm transition-colors',
+              view === 'today' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setView('week')}
+            className={cn(
+              'px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.15em] rounded-sm transition-colors',
+              view === 'week' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Week
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 flex-1 flex flex-col">
+        {isLoading ? (
+          <p className="text-[12px] text-muted-foreground italic py-2">Loading…</p>
+        ) : data.length === 0 ? (
+          <p className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</p>
+        ) : view === 'today' ? (
+          <>
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mb-2">
+              {todayDateLabel}
+            </p>
+            {!today || today.events.length === 0 ? (
+              <div className="py-6 text-center">
+                <p className="text-[13px] text-muted-foreground italic">No meetings today.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">Your day is clear.</p>
+              </div>
+            ) : (
+              <ul className="space-y-1.5 flex-1">
+                {today.events.slice(0, 8).map((ev, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
+                  >
+                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-12 pt-0.5">
+                      {fmtTime(ev.start)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] font-medium text-foreground leading-snug truncate">{ev.subject}</p>
+                      {ev.end && (
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          until {fmtTime(ev.end)}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+                {today.events.length > 8 && (
+                  <li className="text-[11px] text-muted-foreground italic pt-1">
+                    + {today.events.length - 8} more — open calendar
+                  </li>
+                )}
+              </ul>
+            )}
+          </>
+        ) : (
+          <ul className="space-y-0 flex-1">
+            {data.map((d) => {
+              const isExpanded = expandedDay === d.day;
+              return (
+                <li key={d.day} className="border-b border-border/40 last:border-0">
+                  <button
+                    onClick={() => d.count > 0 && setExpandedDay(isExpanded ? null : d.day)}
+                    disabled={d.count === 0}
+                    className={cn(
+                      'w-full flex items-center gap-3 text-[13px] py-2 text-left',
+                      d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
+                      d.count > 0 && 'hover:bg-muted/30 cursor-pointer',
+                      d.count === 0 && 'cursor-default',
+                    )}
+                  >
+                    <span className={cn(
+                      'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
+                      d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                    )}>{d.day}</span>
+                    <span className="text-foreground/80 flex-1 leading-snug">
+                      {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
+                    </span>
+                    {d.isToday && (
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
+                    )}
+                    {d.count > 0 && (
+                      <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform', isExpanded && 'rotate-180')} />
+                    )}
+                  </button>
+                  {isExpanded && d.events.length > 0 && (
+                    <ul className="pl-12 pr-2 pb-2 space-y-1">
+                      {d.events.map((ev, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[11.5px] py-1">
+                          <span className="font-mono tabular-nums text-primary/80 shrink-0 w-12">
+                            {fmtTime(ev.start)}
+                          </span>
+                          <span className="text-foreground/80 truncate">{ev.subject}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
