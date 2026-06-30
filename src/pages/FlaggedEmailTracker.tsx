@@ -419,6 +419,25 @@ export default function FlaggedEmailTrackerPage() {
         />
       </div>
 
+      <AlertDialog open={!!confirmCancelId} onOpenChange={(open) => { if (!open) setConfirmCancelId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this follow-up?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSubject
+                ? `Are you sure you want to cancel the tracker for "${confirmSubject}"? This removes it from the queue, stops any pending AI follow-ups, and unflags the email in Outlook.`
+                : 'Are you sure you want to cancel this tracker? This removes it from the queue, stops any pending AI follow-ups, and unflags the email in Outlook.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmCancelId(null)}>No, keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, cancel tracker
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="page-shell-content w-full animate-fade-in space-y-6">
         {/* Collapsible settings panel — full tracker settings inline */}
         <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
