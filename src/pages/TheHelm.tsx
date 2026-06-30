@@ -1053,16 +1053,13 @@ function BriefView({
             'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
           return (
             <section aria-labelledby="ledger" data-helm-section="ledger">
-              <div className="flex items-baseline gap-3 mb-4">
-                <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none transition-colors', tabColor)}>03</span>
-                <div className="pb-0 flex-1 min-w-0">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
-                  <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
-                    Operations ledger
-                    <span className="text-muted-foreground/60 font-normal text-[14px]">· {tabLabel}</span>
-                    <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors', tabBadge)}>{tabCount}</Badge>
-                  </h2>
-                </div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
+                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>03</span>
+                  <span className="truncate">Operations ledger</span>
+                  <span className="text-muted-foreground/60 font-normal text-[14px] shrink-0">· {tabLabel}</span>
+                  <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors shrink-0', tabBadge)}>{tabCount}</Badge>
+                </h2>
               </div>
 
               <Card className="border-border/60 overflow-hidden">
