@@ -2883,6 +2883,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 
 
       {/* ============== Planning panels ============== */}
+      {autoFocusOn && (
       <div className="mt-6 grid md:grid-cols-2 gap-4">
         {/* Already done — internal */}
         <Card className="border-secondary/40 bg-secondary/5">
