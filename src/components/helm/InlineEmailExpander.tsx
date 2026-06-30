@@ -139,13 +139,8 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
     send('schedule', { scheduled_for: local.toISOString() });
   };
 
-  const accentBar: Record<string, string> = {
-    amber: 'from-amber-400 via-orange-500 to-rose-500',
-    violet: 'from-violet-400 via-indigo-500 to-blue-500',
-    rose: 'from-rose-400 via-red-500 to-rose-600',
-    sky: 'from-sky-400 via-cyan-500 to-blue-500',
-    emerald: 'from-emerald-400 via-green-500 to-teal-500',
-  };
+  void accent; // accent reserved for future theming
+
 
   return (
     <div className="relative rounded-xl border border-border/70 bg-card overflow-hidden shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
