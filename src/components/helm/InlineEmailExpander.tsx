@@ -277,7 +277,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
               try {
                 const { error } = await supabase
                   .from('helm_items')
-                  .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+                  .update({ status: 'resolved', updated_at: new Date().toISOString() })
                   .eq('id', item.id);
                 if (error) throw error;
                 try {
