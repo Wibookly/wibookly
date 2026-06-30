@@ -980,7 +980,7 @@ function BriefView({
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
         <section aria-labelledby="ledger" data-helm-section="ledger">
           <div className="flex items-end gap-4 mb-4">
-            <span className="font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums text-foreground/10 select-none">03</span>
+            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-foreground/20 select-none">03</span>
             <div className="pb-2">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
               <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
