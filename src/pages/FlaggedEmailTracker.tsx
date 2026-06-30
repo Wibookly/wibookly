@@ -514,9 +514,25 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
   return (
     <TableRow>
       <TableCell className="max-w-sm">
-        <div className="font-medium" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
+        {(() => {
+          const href = outlookLink(r);
+          const subject = r.subject || '(no subject)';
+          return href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline underline-offset-2 break-words"
+              title={`Open in Outlook: ${subject}`}
+            >
+              {subject}
+            </a>
+          ) : (
+            <div className="font-medium" title={subject}>{subject}</div>
+          );
+        })()}
         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-          <Flag className="w-3 h-3 text-amber-500" /> Flag trigger
+          <Flag className="w-3 h-3 text-amber-500" /> Flag trigger · click subject to open in Outlook
         </div>
       </TableCell>
       <TableCell>
