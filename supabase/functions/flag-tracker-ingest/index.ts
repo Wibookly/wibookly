@@ -588,6 +588,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     upserted,
     cancelled,
     removed_deleted: removedDeleted,
+    removed_aged_90d: removedAged,
     replied_closed: repliedClosed,
     skipped_pre_enable: skippedPreEnable,
     kicked_followup: kickedFollowup,
