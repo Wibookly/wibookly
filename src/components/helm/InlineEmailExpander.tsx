@@ -20,6 +20,15 @@ interface Item {
 type Addr = { name?: string; address?: string };
 const RESHAPE_CHIPS: string[] = []; // removed per executive request
 
+interface InlineEmailExpanderProps {
+  item: Item;
+  onClose: () => void;
+  onSent?: () => void;
+  accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+  /** Pillar A/B only — show AI summary block. Other ledger sections hide it. */
+  showAiSummary?: boolean;
+}
+
 export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }: {
   item: Item;
   onClose: () => void;
