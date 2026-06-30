@@ -38,6 +38,7 @@ import {
   Zap,
   ThumbsUp,
   X,
+  Star,
   CalendarClock,
   ArrowUpRight,
   Flame,
@@ -939,30 +940,76 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
   );
 }
 
-function BriefEmailRow({ item, index, expanded, onToggle }: {
+function BriefEmailRow({ item, index, expanded, onToggle, onDisregard, onPromote, isPromoted }: {
   item: HelmItem;
   index: number;
   expanded: boolean;
   onToggle: () => void;
+  onDisregard?: () => void;
+  onPromote?: () => void;
+  isPromoted?: boolean;
 }) {
   const tag = briefTag(item);
+  const summary = (item.context || '').trim() || 'Open to review the message, links, and AI draft.';
+  const fullTime = useMemo(() => {
+    const t = (item as any)?.payload?.receivedDateTime || (item as any)?.payload?.received_at || (item as any)?.timestamp;
+    if (!t) return briefTime(item);
+    try {
+      const d = new Date(t);
+      return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return briefTime(item); }
+  }, [item]);
   return (
     <div className="helm-highlight-row-wrap" data-open={expanded ? 'true' : 'false'}>
-      <button type="button" onClick={onToggle} className="helm-highlight-row">
-        <span className="helm-avatar" data-accent={String(index % 5)}>{briefInitials(item)}</span>
+      <button type="button" onClick={onToggle} className="helm-highlight-row items-start">
+        <span className="helm-avatar mt-0.5" data-accent={String(index % 5)}>{briefInitials(item)}</span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2 min-w-0">
             <span className="text-[13px] font-bold text-foreground truncate">{item.sender || 'Unknown sender'}</span>
             <span className="text-[11px] text-muted-foreground shrink-0">· {briefTime(item)}</span>
           </span>
           <span className="block text-[13px] font-semibold text-foreground leading-snug truncate">{item.title}</span>
-          <span className="mt-1 block text-[12px] text-muted-foreground truncate">✣ {item.context || 'Open to review the message, links, and AI draft.'}</span>
+          <span className="mt-1 block text-[12px] text-muted-foreground whitespace-normal line-clamp-4 leading-snug">
+            <span className="text-foreground/70 font-semibold">AI summary:</span> {summary}
+          </span>
         </span>
-        <span className="helm-brief-chip hidden sm:inline-flex" data-tone={chipTone(tag)}>{tag}</span>
-        <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
+          <span className="helm-brief-chip hidden sm:inline-flex" data-tone={chipTone(tag)}>{tag}</span>
+          {onPromote && (
+            <button
+              type="button"
+              aria-label={isPromoted ? 'Pinned to Top Priorities' : 'Pin to Top Priorities'}
+              title={isPromoted ? 'Pinned to Top Priorities' : 'Promote to Top Priorities'}
+              onClick={(e) => { e.stopPropagation(); onPromote(); }}
+              className={cn(
+                'inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors',
+                isPromoted
+                  ? 'border-amber-500/60 bg-amber-500/15 text-amber-600 hover:bg-amber-500/25'
+                  : 'border-border/60 text-muted-foreground hover:text-amber-600 hover:border-amber-500/60 hover:bg-amber-500/10',
+              )}
+            >
+              <Star className={cn('w-3.5 h-3.5', isPromoted && 'fill-current')} />
+            </button>
+          )}
+          {onDisregard && (
+            <button
+              type="button"
+              aria-label="Disregard this email"
+              title="Disregard — remove from highlights"
+              onClick={(e) => { e.stopPropagation(); onDisregard(); }}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-rose-600 hover:border-rose-500/60 hover:bg-rose-500/10 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
+        </span>
       </button>
       {expanded && (
         <div className="px-4 pb-4">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+            <Clock className="w-3 h-3" /> Received {fullTime}
+          </div>
           <InlineEmailExpander item={item} onClose={onToggle} accent={item.tier === 'overdue' ? 'rose' : 'sky'} showAiSummary={false} />
         </div>
       )}
@@ -1030,6 +1077,36 @@ function BriefView({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [ledgerTab, setLedgerTab] = useState<'overdue' | 'fyi' | 'auto'>('overdue');
   const [search, setSearch] = useState('');
+  const big3Ids = useMemo(() => new Set(big3.map((b) => b.id)), [big3]);
+  const [promotedIds, setPromotedIds] = useState<Set<string>>(new Set());
+  const [disregardedIds, setDisregardedIds] = useState<Set<string>>(new Set());
+  const promoteToBig3 = async (id: string) => {
+    setPromotedIds((s) => { const n = new Set(s); n.add(id); return n; });
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const KEY = `helm:big3-pinned:${today}`;
+      const raw = window.localStorage.getItem(KEY);
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      if (!ids.includes(id)) ids.unshift(id);
+      window.localStorage.setItem(KEY, JSON.stringify(ids.slice(0, 10)));
+      await supabase.from('helm_items').update({ tier: 'big3' } as any).eq('id', id);
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Pinned to Top Priorities');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not pin');
+    }
+  };
+  const disregardItem = async (id: string) => {
+    setDisregardedIds((s) => { const n = new Set(s); n.add(id); return n; });
+    if (expandedId === id) setExpandedId(null);
+    try {
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Disregarded');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not disregard');
+    }
+  };
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
@@ -1113,6 +1190,7 @@ function BriefView({
       .filter((item) => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
+        if (disregardedIds.has(item.id)) return false;
         if (!q) return true;
         return [item.title, item.context, item.sender, item.sender_email, briefTag(item)]
           .join(' ')
@@ -1120,7 +1198,7 @@ function BriefView({
           .includes(q);
       })
       .slice(0, 25);
-  }, [overdue, decisions, data?.drafts, fyi, search]);
+  }, [overdue, decisions, data?.drafts, fyi, search, disregardedIds]);
   const todayMeetings = weekPreview.data?.find((d) => d.isToday)?.count ?? 0;
 
   return (
@@ -1260,6 +1338,9 @@ function BriefView({
                 index={index}
                 expanded={expandedId === item.id}
                 onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                onDisregard={() => disregardItem(item.id)}
+                onPromote={() => promoteToBig3(item.id)}
+                isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
               />
             ))
           )}
