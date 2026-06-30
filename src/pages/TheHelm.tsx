@@ -913,12 +913,15 @@ function BriefView({
                   'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border',
                   (sync.isPending || isLoading)
                     ? 'border-primary/40 text-primary bg-primary/5'
-                    : 'border-border/60 text-muted-foreground bg-transparent',
+                    : 'border-emerald-500/40 text-muted-foreground bg-transparent',
                 )}
-                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Live — syncing every 5 minutes'}
               >
-                <RefreshCw className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')} />
-                {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+                <span className="relative inline-flex w-2 h-2">
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
+                  <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                </span>
+                {(sync.isPending || isLoading) ? 'Syncing' : 'Live sync'}
               </span>
             </div>
           </div>
