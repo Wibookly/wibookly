@@ -2900,7 +2900,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                   const isToday = d.date.toDateString() === new Date().toDateString();
                   const focus = focusByDay[d.key];
                   return (
-                    <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile min-w-[200px]', isToday && 'shadow-md')}>
+                    <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile', isToday && 'shadow-md')}>
 
                       <CardHeader className="pb-2">
                         <div className="flex items-baseline justify-between">
