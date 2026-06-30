@@ -941,6 +941,17 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
   );
 }
 
+function helmOutlookLink(item: HelmItem): string | null {
+  const p = (item as any)?.payload || {};
+  const direct = p.webLink || p.web_link;
+  if (typeof direct === 'string' && direct.startsWith('http')) return direct;
+  const gid = item.graph_id || p.graph_id || p.id;
+  if (!gid) return null;
+  const folderHint = String(p.folder || p.parentFolderName || '').toLowerCase();
+  const seg = folderHint.includes('sent') ? 'sentitems' : 'inbox';
+  return `https://outlook.office.com/mail/${seg}/id/${encodeURIComponent(gid)}`;
+}
+
 function BriefEmailRow({ item, index, expanded, onToggle, onDisregard, onPromote, isPromoted }: {
   item: HelmItem;
   index: number;
