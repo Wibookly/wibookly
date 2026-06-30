@@ -1372,10 +1372,7 @@ function CalendarRail({
     </Card>
   );
 }
-      </aside>
-    </div>
-  );
-}
+
 
 function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: InboxScope }) {
   const qc = useQueryClient();
