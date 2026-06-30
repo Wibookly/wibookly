@@ -268,19 +268,50 @@ export function HelpIssueForm() {
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="issue-description" className="text-xs">What's happening?</Label>
+        <Label htmlFor="issue-description" className="text-xs flex items-center justify-between">
+          <span>What's happening?</span>
+          <button
+            type="button"
+            onClick={toggleMic}
+            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] transition ${
+              listening
+                ? 'border-red-500/60 bg-red-500/10 text-red-600 dark:text-red-400 animate-pulse'
+                : 'border-border hover:bg-muted'
+            }`}
+            aria-pressed={listening}
+          >
+            {listening ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+            {listening ? 'Stop dictation' : 'Dictate'}
+          </button>
+        </Label>
         <Textarea
           id="issue-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
           maxLength={4000}
-          placeholder="Describe what you tried, what you expected, and what actually happened."
+          placeholder="Describe what you tried, what you expected, and what actually happened. Or tap Dictate to talk it through."
         />
         <p className="text-[10px] text-muted-foreground text-right">
           {description.length} / 4000
         </p>
       </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="issue-collaborators" className="text-xs flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" /> Add collaborators (optional)
+        </Label>
+        <Input
+          id="issue-collaborators"
+          value={collaborators}
+          onChange={(e) => setCollaborators(e.target.value)}
+          placeholder="teammate@energyforward.com, manager@energyforward.com"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Comma-separate email addresses. They'll be CC'd by your admin when this ticket is replied to.
+        </p>
+      </div>
+
 
       <div className="space-y-1.5">
         <Label className="text-xs flex items-center justify-between">
