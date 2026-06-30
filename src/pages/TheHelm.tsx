@@ -2800,7 +2800,83 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         </Card>
       )}
 
+      {/* AI intelligence — two independent strategies (moved to top) */}
+      <Card className="overflow-hidden border-primary/30 mb-4">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/60 bg-muted/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-foreground truncate">AI intelligence · calendar</p>
+            {autoFocusOn && (
+              <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-600">ON</Badge>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">Internal moves auto-apply · external always asks you</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {/* Add focus times card */}
+            <div className={cn(
+              'rounded-lg border p-3 transition-colors',
+              focusEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
+            )}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">Add focus times</p>
+                </div>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={focusEnabled}
+                    onChange={(e) => setFocusEnabled(e.target.checked)}
+                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">AI finds an open gap on your chosen days and proposes a focus block — you approve before it lands on your calendar.</p>
+              {focusEnabled && (
+                <div className="mt-3 pt-3 border-t border-border/40">
+                  <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+                </div>
+              )}
+            </div>
+
+            {/* Reorganize my week card */}
+            <div className={cn(
+              'rounded-lg border p-3 transition-colors',
+              reorganizeEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
+            )}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">Reorganize my week</p>
+                </div>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={reorganizeEnabled}
+                    onChange={(e) => setReorganizeEnabled(e.target.checked)}
+                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">AI restructures the week — auto-moves internal meetings to consolidate free time, and asks you before touching anything external.</p>
+              {reorganizeEnabled && (
+                <p className="text-[10px] text-muted-foreground italic mt-2">All proposed shifts appear in the AI proposed calendar below with check-boxes to approve.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" /> Free slot found
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-500 ml-3" /> Needs to move a meeting
+            <span className="inline-block w-2 h-2 rounded-full bg-destructive ml-3" /> No space — blocked
+          </div>
+        </div>
+      </Card>
+
       {/* Current calendar — collapsible */}
+
       <Collapsible defaultOpen={true}>
         <Card className="mb-4 overflow-hidden border-border/60">
           <CollapsibleTrigger asChild>
@@ -2823,7 +2899,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                   const isToday = d.date.toDateString() === new Date().toDateString();
                   const focus = focusByDay[d.key];
                   return (
-                    <Card key={d.date.toISOString()} className={cn('min-w-[200px]', isToday && 'border-primary/60 shadow-sm')}>
+                    <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile min-w-[200px]', isToday && 'shadow-md')}>
+
                       <CardHeader className="pb-2">
                         <div className="flex items-baseline justify-between">
                           <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
@@ -2844,12 +2921,13 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                             node: (
                               <div
                                 key={ev.id}
+                                data-external={ev.is_external ? 'true' : 'false'}
                                 className={cn(
-                                  'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
                                   ev.is_cancelled && 'opacity-60 line-through',
-                                  ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
                                 )}
                               >
+
                                 <div className="flex items-center justify-between gap-1">
                                   <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
                                   <div className="flex gap-1 flex-wrap justify-end">
@@ -2933,80 +3011,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         </Card>
       </Collapsible>
 
-      {/* AI intelligence — two independent strategies */}
-      <Card className="overflow-hidden border-primary/30 mb-4">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="w-4 h-4 text-primary shrink-0" />
-            <p className="text-sm font-semibold text-foreground truncate">AI intelligence · calendar</p>
-            {autoFocusOn && (
-              <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-600">ON</Badge>
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground">Internal moves auto-apply · external always asks you</p>
-        </div>
-        <div className="p-4 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            {/* Add focus times card */}
-            <div className={cn(
-              'rounded-lg border p-3 transition-colors',
-              focusEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
-            )}>
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-primary" />
-                  <p className="text-sm font-semibold text-foreground">Add focus times</p>
-                </div>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={focusEnabled}
-                    onChange={(e) => setFocusEnabled(e.target.checked)}
-                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
-                  />
-                </label>
-              </div>
-              <p className="text-[11px] text-muted-foreground">AI finds an open gap on your chosen days and proposes a focus block — you approve before it lands on your calendar.</p>
-              {focusEnabled && (
-                <div className="mt-3 pt-3 border-t border-border/40">
-                  <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
-                </div>
-              )}
-            </div>
 
-            {/* Reorganize my week card */}
-            <div className={cn(
-              'rounded-lg border p-3 transition-colors',
-              reorganizeEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card',
-            )}>
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  <p className="text-sm font-semibold text-foreground">Reorganize my week</p>
-                </div>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={reorganizeEnabled}
-                    onChange={(e) => setReorganizeEnabled(e.target.checked)}
-                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
-                  />
-                </label>
-              </div>
-              <p className="text-[11px] text-muted-foreground">AI restructures the week — auto-moves internal meetings to consolidate free time, and asks you before touching anything external.</p>
-              {reorganizeEnabled && (
-                <p className="text-[10px] text-muted-foreground italic mt-2">All proposed shifts appear in the AI proposed calendar below with check-boxes to approve.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" /> Free slot found
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-500 ml-3" /> Needs to move a meeting
-            <span className="inline-block w-2 h-2 rounded-full bg-destructive ml-3" /> No space — blocked
-          </div>
-        </div>
-      </Card>
 
 
       {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}

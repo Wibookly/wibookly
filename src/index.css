@@ -748,3 +748,59 @@
 }
 .dark .helm-day-row::after { opacity: .75; }
 
+/* Themed bordered tile for Helm calendar day columns */
+.helm-cal-tile {
+  position: relative;
+  border: 1.5px solid hsl(var(--border)) !important;
+  border-radius: 0.75rem;
+  background: hsl(var(--card) / 0.85);
+  box-shadow: 0 1px 0 hsl(var(--border) / 0.4), 0 6px 18px -14px hsl(var(--primary) / 0.45);
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.helm-cal-tile::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 0.85rem;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 55%, transparent) 0%,
+    color-mix(in srgb, var(--success) 40%, transparent) 45%,
+    color-mix(in srgb, #F59E0B 50%, transparent) 75%,
+    color-mix(in srgb, var(--danger) 55%, transparent) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: .55;
+  pointer-events: none;
+}
+.dark .helm-cal-tile { background: hsl(var(--card) / 0.5); }
+.dark .helm-cal-tile::before { opacity: .8; }
+.helm-cal-tile[data-today="true"]::before {
+  opacity: .9;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary)) 0%,
+    color-mix(in srgb, var(--primary) 60%, transparent) 100%
+  );
+}
+
+/* Themed bordered event tile inside a day column */
+.helm-cal-event {
+  border: 1.5px solid hsl(var(--border)) !important;
+  border-left: 3px solid hsl(var(--primary)) !important;
+  background: hsl(var(--card)) !important;
+  box-shadow: 0 1px 0 hsl(var(--border) / 0.5);
+}
+.dark .helm-cal-event {
+  background: hsl(var(--card) / 0.6) !important;
+  border-color: hsl(var(--border) / 0.8) !important;
+}
+.helm-cal-event[data-external="true"] {
+  border-left-color: #F59E0B !important;
+  background: color-mix(in srgb, #F59E0B 8%, hsl(var(--card))) !important;
+}
+
+
