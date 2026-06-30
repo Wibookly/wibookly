@@ -211,6 +211,38 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, note });
   }
 
+  // ============ Mode: create_focus_block (user-approved) ============
+  if (mode === "create_focus_block") {
+    const dayKey = String(body?.day_key ?? "");
+    const start = String(body?.start ?? "");
+    const end = String(body?.end ?? "");
+    if (!dayKey || !start || !end) return json(400, { error: "missing_focus_args" });
+    const created = await callGraph<any>(userId, connectionId!, "mail", `/me/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: "Focus block (AI)",
+        body: { contentType: "HTML", content: "Protected focus time — added by InboxIQ." },
+        start: { dateTime: start, timeZone: userTz },
+        end: { dateTime: end, timeZone: userTz },
+        showAs: "busy",
+        categories: ["Focus"],
+        isReminderOn: false,
+      }),
+    });
+    if (!created.ok) return json(502, { error: "create_failed", details: created.error });
+    await admin.from("activity_log").insert({
+      user_id: userId, organization_id: orgId,
+      action_type: "focus_block_created",
+      detail: `Focus block ${start} → ${end}`,
+      graph_id: created.data?.id ?? null,
+      tier: "user",
+      action_key: `focus_block:${dayKey}:${start}`,
+    });
+    return json(200, { ok: true, event_id: created.data?.id });
+  }
+
+
   // ============ Mode: approve_external ============
   if (mode === "approve_external") {
     const p = body?.proposal as Proposal | undefined;
