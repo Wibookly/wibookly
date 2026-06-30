@@ -715,20 +715,30 @@ function LedgerRow({ item, variant, expanded, onToggle }: {
       <div className="flex items-start gap-3">
         {variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
         <div className="flex-1 min-w-0">
+          {/* Line 1: subject */}
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{item.title}</h3>
             <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-180')} />
           </div>
-          {item.sender && (
-            <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
-              <Mail className="w-3 h-3" /> {item.sender}
-              {item.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" />{' '}
-                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span></>}
-            </p>
-          )}
-          {item.context && (
-            <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{item.context}</p>
-          )}
+          {/* Line 2: sender (name + email) + due */}
+          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5 flex-wrap">
+            <Mail className="w-3 h-3" />
+            <span className="text-foreground/80">{item.sender ?? 'Unknown sender'}</span>
+            {item.sender_email && item.sender_email !== item.sender && (
+              <span className="text-muted-foreground/70">&lt;{item.sender_email}&gt;</span>
+            )}
+            {item.due && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <Clock className="w-3 h-3" />
+                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span>
+              </>
+            )}
+          </p>
+          {/* Line 3: one-line summary */}
+          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-2">
+            {item.context || 'Open to see the original message.'}
+          </p>
         </div>
       </div>
     </button>
