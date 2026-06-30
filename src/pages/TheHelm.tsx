@@ -2687,25 +2687,199 @@ function CalendarView({ onBack }: { onBack: () => void }) {
         </Card>
       </Collapsible>
 
-      {/* AI intelligence preview — compact, collapsed by default */}
-      <Collapsible defaultOpen={false}>
-        <Card className="overflow-hidden border-primary/30">
-          <CollapsibleTrigger asChild>
-            <button className="group w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <div className="flex items-center gap-2 min-w-0">
-                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                <p className="text-[12px] font-medium text-foreground truncate">AI intelligence · proposed calendar changes</p>
+      {/* AI intelligence — master toggle + strategy + rules */}
+      <Card className="overflow-hidden border-primary/30 mb-4">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/60 bg-muted/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-foreground truncate">AI intelligence · calendar</p>
+            {autoFocusOn && (
+              <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-600">ON</Badge>
+            )}
+          </div>
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-[11px] text-muted-foreground">Auto-focus</span>
+            <input
+              type="checkbox"
+              checked={autoFocusOn}
+              onChange={(e) => setAutoFocusOn(e.target.checked)}
+              className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+            />
+          </label>
+        </div>
+        {!autoFocusOn ? (
+          <div className="p-4 text-[12px] text-muted-foreground italic">
+            Auto-focus is OFF. AI proposals, focus blocks, and scheduled moves are hidden until you turn it back on.
+          </div>
+        ) : (
+          <div className="p-4 space-y-4">
+            {/* Strategy chooser */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">AI strategy</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <button
+                  onClick={() => setStrategy('focus')}
+                  className={cn(
+                    'text-left rounded-lg border p-3 transition-colors',
+                    strategy === 'focus' ? 'border-primary bg-primary/5 ring-1 ring-primary/40' : 'border-border hover:bg-muted/30',
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Zap className="w-3.5 h-3.5 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Add focus times</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Protect deep-work blocks on your chosen days and move only conflicting meetings.</p>
+                </button>
+                <button
+                  onClick={() => setStrategy('reorganize')}
+                  className={cn(
+                    'text-left rounded-lg border p-3 transition-colors',
+                    strategy === 'reorganize' ? 'border-primary bg-primary/5 ring-1 ring-primary/40' : 'border-border hover:bg-muted/30',
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Reorganize my week</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Let AI restructure the whole week for better performance and time management.</p>
+                </button>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="border-t border-border/60 p-3 space-y-3">
-              <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
             </div>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+            {strategy === 'focus' && (
+              <FocusRulesCard rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}
+      {autoFocusOn && ((planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0)) > 0 && (
+        <Collapsible defaultOpen={true}>
+          <Card className="mb-4 overflow-hidden border-primary/40">
+            <CollapsibleTrigger asChild>
+              <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">AI proposed calendar</p>
+                    <p className="text-[12px] text-muted-foreground truncate">
+                      Mirror of your week with AI's changes — green = moved by AI, amber = awaiting your approval. Check ☑ to confirm and notify attendees.
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="border-t border-border/60 p-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+                  {days.map((d) => {
+                    const baseEvs = grouped[d.date.toDateString()] ?? [];
+                    const appliedByEv: Record<string, Proposal> = {};
+                    const pendingByEv: Record<string, Proposal> = {};
+                    for (const p of planQuery.data?.applied ?? []) if (p.day_key === d.key) appliedByEv[p.event_id] = p;
+                    for (const p of planQuery.data?.pending_external ?? []) if (p.day_key === d.key) pendingByEv[p.event_id] = p;
+
+                    // Build proposed event list: substitute new_start for matching events, then sort
+                    const proposed = baseEvs.map((ev) => {
+                      const ap = appliedByEv[ev.id];
+                      const pd = pendingByEv[ev.id];
+                      const proposal = ap || pd;
+                      return {
+                        ev,
+                        proposal,
+                        kind: ap ? 'applied' : pd ? 'pending' : 'none',
+                        displayStart: proposal ? proposal.new_start : ev.start,
+                      } as { ev: CalEvent; proposal?: Proposal; kind: 'applied' | 'pending' | 'none'; displayStart: string | null };
+                    }).sort((a, b) => {
+                      const at = a.displayStart ? new Date(a.displayStart).getTime() : 0;
+                      const bt = b.displayStart ? new Date(b.displayStart).getTime() : 0;
+                      return at - bt;
+                    });
+
+                    const isToday = d.date.toDateString() === new Date().toDateString();
+                    return (
+                      <Card key={d.date.toISOString()} className={cn('min-w-[200px]', isToday && 'border-primary/60 shadow-sm')}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-baseline justify-between">
+                            <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
+                            <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>{d.label}</span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {proposed.length === 0 && (
+                            <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
+                          )}
+                          {proposed.map(({ ev, proposal, kind, displayStart }) => {
+                            const isApplied = kind === 'applied';
+                            const isPending = kind === 'pending';
+                            const isDismissed = proposal && dismissed[proposal.id];
+                            const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
+                            return (
+                              <div
+                                key={ev.id}
+                                className={cn(
+                                  'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                                  ev.is_cancelled && 'opacity-60 line-through',
+                                  isApplied && 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-400/40',
+                                  isPending && !isDismissed && 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-400/40',
+                                  isPending && isDismissed && 'border-border bg-card opacity-70',
+                                  kind === 'none' && (ev.is_external ? 'border-border bg-muted/20' : 'border-border bg-card'),
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-medium text-foreground">{fmtTime(displayStart)}</span>
+                                  <div className="flex gap-1 flex-wrap justify-end">
+                                    {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
+                                    {isPending && !isDismissed && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
+                                  </div>
+                                </div>
+                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                                {proposal && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
+                                  </p>
+                                )}
+                                {isPending && !isDismissed && proposal && (
+                                  <div className="flex items-center justify-between gap-2 pt-1">
+                                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        disabled={isApproving}
+                                        onChange={(e) => {
+                                          if (!e.target.checked) return;
+                                          approveMutation.mutate({ proposal, note: '' });
+                                        }}
+                                        className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
+                                      />
+                                      <span className="text-[11px] text-foreground">
+                                        {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve & update invite' : 'Approve & email organizer'}
+                                      </span>
+                                    </label>
+                                    <button
+                                      onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }}
+                                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                                    >
+                                      Disregard
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground italic mt-3">
+                  Tip: checking a card ☑ sends the update in the background — Outlook invites for meetings you host, or a polite reschedule email to the organizer otherwise.
+                </p>
+              </div>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
 
       {/* ============== Planning panels ============== */}
