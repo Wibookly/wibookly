@@ -2897,7 +2897,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 
 
       {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}
-      {autoFocusOn && ((planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0)) > 0 && (
+      {autoFocusOn && (
         <Collapsible defaultOpen={true}>
           <Card className="mb-4 overflow-hidden border-primary/40">
             <CollapsibleTrigger asChild>
@@ -2911,11 +2911,35 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     </p>
                   </div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => { e.stopPropagation(); planQuery.refetch(); }}
+                    disabled={planQuery.isFetching}
+                  >
+                    <RefreshCw className={cn('w-3.5 h-3.5 mr-1', planQuery.isFetching && 'animate-spin')} />
+                    {planQuery.isFetching ? 'Syncing…' : 'Sync'}
+                  </Button>
+                  <span className="text-[11px] text-muted-foreground">
+                    {planQuery.isFetching
+                      ? 'Analyzing your week…'
+                      : `${(planQuery.data?.applied?.length ?? 0)} auto · ${(planQuery.data?.pending_external?.length ?? 0)} need OK`}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+                </div>
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
+              {!planQuery.isFetching && (planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0) === 0 && (
+                <div className="border-t border-border/60 p-3 text-xs text-muted-foreground italic">
+                  {strategy === 'reorganize'
+                    ? 'No meetings need to move this week — your schedule already has consolidated free time.'
+                    : 'No moves proposed — focus blocks fit existing open gaps (see your current calendar above).'}
+                </div>
+              )}
               <div className="border-t border-border/60 p-3">
+
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
                   {days.map((d) => {
                     const baseEvs = grouped[d.date.toDateString()] ?? [];
