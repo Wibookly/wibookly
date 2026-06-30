@@ -598,19 +598,14 @@ function PillarBlock({
     'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
   return (
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
-      {/* Header — unified styling with "03 Operations ledger" */}
-      <div className="flex items-baseline gap-3 mb-4">
-        <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none', numberColor)}>
-          {number}
-        </span>
-        <div className="pb-0 flex-1 min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
-          <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
-            {label}
-            <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px]', badgeClass)}>{count}</Badge>
-          </h2>
-        </div>
-        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary self-end pb-1">
+      {/* Header — number lives inline with the topic, same font, same baseline */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
+          <span className={cn('tabular-nums select-none', numberColor)}>{number}</span>
+          <span className="truncate">{label}</span>
+          <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] shrink-0', badgeClass)}>{count}</Badge>
+        </h2>
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary shrink-0">
           Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -977,7 +972,7 @@ function BriefView({
           {/* Executive breakdown — click to open that scope's focused reader */}
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             {([
-              { key: 'big3', label: 'Big 3', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
+              { key: 'big3', label: 'Top Priorities', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
               { key: 'decisions', label: 'Decisions', count: decisions.length, accent: 'violet', onClick: () => go('inbox', undefined, 'decisions') },
               { key: 'overdue', label: 'Overdue', count: overdue.length, accent: 'red', onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), accent: 'cyan', onClick: () => go('inbox', undefined, 'drafts') },
@@ -1013,7 +1008,7 @@ function BriefView({
             iconBg="bg-amber-500/10 text-amber-500"
             numberColor="text-amber-500/90"
             Icon={Flame}
-            label="Pillar A · Today's Big 3"
+            label="Pillar A · Top Priorities"
             count={big3.length}
             items={big3}
             expandedId={expandedId}
@@ -1058,16 +1053,13 @@ function BriefView({
             'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
           return (
             <section aria-labelledby="ledger" data-helm-section="ledger">
-              <div className="flex items-baseline gap-3 mb-4">
-                <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none transition-colors', tabColor)}>03</span>
-                <div className="pb-0 flex-1 min-w-0">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
-                  <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
-                    Operations ledger
-                    <span className="text-muted-foreground/60 font-normal text-[14px]">· {tabLabel}</span>
-                    <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors', tabBadge)}>{tabCount}</Badge>
-                  </h2>
-                </div>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
+                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>03</span>
+                  <span className="truncate">Operations ledger</span>
+                  <span className="text-muted-foreground/60 font-normal text-[14px] shrink-0">· {tabLabel}</span>
+                  <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors shrink-0', tabBadge)}>{tabCount}</Badge>
+                </h2>
               </div>
 
               <Card className="border-border/60 overflow-hidden">
@@ -1259,18 +1251,20 @@ function CalendarRail({
 }) {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  const today = data.find((d) => d.isToday);
+  const todayIndex = Math.max(0, data.findIndex((d) => d.isToday));
+  const [dayIdx, setDayIdx] = useState<number>(todayIndex);
+  useEffect(() => { setDayIdx(Math.max(0, data.findIndex((d) => d.isToday))); }, [data]);
+  const selected = data[dayIdx] ?? data[0];
   const fmtTime = (d: Date) =>
     d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const todayDateLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      }),
-    [],
-  );
+  const selectedDateLabel = useMemo(() => {
+    if (!selected) return '';
+    return selected.date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  }, [selected]);
 
   return (
     <Card className="border-border/60 flex-1 flex flex-col">
@@ -1278,7 +1272,7 @@ function CalendarRail({
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
             <Calendar className="w-4 h-4 text-primary" />
-            {view === 'today' ? 'Today' : 'This week'}
+            {view === 'today' ? (selected?.isToday ? 'Today' : selected?.day ?? 'Day') : 'This week'}
           </CardTitle>
           <button
             onClick={onOpen}
@@ -1295,7 +1289,7 @@ function CalendarRail({
               view === 'today' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            Today
+            Day
           </button>
           <button
             onClick={() => setView('week')}
@@ -1315,17 +1309,35 @@ function CalendarRail({
           <p className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</p>
         ) : view === 'today' ? (
           <>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mb-2">
-              {todayDateLabel}
-            </p>
-            {!today || today.events.length === 0 ? (
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <button
+                onClick={() => setDayIdx((i) => Math.max(0, i - 1))}
+                disabled={dayIdx <= 0}
+                className="p-1 rounded hover:bg-muted/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Previous day"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/80 text-center flex-1">
+                {selectedDateLabel}
+              </p>
+              <button
+                onClick={() => setDayIdx((i) => Math.min(data.length - 1, i + 1))}
+                disabled={dayIdx >= data.length - 1}
+                className="p-1 rounded hover:bg-muted/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Next day"
+              >
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+            {!selected || selected.events.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-[13px] text-muted-foreground italic">No meetings today.</p>
-                <p className="text-[11px] text-muted-foreground/70 mt-1">Your day is clear.</p>
+                <p className="text-[13px] text-muted-foreground italic">No meetings.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">{selected?.isToday ? 'Your day is clear.' : 'Nothing scheduled.'}</p>
               </div>
             ) : (
               <ul className="space-y-1.5 flex-1">
-                {today.events.slice(0, 8).map((ev, i) => (
+                {selected.events.slice(0, 8).map((ev, i) => (
                   <li
                     key={i}
                     className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
@@ -1343,9 +1355,9 @@ function CalendarRail({
                     </div>
                   </li>
                 ))}
-                {today.events.length > 8 && (
+                {selected.events.length > 8 && (
                   <li className="text-[11px] text-muted-foreground italic pt-1">
-                    + {today.events.length - 8} more — open calendar
+                    + {selected.events.length - 8} more — open calendar
                   </li>
                 )}
               </ul>
@@ -1412,7 +1424,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     scope === 'decisions' ? (data?.decisions ?? []) :
     (data?.drafts ?? []);
   const scopeLabel =
-    scope === 'big3' ? "Today's Big 3" :
+    scope === 'big3' ? "Top Priorities" :
     scope === 'decisions' ? 'Your decisions' :
     'Drafted for you';
 
