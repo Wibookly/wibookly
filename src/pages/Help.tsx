@@ -548,31 +548,4 @@ export default function Help() {
   );
 }
 
-function ChannelsCard() {
-  const channels = [
-    { name: 'Embed widget', desc: 'Drop a floating support button on any website you own. Tickets land in the same queue.', cta: 'Get embed snippet' },
-    { name: 'Microsoft Teams bot', desc: 'Submit and triage tickets directly inside a Teams channel or chat.', cta: 'Install in Teams' },
-    { name: 'Slack bot', desc: 'Open tickets with /support and get admin replies in-thread.', cta: 'Add to Slack' },
-    { name: 'Sync organization members', desc: 'Pull every employee from Microsoft 365 so admins can add them to tickets as collaborators.', cta: 'Sync from M365' },
-  ];
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Support channels</CardTitle>
-        <CardDescription>
-          Reach Help & Support from outside the app. These are scaffolded — each one needs its own backend integration before it can go live.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {channels.map((c) => (
-          <div key={c.name} className="rounded-lg border-2 border-border bg-card p-4 flex flex-col gap-2 dark:border-border/70">
-            <div className="text-sm font-semibold">{c.name}</div>
-            <p className="text-xs text-muted-foreground flex-1">{c.desc}</p>
-            <Button variant="outline" size="sm" disabled className="self-start">{c.cta} · coming soon</Button>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
 
