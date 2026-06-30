@@ -1251,18 +1251,20 @@ function CalendarRail({
 }) {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  const today = data.find((d) => d.isToday);
+  const todayIndex = Math.max(0, data.findIndex((d) => d.isToday));
+  const [dayIdx, setDayIdx] = useState<number>(todayIndex);
+  useEffect(() => { setDayIdx(Math.max(0, data.findIndex((d) => d.isToday))); }, [data]);
+  const selected = data[dayIdx] ?? data[0];
   const fmtTime = (d: Date) =>
     d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const todayDateLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      }),
-    [],
-  );
+  const selectedDateLabel = useMemo(() => {
+    if (!selected) return '';
+    return selected.date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  }, [selected]);
 
   return (
     <Card className="border-border/60 flex-1 flex flex-col">
@@ -1270,7 +1272,7 @@ function CalendarRail({
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
             <Calendar className="w-4 h-4 text-primary" />
-            {view === 'today' ? 'Today' : 'This week'}
+            {view === 'today' ? (selected?.isToday ? 'Today' : selected?.day ?? 'Day') : 'This week'}
           </CardTitle>
           <button
             onClick={onOpen}
@@ -1287,7 +1289,7 @@ function CalendarRail({
               view === 'today' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            Today
+            Day
           </button>
           <button
             onClick={() => setView('week')}
@@ -1307,17 +1309,35 @@ function CalendarRail({
           <p className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</p>
         ) : view === 'today' ? (
           <>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mb-2">
-              {todayDateLabel}
-            </p>
-            {!today || today.events.length === 0 ? (
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <button
+                onClick={() => setDayIdx((i) => Math.max(0, i - 1))}
+                disabled={dayIdx <= 0}
+                className="p-1 rounded hover:bg-muted/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Previous day"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/80 text-center flex-1">
+                {selectedDateLabel}
+              </p>
+              <button
+                onClick={() => setDayIdx((i) => Math.min(data.length - 1, i + 1))}
+                disabled={dayIdx >= data.length - 1}
+                className="p-1 rounded hover:bg-muted/40 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Next day"
+              >
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+            {!selected || selected.events.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-[13px] text-muted-foreground italic">No meetings today.</p>
-                <p className="text-[11px] text-muted-foreground/70 mt-1">Your day is clear.</p>
+                <p className="text-[13px] text-muted-foreground italic">No meetings.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">{selected?.isToday ? 'Your day is clear.' : 'Nothing scheduled.'}</p>
               </div>
             ) : (
               <ul className="space-y-1.5 flex-1">
-                {today.events.slice(0, 8).map((ev, i) => (
+                {selected.events.slice(0, 8).map((ev, i) => (
                   <li
                     key={i}
                     className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
@@ -1335,9 +1355,9 @@ function CalendarRail({
                     </div>
                   </li>
                 ))}
-                {today.events.length > 8 && (
+                {selected.events.length > 8 && (
                   <li className="text-[11px] text-muted-foreground italic pt-1">
-                    + {today.events.length - 8} more — open calendar
+                    + {selected.events.length - 8} more — open calendar
                   </li>
                 )}
               </ul>
