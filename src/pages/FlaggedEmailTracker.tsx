@@ -35,6 +35,8 @@ interface TrackedEmail {
   follow_up_history: HistEntry[] | null;
   scheduled_send_at?: string | null;
   queued_reason?: string | null;
+  web_link?: string | null;
+  graph_message_id?: string | null;
 }
 
 
