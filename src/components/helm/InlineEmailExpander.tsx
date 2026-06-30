@@ -149,7 +149,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
 
   return (
     <div className="relative rounded-xl border border-border/70 bg-card overflow-hidden shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
-      <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentBar[accent])} />
+
       <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-border/50 bg-muted/10">
         <div className="min-w-0 space-y-1 text-[11.5px] text-muted-foreground">
           <p className="flex items-start gap-1.5">
