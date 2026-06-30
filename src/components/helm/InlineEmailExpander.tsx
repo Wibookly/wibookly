@@ -265,14 +265,55 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
 
         <Separator className="my-3" />
 
-        <div className="flex items-center justify-end gap-2 flex-wrap [&>button]:whitespace-nowrap [&>div>button]:whitespace-nowrap">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={!!sendBusy}>Close</Button>
-          <Button variant="outline" size="sm" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 whitespace-nowrap text-destructive hover:text-destructive hover:bg-destructive/10 mr-auto"
+            disabled={!!sendBusy}
+            onClick={async () => {
+              if (!confirm('Remove this email from The Helm? It stays in your inbox.')) return;
+              setSendBusy('delete');
+              try {
+                const { error } = await supabase
+                  .from('helm_items')
+                  .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+                  .eq('id', item.id);
+                if (error) throw error;
+                try {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const KEY = `helm:big3-pinned:${today}`;
+                  const raw = window.localStorage.getItem(KEY);
+                  if (raw) {
+                    const ids: string[] = JSON.parse(raw);
+                    window.localStorage.setItem(KEY, JSON.stringify(ids.filter((id) => id !== item.id)));
+                  }
+                } catch { /* ignore */ }
+                qc.setQueryData<any>(['helm-items'], (cur: any) => {
+                  if (!cur) return cur;
+                  const prune = (arr: any[] = []) => arr.filter((x) => x.id !== item.id);
+                  return { ...cur, big3: prune(cur.big3), decisions: prune(cur.decisions), drafts: prune(cur.drafts), overdue: prune(cur.overdue), fyi: prune(cur.fyi) };
+                });
+                qc.invalidateQueries({ queryKey: ['helm-items'] });
+                toast.success('Removed from The Helm');
+                onClose();
+              } catch (e: any) {
+                toast.error(e?.message ?? 'Delete failed');
+              } finally {
+                setSendBusy(null);
+              }
+            }}
+          >
+            <Trash2 className="w-4 h-4 mr-1.5" />
+            {sendBusy === 'delete' ? 'Removing…' : 'Delete'}
+          </Button>
+          <Button variant="ghost" size="sm" className="shrink-0 whitespace-nowrap" onClick={onClose} disabled={!!sendBusy}>Close</Button>
+          <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
             {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}
           </Button>
           <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" disabled={!!sendBusy || !draftText.trim()}
+              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" disabled={!!sendBusy || !draftText.trim()}
                 onClick={() => {
                   if (!scheduleDate || !scheduleTime) {
                     const d = new Date(Date.now() + 60 * 60 * 1000);
@@ -306,7 +347,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
               </div>
             </PopoverContent>
           </Popover>
-          <Button size="sm" onClick={() => send('send')} disabled={!!sendBusy || !draftText.trim()}>
+          <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => send('send')} disabled={!!sendBusy || !draftText.trim()}>
             <Send className="w-4 h-4 mr-1.5" />
             {sendBusy === 'send' ? 'Sending…' : 'Approve & send'}
           </Button>
