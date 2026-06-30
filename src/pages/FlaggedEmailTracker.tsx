@@ -577,7 +577,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
+                    {filteredRows.map((r) => <EmailRow key={r.id} r={r} onCancel={requestCancel} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
