@@ -2921,12 +2921,13 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                             node: (
                               <div
                                 key={ev.id}
+                                data-external={ev.is_external ? 'true' : 'false'}
                                 className={cn(
-                                  'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
                                   ev.is_cancelled && 'opacity-60 line-through',
-                                  ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
                                 )}
                               >
+
                                 <div className="flex items-center justify-between gap-1">
                                   <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
                                   <div className="flex gap-1 flex-wrap justify-end">
