@@ -972,7 +972,7 @@ function BriefView({
           {/* Executive breakdown — click to open that scope's focused reader */}
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             {([
-              { key: 'big3', label: 'Big 3', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
+              { key: 'big3', label: 'Top Priorities', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
               { key: 'decisions', label: 'Decisions', count: decisions.length, accent: 'violet', onClick: () => go('inbox', undefined, 'decisions') },
               { key: 'overdue', label: 'Overdue', count: overdue.length, accent: 'red', onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
               { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), accent: 'cyan', onClick: () => go('inbox', undefined, 'drafts') },
