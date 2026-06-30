@@ -1070,7 +1070,7 @@ function BriefView({
                       <div key={item.id}>
                         <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
                         {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" /></div>
+                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
                         )}
                       </div>
                     ))}
