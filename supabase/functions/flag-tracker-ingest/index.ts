@@ -48,19 +48,73 @@ function flagDueUtc(flag: any): Date | null {
   } catch { return null; }
 }
 
-async function getEnabledAt(admin: any, userId: string): Promise<Date | null> {
+
+interface BHPrefs {
+  on: boolean;
+  start: number;
+  end: number;
+  days: number[];
+  tz: string;
+  holidays: string[];
+}
+
+function tzParts(date: Date, tz: string): { hour: number; day: number; ymd: string } {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false, hour: '2-digit', weekday: 'short',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    const parts = dtf.formatToParts(date).reduce((acc: any, p) => { acc[p.type] = p.value; return acc; }, {});
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return {
+      hour: parseInt(parts.hour, 10) || 0,
+      day: dayMap[parts.weekday] ?? 1,
+      ymd: `${parts.year}-${parts.month}-${parts.day}`,
+    };
+  } catch {
+    return { hour: date.getUTCHours(), day: date.getUTCDay(), ymd: date.toISOString().slice(0, 10) };
+  }
+}
+
+function isInWindow(d: Date, p: BHPrefs): boolean {
+  if (!p.on) return true;
+  const { hour, day, ymd } = tzParts(d, p.tz);
+  if (p.holidays.includes(ymd)) return false;
+  if (!p.days.includes(day)) return false;
+  return hour >= p.start && hour < p.end;
+}
+
+function nextWindowStart(from: Date, p: BHPrefs): Date {
+  if (!p.on) return from;
+  let cur = new Date(from.getTime());
+  for (let i = 0; i < 14 * 48; i++) {
+    if (isInWindow(cur, p)) return cur;
+    cur = new Date(cur.getTime() + 30 * 60_000);
+  }
+  return new Date(from.getTime() + 24 * 3600_000);
+}
+
+async function getUserPrefs(admin: any, userId: string): Promise<{ enabledAt: Date | null; bh: BHPrefs }> {
   const { data } = await admin
     .from('follow_up_settings')
-    .select('is_enabled, enabled_at, updated_at, created_at')
+    .select('is_enabled, enabled_at, updated_at, created_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(1);
   const row = (data && data[0]) || null;
-  if (!row || row.is_enabled === false) return null;
+  const bh: BHPrefs = {
+    on: !!row?.business_hours_only,
+    start: typeof row?.business_hours_start === 'number' ? row.business_hours_start : 8,
+    end: typeof row?.business_hours_end === 'number' ? row.business_hours_end : 17,
+    days: Array.isArray(row?.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+    tz: row?.timezone || 'America/New_York',
+    holidays: Array.isArray(row?.holidays) ? row.holidays : [],
+  };
+  if (!row || row.is_enabled === false) return { enabledAt: null, bh };
   const t = row.enabled_at ? new Date(row.enabled_at) : null;
-  return t && !isNaN(t.getTime()) ? t : null;
+  return { enabledAt: t && !isNaN(t.getTime()) ? t : null, bh };
 }
 
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
