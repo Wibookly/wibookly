@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarClock, Mail, RefreshCw, Send, Sparkles, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 
 interface Item {
   id: string;
