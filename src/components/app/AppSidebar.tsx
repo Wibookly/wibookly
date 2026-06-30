@@ -306,7 +306,8 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" emoji="🚩" accent={accents.purple}>Flagged Email Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="🌞" accent={accents.purple}>The Helm</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="📥" accent={accents.purple}>The Helm — Emails</NavItem>}
+                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/helm-calendar" emoji="📅" accent={accents.purple}>The Helm — Calendar</NavItem>}
                 </NavSection>
               )}
 
