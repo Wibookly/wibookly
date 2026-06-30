@@ -125,11 +125,21 @@ async function getUserPrefs(admin: any, userId: string): Promise<{ enabledAt: Da
 
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const since = new Date(Date.now() - SCAN_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
-  const filter = encodeURIComponent(`sentDateTime ge ${since}`);
-  const endpoint = `${FOLDER_PATH}?$top=50&$orderby=sentDateTime desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
 
-  const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
-  if (!res.ok) return { ok: false, error: res.error?.message, scanned: 0, upserted: 0 };
+  // Fetch from BOTH Sent Items and Inbox in parallel and merge the results.
+  const folderResults = await Promise.all(FOLDER_PATHS.map(async (f) => {
+    const filter = encodeURIComponent(`${f.dateField} ge ${since}`);
+    const endpoint = `${f.path}?$top=50&$orderby=${f.dateField} desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
+    const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
+    const items: any[] = res.ok ? (res.data?.value || []) : [];
+    return { folder: f.folder, ok: res.ok, error: res.error?.message, items };
+  }));
+
+  const firstError = folderResults.find((r) => !r.ok)?.error;
+  if (folderResults.every((r) => !r.ok)) {
+    return { ok: false, error: firstError, scanned: 0, upserted: 0 };
+  }
+  const res = { ok: true, data: { value: [] as any[] } } as any;
 
   const { enabledAt, bh } = await getUserPrefs(admin, userId);
 
