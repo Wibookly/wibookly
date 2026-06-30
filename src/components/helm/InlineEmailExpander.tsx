@@ -27,7 +27,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
   accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
 }) {
   const qc = useQueryClient();
-  const [original, setOriginal] = useState<{ subject: string; from: { name?: string; address?: string } | null; body_html: string; body_text: string } | null>(null);
+  const [original, setOriginal] = useState<{ subject: string; from: Addr | null; to: Addr[]; cc: Addr[]; body_html: string; body_text: string } | null>(null);
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
   const [genBusy, setGenBusy] = useState(false);
