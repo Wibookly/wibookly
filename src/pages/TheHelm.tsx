@@ -3106,8 +3106,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                             return (
                               <div
                                 key={ev.id}
+                                data-external={ev.is_external ? 'true' : 'false'}
                                 className={cn(
-                                  'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
                                   ev.is_cancelled && 'opacity-60 line-through',
                                   isApplied && 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-400/40',
                                   isPending && !isDismissed && 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-400/40',
