@@ -987,6 +987,23 @@ function BriefEmailRow({ item, index, expanded, onToggle, onDisregard, onPromote
         </span>
         <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
           <span className="helm-brief-chip hidden sm:inline-flex" data-tone={chipTone(tag)}>{tag}</span>
+          {(() => {
+            const href = helmOutlookLink(item);
+            if (!href) return null;
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open in Outlook"
+                title="Open this email in Outlook"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-sky-600 hover:border-sky-500/60 hover:bg-sky-500/10 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            );
+          })()}
           {onPromote && (
             <button
               type="button"
