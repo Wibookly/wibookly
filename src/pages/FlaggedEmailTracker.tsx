@@ -312,6 +312,21 @@ export default function FlaggedEmailTrackerPage() {
     return { total, pending, queued, replied, drafted, missed, followUpsSent };
   }, [rows]);
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const hay = [
+        r.recipient_address ?? '',
+        r.recipient_name ?? '',
+        r.subject ?? '',
+        r.body_preview ?? '',
+      ].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
+
+
   const exportRows = useMemo(() => rows.map((r) => {
     const flagDue = r.trigger_type === 'flag' ? (r.trigger_detail?.dueDateTime || r.follow_up_at) : r.follow_up_at;
     const schedule = buildSendSchedule(r, reminderIntervalsDays)
