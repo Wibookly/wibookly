@@ -325,8 +325,17 @@ async function processOne(admin: any, row: any) {
       const cats: string[] = cur.data?.categories || [];
       const hasCat = cats.some((c) => /^FollowUp(?:\s*\d{1,3}d)?$/i.test(c));
       if (fs === 'complete' || (fs === 'notFlagged' && !hasCat)) {
-        await admin.from('tracked_emails').delete().eq('id', row.id);
-        return { id: row.id, action: 'deleted_flag_removed' };
+        // Keep the row visible — mark as completed (user closed the flag in
+        // Outlook, typically after they got a reply or handled it). Do NOT
+        // delete so the tracker keeps a checked/closed audit trail.
+        await admin.from('tracked_emails').update({
+          status: 'completed',
+          scheduled_send_at: null,
+          queued_reason: null,
+          last_error: 'flag closed in Outlook — tracker completed',
+          last_checked_at: new Date().toISOString(),
+        }).eq('id', row.id);
+        return { id: row.id, action: 'completed_flag_closed' };
       }
     } else {
       // Source message gone (404 from a deleted email) → hard-delete tracker.
