@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarClock, Mail, RefreshCw, Send, Sparkles, Users, X } from 'lucide-react';
+import { CalendarClock, Mail, RefreshCw, Send, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 
