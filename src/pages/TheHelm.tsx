@@ -1101,8 +1101,19 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
   const [scheduleDate, setScheduleDate] = useState<string>(''); // yyyy-MM-dd
   const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:mm
 
+  // Snapshot the scope's ids the first time we have data, so the list only
+  // shrinks as the user sends. Without this, the backend keeps refilling the
+  // scope (Big 3 promotes the next 3 candidates), so the count appears stuck.
+  const [scopeIds, setScopeIds] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (scopeIds === null && allDrafts.length > 0) {
+      setScopeIds(allDrafts.map((d) => d.id));
+    }
+  }, [allDrafts, scopeIds]);
+  const lockedIds = scopeIds ?? allDrafts.map((d) => d.id);
   // Sent items disappear from the list and from all counts immediately.
-  const drafts = allDrafts.filter((d) => !sentIds.has(d.id));
+  // Also: only show items that were in the snapshot when the reader opened.
+  const drafts = allDrafts.filter((d) => lockedIds.includes(d.id) && !sentIds.has(d.id));
 
   // Auto-select first unsent draft
   const effectiveId = activeId && drafts.some((d) => d.id === activeId) ? activeId : (drafts[0]?.id ?? null);
