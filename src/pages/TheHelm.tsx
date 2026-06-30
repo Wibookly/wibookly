@@ -2876,7 +2876,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     type="checkbox"
                     checked={reorganizeEnabled}
                     onChange={(e) => setReorganizeEnabled(e.target.checked)}
-                    className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
                   />
                 </label>
               </div>
