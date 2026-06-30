@@ -1103,7 +1103,13 @@ function BriefView({
               </TabsContent>
 
               <TabsContent value="auto" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Emails, meetings and tasks the agent filed, drafted, booked or replied to in the last 24 hours.</p>
+                <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
+                <p className="text-[11px] text-muted-foreground/80 mb-3">
+                  <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
+                  <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
+                  <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
+                  <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
+                </p>
                 {autoActions.length === 0 ? (
                   <div className="py-10 text-center">
                     <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
