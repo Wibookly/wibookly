@@ -1407,7 +1407,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     scope === 'decisions' ? (data?.decisions ?? []) :
     (data?.drafts ?? []);
   const scopeLabel =
-    scope === 'big3' ? "Today's Big 3" :
+    scope === 'big3' ? "Top Priorities" :
     scope === 'decisions' ? 'Your decisions' :
     'Drafted for you';
 
