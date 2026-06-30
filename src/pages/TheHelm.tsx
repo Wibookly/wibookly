@@ -568,8 +568,143 @@ function InboxLauncherCard({
 }
 
 /* ------------------------------------------------------------------ */
+/* Pillar block + Ledger row (inline-expand UX)                        */
+/* ------------------------------------------------------------------ */
+
+function PillarBlock({
+  number, accentClass, iconBg, numberColor, Icon, label, count, items, expandedId, setExpandedId, emptyText, openReader, accent,
+}: {
+  number: string;
+  accentClass: string;
+  iconBg: string;
+  numberColor: string;
+  Icon: React.ElementType;
+  label: string;
+  count: number;
+  items: HelmItem[];
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  emptyText: string;
+  openReader: () => void;
+  accent: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+}) {
+  return (
+    <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
+      {/* Header with huge number */}
+      <div className="flex items-end gap-4 mb-4">
+        <span className={cn('font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums select-none', numberColor)}>
+          {number}
+        </span>
+        <div className="pb-2 flex-1 min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
+          <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
+            {label}
+            <Badge variant="secondary" className="font-mono tabular-nums text-[11px]">{count}</Badge>
+          </h2>
+        </div>
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary pb-2">
+          Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
+        <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentClass)} />
+        {items.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3', iconBg)}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <p className="text-[13px] italic text-muted-foreground">{emptyText}</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {items.slice(0, 5).map((it, i) => {
+              const isOpen = expandedId === it.id;
+              return (
+                <li key={it.id}>
+                  <button
+                    onClick={() => setExpandedId(isOpen ? null : it.id)}
+                    className={cn(
+                      'w-full text-left p-4 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      isOpen && 'bg-muted/40',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={cn('font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5', numberColor)}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{it.title}</h3>
+                          <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', isOpen && 'rotate-180')} />
+                        </div>
+                        {it.sender && (
+                          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" /> {it.sender}
+                            {it.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" /> {it.due}</>}
+                          </p>
+                        )}
+                        {it.context && (
+                          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{it.context}</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4">
+                      <InlineEmailExpander item={it} onClose={() => setExpandedId(null)} accent={accent} />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LedgerRow({ item, variant, expanded, onToggle }: {
+  item: HelmItem; variant?: 'warning'; expanded: boolean; onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'w-full text-left rounded-lg border bg-card p-4 transition-all hover:border-primary/50 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        variant === 'warning' ? 'border-destructive/30 bg-destructive/5' : 'border-border/60',
+        expanded && 'border-primary/50 shadow-sm',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{item.title}</h3>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-180')} />
+          </div>
+          {item.sender && (
+            <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
+              <Mail className="w-3 h-3" /> {item.sender}
+              {item.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" />{' '}
+                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span></>}
+            </p>
+          )}
+          {item.context && (
+            <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{item.context}</p>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
+
+
 
 function BriefView({
   go,
