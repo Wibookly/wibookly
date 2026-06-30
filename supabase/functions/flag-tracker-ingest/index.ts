@@ -125,7 +125,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
   if (!res.ok) return { ok: false, error: res.error?.message, scanned: 0, upserted: 0 };
 
-  const enabledAt = await getEnabledAt(admin, userId);
+  const { enabledAt, bh } = await getUserPrefs(admin, userId);
 
   const items: any[] = res.data?.value || [];
   let upserted = 0;
