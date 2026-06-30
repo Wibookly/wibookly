@@ -48,19 +48,73 @@ function flagDueUtc(flag: any): Date | null {
   } catch { return null; }
 }
 
-async function getEnabledAt(admin: any, userId: string): Promise<Date | null> {
+
+interface BHPrefs {
+  on: boolean;
+  start: number;
+  end: number;
+  days: number[];
+  tz: string;
+  holidays: string[];
+}
+
+function tzParts(date: Date, tz: string): { hour: number; day: number; ymd: string } {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false, hour: '2-digit', weekday: 'short',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    const parts = dtf.formatToParts(date).reduce((acc: any, p) => { acc[p.type] = p.value; return acc; }, {});
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return {
+      hour: parseInt(parts.hour, 10) || 0,
+      day: dayMap[parts.weekday] ?? 1,
+      ymd: `${parts.year}-${parts.month}-${parts.day}`,
+    };
+  } catch {
+    return { hour: date.getUTCHours(), day: date.getUTCDay(), ymd: date.toISOString().slice(0, 10) };
+  }
+}
+
+function isInWindow(d: Date, p: BHPrefs): boolean {
+  if (!p.on) return true;
+  const { hour, day, ymd } = tzParts(d, p.tz);
+  if (p.holidays.includes(ymd)) return false;
+  if (!p.days.includes(day)) return false;
+  return hour >= p.start && hour < p.end;
+}
+
+function nextWindowStart(from: Date, p: BHPrefs): Date {
+  if (!p.on) return from;
+  let cur = new Date(from.getTime());
+  for (let i = 0; i < 14 * 48; i++) {
+    if (isInWindow(cur, p)) return cur;
+    cur = new Date(cur.getTime() + 30 * 60_000);
+  }
+  return new Date(from.getTime() + 24 * 3600_000);
+}
+
+async function getUserPrefs(admin: any, userId: string): Promise<{ enabledAt: Date | null; bh: BHPrefs }> {
   const { data } = await admin
     .from('follow_up_settings')
-    .select('is_enabled, enabled_at, updated_at, created_at')
+    .select('is_enabled, enabled_at, updated_at, created_at, business_hours_only, business_hours_start, business_hours_end, business_days, timezone, holidays')
     .eq('user_id', userId)
     .order('is_enabled', { ascending: false })
     .order('updated_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(1);
   const row = (data && data[0]) || null;
-  if (!row || row.is_enabled === false) return null;
+  const bh: BHPrefs = {
+    on: !!row?.business_hours_only,
+    start: typeof row?.business_hours_start === 'number' ? row.business_hours_start : 8,
+    end: typeof row?.business_hours_end === 'number' ? row.business_hours_end : 17,
+    days: Array.isArray(row?.business_days) ? row.business_days : [1, 2, 3, 4, 5],
+    tz: row?.timezone || 'America/New_York',
+    holidays: Array.isArray(row?.holidays) ? row.holidays : [],
+  };
+  if (!row || row.is_enabled === false) return { enabledAt: null, bh };
   const t = row.enabled_at ? new Date(row.enabled_at) : null;
-  return t && !isNaN(t.getTime()) ? t : null;
+  return { enabledAt: t && !isNaN(t.getTime()) ? t : null, bh };
 }
 
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
@@ -71,7 +125,41 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
   if (!res.ok) return { ok: false, error: res.error?.message, scanned: 0, upserted: 0 };
 
-  const enabledAt = await getEnabledAt(admin, userId);
+  const { enabledAt, bh } = await getUserPrefs(admin, userId);
+
+  // ─── Retroactive snap ────────────────────────────────────────────────
+  // Existing open rows may have follow_up_at / scheduled_send_at landing
+  // outside the user's allowed window (e.g. ingested before this fix, or
+  // before the user tightened their hours). Push every out-of-window
+  // timestamp forward to the next allowed slot so nothing fires at night.
+  let snapped = 0;
+  if (bh.on) {
+    const { data: openRows } = await admin
+      .from('tracked_emails')
+      .select('id, status, follow_up_at, scheduled_send_at')
+      .eq('user_id', userId)
+      .in('status', ['pending', 'queued', 'drafted']);
+    for (const r of (openRows || []) as any[]) {
+      const updates: Record<string, any> = {};
+      if (r.follow_up_at) {
+        const t = new Date(r.follow_up_at);
+        if (!isInWindow(t, bh)) {
+          updates.follow_up_at = nextWindowStart(t, bh).toISOString();
+        }
+      }
+      if (r.scheduled_send_at) {
+        const t = new Date(r.scheduled_send_at);
+        if (!isInWindow(t, bh)) {
+          updates.scheduled_send_at = nextWindowStart(t, bh).toISOString();
+          updates.queued_reason = 'outside_business_hours';
+        }
+      }
+      if (Object.keys(updates).length) {
+        await admin.from('tracked_emails').update(updates).eq('id', r.id);
+        snapped++;
+      }
+    }
+  }
 
   const items: any[] = res.data?.value || [];
   let upserted = 0;
@@ -108,13 +196,16 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
 
     if (dueFromFlag) {
       trigger_type = 'flag';
-      follow_up_at = dueFromFlag.toISOString();
-      trigger_detail = { dueDateTime: m.flag.dueDateTime };
+      // Snap flag-based due dates to the next allowed business-hour window
+      // so the AI follow-up never fires at night / on weekends / holidays.
+      follow_up_at = nextWindowStart(dueFromFlag, bh).toISOString();
+      trigger_detail = { dueDateTime: m.flag.dueDateTime, original_due_utc: dueFromFlag.toISOString() };
     } else if (catTrigger) {
       trigger_type = 'category';
       const base = new Date(m.sentDateTime || Date.now()).getTime();
-      follow_up_at = new Date(base + catTrigger.days * 86400000).toISOString();
-      trigger_detail = { interval_days: catTrigger.days, categories: m.categories };
+      const raw = new Date(base + catTrigger.days * 86400000);
+      follow_up_at = nextWindowStart(raw, bh).toISOString();
+      trigger_detail = { interval_days: catTrigger.days, categories: m.categories, original_due_utc: raw.toISOString() };
     } else {
       continue; // Not tracked
     }
@@ -247,6 +338,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     removed_deleted: removedDeleted,
     skipped_pre_enable: skippedPreEnable,
     kicked_followup: kickedFollowup,
+    snapped_to_business_hours: snapped,
   };
 }
 

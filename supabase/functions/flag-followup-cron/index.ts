@@ -188,9 +188,12 @@ function nextWindowStart(from: Date, prefs: PrefsResult): Date {
   return new Date(from.getTime() + 24 * 3600_000);
 }
 
-function nextFollowUpAfterSend(row: any, _prefs: PrefsResult, sentAtIso: string, _completedAttempt: number): string {
+function nextFollowUpAfterSend(row: any, prefs: PrefsResult, sentAtIso: string, _completedAttempt: number): string {
   const baseMs = new Date(sentAtIso).getTime();
-  return new Date(baseMs + cadenceFor(row)).toISOString();
+  const raw = new Date(baseMs + cadenceFor(row));
+  // Snap to the next allowed business-hour window so follow-ups never land
+  // at night, on weekends, or on holidays.
+  return nextWindowStart(raw, prefs).toISOString();
 }
 
 function effectiveAttemptCount(row: any): number {
