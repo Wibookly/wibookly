@@ -162,13 +162,16 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
 
     if (dueFromFlag) {
       trigger_type = 'flag';
-      follow_up_at = dueFromFlag.toISOString();
-      trigger_detail = { dueDateTime: m.flag.dueDateTime };
+      // Snap flag-based due dates to the next allowed business-hour window
+      // so the AI follow-up never fires at night / on weekends / holidays.
+      follow_up_at = nextWindowStart(dueFromFlag, bh).toISOString();
+      trigger_detail = { dueDateTime: m.flag.dueDateTime, original_due_utc: dueFromFlag.toISOString() };
     } else if (catTrigger) {
       trigger_type = 'category';
       const base = new Date(m.sentDateTime || Date.now()).getTime();
-      follow_up_at = new Date(base + catTrigger.days * 86400000).toISOString();
-      trigger_detail = { interval_days: catTrigger.days, categories: m.categories };
+      const raw = new Date(base + catTrigger.days * 86400000);
+      follow_up_at = nextWindowStart(raw, bh).toISOString();
+      trigger_detail = { interval_days: catTrigger.days, categories: m.categories, original_due_utc: raw.toISOString() };
     } else {
       continue; // Not tracked
     }
