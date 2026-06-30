@@ -621,6 +621,13 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expandedItem =
+    big3.find((x) => x.id === expandedId) ||
+    decisions.find((x) => x.id === expandedId) ||
+    overdue.find((x) => x.id === expandedId) ||
+    fyi.find((x) => x.id === expandedId) ||
+    null;
 
   // Live week preview for the right rail
   const weekPreview = useQuery({
