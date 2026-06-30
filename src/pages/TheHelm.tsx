@@ -809,7 +809,7 @@ function BriefView({
     fyi.find((x) => x.id === expandedId) ||
     null;
 
-  // Live week preview for the right rail
+  // Live week preview for the right rail (returns per-day list of events with times)
   const weekPreview = useQuery({
     queryKey: ['helm-week-preview'],
     queryFn: async () => {
@@ -822,23 +822,30 @@ function BriefView({
         body: { week_start: ws.toISOString() },
       });
       if (error) throw error;
-      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; subject: string }>;
-      const byDay: Record<string, number> = {};
+      const events = ((data as any)?.events ?? []) as Array<{ start: string | null; end?: string | null; subject: string }>;
+      const byDay: Record<string, Array<{ start: Date; end: Date | null; subject: string }>> = {};
       for (const ev of events) {
         if (!ev.start) continue;
-        const k = new Date(ev.start).toDateString();
-        byDay[k] = (byDay[k] ?? 0) + 1;
+        const sd = new Date(ev.start);
+        const k = sd.toDateString();
+        (byDay[k] ??= []).push({
+          start: sd,
+          end: ev.end ? new Date(ev.end) : null,
+          subject: ev.subject || '(no subject)',
+        });
       }
-      const out: { day: string; date: Date; count: number; isToday: boolean }[] = [];
+      const out: { day: string; date: Date; count: number; isToday: boolean; events: Array<{ start: Date; end: Date | null; subject: string }> }[] = [];
       const todayKey = new Date().toDateString();
       for (let i = 0; i < 5; i++) {
         const d = new Date(ws);
         d.setDate(ws.getDate() + i);
+        const list = (byDay[d.toDateString()] ?? []).sort((a, b) => a.start.getTime() - b.start.getTime());
         out.push({
           day: d.toLocaleDateString(undefined, { weekday: 'short' }),
           date: d,
-          count: byDay[d.toDateString()] ?? 0,
+          count: list.length,
           isToday: d.toDateString() === todayKey,
+          events: list,
         });
       }
       return out;
