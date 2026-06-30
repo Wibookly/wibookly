@@ -22,7 +22,7 @@ const FOLDER_PATH = "/me/mailFolders('sentitems')/messages";
 
 const SELECT_FIELDS = [
   'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients',
-  'sentDateTime', 'flag', 'categories', 'bodyPreview',
+  'sentDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
 ].join(',');
 
 function parseCategoryInterval(cats: string[] | undefined): { days: number } | null {
