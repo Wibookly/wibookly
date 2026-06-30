@@ -1352,7 +1352,7 @@ function BriefView({
             ))}
           </div>
         </div>
-        <div className="mt-3 divide-y divide-border/60">
+        <div className="mt-3 helm-row-divided">
           {isLoading ? (
             <Skeleton className="h-56" />
           ) : emailHighlights.length === 0 ? (
