@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Calendar,
+  AlarmClock,
   ChevronDown,
   CheckCircle2,
   ClipboardList,
@@ -41,6 +42,7 @@ import {
   ArrowUpRight,
   Flame,
   Eye,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -61,6 +63,9 @@ interface HelmItem {
   context: string;
   sender?: string;
   sender_email?: string;
+  created_at?: string | null;
+  status?: string | null;
+  payload?: any;
   due?: string;
   due_at?: string | null;
   tier?: 'big3' | 'decision' | 'overdue' | 'draft' | 'auto';
@@ -83,6 +88,9 @@ function mapRow(r: any): HelmItem {
     context: r.context ?? '',
     sender: r.sender_name ?? r.sender_email ?? undefined,
     sender_email: r.sender_email ?? undefined,
+    created_at: r.created_at ?? null,
+    status: r.status ?? null,
+    payload: r.payload ?? null,
     due_at: r.due_at ?? null,
     due: r.due_at
       ? `due ${formatDistanceToNow(new Date(r.due_at), { addSuffix: true })}`
@@ -103,7 +111,7 @@ function useHelmData() {
         supabase
           .from('helm_items')
           .select(
-            'id,title,context,sender_name,sender_email,due_at,tier,score,graph_id,conversation_id,created_at,status',
+            'id,title,context,sender_name,sender_email,due_at,tier,score,graph_id,conversation_id,created_at,status,payload',
           )
           .eq('status', 'open')
           .order('score', { ascending: false })
@@ -788,6 +796,180 @@ function LedgerRow({ item, variant, expanded, onToggle }: {
   );
 }
 
+function briefInitials(item: HelmItem): string {
+  const source = item.sender || item.sender_email || item.title || 'IQ';
+  const parts = String(source).replace(/<.*?>/g, '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return String(parts[0] || 'IQ').slice(0, 2).toUpperCase();
+}
+
+function briefTime(item: HelmItem): string {
+  const raw = item.created_at || item.due_at;
+  if (!raw) return item.due || 'Now';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return item.due || 'Now';
+  const now = new Date();
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  const yesterday = new Date(start); yesterday.setDate(start.getDate() - 1);
+  if (d >= start) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d >= yesterday) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function briefTag(item: HelmItem, fallback = 'AI'): string {
+  const hay = `${item.title} ${item.context} ${item.tier}`.toLowerCase();
+  if ((item as any)?.payload?.recipientReplied === true || item.status === 'replied') return 'Replied';
+  if (item.tier === 'overdue') return 'Urgent';
+  if (item.tier === 'draft') return 'AI Draft';
+  if (item.tier === 'decision' || /approve|approval|sign|decision/.test(hay)) return 'Approvals';
+  if (/customer|client|onsite|vendor/.test(hay)) return 'Customers';
+  if (/follow|flag|reminder/.test(hay)) return 'Follow Up';
+  if (item.tier === ('fyi' as any) || item.tier === ('info' as any)) return 'FYI';
+  return fallback;
+}
+
+function chipTone(label: string): string {
+  const l = label.toLowerCase();
+  if (l.includes('urgent')) return 'urgent';
+  if (l.includes('follow')) return 'follow';
+  if (l.includes('approval')) return 'approval';
+  if (l.includes('customer')) return 'customer';
+  if (l.includes('draft')) return 'draft';
+  if (l.includes('replied')) return 'replied';
+  return 'default';
+}
+
+function BriefHeroStat({ value, label }: { value: number | string; label: string }) {
+  return (
+    <div className="helm-brief-hero-stat">
+      <div className="text-2xl md:text-3xl font-bold tabular-nums leading-none text-primary-foreground">{value}</div>
+      <div className="mt-1 text-[10px] font-mono tracking-wide text-primary-foreground/80">{label}</div>
+    </div>
+  );
+}
+
+function BriefMetricTile({ icon: Icon, label, value, subLabel, accent, delta, onClick }: {
+  icon: React.ElementType;
+  label: string;
+  value: number | string;
+  subLabel: string;
+  accent: string;
+  delta?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="helm-brief-metric text-left" data-accent={accent}>
+      <div className="flex items-start justify-between gap-3">
+        <span className="helm-brief-icon"><Icon className="w-4 h-4" /></span>
+        {delta && <span className="text-[10px] font-mono text-success">{delta}</span>}
+      </div>
+      <div className="mt-4 text-2xl md:text-3xl font-bold text-foreground tabular-nums leading-none">{value}</div>
+      <div className="mt-2 text-[12px] font-semibold text-foreground/85">{label}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{subLabel}</div>
+    </button>
+  );
+}
+
+function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
+  item: HelmItem;
+  index: number;
+  expanded: boolean;
+  onToggle: () => void;
+  accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+}) {
+  const tag = briefTag(item, index === 0 ? 'Urgent' : 'AI');
+  return (
+    <div className="helm-brief-row-wrap" data-open={expanded ? 'true' : 'false'}>
+      <button type="button" onClick={onToggle} className="helm-brief-task-row">
+        <span className="helm-brief-rank">{index + 1}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px] md:text-sm font-semibold text-foreground truncate">{item.title}</span>
+            <span className="helm-brief-chip shrink-0" data-tone={chipTone(tag)}>{tag}</span>
+          </span>
+          <span className="mt-1 block text-[12px] text-muted-foreground truncate">{item.context || 'Open for the full thread and AI draft.'}</span>
+        </span>
+        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground shrink-0">
+          <Clock className="w-3 h-3" /> {item.due ? item.due.replace(/^due\s+/i, '') : '~5 min'}
+        </span>
+        <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform shrink-0', expanded && 'rotate-180')} />
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3">
+          <InlineEmailExpander item={item} onClose={onToggle} accent={accent} showAiSummary />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
+  title: string;
+  items: Array<HelmItem | AutoAction>;
+  tone: 'risk' | 'win';
+  icon: React.ElementType;
+  emptyText: string;
+}) {
+  return (
+    <div className="helm-signal-card" data-tone={tone}>
+      <h3 className="flex items-center gap-2 text-[13px] font-bold text-foreground">
+        <Icon className="w-4 h-4" /> {title} · {items.length} item{items.length === 1 ? '' : 's'}
+      </h3>
+      {items.length === 0 ? (
+        <p className="mt-3 text-[12px] text-muted-foreground">{emptyText}</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {items.slice(0, 4).map((raw) => {
+            const isAction = 'text' in raw;
+            const line = isAction ? raw.text : raw.title;
+            const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
+            return (
+              <li key={raw.id} className="grid grid-cols-[6px_minmax(0,1fr)] gap-2 text-[12px] leading-snug">
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                <span className="min-w-0">
+                  <span className="block font-semibold text-foreground truncate">{line}</span>
+                  <span className="block text-muted-foreground truncate">{sub}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function BriefEmailRow({ item, index, expanded, onToggle }: {
+  item: HelmItem;
+  index: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const tag = briefTag(item);
+  return (
+    <div className="helm-highlight-row-wrap" data-open={expanded ? 'true' : 'false'}>
+      <button type="button" onClick={onToggle} className="helm-highlight-row">
+        <span className="helm-avatar" data-accent={String(index % 5)}>{briefInitials(item)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-2 min-w-0">
+            <span className="text-[13px] font-bold text-foreground truncate">{item.sender || 'Unknown sender'}</span>
+            <span className="text-[11px] text-muted-foreground shrink-0">· {briefTime(item)}</span>
+          </span>
+          <span className="block text-[13px] font-semibold text-foreground leading-snug truncate">{item.title}</span>
+          <span className="mt-1 block text-[12px] text-muted-foreground truncate">✣ {item.context || 'Open to review the message, links, and AI draft.'}</span>
+        </span>
+        <span className="helm-brief-chip hidden sm:inline-flex" data-tone={chipTone(tag)}>{tag}</span>
+        <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4">
+          <InlineEmailExpander item={item} onClose={onToggle} accent={item.tier === 'overdue' ? 'rose' : 'sky'} showAiSummary={false} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
@@ -847,6 +1029,7 @@ function BriefView({
   const autoActions = data?.autoActions ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [ledgerTab, setLedgerTab] = useState<'overdue' | 'fyi' | 'auto'>('overdue');
+  const [search, setSearch] = useState('');
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
@@ -912,393 +1095,196 @@ function BriefView({
     [],
   );
 
+  const focusMinutes = Math.max(10, Math.min(90, stats.needsYou * 8 || 0));
+  const primaryTasks = useMemo(() => {
+    const seen = new Set<string>();
+    return [...big3, ...todayItems, ...decisions]
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      })
+      .slice(0, 5);
+  }, [big3, todayItems, decisions]);
+  const emailHighlights = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const seen = new Set<string>();
+    return [...overdue, ...decisions, ...(data?.drafts ?? []), ...fyi]
+      .filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        if (!q) return true;
+        return [item.title, item.context, item.sender, item.sender_email, briefTag(item)]
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      })
+      .slice(0, 25);
+  }, [overdue, decisions, data?.drafts, fyi, search]);
+  const todayMeetings = weekPreview.data?.find((d) => d.isToday)?.count ?? 0;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 lg:gap-8 items-start">
-      <div className="space-y-12">
-        {error && (
-          <Card className="border-destructive/40 print:hidden">
-            <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
-              <span className="text-destructive">Couldn't load your brief: {(error as Error).message}</span>
-              <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
-            </CardContent>
-          </Card>
-        )}
-        {/* Hero — borderless, demo-v4 style */}
-        <section aria-labelledby="helm-hero" className="pt-2">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
-              {today} · {nowTime} brief
-            </p>
-            <div className="flex items-center gap-2 print:hidden">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
-                onClick={() => {
-                  document.body.removeAttribute('data-print-section');
-                  window.print();
-                }}
-                title="Print today's full brief — meetings, Big 3, decisions, drafts, overdue, FYI."
-              >
-                <Printer className="w-3 h-3 mr-1.5" /> Print today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[10px] font-mono tracking-[0.15em] uppercase"
-                onClick={async () => {
-                  try {
-                    const { data, error } = await supabase.functions.invoke('helm-email-section', {
-                      body: { section: 'brief', title: "Today's full brief" },
-                    });
-                    if (error) throw error;
-                    toast.success(`Emailed to ${(data as any)?.recipient ?? 'your inbox'}.`);
-                  } catch (e: any) {
-                    toast.error(e?.message ?? 'Email failed.');
-                  }
-                }}
-              >
-                <Send className="w-3 h-3 mr-1.5" /> Email today
-              </Button>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border',
-                  (sync.isPending || isLoading)
-                    ? 'border-primary/40 text-primary bg-primary/5'
-                    : 'border-emerald-500/40 text-muted-foreground bg-transparent',
-                )}
-                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Live — syncing every 5 minutes'}
-              >
-                <span className="relative inline-flex w-2 h-2">
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
-                  <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
-                </span>
-                {(sync.isPending || isLoading) ? 'Syncing' : 'Live sync'}
-              </span>
-            </div>
-          </div>
-
-          <h1
-            id="helm-hero"
-            className="text-[26px] md:text-[32px] leading-tight tracking-tight font-semibold text-foreground"
-          >
-            {greeting}
-            {name ? `, ${name}` : ''}.{' '}
-            <span className="text-primary">
-              {stats.needsYou === 0 ? 'You are clear.' : `${stats.needsYou} thing${stats.needsYou === 1 ? '' : 's'} need you today.`}
-            </span>
-          </h1>
-          <p className="text-[13px] md:text-sm text-muted-foreground max-w-2xl mt-2 leading-relaxed">
-            Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
-          </p>
-
-          {/* Hero KPI tiles — bordered, accent-edged, always visible on dark mode */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="helm-tile" data-accent="slate">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Total inbound</p>
-              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{stats.totalInbound}</p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">emails & items received in the last 24h</p>
-            </div>
-            <div className="helm-tile" data-accent="amber">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Needs you</p>
-              <p className="text-[40px] md:text-[44px] font-extrabold text-primary tabular-nums leading-none mt-1">{stats.needsYou}</p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">decisions, approvals & overdue replies</p>
-            </div>
-            <div className="helm-tile" data-accent="emerald">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Sent by AI</p>
-              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{stats.autoHandled}</p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied by AI</p>
-            </div>
-          </div>
-
-          {/* Executive breakdown — click to open that scope's focused reader */}
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            {([
-              { key: 'big3', label: 'Top Priorities', count: big3.length, accent: 'sky',     onClick: () => document.querySelector('[data-helm-section="pillar-big3"]')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'today', label: 'Today', count: todayItems.length, accent: 'amber', onClick: () => document.querySelector('[data-helm-section="pillar-today"]')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'decisions', label: 'Decisions', count: decisions.length, accent: 'violet', onClick: () => go('inbox', undefined, 'decisions') },
-              { key: 'overdue', label: 'Overdue', count: overdue.length, accent: 'red', onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), accent: 'cyan', onClick: () => go('inbox', undefined, 'drafts') },
-              { key: 'auto', label: 'Auto-handled', count: autoActions.length, accent: 'emerald', onClick: () => document.getElementById('auto')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'fyi', label: 'FYI', count: fyi.length, accent: 'muted', onClick: () => document.querySelector('[data-helm-section="fyi"]')?.scrollIntoView({ behavior: 'smooth' }) },
-            ] as const).map((t) => (
-              <button
-                key={t.key}
-                onClick={t.onClick}
-                className="helm-tile text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                data-accent={t.accent}
-                style={{ padding: '0.65rem 0.85rem' }}
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold">{t.label}</p>
-                <p className="text-[26px] font-extrabold text-foreground tabular-nums leading-none mt-1">{t.count}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-
-
-        {/* ════════════════════════════════════════════════════════════════
-            COMMAND DECK — redesigned executive workspace
-            Pillars (Big 3 + Decisions) → Ledger (Overdue / FYI / Done) → Footer
-            ════════════════════════════════════════════════════════════════ */}
-
-        {/* ── 01 · Action Pillars — stacked vertically, inline-expand ── */}
-        <section aria-labelledby="pillars" data-helm-section="pillars" className="space-y-8">
-          <div data-helm-section="pillar-big3">
-            <PillarBlock
-              number="01"
-              accentClass="from-amber-400 via-orange-500 to-rose-500"
-              iconBg="bg-amber-500/10 text-amber-500"
-              numberColor="text-amber-500/90"
-              Icon={Flame}
-              label="Pillar A · Top Priorities"
-              count={big3.length}
-              items={big3}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
-              emptyText="Nothing urgent. Your day is yours."
-              openReader={() => go('inbox', undefined, 'big3')}
-              accent="amber"
-            />
-          </div>
-          <div data-helm-section="pillar-today">
-            <PillarBlock
-              number="02"
-              accentClass="from-sky-400 via-cyan-500 to-blue-500"
-              iconBg="bg-sky-500/10 text-sky-500"
-              numberColor="text-sky-500/90"
-              Icon={Clock}
-              label="Pillar B · Today Priority — due today, AI-prioritized"
-              count={todayItems.length}
-              items={todayItems}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
-              emptyText="Nothing is hard-due today."
-              openReader={() => go('inbox', undefined, 'big3')}
-              accent="sky"
-            />
-          </div>
-          <PillarBlock
-            number="03"
-            accentClass="from-violet-400 via-indigo-500 to-blue-500"
-            iconBg="bg-violet-500/10 text-violet-500"
-            numberColor="text-violet-500/90"
-            Icon={ThumbsUp}
-            label="Pillar C · Your decisions"
-            count={decisions.length}
-            items={decisions}
-            expandedId={expandedId}
-            setExpandedId={setExpandedId}
-            emptyText="No approvals waiting on you."
-            openReader={() => go('inbox', undefined, 'decisions')}
-            accent="violet"
-          />
-        </section>
-
-
-
-        {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
-        {(() => {
-          const tabColor =
-            ledgerTab === 'overdue' ? 'text-rose-500' :
-            ledgerTab === 'fyi' ? 'text-sky-500' :
-            'text-emerald-500';
-          const tabLabel =
-            ledgerTab === 'overdue' ? 'Overdue' :
-            ledgerTab === 'fyi' ? 'FYI' : 'Handled';
-          const tabCount =
-            ledgerTab === 'overdue' ? overdue.length :
-            ledgerTab === 'fyi' ? fyi.length : autoActions.length;
-          const tabBadge =
-            ledgerTab === 'overdue' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' :
-            ledgerTab === 'fyi' ? 'bg-sky-500/15 text-sky-600 border-sky-500/30' :
-            'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
-          return (
-            <section aria-labelledby="ledger" data-helm-section="ledger">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
-                  <span className={cn('tabular-nums select-none transition-colors', tabColor)}>04</span>
-                  <span className="truncate">Operations ledger</span>
-                  <span className="text-muted-foreground/60 font-normal text-[14px] shrink-0">· {tabLabel}</span>
-                  <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] transition-colors shrink-0', tabBadge)}>{tabCount}</Badge>
-                </h2>
-              </div>
-
-              <Card className="border-border/60 overflow-hidden">
-                <Tabs value={ledgerTab} onValueChange={(v) => setLedgerTab(v as any)} className="w-full">
-                  <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
-                    <TabsTrigger value="overdue" data-helm-section="overdue"
-                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                      Overdue
-                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-rose-500/15 text-rose-600 border-rose-500/30">{overdue.length}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="fyi" data-helm-section="fyi"
-                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                      <Eye className="w-3.5 h-3.5 text-sky-500" />
-                      FYI
-                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-sky-500/15 text-sky-600 border-sky-500/30">{fyi.length}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="auto" data-helm-section="activity"
-                      className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                      Handled by AI
-                      <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums bg-emerald-500/15 text-emerald-600 border-emerald-500/30">{autoActions.length}</Badge>
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="overdue" className="m-0 p-5">
-                    <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
-                    {isLoading ? (
-                      <Skeleton className="h-20" />
-                    ) : overdue.length === 0 ? (
-                      <div className="py-10 text-center">
-                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                        <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {overdue.map((item) => (
-                          <div key={item.id}>
-                            <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                            {expandedId === item.id && expandedItem && (
-                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="fyi" className="m-0 p-5">
-                    <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
-                    {fyi.length === 0 ? (
-                      <div className="py-10 text-center">
-                        <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                        <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {fyi.slice(0, 25).map((item) => (
-                          <div key={item.id}>
-                            <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
-                            {expandedId === item.id && expandedItem && (
-                              <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
-                            )}
-                          </div>
-                        ))}
-                        {fyi.length > 25 && (
-                          <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
-                        )}
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="auto" className="m-0 p-5">
-                    <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
-                    <p className="text-[11px] text-muted-foreground/80 mb-3">
-                      <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
-                      <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
-                      <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
-                      <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
-                    </p>
-                    {autoActions.length === 0 ? (
-                      <div className="py-10 text-center">
-                        <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
-                        <p className="text-[13px] text-muted-foreground">Nothing auto-filed yet. Run a sync to see the agent work.</p>
-                      </div>
-                    ) : (
-                      <ul className="divide-y divide-border/40">
-                        {autoActions.map((a) => (
-                          <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
-                            <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
-                            <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
-                            <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
-                              a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
-                              a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
-                              a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
-                              a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
-                              {a.tag}
-                            </Badge>
-                            <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </Card>
-            </section>
-          );
-        })()}
-
-
-
-
-        {/* ── Briefing Controls — slim footer chip ─────────────────────── */}
-        <section aria-labelledby="schedule" data-helm-section="schedule" className="print:hidden">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-dashed border-border/60 hover:border-primary/50 hover:bg-muted/30 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <CalendarClock className="w-4 h-4 text-primary shrink-0" />
-                  <span id="schedule" className="text-[13px] font-medium text-foreground">
-                    Home email schedule
-                  </span>
-                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                    · pick days &amp; times this brief lands in your inbox
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">configure →</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[min(640px,90vw)] p-4" align="end" sideOffset={8}>
-              <DailyBriefSchedule />
-            </PopoverContent>
-          </Popover>
-        </section>
-
-
-
-      </div>
-
-
-      {/* Right rail — Inbox health pinned on top, This week grows below */}
-      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto flex flex-col">
-        <Card className="border-border/60 shrink-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
-              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.totalInbound}</dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
-                <dd className="text-3xl font-light text-primary tabular-nums">{stats.needsYou}</dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.drafted}</dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.autoHandled}</dd>
-              </div>
-            </dl>
+    <div className="helm-brief-page space-y-4 md:space-y-5">
+      {error && (
+        <Card className="border-destructive/40 print:hidden">
+          <CardContent className="p-4 flex items-center justify-between gap-3 text-sm">
+            <span className="text-destructive">Couldn't load your brief: {(error as Error).message}</span>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
           </CardContent>
         </Card>
+      )}
 
-        <CalendarRail
-          data={weekPreview.data ?? []}
-          isLoading={weekPreview.isLoading}
-          onOpen={() => go('calendar')}
-        />
-      </aside>
+      <header className="helm-brief-topbar print:hidden">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Reports</p>
+          <h1 className="mt-0.5 text-xl md:text-2xl font-bold text-foreground flex items-baseline gap-2 flex-wrap">
+            The Helm <span className="text-[12px] md:text-sm font-medium text-primary">{today}</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-semibold"
+            onClick={() => {
+              document.body.removeAttribute('data-print-section');
+              window.print();
+            }}
+          >
+            <Printer className="w-3.5 h-3.5 mr-1.5" /> Print All
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => sync.mutate()} disabled={sync.isPending}>
+            <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', sync.isPending && 'animate-spin')} /> Refresh
+          </Button>
+          <div className="helm-brief-search">
+            <Search className="w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search anything…" />
+          </div>
+          <span className="helm-live-pill" title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Live — syncing every 5 minutes'}>
+            <span className="relative inline-flex w-2 h-2">
+              <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+            </span>
+            {(sync.isPending || isLoading) ? 'Syncing' : 'Live sync'}
+          </span>
+        </div>
+      </header>
+
+      <section aria-labelledby="helm-hero" data-helm-section="hero" className="helm-brief-hero">
+        <div className="min-w-0">
+          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-primary-foreground/85">
+            <Sparkles className="w-4 h-4" /> AI analysis · generated {nowTime}
+          </div>
+          <h2 id="helm-hero" className="mt-4 text-2xl md:text-3xl font-bold text-primary-foreground leading-tight">
+            What to do first{name ? `, ${name}` : ''}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm md:text-base font-medium leading-relaxed text-primary-foreground/90">
+            I reviewed {stats.totalInbound} inbox items and {todayMeetings} calendar event{todayMeetings === 1 ? '' : 's'}. Here's the focused plan for your day — about {focusMinutes} minutes of high-leverage work.
+          </p>
+        </div>
+        <div className="helm-brief-hero-stats">
+          <BriefHeroStat value={primaryTasks.length} label="tasks" />
+          <BriefHeroStat value={`${focusMinutes}m`} label="focus time" />
+          <BriefHeroStat value={overdue.length} label="at risk" />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-helm-section="metrics">
+        <BriefMetricTile icon={Mail} label="New emails" value={stats.totalInbound} subLabel={`${overdue.length} require attention`} accent="blue" delta="+12%" onClick={() => document.querySelector('[data-helm-section="email-highlights"]')?.scrollIntoView({ behavior: 'smooth' })} />
+        <BriefMetricTile icon={FileEdit} label="Drafts ready" value={stats.drafted} subLabel="awaiting your review" accent="violet" onClick={() => go('inbox', undefined, 'drafts')} />
+        <BriefMetricTile icon={AlarmClock} label="Tracked queue" value={overdue.length} subLabel="waiting or overdue" accent="amber" onClick={() => document.querySelector('[data-helm-section="email-highlights"]')?.scrollIntoView({ behavior: 'smooth' })} />
+        <BriefMetricTile icon={CheckCircle2} label="Auto-categorized" value={stats.autoHandled} subLabel="handled by AI" accent="emerald" onClick={() => setLedgerTab('auto')} />
+      </section>
+
+      <section className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)] gap-4" data-helm-section="overview">
+        <div className="helm-brief-panel" data-helm-section="top-tasks">
+          <div className="helm-panel-head">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
+              <span className="text-[11px] text-muted-foreground">Ordered by AI confidence</span>
+            </div>
+            <button type="button" onClick={() => go('inbox', undefined, 'big3')} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
+              View all <ArrowRight className="inline w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {isLoading ? (
+              <Skeleton className="h-36" />
+            ) : primaryTasks.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
+            ) : (
+              primaryTasks.map((item, index) => (
+                <BriefTaskRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  expanded={expandedId === item.id}
+                  onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  accent={item.tier === 'overdue' ? 'rose' : item.tier === 'decision' ? 'violet' : 'amber'}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
+          <BriefSignalCard title="Quick Wins" items={autoActions.length ? autoActions : fyi.slice(0, 4)} tone="win" icon={Zap} emptyText="No quick wins yet." />
+        </div>
+      </section>
+
+      <section className="helm-brief-panel" data-helm-section="email-highlights">
+        <div className="helm-panel-head">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Email highlights</h2>
+            <span className="text-[11px] text-muted-foreground">Top {Math.min(emailHighlights.length, 25)} of {stats.totalInbound} · scored by AI</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 print:hidden">
+            {['AI', 'Urgent', 'Follow Up'].map((label) => (
+              <span key={label} className="helm-brief-chip" data-tone={chipTone(label)}>{label}</span>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 divide-y divide-border/60">
+          {isLoading ? (
+            <Skeleton className="h-56" />
+          ) : emailHighlights.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {search ? `No email highlights match “${search}”.` : 'No email highlights to review.'}
+            </div>
+          ) : (
+            emailHighlights.map((item, index) => (
+              <BriefEmailRow
+                key={item.id}
+                item={item}
+                index={index}
+                expanded={expandedId === item.id}
+                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 print:hidden">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-dashed border-border/70 hover:border-primary/60 hover:bg-muted/30 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+                <span id="schedule" className="text-[13px] font-medium text-foreground">Home email schedule</span>
+                <span className="text-[11px] text-muted-foreground hidden sm:inline">· pick days &amp; times this brief lands in your inbox</span>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">configure →</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[min(640px,90vw)] p-4" align="end" sideOffset={8}>
+            <DailyBriefSchedule />
+          </PopoverContent>
+        </Popover>
+
+        <CalendarRail data={weekPreview.data ?? []} isLoading={weekPreview.isLoading} onOpen={() => go('calendar')} />
+      </section>
     </div>
   );
 }

@@ -4225,7 +4225,7 @@ export type Database = {
           connection_id: string | null
           conversation_id: string | null
           created_at: string
-          follow_up_at: string
+          follow_up_at: string | null
           follow_up_history: Json
           graph_message_id: string
           id: string
@@ -4252,7 +4252,7 @@ export type Database = {
           connection_id?: string | null
           conversation_id?: string | null
           created_at?: string
-          follow_up_at: string
+          follow_up_at?: string | null
           follow_up_history?: Json
           graph_message_id: string
           id?: string
@@ -4279,7 +4279,7 @@ export type Database = {
           connection_id?: string | null
           conversation_id?: string | null
           created_at?: string
-          follow_up_at?: string
+          follow_up_at?: string | null
           follow_up_history?: Json
           graph_message_id?: string
           id?: string

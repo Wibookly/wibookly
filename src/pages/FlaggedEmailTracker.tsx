@@ -26,7 +26,7 @@ interface TrackedEmail {
   sent_at: string;
   trigger_type: 'flag' | 'category';
   trigger_detail: any;
-  follow_up_at: string;
+  follow_up_at: string | null;
   attempts: number;
   status: 'pending' | 'replied' | 'completed' | 'drafted' | 'draft_ready' | 'sent' | 'queued' | 'cancelled' | 'exhausted' | 'error' | string;
   last_checked_at: string | null;
@@ -44,8 +44,8 @@ type StatusMeta = { label: string; icon: any; variant: 'default' | 'secondary' |
 
 const STATUS_META: Record<string, StatusMeta> = {
   pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
-  replied: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
-  completed: { label: 'Completed · recipient replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker completed.' },
+  replied: { label: 'Checked · recipient responded', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
+  completed: { label: 'Checked · recipient responded', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
   drafted: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
   draft_ready: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
   sent: { label: 'Follow-up sent', icon: Send, variant: 'default', tooltip: 'AI sent the scheduled follow-up and is waiting for a recipient reply.' },
@@ -217,7 +217,7 @@ export default function FlaggedEmailTrackerPage() {
   const [rows, setRows] = useState<TrackedEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [from, setFrom] = useState<string>(todayStr(-30));
+  const [from, setFrom] = useState<string>(todayStr(-90));
   const [to, setTo] = useState<string>(todayStr(0));
   
   const [groupBy, setGroupBy] = useState<'none' | 'recipient'>('recipient');
@@ -238,7 +238,7 @@ export default function FlaggedEmailTrackerPage() {
     try {
       const fromDate = new Date(`${from}T00:00:00`);
       const toDate = new Date(`${to}T23:59:59`);
-      const safeFrom = Number.isNaN(fromDate.getTime()) ? todayStr(-30) : fromDate.toISOString();
+      const safeFrom = Number.isNaN(fromDate.getTime()) ? new Date(`${todayStr(-90)}T00:00:00`).toISOString() : fromDate.toISOString();
       const safeTo = Number.isNaN(toDate.getTime()) ? new Date(`${todayStr(0)}T23:59:59`).toISOString() : toDate.toISOString();
 
       const { data, error } = await withTimeout(
@@ -246,8 +246,8 @@ export default function FlaggedEmailTrackerPage() {
           .from('tracked_emails' as any)
           .select('*')
           .eq('user_id', user.id)
-          .gte('sent_at', safeFrom)
-          .lte('sent_at', safeTo)
+          .or(`and(sent_at.gte.${safeFrom},sent_at.lte.${safeTo}),and(updated_at.gte.${safeFrom},updated_at.lte.${safeTo})`)
+          .order('updated_at', { ascending: false })
           .order('sent_at', { ascending: false })
           .limit(500),
       );
@@ -705,7 +705,7 @@ function RecipientGroups({
       {groups.map((g) => {
         const open = expanded[g.key] ?? groups.length <= 3;
         const pending = g.items.filter((r) => r.status === 'pending').length;
-        const replied = g.items.filter((r) => r.status === 'replied').length;
+        const replied = g.items.filter((r) => r.status === 'replied' || r.status === 'completed').length;
         const missed = g.items.filter((r) => r.status === 'exhausted' || r.status === 'no_response').length;
         return (
           <div key={g.key} className="rounded-lg border bg-card">

@@ -17,13 +17,18 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 const DEFAULT_INTERVAL_DAYS = 3;
-const SCAN_LOOKBACK_HOURS = 24 * 30; // 30 days
+const SCAN_LOOKBACK_HOURS = 24 * 90; // 90 days
+const PAGE_SIZE = 200;
+const MAX_PAGES_PER_FOLDER = 5;
 // Scan BOTH Sent Items AND Inbox so flags placed on received emails also
 // land in the tracker (user flags an email someone sent them → AI follows
 // up with that sender once the flag's due date arrives).
-const FOLDER_PATHS: Array<{ folder: 'sent' | 'inbox'; path: string; dateField: string }> = [
+const FOLDER_PATHS: Array<{ folder: 'sent' | 'inbox' | 'all'; path: string; dateField: string }> = [
   { folder: 'sent',  path: "/me/mailFolders('sentitems')/messages", dateField: 'sentDateTime' },
   { folder: 'inbox', path: "/me/mailFolders('inbox')/messages",     dateField: 'receivedDateTime' },
+  // Also scan the mailbox-wide messages collection so flagged/replied items
+  // that were moved to Archive/custom folders remain visible in history.
+  { folder: 'all',   path: '/me/messages',                           dateField: 'receivedDateTime' },
 ];
 
 const SELECT_FIELDS = [
@@ -52,6 +57,51 @@ function flagDueUtc(flag: any): Date | null {
     const d = new Date(dt.dateTime);
     return isNaN(d.getTime()) ? new Date(dt.dateTime + 'Z') : d;
   } catch { return null; }
+}
+
+function graphDateTimeUtc(dt: any): Date | null {
+  if (!dt?.dateTime) return null;
+  try {
+    const raw = String(dt.dateTime || '');
+    const tz = String(dt.timeZone || 'UTC');
+    const trimmed = raw.replace(/(\.\d{3})\d+$/, '$1');
+    const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
+    const d = hasZone ? new Date(trimmed) : /^utc$/i.test(tz) ? new Date(trimmed + 'Z') : new Date(trimmed + 'Z');
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function graphNextEndpoint(nextLink: string | undefined | null): string | null {
+  if (!nextLink) return null;
+  try {
+    const url = new URL(nextLink);
+    return url.pathname.replace(/^\/v1\.0/i, '') + url.search;
+  } catch {
+    return nextLink.startsWith('/v1.0') ? nextLink.replace(/^\/v1\.0/i, '') : nextLink;
+  }
+}
+
+async function fetchFolderMessages(userId: string, connectionId: string, f: typeof FOLDER_PATHS[number], since: string) {
+  const items: any[] = [];
+  const filter = encodeURIComponent(`${f.dateField} ge ${since}`);
+  let endpoint: string | null = `${f.path}?$top=${PAGE_SIZE}&$orderby=${f.dateField} desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
+  let ok = true;
+  let error: string | undefined;
+
+  for (let page = 0; endpoint && page < MAX_PAGES_PER_FOLDER; page++) {
+    const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
+    if (!res.ok) {
+      ok = false;
+      error = res.error?.message;
+      break;
+    }
+    items.push(...(res.data?.value || []));
+    endpoint = graphNextEndpoint(res.data?.['@odata.nextLink']);
+  }
+
+  return { folder: f.folder, ok, error, items };
 }
 
 
@@ -126,14 +176,9 @@ async function getUserPrefs(admin: any, userId: string): Promise<{ enabledAt: Da
 async function ingestForUser(admin: any, userId: string, connectionId: string) {
   const since = new Date(Date.now() - SCAN_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
 
-  // Fetch from BOTH Sent Items and Inbox in parallel and merge the results.
-  const folderResults = await Promise.all(FOLDER_PATHS.map(async (f) => {
-    const filter = encodeURIComponent(`${f.dateField} ge ${since}`);
-    const endpoint = `${f.path}?$top=50&$orderby=${f.dateField} desc&$filter=${filter}&$select=${SELECT_FIELDS}`;
-    const res = await callGraph<any>(userId, connectionId, 'mail', endpoint);
-    const items: any[] = res.ok ? (res.data?.value || []) : [];
-    return { folder: f.folder, ok: res.ok, error: res.error?.message, items };
-  }));
+  // Fetch from Sent, Inbox, and mailbox-wide messages with pagination so older
+  // flagged history (for example flight threads) is not missed.
+  const folderResults = await Promise.all(FOLDER_PATHS.map((f) => fetchFolderMessages(userId, connectionId, f, since)));
 
   const firstError = folderResults.find((r) => !r.ok)?.error;
   if (folderResults.every((r) => !r.ok)) {
@@ -181,7 +226,8 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   // (Sent wins if a message somehow appears in both — preserves outbound recipient).
   const tagged: any[] = [];
   const seenIMI = new Set<string>();
-  const sentFirst = [...folderResults].sort((a, b) => (a.folder === 'sent' ? -1 : 1));
+  const folderOrder: Record<string, number> = { sent: 0, inbox: 1, all: 2 };
+  const sentFirst = [...folderResults].sort((a, b) => (folderOrder[a.folder] ?? 9) - (folderOrder[b.folder] ?? 9));
   for (const fr of sentFirst) {
     for (const m of fr.items) {
       const imi = m.internetMessageId;
@@ -194,6 +240,27 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   let upserted = 0;
   let cancelled = 0;
   let skippedPreEnable = 0;
+
+  const meRes = await callGraph<any>(userId, connectionId, 'user', '/me?$select=mail,userPrincipalName');
+  const myAddresses = new Set<string>();
+  if (meRes.ok) {
+    if (meRes.data?.mail) myAddresses.add(String(meRes.data.mail).toLowerCase());
+    if (meRes.data?.userPrincipalName) myAddresses.add(String(meRes.data.userPrincipalName).toLowerCase());
+  }
+
+  const outboundMessage = (m: any) => {
+    if (m.__folder === 'sent') return true;
+    const fromAddr = String(m.from?.emailAddress?.address || '').toLowerCase();
+    return !!fromAddr && myAddresses.has(fromAddr);
+  };
+
+  const messagePerson = (m: any) => outboundMessage(m)
+    ? (m.toRecipients?.[0]?.emailAddress || null)
+    : (m.from?.emailAddress || null);
+
+  const messageDate = (m: any) => outboundMessage(m)
+    ? (m.sentDateTime || m.receivedDateTime)
+    : (m.receivedDateTime || m.sentDateTime);
 
   for (const m of items) {
     const internetMessageId = m.internetMessageId;
@@ -231,6 +298,46 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
           last_checked_at: new Date().toISOString(),
         }).eq('id', existing.id);
         cancelled++;
+      } else if (!existing && m.flag?.flagStatus === 'complete') {
+        // If a message was already completed/replied before the tracker row was
+        // created (or an earlier update failed), keep a completed history row so
+        // the queue table still shows who replied and links back to Outlook.
+        const recipient = messagePerson(m);
+        const sentAt = messageDate(m);
+        if (enabledAt) {
+          // For completed history, gate by the completion/due activity when
+          // available instead of the original sent date. This keeps an older
+          // email if it was actively tracked/replied after the feature was on.
+          const activityDate = graphDateTimeUtc(m.flag?.completedDateTime) || graphDateTimeUtc(m.flag?.dueDateTime) || new Date(sentAt || 0);
+          const activityMs = activityDate?.getTime?.() ?? NaN;
+          if (Number.isFinite(activityMs) && activityMs < enabledAt.getTime()) {
+            skippedPreEnable++;
+            continue;
+          }
+        }
+        const { error } = await admin.from('tracked_emails').insert({
+          user_id: userId,
+          connection_id: connectionId,
+          graph_message_id: m.id,
+          internet_message_id: internetMessageId,
+          conversation_id: m.conversationId || null,
+          recipient_address: recipient?.address || null,
+          recipient_name: recipient?.name || null,
+          subject: m.subject || null,
+          body_preview: (m.bodyPreview || '').slice(0, 500),
+          sent_at: sentAt,
+          trigger_type: 'flag',
+          trigger_detail: { dueDateTime: m.flag?.dueDateTime || null, completedDateTime: m.flag?.completedDateTime || null, folder: m.__folder, completed_history: true },
+          follow_up_at: null,
+          scheduled_send_at: null,
+          queued_reason: null,
+          attempts: 0,
+          status: 'completed',
+          last_error: 'checked — recipient responded / flag completed',
+          last_checked_at: new Date().toISOString(),
+          web_link: m.webLink || null,
+        });
+        if (!error) upserted++;
       }
       continue;
     }
@@ -256,14 +363,10 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       continue; // Not tracked
     }
 
-    // For Sent items the "recipient" we're chasing is the TO address.
-    // For Inbox items it's the SENDER (who emailed us — we'll follow up with them).
-    const recipient = m.__folder === 'inbox'
-      ? (m.from?.emailAddress || null)
-      : (m.toRecipients?.[0]?.emailAddress || null);
-    const sentAt = m.__folder === 'inbox'
-      ? (m.receivedDateTime || m.sentDateTime)
-      : (m.sentDateTime || m.receivedDateTime);
+    // For outbound messages the tracked recipient is the TO address. For
+    // inbound/moved messages it is the sender who replied/needs follow-up.
+    const recipient = messagePerson(m);
+    const sentAt = messageDate(m);
     const row = {
       user_id: userId,
       connection_id: connectionId,
@@ -293,11 +396,11 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       .maybeSingle();
 
     // Gate on enabled_at — never INGEST emails sent before the tracker was
-    // turned on. (Existing rows stay untouched; only brand-new tracker rows
-    // are skipped.)
+    // turned on unless the flag due date itself is after enablement. Existing
+    // rows stay untouched; only brand-new tracker rows are skipped.
     if (!existing && enabledAt) {
-      const sentMs = new Date(m.sentDateTime || 0).getTime();
-      if (Number.isFinite(sentMs) && sentMs < enabledAt.getTime()) {
+      const activityMs = new Date(follow_up_at || sentAt || 0).getTime();
+      if (Number.isFinite(activityMs) && activityMs < enabledAt.getTime()) {
         skippedPreEnable++;
         continue;
       }
