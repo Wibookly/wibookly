@@ -301,15 +301,22 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
                 <NavItem href="/integrations" emoji="🔗" accent={accents.cyan}>Email &amp; Calendar</NavItem>
               </NavSection>
 
+              {/* The Helm */}
+              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief')) && (
+                <NavSection title="The Helm" icon={Sparkles} accent={accents.cyan} defaultOpen>
+                  <NavItem href="/ai-daily-brief" emoji="📥" accent={accents.cyan}>The Helm — Emails</NavItem>
+                  <NavItem href="/helm-calendar" emoji="📅" accent={accents.cyan}>The Helm — Calendar</NavItem>
+                </NavSection>
+              )}
+
               {/* AI Intelligence */}
-              {!featureLoading && (isSuperAdmin || hasFeature('daily_brief') || hasFeature('ai_chat') || hasFeature('feature.follow_up_reminder')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('ai_chat') || hasFeature('feature.follow_up_reminder')) && (
                 <NavSection title="AI Intelligence" icon={Bot} accent={accents.purple} defaultOpen>
                   {(isSuperAdmin || hasFeature('ai_chat')) && <NavItem href="/chat" emoji="💬" accent={accents.purple}>AI Chat</NavItem>}
                   {(isSuperAdmin || hasFeature('feature.follow_up_reminder')) && <NavItem href="/flagged-email-tracker" emoji="🚩" accent={accents.purple}>Flagged Email Tracker</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/ai-daily-brief" emoji="📥" accent={accents.purple}>The Helm — Emails</NavItem>}
-                  {(isSuperAdmin || hasFeature('daily_brief')) && <NavItem href="/helm-calendar" emoji="📅" accent={accents.purple}>The Helm — Calendar</NavItem>}
                 </NavSection>
               )}
+
 
               {/* My Settings */}
               <NavSection title="My Settings" icon={Settings} accent={accents.orange} defaultOpen>
