@@ -1190,6 +1190,7 @@ function BriefView({
       .filter((item) => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
+        if (disregardedIds.has(item.id)) return false;
         if (!q) return true;
         return [item.title, item.context, item.sender, item.sender_email, briefTag(item)]
           .join(' ')
@@ -1197,7 +1198,7 @@ function BriefView({
           .includes(q);
       })
       .slice(0, 25);
-  }, [overdue, decisions, data?.drafts, fyi, search]);
+  }, [overdue, decisions, data?.drafts, fyi, search, disregardedIds]);
   const todayMeetings = weekPreview.data?.find((d) => d.isToday)?.count ?? 0;
 
   return (
