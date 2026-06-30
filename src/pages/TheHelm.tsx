@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -2720,82 +2720,96 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        {focusEnabled && focus && !dismissedFocus[focus.day_key] && (
-                          <div
-                            className={cn(
-                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
-                              focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
-                              focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
-                              focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
-                              appliedFocus[focus.day_key] && 'opacity-70',
-                            )}
-                          >
-                            <div className="flex items-center gap-1 font-semibold text-foreground">
-                              <Zap className="w-3 h-3" /> Focus block
-                              {appliedFocus[focus.day_key] && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10 ml-auto">Added</Badge>
-                              )}
-                            </div>
-                            <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {focus.state === 'free' && 'Open spot — approve to add to your calendar.'}
-                              {focus.state === 'needs_move' && 'Needs to move a meeting — see proposed calendar below.'}
-                              {focus.state === 'blocked' && 'No space — try a different day or shorter block.'}
-                            </p>
-                            {focus.state === 'free' && !appliedFocus[focus.day_key] && (
-                              <div className="flex gap-1.5 mt-1.5">
-                                <button
-                                  disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
-                                  onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                                >
-                                  {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
-                                </button>
-                                <button
-                                  onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                                  className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
                         {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                        {!isLoading && evs.length === 0 && !focus && (
+                        {!isLoading && evs.length === 0 && !(focusEnabled && focus && !dismissedFocus[focus.day_key]) && (
                           <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
                         )}
-                        {evs.map((ev) => (
-                          <div
-                            key={ev.id}
-                            className={cn(
-                              'rounded-md border p-2 text-xs space-y-1 transition-colors',
-                              ev.is_cancelled && 'opacity-60 line-through',
-                              ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
-                              <div className="flex gap-1 flex-wrap justify-end">
-                                {ev.is_external && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+                        {(() => {
+                          const items: Array<{ start: string; key: string; node: React.ReactNode }> = evs.map((ev) => ({
+                            key: `ev-${ev.id}`,
+                            start: ev.start ?? '',
+                            node: (
+                              <div
+                                key={ev.id}
+                                className={cn(
+                                  'rounded-md border p-2 text-xs space-y-1 transition-colors',
+                                  ev.is_cancelled && 'opacity-60 line-through',
+                                  ev.is_external ? 'border-accent bg-accent/10' : 'border-border bg-card',
                                 )}
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
+                                  <div className="flex gap-1 flex-wrap justify-end">
+                                    {ev.is_external && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
+                                  </div>
+                                </div>
+                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                                {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
+                                {ev.attendees.length > 0 && (
+                                  <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
+                                )}
+                                {ev.web_link && (
+                                  <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
+                                    Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                                  </a>
+                                )}
                               </div>
-                            </div>
-                            <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                            {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
-                            {ev.attendees.length > 0 && (
-                              <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
-                            )}
-                            {ev.web_link && (
-                              <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
-                                Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                              </a>
-                            )}
-                          </div>
-                        ))}
+                            ),
+                          }));
+                          if (focusEnabled && focus && !dismissedFocus[focus.day_key]) {
+                            items.push({
+                              key: `focus-${focus.day_key}`,
+                              start: focus.start,
+                              node: (
+                                <div
+                                  key={`focus-${focus.day_key}`}
+                                  className={cn(
+                                    'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
+                                    focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
+                                    focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
+                                    focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
+                                    appliedFocus[focus.day_key] && 'opacity-70',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-1 font-semibold text-foreground">
+                                    <Zap className="w-3 h-3" /> Focus block
+                                    {appliedFocus[focus.day_key] && (
+                                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10 ml-auto">Added</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {focus.state === 'free' && 'Open spot — approve to add to your calendar.'}
+                                    {focus.state === 'needs_move' && 'Needs to move a meeting — see proposed calendar below.'}
+                                    {focus.state === 'blocked' && 'No space — try a different day or shorter block.'}
+                                  </p>
+                                  {focus.state === 'free' && !appliedFocus[focus.day_key] && (
+                                    <div className="flex gap-1.5 mt-1.5">
+                                      <button
+                                        disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
+                                        onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                                        className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                                      >
+                                        {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
+                                      </button>
+                                      <button
+                                        onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                                        className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ),
+                            });
+                          }
+                          items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                          return items.map((it) => <React.Fragment key={it.key}>{it.node}</React.Fragment>);
+                        })()}
                       </CardContent>
                     </Card>
                   );
@@ -2835,7 +2849,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     type="checkbox"
                     checked={focusEnabled}
                     onChange={(e) => setFocusEnabled(e.target.checked)}
-                    className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
                   />
                 </label>
               </div>
@@ -2862,7 +2876,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     type="checkbox"
                     checked={reorganizeEnabled}
                     onChange={(e) => setReorganizeEnabled(e.target.checked)}
-                    className="h-4 w-7 appearance-none rounded-full bg-muted relative cursor-pointer transition-colors checked:bg-primary before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-background before:transition-transform checked:before:translate-x-3"
+                    className="h-4 w-7 appearance-none rounded-full bg-red-500 relative cursor-pointer transition-colors checked:bg-blue-600 before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-3 before:w-3 before:rounded-full before:bg-white before:shadow before:transition-transform checked:before:translate-x-3"
                   />
                 </label>
               </div>
@@ -2883,7 +2897,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
 
 
       {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}
-      {autoFocusOn && ((planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0)) > 0 && (
+      {autoFocusOn && (
         <Collapsible defaultOpen={true}>
           <Card className="mb-4 overflow-hidden border-primary/40">
             <CollapsibleTrigger asChild>
@@ -2897,11 +2911,35 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                     </p>
                   </div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform shrink-0" />
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => { e.stopPropagation(); planQuery.refetch(); }}
+                    disabled={planQuery.isFetching}
+                  >
+                    <RefreshCw className={cn('w-3.5 h-3.5 mr-1', planQuery.isFetching && 'animate-spin')} />
+                    {planQuery.isFetching ? 'Syncing…' : 'Sync'}
+                  </Button>
+                  <span className="text-[11px] text-muted-foreground">
+                    {planQuery.isFetching
+                      ? 'Analyzing your week…'
+                      : `${(planQuery.data?.applied?.length ?? 0)} auto · ${(planQuery.data?.pending_external?.length ?? 0)} need OK`}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+                </div>
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
+              {!planQuery.isFetching && (planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0) === 0 && (
+                <div className="border-t border-border/60 p-3 text-xs text-muted-foreground italic">
+                  {strategy === 'reorganize'
+                    ? 'No meetings need to move this week — your schedule already has consolidated free time.'
+                    : 'No moves proposed — focus blocks fit existing open gaps (see your current calendar above).'}
+                </div>
+              )}
               <div className="border-t border-border/60 p-3">
+
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
                   {days.map((d) => {
                     const baseEvs = grouped[d.date.toDateString()] ?? [];
