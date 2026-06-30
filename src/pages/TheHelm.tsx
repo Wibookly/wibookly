@@ -2561,6 +2561,25 @@ function CalendarView({ onBack }: { onBack: () => void }) {
   // Per-proposal editable note state + dismissed list
   const [draftByProp, setDraftByProp] = useState<Record<string, { note: string; loading: boolean; revealed: boolean }>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const [dismissedFocus, setDismissedFocus] = useState<Record<string, boolean>>({});
+  const [appliedFocus, setAppliedFocus] = useState<Record<string, boolean>>({});
+
+  const createFocusMutation = useMutation({
+    mutationFn: async ({ day_key, start, end }: { day_key: string; start: string; end: string }) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'create_focus_block', day_key, start, end, block_minutes: rule.block_minutes },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      setAppliedFocus((s) => ({ ...s, [vars.day_key]: true }));
+      toast.success('Focus block added to your calendar.');
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
+  });
 
   const revealApproval = async (p: Proposal) => {
     setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: true, revealed: true } }));
