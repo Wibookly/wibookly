@@ -68,6 +68,15 @@ function fmt(d: string | null | undefined) {
   try { return format(new Date(d), 'MMM d, yyyy · h:mm a'); } catch { return '—'; }
 }
 
+function outlookLink(r: TrackedEmail): string | null {
+  if (r.web_link) return r.web_link;
+  if (r.graph_message_id) {
+    // Outlook on the web deep-link for an item by Graph id.
+    return `https://outlook.office.com/mail/deeplink/read/${encodeURIComponent(r.graph_message_id)}`;
+  }
+  return null;
+}
+
 function dateValue(value: unknown): Date | null {
   if (!value) return null;
   // Graph dueDateTime: { dateTime: "2026-06-29T03:30:00.0000000", timeZone: "UTC" }
