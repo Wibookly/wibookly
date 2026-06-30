@@ -320,7 +320,7 @@ export default function FlaggedEmailTrackerPage() {
         r.recipient_address ?? '',
         r.recipient_name ?? '',
         r.subject ?? '',
-        r.body_preview ?? '',
+        (r as any).body_preview ?? '',
       ].join(' ').toLowerCase();
       return hay.includes(q);
     });
