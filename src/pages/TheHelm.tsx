@@ -2627,17 +2627,17 @@ function CalendarView({ onBack }: { onBack: () => void }) {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        {focus && (
+                        {autoFocusOn && focus && (
                           <div
                             className={cn(
-                              'rounded-md border-2 border-dashed p-2 text-xs',
-                              focus.state === 'free' && 'border-secondary bg-secondary/10',
-                              focus.state === 'needs_move' && 'border-accent bg-accent/10',
-                              focus.state === 'blocked' && 'border-destructive/50 bg-destructive/5',
+                              'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]',
+                              focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
+                              focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
+                              focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
                             )}
                           >
                             <div className="flex items-center gap-1 font-semibold text-foreground">
-                              <Zap className="w-3 h-3" /> Focus block (proposed)
+                              <Zap className="w-3 h-3" /> Focus block
                             </div>
                             <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{focus.state.replace('_', ' ')}</p>
