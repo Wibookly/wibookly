@@ -1026,28 +1026,47 @@ function BriefView({
 
         {/* ── 01 · Action Pillars — stacked vertically, inline-expand ── */}
         <section aria-labelledby="pillars" data-helm-section="pillars" className="space-y-8">
+          <div data-helm-section="pillar-big3">
+            <PillarBlock
+              number="01"
+              accentClass="from-amber-400 via-orange-500 to-rose-500"
+              iconBg="bg-amber-500/10 text-amber-500"
+              numberColor="text-amber-500/90"
+              Icon={Flame}
+              label="Pillar A · Top Priorities"
+              count={big3.length}
+              items={big3}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              emptyText="Nothing urgent. Your day is yours."
+              openReader={() => go('inbox', undefined, 'big3')}
+              accent="amber"
+            />
+          </div>
+          <div data-helm-section="pillar-today">
+            <PillarBlock
+              number="02"
+              accentClass="from-sky-400 via-cyan-500 to-blue-500"
+              iconBg="bg-sky-500/10 text-sky-500"
+              numberColor="text-sky-500/90"
+              Icon={Clock}
+              label="Pillar B · Today — due today, AI-prioritized"
+              count={todayItems.length}
+              items={todayItems}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              emptyText="Nothing is hard-due today."
+              openReader={() => go('inbox', undefined, 'big3')}
+              accent="sky"
+            />
+          </div>
           <PillarBlock
-            number="01"
-            accentClass="from-amber-400 via-orange-500 to-rose-500"
-            iconBg="bg-amber-500/10 text-amber-500"
-            numberColor="text-amber-500/90"
-            Icon={Flame}
-            label="Pillar A · Top Priorities"
-            count={big3.length}
-            items={big3}
-            expandedId={expandedId}
-            setExpandedId={setExpandedId}
-            emptyText="Nothing urgent. Your day is yours."
-            openReader={() => go('inbox', undefined, 'big3')}
-            accent="amber"
-          />
-          <PillarBlock
-            number="02"
+            number="03"
             accentClass="from-violet-400 via-indigo-500 to-blue-500"
             iconBg="bg-violet-500/10 text-violet-500"
             numberColor="text-violet-500/90"
             Icon={ThumbsUp}
-            label="Pillar B · Your decisions"
+            label="Pillar C · Your decisions"
             count={decisions.length}
             items={decisions}
             expandedId={expandedId}
@@ -1057,6 +1076,7 @@ function BriefView({
             accent="violet"
           />
         </section>
+
 
 
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
