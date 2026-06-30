@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { DailyBriefSchedule } from '@/components/app/DailyBriefSchedule';
+import { InlineEmailExpander } from '@/components/helm/InlineEmailExpander';
 
 /* ------------------------------------------------------------------ */
 /* Types & data hooks                                                 */
@@ -567,8 +568,143 @@ function InboxLauncherCard({
 }
 
 /* ------------------------------------------------------------------ */
+/* Pillar block + Ledger row (inline-expand UX)                        */
+/* ------------------------------------------------------------------ */
+
+function PillarBlock({
+  number, accentClass, iconBg, numberColor, Icon, label, count, items, expandedId, setExpandedId, emptyText, openReader, accent,
+}: {
+  number: string;
+  accentClass: string;
+  iconBg: string;
+  numberColor: string;
+  Icon: React.ElementType;
+  label: string;
+  count: number;
+  items: HelmItem[];
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  emptyText: string;
+  openReader: () => void;
+  accent: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+}) {
+  return (
+    <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
+      {/* Header with huge number */}
+      <div className="flex items-end gap-4 mb-4">
+        <span className={cn('font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums select-none', numberColor)}>
+          {number}
+        </span>
+        <div className="pb-2 flex-1 min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
+          <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
+            {label}
+            <Badge variant="secondary" className="font-mono tabular-nums text-[11px]">{count}</Badge>
+          </h2>
+        </div>
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary pb-2">
+          Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
+        <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentClass)} />
+        {items.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3', iconBg)}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <p className="text-[13px] italic text-muted-foreground">{emptyText}</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {items.slice(0, 5).map((it, i) => {
+              const isOpen = expandedId === it.id;
+              return (
+                <li key={it.id}>
+                  <button
+                    onClick={() => setExpandedId(isOpen ? null : it.id)}
+                    className={cn(
+                      'w-full text-left p-4 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      isOpen && 'bg-muted/40',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={cn('font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5', numberColor)}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{it.title}</h3>
+                          <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', isOpen && 'rotate-180')} />
+                        </div>
+                        {it.sender && (
+                          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" /> {it.sender}
+                            {it.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" /> {it.due}</>}
+                          </p>
+                        )}
+                        {it.context && (
+                          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{it.context}</p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4">
+                      <InlineEmailExpander item={it} onClose={() => setExpandedId(null)} accent={accent} />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LedgerRow({ item, variant, expanded, onToggle }: {
+  item: HelmItem; variant?: 'warning'; expanded: boolean; onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'w-full text-left rounded-lg border bg-card p-4 transition-all hover:border-primary/50 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        variant === 'warning' ? 'border-destructive/30 bg-destructive/5' : 'border-border/60',
+        expanded && 'border-primary/50 shadow-sm',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{item.title}</h3>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-180')} />
+          </div>
+          {item.sender && (
+            <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
+              <Mail className="w-3 h-3" /> {item.sender}
+              {item.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" />{' '}
+                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span></>}
+            </p>
+          )}
+          {item.context && (
+            <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{item.context}</p>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Views                                                              */
 /* ------------------------------------------------------------------ */
+
+
 
 function BriefView({
   go,
@@ -620,6 +756,13 @@ function BriefView({
   const overdue = data?.overdue ?? [];
   const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expandedItem =
+    big3.find((x) => x.id === expandedId) ||
+    decisions.find((x) => x.id === expandedId) ||
+    overdue.find((x) => x.id === expandedId) ||
+    fyi.find((x) => x.id === expandedId) ||
+    null;
 
   // Live week preview for the right rail
   const weekPreview = useQuery({
@@ -799,113 +942,47 @@ function BriefView({
             Pillars (Big 3 + Decisions) → Ledger (Overdue / FYI / Done) → Footer
             ════════════════════════════════════════════════════════════════ */}
 
-        {/* ── Action Pillars ──────────────────────────────────────────── */}
-        <section aria-labelledby="pillars" data-helm-section="pillars">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">01 · Act now</p>
-              <h2 id="pillars" className="text-[20px] font-semibold tracking-tight text-foreground">Your two action pillars</h2>
-            </div>
-            <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">
-              click any card → focused reader
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Big 3 Pillar */}
-            <button
-              onClick={() => go('inbox', undefined, 'big3')}
-              data-helm-section="big3"
-              className="group relative text-left rounded-xl border border-border/60 bg-card overflow-hidden transition-all hover:border-primary/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 via-orange-500 to-rose-500" />
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
-                      <Flame className="w-4.5 h-4.5" strokeWidth={2.25} />
-                    </div>
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-500/80 font-bold">Pillar A</p>
-                      <h3 className="text-[15px] font-semibold text-foreground leading-tight">Today's Big 3</h3>
-                    </div>
-                  </div>
-                  <span className="text-[44px] font-extrabold leading-none tabular-nums text-foreground">{big3.length}</span>
-                </div>
-                <ul className="space-y-1.5 min-h-[120px]">
-                  {big3.length === 0 ? (
-                    <li className="text-[12px] italic text-muted-foreground py-8 text-center">
-                      Nothing urgent. Your day is yours.
-                    </li>
-                  ) : (
-                    big3.slice(0, 3).map((it, i) => (
-                      <li key={it.id} className="flex items-start gap-2.5 text-[12.5px] text-foreground/85 leading-snug">
-                        <span className="font-mono text-[10px] text-amber-500/70 mt-0.5 w-3 shrink-0">0{i + 1}</span>
-                        <span className="flex-1 truncate">{it.title}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                    Open focused reader
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                </div>
-              </div>
-            </button>
-
-            {/* Decisions Pillar */}
-            <button
-              onClick={() => go('inbox', undefined, 'decisions')}
-              data-helm-section="decisions"
-              className="group relative text-left rounded-xl border border-border/60 bg-card overflow-hidden transition-all hover:border-primary/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-violet-400 via-indigo-500 to-blue-500" />
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
-                      <ThumbsUp className="w-4.5 h-4.5" strokeWidth={2.25} />
-                    </div>
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-violet-500/80 font-bold">Pillar B</p>
-                      <h3 className="text-[15px] font-semibold text-foreground leading-tight">Your decisions</h3>
-                    </div>
-                  </div>
-                  <span className="text-[44px] font-extrabold leading-none tabular-nums text-foreground">{decisions.length}</span>
-                </div>
-                <ul className="space-y-1.5 min-h-[120px]">
-                  {decisions.length === 0 ? (
-                    <li className="text-[12px] italic text-muted-foreground py-8 text-center">
-                      No approvals waiting on you.
-                    </li>
-                  ) : (
-                    decisions.slice(0, 3).map((it, i) => (
-                      <li key={it.id} className="flex items-start gap-2.5 text-[12.5px] text-foreground/85 leading-snug">
-                        <span className="font-mono text-[10px] text-violet-500/70 mt-0.5 w-3 shrink-0">0{i + 1}</span>
-                        <span className="flex-1 truncate">{it.title}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                    Review &amp; approve
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                </div>
-              </div>
-            </button>
-          </div>
+        {/* ── 01 · Action Pillars — stacked vertically, inline-expand ── */}
+        <section aria-labelledby="pillars" data-helm-section="pillars" className="space-y-8">
+          <PillarBlock
+            number="01"
+            accentClass="from-amber-400 via-orange-500 to-rose-500"
+            iconBg="bg-amber-500/10 text-amber-500"
+            numberColor="text-amber-500/90"
+            Icon={Flame}
+            label="Pillar A · Today's Big 3"
+            count={big3.length}
+            items={big3}
+            expandedId={expandedId}
+            setExpandedId={setExpandedId}
+            emptyText="Nothing urgent. Your day is yours."
+            openReader={() => go('inbox', undefined, 'big3')}
+            accent="amber"
+          />
+          <PillarBlock
+            number="02"
+            accentClass="from-violet-400 via-indigo-500 to-blue-500"
+            iconBg="bg-violet-500/10 text-violet-500"
+            numberColor="text-violet-500/90"
+            Icon={ThumbsUp}
+            label="Pillar B · Your decisions"
+            count={decisions.length}
+            items={decisions}
+            expandedId={expandedId}
+            setExpandedId={setExpandedId}
+            emptyText="No approvals waiting on you."
+            openReader={() => go('inbox', undefined, 'decisions')}
+            accent="violet"
+          />
         </section>
 
 
-        {/* ── Operations Ledger — tabbed: Overdue / FYI / Auto-handled ─ */}
+        {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
         <section aria-labelledby="ledger" data-helm-section="ledger">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">02 · Sweep</p>
+          <div className="flex items-end gap-4 mb-4">
+            <span className="font-mono text-[64px] md:text-[80px] font-extrabold leading-none tabular-nums text-foreground/10 select-none">03</span>
+            <div className="pb-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
               <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
             </div>
           </div>
@@ -913,29 +990,20 @@ function BriefView({
           <Card className="border-border/60 overflow-hidden">
             <Tabs defaultValue={overdue.length > 0 ? 'overdue' : 'auto'} className="w-full">
               <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
-                <TabsTrigger
-                  value="overdue"
-                  data-helm-section="overdue"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
-                >
+                <TabsTrigger value="overdue" data-helm-section="overdue"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
                   Overdue
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{overdue.length}</Badge>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="fyi"
-                  data-helm-section="fyi"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
-                >
+                <TabsTrigger value="fyi" data-helm-section="fyi"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
                   <Eye className="w-3.5 h-3.5 text-sky-500" />
                   FYI
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{fyi.length}</Badge>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="auto"
-                  data-helm-section="activity"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium"
-                >
+                <TabsTrigger value="auto" data-helm-section="activity"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                   Handled by AI
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{autoActions.length}</Badge>
@@ -943,9 +1011,7 @@ function BriefView({
               </TabsList>
 
               <TabsContent value="overdue" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">
-                  Threads where you owe a reply and the clock has run out.
-                </p>
+                <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
                 {isLoading ? (
                   <Skeleton className="h-20" />
                 ) : overdue.length === 0 ? (
@@ -954,41 +1020,45 @@ function BriefView({
                     <p className="text-[13px] text-muted-foreground">You're caught up on overdue threads.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-2.5">
+                  <div className="space-y-2.5">
                     {overdue.map((item) => (
-                      <HelmCard key={item.id} item={item} variant="warning" onOpen={() => go('detail', item)} />
+                      <div key={item.id}>
+                        <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                        {expandedId === item.id && expandedItem && (
+                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" /></div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="fyi" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">
-                  Newsletters, marketing, automated notices and external announcements — skim only if you want to.
-                </p>
+                <p className="text-[12px] text-muted-foreground mb-3">Newsletters, marketing, automated notices and external announcements — skim only if you want to.</p>
                 {fyi.length === 0 ? (
                   <div className="py-10 text-center">
                     <Info className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
                     <p className="text-[13px] text-muted-foreground">Nothing informational waiting.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-2.5">
+                  <div className="space-y-2.5">
                     {fyi.slice(0, 25).map((item) => (
-                      <HelmCard key={item.id} item={item} onOpen={() => go('detail', item)} />
+                      <div key={item.id}>
+                        <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
+                        {expandedId === item.id && expandedItem && (
+                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" /></div>
+                        )}
+                      </div>
                     ))}
                     {fyi.length > 25 && (
-                      <p className="text-[11px] text-muted-foreground text-center italic pt-2">
-                        + {fyi.length - 25} more filed in your inbox.
-                      </p>
+                      <p className="text-[11px] text-muted-foreground text-center italic pt-2">+ {fyi.length - 25} more filed in your inbox.</p>
                     )}
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="auto" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">
-                  Emails, meetings and tasks the agent filed, drafted, booked or replied to in the last 24 hours.
-                </p>
+                <p className="text-[12px] text-muted-foreground mb-3">Emails, meetings and tasks the agent filed, drafted, booked or replied to in the last 24 hours.</p>
                 {autoActions.length === 0 ? (
                   <div className="py-10 text-center">
                     <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
@@ -1000,21 +1070,14 @@ function BriefView({
                       <li key={a.id} className="flex items-start gap-3 py-2.5 text-[13px]">
                         <Activity className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
                         <span className="flex-1 text-foreground/90 leading-snug">{a.text}</span>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[10px] font-mono uppercase tracking-wider shrink-0',
-                            a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
-                            a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
-                            a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
-                            a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5',
-                          )}
-                        >
+                        <Badge variant="outline" className={cn('text-[10px] font-mono uppercase tracking-wider shrink-0',
+                          a.tag === 'Sent' && 'border-primary/40 text-primary bg-primary/5',
+                          a.tag === 'Filed' && 'border-success/40 text-success bg-success/5',
+                          a.tag === 'Routed' && 'border-accent/40 text-accent-foreground bg-accent/10',
+                          a.tag === 'Booked' && 'border-warning/40 text-warning bg-warning/5')}>
                           {a.tag}
                         </Badge>
-                        <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">
-                          {a.time}
-                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 mt-0.5">{a.time}</span>
                       </li>
                     ))}
                   </ul>
@@ -1023,6 +1086,7 @@ function BriefView({
             </Tabs>
           </Card>
         </section>
+
 
 
         {/* ── Briefing Controls — slim footer chip ─────────────────────── */}
