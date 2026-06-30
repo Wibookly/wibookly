@@ -35,6 +35,8 @@ interface TrackedEmail {
   follow_up_history: HistEntry[] | null;
   scheduled_send_at?: string | null;
   queued_reason?: string | null;
+  web_link?: string | null;
+  graph_message_id?: string | null;
 }
 
 
@@ -64,6 +66,15 @@ const FALLBACK_STATUS_META = {
 function fmt(d: string | null | undefined) {
   if (!d) return '—';
   try { return format(new Date(d), 'MMM d, yyyy · h:mm a'); } catch { return '—'; }
+}
+
+function outlookLink(r: TrackedEmail): string | null {
+  if (r.web_link) return r.web_link;
+  if (r.graph_message_id) {
+    // Outlook on the web deep-link for an item by Graph id.
+    return `https://outlook.office.com/mail/deeplink/read/${encodeURIComponent(r.graph_message_id)}`;
+  }
+  return null;
 }
 
 function dateValue(value: unknown): Date | null {
@@ -434,7 +445,7 @@ export default function FlaggedEmailTrackerPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Tracked emails</CardTitle>
+              <CardTitle className="text-base">Tracked emails queue</CardTitle>
               <CardDescription>Auto-syncs with Microsoft 365 on every open and every minute. Up to 3 polite AI follow-ups per email, then marked as no response.</CardDescription>
             </div>
             <div className="flex gap-1 print:hidden">
@@ -503,9 +514,25 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
   return (
     <TableRow>
       <TableCell className="max-w-sm">
-        <div className="font-medium" title={r.subject || ''}>{r.subject || '(no subject)'}</div>
+        {(() => {
+          const href = outlookLink(r);
+          const subject = r.subject || '(no subject)';
+          return href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline underline-offset-2 break-words"
+              title={`Open in Outlook: ${subject}`}
+            >
+              {subject}
+            </a>
+          ) : (
+            <div className="font-medium" title={subject}>{subject}</div>
+          );
+        })()}
         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-          <Flag className="w-3 h-3 text-amber-500" /> Flag trigger
+          <Flag className="w-3 h-3 text-amber-500" /> Flag trigger · click subject to open in Outlook
         </div>
       </TableCell>
       <TableCell>
@@ -566,7 +593,16 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
       </TableCell>
       <TableCell>
         <div className="flex flex-col items-start gap-1.5">
-          <Badge variant={meta.variant} className="gap-1">
+          <Badge
+            variant={meta.variant}
+            className={`gap-1 ${
+              r.status === 'completed' || r.status === 'replied'
+                ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30'
+                : r.status === 'no_response' || r.status === 'exhausted'
+                  ? 'bg-red-500/15 text-red-700 hover:bg-red-500/20 border-red-500/30'
+                  : ''
+            }`}
+          >
             <Icon className="w-3 h-3" /> {meta.label}
           </Badge>
           {canCancel && (

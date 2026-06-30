@@ -22,7 +22,7 @@ const FOLDER_PATH = "/me/mailFolders('sentitems')/messages";
 
 const SELECT_FIELDS = [
   'id', 'internetMessageId', 'conversationId', 'subject', 'toRecipients',
-  'sentDateTime', 'flag', 'categories', 'bodyPreview',
+  'sentDateTime', 'flag', 'categories', 'bodyPreview', 'webLink',
 ].join(',');
 
 function parseCategoryInterval(cats: string[] | undefined): { days: number } | null {
@@ -191,8 +191,16 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
         .eq('user_id', userId)
         .eq('internet_message_id', internetMessageId)
         .maybeSingle();
-      if (existing && existing.status !== 'completed' && existing.status !== 'exhausted') {
-        await admin.from('tracked_emails').delete().eq('id', existing.id);
+      if (existing && !['completed', 'replied', 'exhausted', 'no_response', 'cancelled'].includes(String(existing.status))) {
+        // Keep the row — mark as completed so the user can see it was closed
+        // (recipient replied, user marked complete, or user removed the flag).
+        await admin.from('tracked_emails').update({
+          status: 'completed',
+          scheduled_send_at: null,
+          queued_reason: null,
+          last_error: 'flag closed in Outlook — tracker completed',
+          last_checked_at: new Date().toISOString(),
+        }).eq('id', existing.id);
         cancelled++;
       }
       continue;
@@ -233,6 +241,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       trigger_type,
       trigger_detail,
       follow_up_at,
+      web_link: m.webLink || null,
     };
 
     // Upsert on (user_id, internet_message_id). Only update follow_up_at/trigger
@@ -268,8 +277,13 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
         subject: row.subject,
         conversation_id: row.conversation_id,
         graph_message_id: row.graph_message_id,
+        web_link: row.web_link,
       }).eq('id', existing.id);
       upserted++;
+    } else if (row.web_link) {
+      // Backfill web_link on existing rows that don't have it yet (one-shot).
+      await admin.from('tracked_emails').update({ web_link: row.web_link })
+        .eq('id', existing.id).is('web_link', null);
     }
   }
 

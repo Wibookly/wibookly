@@ -4244,6 +4244,7 @@ export type Database = {
           trigger_type: string
           updated_at: string
           user_id: string
+          web_link: string | null
         }
         Insert: {
           attempts?: number
@@ -4270,6 +4271,7 @@ export type Database = {
           trigger_type: string
           updated_at?: string
           user_id: string
+          web_link?: string | null
         }
         Update: {
           attempts?: number
@@ -4296,6 +4298,7 @@ export type Database = {
           trigger_type?: string
           updated_at?: string
           user_id?: string
+          web_link?: string | null
         }
         Relationships: []
       }

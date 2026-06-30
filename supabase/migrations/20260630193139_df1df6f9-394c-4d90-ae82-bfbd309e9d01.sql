@@ -1,0 +1,1 @@
+ALTER TABLE public.tracked_emails ADD COLUMN IF NOT EXISTS web_link text;
