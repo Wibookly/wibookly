@@ -598,19 +598,14 @@ function PillarBlock({
     'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
   return (
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
-      {/* Header — unified styling with "03 Operations ledger" */}
-      <div className="flex items-baseline gap-3 mb-4">
-        <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none', numberColor)}>
-          {number}
-        </span>
-        <div className="pb-0 flex-1 min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
-          <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
-            {label}
-            <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px]', badgeClass)}>{count}</Badge>
-          </h2>
-        </div>
-        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary self-end pb-1">
+      {/* Header — number lives inline with the topic, same font, same baseline */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3 min-w-0">
+          <span className={cn('tabular-nums select-none', numberColor)}>{number}</span>
+          <span className="truncate">{label}</span>
+          <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px] shrink-0', badgeClass)}>{count}</Badge>
+        </h2>
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary shrink-0">
           Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
       </div>
