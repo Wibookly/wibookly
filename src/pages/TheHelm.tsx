@@ -590,24 +590,31 @@ function PillarBlock({
 }) {
   const [limit, setLimit] = useState<number>(10);
   const visible = items.slice(0, limit);
+  const badgeClass =
+    accent === 'amber' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' :
+    accent === 'violet' ? 'bg-violet-500/15 text-violet-600 border-violet-500/30' :
+    accent === 'rose' ? 'bg-rose-500/15 text-rose-600 border-rose-500/30' :
+    accent === 'sky' ? 'bg-sky-500/15 text-sky-600 border-sky-500/30' :
+    'bg-emerald-500/15 text-emerald-600 border-emerald-500/30';
   return (
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
       {/* Header — unified styling with "03 Operations ledger" */}
-      <div className="flex items-end gap-4 mb-4">
-        <span className={cn('font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums select-none', numberColor)}>
+      <div className="flex items-baseline gap-3 mb-4">
+        <span className={cn('font-mono text-[22px] md:text-[26px] font-bold leading-none tabular-nums select-none', numberColor)}>
           {number}
         </span>
-        <div className="pb-2 flex-1 min-w-0">
+        <div className="pb-0 flex-1 min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Act now</p>
           <h2 className="text-[20px] font-semibold tracking-tight text-foreground flex items-center gap-3">
             {label}
-            <Badge variant="secondary" className="font-mono tabular-nums text-[11px]">{count}</Badge>
+            <Badge variant="outline" className={cn('font-mono tabular-nums text-[11px]', badgeClass)}>{count}</Badge>
           </h2>
         </div>
-        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary pb-2">
+        <button onClick={openReader} className="hidden md:inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-primary self-end pb-1">
           Open focused reader <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
       </div>
+
 
       <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
         {items.length === 0 ? (
