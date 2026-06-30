@@ -2388,6 +2388,75 @@ function FocusRulesCard({
   );
 }
 
+function FocusRulesCompact({
+  rule,
+  saving,
+  onChange,
+}: {
+  rule: FocusRule;
+  saving: boolean;
+  onChange: (next: FocusRule) => void;
+}) {
+  const toggleDay = (d: string) => {
+    const has = rule.focus_days.includes(d);
+    onChange({
+      ...rule,
+      focus_days: has ? rule.focus_days.filter((x) => x !== d) : [...rule.focus_days, d],
+    });
+  };
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">My focus rules</p>
+        {saving && (
+          <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 animate-spin" /> recalculating…
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {DAY_CHIPS.map((d) => {
+          const on = rule.focus_days.includes(d.id);
+          return (
+            <button
+              key={d.id}
+              onClick={() => toggleDay(d.id)}
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                on ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted',
+              )}
+            >
+              {d.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">Length</span>
+          <select
+            value={rule.block_minutes}
+            onChange={(e) => onChange({ ...rule, block_minutes: Number(e.target.value) })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
+          >
+            {[30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m}m</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground">When</span>
+          <select
+            value={rule.focus_window}
+            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as 'morning' | 'afternoon' })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 capitalize"
+          >
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+
 function fmtTimeShort(iso: string | null) {
   if (!iso) return '';
   const m = iso.match(/T(\d{2}):(\d{2})/);
