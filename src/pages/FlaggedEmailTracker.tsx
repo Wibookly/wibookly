@@ -14,6 +14,16 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { FlaggedEmailSettingsBody } from './FlaggedEmailSettings';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 
@@ -232,6 +242,9 @@ export default function FlaggedEmailTrackerPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reminderIntervalsDays, setReminderIntervalsDays] = useState<number[]>([]);
   const [search, setSearch] = useState('');
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+
+
 
 
 
@@ -362,7 +375,14 @@ export default function FlaggedEmailTrackerPage() {
     if (error) throw error;
   };
 
-  const cancelRow = useCallback(async (id: string) => {
+  const requestCancel = useCallback((id: string) => {
+    setConfirmCancelId(id);
+  }, []);
+
+  const doCancel = useCallback(async () => {
+    const id = confirmCancelId;
+    if (!id) return;
+    setConfirmCancelId(null);
     const prev = rows;
     // Remove from view immediately — user wants it out of the queue entirely.
     setRows(rs => rs.filter(r => r.id !== id));
@@ -380,7 +400,12 @@ export default function FlaggedEmailTrackerPage() {
     } else {
       toast.success('Removed from queue and unflagged in Outlook');
     }
-  }, [rows]);
+  }, [confirmCancelId, rows]);
+
+  const confirmSubject = useMemo(() => {
+    const r = rows.find((x) => x.id === confirmCancelId);
+    return r?.subject || null;
+  }, [confirmCancelId, rows]);
 
   return (
     <div className="page-shell" data-print-title="Flagged Email Tracker">
@@ -393,6 +418,25 @@ export default function FlaggedEmailTrackerPage() {
           icon={<BellRing className="w-5 h-5 text-white" strokeWidth={2} />}
         />
       </div>
+
+      <AlertDialog open={!!confirmCancelId} onOpenChange={(open) => { if (!open) setConfirmCancelId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this follow-up?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSubject
+                ? `Are you sure you want to cancel the tracker for "${confirmSubject}"? This removes it from the queue, stops any pending AI follow-ups, and unflags the email in Outlook.`
+                : 'Are you sure you want to cancel this tracker? This removes it from the queue, stops any pending AI follow-ups, and unflags the email in Outlook.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmCancelId(null)}>No, keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, cancel tracker
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="page-shell-content w-full animate-fade-in space-y-6">
         {/* Collapsible settings panel — full tracker settings inline */}
@@ -537,7 +581,7 @@ export default function FlaggedEmailTrackerPage() {
                 No emails in the queue match “{search}”. Try a different recipient or subject keyword.
               </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={filteredRows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
+              <RecipientGroups rows={filteredRows} expanded={expanded} setExpanded={setExpanded} onCancel={requestCancel} reminderIntervalsDays={reminderIntervalsDays} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -552,7 +596,7 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
+                    {filteredRows.map((r) => <EmailRow key={r.id} r={r} onCancel={requestCancel} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
