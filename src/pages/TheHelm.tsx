@@ -130,19 +130,53 @@ function useHelmData() {
       const decisionRows = rows.filter((r) => r.tier === 'decision');
       const drafts = rows.filter((r) => r.tier === 'draft');
       const overdue = rows.filter((r) => r.tier === 'overdue');
-      // FYI = anything triaged that does NOT need a reply from the user
-      // (newsletters, marketing, external announcements, notifications).
-      // We capture rows tagged 'fyi' / 'info' explicitly, plus anything the
-      // backend left untagged (no actionable tier).
       const known = new Set(['big3', 'decision', 'draft', 'overdue']);
       const fyi = rows.filter((r) => !r.tier || r.tier === ('fyi' as any) || r.tier === ('info' as any) || !known.has(r.tier as string));
-      const big3Candidates = [...explicitBig3, ...decisionRows, ...overdue, ...drafts];
-      const seenBig3 = new Set<string>();
-      const big3 = big3Candidates.filter((item) => {
-        if (seenBig3.has(item.id)) return false;
-        seenBig3.add(item.id);
-        return true;
-      }).slice(0, 3);
+
+      // --- Today's Big 3: AI-relevant only, pinned for the day ----------
+      // 1. Eligible = items that actually ask the user to act / decide today.
+      //    We rely on (a) explicit big3 tier from the backend, and
+      //    (b) decision-tier items whose AI-written triage context shows a
+      //    real ask. We deliberately do NOT pad from drafts / overdue so
+      //    the list reflects genuine priorities (could be 0–5, not always 3).
+      const ASK_RX = /\b(approve|decide|decision|reply|respond|response|review|sign|signature|confirm|need(ed)?\b|please|asap|by (today|tomorrow|eod|cob)|requires?|action required|awaiting|waiting on you|your input|your call)\b/i;
+      const looksActionable = (r: HelmItem) =>
+        ASK_RX.test(`${r.context ?? ''} ${r.title ?? ''}`) ||
+        (typeof r.score === 'number' && r.score >= 70);
+      const eligibleBig3 = [
+        ...explicitBig3,
+        ...decisionRows.filter(looksActionable),
+      ].filter((item, idx, arr) => arr.findIndex((x) => x.id === item.id) === idx);
+
+      // 2. Pin today's selection in localStorage so the list does NOT
+      //    reshuffle every time the user navigates back to The Helm.
+      //    Removals (after Send / Complete) are honoured; we never refill.
+      const today = new Date().toISOString().slice(0, 10);
+      const PIN_KEY = `helm:big3-pinned:${today}`;
+      let pinnedIds: string[] = [];
+      try {
+        const raw = typeof window !== 'undefined' ? window.localStorage.getItem(PIN_KEY) : null;
+        if (raw) pinnedIds = JSON.parse(raw);
+      } catch { /* ignore */ }
+      // Keep only pinned IDs that still exist & are still actionable today.
+      const eligibleIds = new Set(eligibleBig3.map((r) => r.id));
+      pinnedIds = pinnedIds.filter((id) => eligibleIds.has(id));
+      // If nothing pinned yet (new day) — pick up to 3 highest-score items.
+      if (pinnedIds.length === 0 && eligibleBig3.length > 0) {
+        pinnedIds = eligibleBig3
+          .slice()
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .slice(0, 3)
+          .map((r) => r.id);
+        try {
+          if (typeof window !== 'undefined') window.localStorage.setItem(PIN_KEY, JSON.stringify(pinnedIds));
+        } catch { /* ignore */ }
+      }
+      const pinnedSet = new Set(pinnedIds);
+      const big3 = pinnedIds
+        .map((id) => eligibleBig3.find((r) => r.id === id))
+        .filter((x): x is HelmItem => !!x);
+
       const big3Ids = new Set(big3.map((item) => item.id));
       const decisions = decisionRows.filter((item) => !big3Ids.has(item.id));
       const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => {
@@ -167,7 +201,7 @@ function useHelmData() {
 
       return {
         big3,
-        decisions: decisions.slice(big3.length),
+        decisions,
         drafts,
         overdue,
         fyi,
@@ -183,6 +217,7 @@ function useHelmData() {
     staleTime: 30_000,
   });
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Fallback static data (calendar — wired in Phase 4)                 */
@@ -1216,6 +1251,17 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       }
       if (mode === 'send' || mode === 'schedule') {
         setSentIds((prev) => new Set(prev).add(active.id));
+        // Drop from today's pinned Big 3 — never refill on next render.
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const KEY = `helm:big3-pinned:${today}`;
+          const raw = window.localStorage.getItem(KEY);
+          if (raw) {
+            const ids: string[] = JSON.parse(raw);
+            window.localStorage.setItem(KEY, JSON.stringify(ids.filter((id) => id !== active.id)));
+          }
+        } catch { /* ignore */ }
+
         // Also prune from the cached helm-items result so every count tile,
         // section and chip in The Helm reflects the new total immediately —
         // before the background refetch finishes.
@@ -2475,6 +2521,17 @@ export default function TheHelm() {
     if (!next) return;
     try {
       await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      // Drop from today's pinned Big 3 — never refill on next render.
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const KEY = `helm:big3-pinned:${today}`;
+        const raw = window.localStorage.getItem(KEY);
+        if (raw) {
+          const ids: string[] = JSON.parse(raw);
+          window.localStorage.setItem(KEY, JSON.stringify(ids.filter((x) => x !== id)));
+        }
+      } catch { /* ignore */ }
+
       const u = (await supabase.auth.getUser()).data.user;
       if (u) {
         await supabase.from('activity_log').insert({
