@@ -1338,6 +1338,9 @@ function BriefView({
                 index={index}
                 expanded={expandedId === item.id}
                 onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                onDisregard={() => disregardItem(item.id)}
+                onPromote={() => promoteToBig3(item.id)}
+                isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
               />
             ))
           )}
