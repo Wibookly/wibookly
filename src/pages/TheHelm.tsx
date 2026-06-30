@@ -1208,56 +1208,170 @@ function BriefView({
           </CardContent>
         </Card>
 
-        <Card
-          role="button"
-          tabIndex={0}
-          onClick={() => go('calendar')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              go('calendar');
-            }
-          }}
-          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60 flex-1 flex flex-col"
-        >
-          <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
-            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
-              <Calendar className="w-4 h-4 text-primary" /> This week
-            </CardTitle>
-            <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
-          </CardHeader>
-          <CardContent className="pt-0 flex-1 flex flex-col">
-            <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
-            <ul className="space-y-0 flex-1">
-              {(weekPreview.data ?? []).map((d) => (
-                <li
-                  key={d.day}
-                  className={cn(
-                    'flex items-center gap-3 text-[13px] py-2 border-b border-border/40 last:border-0',
-                    d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
-                  )}
-                >
-                  <span className={cn(
-                    'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
-                    d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
-                  )}>{d.day}</span>
-                  <span className="text-foreground/80 flex-1 leading-snug">
-                    {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
-                  </span>
-                  {d.isToday && (
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
+        <CalendarRail
+          data={weekPreview.data ?? []}
+          isLoading={weekPreview.isLoading}
+          onOpen={() => go('calendar')}
+        />
+      </aside>
+    </div>
+  );
+}
+
+function CalendarRail({
+  data,
+  isLoading,
+  onOpen,
+}: {
+  data: Array<{ day: string; date: Date; count: number; isToday: boolean; events: Array<{ start: Date; end: Date | null; subject: string }> }>;
+  isLoading: boolean;
+  onOpen: () => void;
+}) {
+  const [view, setView] = useState<'today' | 'week'>('today');
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const today = data.find((d) => d.isToday);
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const todayDateLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [],
+  );
+
+  return (
+    <Card className="border-border/60 flex-1 flex flex-col">
+      <CardHeader className="pb-3 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+            <Calendar className="w-4 h-4 text-primary" />
+            {view === 'today' ? 'Today' : 'This week'}
+          </CardTitle>
+          <button
+            onClick={onOpen}
+            className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-primary"
+          >
+            open →
+          </button>
+        </div>
+        <div className="inline-flex rounded-md border border-border/60 p-0.5 bg-muted/30 w-fit">
+          <button
+            onClick={() => setView('today')}
+            className={cn(
+              'px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.15em] rounded-sm transition-colors',
+              view === 'today' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setView('week')}
+            className={cn(
+              'px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.15em] rounded-sm transition-colors',
+              view === 'week' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Week
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 flex-1 flex flex-col">
+        {isLoading ? (
+          <p className="text-[12px] text-muted-foreground italic py-2">Loading…</p>
+        ) : data.length === 0 ? (
+          <p className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</p>
+        ) : view === 'today' ? (
+          <>
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mb-2">
+              {todayDateLabel}
+            </p>
+            {!today || today.events.length === 0 ? (
+              <div className="py-6 text-center">
+                <p className="text-[13px] text-muted-foreground italic">No meetings today.</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">Your day is clear.</p>
+              </div>
+            ) : (
+              <ul className="space-y-1.5 flex-1">
+                {today.events.slice(0, 8).map((ev, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
+                  >
+                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-12 pt-0.5">
+                      {fmtTime(ev.start)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] font-medium text-foreground leading-snug truncate">{ev.subject}</p>
+                      {ev.end && (
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          until {fmtTime(ev.end)}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+                {today.events.length > 8 && (
+                  <li className="text-[11px] text-muted-foreground italic pt-1">
+                    + {today.events.length - 8} more — open calendar
+                  </li>
+                )}
+              </ul>
+            )}
+          </>
+        ) : (
+          <ul className="space-y-0 flex-1">
+            {data.map((d) => {
+              const isExpanded = expandedDay === d.day;
+              return (
+                <li key={d.day} className="border-b border-border/40 last:border-0">
+                  <button
+                    onClick={() => d.count > 0 && setExpandedDay(isExpanded ? null : d.day)}
+                    disabled={d.count === 0}
+                    className={cn(
+                      'w-full flex items-center gap-3 text-[13px] py-2 text-left',
+                      d.isToday && 'bg-primary/5 -mx-2 px-2 rounded',
+                      d.count > 0 && 'hover:bg-muted/30 cursor-pointer',
+                      d.count === 0 && 'cursor-default',
+                    )}
+                  >
+                    <span className={cn(
+                      'font-mono text-[11px] tracking-wider uppercase w-10 shrink-0',
+                      d.isToday ? 'text-primary font-semibold' : 'text-muted-foreground',
+                    )}>{d.day}</span>
+                    <span className="text-foreground/80 flex-1 leading-snug">
+                      {d.count === 0 ? 'No meetings' : `${d.count} meeting${d.count === 1 ? '' : 's'}`}
+                    </span>
+                    {d.isToday && (
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Today</span>
+                    )}
+                    {d.count > 0 && (
+                      <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform', isExpanded && 'rotate-180')} />
+                    )}
+                  </button>
+                  {isExpanded && d.events.length > 0 && (
+                    <ul className="pl-12 pr-2 pb-2 space-y-1">
+                      {d.events.map((ev, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[11.5px] py-1">
+                          <span className="font-mono tabular-nums text-primary/80 shrink-0 w-12">
+                            {fmtTime(ev.start)}
+                          </span>
+                          <span className="text-foreground/80 truncate">{ev.subject}</span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </li>
-              ))}
-              {weekPreview.isLoading && (
-                <li className="text-[12px] text-muted-foreground italic py-2">Loading your week…</li>
-              )}
-              {!weekPreview.isLoading && (weekPreview.data?.length ?? 0) === 0 && (
-                <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
       </aside>
     </div>
   );
