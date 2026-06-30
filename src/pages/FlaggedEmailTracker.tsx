@@ -222,6 +222,8 @@ export default function FlaggedEmailTrackerPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reminderIntervalsDays, setReminderIntervalsDays] = useState<number[]>([]);
+  const [search, setSearch] = useState('');
+
 
 
   const load = useCallback(async () => {
