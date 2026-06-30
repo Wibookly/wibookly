@@ -1172,8 +1172,8 @@ function BriefView({
 
 
       {/* Right rail — Inbox health pinned on top, This week grows below */}
-      <aside className="space-y-5">
-        <Card className="border-border/60 lg:sticky lg:top-6">
+      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto flex flex-col">
+        <Card className="border-border/60 shrink-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
               <Sparkles className="w-4 h-4 text-primary" /> Inbox health
