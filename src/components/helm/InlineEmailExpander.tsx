@@ -207,15 +207,19 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
         )}
       </section>
 
-      {/* MIDDLE — AI summary */}
-      <section className="px-5 py-4 border-b border-border/40">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2 flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-primary" /> AI summary
-        </p>
-        <p className="text-[13px] leading-relaxed text-foreground/90">
-          {item.context || 'No summary available yet — sync to refresh.'}
-        </p>
-      </section>
+      {/* MIDDLE — AI summary (Pillar A/B only) */}
+      {showAiSummary && (
+        <section className="px-5 py-4 border-b border-border/40">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-primary" /> AI summary
+          </p>
+          <p className="text-[13px] leading-relaxed text-foreground/90">
+            {item.context
+              || (original?.body_text?.slice(0, 320) ?? '')
+              || 'Summary is generating — refresh in a moment.'}
+          </p>
+        </section>
+      )}
 
       {/* BOTTOM — AI draft */}
       <section className="px-5 py-4">
