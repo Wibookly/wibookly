@@ -532,9 +532,6 @@ export default function Help() {
               </Card>
               <MyTicketsList />
             </TabsContent>
-            <TabsContent value="channels" className="mt-4">
-              <ChannelsCard />
-            </TabsContent>
           </Tabs>
         ) : (
           <div className="space-y-4">
