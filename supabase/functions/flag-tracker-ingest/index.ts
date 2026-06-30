@@ -233,6 +233,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       trigger_type,
       trigger_detail,
       follow_up_at,
+      web_link: m.webLink || null,
     };
 
     // Upsert on (user_id, internet_message_id). Only update follow_up_at/trigger
