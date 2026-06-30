@@ -184,8 +184,6 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
   if (folderResults.every((r) => !r.ok)) {
     return { ok: false, error: firstError, scanned: 0, upserted: 0 };
   }
-  const res = { ok: true, data: { value: [] as any[] } } as any;
-
   const { enabledAt, bh } = await getUserPrefs(admin, userId);
 
   // ─── Retroactive snap ────────────────────────────────────────────────
@@ -269,12 +267,8 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     const dueFromFlag = flagDueUtc(m.flag);
     const catTrigger = parseCategoryInterval(m.categories);
 
-    // Hard-delete the tracker row whenever the source no longer qualifies for
-    // tracking. The tracker ONLY exists for flagged messages that carry a
-    // scheduled due date (or our FollowUp category). So we remove on:
-    //  • flag completed in Outlook
-    //  • flag fully removed in Outlook (notFlagged + no category)
-    //  • plain flag with NO due date — user removed the schedule but kept the flag
+    // When the Outlook flag is completed/removed, keep a completed history row
+    // so the tracker table shows "recipient responded" instead of disappearing.
     const plainFlagNoDue = m.flag?.flagStatus === 'flagged' && !dueFromFlag && !catTrigger;
     if (
       m.flag?.flagStatus === 'complete' ||
@@ -354,7 +348,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       trigger_detail = { dueDateTime: m.flag.dueDateTime, original_due_utc: dueFromFlag.toISOString() };
     } else if (catTrigger) {
       trigger_type = 'category';
-      const baseIso = m.__folder === 'inbox' ? (m.receivedDateTime || m.sentDateTime) : (m.sentDateTime || m.receivedDateTime);
+      const baseIso = messageDate(m);
       const base = new Date(baseIso || Date.now()).getTime();
       const raw = new Date(base + catTrigger.days * 86400000);
       follow_up_at = nextWindowStart(raw, bh).toISOString();
