@@ -226,7 +226,7 @@ function useHelmData() {
 
       return {
         big3,
-        today,
+        today: todayItems,
         decisions: decisionsFiltered,
         drafts,
         overdue,
