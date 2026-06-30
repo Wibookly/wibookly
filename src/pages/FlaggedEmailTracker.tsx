@@ -375,7 +375,14 @@ export default function FlaggedEmailTrackerPage() {
     if (error) throw error;
   };
 
-  const cancelRow = useCallback(async (id: string) => {
+  const requestCancel = useCallback((id: string) => {
+    setConfirmCancelId(id);
+  }, []);
+
+  const doCancel = useCallback(async () => {
+    const id = confirmCancelId;
+    if (!id) return;
+    setConfirmCancelId(null);
     const prev = rows;
     // Remove from view immediately — user wants it out of the queue entirely.
     setRows(rs => rs.filter(r => r.id !== id));
@@ -393,7 +400,12 @@ export default function FlaggedEmailTrackerPage() {
     } else {
       toast.success('Removed from queue and unflagged in Outlook');
     }
-  }, [rows]);
+  }, [confirmCancelId, rows]);
+
+  const confirmSubject = useMemo(() => {
+    const r = rows.find((x) => x.id === confirmCancelId);
+    return r?.subject || null;
+  }, [confirmCancelId, rows]);
 
   return (
     <div className="page-shell" data-print-title="Flagged Email Tracker">
