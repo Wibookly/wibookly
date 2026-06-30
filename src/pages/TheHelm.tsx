@@ -200,13 +200,34 @@ function useHelmData() {
         };
       });
 
+      // --- Today: AI-detected items due today (content-driven, not sender-driven)
+      const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+      const TODAY_RX = /\b(today|eod|cob|end of day|by (5|6|noon|tonight)|this afternoon|this morning|by ?eob)\b/i;
+      const isDueToday = (r: HelmItem) => {
+        if (r.due_at) {
+          const d = new Date(r.due_at).getTime();
+          if (d >= startOfToday.getTime() && d <= endOfToday.getTime()) return true;
+        }
+        return TODAY_RX.test(`${r.context ?? ''} ${r.title ?? ''}`);
+      };
+      const dedupeIds = new Set([...big3Ids]);
+      const today = [...decisionRows, ...overdue, ...fyi]
+        .filter((r) => !dedupeIds.has(r.id) && isDueToday(r))
+        .filter((item, idx, arr) => arr.findIndex((x) => x.id === item.id) === idx)
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, 10);
+      const todayIds = new Set(today.map((t) => t.id));
+      const decisionsFiltered = decisions.filter((d) => !todayIds.has(d.id));
+
       const totalInbound = rows.length + autoActions.length;
-      const needsYouIds = new Set([...big3, ...decisions, ...overdue].map((item) => item.id));
+      const needsYouIds = new Set([...big3, ...today, ...decisionsFiltered, ...overdue].map((item) => item.id));
       const needsYou = needsYouIds.size;
 
       return {
         big3,
-        decisions,
+        today,
+        decisions: decisionsFiltered,
         drafts,
         overdue,
         fyi,
@@ -222,6 +243,7 @@ function useHelmData() {
     staleTime: 30_000,
   });
 }
+
 
 
 /* ------------------------------------------------------------------ */
