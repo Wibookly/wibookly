@@ -1040,37 +1040,16 @@ function BriefView({
 
 
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
-        <section aria-labelledby="ledger" data-helm-section="ledger">
-          <div className="flex items-end gap-4 mb-4">
-            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-emerald-500/90 select-none">03</span>
-            <div className="pb-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
-              <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
-            </div>
-          </div>
+        <LedgerSection
+          overdue={overdue}
+          fyi={fyi}
+          autoActions={autoActions}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          expandedItem={expandedItem}
+          isLoading={isLoading}
+        />
 
-          <Card className="border-border/60 overflow-hidden">
-            <Tabs defaultValue={overdue.length > 0 ? 'overdue' : 'auto'} className="w-full">
-              <TabsList className="w-full justify-start h-auto p-0 bg-muted/30 border-b border-border/60 rounded-none">
-                <TabsTrigger value="overdue" data-helm-section="overdue"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-rose-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                  Overdue
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{overdue.length}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="fyi" data-helm-section="fyi"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-sky-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <Eye className="w-3.5 h-3.5 text-sky-500" />
-                  FYI
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{fyi.length}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="auto" data-helm-section="activity"
-                  className="data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 rounded-none px-5 py-3 gap-2 text-[12px] font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  Handled by AI
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] tabular-nums">{autoActions.length}</Badge>
-                </TabsTrigger>
-              </TabsList>
 
               <TabsContent value="overdue" className="m-0 p-5">
                 <p className="text-[12px] text-muted-foreground mb-3">Threads where you owe a reply and the clock has run out.</p>
