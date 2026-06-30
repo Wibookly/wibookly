@@ -173,10 +173,18 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     const dueFromFlag = flagDueUtc(m.flag);
     const catTrigger = parseCategoryInterval(m.categories);
 
-    // If flag is completed or removed in Outlook, hard-delete the tracker row
-    // entirely (across any open status) so it disappears from the report and
-    // never sends a follow-up. Matches the "Cancel = full removal" behavior.
-    if (m.flag?.flagStatus === 'complete' || (m.flag?.flagStatus === 'notFlagged' && !catTrigger)) {
+    // Hard-delete the tracker row whenever the source no longer qualifies for
+    // tracking. The tracker ONLY exists for flagged messages that carry a
+    // scheduled due date (or our FollowUp category). So we remove on:
+    //  • flag completed in Outlook
+    //  • flag fully removed in Outlook (notFlagged + no category)
+    //  • plain flag with NO due date — user removed the schedule but kept the flag
+    const plainFlagNoDue = m.flag?.flagStatus === 'flagged' && !dueFromFlag && !catTrigger;
+    if (
+      m.flag?.flagStatus === 'complete' ||
+      (m.flag?.flagStatus === 'notFlagged' && !catTrigger) ||
+      plainFlagNoDue
+    ) {
       const { data: existing } = await admin
         .from('tracked_emails')
         .select('id, status')

@@ -331,6 +331,56 @@ export function FlaggedEmailSettingsBody() {
           </Alert>
         )}
 
+        {/* How it works */}
+        <Card className="border-purple-200/60 dark:border-purple-900/40 bg-gradient-to-br from-purple-50/60 via-background to-background dark:from-purple-950/20">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Flag className="w-4 h-4 text-purple-500" />
+              How the Flagged Email Tracker works
+            </CardTitle>
+            <CardDescription>
+              Two-way sync between your Outlook mailbox and this tracker — nothing lands in the queue without your action.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm leading-relaxed">
+            <div>
+              <p className="font-medium text-foreground mb-1">1. Only flags with a due date are tracked</p>
+              <p className="text-muted-foreground">
+                A plain flag on a message in Outlook (or your email app) does <span className="font-medium text-foreground">not</span> show up here. The tracker only picks up emails where you set a <span className="font-medium text-foreground">follow-up flag with a scheduled due date</span>. That date is your promise to yourself — "if I don't hear back by then, follow up." Adding the date is what tells InboxIQ to start watching the thread.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">2. Two-way sync — the tracker always mirrors Outlook</p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                <li>The recipient replies → the entry is marked <span className="font-medium text-foreground">Completed</span>, removed from the send queue, and the flag is cleared in your Outlook automatically.</li>
+                <li>You click <span className="font-medium text-foreground">Cancel</span> in this app → the flag is also removed from the original email in Outlook and the row disappears here.</li>
+                <li>You manually unflag the email (or clear the due date) in Outlook → the entry is removed from the tracker on the next sync. Removing the flag means "I no longer want a follow-up on this," and we honor that.</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">3. Up to 3 polite follow-ups, 24 hours apart</p>
+              <p className="text-muted-foreground">
+                When the due date arrives and no reply has landed, AI drafts and sends the <span className="font-medium text-foreground">1st follow-up</span> in your tone. If there's still no reply 24 hours later, it sends the <span className="font-medium text-foreground">2nd</span>, and another 24 hours after that the <span className="font-medium text-foreground">3rd and final</span> follow-up. After the 3rd attempt the thread is closed as <span className="font-medium text-foreground">Missed</span> and the automation stops — no further emails are ever sent on that thread.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">4. Off-hours flags snap to your next available window</p>
+              <p className="text-muted-foreground">
+                If your allowed sending window is, say, <span className="font-medium text-foreground">Mon–Fri, 8 AM – 5 PM</span> and you accidentally flag an email for <span className="font-medium text-foreground">10 PM</span> (or for Saturday), the system will <span className="font-medium text-foreground">not</span> wake your recipient at night. It quietly moves the send to the <span className="font-medium text-foreground">first available slot</span> — in that example, 8 AM the next business day. The same rule applies to the 2nd and 3rd follow-ups: if 24 hours later lands outside your window or on a holiday, they slide forward to the next allowed time.
+              </p>
+            </div>
+
+            <div className="rounded-md border bg-card/60 p-3 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">In short:</span> flag with a date = tracked. Reply, cancel, or unflag = removed everywhere. Off-hours = rescheduled to the next allowed window. Three strikes and the thread retires itself.
+            </div>
+          </CardContent>
+        </Card>
+
+
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tracker controls</CardTitle>
