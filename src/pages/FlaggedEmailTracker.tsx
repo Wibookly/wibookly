@@ -69,11 +69,13 @@ function fmt(d: string | null | undefined) {
 }
 
 function outlookLink(r: TrackedEmail): string | null {
-  if (r.web_link) return r.web_link;
+  // Open the message *inside* the full Outlook on the web shell
+  // (left nav + folder list + reading pane) instead of the standalone
+  // /deeplink/read popup viewer that Graph's `webLink` returns.
   if (r.graph_message_id) {
-    // Outlook on the web deep-link for an item by Graph id.
-    return `https://outlook.office.com/mail/deeplink/read/${encodeURIComponent(r.graph_message_id)}`;
+    return `https://outlook.office.com/mail/inbox/id/${encodeURIComponent(r.graph_message_id)}`;
   }
+  if (r.web_link) return r.web_link;
   return null;
 }
 
