@@ -861,7 +861,7 @@ function BriefView({
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 lg:gap-8 items-start">
       <div className="space-y-12">
         {error && (
           <Card className="border-destructive/40 print:hidden">
