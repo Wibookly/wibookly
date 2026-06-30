@@ -593,7 +593,16 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
       </TableCell>
       <TableCell>
         <div className="flex flex-col items-start gap-1.5">
-          <Badge variant={meta.variant} className="gap-1">
+          <Badge
+            variant={meta.variant}
+            className={`gap-1 ${
+              r.status === 'completed' || r.status === 'replied'
+                ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 border-emerald-500/30'
+                : r.status === 'no_response' || r.status === 'exhausted'
+                  ? 'bg-red-500/15 text-red-700 hover:bg-red-500/20 border-red-500/30'
+                  : ''
+            }`}
+          >
             <Icon className="w-3 h-3" /> {meta.label}
           </Badge>
           {canCancel && (
