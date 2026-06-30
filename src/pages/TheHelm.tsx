@@ -913,12 +913,15 @@ function BriefView({
                   'inline-flex items-center gap-2 text-[10px] font-mono tracking-[0.15em] uppercase px-2.5 py-1 rounded-full border',
                   (sync.isPending || isLoading)
                     ? 'border-primary/40 text-primary bg-primary/5'
-                    : 'border-border/60 text-muted-foreground bg-transparent',
+                    : 'border-emerald-500/40 text-muted-foreground bg-transparent',
                 )}
-                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Auto-syncs every 5 minutes'}
+                title={sync.isPending ? 'Pulling the latest from your inbox…' : 'Live — syncing every 5 minutes'}
               >
-                <RefreshCw className={cn('w-3 h-3', (sync.isPending || isLoading) && 'animate-spin')} />
-                {(sync.isPending || isLoading) ? 'Syncing' : 'Live · auto-sync'}
+                <span className="relative inline-flex w-2 h-2">
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
+                  <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                </span>
+                {(sync.isPending || isLoading) ? 'Syncing' : 'Live sync'}
               </span>
             </div>
           </div>
@@ -1169,8 +1172,8 @@ function BriefView({
 
 
       {/* Right rail — Inbox health pinned on top, This week grows below */}
-      <aside className="space-y-5">
-        <Card className="border-border/60 lg:sticky lg:top-6">
+      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto flex flex-col">
+        <Card className="border-border/60 shrink-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
               <Sparkles className="w-4 h-4 text-primary" /> Inbox health
@@ -1208,7 +1211,7 @@ function BriefView({
               go('calendar');
             }
           }}
-          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60"
+          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60 flex-1 flex flex-col"
         >
           <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
             <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
@@ -1216,9 +1219,9 @@ function BriefView({
             </CardTitle>
             <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 flex-1 flex flex-col">
             <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
-            <ul className="space-y-0">
+            <ul className="space-y-0 flex-1">
               {(weekPreview.data ?? []).map((d) => (
                 <li
                   key={d.day}
