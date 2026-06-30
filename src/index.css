@@ -430,3 +430,53 @@
 [data-palette="magenta"]{--primary:#C026D3;--primary-hover:#A21FB0;--primary-soft:#F4D6F9;--primary-softer:#F8E8FB;--accent:#A855F7;--bg:#FBEBFD;--bg-elev:#FDF4FE;--shadow-glow:0 12px 32px -8px rgba(192,38,211,.35);--grad-feature-soft:linear-gradient(135deg,#C026D3,#A855F7);--blob-2:rgba(192,38,211,.12)}
 .dark[data-palette="magenta"]{--primary:#E879F9;--primary-hover:#E879F9;--accent:#C084FC;--bg:#170A19;--bg-elev:#1F0F22;--surface:#27142A;--surface-2:#301A33;--surface-3:#3C2240;--border:#371E3A;--border-soft:#27142A;--text:#F4F5FB;--text-body:#F0DEF2;--text-muted:#C29CC8;--shadow-glow:0 16px 40px -8px rgba(232,121,249,.42);--grad-feature-soft:linear-gradient(135deg,#E879F9,#C084FC)}
 
+
+/* ------------------------------------------------------------------ */
+/* The Helm — executive tiles + dark-mode email body                  */
+/* ------------------------------------------------------------------ */
+
+/* Accent-edged tile primitive used across The Helm hero + breakdown.  */
+.helm-tile {
+  position: relative;
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--border));
+  border-left: 3px solid var(--helm-accent, hsl(var(--border)));
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+  backdrop-filter: blur(8px);
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.helm-tile:hover {
+  transform: translateY(-1px);
+  border-color: hsl(var(--primary) / 0.55);
+  background: hsl(var(--card) / 0.85);
+  box-shadow: 0 10px 28px -16px var(--helm-accent, hsl(var(--primary) / 0.35));
+}
+.helm-tile[data-accent="slate"]   { --helm-accent: hsl(215 16% 47%); }
+.helm-tile[data-accent="amber"]   { --helm-accent: #F59E0B; }
+.helm-tile[data-accent="emerald"] { --helm-accent: #10B981; }
+.helm-tile[data-accent="sky"]     { --helm-accent: #38BDF8; }
+.helm-tile[data-accent="violet"]  { --helm-accent: #A78BFA; }
+.helm-tile[data-accent="red"]     { --helm-accent: #F87171; }
+.helm-tile[data-accent="cyan"]    { --helm-accent: #22D3EE; }
+.helm-tile[data-accent="muted"]   { --helm-accent: hsl(var(--muted-foreground) / 0.5); }
+
+/* Force readable text on injected Outlook HTML in dark mode.          */
+/* Outlook bodies arrive with inline color:#000 / bgcolor=white that   */
+/* render as invisible black-on-near-black. We neutralize them here.   */
+.helm-email-body,
+.helm-email-body * {
+  color: hsl(var(--foreground)) !important;
+  background-color: transparent !important;
+  border-color: hsl(var(--border)) !important;
+}
+.helm-email-body a { color: hsl(var(--primary)) !important; text-decoration: underline; }
+.helm-email-body img { max-width: 100%; height: auto; opacity: 0.92; }
+.helm-email-body blockquote {
+  border-left: 3px solid hsl(var(--border)) !important;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: hsl(var(--muted-foreground)) !important;
+}
+.helm-email-body table { border-collapse: collapse; }
+.helm-email-body td, .helm-email-body th { padding: 4px 8px; }
