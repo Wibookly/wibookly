@@ -1525,7 +1525,7 @@ function CalendarRail({
             {data.map((d) => {
               const isExpanded = expandedDay === d.day;
               return (
-                <li key={d.day} className="border-b border-border/40 last:border-0">
+                <li key={d.day} className="helm-day-row last:after:hidden">
                   <button
                     onClick={() => d.count > 0 && setExpandedDay(isExpanded ? null : d.day)}
                     disabled={d.count === 0}
