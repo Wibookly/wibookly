@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarClock, Mail, RefreshCw, Send, Sparkles, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 
 interface Item {
   id: string;
@@ -20,12 +20,16 @@ interface Item {
 type Addr = { name?: string; address?: string };
 const RESHAPE_CHIPS: string[] = []; // removed per executive request
 
-export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }: {
+interface InlineEmailExpanderProps {
   item: Item;
   onClose: () => void;
   onSent?: () => void;
   accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
-}) {
+  /** Pillar A/B only — show AI summary block. Other ledger sections hide it. */
+  showAiSummary?: boolean;
+}
+
+export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', showAiSummary = true }: InlineEmailExpanderProps) {
   const qc = useQueryClient();
   const [original, setOriginal] = useState<{ subject: string; from: Addr | null; to: Addr[]; cc: Addr[]; body_html: string; body_text: string } | null>(null);
   const [bodyError, setBodyError] = useState<string | null>(null);
@@ -135,17 +139,12 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
     send('schedule', { scheduled_for: local.toISOString() });
   };
 
-  const accentBar: Record<string, string> = {
-    amber: 'from-amber-400 via-orange-500 to-rose-500',
-    violet: 'from-violet-400 via-indigo-500 to-blue-500',
-    rose: 'from-rose-400 via-red-500 to-rose-600',
-    sky: 'from-sky-400 via-cyan-500 to-blue-500',
-    emerald: 'from-emerald-400 via-green-500 to-teal-500',
-  };
+  void accent; // accent reserved for future theming
+
 
   return (
     <div className="relative rounded-xl border border-border/70 bg-card overflow-hidden shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
-      <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentBar[accent])} />
+
       <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-border/50 bg-muted/10">
         <div className="min-w-0 space-y-1 text-[11.5px] text-muted-foreground">
           <p className="flex items-start gap-1.5">
@@ -203,15 +202,19 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
         )}
       </section>
 
-      {/* MIDDLE — AI summary */}
-      <section className="px-5 py-4 border-b border-border/40">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2 flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-primary" /> AI summary
-        </p>
-        <p className="text-[13px] leading-relaxed text-foreground/90">
-          {item.context || 'No summary available yet — sync to refresh.'}
-        </p>
-      </section>
+      {/* MIDDLE — AI summary (Pillar A/B only) */}
+      {showAiSummary && (
+        <section className="px-5 py-4 border-b border-border/40">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-primary" /> AI summary
+          </p>
+          <p className="text-[13px] leading-relaxed text-foreground/90">
+            {item.context
+              || (original?.body_text?.slice(0, 320) ?? '')
+              || 'Summary is generating — refresh in a moment.'}
+          </p>
+        </section>
+      )}
 
       {/* BOTTOM — AI draft */}
       <section className="px-5 py-4">
@@ -262,7 +265,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
 
         <Separator className="my-3" />
 
-        <div className="flex items-center justify-end gap-2 flex-wrap">
+        <div className="flex items-center justify-end gap-2 flex-wrap [&>button]:whitespace-nowrap [&>div>button]:whitespace-nowrap">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={!!sendBusy}>Close</Button>
           <Button variant="outline" size="sm" onClick={() => send('save_draft')} disabled={!!sendBusy || !draftText.trim()}>
             {sendBusy === 'save_draft' ? 'Saving…' : 'Save draft'}

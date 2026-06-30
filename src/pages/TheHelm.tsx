@@ -588,9 +588,11 @@ function PillarBlock({
   openReader: () => void;
   accent: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
 }) {
+  const [limit, setLimit] = useState<number>(10);
+  const visible = items.slice(0, limit);
   return (
     <div data-helm-section={accent === 'amber' ? 'big3' : 'decisions'}>
-      {/* Header with huge number */}
+      {/* Header — unified styling with "03 Operations ledger" */}
       <div className="flex items-end gap-4 mb-4">
         <span className={cn('font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums select-none', numberColor)}>
           {number}
@@ -608,7 +610,6 @@ function PillarBlock({
       </div>
 
       <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden">
-        <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentClass)} />
         {items.length === 0 ? (
           <div className="p-8 text-center">
             <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3', iconBg)}>
@@ -617,48 +618,82 @@ function PillarBlock({
             <p className="text-[13px] italic text-muted-foreground">{emptyText}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border/40">
-            {items.slice(0, 5).map((it, i) => {
-              const isOpen = expandedId === it.id;
-              return (
-                <li key={it.id}>
-                  <button
-                    onClick={() => setExpandedId(isOpen ? null : it.id)}
-                    className={cn(
-                      'w-full text-left p-4 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      isOpen && 'bg-muted/40',
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className={cn('font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5', numberColor)}>
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{it.title}</h3>
-                          <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', isOpen && 'rotate-180')} />
-                        </div>
-                        {it.sender && (
-                          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
-                            <Mail className="w-3 h-3" /> {it.sender}
-                            {it.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" /> {it.due}</>}
+          <>
+            <ul className="divide-y divide-border/40">
+              {visible.map((it, i) => {
+                const isOpen = expandedId === it.id;
+                return (
+                  <li key={it.id}>
+                    <button
+                      onClick={() => setExpandedId(isOpen ? null : it.id)}
+                      className={cn(
+                        'w-full text-left p-4 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        isOpen && 'bg-muted/40',
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className={cn('font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5', numberColor)}>
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          {/* Line 1: subject */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{it.title}</h3>
+                            <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', isOpen && 'rotate-180')} />
+                          </div>
+                          {/* Line 2: sender + email + due */}
+                          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5 flex-wrap">
+                            <Mail className="w-3 h-3" />
+                            <span className="text-foreground/80">{it.sender ?? 'Unknown sender'}</span>
+                            {it.sender_email && it.sender_email !== it.sender && (
+                              <span className="text-muted-foreground/70">&lt;{it.sender_email}&gt;</span>
+                            )}
+                            {it.due && (
+                              <>
+                                <span className="text-muted-foreground/40">·</span>
+                                <Clock className="w-3 h-3" /> {it.due}
+                              </>
+                            )}
                           </p>
-                        )}
-                        {it.context && (
-                          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{it.context}</p>
-                        )}
+                          {/* Line 3: AI one/two-line summary */}
+                          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-2">
+                            {it.context || 'AI summary generating — opens with full thread context.'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                  {isOpen && (
-                    <div className="px-4 pb-4">
-                      <InlineEmailExpander item={it} onClose={() => setExpandedId(null)} accent={accent} />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4">
+                        <InlineEmailExpander item={it} onClose={() => setExpandedId(null)} accent={accent} showAiSummary />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {items.length > limit && (
+              <div className="border-t border-border/40 p-3 flex items-center justify-between gap-3 bg-muted/10">
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  Showing {visible.length} of {items.length}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setLimit((n) => Math.min(items.length, n + 10))}>
+                    Show 10 more
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setLimit(items.length)}>
+                    Show all
+                  </Button>
+                </div>
+              </div>
+            )}
+            {visible.length > 5 && items.length <= limit && (
+              <div className="border-t border-border/40 p-2 text-center bg-muted/10">
+                <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setLimit(10)}>
+                  Collapse
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -680,20 +715,30 @@ function LedgerRow({ item, variant, expanded, onToggle }: {
       <div className="flex items-start gap-3">
         {variant === 'warning' && <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />}
         <div className="flex-1 min-w-0">
+          {/* Line 1: subject */}
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-[14px] font-semibold text-foreground truncate flex-1">{item.title}</h3>
             <ChevronDown className={cn('w-4 h-4 text-muted-foreground shrink-0 transition-transform', expanded && 'rotate-180')} />
           </div>
-          {item.sender && (
-            <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5">
-              <Mail className="w-3 h-3" /> {item.sender}
-              {item.due && <><span className="text-muted-foreground/40">·</span><Clock className="w-3 h-3" />{' '}
-                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span></>}
-            </p>
-          )}
-          {item.context && (
-            <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-3">{item.context}</p>
-          )}
+          {/* Line 2: sender (name + email) + due */}
+          <p className="text-[11px] font-mono text-muted-foreground mb-1 flex items-center gap-1.5 flex-wrap">
+            <Mail className="w-3 h-3" />
+            <span className="text-foreground/80">{item.sender ?? 'Unknown sender'}</span>
+            {item.sender_email && item.sender_email !== item.sender && (
+              <span className="text-muted-foreground/70">&lt;{item.sender_email}&gt;</span>
+            )}
+            {item.due && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <Clock className="w-3 h-3" />
+                <span className={variant === 'warning' ? 'text-destructive font-semibold' : ''}>{item.due}</span>
+              </>
+            )}
+          </p>
+          {/* Line 3: one-line summary */}
+          <p className="text-[12.5px] text-foreground/80 leading-relaxed line-clamp-2">
+            {item.context || 'Open to see the original message.'}
+          </p>
         </div>
       </div>
     </button>
@@ -816,7 +861,7 @@ function BriefView({
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 lg:gap-8 items-start">
       <div className="space-y-12">
         {error && (
           <Card className="border-destructive/40 print:hidden">
@@ -980,7 +1025,7 @@ function BriefView({
         {/* ── 03 · Operations Ledger — Overdue / FYI / Auto-handled ─── */}
         <section aria-labelledby="ledger" data-helm-section="ledger">
           <div className="flex items-end gap-4 mb-4">
-            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-foreground/20 select-none">03</span>
+            <span className="font-mono text-[32px] md:text-[40px] font-bold leading-none tabular-nums text-emerald-500/90 select-none">03</span>
             <div className="pb-2">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 mb-1">Sweep</p>
               <h2 id="ledger" className="text-[20px] font-semibold tracking-tight text-foreground">Operations ledger</h2>
@@ -1025,7 +1070,7 @@ function BriefView({
                       <div key={item.id}>
                         <LedgerRow item={item} variant="warning" expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
                         {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" /></div>
+                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="rose" showAiSummary={false} /></div>
                         )}
                       </div>
                     ))}
@@ -1046,7 +1091,7 @@ function BriefView({
                       <div key={item.id}>
                         <LedgerRow item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />
                         {expandedId === item.id && expandedItem && (
-                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" /></div>
+                          <div className="mt-2"><InlineEmailExpander item={expandedItem} onClose={() => setExpandedId(null)} accent="sky" showAiSummary={false} /></div>
                         )}
                       </div>
                     ))}
@@ -1058,7 +1103,13 @@ function BriefView({
               </TabsContent>
 
               <TabsContent value="auto" className="m-0 p-5">
-                <p className="text-[12px] text-muted-foreground mb-3">Emails, meetings and tasks the agent filed, drafted, booked or replied to in the last 24 hours.</p>
+                <p className="text-[12px] text-muted-foreground mb-1">A read-only audit of what the agent did for you in the last 24 hours — no action required.</p>
+                <p className="text-[11px] text-muted-foreground/80 mb-3">
+                  <span className="font-mono"><span className="text-success">Filed</span></span> = auto-sorted into a folder ·{' '}
+                  <span className="font-mono"><span className="text-primary">Sent</span></span> = AI replied ·{' '}
+                  <span className="font-mono"><span className="text-warning">Booked</span></span> = meeting created ·{' '}
+                  <span className="font-mono"><span className="text-accent-foreground">Routed</span></span> = saved as draft
+                </p>
                 {autoActions.length === 0 ? (
                   <div className="py-10 text-center">
                     <Activity className="w-8 h-8 text-muted-foreground/60 mx-auto mb-2" />
@@ -1117,8 +1168,36 @@ function BriefView({
       </div>
 
 
-      {/* Right rail */}
-      <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+      {/* Right rail — Inbox health pinned on top, This week grows below */}
+      <aside className="space-y-5">
+        <Card className="border-border/60 lg:sticky lg:top-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.totalInbound}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
+                <dd className="text-3xl font-light text-primary tabular-nums">{stats.needsYou}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.drafted}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
+                <dd className="text-3xl font-light text-foreground tabular-nums">{stats.autoHandled}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
         <Card
           role="button"
           tabIndex={0}
@@ -1167,43 +1246,6 @@ function BriefView({
                 <li className="text-[12px] text-muted-foreground italic py-2">No calendar connected.</li>
               )}
             </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
-              <Sparkles className="w-4 h-4 text-primary" /> Inbox health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Inbound</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.totalInbound}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Needs you</dt>
-                <dd className="text-3xl font-light text-primary tabular-nums">
-                  {stats.needsYou}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Drafted</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.drafted}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Auto</dt>
-                <dd className="text-3xl font-light text-foreground tabular-nums">
-                  {stats.autoHandled}
-                </dd>
-
-              </div>
-            </dl>
           </CardContent>
         </Card>
       </aside>
