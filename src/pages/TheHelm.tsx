@@ -1077,6 +1077,36 @@ function BriefView({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [ledgerTab, setLedgerTab] = useState<'overdue' | 'fyi' | 'auto'>('overdue');
   const [search, setSearch] = useState('');
+  const big3Ids = useMemo(() => new Set(big3.map((b) => b.id)), [big3]);
+  const [promotedIds, setPromotedIds] = useState<Set<string>>(new Set());
+  const [disregardedIds, setDisregardedIds] = useState<Set<string>>(new Set());
+  const promoteToBig3 = async (id: string) => {
+    setPromotedIds((s) => { const n = new Set(s); n.add(id); return n; });
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const KEY = `helm:big3-pinned:${today}`;
+      const raw = window.localStorage.getItem(KEY);
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      if (!ids.includes(id)) ids.unshift(id);
+      window.localStorage.setItem(KEY, JSON.stringify(ids.slice(0, 10)));
+      await supabase.from('helm_items').update({ tier: 'big3' } as any).eq('id', id);
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Pinned to Top Priorities');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not pin');
+    }
+  };
+  const disregardItem = async (id: string) => {
+    setDisregardedIds((s) => { const n = new Set(s); n.add(id); return n; });
+    if (expandedId === id) setExpandedId(null);
+    try {
+      await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      qc.invalidateQueries({ queryKey: ['helm-items'] });
+      toast.success('Disregarded');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not disregard');
+    }
+  };
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
