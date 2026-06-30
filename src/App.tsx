@@ -21,6 +21,7 @@ import AIActivityDashboard from "./pages/AIActivityDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import TheHelm from "./pages/TheHelm";
+import TheHelmCalendar from "./pages/TheHelmCalendar";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";

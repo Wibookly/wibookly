@@ -2664,7 +2664,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
 
   return (
     <div>
-      <BackBar onBack={onBack} label="This week" />
+      {onBack && <BackBar onBack={onBack} label="This week" />}
 
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <SectionHeader
