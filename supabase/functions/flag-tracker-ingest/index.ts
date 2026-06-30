@@ -247,7 +247,8 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       trigger_detail = { dueDateTime: m.flag.dueDateTime, original_due_utc: dueFromFlag.toISOString() };
     } else if (catTrigger) {
       trigger_type = 'category';
-      const base = new Date(m.sentDateTime || Date.now()).getTime();
+      const baseIso = m.__folder === 'inbox' ? (m.receivedDateTime || m.sentDateTime) : (m.sentDateTime || m.receivedDateTime);
+      const base = new Date(baseIso || Date.now()).getTime();
       const raw = new Date(base + catTrigger.days * 86400000);
       follow_up_at = nextWindowStart(raw, bh).toISOString();
       trigger_detail = { interval_days: catTrigger.days, categories: m.categories, original_due_utc: raw.toISOString() };
@@ -255,7 +256,14 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       continue; // Not tracked
     }
 
-    const recipient = m.toRecipients?.[0]?.emailAddress || null;
+    // For Sent items the "recipient" we're chasing is the TO address.
+    // For Inbox items it's the SENDER (who emailed us — we'll follow up with them).
+    const recipient = m.__folder === 'inbox'
+      ? (m.from?.emailAddress || null)
+      : (m.toRecipients?.[0]?.emailAddress || null);
+    const sentAt = m.__folder === 'inbox'
+      ? (m.receivedDateTime || m.sentDateTime)
+      : (m.sentDateTime || m.receivedDateTime);
     const row = {
       user_id: userId,
       connection_id: connectionId,
@@ -266,9 +274,9 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
       recipient_name: recipient?.name || null,
       subject: m.subject || null,
       body_preview: (m.bodyPreview || '').slice(0, 500),
-      sent_at: m.sentDateTime,
+      sent_at: sentAt,
       trigger_type,
-      trigger_detail,
+      trigger_detail: { ...trigger_detail, folder: m.__folder },
       follow_up_at,
       web_link: m.webLink || null,
     };
