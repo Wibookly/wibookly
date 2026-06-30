@@ -809,6 +809,7 @@ function BriefView({
   const fyi = data?.fyi ?? [];
   const autoActions = data?.autoActions ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ledgerTab, setLedgerTab] = useState<'overdue' | 'fyi' | 'auto'>('overdue');
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
