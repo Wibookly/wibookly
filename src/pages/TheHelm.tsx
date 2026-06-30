@@ -3059,7 +3059,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
               )}
               <div className="border-t border-border/60 p-3">
 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   {days.map((d) => {
                     const baseEvs = grouped[d.date.toDateString()] ?? [];
                     const appliedByEv: Record<string, Proposal> = {};
@@ -3086,7 +3086,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
 
                     const isToday = d.date.toDateString() === new Date().toDateString();
                     return (
-                      <Card key={d.date.toISOString()} className={cn('min-w-[200px]', isToday && 'border-primary/60 shadow-sm')}>
+                      <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile helm-cal-tile-proposed', isToday && 'shadow-md')}>
+
                         <CardHeader className="pb-2">
                           <div className="flex items-baseline justify-between">
                             <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
