@@ -2521,6 +2521,17 @@ export default function TheHelm() {
     if (!next) return;
     try {
       await supabase.from('helm_items').update({ status: 'resolved' }).eq('id', id);
+      // Drop from today's pinned Big 3 — never refill on next render.
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const KEY = `helm:big3-pinned:${today}`;
+        const raw = window.localStorage.getItem(KEY);
+        if (raw) {
+          const ids: string[] = JSON.parse(raw);
+          window.localStorage.setItem(KEY, JSON.stringify(ids.filter((x) => x !== id)));
+        }
+      } catch { /* ignore */ }
+
       const u = (await supabase.auth.getUser()).data.user;
       if (u) {
         await supabase.from('activity_log').insert({
