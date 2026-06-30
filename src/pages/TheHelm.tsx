@@ -1342,7 +1342,7 @@ function CalendarRail({
                     key={i}
                     className="flex items-start gap-2.5 py-1.5 border-l-2 border-primary/60 pl-2.5 bg-primary/[0.03] rounded-r"
                   >
-                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-12 pt-0.5">
+                    <div className="font-mono text-[10px] tabular-nums text-primary shrink-0 w-[58px] pt-0.5 whitespace-nowrap">
                       {fmtTime(ev.start)}
                     </div>
                     <div className="min-w-0 flex-1">
