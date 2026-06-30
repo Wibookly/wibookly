@@ -1219,9 +1219,9 @@ function BriefView({
             </CardTitle>
             <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-muted-foreground">open →</span>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 flex-1 flex flex-col">
             <p className="text-[11px] text-muted-foreground mb-3">Tap to see the full week + AI time analysis</p>
-            <ul className="space-y-0">
+            <ul className="space-y-0 flex-1">
               {(weekPreview.data ?? []).map((d) => (
                 <li
                   key={d.day}
