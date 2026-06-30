@@ -710,45 +710,44 @@ function BriefView({
             Everything else has been triaged, drafted, or scheduled. Clear your queue in under ten minutes, then the day is yours.
           </p>
 
-          {/* Executive summary tiles — what each number means */}
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+          {/* Hero KPI tiles — bordered, accent-edged, always visible on dark mode */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="helm-tile" data-accent="slate">
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Total inbound</p>
-              <p className="text-4xl md:text-[42px] font-extrabold text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">emails & items received in the last 24h</p>
+              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{stats.totalInbound}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">emails & items received in the last 24h</p>
             </div>
-            <div className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-primary font-bold">Needs you</p>
-              <p className="text-4xl md:text-[42px] font-extrabold text-primary tabular-nums leading-tight mt-1">{stats.needsYou}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">decisions, approvals & overdue replies</p>
+            <div className="helm-tile" data-accent="amber">
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Needs you</p>
+              <p className="text-[40px] md:text-[44px] font-extrabold text-primary tabular-nums leading-none mt-1">{stats.needsYou}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">decisions, approvals & overdue replies</p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 col-span-2 md:col-span-1">
+            <div className="helm-tile" data-accent="emerald">
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground font-bold">Handled for you</p>
-              <p className="text-4xl md:text-[42px] font-extrabold text-foreground tabular-nums leading-tight mt-1">{stats.totalInbound - stats.needsYou}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">filed, drafted or auto-replied overnight</p>
+              <p className="text-[40px] md:text-[44px] font-extrabold text-foreground tabular-nums leading-none mt-1">{Math.max(0, stats.totalInbound - stats.needsYou)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">filed, drafted or auto-replied overnight</p>
             </div>
           </div>
 
-          {/* Executive breakdown — where every item went. Click to jump. */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            {[
-              { key: 'big3', label: 'Big 3', count: big3.length, accent: true, onClick: () => go('inbox', undefined, 'big3') },
-              { key: 'decisions', label: 'Decisions', count: decisions.length, accent: true, onClick: () => go('inbox', undefined, 'decisions') },
-              { key: 'overdue', label: 'Overdue', count: overdue.length, accent: true, onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), onClick: () => go('inbox', undefined, 'drafts') },
-              { key: 'auto', label: 'Auto-handled', count: autoActions.length, onClick: () => document.getElementById('auto')?.scrollIntoView({ behavior: 'smooth' }) },
-              { key: 'fyi', label: 'FYI', count: fyi.length, onClick: () => document.querySelector('[data-helm-section="fyi"]')?.scrollIntoView({ behavior: 'smooth' }) },
-            ].map((t) => (
+          {/* Executive breakdown — click to open that scope's focused reader */}
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            {([
+              { key: 'big3', label: 'Big 3', count: big3.length, accent: 'sky',     onClick: () => go('inbox', undefined, 'big3') },
+              { key: 'decisions', label: 'Decisions', count: decisions.length, accent: 'violet', onClick: () => go('inbox', undefined, 'decisions') },
+              { key: 'overdue', label: 'Overdue', count: overdue.length, accent: 'red', onClick: () => document.querySelector('[data-helm-section="overdue"]')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'drafted', label: 'AI-drafted', count: (data?.drafts?.length ?? 0), accent: 'cyan', onClick: () => go('inbox', undefined, 'drafts') },
+              { key: 'auto', label: 'Auto-handled', count: autoActions.length, accent: 'emerald', onClick: () => document.getElementById('auto')?.scrollIntoView({ behavior: 'smooth' }) },
+              { key: 'fyi', label: 'FYI', count: fyi.length, accent: 'muted', onClick: () => document.querySelector('[data-helm-section="fyi"]')?.scrollIntoView({ behavior: 'smooth' }) },
+            ] as const).map((t) => (
               <button
                 key={t.key}
                 onClick={t.onClick}
-                className={cn(
-                  'rounded-lg border px-3 py-2.5 text-left transition-all hover:border-primary hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  t.accent ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-muted/10',
-                )}
+                className="helm-tile text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                data-accent={t.accent}
+                style={{ padding: '0.65rem 0.85rem' }}
               >
                 <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-bold">{t.label}</p>
-                <p className={cn('text-2xl font-extrabold tabular-nums leading-tight mt-0.5', t.accent ? 'text-primary' : 'text-foreground')}>{t.count}</p>
+                <p className="text-[26px] font-extrabold text-foreground tabular-nums leading-none mt-1">{t.count}</p>
               </button>
             ))}
           </div>
