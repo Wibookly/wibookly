@@ -1008,7 +1008,7 @@ function BriefView({
             iconBg="bg-amber-500/10 text-amber-500"
             numberColor="text-amber-500/90"
             Icon={Flame}
-            label="Pillar A · Today's Big 3"
+            label="Pillar A · Top Priorities"
             count={big3.length}
             items={big3}
             expandedId={expandedId}
