@@ -1211,7 +1211,7 @@ function BriefView({
               go('calendar');
             }
           }}
-          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60"
+          className="cursor-pointer transition-all hover:border-primary/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border/60 flex-1 flex flex-col"
         >
           <CardHeader className="pb-3 flex flex-row items-baseline justify-between space-y-0">
             <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2 text-foreground">
