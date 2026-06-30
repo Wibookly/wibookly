@@ -3023,6 +3023,7 @@ function CalendarView({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   );
 }
