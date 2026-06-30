@@ -475,6 +475,32 @@ export default function FlaggedEmailTrackerPage() {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 print:hidden">
+              <div className="relative">
+                <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search the queue by recipient, email, or subject…"
+                  className="pl-9 pr-9"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs px-1.5 py-0.5 rounded"
+                    aria-label="Clear search"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {search && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {filteredRows.length} of {rows.length} match “{search}”
+                </p>
+              )}
+            </div>
             {loading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
             ) : loadError ? (
@@ -489,8 +515,12 @@ export default function FlaggedEmailTrackerPage() {
               <div className="text-center py-12 text-sm text-muted-foreground">
                 No flagged emails in this range. Flag a sent message in Outlook with a due date — it'll appear here automatically.
               </div>
+            ) : filteredRows.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No emails in the queue match “{search}”. Try a different recipient or subject keyword.
+              </div>
             ) : groupBy === 'recipient' ? (
-              <RecipientGroups rows={rows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
+              <RecipientGroups rows={filteredRows} expanded={expanded} setExpanded={setExpanded} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -505,12 +535,13 @@ export default function FlaggedEmailTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
+                    {filteredRows.map((r) => <EmailRow key={r.id} r={r} onCancel={cancelRow} reminderIntervalsDays={reminderIntervalsDays} />)}
                   </TableBody>
                 </Table>
               </div>
             )}
           </CardContent>
+
         </Card>
       </div>
     </div>
