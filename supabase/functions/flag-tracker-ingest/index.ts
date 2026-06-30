@@ -338,6 +338,7 @@ async function ingestForUser(admin: any, userId: string, connectionId: string) {
     removed_deleted: removedDeleted,
     skipped_pre_enable: skippedPreEnable,
     kicked_followup: kickedFollowup,
+    snapped_to_business_hours: snapped,
   };
 }
 
