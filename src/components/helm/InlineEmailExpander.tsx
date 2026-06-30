@@ -146,13 +146,34 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }:
   return (
     <div className="relative rounded-xl border border-border/70 bg-card overflow-hidden shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
       <div className={cn('absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b', accentBar[accent])} />
-      <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-border/50">
-        <div className="min-w-0">
-          <h4 className="text-[14px] font-semibold text-foreground truncate">{original?.subject || item.title}</h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
-            <Mail className="w-3 h-3" /> From {original?.from?.name ?? item.sender ?? '—'}
-            {original?.from?.address && <span className="text-muted-foreground/70">&lt;{original.from.address}&gt;</span>}
+      <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-border/50 bg-muted/10">
+        <div className="min-w-0 space-y-1 text-[11.5px] text-muted-foreground">
+          <p className="flex items-start gap-1.5">
+            <Mail className="w-3 h-3 mt-0.5 shrink-0" />
+            <span className="min-w-0">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mr-1.5">From</span>
+              <span className="text-foreground font-medium">{original?.from?.name ?? item.sender ?? '—'}</span>
+              {original?.from?.address && <span className="text-muted-foreground/70 ml-1">&lt;{original.from.address}&gt;</span>}
+            </span>
           </p>
+          {original && original.to.length > 0 && (
+            <p className="flex items-start gap-1.5">
+              <Users className="w-3 h-3 mt-0.5 shrink-0" />
+              <span className="min-w-0">
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mr-1.5">To</span>
+                <span className="text-foreground/90">{original.to.map((a) => a.name || a.address).filter(Boolean).join(', ')}</span>
+              </span>
+            </p>
+          )}
+          {original && original.cc.length > 0 && (
+            <p className="flex items-start gap-1.5">
+              <Users className="w-3 h-3 mt-0.5 shrink-0 opacity-60" />
+              <span className="min-w-0">
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/70 mr-1.5">Cc</span>
+                <span className="text-foreground/80">{original.cc.map((a) => a.name || a.address).filter(Boolean).join(', ')}</span>
+              </span>
+            </p>
+          )}
         </div>
         <Button variant="ghost" size="sm" className="h-7 px-2 shrink-0" onClick={onClose}>
           <X className="w-4 h-4" />
