@@ -2456,6 +2456,9 @@ function FocusRulesCompact({
       </div>
     </div>
   );
+}
+
+
 
 function fmtTimeShort(iso: string | null) {
   if (!iso) return '';
