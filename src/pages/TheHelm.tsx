@@ -821,7 +821,7 @@ function BriefView({
 
   const stats = data?.stats ?? { totalInbound: 0, needsYou: 0, drafted: 0, autoHandled: 0 };
   const big3 = data?.big3 ?? [];
-  const today = (data as any)?.today ?? [];
+  const todayItems = (data as any)?.today ?? [];
   const decisions = data?.decisions ?? [];
   const overdue = data?.overdue ?? [];
   const fyi = data?.fyi ?? [];
