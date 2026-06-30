@@ -2402,14 +2402,16 @@ function CalendarView({ onBack }: { onBack: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
   const [ruleLoaded, setRuleLoaded] = useState(false);
-  const [autoFocusOn, setAutoFocusOn] = useState<boolean>(() => {
-    try { return window.localStorage.getItem('helm:auto-focus') !== 'off'; } catch { return true; }
+  const [focusEnabled, setFocusEnabled] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('helm:focus-enabled') !== 'off'; } catch { return true; }
   });
-  const [strategy, setStrategy] = useState<'focus' | 'reorganize'>(() => {
-    try { return (window.localStorage.getItem('helm:plan-strategy') as any) || 'focus'; } catch { return 'focus'; }
+  const [reorganizeEnabled, setReorganizeEnabled] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('helm:reorganize-enabled') === 'on'; } catch { return false; }
   });
-  useEffect(() => { try { window.localStorage.setItem('helm:auto-focus', autoFocusOn ? 'on' : 'off'); } catch {} }, [autoFocusOn]);
-  useEffect(() => { try { window.localStorage.setItem('helm:plan-strategy', strategy); } catch {} }, [strategy]);
+  const autoFocusOn = focusEnabled || reorganizeEnabled;
+  const strategy: 'focus' | 'reorganize' = reorganizeEnabled ? 'reorganize' : 'focus';
+  useEffect(() => { try { window.localStorage.setItem('helm:focus-enabled', focusEnabled ? 'on' : 'off'); } catch {} }, [focusEnabled]);
+  useEffect(() => { try { window.localStorage.setItem('helm:reorganize-enabled', reorganizeEnabled ? 'on' : 'off'); } catch {} }, [reorganizeEnabled]);
   const qc = useQueryClient();
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
