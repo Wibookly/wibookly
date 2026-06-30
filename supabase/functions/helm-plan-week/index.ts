@@ -340,6 +340,39 @@ Deno.serve(async (req) => {
   }> = [];
   const proposals: Proposal[] = [];
 
+  // Helper: find first free gap of `durationMin` between [searchStartH, searchEndH] given busy ranges.
+  function findGap(
+    busy: Array<[number, number]>,
+    searchStartH: number,
+    searchEndH: number,
+    durationMin: number,
+  ): { startMin: number; endMin: number } | null {
+    const startBound = searchStartH * 60;
+    const endBound = searchEndH * 60;
+    // Step in 15-min increments, snap to existing meeting boundaries first by sorting busy.
+    const sorted = [...busy].sort((a, b) => a[0] - b[0]);
+    // Build free intervals
+    const free: Array<[number, number]> = [];
+    let cursor = startBound;
+    for (const [a, b] of sorted) {
+      if (b <= startBound) continue;
+      if (a >= endBound) break;
+      const segA = Math.max(a, startBound);
+      const segB = Math.min(b, endBound);
+      if (segA > cursor) free.push([cursor, segA]);
+      cursor = Math.max(cursor, segB);
+    }
+    if (cursor < endBound) free.push([cursor, endBound]);
+    for (const [a, b] of free) {
+      // Snap candidate to 15-min grid within [a,b]
+      const candStart = Math.ceil(a / 15) * 15;
+      if (candStart + durationMin <= b) {
+        return { startMin: candStart, endMin: candStart + durationMin };
+      }
+    }
+    return null;
+  }
+
   for (let i = 0; i < 5; i++) {
     const dt = new Date(monday); dt.setDate(monday.getDate() + i);
     const weekdayNum = dt.getDay();
@@ -347,66 +380,87 @@ Deno.serve(async (req) => {
     const dayKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const weekdayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekdayNum];
 
-    // Target block at start of window
-    const blockStartH = winStart, blockStartM = 0;
-    const blockEnd = addMinutesToHourMin(blockStartH, blockStartM, blockMin);
-    const targetStart = makeLocalISO(dayKey, blockStartH, blockStartM);
-    const targetEnd = makeLocalISO(dayKey, blockEnd.h, blockEnd.m);
-
-    // Conflicts: events overlapping target block
     const dayEvents = events.filter(
       (e) => !e.is_cancelled && localDateKey(e.start) === dayKey,
     );
-    const overlaps = dayEvents.filter((e) => {
+    const busy: Array<[number, number]> = dayEvents.map((e) => {
       const s = localHourMin(e.start); const en = localHourMin(e.end);
-      const sMin = s.h * 60 + s.m, eMin = en.h * 60 + en.m;
-      const tS = blockStartH * 60 + blockStartM, tE = tS + blockMin;
-      return sMin < tE && eMin > tS;
+      return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
     });
 
-    if (overlaps.length === 0) {
+    // 1) Try preferred focus window first — find first free gap large enough.
+    let gap = findGap(busy, winStart, winEnd, blockMin);
+    // 2) If none, widen search to full workday 9-17.
+    if (!gap) gap = findGap(busy, 9, 17, blockMin);
+
+    if (gap) {
+      const sH = Math.floor(gap.startMin / 60), sM = gap.startMin % 60;
+      const eH = Math.floor(gap.endMin / 60), eM = gap.endMin % 60;
       focusBlocks.push({
         day_key: dayKey, weekday: weekdayName,
-        start: targetStart, end: targetEnd, state: "free", conflicts: [],
+        start: makeLocalISO(dayKey, sH, sM),
+        end: makeLocalISO(dayKey, eH, eM),
+        state: "free", conflicts: [],
       });
       continue;
     }
 
-    // Rank overlaps by "moveability" (lowest first)
+    // 3) No natural gap. For "focus" strategy → just mark blocked (no moves).
+    //    For "reorganize" strategy → propose moving the most moveable conflict.
+    const blockStartH = winStart, blockStartM = 0;
+    const blockEnd = addMinutesToHourMin(blockStartH, blockStartM, blockMin);
+    const targetStart = makeLocalISO(dayKey, blockStartH, blockStartM);
+    const targetEnd = makeLocalISO(dayKey, blockEnd.h, blockEnd.m);
+    const tS = blockStartH * 60 + blockStartM, tE = tS + blockMin;
+    const overlaps = dayEvents.filter((e) => {
+      const s = localHourMin(e.start); const en = localHourMin(e.end);
+      const sMin = s.h * 60 + s.m, eMin = en.h * 60 + en.m;
+      return sMin < tE && eMin > tS;
+    });
+    const conflictTitles = overlaps.map((e) => e.subject);
+
+    if (strategy !== "reorganize") {
+      focusBlocks.push({
+        day_key: dayKey, weekday: weekdayName,
+        start: targetStart, end: targetEnd,
+        state: "blocked", conflicts: conflictTitles,
+      });
+      continue;
+    }
+
+    // Reorganize: try to move one conflicting event into another free slot.
     const ranked = [...overlaps].sort((a, b) => moveScore(a, userEmail) - moveScore(b, userEmail));
-
-    const conflictTitles: string[] = [];
     const proposed: Proposal[] = [];
-
     for (const ev of ranked) {
-      conflictTitles.push(ev.subject);
       if (ev.sensitivity === "private" || ev.sensitivity === "confidential") continue;
-      // Find a new slot AFTER the window same day
       const dur =
         (localHourMin(ev.end).h * 60 + localHourMin(ev.end).m) -
         (localHourMin(ev.start).h * 60 + localHourMin(ev.start).m);
-      const newSlot = findFreeSlot(dayEvents, ev.id, winEnd, 17, dur, dayKey);
-      if (!newSlot) continue;
-
+      // Search the rest of the day excluding this event
+      const otherBusy: Array<[number, number]> = dayEvents
+        .filter((e) => e.id !== ev.id)
+        .map((e) => {
+          const s = localHourMin(e.start); const en = localHourMin(e.end);
+          return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
+        });
+      const slot = findGap(otherBusy, 9, 17, dur);
+      if (!slot) continue;
+      const sH = Math.floor(slot.startMin / 60), sM = slot.startMin % 60;
+      const eH = Math.floor(slot.endMin / 60), eM = slot.endMin % 60;
       const classification: "internal" | "external" = ev.is_external ? "external" : "internal";
       proposed.push({
-        id: `${ev.id}:${newSlot.start}`,
-        event_id: ev.id,
-        subject: ev.subject,
-        day_key: dayKey,
+        id: `${ev.id}:${makeLocalISO(dayKey, sH, sM)}`,
+        event_id: ev.id, subject: ev.subject, day_key: dayKey,
         old_start: ev.start, old_end: ev.end,
-        new_start: newSlot.start, new_end: newSlot.end,
-        is_external: ev.is_external,
-        is_organizer: ev.is_organizer,
-        attendees: ev.attendees,
-        organizer: ev.organizer,
+        new_start: makeLocalISO(dayKey, sH, sM),
+        new_end: makeLocalISO(dayKey, eH, eM),
+        is_external: ev.is_external, is_organizer: ev.is_organizer,
+        attendees: ev.attendees, organizer: ev.organizer,
         classification,
         reason: ev.is_external
-          ? "Has attendees outside your organization — needs your OK."
+          ? "Has external attendees — needs your OK."
           : "Internal meeting — moved automatically to open your focus block.",
       });
-
-      // Once we've freed enough room (one move usually does it for v1) stop
       break;
     }
 
