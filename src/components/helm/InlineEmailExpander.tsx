@@ -17,7 +17,8 @@ interface Item {
   sender_email?: string;
 }
 
-const RESHAPE_CHIPS = ['Shorter', 'More formal', 'Warmer', 'More firm', 'Bullet points'];
+type Addr = { name?: string; address?: string };
+const RESHAPE_CHIPS: string[] = []; // removed per executive request
 
 export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber' }: {
   item: Item;
