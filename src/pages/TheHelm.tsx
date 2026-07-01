@@ -2961,7 +2961,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       </CardHeader>
                       <CardContent className="space-y-2">
                         {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                        {!isLoading && evs.length === 0 && !(focusEnabled && focus && !dismissedFocus[focus.day_key]) && (
+                        {!isLoading && evs.length === 0 && (
                           <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
                         )}
                         {(() => {
