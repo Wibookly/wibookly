@@ -3020,6 +3020,32 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     onError: (e: any) => toast.error(e.message || 'Could not move event.'),
   });
 
+  const [manualMoves, setManualMoves] = useState<Record<string, CalendarMove>>({});
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ ev, dayKey, startMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number }) => {
+      const duration = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+      const nextStart = localIsoFromDayMinutes(dayKey, startMinutes);
+      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + duration);
+      setManualMoves((s) => ({ ...s, [ev.id]: { start: nextStart, end: nextEnd } }));
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'reschedule_event', event_id: ev.id, start: nextStart, end: nextEnd, subject: ev.subject },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return { eventId: ev.id, start: nextStart, end: nextEnd };
+    },
+    onSuccess: () => {
+      toast.success('Calendar updated.');
+      refetch();
+      qc.invalidateQueries({ queryKey: ['helm-week-preview'] });
+    },
+    onError: (e: any, vars) => {
+      setManualMoves((s) => { const n = { ...s }; delete n[vars.ev.id]; return n; });
+      toast.error(e.message || 'Could not reschedule event.');
+    },
+  });
+
   const days = useMemo(() => {
     const out: { date: Date; label: string; weekday: string; key: string }[] = [];
     for (let i = 0; i < 5; i++) {
@@ -3054,6 +3080,53 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     for (const b of planQuery.data?.focus_blocks ?? []) map[b.day_key] = b;
     return map;
   }, [planQuery.data]);
+
+  const currentGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) map[d.key] = [];
+    for (const ev of data?.events ?? []) {
+      const move = manualMoves[ev.id];
+      const displayStart = move?.start ?? ev.start;
+      const displayEnd = move?.end ?? ev.end;
+      const key = (displayStart ?? '').slice(0, 10);
+      if (!map[key]) continue;
+      map[key].push({ ...ev, displayStart, displayEnd, kind: 'none' });
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
+    }
+    return map;
+  }, [data?.events, days, manualMoves]);
+
+  const proposedGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) map[d.key] = [];
+    const appliedByEv: Record<string, Proposal> = {};
+    const pendingByEv: Record<string, Proposal> = {};
+    for (const p of planQuery.data?.applied ?? []) appliedByEv[p.event_id] = p;
+    for (const p of planQuery.data?.pending_external ?? []) pendingByEv[p.event_id] = p;
+    for (const ev of data?.events ?? []) {
+      const ap = appliedByEv[ev.id];
+      const pd = pendingByEv[ev.id];
+      const proposal = ap || pd;
+      const displayStart = proposal ? proposal.new_start : ev.start;
+      const displayEnd = proposal ? proposal.new_end : ev.end;
+      const key = (displayStart ?? '').slice(0, 10);
+      if (!map[key]) continue;
+      map[key].push({
+        ...ev,
+        displayStart,
+        displayEnd,
+        proposal,
+        kind: ap ? 'applied' : pd ? 'pending' : 'none',
+        dismissed: proposal ? dismissed[proposal.id] : false,
+      });
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
+    }
+    return map;
+  }, [data?.events, days, planQuery.data, dismissed]);
 
   const shiftWeek = (delta: number) => {
     const d = new Date(weekStart);
