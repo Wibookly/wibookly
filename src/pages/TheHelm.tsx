@@ -841,11 +841,18 @@ function chipTone(label: string): string {
   return 'default';
 }
 
-function BriefHeroStat({ value, label }: { value: number | string; label: string }) {
+function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | string; label: string; tone?: 'neutral' | 'focus' | 'risk' | 'ok' }) {
+  const toneStyle: Record<string, { value: string; label: string; chip: string }> = {
+    neutral: { value: '#FFFFFF',           label: 'rgba(255,255,255,0.85)', chip: 'rgba(255,255,255,0.12)' },
+    focus:   { value: '#BAE6FD',           label: 'rgba(186,230,253,0.9)',  chip: 'rgba(56,189,248,0.18)' },
+    risk:    { value: '#FCA5A5',           label: 'rgba(252,165,165,0.9)',  chip: 'rgba(248,113,113,0.18)' },
+    ok:      { value: '#86EFAC',           label: 'rgba(134,239,172,0.9)',  chip: 'rgba(74,222,128,0.18)' },
+  };
+  const t = toneStyle[tone];
   return (
-    <div className="helm-brief-hero-stat">
-      <div className="text-2xl md:text-3xl font-bold tabular-nums leading-none text-primary-foreground">{value}</div>
-      <div className="mt-1 text-[10px] font-mono tracking-wide text-primary-foreground/80">{label}</div>
+    <div className="helm-brief-hero-stat" style={{ background: t.chip }}>
+      <div className="text-2xl md:text-4xl font-serif font-bold tabular-nums leading-none tracking-tight" style={{ color: t.value, fontFamily: '"Playfair Display", Georgia, serif' }}>{value}</div>
+      <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: t.label }}>{label}</div>
     </div>
   );
 }
