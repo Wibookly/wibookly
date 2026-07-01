@@ -698,6 +698,17 @@ function moveScore(e: ShapedEvent, userEmail: string): number {
   return s;
 }
 
+function isFocusEventLike(e: { subject?: unknown; categories?: unknown }): boolean {
+  const subject = String(e?.subject ?? "").toLowerCase();
+  const categories = Array.isArray(e?.categories)
+    ? e.categories.map((c) => String(c).toLowerCase())
+    : [];
+  return (
+    /\b(focus|focus time|focus block|deep work|heads[-\s]?down|protected work|quiet work)\b/i.test(subject) ||
+    categories.some((c) => /\bfocus\b/i.test(c))
+  );
+}
+
 function findFreeSlot(
   dayEvents: ShapedEvent[],
   excludeId: string,
