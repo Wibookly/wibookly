@@ -219,6 +219,22 @@ Deno.serve(async (req) => {
     const start = String(body?.start ?? "");
     const end = String(body?.end ?? "");
     if (!dayKey || !start || !end) return json(400, { error: "missing_focus_args" });
+    // Server-side dedupe: refuse a second focus block on the same day.
+    try {
+      const dayStart = `${dayKey}T00:00:00`;
+      const dayEnd = `${dayKey}T23:59:59`;
+      const existing = await callGraph<any>(
+        userId, connectionId!, "mail",
+        `/me/calendarView?startDateTime=${dayStart}&endDateTime=${dayEnd}&$select=id,subject,categories&$top=50`,
+      );
+      if (existing.ok && Array.isArray(existing.data?.value)) {
+        const dup = existing.data.value.find((e: any) =>
+          /focus block/i.test(String(e?.subject ?? "")) ||
+          (Array.isArray(e?.categories) && e.categories.some((c: string) => /focus/i.test(String(c)))),
+        );
+        if (dup) return json(200, { ok: true, skipped: "duplicate_focus_block", event_id: dup.id });
+      }
+    } catch { /* non-fatal; fall through to create */ }
     const created = await callGraph<any>(userId, connectionId!, "mail", `/me/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
