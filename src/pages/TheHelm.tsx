@@ -2796,6 +2796,8 @@ function CalendarWeekGrid({
               setHover(null);
             }}
           >
+            <div className="helm-calendar-offhours-band" style={{ top: 0, height: `${CAL_OFFHOURS_TOP_HEIGHT}px` }} aria-hidden />
+            <div className="helm-calendar-offhours-band" style={{ top: `${CAL_OFFHOURS_BOTTOM_TOP}px`, height: `${CAL_OFFHOURS_BOTTOM_HEIGHT}px` }} aria-hidden />
             {hours.slice(0, -1).map((h) => <div key={h} className="helm-calendar-hour-line" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }} />)}
             {hover?.dayKey === d.key && (
               <div className="helm-calendar-drop-line" style={{ top: `${(hover.minutes - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px` }}>
