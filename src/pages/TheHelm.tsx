@@ -2585,6 +2585,7 @@ interface CalEvent {
   subject: string;
   start: string | null;
   end: string | null;
+  categories?: string[];
   time_zone: string;
   organizer: { name: string; email: string };
   attendees: Array<{ name: string; email: string; type: string; response: string }>;
@@ -2622,7 +2623,7 @@ type FocusBlock = {
   weekday: string;
   start: string;
   end: string;
-  state: 'free' | 'needs_move' | 'blocked';
+  state: 'free' | 'needs_move' | 'blocked' | 'exists';
   conflicts: string[];
 };
 
@@ -2899,6 +2900,15 @@ function eventDurationMinutes(start: string | null, end: string | null): number 
   return Math.max(15, Math.min(240, e - s));
 }
 
+function isCalendarFocusEvent(ev: Pick<CalEvent, 'subject'> & { categories?: string[] }) {
+  const subject = String(ev.subject ?? '').toLowerCase();
+  const categories = Array.isArray(ev.categories) ? ev.categories.map((c) => String(c).toLowerCase()) : [];
+  return (
+    /\b(focus|focus time|focus block|deep work|heads[-\s]?down|protected work|quiet work)\b/i.test(subject) ||
+    categories.some((c) => /\bfocus\b/i.test(c))
+  );
+}
+
 function roundToSlot(minutes: number): number {
   return Math.round(minutes / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES;
 }
@@ -3029,7 +3039,7 @@ function CalendarWeekGrid({
           }
         }
         const focus = focusByDay?.[d.key];
-        const showFocus = focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const showFocus = focusEnabled && focus && focus.state !== 'exists' && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
         return (
           <div
