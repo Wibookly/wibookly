@@ -36,6 +36,7 @@ const WINDOWS: Record<string, [number, number]> = {
   morning: [9, 12],
   afternoon: [13, 17],
 };
+const ALLOWED_BLOCK_MINUTES = new Set([30, 45, 60, 90, 120]);
 
 async function callLLM(userId: string, system: string, user: string): Promise<string> {
   try {
@@ -311,7 +312,9 @@ Deno.serve(async (req) => {
   const strategy = (body?.strategy as string) === "reorganize" ? "reorganize" : "focus";
   // ============ Mode: analyze ============
 
-  // 1) Load focus rule (insert default if missing)
+  // 1) Load focus rule (insert default if missing), then apply any fresh UI
+  // override before planning so duration changes affect the calendar on the
+  // same request and are persisted in the database.
   let { data: rule } = await admin
     .from("helm_focus_rules")
     .select("*")
@@ -325,7 +328,7 @@ Deno.serve(async (req) => {
         organization_id: orgId,
         focus_days: ["tue", "thu"],
         focus_window: "morning",
-        block_minutes: 90,
+          block_minutes: 30,
         autonomy: "auto_internal_ask_external",
         auto_reply_categories: [],
       })
@@ -334,8 +337,38 @@ Deno.serve(async (req) => {
     rule = created!;
   }
 
+  const override = body?.rule_override && typeof body.rule_override === "object" ? body.rule_override : null;
+  if (override) {
+    const nextRule = {
+      focus_days: Array.isArray(override.focus_days)
+        ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
+        : rule.focus_days,
+      focus_window: override.focus_window === "afternoon" || override.focus_window === "morning"
+        ? override.focus_window
+        : rule.focus_window,
+      block_minutes: ALLOWED_BLOCK_MINUTES.has(Number(override.block_minutes))
+        ? Number(override.block_minutes)
+        : rule.block_minutes,
+      autonomy: ["ask_all", "auto_internal_ask_external", "auto_all"].includes(String(override.autonomy))
+        ? String(override.autonomy)
+        : rule.autonomy,
+    };
+    const { data: saved, error: saveErr } = await admin
+      .from("helm_focus_rules")
+      .upsert({
+        user_id: userId,
+        organization_id: orgId,
+        ...nextRule,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" })
+      .select("*")
+      .single();
+    if (saveErr) return json(500, { error: "focus_rule_save_failed", details: saveErr.message });
+    rule = saved!;
+  }
+
   const focusDays: number[] = (rule.focus_days ?? []).map((d: string) => DAY_MAP[d.toLowerCase()]).filter(Boolean);
-  const blockMin: number = rule.block_minutes ?? 90;
+  const blockMin: number = ALLOWED_BLOCK_MINUTES.has(Number(rule.block_minutes)) ? Number(rule.block_minutes) : 30;
   const [winStart, winEnd] = WINDOWS[rule.focus_window] ?? WINDOWS.morning;
   const autonomy: string = rule.autonomy ?? "auto_internal_ask_external";
 

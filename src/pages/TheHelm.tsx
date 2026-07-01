@@ -2662,9 +2662,11 @@ const DAY_CHIPS: { id: string; label: string }[] = [
 const DEFAULT_RULE: FocusRule = {
   focus_days: ['tue', 'thu'],
   focus_window: 'morning',
-  block_minutes: 90,
+  block_minutes: 30,
   autonomy: 'auto_internal_ask_external',
 };
+
+const FOCUS_BLOCK_LENGTHS = [30, 45, 60, 90, 120] as const;
 
 const AUTONOMY_LABEL: Record<FocusRule['autonomy'], string> = {
   ask_all: 'Ask me before moving anything',
@@ -2728,7 +2730,7 @@ function FocusRulesCard({
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Block length</p>
             <div className="flex gap-2">
-              {[60, 90, 120].map((m) => (
+              {FOCUS_BLOCK_LENGTHS.map((m) => (
                 <button
                   key={m}
                   onClick={() => onChange({ ...rule, block_minutes: m })}
@@ -2832,7 +2834,7 @@ function FocusRulesCompact({
             onChange={(e) => onChange({ ...rule, block_minutes: Number(e.target.value) })}
             className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
           >
-            {[30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m}m</option>)}
+            {FOCUS_BLOCK_LENGTHS.map((m) => <option key={m} value={m}>{m}m</option>)}
           </select>
         </div>
         <div className="flex items-center gap-1">
@@ -3051,10 +3053,12 @@ function CalendarWeekGrid({
               const duration = eventDurationMinutes(focus.start, focus.end);
               return (
                 <div
+                  data-focus-duration-minutes={duration}
+                  data-short={duration <= 30 ? 'true' : 'false'}
                   className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
                   style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, height: `${Math.max(15 * CAL_PX_PER_MINUTE, duration * CAL_PX_PER_MINUTE)}px` }}
                 >
-                  <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block</div>
+                  <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground">{duration}m</span></div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {focus.state === 'free' && 'Approve to push to your calendar.'}
@@ -3217,7 +3221,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     })();
   }, []);
 
-  // Plan query — debounced via key
+  // Plan query — debounced via key. The selected rule is also sent to the
+  // backend so the proposed calendar recalculates from the latest duration
+  // immediately instead of waiting on a separate settings read.
   const [debouncedRule, setDebouncedRule] = useState(rule);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedRule(rule), 600);
@@ -3228,28 +3234,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     enabled: ruleLoaded && autoFocusOn,
     queryKey: ['helm-plan', weekStart.toISOString(), strategy, JSON.stringify(debouncedRule)],
     queryFn: async () => {
-      // Save the rule first
-      const { data: u } = await supabase.auth.getUser();
-      if (u?.user) {
-        const { data: conn } = await supabase
-          .from('provider_connections')
-          .select('organization_id')
-          .eq('user_id', u.user.id)
-          .eq('provider', 'outlook')
-          .eq('is_connected', true)
-          .order('connected_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (conn?.organization_id) {
-          await supabase.from('helm_focus_rules').upsert({
-            user_id: u.user.id,
-            organization_id: conn.organization_id,
-            ...debouncedRule,
-          });
-        }
-      }
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
-        body: { mode: 'analyze', week_start: weekStart.toISOString(), strategy },
+        body: { mode: 'analyze', week_start: weekStart.toISOString(), strategy, rule_override: debouncedRule },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -3483,6 +3469,14 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
               {focusEnabled && (
                 <div className="mt-3 pt-3 border-t border-border/40">
                   <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">
+                      Database saved: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                    </span>
+                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
+                      Proposed calendar using: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -3616,6 +3610,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       ? 'Analyzing your week…'
                       : `${(planQuery.data?.applied?.length ?? 0)} auto · ${(planQuery.data?.pending_external?.length ?? 0)} need OK`}
                   </span>
+                  <Badge variant="outline" className="text-[10px] border-primary/35 bg-primary/10 text-primary">
+                    Focus {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                  </Badge>
                   <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
                 </div>
               </button>
