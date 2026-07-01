@@ -3099,7 +3099,48 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                          {proposed.length === 0 && (
+                          {(() => {
+                            const focus = focusByDay[d.key];
+                            if (!focusEnabled || !focus || dismissedFocus[focus.day_key] || appliedFocus[focus.day_key]) return null;
+                            return (
+                              <div
+                                className={cn(
+                                  'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
+                                  focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
+                                  focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
+                                  focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
+                                )}
+                              >
+                                <div className="flex items-center gap-1 font-semibold text-foreground">
+                                  <Zap className="w-3 h-3" /> Focus block
+                                </div>
+                                <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {focus.state === 'free' && 'Approve to push to your Outlook calendar.'}
+                                  {focus.state === 'needs_move' && 'Needs to move a meeting — see moves below.'}
+                                  {focus.state === 'blocked' && 'No space — try a different day.'}
+                                </p>
+                                {focus.state === 'free' && (
+                                  <div className="flex gap-1.5 mt-1.5">
+                                    <button
+                                      disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
+                                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                                    >
+                                      {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
+                                    </button>
+                                    <button
+                                      onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                                      className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {proposed.length === 0 && !focusByDay[d.key] && (
                             <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
                           )}
                           {proposed.map(({ ev, proposal, kind, displayStart }) => {
