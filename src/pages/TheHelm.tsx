@@ -852,18 +852,23 @@ function chipTone(label: string): string {
   return 'default';
 }
 
-function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | string; label: string; tone?: 'neutral' | 'focus' | 'risk' | 'ok' }) {
-  const toneStyle: Record<string, { value: string; label: string; chip: string }> = {
-    neutral: { value: '#FFFFFF',           label: 'rgba(255,255,255,0.85)', chip: 'rgba(255,255,255,0.12)' },
-    focus:   { value: '#BAE6FD',           label: 'rgba(186,230,253,0.9)',  chip: 'rgba(56,189,248,0.18)' },
-    risk:    { value: '#FCA5A5',           label: 'rgba(252,165,165,0.9)',  chip: 'rgba(248,113,113,0.18)' },
-    ok:      { value: '#86EFAC',           label: 'rgba(134,239,172,0.9)',  chip: 'rgba(74,222,128,0.18)' },
+function BriefHeroStat({ value, label, tone = 'neutral', icon: Icon }: { value: number | string; label: string; tone?: 'neutral' | 'focus' | 'risk' | 'ok'; icon?: React.ComponentType<{ className?: string }> }) {
+  const toneStyle: Record<string, { value: string; label: string; iconBg: string }> = {
+    neutral: { value: '#FFFFFF', label: 'rgba(255,255,255,0.88)', iconBg: 'rgba(255,255,255,0.18)' },
+    focus:   { value: '#BAE6FD', label: 'rgba(186,230,253,0.95)', iconBg: 'rgba(56,189,248,0.28)' },
+    risk:    { value: '#FCA5A5', label: 'rgba(252,165,165,0.95)', iconBg: 'rgba(248,113,113,0.28)' },
+    ok:      { value: '#86EFAC', label: 'rgba(134,239,172,0.95)', iconBg: 'rgba(74,222,128,0.28)' },
   };
   const t = toneStyle[tone];
   return (
-    <div className="helm-brief-hero-stat" style={{ background: t.chip }}>
-      <div className="text-2xl md:text-4xl font-extrabold tabular-nums leading-none" style={{ color: t.value }}>{value}</div>
-      <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: t.label }}>{label}</div>
+    <div className="helm-brief-hero-stat">
+      {Icon && (
+        <span className="helm-brief-hero-stat-icon" style={{ background: t.iconBg }}>
+          <Icon className="w-3.5 h-3.5" />
+        </span>
+      )}
+      <div className="text-3xl md:text-[2.75rem] font-black tabular-nums leading-none tracking-tight" style={{ color: t.value, textShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>{value}</div>
+      <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: t.label }}>{label}</div>
     </div>
   );
 }
@@ -871,9 +876,9 @@ function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | str
 function BriefHeroStats({ tasks, focusMinutes, atRisk }: { tasks: number; focusMinutes: number; atRisk: number }) {
   return (
     <div className="helm-brief-hero-stats" aria-label="Today summary">
-      <BriefHeroStat value={tasks} label="Priority tasks" tone="neutral" />
-      <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
-      <BriefHeroStat value={atRisk} label="At risk" tone="risk" />
+      <BriefHeroStat value={tasks} label="Priority tasks" tone="neutral" icon={Target} />
+      <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" icon={Clock} />
+      <BriefHeroStat value={atRisk} label="At risk" tone="risk" icon={AlertTriangle} />
     </div>
   );
 }
