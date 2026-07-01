@@ -430,29 +430,35 @@ Deno.serve(async (req) => {
     return null;
   }
 
+  // Track days already carrying a focus block so we don't double-place when bumping.
+  const usedDayKeys = new Set<string>();
+  // Helper: find gap on a specific dt (Date) — returns null if none.
+  const gapForDate = (dt: Date) => {
+    const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+    const dayEvs = events.filter((e) => !e.is_cancelled && localDateKey(e.start) === dk);
+    const busy: Array<[number, number]> = dayEvs.map((e) => {
+      const s = localHourMin(e.start); const en = localHourMin(e.end);
+      return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
+    });
+    let g = findGap(busy, winStart, winEnd, blockMin);
+    if (!g) g = findGap(busy, 9, 17, blockMin);
+    return { dk, dayEvs, busy, gap: g };
+  };
+
   for (let i = 0; i < 5; i++) {
     const dt = new Date(monday); dt.setDate(monday.getDate() + i);
     const weekdayNum = dt.getDay();
     if (!focusDays.includes(weekdayNum)) continue;
     const dayKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const weekdayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekdayNum];
+    if (usedDayKeys.has(dayKey)) continue;
 
-    const dayEvents = events.filter(
-      (e) => !e.is_cancelled && localDateKey(e.start) === dayKey,
-    );
-    const busy: Array<[number, number]> = dayEvents.map((e) => {
-      const s = localHourMin(e.start); const en = localHourMin(e.end);
-      return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
-    });
-
-    // 1) Try preferred focus window first — find first free gap large enough.
-    let gap = findGap(busy, winStart, winEnd, blockMin);
-    // 2) If none, widen search to full workday 9-17.
-    if (!gap) gap = findGap(busy, 9, 17, blockMin);
+    const { dayEvs: dayEvents, gap } = gapForDate(dt);
 
     if (gap) {
       const sH = Math.floor(gap.startMin / 60), sM = gap.startMin % 60;
       const eH = Math.floor(gap.endMin / 60), eM = gap.endMin % 60;
+      usedDayKeys.add(dayKey);
       focusBlocks.push({
         day_key: dayKey, weekday: weekdayName,
         start: makeLocalISO(dayKey, sH, sM),
@@ -460,6 +466,31 @@ Deno.serve(async (req) => {
         state: "free", conflicts: [],
       });
       continue;
+    }
+
+    // No gap on preferred day — try bumping forward to any subsequent weekday this week.
+    if (strategy !== "reorganize") {
+      let bumped = false;
+      for (let j = i + 1; j < 5; j++) {
+        const dt2 = new Date(monday); dt2.setDate(monday.getDate() + j);
+        const dk2 = `${dt2.getFullYear()}-${String(dt2.getMonth()+1).padStart(2,"0")}-${String(dt2.getDate()).padStart(2,"0")}`;
+        if (usedDayKeys.has(dk2)) continue;
+        const { gap: g2 } = gapForDate(dt2);
+        if (!g2) continue;
+        const sH = Math.floor(g2.startMin / 60), sM = g2.startMin % 60;
+        const eH = Math.floor(g2.endMin / 60), eM = g2.endMin % 60;
+        usedDayKeys.add(dk2);
+        focusBlocks.push({
+          day_key: dk2,
+          weekday: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt2.getDay()],
+          start: makeLocalISO(dk2, sH, sM),
+          end: makeLocalISO(dk2, eH, eM),
+          state: "free", conflicts: [`Bumped from ${weekdayName} — no open ${blockMin}-min gap.`],
+        });
+        bumped = true;
+        break;
+      }
+      if (bumped) continue;
     }
 
     // 3) No natural gap. For "focus" strategy → just mark blocked (no moves).
