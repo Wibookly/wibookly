@@ -1004,8 +1004,9 @@ function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet', onPr
   );
 }
 
-function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote, onDisregard, promotedIds }: {
+function BriefSignalCard({ title, subtitle, items, tone, icon: Icon, emptyText, onPromote, onDisregard, promotedIds }: {
   title: string;
+  subtitle?: string;
   items: Array<HelmItem | AutoAction>;
   tone: 'risk' | 'win';
   icon: React.ElementType;
@@ -1020,26 +1021,54 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote,
   const INITIAL = 5;
   const visible = showAll ? items : items.slice(0, INITIAL);
   const accent = tone === 'risk' ? 'rose' : 'emerald';
+  const hasMore = items.length > INITIAL;
+  const autoActionMeaning = (tag: string): string => {
+    switch (tag) {
+      case 'Sent': return 'AI already sent a reply on your behalf. Review to confirm tone.';
+      case 'Routed': return 'AI forwarded/routed this to the right teammate.';
+      case 'Filed': return 'AI filed this into a folder — no reply needed.';
+      case 'Booked': return 'AI booked this as a meeting on your calendar.';
+      case 'Done': return 'AI closed this out — nothing else required from you.';
+      default: return 'Automated action completed by your AI.';
+    }
+  };
   return (
     <div className="helm-signal-card" data-tone={tone}>
       <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <Icon className="w-4 h-4" /> {title}
-          <span className={cn(
-            'px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold',
-            tone === 'risk' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
-          )}>{items.length} item{items.length === 1 ? '' : 's'}</span>
-        </h3>
-        <button
-          type="button"
-          onClick={() => setCollapsed((v) => !v)}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-          aria-label={collapsed ? 'Expand tile' : 'Collapse tile'}
-          title={collapsed ? 'Expand tile' : 'Collapse tile'}
-        >
-          {collapsed ? 'Expand' : 'Collapse'}
-          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', collapsed && '-rotate-90')} />
-        </button>
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Icon className="w-4 h-4" /> {title}
+            <span className={cn(
+              'px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold',
+              tone === 'risk' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+            )}>{items.length} item{items.length === 1 ? '' : 's'}</span>
+          </h3>
+          {subtitle && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{subtitle}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {hasMore && !collapsed && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
+              {showAll ? 'Show fewer' : `Show all ${items.length}`}
+              <ChevronDown className={cn('w-3 h-3 transition-transform', showAll && 'rotate-180')} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            aria-label={collapsed ? 'Expand tile' : 'Collapse tile'}
+            title={collapsed ? 'Expand tile' : 'Collapse tile'}
+          >
+            {collapsed ? 'Expand' : 'Collapse'}
+            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', collapsed && '-rotate-90')} />
+          </button>
+        </div>
       </div>
       {collapsed ? null : items.length === 0 ? (
         <p className="mt-3 text-[12px] text-muted-foreground">{emptyText}</p>
@@ -1049,7 +1078,7 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote,
             {visible.map((raw) => {
               const isAction = 'text' in raw;
               const line = isAction ? raw.text : raw.title;
-              const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
+              const sub = isAction ? autoActionMeaning((raw as AutoAction).tag) : (raw.context || raw.due || 'Open for details');
               const isOpen = openId === raw.id;
               const helmItem = !isAction ? (raw as HelmItem) : null;
               return (
@@ -1064,12 +1093,12 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote,
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2 min-w-0">
-                        <span className="text-[13px] font-bold text-foreground truncate">{isAction ? 'AI action' : ((raw as HelmItem).sender || 'Unknown sender')}</span>
+                        <span className="text-[13px] font-bold text-foreground truncate">{isAction ? `AI · ${(raw as AutoAction).tag}` : ((raw as HelmItem).sender || 'Unknown sender')}</span>
                         <span className="text-[11px] text-muted-foreground shrink-0">· {isAction ? (raw as AutoAction).time : briefTime(raw as HelmItem)}</span>
                       </span>
                       <span className="block text-[13px] font-semibold text-foreground leading-snug truncate">{line}</span>
-                      <span className="mt-1 block text-[12px] text-muted-foreground whitespace-normal line-clamp-3 leading-snug">
-                        <span className="text-foreground/70 font-semibold">Summary:</span> {sub || 'Open for details.'}
+                      <span className="mt-1 block text-[12px] text-muted-foreground whitespace-normal line-clamp-4 leading-snug">
+                        <span className="text-foreground/70 font-semibold">{isAction ? 'What AI did:' : 'AI summary:'}</span> {sub || 'Open for details.'}
                       </span>
                     </span>
                     <HelmRowActions
@@ -1088,16 +1117,22 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote,
                     </div>
                   )}
                   {isOpen && isAction && (
-                    <div className="px-4 pb-4 text-[12px] text-muted-foreground">
-                      <p><span className="font-semibold text-foreground">Category:</span> {(raw as AutoAction).tag}</p>
-                      <p className="mt-1">{(raw as AutoAction).text}</p>
+                    <div className="px-4 pb-4 space-y-2 text-[12px]">
+                      <div className="rounded-md border border-border/60 bg-muted/40 p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="helm-brief-chip" data-tone="default">{(raw as AutoAction).tag}</span>
+                          <span className="text-muted-foreground">{(raw as AutoAction).time}</span>
+                        </div>
+                        <p className="text-foreground/90 font-medium">{(raw as AutoAction).text}</p>
+                        <p className="mt-2 text-muted-foreground leading-snug">{autoActionMeaning((raw as AutoAction).tag)}</p>
+                      </div>
                     </div>
                   )}
                 </li>
               );
             })}
           </ul>
-          {items.length > INITIAL && (
+          {hasMore && (
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
