@@ -3387,15 +3387,32 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     return map;
   }, [planQuery.data]);
 
+  const duplicateFocusDays = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ev of data?.events ?? []) {
+      if (ev.is_cancelled || !ev.start || !isCalendarFocusEvent(ev)) continue;
+      const dayKey = ev.start.slice(0, 10);
+      counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .map(([dayKey, count]) => ({ dayKey, count }));
+  }, [data?.events]);
+
   const currentGridByDay = useMemo(() => {
     const map: Record<string, CalendarGridEvent[]> = {};
     for (const d of days) map[d.key] = [];
+    const shownFocusByDay = new Set<string>();
     for (const ev of data?.events ?? []) {
       const move = manualMoves[ev.id];
       const displayStart = move?.start ?? ev.start;
       const displayEnd = move?.end ?? ev.end;
       const key = (displayStart ?? '').slice(0, 10);
       if (!map[key]) continue;
+      if (isCalendarFocusEvent(ev)) {
+        if (shownFocusByDay.has(key)) continue;
+        shownFocusByDay.add(key);
+      }
       map[key].push({ ...ev, displayStart, displayEnd, kind: 'none' });
     }
     for (const key of Object.keys(map)) {
