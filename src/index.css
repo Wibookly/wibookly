@@ -1000,9 +1000,11 @@
 .helm-calendar-day-head,
 .helm-calendar-time-gutter,
 .helm-calendar-day-column {
-  border: 2px solid var(--border-strong);
+  border: 2px solid color-mix(in srgb, var(--primary) 22%, var(--border-strong));
   background: var(--surface-elevated);
-  box-shadow: 0 12px 28px -22px color-mix(in srgb, var(--primary) 70%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--primary) 12%, transparent) inset,
+    0 12px 28px -22px color-mix(in srgb, var(--primary) 70%, transparent);
 }
 .helm-calendar-time-head,
 .helm-calendar-day-head {
