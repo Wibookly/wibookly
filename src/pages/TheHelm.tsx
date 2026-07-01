@@ -1591,7 +1591,7 @@ function BriefView({
         />
       </section>
 
-      <section className="helm-brief-panel" data-helm-section="email-highlights">
+      <section className="helm-brief-panel" data-accent="violet" data-helm-section="email-highlights">
         <div className="helm-panel-head">
           <div className="flex items-baseline gap-2 min-w-0">
             <h2 className="text-sm font-bold text-foreground">Email highlights</h2>
