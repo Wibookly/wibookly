@@ -393,7 +393,7 @@ Deno.serve(async (req) => {
 
   const select = [
     "id","subject","start","end","organizer","attendees","isOrganizer",
-    "type","isCancelled","sensitivity",
+    "type","isCancelled","sensitivity","categories",
   ].join(",");
   const endpoint =
     `/me/calendarView?startDateTime=${encodeURIComponent(monday.toISOString())}` +
@@ -420,6 +420,7 @@ Deno.serve(async (req) => {
       subject: e.subject ?? "(no subject)",
       start: e.start?.dateTime ?? "",
       end: e.end?.dateTime ?? "",
+      categories: Array.isArray(e.categories) ? e.categories.map((c: unknown) => String(c)) : [],
       organizer: {
         name: e.organizer?.emailAddress?.name ?? "",
         email: (e.organizer?.emailAddress?.address ?? "").toLowerCase(),
@@ -439,7 +440,7 @@ Deno.serve(async (req) => {
     weekday: string;
     start: string;
     end: string;
-    state: "free" | "needs_move" | "blocked";
+    state: "free" | "needs_move" | "blocked" | "exists";
     conflicts: string[];
   }> = [];
   const proposals: Proposal[] = [];
