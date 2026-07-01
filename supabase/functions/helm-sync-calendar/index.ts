@@ -42,6 +42,7 @@ type GraphEvent = {
   isCancelled?: boolean;
   webLink?: string;
   sensitivity?: string;
+  categories?: string[];
   location?: { displayName?: string };
   bodyPreview?: string;
   onlineMeeting?: { joinUrl?: string };
@@ -149,7 +150,7 @@ Deno.serve(async (req) => {
   const selectFields = [
     "id", "subject", "start", "end", "organizer", "attendees",
     "isOrganizer", "type", "seriesMasterId", "isCancelled",
-    "webLink", "sensitivity", "location", "bodyPreview", "onlineMeeting",
+    "webLink", "sensitivity", "categories", "location", "bodyPreview", "onlineMeeting",
   ].join(",");
 
   const endpoint =
@@ -210,6 +211,7 @@ Deno.serve(async (req) => {
       is_cancelled: !!e.isCancelled,
       web_link: e.webLink ?? null,
       sensitivity: e.sensitivity ?? "normal",
+      categories: Array.isArray(e.categories) ? e.categories : [],
       location: e.location?.displayName ?? "",
       body_preview: e.bodyPreview ?? "",
       join_url: e.onlineMeeting?.joinUrl ?? null,
