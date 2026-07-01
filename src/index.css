@@ -917,9 +917,13 @@
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
 .helm-calendar-scroll {
   width: 100%;
+  max-height: 640px;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding-bottom: .35rem;
+  border-radius: 1rem;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 .helm-calendar-grid {
   --helm-cal-col-min: 13rem;
