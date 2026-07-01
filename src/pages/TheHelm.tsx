@@ -2733,6 +2733,13 @@ function CalendarWeekGrid({
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [hover, setHover] = useState<{ dayKey: string; minutes: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const scroller = gridRef.current?.closest('.helm-calendar-scroll') as HTMLElement | null;
+    if (scroller) {
+      scroller.scrollTop = Math.max(0, CAL_OFFHOURS_TOP_HEIGHT - 12);
+    }
+  }, []);
   const hours = useMemo(() => {
     const out: number[] = [];
     for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) out.push(h);
