@@ -995,16 +995,20 @@ function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet', onPr
   );
 }
 
-function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
+function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote, onDisregard, promotedIds }: {
   title: string;
   items: Array<HelmItem | AutoAction>;
   tone: 'risk' | 'win';
   icon: React.ElementType;
   emptyText: string;
+  onPromote?: (id: string) => void;
+  onDisregard?: (id: string) => void;
+  promotedIds?: Set<string>;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const INITIAL = 6;
+  const [collapsed, setCollapsed] = useState(false);
+  const INITIAL = 5;
   const visible = showAll ? items : items.slice(0, INITIAL);
   const accent = tone === 'risk' ? 'rose' : 'emerald';
   return (
@@ -1017,8 +1021,18 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
             tone === 'risk' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
           )}>{items.length} item{items.length === 1 ? '' : 's'}</span>
         </h3>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          aria-label={collapsed ? 'Expand tile' : 'Collapse tile'}
+          title={collapsed ? 'Expand tile' : 'Collapse tile'}
+        >
+          {collapsed ? 'Expand' : 'Collapse'}
+          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', collapsed && '-rotate-90')} />
+        </button>
       </div>
-      {items.length === 0 ? (
+      {collapsed ? null : items.length === 0 ? (
         <p className="mt-3 text-[12px] text-muted-foreground">{emptyText}</p>
       ) : (
         <>
@@ -1028,6 +1042,7 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
               const line = isAction ? raw.text : raw.title;
               const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
               const isOpen = openId === raw.id;
+              const helmItem = !isAction ? (raw as HelmItem) : null;
               return (
                 <li key={raw.id} className="helm-highlight-row-wrap" data-open={isOpen ? 'true' : 'false'}>
                   <button
@@ -1048,10 +1063,15 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
                         <span className="text-foreground/70 font-semibold">Summary:</span> {sub || 'Open for details.'}
                       </span>
                     </span>
-                    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
-                      <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tone === 'risk' ? 'urgent' : 'default'}>{tone === 'risk' ? 'At risk' : 'Quick win'}</span>
-                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
-                    </span>
+                    <HelmRowActions
+                      outlookHref={helmItem ? helmOutlookLink(helmItem) : null}
+                      tagLabel={tone === 'risk' ? 'At risk' : 'Quick win'}
+                      tagTone={tone === 'risk' ? 'urgent' : 'default'}
+                      onPromote={helmItem && onPromote ? () => onPromote(helmItem.id) : undefined}
+                      onDisregard={helmItem && onDisregard ? () => onDisregard(helmItem.id) : undefined}
+                      isPromoted={helmItem ? promotedIds?.has(helmItem.id) : false}
+                      expanded={isOpen}
+                    />
                   </button>
                   {isOpen && !isAction && (
                     <div className="px-4 pb-4">
