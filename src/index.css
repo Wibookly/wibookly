@@ -508,16 +508,48 @@
   white-space: nowrap;
 }
 .helm-brief-hero {
+  --helm-hero-fg: #FFFFFF;
+  --helm-hero-muted: rgba(255,255,255,.86);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+  gap: clamp(1rem, 2vw, 1.75rem);
   align-items: center;
-  min-height: 9.5rem;
-  padding: clamp(1.25rem, 2.4vw, 2rem);
+  min-height: 8.75rem;
+  padding: clamp(1.15rem, 2.1vw, 1.75rem);
   border-radius: 1rem;
   background: var(--grad-feature);
   box-shadow: var(--shadow-lg);
 }
+.helm-brief-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--helm-hero-muted);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+}
+.helm-brief-hero-title {
+  margin-top: .8rem;
+  color: var(--helm-hero-fg) !important;
+  font-family: var(--font-sans) !important;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.helm-brief-hero-copy {
+  margin-top: .75rem;
+  max-width: 55rem;
+  color: var(--helm-hero-muted);
+  font-size: clamp(.92rem, 1.1vw, 1rem);
+  font-weight: 500;
+  line-height: 1.65;
+}
+.helm-brief-hero-copy strong { color: var(--helm-hero-fg); font-weight: 800; }
 .helm-brief-hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(4.25rem, 1fr));
@@ -881,6 +913,241 @@
 /* Drag affordance (reschedule wiring follows in next step) */
 .helm-cal-event[draggable="true"] { cursor: grab; }
 .helm-cal-event[draggable="true"]:active { cursor: grabbing; }
+
+/* ============== Helm calendar — time-grid drag/drop scheduler ============== */
+.helm-calendar-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: .35rem;
+}
+.helm-calendar-grid {
+  --helm-cal-col-min: 13rem;
+  display: grid;
+  grid-template-columns: 4.5rem repeat(5, minmax(var(--helm-cal-col-min), 1fr));
+  grid-template-rows: auto var(--helm-cal-height);
+  gap: .6rem;
+  min-width: 78rem;
+  overflow: visible;
+}
+.helm-calendar-grid-proposed {
+  --helm-proposed-accent: var(--c-violet);
+}
+.helm-calendar-time-head,
+.helm-calendar-day-head,
+.helm-calendar-time-gutter,
+.helm-calendar-day-column {
+  border: 2px solid var(--border-strong);
+  background: var(--surface-elevated);
+  box-shadow: 0 12px 28px -22px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+.helm-calendar-time-head,
+.helm-calendar-day-head {
+  min-height: 3.4rem;
+  border-radius: .85rem;
+}
+.helm-calendar-time-head {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, var(--surface-elevated)), var(--surface-elevated));
+}
+.helm-calendar-day-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  padding: .75rem .85rem;
+  overflow: hidden;
+}
+.helm-calendar-day-head::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--primary), var(--success), var(--warning), var(--danger));
+}
+.helm-calendar-grid-proposed .helm-calendar-day-head::before {
+  background: linear-gradient(90deg, var(--c-violet), var(--c-magenta), var(--primary));
+}
+.helm-calendar-day-head span {
+  color: var(--muted-foreground);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.helm-calendar-day-head strong {
+  color: var(--foreground);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.helm-calendar-day-head.is-today,
+.helm-calendar-day-column.is-today {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 24%, transparent), 0 14px 32px -18px color-mix(in srgb, var(--primary) 85%, transparent);
+}
+.helm-calendar-grid-proposed .helm-calendar-day-head,
+.helm-calendar-grid-proposed .helm-calendar-day-column {
+  border-color: color-mix(in srgb, var(--c-violet) 62%, var(--border-strong));
+  background: color-mix(in srgb, var(--c-violet) 7%, var(--surface-elevated));
+}
+.dark .helm-calendar-grid-proposed .helm-calendar-day-head,
+.dark .helm-calendar-grid-proposed .helm-calendar-day-column {
+  background: color-mix(in srgb, var(--c-violet) 12%, var(--surface-elevated));
+}
+.helm-calendar-time-gutter,
+.helm-calendar-day-column {
+  position: relative;
+  height: var(--helm-cal-height);
+  border-radius: .85rem;
+  overflow: hidden;
+}
+.helm-calendar-time-gutter {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(60px * 1.25 - 1px), color-mix(in srgb, var(--border-strong) 80%, transparent) calc(60px * 1.25));
+}
+.helm-calendar-time-label {
+  position: absolute;
+  right: .55rem;
+  transform: translateY(-50%);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.helm-calendar-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--border-strong) 86%, transparent);
+  z-index: 1;
+}
+.helm-calendar-hour-line::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 37px;
+  right: 0;
+  height: 1px;
+  border-top: 1px dashed color-mix(in srgb, var(--border-strong) 52%, transparent);
+}
+.helm-calendar-day-column.is-drop-target {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-elevated));
+}
+.helm-calendar-drop-line {
+  position: absolute;
+  left: .35rem;
+  right: .35rem;
+  height: 2px;
+  background: var(--primary);
+  z-index: 9;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.helm-calendar-drop-line span {
+  position: absolute;
+  right: .25rem;
+  top: -.85rem;
+  padding: .08rem .35rem;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  font-weight: 800;
+}
+.helm-calendar-empty {
+  position: absolute;
+  inset: 1rem;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: .78rem;
+  font-style: italic;
+  text-align: center;
+  z-index: 2;
+}
+.helm-calendar-event-card {
+  position: absolute;
+  left: .45rem;
+  right: .45rem;
+  z-index: 4;
+  overflow: hidden;
+  border: 1.5px solid var(--border-strong);
+  border-left: 5px solid var(--primary);
+  border-radius: .65rem;
+  background: var(--surface);
+  padding: .5rem .55rem;
+  box-shadow: 0 8px 22px -18px color-mix(in srgb, var(--primary) 85%, transparent), 0 1px 2px color-mix(in srgb, var(--border-strong) 70%, transparent);
+  cursor: grab;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.helm-calendar-event-card:active { cursor: grabbing; }
+.helm-calendar-event-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border-strong));
+  box-shadow: 0 12px 28px -16px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+.helm-calendar-event-card[data-external="true"] { border-left-color: var(--warning); }
+.helm-calendar-event-card.is-proposed { border-left-color: var(--c-violet); }
+.helm-calendar-event-card.is-applied {
+  border-color: color-mix(in srgb, var(--success) 75%, var(--border-strong));
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success-bg) 55%, var(--surface));
+}
+.helm-calendar-event-card.is-pending {
+  border-color: color-mix(in srgb, var(--warning) 75%, var(--border-strong));
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning-bg) 46%, var(--surface));
+}
+.helm-calendar-event-card.is-saving {
+  opacity: .72;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.helm-calendar-focus-card {
+  border-style: dashed;
+  border-left-style: solid;
+  z-index: 5;
+}
+.helm-calendar-focus-card.free {
+  border-color: var(--success);
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success-bg) 58%, var(--surface));
+}
+.helm-calendar-focus-card.needs_move {
+  border-color: var(--warning);
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning-bg) 50%, var(--surface));
+}
+.helm-calendar-focus-card.blocked {
+  border-color: var(--danger);
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 50%, var(--surface));
+}
+.helm-focus-approve-btn,
+.helm-focus-cancel-btn {
+  padding: .125rem .5rem;
+  border-radius: .25rem;
+  font-size: .625rem;
+  font-weight: 700;
+}
+.helm-focus-approve-btn {
+  background: var(--success);
+  color: var(--primary-foreground);
+}
+.helm-focus-approve-btn:hover { filter: brightness(.95); }
+.helm-focus-approve-btn:disabled { opacity: .6; }
+.helm-focus-cancel-btn {
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+.helm-focus-cancel-btn:hover { background: var(--muted); }
+
+@media (max-width: 1100px) {
+  .helm-calendar-grid {
+    min-width: 70rem;
+  }
+}
 
 
 

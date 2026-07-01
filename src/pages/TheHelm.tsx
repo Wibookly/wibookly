@@ -851,8 +851,18 @@ function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | str
   const t = toneStyle[tone];
   return (
     <div className="helm-brief-hero-stat" style={{ background: t.chip }}>
-      <div className="text-2xl md:text-4xl font-serif font-bold tabular-nums leading-none tracking-tight" style={{ color: t.value, fontFamily: '"Playfair Display", Georgia, serif' }}>{value}</div>
+      <div className="text-2xl md:text-4xl font-extrabold tabular-nums leading-none" style={{ color: t.value }}>{value}</div>
       <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: t.label }}>{label}</div>
+    </div>
+  );
+}
+
+function BriefHeroStats({ tasks, focusMinutes, atRisk }: { tasks: number; focusMinutes: number; atRisk: number }) {
+  return (
+    <div className="helm-brief-hero-stats" aria-label="Today summary">
+      <BriefHeroStat value={tasks} label="Priority tasks" tone="neutral" />
+      <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
+      <BriefHeroStat value={atRisk} label="At risk" tone="risk" />
     </div>
   );
 }
@@ -926,8 +936,8 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
   const accent = tone === 'risk' ? 'rose' : 'emerald';
   return (
     <div className="helm-signal-card" data-tone={tone}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[13px] font-bold text-foreground">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
           <Icon className="w-4 h-4" /> {title}
           <span className={cn(
             'px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold',
@@ -946,26 +956,37 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
               const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
               const isOpen = openId === raw.id;
               return (
-                <li key={raw.id}>
+                <li key={raw.id} className="helm-highlight-row-wrap" data-open={isOpen ? 'true' : 'false'}>
                   <button
                     type="button"
                     onClick={() => setOpenId(isOpen ? null : raw.id)}
-                    className="w-full grid grid-cols-[6px_minmax(0,1fr)_auto] gap-2 items-start py-2 px-1 text-left text-[12px] leading-snug hover:bg-muted/30 rounded-md transition-colors"
+                    className="helm-highlight-row items-start"
                   >
-                    <span className={cn('mt-1.5 w-1.5 h-1.5 rounded-full', tone === 'risk' ? 'bg-rose-500' : 'bg-emerald-500')} />
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-foreground truncate">{line}</span>
-                      <span className="block text-muted-foreground truncate">{sub}</span>
+                    <span className="helm-avatar mt-0.5" data-accent={tone === 'risk' ? '4' : '1'}>
+                      {isAction ? 'AI' : briefInitials(raw as HelmItem)}
                     </span>
-                    <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground mt-1 transition-transform', isOpen && 'rotate-180')} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-2 min-w-0">
+                        <span className="text-[13px] font-bold text-foreground truncate">{isAction ? 'AI action' : ((raw as HelmItem).sender || 'Unknown sender')}</span>
+                        <span className="text-[11px] text-muted-foreground shrink-0">· {isAction ? (raw as AutoAction).time : briefTime(raw as HelmItem)}</span>
+                      </span>
+                      <span className="block text-[13px] font-semibold text-foreground leading-snug truncate">{line}</span>
+                      <span className="mt-1 block text-[12px] text-muted-foreground whitespace-normal line-clamp-3 leading-snug">
+                        <span className="text-foreground/70 font-semibold">Summary:</span> {sub || 'Open for details.'}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
+                      <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tone === 'risk' ? 'urgent' : 'default'}>{tone === 'risk' ? 'At risk' : 'Quick win'}</span>
+                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+                    </span>
                   </button>
                   {isOpen && !isAction && (
-                    <div className="px-2 pb-3">
+                    <div className="px-4 pb-4">
                       <InlineEmailExpander item={raw as HelmItem} onClose={() => setOpenId(null)} accent={accent} showAiSummary />
                     </div>
                   )}
                   {isOpen && isAction && (
-                    <div className="px-3 pb-3 text-[12px] text-muted-foreground">
+                    <div className="px-4 pb-4 text-[12px] text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Category:</span> {(raw as AutoAction).tag}</p>
                       <p className="mt-1">{(raw as AutoAction).text}</p>
                     </div>
@@ -1251,16 +1272,17 @@ function BriefView({
   );
 
   const focusMinutes = Math.max(10, Math.min(90, stats.needsYou * 8 || 0));
-  const primaryTasks = useMemo(() => {
+  const allPrimaryTasks = useMemo(() => {
     const seen = new Set<string>();
     return [...big3, ...todayItems, ...decisions]
       .filter((item) => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
         return true;
-      })
-      .slice(0, 5);
+      });
   }, [big3, todayItems, decisions]);
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const primaryTasks = showAllTasks ? allPrimaryTasks : allPrimaryTasks.slice(0, 5);
   const emailHighlights = useMemo(() => {
     const q = search.trim().toLowerCase();
     const seen = new Set<string>();
@@ -1328,21 +1350,17 @@ function BriefView({
 
       <section aria-labelledby="helm-hero" data-helm-section="hero" className="helm-brief-hero">
         <div className="min-w-0">
-          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-primary-foreground/85">
+          <div className="helm-brief-hero-kicker">
             <Sparkles className="w-4 h-4" /> AI analysis · generated {nowTime}
           </div>
-          <h2 id="helm-hero" className="mt-4 text-3xl md:text-5xl font-bold text-primary-foreground leading-[1.05] tracking-tight" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
-            Good morning{name ? `, ${name}` : ''}.
+          <h2 id="helm-hero" className="helm-brief-hero-title">
+            {greeting}{name ? `, ${name}` : ''}.
           </h2>
-          <p className="mt-3 max-w-2xl text-sm md:text-base font-medium leading-relaxed text-primary-foreground/90">
-            Your executive brief for today: <strong className="text-white">{stats.totalInbound}</strong> inbox items reviewed, <strong className="text-white">{todayMeetings}</strong> meeting{todayMeetings === 1 ? '' : 's'} on the calendar, and roughly <strong className="text-white">{focusMinutes} minutes</strong> of high-leverage work identified.
+          <p className="helm-brief-hero-copy">
+            Executive brief: <strong>{stats.totalInbound}</strong> inbox items reviewed, <strong>{todayMeetings}</strong> meeting{todayMeetings === 1 ? '' : 's'} on the calendar, and <strong>{focusMinutes} minutes</strong> of high-leverage work identified.
           </p>
         </div>
-        <div className="helm-brief-hero-stats">
-          <BriefHeroStat value={primaryTasks.length} label="Priority tasks" tone="neutral" />
-          <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
-          <BriefHeroStat value={overdue.length} label="At risk" tone="risk" />
-        </div>
+        <BriefHeroStats tasks={allPrimaryTasks.length} focusMinutes={focusMinutes} atRisk={overdue.length} />
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-helm-section="metrics">
@@ -1359,14 +1377,16 @@ function BriefView({
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
               <span className="text-[11px] text-muted-foreground">Ordered by AI confidence</span>
             </div>
-            <button type="button" onClick={() => go('inbox', undefined, 'big3')} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
-              View all <ArrowRight className="inline w-3.5 h-3.5" />
-            </button>
+            {allPrimaryTasks.length > 5 && (
+              <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
+                {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+              </button>
+            )}
           </div>
           <div className="mt-3 space-y-2">
             {isLoading ? (
               <Skeleton className="h-36" />
-            ) : primaryTasks.length === 0 ? (
+            ) : allPrimaryTasks.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
             ) : (
               primaryTasks.map((item, index) => (
@@ -1384,9 +1404,9 @@ function BriefView({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-helm-section="at-risk">
+      <section className="grid grid-cols-1 gap-4" data-helm-section="at-risk">
         <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
-        <BriefSignalCard title="Quick Wins" items={autoActions.length ? autoActions : fyi} tone="win" icon={Zap} emptyText="No quick wins yet." />
+        <BriefSignalCard title="Quick Wins" items={fyi.length ? fyi : autoActions} tone="win" icon={Zap} emptyText="No quick wins yet." />
       </section>
 
       <section className="helm-brief-panel" data-helm-section="email-highlights">
@@ -2632,6 +2652,227 @@ function fmtTimeShort(iso: string | null) {
   return `${h12}:${mm} ${ampm}`;
 }
 
+const CAL_START_HOUR = 7;
+const CAL_END_HOUR = 19;
+const CAL_SLOT_MINUTES = 30;
+const CAL_PX_PER_MINUTE = 1.25;
+const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
+const CAL_GRID_HEIGHT = CAL_TOTAL_MINUTES * CAL_PX_PER_MINUTE;
+
+function minutesFromLocalIso(iso: string | null): number | null {
+  if (!iso) return null;
+  const m = iso.match(/T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function localIsoFromDayMinutes(dayKey: string, minutes: number): string {
+  const clamped = Math.max(0, Math.min(23 * 60 + 59, minutes));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${dayKey}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+function eventDurationMinutes(start: string | null, end: string | null): number {
+  const s = minutesFromLocalIso(start);
+  const e = minutesFromLocalIso(end);
+  if (s == null || e == null || e <= s) return 30;
+  return Math.max(15, Math.min(240, e - s));
+}
+
+function roundToSlot(minutes: number): number {
+  return Math.round(minutes / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES;
+}
+
+type CalendarMove = { start: string; end: string };
+type CalendarGridEvent = CalEvent & {
+  displayStart?: string | null;
+  displayEnd?: string | null;
+  proposal?: Proposal;
+  kind?: 'applied' | 'pending' | 'none';
+  dismissed?: boolean;
+};
+
+function CalendarWeekGrid({
+  days,
+  eventsByDay,
+  variant = 'current',
+  focusByDay,
+  focusEnabled,
+  dismissedFocus,
+  appliedFocus,
+  onFocusApprove,
+  onFocusDismiss,
+  focusBusyDay,
+  onMoveEvent,
+  movingEventId,
+  renderEventFooter,
+  emptyText = 'No meetings',
+}: {
+  days: { date: Date; label: string; weekday: string; key: string }[];
+  eventsByDay: Record<string, CalendarGridEvent[]>;
+  variant?: 'current' | 'proposed';
+  focusByDay?: Record<string, FocusBlock>;
+  focusEnabled?: boolean;
+  dismissedFocus?: Record<string, boolean>;
+  appliedFocus?: Record<string, boolean>;
+  onFocusApprove?: (focus: FocusBlock) => void;
+  onFocusDismiss?: (focus: FocusBlock) => void;
+  focusBusyDay?: string | null;
+  onMoveEvent?: (ev: CalendarGridEvent, dayKey: string, startMinutes: number) => void;
+  movingEventId?: string | null;
+  renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
+  emptyText?: string;
+}) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [hover, setHover] = useState<{ dayKey: string; minutes: number } | null>(null);
+  const hours = useMemo(() => {
+    const out: number[] = [];
+    for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) out.push(h);
+    return out;
+  }, []);
+  const fmtHour = (h: number) => {
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12} ${ampm}`;
+  };
+  const yToMinutes = (e: React.DragEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    return Math.max(CAL_START_HOUR * 60, Math.min(CAL_END_HOUR * 60 - CAL_SLOT_MINUTES, roundToSlot(CAL_START_HOUR * 60 + y / CAL_PX_PER_MINUTE)));
+  };
+  return (
+    <div className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
+      <div className="helm-calendar-time-head" />
+      {days.map((d) => {
+        const isToday = d.date.toDateString() === new Date().toDateString();
+        return (
+          <div key={`head-${d.key}`} className={cn('helm-calendar-day-head', isToday && 'is-today')}>
+            <span>{d.weekday}</span>
+            <strong>{d.label}</strong>
+          </div>
+        );
+      })}
+      <div className="helm-calendar-time-gutter" aria-label="Time of day">
+        {hours.map((h) => (
+          <div key={h} className="helm-calendar-time-label" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
+        ))}
+      </div>
+      {days.map((d) => {
+        const events = eventsByDay[d.key] ?? [];
+        const focus = focusByDay?.[d.key];
+        const showFocus = variant === 'proposed' && focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const isToday = d.date.toDateString() === new Date().toDateString();
+        return (
+          <div
+            key={d.key}
+            className={cn('helm-calendar-day-column', isToday && 'is-today', hover?.dayKey === d.key && 'is-drop-target')}
+            onDragOver={(e) => {
+              if (!onMoveEvent) return;
+              e.preventDefault();
+              setHover({ dayKey: d.key, minutes: yToMinutes(e) });
+            }}
+            onDragLeave={() => setHover((cur) => cur?.dayKey === d.key ? null : cur)}
+            onDrop={(e) => {
+              if (!onMoveEvent) return;
+              e.preventDefault();
+              const id = e.dataTransfer.getData('text/calendar-event-id') || dragId;
+              const all = Object.values(eventsByDay).flat();
+              const ev = all.find((x) => x.id === id);
+              if (ev) onMoveEvent(ev, d.key, yToMinutes(e));
+              setDragId(null);
+              setHover(null);
+            }}
+          >
+            {hours.slice(0, -1).map((h) => <div key={h} className="helm-calendar-hour-line" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }} />)}
+            {hover?.dayKey === d.key && (
+              <div className="helm-calendar-drop-line" style={{ top: `${(hover.minutes - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px` }}>
+                <span>{fmtTimeShort(localIsoFromDayMinutes(d.key, hover.minutes))}</span>
+              </div>
+            )}
+            {events.length === 0 && !showFocus && <p className="helm-calendar-empty">{emptyText}</p>}
+            {showFocus && focus && (() => {
+              const start = minutesFromLocalIso(focus.start) ?? CAL_START_HOUR * 60;
+              const duration = eventDurationMinutes(focus.start, focus.end);
+              return (
+                <div
+                  className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
+                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, minHeight: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
+                >
+                  <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block</div>
+                  <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {focus.state === 'free' && 'Approve to push to your calendar.'}
+                    {focus.state === 'needs_move' && 'Needs to move a meeting.'}
+                    {focus.state === 'blocked' && 'No space — try a different day.'}
+                  </p>
+                  {focus.state === 'free' && (
+                    <div className="flex gap-1.5 mt-1.5">
+                      <button disabled={focusBusyDay === focus.day_key} onClick={() => onFocusApprove?.(focus)} className="helm-focus-approve-btn">
+                        {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
+                      </button>
+                      <button onClick={() => onFocusDismiss?.(focus)} className="helm-focus-cancel-btn">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {events.map((ev) => {
+              const startIso = ev.displayStart ?? ev.start;
+              const endIso = ev.displayEnd ?? ev.end;
+              const start = minutesFromLocalIso(startIso) ?? CAL_START_HOUR * 60;
+              const duration = eventDurationMinutes(startIso, endIso);
+              const top = Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE;
+              const height = Math.max(56, duration * CAL_PX_PER_MINUTE);
+              const isMoving = movingEventId === ev.id;
+              const isPending = ev.kind === 'pending' && !ev.dismissed;
+              const isApplied = ev.kind === 'applied';
+              return (
+                <div
+                  key={ev.id}
+                  draggable={!!onMoveEvent}
+                  onDragStart={(e) => {
+                    setDragId(ev.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/calendar-event-id', ev.id);
+                  }}
+                  onDragEnd={() => { setDragId(null); setHover(null); }}
+                  data-external={ev.is_external ? 'true' : 'false'}
+                  className={cn(
+                    'helm-calendar-event-card',
+                    variant === 'proposed' && 'is-proposed',
+                    ev.is_cancelled && 'opacity-60 line-through',
+                    isMoving && 'is-saving',
+                    isApplied && 'is-applied',
+                    isPending && 'is-pending',
+                    ev.dismissed && 'opacity-70',
+                  )}
+                  style={{ top: `${top}px`, minHeight: `${height}px` }}
+                  title="Drag up/down or to another day to reschedule"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
+                      {isPending && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
+                      {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>}
+                    </div>
+                  </div>
+                  <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">until {fmtTimeShort(endIso)}</p>
+                  {ev.location && <p className="text-muted-foreground text-[10px] line-clamp-1">📍 {ev.location}</p>}
+                  {isMoving && <p className="text-[10px] text-primary">Updating…</p>}
+                  {renderEventFooter?.(ev)}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
@@ -2775,6 +3016,32 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     onError: (e: any) => toast.error(e.message || 'Could not move event.'),
   });
 
+  const [manualMoves, setManualMoves] = useState<Record<string, CalendarMove>>({});
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ ev, dayKey, startMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number }) => {
+      const duration = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+      const nextStart = localIsoFromDayMinutes(dayKey, startMinutes);
+      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + duration);
+      setManualMoves((s) => ({ ...s, [ev.id]: { start: nextStart, end: nextEnd } }));
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'reschedule_event', event_id: ev.id, start: nextStart, end: nextEnd, subject: ev.subject },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return { eventId: ev.id, start: nextStart, end: nextEnd };
+    },
+    onSuccess: () => {
+      toast.success('Calendar updated.');
+      refetch();
+      qc.invalidateQueries({ queryKey: ['helm-week-preview'] });
+    },
+    onError: (e: any, vars) => {
+      setManualMoves((s) => { const n = { ...s }; delete n[vars.ev.id]; return n; });
+      toast.error(e.message || 'Could not reschedule event.');
+    },
+  });
+
   const days = useMemo(() => {
     const out: { date: Date; label: string; weekday: string; key: string }[] = [];
     for (let i = 0; i < 5; i++) {
@@ -2790,25 +3057,58 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     return out;
   }, [weekStart]);
 
-  const grouped = useMemo(() => {
-    const map: Record<string, CalEvent[]> = {};
-    for (const d of days) map[d.date.toDateString()] = [];
-    for (const ev of data?.events ?? []) {
-      if (!ev.start) continue;
-      const key = new Date(ev.start).toDateString();
-      if (map[key]) map[key].push(ev);
-    }
-    for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime());
-    }
-    return map;
-  }, [data, days]);
-
   const focusByDay = useMemo(() => {
     const map: Record<string, FocusBlock> = {};
     for (const b of planQuery.data?.focus_blocks ?? []) map[b.day_key] = b;
     return map;
   }, [planQuery.data]);
+
+  const currentGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) map[d.key] = [];
+    for (const ev of data?.events ?? []) {
+      const move = manualMoves[ev.id];
+      const displayStart = move?.start ?? ev.start;
+      const displayEnd = move?.end ?? ev.end;
+      const key = (displayStart ?? '').slice(0, 10);
+      if (!map[key]) continue;
+      map[key].push({ ...ev, displayStart, displayEnd, kind: 'none' });
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
+    }
+    return map;
+  }, [data?.events, days, manualMoves]);
+
+  const proposedGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) map[d.key] = [];
+    const appliedByEv: Record<string, Proposal> = {};
+    const pendingByEv: Record<string, Proposal> = {};
+    for (const p of planQuery.data?.applied ?? []) appliedByEv[p.event_id] = p;
+    for (const p of planQuery.data?.pending_external ?? []) pendingByEv[p.event_id] = p;
+    for (const ev of data?.events ?? []) {
+      const ap = appliedByEv[ev.id];
+      const pd = pendingByEv[ev.id];
+      const proposal = ap || pd;
+      const displayStart = proposal ? proposal.new_start : ev.start;
+      const displayEnd = proposal ? proposal.new_end : ev.end;
+      const key = (displayStart ?? '').slice(0, 10);
+      if (!map[key]) continue;
+      map[key].push({
+        ...ev,
+        displayStart,
+        displayEnd,
+        proposal,
+        kind: ap ? 'applied' : pd ? 'pending' : 'none',
+        dismissed: proposal ? dismissed[proposal.id] : false,
+      });
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
+    }
+    return map;
+  }, [data?.events, days, planQuery.data, dismissed]);
 
   const shiftWeek = (delta: number) => {
     const d = new Date(weekStart);
@@ -2942,75 +3242,31 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="border-t border-border/60 p-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-
-                {days.map((d) => {
-                  const evs = grouped[d.date.toDateString()] ?? [];
-                  const isToday = d.date.toDateString() === new Date().toDateString();
-                  const focus = focusByDay[d.key];
-                  return (
-                    <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile', isToday && 'shadow-md')}>
-
-                      <CardHeader className="pb-2">
-                        <div className="flex items-baseline justify-between">
-                          <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                          <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
-                            {d.label}
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                        {!isLoading && evs.length === 0 && (
-                          <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
+                </div>
+              ) : (
+                <div className="helm-calendar-scroll">
+                  <CalendarWeekGrid
+                    days={days}
+                    eventsByDay={currentGridByDay}
+                    variant="current"
+                    onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                    movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
+                    renderEventFooter={(ev) => (
+                      <>
+                        {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
+                        {ev.web_link && (
+                          <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
+                            Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                          </a>
                         )}
-                        {(() => {
-                          const items: Array<{ start: string; key: string; node: React.ReactNode }> = evs.map((ev) => ({
-                            key: `ev-${ev.id}`,
-                            start: ev.start ?? '',
-                            node: (
-                              <div
-                                key={ev.id}
-                                data-external={ev.is_external ? 'true' : 'false'}
-                                className={cn(
-                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
-                                  ev.is_cancelled && 'opacity-60 line-through',
-                                )}
-                              >
-
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
-                                  <div className="flex gap-1 flex-wrap justify-end">
-                                    {ev.is_external && (
-                                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
-                                    )}
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
-                                  </div>
-                                </div>
-                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                                {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
-                                {ev.attendees.length > 0 && (
-                                  <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
-                                )}
-                                {ev.web_link && (
-                                  <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
-                                    Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                                  </a>
-                                )}
-                              </div>
-                            ),
-                          }));
-                          // Focus blocks are proposed in the AI proposed calendar below,
-                          // not in the current calendar. Once approved, the block is pushed
-                          // to Outlook and will appear here on the next sync.
-                          items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-                          return items.map((it) => <React.Fragment key={it.key}>{it.node}</React.Fragment>);
-                        })()}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                      </>
+                    )}
+                  />
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Card>
@@ -3062,149 +3318,54 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
               <div className="border-t border-border/60 p-3">
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {days.map((d) => {
-                    const baseEvs = grouped[d.date.toDateString()] ?? [];
-                    const appliedByEv: Record<string, Proposal> = {};
-                    const pendingByEv: Record<string, Proposal> = {};
-                    for (const p of planQuery.data?.applied ?? []) if (p.day_key === d.key) appliedByEv[p.event_id] = p;
-                    for (const p of planQuery.data?.pending_external ?? []) if (p.day_key === d.key) pendingByEv[p.event_id] = p;
-
-                    // Build proposed event list: substitute new_start for matching events, then sort
-                    const proposed = baseEvs.map((ev) => {
-                      const ap = appliedByEv[ev.id];
-                      const pd = pendingByEv[ev.id];
-                      const proposal = ap || pd;
-                      return {
-                        ev,
-                        proposal,
-                        kind: ap ? 'applied' : pd ? 'pending' : 'none',
-                        displayStart: proposal ? proposal.new_start : ev.start,
-                      } as { ev: CalEvent; proposal?: Proposal; kind: 'applied' | 'pending' | 'none'; displayStart: string | null };
-                    }).sort((a, b) => {
-                      const at = a.displayStart ? new Date(a.displayStart).getTime() : 0;
-                      const bt = b.displayStart ? new Date(b.displayStart).getTime() : 0;
-                      return at - bt;
-                    });
-
-                    const isToday = d.date.toDateString() === new Date().toDateString();
-                    return (
-                      <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile helm-cal-tile-proposed', isToday && 'shadow-md')}>
-
-                        <CardHeader className="pb-2">
-                          <div className="flex items-baseline justify-between">
-                            <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                            <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>{d.label}</span>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {(() => {
-                            const focus = focusByDay[d.key];
-                            if (!focusEnabled || !focus || dismissedFocus[focus.day_key] || appliedFocus[focus.day_key]) return null;
-                            return (
-                              <div
-                                className={cn(
-                                  'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
-                                  focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
-                                  focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
-                                  focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
-                                )}
-                              >
-                                <div className="flex items-center gap-1 font-semibold text-foreground">
-                                  <Zap className="w-3 h-3" /> Focus block
-                                </div>
-                                <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  {focus.state === 'free' && 'Approve to push to your Outlook calendar.'}
-                                  {focus.state === 'needs_move' && 'Needs to move a meeting — see moves below.'}
-                                  {focus.state === 'blocked' && 'No space — try a different day.'}
-                                </p>
-                                {focus.state === 'free' && (
-                                  <div className="flex gap-1.5 mt-1.5">
-                                    <button
-                                      disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
-                                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                                    >
-                                      {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
-                                    </button>
-                                    <button
-                                      onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                          {proposed.length === 0 && !focusByDay[d.key] && (
-                            <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
+                <div className="helm-calendar-scroll">
+                  <CalendarWeekGrid
+                    days={days}
+                    eventsByDay={proposedGridByDay}
+                    variant="proposed"
+                    focusByDay={focusByDay}
+                    focusEnabled={focusEnabled}
+                    dismissedFocus={dismissedFocus}
+                    appliedFocus={appliedFocus}
+                    focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
+                    onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                    onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                    renderEventFooter={(ev) => {
+                      const proposal = ev.proposal;
+                      const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
+                      const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
+                      return (
+                        <>
+                          {proposal && (
+                            <p className="text-[10px] text-muted-foreground">
+                              was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
+                            </p>
                           )}
-                          {proposed.map(({ ev, proposal, kind, displayStart }) => {
-                            const isApplied = kind === 'applied';
-                            const isPending = kind === 'pending';
-                            const isDismissed = proposal && dismissed[proposal.id];
-                            const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
-                            return (
-                              <div
-                                key={ev.id}
-                                data-external={ev.is_external ? 'true' : 'false'}
-                                className={cn(
-                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
-                                  ev.is_cancelled && 'opacity-60 line-through',
-                                  isApplied && 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-400/40',
-                                  isPending && !isDismissed && 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-400/40',
-                                  isPending && isDismissed && 'border-border bg-card opacity-70',
-                                  kind === 'none' && (ev.is_external ? 'border-border bg-muted/20' : 'border-border bg-card'),
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-medium text-foreground">{fmtTime(displayStart)}</span>
-                                  <div className="flex gap-1 flex-wrap justify-end">
-                                    {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
-                                    {isPending && !isDismissed && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
-                                  </div>
-                                </div>
-                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                                {proposal && (
-                                  <p className="text-[10px] text-muted-foreground">
-                                    was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
-                                  </p>
-                                )}
-                                {isPending && !isDismissed && proposal && (
-                                  <div className="flex items-center justify-between gap-2 pt-1">
-                                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        disabled={isApproving}
-                                        onChange={(e) => {
-                                          if (!e.target.checked) return;
-                                          approveMutation.mutate({ proposal, note: '' });
-                                        }}
-                                        className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
-                                      />
-                                      <span className="text-[11px] text-foreground">
-                                        {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve & update invite' : 'Approve & email organizer'}
-                                      </span>
-                                    </label>
-                                    <button
-                                      onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }}
-                                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                                    >
-                                      Disregard
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                          {isPending && proposal && (
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  disabled={isApproving}
+                                  onChange={(e) => {
+                                    if (!e.target.checked) return;
+                                    approveMutation.mutate({ proposal, note: '' });
+                                  }}
+                                  className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
+                                />
+                                <span className="text-[10px] text-foreground">
+                                  {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve' : 'Email organizer'}
+                                </span>
+                              </label>
+                              <button onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }} className="text-[10px] text-muted-foreground hover:text-foreground">
+                                Disregard
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    }}
+                  />
                 </div>
                 <p className="text-[10px] text-muted-foreground italic mt-3">
                   Tip: checking a card ☑ sends the update in the background — Outlook invites for meetings you host, or a polite reschedule email to the organizer otherwise.
