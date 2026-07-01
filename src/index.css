@@ -917,9 +917,9 @@
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
 .helm-calendar-scroll {
   width: 100%;
-  /* Fits business hours 8 AM – 5 PM (9h × 60min × 1.7px) + day header + padding */
-  max-height: 970px;
-  height: 970px;
+  /* Fits 8 AM – 6 PM business grid (10h × 60min × 1.25px = 750px) + header + padding */
+  max-height: 840px;
+  height: 840px;
   overflow-x: auto;
   overflow-y: auto;
   padding-bottom: .35rem;
@@ -928,12 +928,12 @@
   overscroll-behavior: contain;
 }
 .helm-calendar-grid {
-  --helm-cal-col-min: 13rem;
+  --helm-cal-col-min: 9.5rem;
   display: grid;
-  grid-template-columns: 4.5rem repeat(5, minmax(var(--helm-cal-col-min), 1fr));
+  grid-template-columns: 3.5rem repeat(5, minmax(var(--helm-cal-col-min), 1fr));
   grid-template-rows: auto var(--helm-cal-height);
-  gap: .6rem;
-  min-width: 78rem;
+  gap: .5rem;
+  min-width: 56rem;
   overflow: visible;
 }
 .helm-calendar-grid-proposed {
@@ -1071,7 +1071,7 @@
   content: "";
   position: absolute;
   left: 0;
-  top: 37px;
+  top: 37.5px;
   right: 0;
   height: 1px;
   border-top: 1px dashed color-mix(in srgb, var(--border-strong) 52%, transparent);
