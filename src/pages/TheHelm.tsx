@@ -2779,6 +2779,27 @@ function CalendarWeekGrid({
       </div>
       {days.map((d) => {
         const events = eventsByDay[d.key] ?? [];
+        const overlappingIds = new Set<string>();
+        for (let i = 0; i < events.length; i++) {
+          const a = events[i];
+          if (a.is_cancelled || a.dismissed) continue;
+          const aStart = minutesFromLocalIso(a.displayStart ?? a.start);
+          const aDur = eventDurationMinutes(a.displayStart ?? a.start, a.displayEnd ?? a.end);
+          if (aStart == null) continue;
+          const aEnd = aStart + aDur;
+          for (let j = i + 1; j < events.length; j++) {
+            const b = events[j];
+            if (b.is_cancelled || b.dismissed) continue;
+            const bStart = minutesFromLocalIso(b.displayStart ?? b.start);
+            const bDur = eventDurationMinutes(b.displayStart ?? b.start, b.displayEnd ?? b.end);
+            if (bStart == null) continue;
+            const bEnd = bStart + bDur;
+            if (aStart < bEnd && bStart < aEnd) {
+              overlappingIds.add(a.id);
+              overlappingIds.add(b.id);
+            }
+          }
+        }
         const focus = focusByDay?.[d.key];
         const showFocus = variant === 'proposed' && focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
