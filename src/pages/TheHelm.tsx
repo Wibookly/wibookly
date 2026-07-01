@@ -3260,75 +3260,29 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="border-t border-border/60 p-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-
-                {days.map((d) => {
-                  const evs = grouped[d.date.toDateString()] ?? [];
-                  const isToday = d.date.toDateString() === new Date().toDateString();
-                  const focus = focusByDay[d.key];
-                  return (
-                    <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile', isToday && 'shadow-md')}>
-
-                      <CardHeader className="pb-2">
-                        <div className="flex items-baseline justify-between">
-                          <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                          <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>
-                            {d.label}
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {isLoading && (<><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>)}
-                        {!isLoading && evs.length === 0 && (
-                          <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
-                        )}
-                        {(() => {
-                          const items: Array<{ start: string; key: string; node: React.ReactNode }> = evs.map((ev) => ({
-                            key: `ev-${ev.id}`,
-                            start: ev.start ?? '',
-                            node: (
-                              <div
-                                key={ev.id}
-                                data-external={ev.is_external ? 'true' : 'false'}
-                                className={cn(
-                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
-                                  ev.is_cancelled && 'opacity-60 line-through',
-                                )}
-                              >
-
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-medium text-foreground">{fmtTime(ev.start)}</span>
-                                  <div className="flex gap-1 flex-wrap justify-end">
-                                    {ev.is_external && (
-                                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>
-                                    )}
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0">{ev.is_organizer ? 'Host' : 'Guest'}</Badge>
-                                  </div>
-                                </div>
-                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                                {ev.location && <p className="text-muted-foreground text-[11px] line-clamp-1">📍 {ev.location}</p>}
-                                {ev.attendees.length > 0 && (
-                                  <p className="text-muted-foreground text-[11px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>
-                                )}
-                                {ev.web_link && (
-                                  <a href={ev.web_link} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[11px] inline-flex items-center">
-                                    Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                                  </a>
-                                )}
-                              </div>
-                            ),
-                          }));
-                          // Focus blocks are proposed in the AI proposed calendar below,
-                          // not in the current calendar. Once approved, the block is pushed
-                          // to Outlook and will appear here on the next sync.
-                          items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-                          return items.map((it) => <React.Fragment key={it.key}>{it.node}</React.Fragment>);
-                        })()}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
+                </div>
+              ) : (
+                <CalendarWeekGrid
+                  days={days}
+                  eventsByDay={currentGridByDay}
+                  variant="current"
+                  onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                  movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
+                  renderEventFooter={(ev) => (
+                    <>
+                      {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
+                      {ev.web_link && (
+                        <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
+                          Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                        </a>
+                      )}
+                    </>
+                  )}
+                />
+              )}
             </div>
           </CollapsibleContent>
         </Card>
