@@ -2652,6 +2652,231 @@ function fmtTimeShort(iso: string | null) {
   return `${h12}:${mm} ${ampm}`;
 }
 
+const CAL_START_HOUR = 7;
+const CAL_END_HOUR = 19;
+const CAL_SLOT_MINUTES = 30;
+const CAL_PX_PER_MINUTE = 1.25;
+const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
+const CAL_GRID_HEIGHT = CAL_TOTAL_MINUTES * CAL_PX_PER_MINUTE;
+
+function dateKeyFromDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function minutesFromLocalIso(iso: string | null): number | null {
+  if (!iso) return null;
+  const m = iso.match(/T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function localIsoFromDayMinutes(dayKey: string, minutes: number): string {
+  const clamped = Math.max(0, Math.min(23 * 60 + 59, minutes));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${dayKey}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+function eventDurationMinutes(start: string | null, end: string | null): number {
+  const s = minutesFromLocalIso(start);
+  const e = minutesFromLocalIso(end);
+  if (s == null || e == null || e <= s) return 30;
+  return Math.max(15, Math.min(240, e - s));
+}
+
+function roundToSlot(minutes: number): number {
+  return Math.round(minutes / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES;
+}
+
+type CalendarMove = { start: string; end: string };
+type CalendarGridEvent = CalEvent & {
+  displayStart?: string | null;
+  displayEnd?: string | null;
+  proposal?: Proposal;
+  kind?: 'applied' | 'pending' | 'none';
+  dismissed?: boolean;
+};
+
+function CalendarWeekGrid({
+  days,
+  eventsByDay,
+  variant = 'current',
+  focusByDay,
+  focusEnabled,
+  dismissedFocus,
+  appliedFocus,
+  onFocusApprove,
+  onFocusDismiss,
+  focusBusyDay,
+  onMoveEvent,
+  movingEventId,
+  renderEventFooter,
+  emptyText = 'No meetings',
+}: {
+  days: { date: Date; label: string; weekday: string; key: string }[];
+  eventsByDay: Record<string, CalendarGridEvent[]>;
+  variant?: 'current' | 'proposed';
+  focusByDay?: Record<string, FocusBlock>;
+  focusEnabled?: boolean;
+  dismissedFocus?: Record<string, boolean>;
+  appliedFocus?: Record<string, boolean>;
+  onFocusApprove?: (focus: FocusBlock) => void;
+  onFocusDismiss?: (focus: FocusBlock) => void;
+  focusBusyDay?: string | null;
+  onMoveEvent?: (ev: CalendarGridEvent, dayKey: string, startMinutes: number) => void;
+  movingEventId?: string | null;
+  renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
+  emptyText?: string;
+}) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [hover, setHover] = useState<{ dayKey: string; minutes: number } | null>(null);
+  const hours = useMemo(() => {
+    const out: number[] = [];
+    for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) out.push(h);
+    return out;
+  }, []);
+  const fmtHour = (h: number) => {
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12} ${ampm}`;
+  };
+  const yToMinutes = (e: React.DragEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    return Math.max(CAL_START_HOUR * 60, Math.min(CAL_END_HOUR * 60 - CAL_SLOT_MINUTES, roundToSlot(CAL_START_HOUR * 60 + y / CAL_PX_PER_MINUTE)));
+  };
+  return (
+    <div className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
+      <div className="helm-calendar-time-head" />
+      {days.map((d) => {
+        const isToday = d.date.toDateString() === new Date().toDateString();
+        return (
+          <div key={`head-${d.key}`} className={cn('helm-calendar-day-head', isToday && 'is-today')}>
+            <span>{d.weekday}</span>
+            <strong>{d.label}</strong>
+          </div>
+        );
+      })}
+      <div className="helm-calendar-time-gutter" aria-label="Time of day">
+        {hours.map((h) => (
+          <div key={h} className="helm-calendar-time-label" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
+        ))}
+      </div>
+      {days.map((d) => {
+        const events = eventsByDay[d.key] ?? [];
+        const focus = focusByDay?.[d.key];
+        const showFocus = variant === 'proposed' && focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const isToday = d.date.toDateString() === new Date().toDateString();
+        return (
+          <div
+            key={d.key}
+            className={cn('helm-calendar-day-column', isToday && 'is-today', hover?.dayKey === d.key && 'is-drop-target')}
+            onDragOver={(e) => {
+              if (!onMoveEvent) return;
+              e.preventDefault();
+              setHover({ dayKey: d.key, minutes: yToMinutes(e) });
+            }}
+            onDragLeave={() => setHover((cur) => cur?.dayKey === d.key ? null : cur)}
+            onDrop={(e) => {
+              if (!onMoveEvent) return;
+              e.preventDefault();
+              const id = e.dataTransfer.getData('text/calendar-event-id') || dragId;
+              const all = Object.values(eventsByDay).flat();
+              const ev = all.find((x) => x.id === id);
+              if (ev) onMoveEvent(ev, d.key, yToMinutes(e));
+              setDragId(null);
+              setHover(null);
+            }}
+          >
+            {hours.slice(0, -1).map((h) => <div key={h} className="helm-calendar-hour-line" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }} />)}
+            {hover?.dayKey === d.key && (
+              <div className="helm-calendar-drop-line" style={{ top: `${(hover.minutes - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px` }}>
+                <span>{fmtTimeShort(localIsoFromDayMinutes(d.key, hover.minutes))}</span>
+              </div>
+            )}
+            {events.length === 0 && !showFocus && <p className="helm-calendar-empty">{emptyText}</p>}
+            {showFocus && focus && (() => {
+              const start = minutesFromLocalIso(focus.start) ?? CAL_START_HOUR * 60;
+              const duration = eventDurationMinutes(focus.start, focus.end);
+              return (
+                <div
+                  className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
+                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, minHeight: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
+                >
+                  <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block</div>
+                  <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {focus.state === 'free' && 'Approve to push to your calendar.'}
+                    {focus.state === 'needs_move' && 'Needs to move a meeting.'}
+                    {focus.state === 'blocked' && 'No space — try a different day.'}
+                  </p>
+                  {focus.state === 'free' && (
+                    <div className="flex gap-1.5 mt-1.5">
+                      <button disabled={focusBusyDay === focus.day_key} onClick={() => onFocusApprove?.(focus)} className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60">
+                        {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
+                      </button>
+                      <button onClick={() => onFocusDismiss?.(focus)} className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {events.map((ev) => {
+              const startIso = ev.displayStart ?? ev.start;
+              const endIso = ev.displayEnd ?? ev.end;
+              const start = minutesFromLocalIso(startIso) ?? CAL_START_HOUR * 60;
+              const duration = eventDurationMinutes(startIso, endIso);
+              const top = Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE;
+              const height = Math.max(56, duration * CAL_PX_PER_MINUTE);
+              const isMoving = movingEventId === ev.id;
+              const isPending = ev.kind === 'pending' && !ev.dismissed;
+              const isApplied = ev.kind === 'applied';
+              return (
+                <div
+                  key={ev.id}
+                  draggable={!!onMoveEvent}
+                  onDragStart={(e) => {
+                    setDragId(ev.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/calendar-event-id', ev.id);
+                  }}
+                  onDragEnd={() => { setDragId(null); setHover(null); }}
+                  data-external={ev.is_external ? 'true' : 'false'}
+                  className={cn(
+                    'helm-calendar-event-card',
+                    variant === 'proposed' && 'is-proposed',
+                    ev.is_cancelled && 'opacity-60 line-through',
+                    isMoving && 'is-saving',
+                    isApplied && 'is-applied',
+                    isPending && 'is-pending',
+                    ev.dismissed && 'opacity-70',
+                  )}
+                  style={{ top: `${top}px`, minHeight: `${height}px` }}
+                  title="Drag up/down or to another day to reschedule"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
+                      {isPending && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
+                      {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>}
+                    </div>
+                  </div>
+                  <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">until {fmtTimeShort(endIso)}</p>
+                  {ev.location && <p className="text-muted-foreground text-[10px] line-clamp-1">📍 {ev.location}</p>}
+                  {isMoving && <p className="text-[10px] text-primary">Updating…</p>}
+                  {renderEventFooter?.(ev)}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
