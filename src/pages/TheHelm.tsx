@@ -2911,10 +2911,12 @@ function CalendarWeekGrid({
                     isMoving && 'is-saving',
                     isApplied && 'is-applied',
                     isPending && 'is-pending',
+                    isNew && 'is-new',
+                    isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
                   style={{ top: `${top}px`, height: `${height}px` }}
-                  title="Drag to move · drag bottom edge to resize (30-min steps)"
+                  title={isOverlap ? 'Overlaps another meeting — drag to fix' : 'Drag to move · drag bottom edge to resize (30-min steps)'}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
