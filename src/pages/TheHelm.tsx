@@ -1473,73 +1473,124 @@ function BriefView({
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
               <span className="text-[11px] text-muted-foreground">Ordered by AI confidence</span>
             </div>
-            {allPrimaryTasks.length > 5 && (
-              <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
-                {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+            <div className="flex items-center gap-3 shrink-0">
+              {allPrimaryTasks.length > 5 && !tileCollapsed['top-tasks'] && (
+                <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline">
+                  {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => toggleTile('top-tasks')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                title={tileCollapsed['top-tasks'] ? 'Expand tile' : 'Collapse tile'}
+              >
+                {tileCollapsed['top-tasks'] ? 'Expand' : 'Collapse'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tileCollapsed['top-tasks'] && '-rotate-90')} />
               </button>
-            )}
+            </div>
           </div>
-          <div className="mt-3 space-y-2">
-            {isLoading ? (
-              <Skeleton className="h-36" />
-            ) : allPrimaryTasks.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
-            ) : (
-              primaryTasks.map((item, index) => (
-                <BriefTaskRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  expanded={expandedId === item.id}
-                  onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                  accent={item.tier === 'overdue' ? 'rose' : item.tier === 'decision' ? 'violet' : 'amber'}
-                />
-              ))
-            )}
-          </div>
+          {!tileCollapsed['top-tasks'] && (
+            <div className="mt-3 space-y-2">
+              {isLoading ? (
+                <Skeleton className="h-36" />
+              ) : allPrimaryTasks.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
+              ) : (
+                primaryTasks.map((item, index) => (
+                  <BriefTaskRow
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    expanded={expandedId === item.id}
+                    onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                    accent={item.tier === 'overdue' ? 'rose' : item.tier === 'decision' ? 'violet' : 'amber'}
+                    onPromote={() => promoteToBig3(item.id)}
+                    onDisregard={() => disregardItem(item.id)}
+                    isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
+                  />
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4" data-helm-section="at-risk">
-        <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
-        <BriefSignalCard title="Quick Wins" items={fyi.length ? fyi : autoActions} tone="win" icon={Zap} emptyText="No quick wins yet." />
+        <BriefSignalCard
+          title="At Risk"
+          items={overdue}
+          tone="risk"
+          icon={AlertTriangle}
+          emptyText="No overdue reply risk detected."
+          onPromote={promoteToBig3}
+          onDisregard={disregardItem}
+          promotedIds={new Set([...big3Ids, ...promotedIds])}
+        />
+        <BriefSignalCard
+          title="Quick Wins"
+          items={fyi.length ? fyi : autoActions}
+          tone="win"
+          icon={Zap}
+          emptyText="No quick wins yet."
+          onPromote={promoteToBig3}
+          onDisregard={disregardItem}
+          promotedIds={new Set([...big3Ids, ...promotedIds])}
+        />
       </section>
 
       <section className="helm-brief-panel" data-helm-section="email-highlights">
         <div className="helm-panel-head">
           <div className="flex items-baseline gap-2 min-w-0">
             <h2 className="text-sm font-bold text-foreground">Email highlights</h2>
-            <span className="text-[11px] text-muted-foreground">Top {Math.min(emailHighlights.length, 25)} of {stats.totalInbound} · scored by AI</span>
+            <span className="text-[11px] text-muted-foreground">
+              Showing {Math.min(showAllHighlights ? emailHighlights.length : 5, emailHighlights.length)} of {emailHighlights.length} · scored by AI
+            </span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 print:hidden">
-            {['AI', 'Urgent', 'Follow Up'].map((label) => (
-              <span key={label} className="helm-brief-chip" data-tone={chipTone(label)}>{label}</span>
-            ))}
+          <div className="flex items-center gap-3 shrink-0">
+            {emailHighlights.length > 5 && !tileCollapsed['highlights'] && (
+              <button type="button" onClick={() => setShowAllHighlights((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline">
+                {showAllHighlights ? 'Show fewer' : `View all ${emailHighlights.length}`}
+                <ChevronDown className={cn('inline w-3.5 h-3.5 ml-1 transition-transform', showAllHighlights && 'rotate-180')} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => toggleTile('highlights')}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+              title={tileCollapsed['highlights'] ? 'Expand tile' : 'Collapse tile'}
+            >
+              {tileCollapsed['highlights'] ? 'Expand' : 'Collapse'}
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tileCollapsed['highlights'] && '-rotate-90')} />
+            </button>
           </div>
         </div>
-        <div className="mt-3 helm-row-divided">
-          {isLoading ? (
-            <Skeleton className="h-56" />
-          ) : emailHighlights.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {search ? `No email highlights match “${search}”.` : 'No email highlights to review.'}
-            </div>
-          ) : (
-            emailHighlights.map((item, index) => (
-              <BriefEmailRow
-                key={item.id}
-                item={item}
-                index={index}
-                expanded={expandedId === item.id}
-                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                onDisregard={() => disregardItem(item.id)}
-                onPromote={() => promoteToBig3(item.id)}
-                isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
-              />
-            ))
-          )}
-        </div>
+        {!tileCollapsed['highlights'] && (
+          <div className="mt-3 helm-row-divided">
+            {isLoading ? (
+              <Skeleton className="h-56" />
+            ) : emailHighlights.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                {search ? `No email highlights match “${search}”.` : 'No email highlights to review.'}
+              </div>
+            ) : (
+              (showAllHighlights ? emailHighlights : emailHighlights.slice(0, 5)).map((item, index) => (
+                <BriefEmailRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  expanded={expandedId === item.id}
+                  onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  onDisregard={() => disregardItem(item.id)}
+                  onPromote={() => promoteToBig3(item.id)}
+                  isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
+                />
+              ))
+            )}
+          </div>
+        )}
       </section>
+
 
       <section className="print:hidden">
         <Popover>
