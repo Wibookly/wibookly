@@ -2908,7 +2908,7 @@ type CalendarGridEvent = CalEvent & {
   displayStart?: string | null;
   displayEnd?: string | null;
   proposal?: Proposal;
-  kind?: 'applied' | 'pending' | 'none';
+  kind?: 'applied' | 'pending' | 'none' | 'ghost';
   dismissed?: boolean;
 };
 
