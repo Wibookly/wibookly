@@ -3061,18 +3061,30 @@ function CalendarWeekGrid({
                   <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground">{duration}m</span></div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {focus.state === 'free' && 'Approve to push to your calendar.'}
+                    {focus.state === 'free' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={focusBusyDay === focus.day_key}
+                          onClick={() => onFocusApprove?.(focus)}
+                          className="underline underline-offset-2 text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-60"
+                        >
+                          {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
+                        </button>
+                        <span> to push to your calendar · </span>
+                        <button
+                          type="button"
+                          onClick={() => onFocusDismiss?.(focus)}
+                          className="underline underline-offset-2 text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
                     {focus.state === 'needs_move' && 'Needs to move a meeting.'}
                     {focus.state === 'blocked' && 'No space — try a different day.'}
                   </p>
-                  {focus.state === 'free' && (
-                    <div className="flex gap-1.5 mt-1.5">
-                      <button disabled={focusBusyDay === focus.day_key} onClick={() => onFocusApprove?.(focus)} className="helm-focus-approve-btn">
-                        {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
-                      </button>
-                      <button onClick={() => onFocusDismiss?.(focus)} className="helm-focus-cancel-btn">Cancel</button>
-                    </div>
-                  )}
+
                 </div>
               );
             })()}
