@@ -3105,6 +3105,7 @@ function CalendarWeekGrid({
 }
 
 export function CalendarView({ onBack }: { onBack?: () => void }) {
+  const [detailsEvent, setDetailsEvent] = useState<CalendarGridEvent | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
   const [ruleLoaded, setRuleLoaded] = useState(false);
