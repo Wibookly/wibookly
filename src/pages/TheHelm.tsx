@@ -1563,6 +1563,7 @@ function BriefView({
       <section className="grid grid-cols-1 gap-4" data-helm-section="at-risk">
         <BriefSignalCard
           title="At Risk"
+          subtitle="Threads that need a reply soon — you're on the hook and the clock is ticking."
           items={overdue}
           tone="risk"
           icon={AlertTriangle}
@@ -1573,6 +1574,7 @@ function BriefView({
         />
         <BriefSignalCard
           title="Quick Wins"
+          subtitle="Low-effort items you can knock out in under 2 minutes — short replies, FYIs, and actions your AI already handled."
           items={fyi.length ? fyi : autoActions}
           tone="win"
           icon={Zap}
