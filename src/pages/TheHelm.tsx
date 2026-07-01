@@ -14,6 +14,8 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft,
@@ -889,12 +891,80 @@ function BriefMetricTile({ icon: Icon, label, value, subLabel, accent, delta, on
   );
 }
 
-function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
+function HelmRowActions({
+  outlookHref,
+  tagLabel,
+  tagTone,
+  onPromote,
+  onDisregard,
+  isPromoted,
+  expanded,
+}: {
+  outlookHref?: string | null;
+  tagLabel?: string;
+  tagTone?: string;
+  onPromote?: () => void;
+  onDisregard?: () => void;
+  isPromoted?: boolean;
+  expanded?: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
+      {tagLabel && <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tagTone || 'default'}>{tagLabel}</span>}
+      {outlookHref && (
+        <a
+          href={outlookHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open in Outlook"
+          title="Open this email in Outlook"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-sky-600 hover:border-sky-500/60 hover:bg-sky-500/10 transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      )}
+      {onPromote && (
+        <button
+          type="button"
+          aria-label={isPromoted ? 'Pinned to Top Priorities' : 'Pin to Top Priorities'}
+          title={isPromoted ? 'Pinned to Top Priorities' : 'Promote to Top Priorities'}
+          onClick={(e) => { e.stopPropagation(); onPromote(); }}
+          className={cn(
+            'inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors',
+            isPromoted
+              ? 'border-amber-500/60 bg-amber-500/15 text-amber-600 hover:bg-amber-500/25'
+              : 'border-border/60 text-muted-foreground hover:text-amber-600 hover:border-amber-500/60 hover:bg-amber-500/10',
+          )}
+        >
+          <Star className={cn('w-3.5 h-3.5', isPromoted && 'fill-current')} />
+        </button>
+      )}
+      {onDisregard && (
+        <button
+          type="button"
+          aria-label="Disregard"
+          title="Disregard — remove from list"
+          onClick={(e) => { e.stopPropagation(); onDisregard(); }}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-rose-600 hover:border-rose-500/60 hover:bg-rose-500/10 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
+    </span>
+  );
+}
+
+function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet', onPromote, onDisregard, isPromoted }: {
   item: HelmItem;
   index: number;
   expanded: boolean;
   onToggle: () => void;
   accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+  onPromote?: () => void;
+  onDisregard?: () => void;
+  isPromoted?: boolean;
 }) {
   const tag = briefTag(item, index === 0 ? 'Urgent' : 'AI');
   return (
@@ -908,10 +978,13 @@ function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
           </span>
           <span className="mt-1 block text-[12px] text-muted-foreground truncate">{item.context || 'Open for the full thread and AI draft.'}</span>
         </span>
-        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground shrink-0">
-          <Clock className="w-3 h-3" /> {item.due ? item.due.replace(/^due\s+/i, '') : '~5 min'}
-        </span>
-        <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform shrink-0', expanded && 'rotate-180')} />
+        <HelmRowActions
+          outlookHref={helmOutlookLink(item)}
+          onPromote={onPromote}
+          onDisregard={onDisregard}
+          isPromoted={isPromoted}
+          expanded={expanded}
+        />
       </button>
       {expanded && (
         <div className="px-3 pb-3">
@@ -922,16 +995,20 @@ function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
   );
 }
 
-function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
+function BriefSignalCard({ title, items, tone, icon: Icon, emptyText, onPromote, onDisregard, promotedIds }: {
   title: string;
   items: Array<HelmItem | AutoAction>;
   tone: 'risk' | 'win';
   icon: React.ElementType;
   emptyText: string;
+  onPromote?: (id: string) => void;
+  onDisregard?: (id: string) => void;
+  promotedIds?: Set<string>;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const INITIAL = 6;
+  const [collapsed, setCollapsed] = useState(false);
+  const INITIAL = 5;
   const visible = showAll ? items : items.slice(0, INITIAL);
   const accent = tone === 'risk' ? 'rose' : 'emerald';
   return (
@@ -944,8 +1021,18 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
             tone === 'risk' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
           )}>{items.length} item{items.length === 1 ? '' : 's'}</span>
         </h3>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          aria-label={collapsed ? 'Expand tile' : 'Collapse tile'}
+          title={collapsed ? 'Expand tile' : 'Collapse tile'}
+        >
+          {collapsed ? 'Expand' : 'Collapse'}
+          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', collapsed && '-rotate-90')} />
+        </button>
       </div>
-      {items.length === 0 ? (
+      {collapsed ? null : items.length === 0 ? (
         <p className="mt-3 text-[12px] text-muted-foreground">{emptyText}</p>
       ) : (
         <>
@@ -955,6 +1042,7 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
               const line = isAction ? raw.text : raw.title;
               const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
               const isOpen = openId === raw.id;
+              const helmItem = !isAction ? (raw as HelmItem) : null;
               return (
                 <li key={raw.id} className="helm-highlight-row-wrap" data-open={isOpen ? 'true' : 'false'}>
                   <button
@@ -975,10 +1063,15 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
                         <span className="text-foreground/70 font-semibold">Summary:</span> {sub || 'Open for details.'}
                       </span>
                     </span>
-                    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
-                      <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tone === 'risk' ? 'urgent' : 'default'}>{tone === 'risk' ? 'At risk' : 'Quick win'}</span>
-                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
-                    </span>
+                    <HelmRowActions
+                      outlookHref={helmItem ? helmOutlookLink(helmItem) : null}
+                      tagLabel={tone === 'risk' ? 'At risk' : 'Quick win'}
+                      tagTone={tone === 'risk' ? 'urgent' : 'default'}
+                      onPromote={helmItem && onPromote ? () => onPromote(helmItem.id) : undefined}
+                      onDisregard={helmItem && onDisregard ? () => onDisregard(helmItem.id) : undefined}
+                      isPromoted={helmItem ? promotedIds?.has(helmItem.id) : false}
+                      expanded={isOpen}
+                    />
                   </button>
                   {isOpen && !isAction && (
                     <div className="px-4 pb-4">
@@ -1206,6 +1299,9 @@ function BriefView({
       toast.error(e?.message ?? 'Could not disregard');
     }
   };
+  const [tileCollapsed, setTileCollapsed] = useState<Record<string, boolean>>({});
+  const toggleTile = (key: string) => setTileCollapsed((s) => ({ ...s, [key]: !s[key] }));
+  const [showAllHighlights, setShowAllHighlights] = useState(false);
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
@@ -1377,73 +1473,124 @@ function BriefView({
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
               <span className="text-[11px] text-muted-foreground">Ordered by AI confidence</span>
             </div>
-            {allPrimaryTasks.length > 5 && (
-              <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
-                {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+            <div className="flex items-center gap-3 shrink-0">
+              {allPrimaryTasks.length > 5 && !tileCollapsed['top-tasks'] && (
+                <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline">
+                  {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => toggleTile('top-tasks')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                title={tileCollapsed['top-tasks'] ? 'Expand tile' : 'Collapse tile'}
+              >
+                {tileCollapsed['top-tasks'] ? 'Expand' : 'Collapse'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tileCollapsed['top-tasks'] && '-rotate-90')} />
               </button>
-            )}
+            </div>
           </div>
-          <div className="mt-3 space-y-2">
-            {isLoading ? (
-              <Skeleton className="h-36" />
-            ) : allPrimaryTasks.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
-            ) : (
-              primaryTasks.map((item, index) => (
-                <BriefTaskRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  expanded={expandedId === item.id}
-                  onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                  accent={item.tier === 'overdue' ? 'rose' : item.tier === 'decision' ? 'violet' : 'amber'}
-                />
-              ))
-            )}
-          </div>
+          {!tileCollapsed['top-tasks'] && (
+            <div className="mt-3 space-y-2">
+              {isLoading ? (
+                <Skeleton className="h-36" />
+              ) : allPrimaryTasks.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
+              ) : (
+                primaryTasks.map((item, index) => (
+                  <BriefTaskRow
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    expanded={expandedId === item.id}
+                    onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                    accent={item.tier === 'overdue' ? 'rose' : item.tier === 'decision' ? 'violet' : 'amber'}
+                    onPromote={() => promoteToBig3(item.id)}
+                    onDisregard={() => disregardItem(item.id)}
+                    isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
+                  />
+                ))
+              )}
+            </div>
+          )}
         </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4" data-helm-section="at-risk">
-        <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
-        <BriefSignalCard title="Quick Wins" items={fyi.length ? fyi : autoActions} tone="win" icon={Zap} emptyText="No quick wins yet." />
+        <BriefSignalCard
+          title="At Risk"
+          items={overdue}
+          tone="risk"
+          icon={AlertTriangle}
+          emptyText="No overdue reply risk detected."
+          onPromote={promoteToBig3}
+          onDisregard={disregardItem}
+          promotedIds={new Set([...big3Ids, ...promotedIds])}
+        />
+        <BriefSignalCard
+          title="Quick Wins"
+          items={fyi.length ? fyi : autoActions}
+          tone="win"
+          icon={Zap}
+          emptyText="No quick wins yet."
+          onPromote={promoteToBig3}
+          onDisregard={disregardItem}
+          promotedIds={new Set([...big3Ids, ...promotedIds])}
+        />
       </section>
 
       <section className="helm-brief-panel" data-helm-section="email-highlights">
         <div className="helm-panel-head">
           <div className="flex items-baseline gap-2 min-w-0">
             <h2 className="text-sm font-bold text-foreground">Email highlights</h2>
-            <span className="text-[11px] text-muted-foreground">Top {Math.min(emailHighlights.length, 25)} of {stats.totalInbound} · scored by AI</span>
+            <span className="text-[11px] text-muted-foreground">
+              Showing {Math.min(showAllHighlights ? emailHighlights.length : 5, emailHighlights.length)} of {emailHighlights.length} · scored by AI
+            </span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 print:hidden">
-            {['AI', 'Urgent', 'Follow Up'].map((label) => (
-              <span key={label} className="helm-brief-chip" data-tone={chipTone(label)}>{label}</span>
-            ))}
+          <div className="flex items-center gap-3 shrink-0">
+            {emailHighlights.length > 5 && !tileCollapsed['highlights'] && (
+              <button type="button" onClick={() => setShowAllHighlights((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline">
+                {showAllHighlights ? 'Show fewer' : `View all ${emailHighlights.length}`}
+                <ChevronDown className={cn('inline w-3.5 h-3.5 ml-1 transition-transform', showAllHighlights && 'rotate-180')} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => toggleTile('highlights')}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+              title={tileCollapsed['highlights'] ? 'Expand tile' : 'Collapse tile'}
+            >
+              {tileCollapsed['highlights'] ? 'Expand' : 'Collapse'}
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tileCollapsed['highlights'] && '-rotate-90')} />
+            </button>
           </div>
         </div>
-        <div className="mt-3 helm-row-divided">
-          {isLoading ? (
-            <Skeleton className="h-56" />
-          ) : emailHighlights.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {search ? `No email highlights match “${search}”.` : 'No email highlights to review.'}
-            </div>
-          ) : (
-            emailHighlights.map((item, index) => (
-              <BriefEmailRow
-                key={item.id}
-                item={item}
-                index={index}
-                expanded={expandedId === item.id}
-                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                onDisregard={() => disregardItem(item.id)}
-                onPromote={() => promoteToBig3(item.id)}
-                isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
-              />
-            ))
-          )}
-        </div>
+        {!tileCollapsed['highlights'] && (
+          <div className="mt-3 helm-row-divided">
+            {isLoading ? (
+              <Skeleton className="h-56" />
+            ) : emailHighlights.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                {search ? `No email highlights match “${search}”.` : 'No email highlights to review.'}
+              </div>
+            ) : (
+              (showAllHighlights ? emailHighlights : emailHighlights.slice(0, 5)).map((item, index) => (
+                <BriefEmailRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  expanded={expandedId === item.id}
+                  onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  onDisregard={() => disregardItem(item.id)}
+                  onPromote={() => promoteToBig3(item.id)}
+                  isPromoted={big3Ids.has(item.id) || promotedIds.has(item.id)}
+                />
+              ))
+            )}
+          </div>
+        )}
       </section>
+
 
       <section className="print:hidden">
         <Popover>
@@ -2713,6 +2860,7 @@ function CalendarWeekGrid({
   onResizeEvent,
   movingEventId,
   renderEventFooter,
+  onOpenDetails,
   emptyText = 'No meetings',
 }: {
   days: { date: Date; label: string; weekday: string; key: string }[];
@@ -2729,6 +2877,7 @@ function CalendarWeekGrid({
   onResizeEvent?: (ev: CalendarGridEvent, dayKey: string, durationMinutes: number) => void;
   movingEventId?: string | null;
   renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
+  onOpenDetails?: (ev: CalendarGridEvent) => void;
   emptyText?: string;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -2917,8 +3066,12 @@ function CalendarWeekGrid({
                     isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, height: `${height}px` }}
-                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''}`}
+                  style={{ top: `${top}px`, height: `${height}px`, cursor: ev.web_link ? 'pointer' : undefined }}
+                  onClick={(e) => {
+                    // Ignore clicks on inner action buttons (they call stopPropagation)
+                    if (ev.web_link) window.open(ev.web_link, '_blank', 'noopener,noreferrer');
+                  }}
+                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click to open in Outlook`}
                 >
                   <div className="helm-calendar-event-head">
                     <span className="helm-calendar-event-time">{fmtTimeShort(startIso)}</span>
@@ -2952,6 +3105,7 @@ function CalendarWeekGrid({
 }
 
 export function CalendarView({ onBack }: { onBack?: () => void }) {
+  const [detailsEvent, setDetailsEvent] = useState<CalendarGridEvent | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
   const [ruleLoaded, setRuleLoaded] = useState(false);
@@ -3340,11 +3494,21 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     renderEventFooter={(ev) => (
                       <>
                         {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
-                        {ev.web_link && (
-                          <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
-                            Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDetailsEvent(ev); }}
+                            className="text-[10px] font-semibold text-primary hover:underline inline-flex items-center"
+                            title="Open details — view, add notes, edit"
+                          >
+                            Open <Eye className="w-3 h-3 ml-0.5" />
+                          </button>
+                          {ev.web_link && (
+                            <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-sky-600 text-[10px] inline-flex items-center" title="Open in Outlook">
+                              Outlook <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
                       </>
                     )}
                   />
@@ -3602,7 +3766,76 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         </Card>
       </div>
       )}
+      <EventDetailsDialog event={detailsEvent} onClose={() => setDetailsEvent(null)} />
     </div>
+  );
+}
+
+function EventDetailsDialog({ event, onClose }: { event: CalendarGridEvent | null; onClose: () => void }) {
+  const noteKey = event ? `helm:event-note:${event.id}` : '';
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    if (!event) return;
+    try { setNote(window.localStorage.getItem(`helm:event-note:${event.id}`) || ''); } catch { setNote(''); }
+  }, [event?.id]);
+  const saveNote = () => {
+    if (!event) return;
+    try { window.localStorage.setItem(noteKey, note); toast.success('Note saved'); } catch { toast.error('Could not save note'); }
+  };
+  if (!event) return null;
+  const startIso = event.displayStart ?? event.start;
+  const endIso = event.displayEnd ?? event.end;
+  const startLbl = startIso ? new Date(startIso).toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const endLbl = endIso ? new Date(endIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+  return (
+    <Dialog open={!!event} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="pr-8">{event.subject || '(no subject)'}</DialogTitle>
+          <DialogDescription>{startLbl}{endLbl ? ` – ${endLbl}` : ''}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          {event.location && (
+            <div><span className="font-semibold text-foreground">Location:</span> <span className="text-muted-foreground">{event.location}</span></div>
+          )}
+          {event.attendees?.length > 0 && (
+            <div>
+              <span className="font-semibold text-foreground">Attendees ({event.attendees.length}):</span>
+              <ul className="mt-1 text-muted-foreground text-[13px] max-h-32 overflow-auto space-y-0.5">
+                {event.attendees.slice(0, 20).map((a: any, i: number) => (
+                  <li key={i} className="truncate">{a?.emailAddress?.name || a?.name || a?.emailAddress?.address || a?.address || String(a)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {event.is_cancelled && (
+            <div className="text-xs font-semibold text-rose-600">This meeting was cancelled.</div>
+          )}
+          <div>
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <FileEdit className="w-3.5 h-3.5" /> Your notes
+            </label>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add prep notes, questions, follow-ups… (saved locally)"
+              className="mt-1 min-h-[100px] text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+          {event.web_link && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={event.web_link} target="_blank" rel="noreferrer">
+                <ExternalLink className="w-3.5 h-3.5 mr-1" /> Edit in Outlook
+              </a>
+            </Button>
+          )}
+          <Button size="sm" onClick={saveNote}>Save note</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
