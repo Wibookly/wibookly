@@ -101,6 +101,7 @@ type ShapedEvent = {
   subject: string;
   start: string; // naive local ISO from Graph
   end: string;
+  categories: string[];
   organizer: { name: string; email: string };
   attendees: Array<{ name: string; email: string }>;
   is_organizer: boolean;
