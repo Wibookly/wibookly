@@ -478,8 +478,17 @@ Deno.serve(async (req) => {
     return null;
   }
 
-  // Track days already carrying a focus block so we don't double-place when bumping.
-  const usedDayKeys = new Set<string>();
+  // Track days already carrying focus time so we don't double-place when bumping.
+  // This catches InboxIQ-created blocks plus user-created Outlook blocks named
+  // "Focus time", "Deep work", etc.
+  const existingFocusByDay = new Map<string, ShapedEvent>();
+  for (const ev of events) {
+    if (ev.is_cancelled || !ev.start) continue;
+    if (!isFocusEventLike(ev)) continue;
+    const dk = localDateKey(ev.start);
+    if (!existingFocusByDay.has(dk)) existingFocusByDay.set(dk, ev);
+  }
+  const usedDayKeys = new Set<string>(existingFocusByDay.keys());
   // Helper: find gap on a specific dt (Date) — returns null if none.
   const gapForDate = (dt: Date) => {
     const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
@@ -499,6 +508,18 @@ Deno.serve(async (req) => {
     if (!focusDays.includes(weekdayNum)) continue;
     const dayKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const weekdayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekdayNum];
+    const existingFocus = existingFocusByDay.get(dayKey);
+    if (existingFocus) {
+      focusBlocks.push({
+        day_key: dayKey,
+        weekday: weekdayName,
+        start: existingFocus.start,
+        end: existingFocus.end,
+        state: "exists",
+        conflicts: ["Existing focus time already on your calendar — AI skipped adding another."],
+      });
+      continue;
+    }
     if (usedDayKeys.has(dayKey)) continue;
 
     const { dayEvs: dayEvents, gap } = gapForDate(dt);
