@@ -229,10 +229,7 @@ Deno.serve(async (req) => {
         `/me/calendarView?startDateTime=${dayStart}&endDateTime=${dayEnd}&$select=id,subject,categories&$top=50`,
       );
       if (existing.ok && Array.isArray(existing.data?.value)) {
-        const dup = existing.data.value.find((e: any) =>
-          /focus block/i.test(String(e?.subject ?? "")) ||
-          (Array.isArray(e?.categories) && e.categories.some((c: string) => /focus/i.test(String(c)))),
-        );
+        const dup = existing.data.value.find((e: any) => isFocusEventLike(e));
         if (dup) return json(200, { ok: true, skipped: "duplicate_focus_block", event_id: dup.id });
       }
     } catch { /* non-fatal; fall through to create */ }
