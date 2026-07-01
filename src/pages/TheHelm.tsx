@@ -3157,6 +3157,7 @@ function CalendarWeekGrid({
                     isApplied && 'is-applied',
                     isPending && 'is-pending',
                     isNew && 'is-new',
+                    isGhost && 'is-ghost',
                     isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
