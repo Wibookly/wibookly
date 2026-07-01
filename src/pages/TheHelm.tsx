@@ -2865,17 +2865,18 @@ function fmtTimeShort(iso: string | null) {
   return `${h12}:${mm} ${ampm}`;
 }
 
-const CAL_START_HOUR = 0;
-const CAL_END_HOUR = 24;
+// Business-hours-only calendar: 8 AM – 6 PM shown, no off-hours scroll noise.
 const CAL_BUSINESS_START = 8;
 const CAL_BUSINESS_END = 18;
+const CAL_START_HOUR = CAL_BUSINESS_START;
+const CAL_END_HOUR = CAL_BUSINESS_END;
 const CAL_SLOT_MINUTES = 30;
-const CAL_PX_PER_MINUTE = 1.25;
+const CAL_PX_PER_MINUTE = 1.1;
 const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
 const CAL_GRID_HEIGHT = CAL_TOTAL_MINUTES * CAL_PX_PER_MINUTE;
-const CAL_OFFHOURS_TOP_HEIGHT = (CAL_BUSINESS_START - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE;
-const CAL_OFFHOURS_BOTTOM_TOP = (CAL_BUSINESS_END - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE;
-const CAL_OFFHOURS_BOTTOM_HEIGHT = (CAL_END_HOUR - CAL_BUSINESS_END) * 60 * CAL_PX_PER_MINUTE;
+const CAL_OFFHOURS_TOP_HEIGHT = 0;
+const CAL_OFFHOURS_BOTTOM_TOP = CAL_GRID_HEIGHT;
+const CAL_OFFHOURS_BOTTOM_HEIGHT = 0;
 
 function minutesFromLocalIso(iso: string | null): number | null {
   if (!iso) return null;
