@@ -3420,6 +3420,67 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     return map;
   }, [data?.events, days, planQuery.data, dismissed]);
 
+  // Merged single-calendar overlay: current events + ghost old-positions for
+  // events with proposals + proposed new-position cards + focus blocks.
+  const overlayGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) map[d.key] = [];
+    if (!autoFocusOn) return map;
+    const appliedByEv: Record<string, Proposal> = {};
+    const pendingByEv: Record<string, Proposal> = {};
+    for (const p of planQuery.data?.applied ?? []) appliedByEv[p.event_id] = p;
+    for (const p of planQuery.data?.pending_external ?? []) pendingByEv[p.event_id] = p;
+    for (const ev of data?.events ?? []) {
+      const ap = appliedByEv[ev.id];
+      const pd = pendingByEv[ev.id];
+      const proposal = ap || pd;
+      if (!proposal) continue;
+      const dismissedProp = dismissed[proposal.id];
+      // Ghost at original position (only if not dismissed — dismissed means "keep as-is", so no overlay)
+      if (!dismissedProp) {
+        const oldKey = (proposal.old_start ?? '').slice(0, 10);
+        if (map[oldKey]) {
+          map[oldKey].push({
+            ...ev,
+            id: `ghost-${ev.id}`,
+            displayStart: proposal.old_start,
+            displayEnd: proposal.old_end,
+            kind: 'ghost',
+          });
+        }
+        const newKey = (proposal.new_start ?? '').slice(0, 10);
+        if (map[newKey]) {
+          map[newKey].push({
+            ...ev,
+            id: `prop-${ev.id}`,
+            displayStart: proposal.new_start,
+            displayEnd: proposal.new_end,
+            proposal,
+            kind: ap ? 'applied' : 'pending',
+          });
+        }
+      }
+    }
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
+    }
+    return map;
+  }, [data?.events, days, planQuery.data, dismissed, autoFocusOn]);
+
+  // Merge current + overlay into a single map for the unified calendar.
+  const unifiedGridByDay = useMemo(() => {
+    const map: Record<string, CalendarGridEvent[]> = {};
+    for (const d of days) {
+      const cur = currentGridByDay[d.key] ?? [];
+      const ov = overlayGridByDay[d.key] ?? [];
+      map[d.key] = [...cur, ...ov].sort(
+        (a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0),
+      );
+    }
+    return map;
+  }, [days, currentGridByDay, overlayGridByDay]);
+
+
   const shiftWeek = (delta: number) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + delta * 7);
