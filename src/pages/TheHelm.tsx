@@ -2904,6 +2904,8 @@ function CalendarWeekGrid({
                   }}
                   onDragEnd={() => { setDragId(null); setHover(null); }}
                   data-external={ev.is_external ? 'true' : 'false'}
+                  data-short={height < 60 ? 'true' : 'false'}
+                  data-tiny={height < 42 ? 'true' : 'false'}
                   className={cn(
                     'helm-calendar-event-card',
                     variant === 'proposed' && 'is-proposed',
@@ -2916,20 +2918,20 @@ function CalendarWeekGrid({
                     ev.dismissed && 'opacity-70',
                   )}
                   style={{ top: `${top}px`, height: `${height}px` }}
-                  title={isOverlap ? 'Overlaps another meeting — drag to fix' : 'Drag to move · drag bottom edge to resize (30-min steps)'}
+                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''}`}
                 >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
-                    <div className="flex gap-1 flex-wrap justify-end">
-                      {isOverlap && <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-500/60 text-orange-700 bg-orange-500/15">⚠ Overlap</Badge>}
-                      {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
-                      {isPending && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
-                      {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>}
+                  <div className="helm-calendar-event-head">
+                    <span className="helm-calendar-event-time">{fmtTimeShort(startIso)}</span>
+                    <span className="helm-calendar-event-title" title={ev.subject}>{ev.subject}</span>
+                    <div className="helm-calendar-event-badges">
+                      {isOverlap && <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight border-orange-500/60 text-orange-700 bg-orange-500/15">⚠</Badge>}
+                      {isApplied && <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight border-emerald-500/50 text-emerald-700 bg-emerald-500/10">AI</Badge>}
+                      {isPending && <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight border-amber-500/50 text-amber-700 bg-amber-500/10">OK?</Badge>}
+                      {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight border-accent text-foreground bg-accent/20">Ext</Badge>}
                     </div>
                   </div>
-                  <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono">until {fmtTimeShort(endIso)}</p>
-                  {ev.location && <p className="text-muted-foreground text-[10px] line-clamp-1">📍 {ev.location}</p>}
+                  <p className="helm-calendar-event-until">until {fmtTimeShort(endIso)}</p>
+                  {ev.location && <p className="helm-calendar-event-loc">📍 {ev.location}</p>}
                   {isMoving && <p className="text-[10px] text-primary">Updating…</p>}
                   {renderEventFooter?.(ev)}
                   {onResizeEvent && (
