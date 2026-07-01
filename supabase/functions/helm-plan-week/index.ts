@@ -3,6 +3,7 @@
 // POST modes:
 //   { mode: 'analyze', week_start?: ISO, connection_id? }
 //   { mode: 'approve_external', proposal: {...}, connection_id? }
+//   { mode: 'reschedule_event', event_id, start, end, subject?, connection_id? }
 //
 // Internal proposals are applied automatically (PATCH /me/events + warm note).
 // External proposals are returned to the UI; the user approves them, which
@@ -240,6 +241,30 @@ Deno.serve(async (req) => {
       action_key: `focus_block:${dayKey}:${start}`,
     });
     return json(200, { ok: true, event_id: created.data?.id });
+  }
+
+  // ============ Mode: reschedule_event (user drag/drop) ============
+  if (mode === "reschedule_event") {
+    const eventId = String(body?.event_id ?? "").trim();
+    const start = String(body?.start ?? "").trim();
+    const end = String(body?.end ?? "").trim();
+    const subject = String(body?.subject ?? "Calendar event").trim() || "Calendar event";
+    if (!eventId || !start || !end) return json(400, { error: "missing_reschedule_args" });
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00$/.test(start) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00$/.test(end)) {
+      return json(400, { error: "invalid_time_format" });
+    }
+    const patched = await patchEventTime(userId, connectionId!, eventId, start, end, userTz);
+    if (!patched.ok) return json(502, { error: "patch_failed", details: patched.error });
+    await admin.from("activity_log").insert({
+      user_id: userId,
+      organization_id: orgId,
+      action_type: "event_moved",
+      detail: `Rescheduled "${subject}" → ${start}`,
+      graph_id: eventId,
+      tier: "user",
+      action_key: `manual_event_moved:${eventId}:${start}`,
+    });
+    return json(200, { ok: true, applied: true, event_id: eventId, start, end });
   }
 
 
