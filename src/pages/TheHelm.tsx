@@ -1517,7 +1517,7 @@ function BriefView({
       </section>
 
       <section data-helm-section="top-tasks">
-        <div className="helm-brief-panel">
+        <div className="helm-brief-panel" data-accent="sky">
           <div className="helm-panel-head">
             <div className="flex items-baseline gap-2 min-w-0">
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
