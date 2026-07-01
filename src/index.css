@@ -1146,6 +1146,30 @@
   opacity: .72;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
+/* New / AI-added meeting → green */
+.helm-calendar-event-card.is-new {
+  border-color: #16a34a;
+  border-left-color: #16a34a;
+  background: color-mix(in srgb, #22c55e 18%, var(--surface));
+  box-shadow: 0 0 0 2px color-mix(in srgb, #22c55e 30%, transparent), 0 10px 24px -16px color-mix(in srgb, #16a34a 70%, transparent);
+}
+.dark .helm-calendar-event-card.is-new {
+  background: color-mix(in srgb, #22c55e 24%, var(--surface));
+}
+/* Overlapping meeting → orange (takes precedence over other states) */
+.helm-calendar-event-card.is-overlap,
+.helm-calendar-event-card.is-overlap.is-new,
+.helm-calendar-event-card.is-overlap.is-pending,
+.helm-calendar-event-card.is-overlap.is-applied {
+  border-color: #f97316 !important;
+  border-left-color: #f97316 !important;
+  background: color-mix(in srgb, #f97316 20%, var(--surface)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #f97316 40%, transparent), 0 10px 24px -14px color-mix(in srgb, #f97316 75%, transparent) !important;
+  z-index: 4;
+}
+.dark .helm-calendar-event-card.is-overlap {
+  background: color-mix(in srgb, #f97316 26%, var(--surface)) !important;
+}
 .helm-calendar-resize-handle {
   position: absolute;
   left: 0;

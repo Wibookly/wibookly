@@ -2779,6 +2779,27 @@ function CalendarWeekGrid({
       </div>
       {days.map((d) => {
         const events = eventsByDay[d.key] ?? [];
+        const overlappingIds = new Set<string>();
+        for (let i = 0; i < events.length; i++) {
+          const a = events[i];
+          if (a.is_cancelled || a.dismissed) continue;
+          const aStart = minutesFromLocalIso(a.displayStart ?? a.start);
+          const aDur = eventDurationMinutes(a.displayStart ?? a.start, a.displayEnd ?? a.end);
+          if (aStart == null) continue;
+          const aEnd = aStart + aDur;
+          for (let j = i + 1; j < events.length; j++) {
+            const b = events[j];
+            if (b.is_cancelled || b.dismissed) continue;
+            const bStart = minutesFromLocalIso(b.displayStart ?? b.start);
+            const bDur = eventDurationMinutes(b.displayStart ?? b.start, b.displayEnd ?? b.end);
+            if (bStart == null) continue;
+            const bEnd = bStart + bDur;
+            if (aStart < bEnd && bStart < aEnd) {
+              overlappingIds.add(a.id);
+              overlappingIds.add(b.id);
+            }
+          }
+        }
         const focus = focusByDay?.[d.key];
         const showFocus = variant === 'proposed' && focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
@@ -2848,6 +2869,8 @@ function CalendarWeekGrid({
               const isMoving = movingEventId === ev.id;
               const isPending = ev.kind === 'pending' && !ev.dismissed;
               const isApplied = ev.kind === 'applied';
+              const isOverlap = overlappingIds.has(ev.id);
+              const isNew = isPending || isApplied;
               const handleResizeStart = (e: React.MouseEvent) => {
                 if (!onResizeEvent) return;
                 e.stopPropagation();
@@ -2888,14 +2911,17 @@ function CalendarWeekGrid({
                     isMoving && 'is-saving',
                     isApplied && 'is-applied',
                     isPending && 'is-pending',
+                    isNew && 'is-new',
+                    isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
                   style={{ top: `${top}px`, height: `${height}px` }}
-                  title="Drag to move · drag bottom edge to resize (30-min steps)"
+                  title={isOverlap ? 'Overlaps another meeting — drag to fix' : 'Drag to move · drag bottom edge to resize (30-min steps)'}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
                     <div className="flex gap-1 flex-wrap justify-end">
+                      {isOverlap && <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-500/60 text-orange-700 bg-orange-500/15">⚠ Overlap</Badge>}
                       {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
                       {isPending && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
                       {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>}
