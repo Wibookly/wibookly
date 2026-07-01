@@ -808,15 +808,24 @@ function briefInitials(item: HelmItem): string {
 }
 
 function briefTime(item: HelmItem): string {
-  const raw = item.created_at || item.due_at;
+  const p: any = (item as any)?.payload || {};
+  const raw =
+    p.receivedDateTime ||
+    p.received_at ||
+    p.sentDateTime ||
+    p.sent_at ||
+    item.created_at ||
+    item.due_at;
   if (!raw) return item.due || 'Now';
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return item.due || 'Now';
   const now = new Date();
   const start = new Date(now); start.setHours(0, 0, 0, 0);
   const yesterday = new Date(start); yesterday.setDate(start.getDate() - 1);
+  const weekAgo = new Date(start); weekAgo.setDate(start.getDate() - 6);
   if (d >= start) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  if (d >= yesterday) return 'Yesterday';
+  if (d >= yesterday) return `Yesterday ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  if (d >= weekAgo) return d.toLocaleDateString([], { weekday: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
