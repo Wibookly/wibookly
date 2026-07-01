@@ -2705,6 +2705,7 @@ function CalendarWeekGrid({
   onFocusDismiss,
   focusBusyDay,
   onMoveEvent,
+  onResizeEvent,
   movingEventId,
   renderEventFooter,
   emptyText = 'No meetings',
@@ -2720,6 +2721,7 @@ function CalendarWeekGrid({
   onFocusDismiss?: (focus: FocusBlock) => void;
   focusBusyDay?: string | null;
   onMoveEvent?: (ev: CalendarGridEvent, dayKey: string, startMinutes: number) => void;
+  onResizeEvent?: (ev: CalendarGridEvent, dayKey: string, durationMinutes: number) => void;
   movingEventId?: string | null;
   renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
   emptyText?: string;
