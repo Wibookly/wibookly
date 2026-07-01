@@ -917,7 +917,9 @@
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
 .helm-calendar-scroll {
   width: 100%;
-  max-height: 640px;
+  /* Fits business hours 8 AM – 5 PM (9h × 60min × 1.7px) + day header + padding */
+  max-height: 970px;
+  height: 970px;
   overflow-x: auto;
   overflow-y: auto;
   padding-bottom: .35rem;

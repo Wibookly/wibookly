@@ -2802,7 +2802,7 @@ function fmtTimeShort(iso: string | null) {
 const CAL_START_HOUR = 6;
 const CAL_END_HOUR = 22;
 const CAL_BUSINESS_START = 8;
-const CAL_BUSINESS_END = 18;
+const CAL_BUSINESS_END = 17;
 const CAL_SLOT_MINUTES = 30;
 const CAL_PX_PER_MINUTE = 1.7;
 const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
