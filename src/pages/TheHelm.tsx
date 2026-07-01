@@ -2825,10 +2825,32 @@ function CalendarWeekGrid({
               const start = minutesFromLocalIso(startIso) ?? CAL_START_HOUR * 60;
               const duration = eventDurationMinutes(startIso, endIso);
               const top = Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE;
-              const height = Math.max(56, duration * CAL_PX_PER_MINUTE);
+              const height = Math.max(30 * CAL_PX_PER_MINUTE, duration * CAL_PX_PER_MINUTE);
               const isMoving = movingEventId === ev.id;
               const isPending = ev.kind === 'pending' && !ev.dismissed;
               const isApplied = ev.kind === 'applied';
+              const handleResizeStart = (e: React.MouseEvent) => {
+                if (!onResizeEvent) return;
+                e.stopPropagation();
+                e.preventDefault();
+                const startY = e.clientY;
+                const startDur = duration;
+                let liveDur = startDur;
+                const card = (e.currentTarget as HTMLElement).parentElement as HTMLElement | null;
+                const onMove = (mv: MouseEvent) => {
+                  const deltaMin = (mv.clientY - startY) / CAL_PX_PER_MINUTE;
+                  const raw = startDur + deltaMin;
+                  liveDur = Math.max(30, Math.round(raw / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES);
+                  if (card) card.style.height = `${liveDur * CAL_PX_PER_MINUTE}px`;
+                };
+                const onUp = () => {
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                  if (liveDur !== startDur) onResizeEvent(ev, d.key, liveDur);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              };
               return (
                 <div
                   key={ev.id}
@@ -2849,8 +2871,8 @@ function CalendarWeekGrid({
                     isPending && 'is-pending',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, minHeight: `${height}px` }}
-                  title="Drag up/down or to another day to reschedule"
+                  style={{ top: `${top}px`, height: `${height}px` }}
+                  title="Drag to move · drag bottom edge to resize (30-min steps)"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
@@ -2865,6 +2887,13 @@ function CalendarWeekGrid({
                   {ev.location && <p className="text-muted-foreground text-[10px] line-clamp-1">📍 {ev.location}</p>}
                   {isMoving && <p className="text-[10px] text-primary">Updating…</p>}
                   {renderEventFooter?.(ev)}
+                  {onResizeEvent && (
+                    <div
+                      className="helm-calendar-resize-handle"
+                      onMouseDown={handleResizeStart}
+                      title="Drag to resize (30-min steps)"
+                    />
+                  )}
                 </div>
               );
             })}
