@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -2652,12 +2652,17 @@ function fmtTimeShort(iso: string | null) {
   return `${h12}:${mm} ${ampm}`;
 }
 
-const CAL_START_HOUR = 7;
-const CAL_END_HOUR = 19;
+const CAL_START_HOUR = 6;
+const CAL_END_HOUR = 22;
+const CAL_BUSINESS_START = 8;
+const CAL_BUSINESS_END = 18;
 const CAL_SLOT_MINUTES = 30;
 const CAL_PX_PER_MINUTE = 1.25;
 const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
 const CAL_GRID_HEIGHT = CAL_TOTAL_MINUTES * CAL_PX_PER_MINUTE;
+const CAL_OFFHOURS_TOP_HEIGHT = (CAL_BUSINESS_START - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE;
+const CAL_OFFHOURS_BOTTOM_TOP = (CAL_BUSINESS_END - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE;
+const CAL_OFFHOURS_BOTTOM_HEIGHT = (CAL_END_HOUR - CAL_BUSINESS_END) * 60 * CAL_PX_PER_MINUTE;
 
 function minutesFromLocalIso(iso: string | null): number | null {
   if (!iso) return null;
@@ -2728,6 +2733,13 @@ function CalendarWeekGrid({
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [hover, setHover] = useState<{ dayKey: string; minutes: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const scroller = gridRef.current?.closest('.helm-calendar-scroll') as HTMLElement | null;
+    if (scroller) {
+      scroller.scrollTop = Math.max(0, CAL_OFFHOURS_TOP_HEIGHT - 12);
+    }
+  }, []);
   const hours = useMemo(() => {
     const out: number[] = [];
     for (let h = CAL_START_HOUR; h <= CAL_END_HOUR; h++) out.push(h);
@@ -2744,7 +2756,7 @@ function CalendarWeekGrid({
     return Math.max(CAL_START_HOUR * 60, Math.min(CAL_END_HOUR * 60 - CAL_SLOT_MINUTES, roundToSlot(CAL_START_HOUR * 60 + y / CAL_PX_PER_MINUTE)));
   };
   return (
-    <div className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
+    <div ref={gridRef} className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
       <div className="helm-calendar-time-head" />
       {days.map((d) => {
         const isToday = d.date.toDateString() === new Date().toDateString();
@@ -2756,9 +2768,14 @@ function CalendarWeekGrid({
         );
       })}
       <div className="helm-calendar-time-gutter" aria-label="Time of day">
-        {hours.map((h) => (
-          <div key={h} className="helm-calendar-time-label" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
-        ))}
+        <div className="helm-calendar-offhours-band" style={{ top: 0, height: `${CAL_OFFHOURS_TOP_HEIGHT}px` }} aria-hidden />
+        <div className="helm-calendar-offhours-band" style={{ top: `${CAL_OFFHOURS_BOTTOM_TOP}px`, height: `${CAL_OFFHOURS_BOTTOM_HEIGHT}px` }} aria-hidden />
+        {hours.map((h) => {
+          const offHours = h < CAL_BUSINESS_START || h >= CAL_BUSINESS_END;
+          return (
+            <div key={h} className={cn('helm-calendar-time-label', offHours && 'is-offhours')} style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
+          );
+        })}
       </div>
       {days.map((d) => {
         const events = eventsByDay[d.key] ?? [];
@@ -2786,6 +2803,8 @@ function CalendarWeekGrid({
               setHover(null);
             }}
           >
+            <div className="helm-calendar-offhours-band" style={{ top: 0, height: `${CAL_OFFHOURS_TOP_HEIGHT}px` }} aria-hidden />
+            <div className="helm-calendar-offhours-band" style={{ top: `${CAL_OFFHOURS_BOTTOM_TOP}px`, height: `${CAL_OFFHOURS_BOTTOM_HEIGHT}px` }} aria-hidden />
             {hours.slice(0, -1).map((h) => <div key={h} className="helm-calendar-hour-line" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }} />)}
             {hover?.dayKey === d.key && (
               <div className="helm-calendar-drop-line" style={{ top: `${(hover.minutes - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px` }}>

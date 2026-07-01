@@ -917,9 +917,13 @@
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
 .helm-calendar-scroll {
   width: 100%;
+  max-height: 640px;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding-bottom: .35rem;
+  border-radius: 1rem;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 .helm-calendar-grid {
   --helm-cal-col-min: 13rem;
@@ -945,6 +949,9 @@
 .helm-calendar-day-head {
   min-height: 3.4rem;
   border-radius: .85rem;
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 .helm-calendar-time-head {
   background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, var(--surface-elevated)), var(--surface-elevated));
@@ -1014,6 +1021,41 @@
   font-size: .68rem;
   font-weight: 800;
   white-space: nowrap;
+  z-index: 2;
+}
+.helm-calendar-time-label.is-offhours {
+  color: color-mix(in srgb, var(--muted-foreground) 78%, transparent);
+  font-weight: 600;
+  opacity: .78;
+}
+.helm-calendar-offhours-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--muted-foreground) 10%, transparent) 0,
+      color-mix(in srgb, var(--muted-foreground) 10%, transparent) 6px,
+      transparent 6px,
+      transparent 12px
+    ),
+    color-mix(in srgb, var(--muted-foreground) 8%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--border-strong) 60%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--border-strong) 60%, transparent);
+}
+.dark .helm-calendar-offhours-band {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--muted-foreground) 18%, transparent) 0,
+      color-mix(in srgb, var(--muted-foreground) 18%, transparent) 6px,
+      transparent 6px,
+      transparent 12px
+    ),
+    color-mix(in srgb, #000 22%, transparent);
 }
 .helm-calendar-hour-line {
   position: absolute;
