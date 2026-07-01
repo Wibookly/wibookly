@@ -552,15 +552,39 @@
 .helm-brief-hero-copy strong { color: var(--helm-hero-fg); font-weight: 800; }
 .helm-brief-hero-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(4.25rem, 1fr));
-  gap: .25rem;
-  padding: .65rem .75rem;
-  border: 1px solid rgba(255,255,255,.28);
-  border-radius: .75rem;
-  background: rgba(255,255,255,.12);
-  backdrop-filter: blur(10px);
+  grid-template-columns: repeat(3, minmax(5.5rem, 1fr));
+  gap: 0;
+  padding: .85rem 1rem;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: .9rem;
+  background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 8px 24px -12px rgba(0,0,0,.35);
 }
-.helm-brief-hero-stat { text-align: center; }
+.helm-brief-hero-stat {
+  text-align: center;
+  padding: .35rem .75rem;
+  position: relative;
+}
+.helm-brief-hero-stat + .helm-brief-hero-stat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,.35), transparent);
+}
+.helm-brief-hero-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0 auto .35rem;
+  border-radius: .5rem;
+  background: rgba(255,255,255,.14);
+}
 .helm-brief-metric,
 .helm-brief-panel,
 .helm-signal-card {
@@ -690,6 +714,34 @@
   border-color: color-mix(in srgb, var(--success) 38%, transparent);
   background: color-mix(in srgb, var(--success-bg) 48%, var(--card));
   color: var(--success);
+}
+.helm-brief-panel {
+  position: relative;
+  overflow: hidden;
+}
+.helm-brief-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--helm-panel-accent, linear-gradient(90deg, var(--primary), var(--c-violet)));
+  opacity: .9;
+}
+.helm-brief-panel[data-accent="sky"] {
+  --helm-panel-accent: linear-gradient(90deg, #38BDF8, #6366F1);
+  border-color: color-mix(in srgb, #38BDF8 30%, var(--border));
+  background: color-mix(in srgb, #38BDF8 5%, var(--card));
+}
+.helm-brief-panel[data-accent="violet"] {
+  --helm-panel-accent: linear-gradient(90deg, #A855F7, #EC4899);
+  border-color: color-mix(in srgb, #A855F7 30%, var(--border));
+  background: color-mix(in srgb, #A855F7 5%, var(--card));
+}
+.dark .helm-brief-panel[data-accent="sky"] {
+  background: color-mix(in srgb, #38BDF8 10%, var(--card));
+}
+.dark .helm-brief-panel[data-accent="violet"] {
+  background: color-mix(in srgb, #A855F7 10%, var(--card));
 }
 .helm-highlight-row { padding: 1rem .75rem; }
 .helm-avatar {
