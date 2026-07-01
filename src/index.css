@@ -915,6 +915,12 @@
 .helm-cal-event[draggable="true"]:active { cursor: grabbing; }
 
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
+.helm-calendar-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: .35rem;
+}
 .helm-calendar-grid {
   --helm-cal-col-min: 13rem;
   display: grid;
