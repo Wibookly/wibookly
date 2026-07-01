@@ -2986,10 +2986,22 @@ function CalendarWeekGrid({
       <div className="helm-calendar-time-gutter" aria-label="Time of day">
         <div className="helm-calendar-offhours-band" style={{ top: 0, height: `${CAL_OFFHOURS_TOP_HEIGHT}px` }} aria-hidden />
         <div className="helm-calendar-offhours-band" style={{ top: `${CAL_OFFHOURS_BOTTOM_TOP}px`, height: `${CAL_OFFHOURS_BOTTOM_HEIGHT}px` }} aria-hidden />
-        {hours.map((h) => {
+        {hours.map((h, idx) => {
           const offHours = h < CAL_BUSINESS_START || h >= CAL_BUSINESS_END;
+          const isFirst = idx === 0;
+          const isLast = idx === hours.length - 1;
+          const baseTop = (h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE;
+          // Keep the first/last labels fully inside the gutter so they aren’t clipped.
+          const top = isFirst ? 0 : isLast ? CAL_GRID_HEIGHT : baseTop;
+          const transform = isFirst ? 'translateY(0)' : isLast ? 'translateY(-100%)' : 'translateY(-50%)';
           return (
-            <div key={h} className={cn('helm-calendar-time-label', offHours && 'is-offhours')} style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
+            <div
+              key={h}
+              className={cn('helm-calendar-time-label', offHours && 'is-offhours', isFirst && 'is-first', isLast && 'is-last')}
+              style={{ top: `${top}px`, transform }}
+            >
+              {fmtHour(h)}
+            </div>
           );
         })}
       </div>
