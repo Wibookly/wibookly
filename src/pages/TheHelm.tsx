@@ -2585,6 +2585,7 @@ interface CalEvent {
   subject: string;
   start: string | null;
   end: string | null;
+  categories?: string[];
   time_zone: string;
   organizer: { name: string; email: string };
   attendees: Array<{ name: string; email: string; type: string; response: string }>;
@@ -2622,7 +2623,7 @@ type FocusBlock = {
   weekday: string;
   start: string;
   end: string;
-  state: 'free' | 'needs_move' | 'blocked';
+  state: 'free' | 'needs_move' | 'blocked' | 'exists';
   conflicts: string[];
 };
 
@@ -2899,6 +2900,15 @@ function eventDurationMinutes(start: string | null, end: string | null): number 
   return Math.max(15, Math.min(240, e - s));
 }
 
+function isCalendarFocusEvent(ev: Pick<CalEvent, 'subject'> & { categories?: string[] }) {
+  const subject = String(ev.subject ?? '').toLowerCase();
+  const categories = Array.isArray(ev.categories) ? ev.categories.map((c) => String(c).toLowerCase()) : [];
+  return (
+    /\b(focus|focus time|focus block|deep work|heads[-\s]?down|protected work|quiet work)\b/i.test(subject) ||
+    categories.some((c) => /\bfocus\b/i.test(c))
+  );
+}
+
 function roundToSlot(minutes: number): number {
   return Math.round(minutes / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES;
 }
@@ -3029,7 +3039,7 @@ function CalendarWeekGrid({
           }
         }
         const focus = focusByDay?.[d.key];
-        const showFocus = focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const showFocus = focusEnabled && focus && focus.state !== 'exists' && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
         return (
           <div
@@ -3285,9 +3295,13 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
-    onSuccess: (_d, vars) => {
+    onSuccess: (d: any, vars) => {
       setAppliedFocus((s) => ({ ...s, [vars.day_key]: true }));
-      toast.success('Focus block added to your calendar.');
+      if (d?.skipped === 'duplicate_focus_block') {
+        toast.info('Focus already exists that day — AI skipped adding another.');
+      } else {
+        toast.success('Focus block added to your calendar.');
+      }
       refetch();
     },
     onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
@@ -3373,15 +3387,32 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     return map;
   }, [planQuery.data]);
 
+  const duplicateFocusDays = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ev of data?.events ?? []) {
+      if (ev.is_cancelled || !ev.start || !isCalendarFocusEvent(ev)) continue;
+      const dayKey = ev.start.slice(0, 10);
+      counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .map(([dayKey, count]) => ({ dayKey, count }));
+  }, [data?.events]);
+
   const currentGridByDay = useMemo(() => {
     const map: Record<string, CalendarGridEvent[]> = {};
     for (const d of days) map[d.key] = [];
+    const shownFocusByDay = new Set<string>();
     for (const ev of data?.events ?? []) {
       const move = manualMoves[ev.id];
       const displayStart = move?.start ?? ev.start;
       const displayEnd = move?.end ?? ev.end;
       const key = (displayStart ?? '').slice(0, 10);
       if (!map[key]) continue;
+      if (isCalendarFocusEvent(ev)) {
+        if (shownFocusByDay.has(key)) continue;
+        shownFocusByDay.add(key);
+      }
       map[key].push({ ...ev, displayStart, displayEnd, kind: 'none' });
     }
     for (const key of Object.keys(map)) {
@@ -3670,6 +3701,11 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
               </div>
             )}
             <div className="border-t border-border/60 p-3">
+              {duplicateFocusDays.length > 0 && (
+                <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                  AI found more than one focus block on {duplicateFocusDays.map((d) => `${d.dayKey} (${d.count})`).join(', ')}. The Helm is showing only one for that day and will not add another.
+                </div>
+              )}
               {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
@@ -3688,7 +3724,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     onFocusApprove={(focus) => {
                       // Dedupe: don't add a second focus block on a day that already has one.
                       const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
-                      const already = dayEvents.some((e: any) => /focus block/i.test(String(e.subject ?? '')));
+                      const already = dayEvents.some((e: any) => isCalendarFocusEvent(e));
                       if (already) {
                         toast.info('There is already a focus block on this day — skipped to avoid duplicates.');
                         setAppliedFocus((s) => ({ ...s, [focus.day_key]: true }));

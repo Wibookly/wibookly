@@ -101,6 +101,7 @@ type ShapedEvent = {
   subject: string;
   start: string; // naive local ISO from Graph
   end: string;
+  categories: string[];
   organizer: { name: string; email: string };
   attendees: Array<{ name: string; email: string }>;
   is_organizer: boolean;
@@ -228,10 +229,7 @@ Deno.serve(async (req) => {
         `/me/calendarView?startDateTime=${dayStart}&endDateTime=${dayEnd}&$select=id,subject,categories&$top=50`,
       );
       if (existing.ok && Array.isArray(existing.data?.value)) {
-        const dup = existing.data.value.find((e: any) =>
-          /focus block/i.test(String(e?.subject ?? "")) ||
-          (Array.isArray(e?.categories) && e.categories.some((c: string) => /focus/i.test(String(c)))),
-        );
+        const dup = existing.data.value.find((e: any) => isFocusEventLike(e));
         if (dup) return json(200, { ok: true, skipped: "duplicate_focus_block", event_id: dup.id });
       }
     } catch { /* non-fatal; fall through to create */ }
@@ -395,7 +393,7 @@ Deno.serve(async (req) => {
 
   const select = [
     "id","subject","start","end","organizer","attendees","isOrganizer",
-    "type","isCancelled","sensitivity",
+    "type","isCancelled","sensitivity","categories",
   ].join(",");
   const endpoint =
     `/me/calendarView?startDateTime=${encodeURIComponent(monday.toISOString())}` +
@@ -422,6 +420,7 @@ Deno.serve(async (req) => {
       subject: e.subject ?? "(no subject)",
       start: e.start?.dateTime ?? "",
       end: e.end?.dateTime ?? "",
+      categories: Array.isArray(e.categories) ? e.categories.map((c: unknown) => String(c)) : [],
       organizer: {
         name: e.organizer?.emailAddress?.name ?? "",
         email: (e.organizer?.emailAddress?.address ?? "").toLowerCase(),
@@ -441,7 +440,7 @@ Deno.serve(async (req) => {
     weekday: string;
     start: string;
     end: string;
-    state: "free" | "needs_move" | "blocked";
+    state: "free" | "needs_move" | "blocked" | "exists";
     conflicts: string[];
   }> = [];
   const proposals: Proposal[] = [];
@@ -479,8 +478,17 @@ Deno.serve(async (req) => {
     return null;
   }
 
-  // Track days already carrying a focus block so we don't double-place when bumping.
-  const usedDayKeys = new Set<string>();
+  // Track days already carrying focus time so we don't double-place when bumping.
+  // This catches InboxIQ-created blocks plus user-created Outlook blocks named
+  // "Focus time", "Deep work", etc.
+  const existingFocusByDay = new Map<string, ShapedEvent>();
+  for (const ev of events) {
+    if (ev.is_cancelled || !ev.start) continue;
+    if (!isFocusEventLike(ev)) continue;
+    const dk = localDateKey(ev.start);
+    if (!existingFocusByDay.has(dk)) existingFocusByDay.set(dk, ev);
+  }
+  const usedDayKeys = new Set<string>(existingFocusByDay.keys());
   // Helper: find gap on a specific dt (Date) — returns null if none.
   const gapForDate = (dt: Date) => {
     const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
@@ -500,6 +508,18 @@ Deno.serve(async (req) => {
     if (!focusDays.includes(weekdayNum)) continue;
     const dayKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const weekdayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekdayNum];
+    const existingFocus = existingFocusByDay.get(dayKey);
+    if (existingFocus) {
+      focusBlocks.push({
+        day_key: dayKey,
+        weekday: weekdayName,
+        start: existingFocus.start,
+        end: existingFocus.end,
+        state: "exists",
+        conflicts: ["Existing focus time already on your calendar — AI skipped adding another."],
+      });
+      continue;
+    }
     if (usedDayKeys.has(dayKey)) continue;
 
     const { dayEvs: dayEvents, gap } = gapForDate(dt);
@@ -676,6 +696,17 @@ function moveScore(e: ShapedEvent, userEmail: string): number {
   if (/standup|status|sync/i.test(e.subject)) s -= 20;
   if (/board|client|customer|interview/i.test(e.subject)) s += 50;
   return s;
+}
+
+function isFocusEventLike(e: { subject?: unknown; categories?: unknown }): boolean {
+  const subject = String(e?.subject ?? "").toLowerCase();
+  const categories = Array.isArray(e?.categories)
+    ? e.categories.map((c) => String(c).toLowerCase())
+    : [];
+  return (
+    /\b(focus|focus time|focus block|deep work|heads[-\s]?down|protected work|quiet work)\b/i.test(subject) ||
+    categories.some((c) => /\bfocus\b/i.test(c))
+  );
 }
 
 function findFreeSlot(
