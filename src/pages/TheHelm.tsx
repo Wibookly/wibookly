@@ -3685,7 +3685,17 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     dismissedFocus={dismissedFocus}
                     appliedFocus={appliedFocus}
                     focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
-                    onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                    onFocusApprove={(focus) => {
+                      // Dedupe: don't add a second focus block on a day that already has one.
+                      const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
+                      const already = dayEvents.some((e: any) => /focus block/i.test(String(e.subject ?? '')));
+                      if (already) {
+                        toast.info('There is already a focus block on this day — skipped to avoid duplicates.');
+                        setAppliedFocus((s) => ({ ...s, [focus.day_key]: true }));
+                        return;
+                      }
+                      createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end });
+                    }}
                     onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
                     onMoveEvent={(ev, dayKey, startMinutes) => {
                       if (ev.kind === 'ghost' || ev.kind === 'pending' || ev.kind === 'applied') return;

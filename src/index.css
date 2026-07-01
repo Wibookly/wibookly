@@ -976,7 +976,7 @@
   padding: .25rem;
   border-radius: 1rem;
   scroll-behavior: smooth;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--primary) 5%, var(--surface-elevated)) 0%,
