@@ -3493,11 +3493,21 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     renderEventFooter={(ev) => (
                       <>
                         {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
-                        {ev.web_link && (
-                          <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
-                            Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDetailsEvent(ev); }}
+                            className="text-[10px] font-semibold text-primary hover:underline inline-flex items-center"
+                            title="Open details — view, add notes, edit"
+                          >
+                            Open <Eye className="w-3 h-3 ml-0.5" />
+                          </button>
+                          {ev.web_link && (
+                            <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-sky-600 text-[10px] inline-flex items-center" title="Open in Outlook">
+                              Outlook <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
                       </>
                     )}
                   />
