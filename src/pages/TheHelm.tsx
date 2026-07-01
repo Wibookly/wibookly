@@ -3265,23 +3265,25 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                   {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
                 </div>
               ) : (
-                <CalendarWeekGrid
-                  days={days}
-                  eventsByDay={currentGridByDay}
-                  variant="current"
-                  onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
-                  movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
-                  renderEventFooter={(ev) => (
-                    <>
-                      {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
-                      {ev.web_link && (
-                        <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
-                          Open <ArrowRight className="w-3 h-3 ml-0.5" />
-                        </a>
-                      )}
-                    </>
-                  )}
-                />
+                <div className="helm-calendar-scroll">
+                  <CalendarWeekGrid
+                    days={days}
+                    eventsByDay={currentGridByDay}
+                    variant="current"
+                    onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                    movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
+                    renderEventFooter={(ev) => (
+                      <>
+                        {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
+                        {ev.web_link && (
+                          <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] inline-flex items-center">
+                            Open <ArrowRight className="w-3 h-3 ml-0.5" />
+                          </a>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
               )}
             </div>
           </CollapsibleContent>
@@ -3334,53 +3336,55 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
               <div className="border-t border-border/60 p-3">
-                <CalendarWeekGrid
-                  days={days}
-                  eventsByDay={proposedGridByDay}
-                  variant="proposed"
-                  focusByDay={focusByDay}
-                  focusEnabled={focusEnabled}
-                  dismissedFocus={dismissedFocus}
-                  appliedFocus={appliedFocus}
-                  focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
-                  onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                  onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                  renderEventFooter={(ev) => {
-                    const proposal = ev.proposal;
-                    const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
-                    const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
-                    return (
-                      <>
-                        {proposal && (
-                          <p className="text-[10px] text-muted-foreground">
-                            was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
-                          </p>
-                        )}
-                        {isPending && proposal && (
-                          <div className="flex items-center justify-between gap-2 pt-1">
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                disabled={isApproving}
-                                onChange={(e) => {
-                                  if (!e.target.checked) return;
-                                  approveMutation.mutate({ proposal, note: '' });
-                                }}
-                                className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
-                              />
-                              <span className="text-[10px] text-foreground">
-                                {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve' : 'Email organizer'}
-                              </span>
-                            </label>
-                            <button onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }} className="text-[10px] text-muted-foreground hover:text-foreground">
-                              Disregard
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    );
-                  }}
-                />
+                <div className="helm-calendar-scroll">
+                  <CalendarWeekGrid
+                    days={days}
+                    eventsByDay={proposedGridByDay}
+                    variant="proposed"
+                    focusByDay={focusByDay}
+                    focusEnabled={focusEnabled}
+                    dismissedFocus={dismissedFocus}
+                    appliedFocus={appliedFocus}
+                    focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
+                    onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                    onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                    renderEventFooter={(ev) => {
+                      const proposal = ev.proposal;
+                      const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
+                      const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
+                      return (
+                        <>
+                          {proposal && (
+                            <p className="text-[10px] text-muted-foreground">
+                              was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
+                            </p>
+                          )}
+                          {isPending && proposal && (
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  disabled={isApproving}
+                                  onChange={(e) => {
+                                    if (!e.target.checked) return;
+                                    approveMutation.mutate({ proposal, note: '' });
+                                  }}
+                                  className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
+                                />
+                                <span className="text-[10px] text-foreground">
+                                  {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve' : 'Email organizer'}
+                                </span>
+                              </label>
+                              <button onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }} className="text-[10px] text-muted-foreground hover:text-foreground">
+                                Disregard
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    }}
+                  />
+                </div>
                 <p className="text-[10px] text-muted-foreground italic mt-3">
                   Tip: checking a card ☑ sends the update in the background — Outlook invites for meetings you host, or a polite reschedule email to the organizer otherwise.
                 </p>
