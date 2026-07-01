@@ -3766,7 +3766,76 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         </Card>
       </div>
       )}
+      <EventDetailsDialog event={detailsEvent} onClose={() => setDetailsEvent(null)} />
     </div>
+  );
+}
+
+function EventDetailsDialog({ event, onClose }: { event: CalendarGridEvent | null; onClose: () => void }) {
+  const noteKey = event ? `helm:event-note:${event.id}` : '';
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    if (!event) return;
+    try { setNote(window.localStorage.getItem(`helm:event-note:${event.id}`) || ''); } catch { setNote(''); }
+  }, [event?.id]);
+  const saveNote = () => {
+    if (!event) return;
+    try { window.localStorage.setItem(noteKey, note); toast.success('Note saved'); } catch { toast.error('Could not save note'); }
+  };
+  if (!event) return null;
+  const startIso = event.displayStart ?? event.start;
+  const endIso = event.displayEnd ?? event.end;
+  const startLbl = startIso ? new Date(startIso).toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const endLbl = endIso ? new Date(endIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+  return (
+    <Dialog open={!!event} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="pr-8">{event.subject || '(no subject)'}</DialogTitle>
+          <DialogDescription>{startLbl}{endLbl ? ` – ${endLbl}` : ''}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          {event.location && (
+            <div><span className="font-semibold text-foreground">Location:</span> <span className="text-muted-foreground">{event.location}</span></div>
+          )}
+          {event.attendees?.length > 0 && (
+            <div>
+              <span className="font-semibold text-foreground">Attendees ({event.attendees.length}):</span>
+              <ul className="mt-1 text-muted-foreground text-[13px] max-h-32 overflow-auto space-y-0.5">
+                {event.attendees.slice(0, 20).map((a: any, i: number) => (
+                  <li key={i} className="truncate">{a?.emailAddress?.name || a?.name || a?.emailAddress?.address || a?.address || String(a)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {event.is_cancelled && (
+            <div className="text-xs font-semibold text-rose-600">This meeting was cancelled.</div>
+          )}
+          <div>
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <FileEdit className="w-3.5 h-3.5" /> Your notes
+            </label>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Add prep notes, questions, follow-ups… (saved locally)"
+              className="mt-1 min-h-[100px] text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+          {event.web_link && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={event.web_link} target="_blank" rel="noreferrer">
+                <ExternalLink className="w-3.5 h-3.5 mr-1" /> Edit in Outlook
+              </a>
+            </Button>
+          )}
+          <Button size="sm" onClick={saveNote}>Save note</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
