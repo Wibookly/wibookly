@@ -857,6 +857,16 @@ function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | str
   );
 }
 
+function BriefHeroStats({ tasks, focusMinutes, atRisk }: { tasks: number; focusMinutes: number; atRisk: number }) {
+  return (
+    <div className="helm-brief-hero-stats" aria-label="Today summary">
+      <BriefHeroStat value={tasks} label="Priority tasks" tone="neutral" />
+      <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
+      <BriefHeroStat value={atRisk} label="At risk" tone="risk" />
+    </div>
+  );
+}
+
 function BriefMetricTile({ icon: Icon, label, value, subLabel, accent, delta, onClick }: {
   icon: React.ElementType;
   label: string;
@@ -926,8 +936,8 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
   const accent = tone === 'risk' ? 'rose' : 'emerald';
   return (
     <div className="helm-signal-card" data-tone={tone}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[13px] font-bold text-foreground">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
           <Icon className="w-4 h-4" /> {title}
           <span className={cn(
             'px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold',
@@ -946,26 +956,37 @@ function BriefSignalCard({ title, items, tone, icon: Icon, emptyText }: {
               const sub = isAction ? raw.tag : (raw.context || raw.due || 'Open for details');
               const isOpen = openId === raw.id;
               return (
-                <li key={raw.id}>
+                <li key={raw.id} className="helm-highlight-row-wrap" data-open={isOpen ? 'true' : 'false'}>
                   <button
                     type="button"
                     onClick={() => setOpenId(isOpen ? null : raw.id)}
-                    className="w-full grid grid-cols-[6px_minmax(0,1fr)_auto] gap-2 items-start py-2 px-1 text-left text-[12px] leading-snug hover:bg-muted/30 rounded-md transition-colors"
+                    className="helm-highlight-row items-start"
                   >
-                    <span className={cn('mt-1.5 w-1.5 h-1.5 rounded-full', tone === 'risk' ? 'bg-rose-500' : 'bg-emerald-500')} />
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-foreground truncate">{line}</span>
-                      <span className="block text-muted-foreground truncate">{sub}</span>
+                    <span className="helm-avatar mt-0.5" data-accent={tone === 'risk' ? '4' : '1'}>
+                      {isAction ? 'AI' : briefInitials(raw as HelmItem)}
                     </span>
-                    <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground mt-1 transition-transform', isOpen && 'rotate-180')} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-2 min-w-0">
+                        <span className="text-[13px] font-bold text-foreground truncate">{isAction ? 'AI action' : ((raw as HelmItem).sender || 'Unknown sender')}</span>
+                        <span className="text-[11px] text-muted-foreground shrink-0">· {isAction ? (raw as AutoAction).time : briefTime(raw as HelmItem)}</span>
+                      </span>
+                      <span className="block text-[13px] font-semibold text-foreground leading-snug truncate">{line}</span>
+                      <span className="mt-1 block text-[12px] text-muted-foreground whitespace-normal line-clamp-3 leading-snug">
+                        <span className="text-foreground/70 font-semibold">Summary:</span> {sub || 'Open for details.'}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
+                      <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tone === 'risk' ? 'urgent' : 'default'}>{tone === 'risk' ? 'At risk' : 'Quick win'}</span>
+                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+                    </span>
                   </button>
                   {isOpen && !isAction && (
-                    <div className="px-2 pb-3">
+                    <div className="px-4 pb-4">
                       <InlineEmailExpander item={raw as HelmItem} onClose={() => setOpenId(null)} accent={accent} showAiSummary />
                     </div>
                   )}
                   {isOpen && isAction && (
-                    <div className="px-3 pb-3 text-[12px] text-muted-foreground">
+                    <div className="px-4 pb-4 text-[12px] text-muted-foreground">
                       <p><span className="font-semibold text-foreground">Category:</span> {(raw as AutoAction).tag}</p>
                       <p className="mt-1">{(raw as AutoAction).text}</p>
                     </div>
@@ -1251,16 +1272,17 @@ function BriefView({
   );
 
   const focusMinutes = Math.max(10, Math.min(90, stats.needsYou * 8 || 0));
-  const primaryTasks = useMemo(() => {
+  const allPrimaryTasks = useMemo(() => {
     const seen = new Set<string>();
     return [...big3, ...todayItems, ...decisions]
       .filter((item) => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
         return true;
-      })
-      .slice(0, 5);
+      });
   }, [big3, todayItems, decisions]);
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const primaryTasks = showAllTasks ? allPrimaryTasks : allPrimaryTasks.slice(0, 5);
   const emailHighlights = useMemo(() => {
     const q = search.trim().toLowerCase();
     const seen = new Set<string>();
@@ -1328,21 +1350,17 @@ function BriefView({
 
       <section aria-labelledby="helm-hero" data-helm-section="hero" className="helm-brief-hero">
         <div className="min-w-0">
-          <div className="inline-flex items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-primary-foreground/85">
+          <div className="helm-brief-hero-kicker">
             <Sparkles className="w-4 h-4" /> AI analysis · generated {nowTime}
           </div>
-          <h2 id="helm-hero" className="mt-4 text-3xl md:text-5xl font-bold text-primary-foreground leading-[1.05] tracking-tight" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
-            Good morning{name ? `, ${name}` : ''}.
+          <h2 id="helm-hero" className="helm-brief-hero-title">
+            {greeting}{name ? `, ${name}` : ''}.
           </h2>
-          <p className="mt-3 max-w-2xl text-sm md:text-base font-medium leading-relaxed text-primary-foreground/90">
-            Your executive brief for today: <strong className="text-white">{stats.totalInbound}</strong> inbox items reviewed, <strong className="text-white">{todayMeetings}</strong> meeting{todayMeetings === 1 ? '' : 's'} on the calendar, and roughly <strong className="text-white">{focusMinutes} minutes</strong> of high-leverage work identified.
+          <p className="helm-brief-hero-copy">
+            Executive brief: <strong>{stats.totalInbound}</strong> inbox items reviewed, <strong>{todayMeetings}</strong> meeting{todayMeetings === 1 ? '' : 's'} on the calendar, and <strong>{focusMinutes} minutes</strong> of high-leverage work identified.
           </p>
         </div>
-        <div className="helm-brief-hero-stats">
-          <BriefHeroStat value={primaryTasks.length} label="Priority tasks" tone="neutral" />
-          <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
-          <BriefHeroStat value={overdue.length} label="At risk" tone="risk" />
-        </div>
+        <BriefHeroStats tasks={allPrimaryTasks.length} focusMinutes={focusMinutes} atRisk={overdue.length} />
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-helm-section="metrics">
@@ -1359,14 +1377,16 @@ function BriefView({
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
               <span className="text-[11px] text-muted-foreground">Ordered by AI confidence</span>
             </div>
-            <button type="button" onClick={() => go('inbox', undefined, 'big3')} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
-              View all <ArrowRight className="inline w-3.5 h-3.5" />
-            </button>
+            {allPrimaryTasks.length > 5 && (
+              <button type="button" onClick={() => setShowAllTasks((v) => !v)} className="text-[12px] font-semibold text-primary hover:underline shrink-0">
+                {showAllTasks ? 'Show fewer' : `View all ${allPrimaryTasks.length}`} <ChevronDown className={cn('inline w-3.5 h-3.5 transition-transform', showAllTasks && 'rotate-180')} />
+              </button>
+            )}
           </div>
           <div className="mt-3 space-y-2">
             {isLoading ? (
               <Skeleton className="h-36" />
-            ) : primaryTasks.length === 0 ? (
+            ) : allPrimaryTasks.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No urgent tasks right now.</div>
             ) : (
               primaryTasks.map((item, index) => (
@@ -1384,9 +1404,9 @@ function BriefView({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-helm-section="at-risk">
+      <section className="grid grid-cols-1 gap-4" data-helm-section="at-risk">
         <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
-        <BriefSignalCard title="Quick Wins" items={autoActions.length ? autoActions : fyi} tone="win" icon={Zap} emptyText="No quick wins yet." />
+        <BriefSignalCard title="Quick Wins" items={fyi.length ? fyi : autoActions} tone="win" icon={Zap} emptyText="No quick wins yet." />
       </section>
 
       <section className="helm-brief-panel" data-helm-section="email-highlights">
