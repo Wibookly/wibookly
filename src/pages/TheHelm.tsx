@@ -2799,7 +2799,7 @@ function CalendarWeekGrid({
               return (
                 <div
                   className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
-                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, minHeight: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
+                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, height: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
                 >
                   <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block</div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
