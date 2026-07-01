@@ -3000,54 +3000,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                               </div>
                             ),
                           }));
-                          if (focusEnabled && focus && !dismissedFocus[focus.day_key]) {
-                            items.push({
-                              key: `focus-${focus.day_key}`,
-                              start: focus.start,
-                              node: (
-                                <div
-                                  key={`focus-${focus.day_key}`}
-                                  className={cn(
-                                    'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
-                                    focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
-                                    focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
-                                    focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
-                                    appliedFocus[focus.day_key] && 'opacity-70',
-                                  )}
-                                >
-                                  <div className="flex items-center gap-1 font-semibold text-foreground">
-                                    <Zap className="w-3 h-3" /> Focus block
-                                    {appliedFocus[focus.day_key] && (
-                                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10 ml-auto">Added</Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    {focus.state === 'free' && 'Open spot — approve to add to your calendar.'}
-                                    {focus.state === 'needs_move' && 'Needs to move a meeting — see proposed calendar below.'}
-                                    {focus.state === 'blocked' && 'No space — try a different day or shorter block.'}
-                                  </p>
-                                  {focus.state === 'free' && !appliedFocus[focus.day_key] && (
-                                    <div className="flex gap-1.5 mt-1.5">
-                                      <button
-                                        disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
-                                        onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                                        className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                                      >
-                                        {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
-                                      </button>
-                                      <button
-                                        onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                                        className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ),
-                            });
-                          }
+                          // Focus blocks are proposed in the AI proposed calendar below,
+                          // not in the current calendar. Once approved, the block is pushed
+                          // to Outlook and will appear here on the next sync.
                           items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
                           return items.map((it) => <React.Fragment key={it.key}>{it.node}</React.Fragment>);
                         })()}
