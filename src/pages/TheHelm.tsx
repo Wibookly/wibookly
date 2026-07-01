@@ -2869,6 +2869,8 @@ function CalendarWeekGrid({
               const isMoving = movingEventId === ev.id;
               const isPending = ev.kind === 'pending' && !ev.dismissed;
               const isApplied = ev.kind === 'applied';
+              const isOverlap = overlappingIds.has(ev.id);
+              const isNew = isPending || isApplied;
               const handleResizeStart = (e: React.MouseEvent) => {
                 if (!onResizeEvent) return;
                 e.stopPropagation();
