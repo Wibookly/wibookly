@@ -1331,29 +1331,29 @@ function BriefView({
           <div className="inline-flex items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-[0.12em] text-primary-foreground/85">
             <Sparkles className="w-4 h-4" /> AI analysis · generated {nowTime}
           </div>
-          <h2 id="helm-hero" className="mt-4 text-2xl md:text-3xl font-bold text-primary-foreground leading-tight">
-            What to do first{name ? `, ${name}` : ''}
+          <h2 id="helm-hero" className="mt-4 text-3xl md:text-5xl font-bold text-primary-foreground leading-[1.05] tracking-tight" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
+            Good morning{name ? `, ${name}` : ''}.
           </h2>
-          <p className="mt-2 max-w-2xl text-sm md:text-base font-medium leading-relaxed text-primary-foreground/90">
-            I reviewed {stats.totalInbound} inbox items and {todayMeetings} calendar event{todayMeetings === 1 ? '' : 's'}. Here's the focused plan for your day — about {focusMinutes} minutes of high-leverage work.
+          <p className="mt-3 max-w-2xl text-sm md:text-base font-medium leading-relaxed text-primary-foreground/90">
+            Your executive brief for today: <strong className="text-white">{stats.totalInbound}</strong> inbox items reviewed, <strong className="text-white">{todayMeetings}</strong> meeting{todayMeetings === 1 ? '' : 's'} on the calendar, and roughly <strong className="text-white">{focusMinutes} minutes</strong> of high-leverage work identified.
           </p>
         </div>
         <div className="helm-brief-hero-stats">
-          <BriefHeroStat value={primaryTasks.length} label="tasks" />
-          <BriefHeroStat value={`${focusMinutes}m`} label="focus time" />
-          <BriefHeroStat value={overdue.length} label="at risk" />
+          <BriefHeroStat value={primaryTasks.length} label="Priority tasks" tone="neutral" />
+          <BriefHeroStat value={`${focusMinutes}m`} label="Focus time" tone="focus" />
+          <BriefHeroStat value={overdue.length} label="At risk" tone="risk" />
         </div>
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-helm-section="metrics">
         <BriefMetricTile icon={Mail} label="New emails" value={stats.totalInbound} subLabel={`${overdue.length} require attention`} accent="blue" delta="+12%" onClick={() => document.querySelector('[data-helm-section="email-highlights"]')?.scrollIntoView({ behavior: 'smooth' })} />
-        <BriefMetricTile icon={FileEdit} label="Drafts ready" value={stats.drafted} subLabel="awaiting your review" accent="violet" onClick={() => go('inbox', undefined, 'drafts')} />
-        <BriefMetricTile icon={AlarmClock} label="Tracked queue" value={overdue.length} subLabel="waiting or overdue" accent="amber" onClick={() => document.querySelector('[data-helm-section="email-highlights"]')?.scrollIntoView({ behavior: 'smooth' })} />
+        <BriefMetricTile icon={FileEdit} label="Drafts ready" value={stats.drafted} subLabel="review below" accent="violet" onClick={() => document.querySelector('[data-helm-section="email-highlights"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+        <BriefMetricTile icon={AlarmClock} label="Tracked queue" value={overdue.length} subLabel="waiting or overdue" accent="amber" onClick={() => document.querySelector('[data-helm-section="at-risk"]')?.scrollIntoView({ behavior: 'smooth' })} />
         <BriefMetricTile icon={CheckCircle2} label="Auto-categorized" value={stats.autoHandled} subLabel="handled by AI" accent="emerald" onClick={() => setLedgerTab('auto')} />
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)] gap-4" data-helm-section="overview">
-        <div className="helm-brief-panel" data-helm-section="top-tasks">
+      <section data-helm-section="top-tasks">
+        <div className="helm-brief-panel">
           <div className="helm-panel-head">
             <div className="flex items-baseline gap-2 min-w-0">
               <h2 className="text-sm font-bold text-foreground">Top tasks for this morning</h2>
@@ -1382,11 +1382,11 @@ function BriefView({
             )}
           </div>
         </div>
+      </section>
 
-        <div className="space-y-3">
-          <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
-          <BriefSignalCard title="Quick Wins" items={autoActions.length ? autoActions : fyi.slice(0, 4)} tone="win" icon={Zap} emptyText="No quick wins yet." />
-        </div>
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-helm-section="at-risk">
+        <BriefSignalCard title="At Risk" items={overdue} tone="risk" icon={AlertTriangle} emptyText="No overdue reply risk detected." />
+        <BriefSignalCard title="Quick Wins" items={autoActions.length ? autoActions : fyi} tone="win" icon={Zap} emptyText="No quick wins yet." />
       </section>
 
       <section className="helm-brief-panel" data-helm-section="email-highlights">
