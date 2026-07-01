@@ -2761,9 +2761,14 @@ function CalendarWeekGrid({
         );
       })}
       <div className="helm-calendar-time-gutter" aria-label="Time of day">
-        {hours.map((h) => (
-          <div key={h} className="helm-calendar-time-label" style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
-        ))}
+        <div className="helm-calendar-offhours-band" style={{ top: 0, height: `${CAL_OFFHOURS_TOP_HEIGHT}px` }} aria-hidden />
+        <div className="helm-calendar-offhours-band" style={{ top: `${CAL_OFFHOURS_BOTTOM_TOP}px`, height: `${CAL_OFFHOURS_BOTTOM_HEIGHT}px` }} aria-hidden />
+        {hours.map((h) => {
+          const offHours = h < CAL_BUSINESS_START || h >= CAL_BUSINESS_END;
+          return (
+            <div key={h} className={cn('helm-calendar-time-label', offHours && 'is-offhours')} style={{ top: `${(h - CAL_START_HOUR) * 60 * CAL_PX_PER_MINUTE}px` }}>{fmtHour(h)}</div>
+          );
+        })}
       </div>
       {days.map((d) => {
         const events = eventsByDay[d.key] ?? [];
