@@ -2860,6 +2860,7 @@ function CalendarWeekGrid({
   onResizeEvent,
   movingEventId,
   renderEventFooter,
+  onOpenDetails,
   emptyText = 'No meetings',
 }: {
   days: { date: Date; label: string; weekday: string; key: string }[];
@@ -2876,6 +2877,7 @@ function CalendarWeekGrid({
   onResizeEvent?: (ev: CalendarGridEvent, dayKey: string, durationMinutes: number) => void;
   movingEventId?: string | null;
   renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
+  onOpenDetails?: (ev: CalendarGridEvent) => void;
   emptyText?: string;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
