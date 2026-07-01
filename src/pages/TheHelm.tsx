@@ -3701,6 +3701,11 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
               </div>
             )}
             <div className="border-t border-border/60 p-3">
+              {duplicateFocusDays.length > 0 && (
+                <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                  AI found more than one focus block on {duplicateFocusDays.map((d) => `${d.dayKey} (${d.count})`).join(', ')}. The Helm is showing only one for that day and will not add another.
+                </div>
+              )}
               {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
