@@ -3019,10 +3019,11 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [manualMoves, setManualMoves] = useState<Record<string, CalendarMove>>({});
 
   const rescheduleMutation = useMutation({
-    mutationFn: async ({ ev, dayKey, startMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number }) => {
-      const duration = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+    mutationFn: async ({ ev, dayKey, startMinutes, durationMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number; durationMinutes?: number }) => {
+      const currentDur = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+      const dur = Math.max(30, durationMinutes ?? currentDur);
       const nextStart = localIsoFromDayMinutes(dayKey, startMinutes);
-      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + duration);
+      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + dur);
       setManualMoves((s) => ({ ...s, [ev.id]: { start: nextStart, end: nextEnd } }));
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
         body: { mode: 'reschedule_event', event_id: ev.id, start: nextStart, end: nextEnd, subject: ev.subject },
