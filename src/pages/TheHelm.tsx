@@ -2705,6 +2705,7 @@ function CalendarWeekGrid({
   onFocusDismiss,
   focusBusyDay,
   onMoveEvent,
+  onResizeEvent,
   movingEventId,
   renderEventFooter,
   emptyText = 'No meetings',
@@ -2720,6 +2721,7 @@ function CalendarWeekGrid({
   onFocusDismiss?: (focus: FocusBlock) => void;
   focusBusyDay?: string | null;
   onMoveEvent?: (ev: CalendarGridEvent, dayKey: string, startMinutes: number) => void;
+  onResizeEvent?: (ev: CalendarGridEvent, dayKey: string, durationMinutes: number) => void;
   movingEventId?: string | null;
   renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
   emptyText?: string;
@@ -2797,7 +2799,7 @@ function CalendarWeekGrid({
               return (
                 <div
                   className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
-                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, minHeight: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
+                  style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, height: `${Math.max(52, duration * CAL_PX_PER_MINUTE)}px` }}
                 >
                   <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block</div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
@@ -2823,10 +2825,32 @@ function CalendarWeekGrid({
               const start = minutesFromLocalIso(startIso) ?? CAL_START_HOUR * 60;
               const duration = eventDurationMinutes(startIso, endIso);
               const top = Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE;
-              const height = Math.max(56, duration * CAL_PX_PER_MINUTE);
+              const height = Math.max(30 * CAL_PX_PER_MINUTE, duration * CAL_PX_PER_MINUTE);
               const isMoving = movingEventId === ev.id;
               const isPending = ev.kind === 'pending' && !ev.dismissed;
               const isApplied = ev.kind === 'applied';
+              const handleResizeStart = (e: React.MouseEvent) => {
+                if (!onResizeEvent) return;
+                e.stopPropagation();
+                e.preventDefault();
+                const startY = e.clientY;
+                const startDur = duration;
+                let liveDur = startDur;
+                const card = (e.currentTarget as HTMLElement).parentElement as HTMLElement | null;
+                const onMove = (mv: MouseEvent) => {
+                  const deltaMin = (mv.clientY - startY) / CAL_PX_PER_MINUTE;
+                  const raw = startDur + deltaMin;
+                  liveDur = Math.max(30, Math.round(raw / CAL_SLOT_MINUTES) * CAL_SLOT_MINUTES);
+                  if (card) card.style.height = `${liveDur * CAL_PX_PER_MINUTE}px`;
+                };
+                const onUp = () => {
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                  if (liveDur !== startDur) onResizeEvent(ev, d.key, liveDur);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              };
               return (
                 <div
                   key={ev.id}
@@ -2847,8 +2871,8 @@ function CalendarWeekGrid({
                     isPending && 'is-pending',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, minHeight: `${height}px` }}
-                  title="Drag up/down or to another day to reschedule"
+                  style={{ top: `${top}px`, height: `${height}px` }}
+                  title="Drag to move · drag bottom edge to resize (30-min steps)"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
@@ -2863,6 +2887,13 @@ function CalendarWeekGrid({
                   {ev.location && <p className="text-muted-foreground text-[10px] line-clamp-1">📍 {ev.location}</p>}
                   {isMoving && <p className="text-[10px] text-primary">Updating…</p>}
                   {renderEventFooter?.(ev)}
+                  {onResizeEvent && (
+                    <div
+                      className="helm-calendar-resize-handle"
+                      onMouseDown={handleResizeStart}
+                      title="Drag to resize (30-min steps)"
+                    />
+                  )}
                 </div>
               );
             })}
@@ -3019,10 +3050,11 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [manualMoves, setManualMoves] = useState<Record<string, CalendarMove>>({});
 
   const rescheduleMutation = useMutation({
-    mutationFn: async ({ ev, dayKey, startMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number }) => {
-      const duration = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+    mutationFn: async ({ ev, dayKey, startMinutes, durationMinutes }: { ev: CalendarGridEvent; dayKey: string; startMinutes: number; durationMinutes?: number }) => {
+      const currentDur = eventDurationMinutes(ev.displayStart ?? ev.start, ev.displayEnd ?? ev.end);
+      const dur = Math.max(30, durationMinutes ?? currentDur);
       const nextStart = localIsoFromDayMinutes(dayKey, startMinutes);
-      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + duration);
+      const nextEnd = localIsoFromDayMinutes(dayKey, startMinutes + dur);
       setManualMoves((s) => ({ ...s, [ev.id]: { start: nextStart, end: nextEnd } }));
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
         body: { mode: 'reschedule_event', event_id: ev.id, start: nextStart, end: nextEnd, subject: ev.subject },
@@ -3253,6 +3285,10 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     eventsByDay={currentGridByDay}
                     variant="current"
                     onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                    onResizeEvent={(ev, dayKey, durationMinutes) => {
+                      const startMin = minutesFromLocalIso(ev.displayStart ?? ev.start) ?? CAL_START_HOUR * 60;
+                      rescheduleMutation.mutate({ ev, dayKey, startMinutes: startMin, durationMinutes });
+                    }}
                     movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
                     renderEventFooter={(ev) => (
                       <>
