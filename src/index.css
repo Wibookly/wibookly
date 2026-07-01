@@ -715,6 +715,34 @@
   background: color-mix(in srgb, var(--success-bg) 48%, var(--card));
   color: var(--success);
 }
+.helm-brief-panel {
+  position: relative;
+  overflow: hidden;
+}
+.helm-brief-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--helm-panel-accent, linear-gradient(90deg, var(--primary), var(--c-violet)));
+  opacity: .9;
+}
+.helm-brief-panel[data-accent="sky"] {
+  --helm-panel-accent: linear-gradient(90deg, #38BDF8, #6366F1);
+  border-color: color-mix(in srgb, #38BDF8 30%, var(--border));
+  background: color-mix(in srgb, #38BDF8 5%, var(--card));
+}
+.helm-brief-panel[data-accent="violet"] {
+  --helm-panel-accent: linear-gradient(90deg, #A855F7, #EC4899);
+  border-color: color-mix(in srgb, #A855F7 30%, var(--border));
+  background: color-mix(in srgb, #A855F7 5%, var(--card));
+}
+.dark .helm-brief-panel[data-accent="sky"] {
+  background: color-mix(in srgb, #38BDF8 10%, var(--card));
+}
+.dark .helm-brief-panel[data-accent="violet"] {
+  background: color-mix(in srgb, #A855F7 10%, var(--card));
+}
 .helm-highlight-row { padding: 1rem .75rem; }
 .helm-avatar {
   display: inline-flex;
