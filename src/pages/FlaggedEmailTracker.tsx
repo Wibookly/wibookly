@@ -157,7 +157,7 @@ function scheduleUrgent(value: unknown) {
 function rowStatusMeta(r: TrackedEmail): StatusMeta {
   if (r.status === 'pending' && (r.attempts || 0) > 0) {
     return {
-      label: 'Pending reply',
+      label: 'Awaiting',
       icon: AlarmClock,
       variant: 'secondary',
       tooltip: 'AI follow-up was sent — waiting for the recipient to reply or for the next send date.',
