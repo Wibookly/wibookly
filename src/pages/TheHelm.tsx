@@ -3029,7 +3029,7 @@ function CalendarWeekGrid({
           }
         }
         const focus = focusByDay?.[d.key];
-        const showFocus = variant === 'proposed' && focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const showFocus = focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
         return (
           <div
