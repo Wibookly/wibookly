@@ -3334,150 +3334,53 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
               <div className="border-t border-border/60 p-3">
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {days.map((d) => {
-                    const baseEvs = grouped[d.date.toDateString()] ?? [];
-                    const appliedByEv: Record<string, Proposal> = {};
-                    const pendingByEv: Record<string, Proposal> = {};
-                    for (const p of planQuery.data?.applied ?? []) if (p.day_key === d.key) appliedByEv[p.event_id] = p;
-                    for (const p of planQuery.data?.pending_external ?? []) if (p.day_key === d.key) pendingByEv[p.event_id] = p;
-
-                    // Build proposed event list: substitute new_start for matching events, then sort
-                    const proposed = baseEvs.map((ev) => {
-                      const ap = appliedByEv[ev.id];
-                      const pd = pendingByEv[ev.id];
-                      const proposal = ap || pd;
-                      return {
-                        ev,
-                        proposal,
-                        kind: ap ? 'applied' : pd ? 'pending' : 'none',
-                        displayStart: proposal ? proposal.new_start : ev.start,
-                      } as { ev: CalEvent; proposal?: Proposal; kind: 'applied' | 'pending' | 'none'; displayStart: string | null };
-                    }).sort((a, b) => {
-                      const at = a.displayStart ? new Date(a.displayStart).getTime() : 0;
-                      const bt = b.displayStart ? new Date(b.displayStart).getTime() : 0;
-                      return at - bt;
-                    });
-
-                    const isToday = d.date.toDateString() === new Date().toDateString();
+                <CalendarWeekGrid
+                  days={days}
+                  eventsByDay={proposedGridByDay}
+                  variant="proposed"
+                  focusByDay={focusByDay}
+                  focusEnabled={focusEnabled}
+                  dismissedFocus={dismissedFocus}
+                  appliedFocus={appliedFocus}
+                  focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
+                  onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                  onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                  renderEventFooter={(ev) => {
+                    const proposal = ev.proposal;
+                    const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
+                    const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
                     return (
-                      <Card key={d.date.toISOString()} data-today={isToday ? 'true' : 'false'} className={cn('helm-cal-tile helm-cal-tile-proposed', isToday && 'shadow-md')}>
-
-                        <CardHeader className="pb-2">
-                          <div className="flex items-baseline justify-between">
-                            <CardTitle className="text-sm uppercase text-muted-foreground tracking-wide">{d.weekday}</CardTitle>
-                            <span className={cn('text-xs font-medium', isToday ? 'text-primary' : 'text-muted-foreground')}>{d.label}</span>
+                      <>
+                        {proposal && (
+                          <p className="text-[10px] text-muted-foreground">
+                            was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
+                          </p>
+                        )}
+                        {isPending && proposal && (
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                disabled={isApproving}
+                                onChange={(e) => {
+                                  if (!e.target.checked) return;
+                                  approveMutation.mutate({ proposal, note: '' });
+                                }}
+                                className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
+                              />
+                              <span className="text-[10px] text-foreground">
+                                {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve' : 'Email organizer'}
+                              </span>
+                            </label>
+                            <button onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }} className="text-[10px] text-muted-foreground hover:text-foreground">
+                              Disregard
+                            </button>
                           </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {(() => {
-                            const focus = focusByDay[d.key];
-                            if (!focusEnabled || !focus || dismissedFocus[focus.day_key] || appliedFocus[focus.day_key]) return null;
-                            return (
-                              <div
-                                className={cn(
-                                  'relative rounded-md border-2 border-dashed p-2 text-xs ring-2 ring-offset-1 ring-offset-background',
-                                  focus.state === 'free' && 'border-emerald-500 bg-emerald-500/10 ring-emerald-400/40',
-                                  focus.state === 'needs_move' && 'border-amber-500 bg-amber-500/10 ring-amber-400/40',
-                                  focus.state === 'blocked' && 'border-destructive bg-destructive/10 ring-destructive/40',
-                                )}
-                              >
-                                <div className="flex items-center gap-1 font-semibold text-foreground">
-                                  <Zap className="w-3 h-3" /> Focus block
-                                </div>
-                                <p className="text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  {focus.state === 'free' && 'Approve to push to your Outlook calendar.'}
-                                  {focus.state === 'needs_move' && 'Needs to move a meeting — see moves below.'}
-                                  {focus.state === 'blocked' && 'No space — try a different day.'}
-                                </p>
-                                {focus.state === 'free' && (
-                                  <div className="flex gap-1.5 mt-1.5">
-                                    <button
-                                      disabled={createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key}
-                                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                                    >
-                                      {createFocusMutation.isPending && createFocusMutation.variables?.day_key === focus.day_key ? 'Adding…' : 'Approve'}
-                                    </button>
-                                    <button
-                                      onClick={() => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                          {proposed.length === 0 && !focusByDay[d.key] && (
-                            <p className="text-xs text-muted-foreground italic py-4 text-center">No meetings</p>
-                          )}
-                          {proposed.map(({ ev, proposal, kind, displayStart }) => {
-                            const isApplied = kind === 'applied';
-                            const isPending = kind === 'pending';
-                            const isDismissed = proposal && dismissed[proposal.id];
-                            const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
-                            return (
-                              <div
-                                key={ev.id}
-                                data-external={ev.is_external ? 'true' : 'false'}
-                                className={cn(
-                                  'helm-cal-event rounded-md p-2 text-xs space-y-1 transition-colors',
-                                  ev.is_cancelled && 'opacity-60 line-through',
-                                  isApplied && 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-400/40',
-                                  isPending && !isDismissed && 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-400/40',
-                                  isPending && isDismissed && 'border-border bg-card opacity-70',
-                                  kind === 'none' && (ev.is_external ? 'border-border bg-muted/20' : 'border-border bg-card'),
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-medium text-foreground">{fmtTime(displayStart)}</span>
-                                  <div className="flex gap-1 flex-wrap justify-end">
-                                    {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
-                                    {isPending && !isDismissed && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
-                                  </div>
-                                </div>
-                                <p className="font-semibold text-foreground leading-snug line-clamp-2" title={ev.subject}>{ev.subject}</p>
-                                {proposal && (
-                                  <p className="text-[10px] text-muted-foreground">
-                                    was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
-                                  </p>
-                                )}
-                                {isPending && !isDismissed && proposal && (
-                                  <div className="flex items-center justify-between gap-2 pt-1">
-                                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        disabled={isApproving}
-                                        onChange={(e) => {
-                                          if (!e.target.checked) return;
-                                          approveMutation.mutate({ proposal, note: '' });
-                                        }}
-                                        className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
-                                      />
-                                      <span className="text-[11px] text-foreground">
-                                        {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve & update invite' : 'Approve & email organizer'}
-                                      </span>
-                                    </label>
-                                    <button
-                                      onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }}
-                                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                                    >
-                                      Disregard
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </CardContent>
-                      </Card>
+                        )}
+                      </>
                     );
-                  })}
-                </div>
+                  }}
+                />
                 <p className="text-[10px] text-muted-foreground italic mt-3">
                   Tip: checking a card ☑ sends the update in the background — Outlook invites for meetings you host, or a polite reschedule email to the organizer otherwise.
                 </p>
