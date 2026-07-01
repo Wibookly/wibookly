@@ -2921,6 +2921,7 @@ function CalendarWeekGrid({
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-mono text-[11px] font-bold text-foreground">{fmtTimeShort(startIso)}</span>
                     <div className="flex gap-1 flex-wrap justify-end">
+                      {isOverlap && <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-500/60 text-orange-700 bg-orange-500/15">⚠ Overlap</Badge>}
                       {isApplied && <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-500/50 text-emerald-700 bg-emerald-500/10">Moved by AI</Badge>}
                       {isPending && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/50 text-amber-700 bg-amber-500/10">Awaiting OK</Badge>}
                       {variant === 'current' && ev.is_external && <Badge variant="outline" className="text-[10px] px-1 py-0 border-accent text-foreground bg-accent/20">External</Badge>}
