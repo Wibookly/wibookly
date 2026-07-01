@@ -3603,23 +3603,72 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         </div>
       </Card>
 
-      {/* Current calendar — collapsible */}
-
+      {/* Single unified calendar — current events + AI overlays (ghost old / colored new / focus blocks) */}
       <Collapsible defaultOpen={true}>
         <Card className="mb-4 overflow-hidden border-border/60">
           <CollapsibleTrigger asChild>
             <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <Calendar className="w-4 h-4 text-primary" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Your current calendar</p>
-                  <p className="text-[12px] text-muted-foreground">Live view of meetings already on your Outlook for this week.</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Your calendar {autoFocusOn && <span className="text-primary">· with AI overlay</span>}</p>
+                  <p className="text-[12px] text-muted-foreground truncate">
+                    {autoFocusOn
+                      ? 'Live meetings shown with AI proposals overlaid — dashed = current spot, colored card = AI move, ⚡ = focus block. Approve or Disregard each one.'
+                      : 'Live view of meetings on your Outlook for this week. Turn on Focus or Reorganize above to see AI suggestions overlaid.'}
+                  </p>
                 </div>
               </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+              <div className="flex items-center gap-2 shrink-0">
+                {autoFocusOn && (
+                  <>
+                    <span className="text-[11px] text-muted-foreground">
+                      {planQuery.isFetching
+                        ? 'Analyzing…'
+                        : `${(planQuery.data?.applied?.length ?? 0)} auto · ${(planQuery.data?.pending_external?.length ?? 0)} need OK`}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-primary/35 bg-primary/10 text-primary">
+                      Focus {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); planQuery.refetch(); }}
+                      disabled={planQuery.isFetching}
+                    >
+                      <RefreshCw className={cn('w-3.5 h-3.5 mr-1', planQuery.isFetching && 'animate-spin')} />
+                      {planQuery.isFetching ? 'Syncing…' : 'Sync overlay'}
+                    </Button>
+                    {(planQuery.data?.pending_external?.length ?? 0) > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          for (const p of planQuery.data?.pending_external ?? []) {
+                            if (!dismissed[p.id]) approveMutation.mutate({ proposal: p, note: '' });
+                          }
+                        }}
+                        disabled={approveMutation.isPending}
+                      >
+                        Approve all
+                      </Button>
+                    )}
+                  </>
+                )}
+                <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+              </div>
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
+            {autoFocusOn && (
+              <div className="border-t border-border/60 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground bg-muted/20">
+                <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded border-2 border-dashed border-muted-foreground/60 bg-muted/40" /> Current spot (will move)</span>
+                <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-emerald-500/70" /> AI moved (auto-applied)</span>
+                <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-500/70" /> Needs your OK</span>
+                <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-primary/70" /> ⚡ Focus block</span>
+                <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-orange-500/70" /> ⚠ Overlap</span>
+              </div>
+            )}
             <div className="border-t border-border/60 p-3">
               {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -3629,36 +3678,96 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 <div className="helm-calendar-scroll">
                   <CalendarWeekGrid
                     days={days}
-                    eventsByDay={currentGridByDay}
+                    eventsByDay={unifiedGridByDay}
                     variant="current"
-                    onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                    focusByDay={autoFocusOn ? focusByDay : undefined}
+                    focusEnabled={autoFocusOn && focusEnabled}
+                    dismissedFocus={dismissedFocus}
+                    appliedFocus={appliedFocus}
+                    focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
+                    onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
+                    onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
+                    onMoveEvent={(ev, dayKey, startMinutes) => {
+                      if (ev.kind === 'ghost' || ev.kind === 'pending' || ev.kind === 'applied') return;
+                      rescheduleMutation.mutate({ ev, dayKey, startMinutes });
+                    }}
                     onResizeEvent={(ev, dayKey, durationMinutes) => {
+                      if (ev.kind === 'ghost' || ev.kind === 'pending' || ev.kind === 'applied') return;
                       const startMin = minutesFromLocalIso(ev.displayStart ?? ev.start) ?? CAL_START_HOUR * 60;
                       rescheduleMutation.mutate({ ev, dayKey, startMinutes: startMin, durationMinutes });
                     }}
                     movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
-                    renderEventFooter={(ev) => (
-                      <>
-                        {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setDetailsEvent(ev); }}
-                            className="text-[10px] font-semibold text-primary hover:underline inline-flex items-center"
-                            title="Open details — view, add notes, edit"
-                          >
-                            Open <Eye className="w-3 h-3 ml-0.5" />
-                          </button>
-                          {ev.web_link && (
-                            <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-sky-600 text-[10px] inline-flex items-center" title="Open in Outlook">
-                              Outlook <ExternalLink className="w-3 h-3 ml-0.5" />
-                            </a>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    renderEventFooter={(ev) => {
+                      const proposal = ev.proposal;
+                      const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
+                      const isApplied = ev.kind === 'applied' && !!proposal;
+                      const isGhost = ev.kind === 'ghost';
+                      const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
+                      if (isGhost) {
+                        return (
+                          <p className="text-[10px] text-muted-foreground italic">
+                            Current spot — AI wants to move to {proposal ? fmtTimeShort(proposal.new_start) : 'a new time'}
+                          </p>
+                        );
+                      }
+                      if (isPending || isApplied) {
+                        return (
+                          <>
+                            {proposal && (
+                              <p className="text-[10px] text-muted-foreground">
+                                was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
+                              </p>
+                            )}
+                            {isPending && proposal && (
+                              <div className="flex items-center justify-between gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  disabled={isApproving}
+                                  onClick={(e) => { e.stopPropagation(); approveMutation.mutate({ proposal, note: '' }); }}
+                                  className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-500 underline underline-offset-2 disabled:opacity-60"
+                                >
+                                  {isApproving ? 'Sending…' : proposal.is_organizer ? '✓ Approve' : '✓ Email organizer'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }}
+                                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                                >
+                                  Disregard
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          {ev.attendees.length > 0 && <p className="text-muted-foreground text-[10px]">{ev.attendees.length} attendee{ev.attendees.length === 1 ? '' : 's'}</p>}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setDetailsEvent(ev); }}
+                              className="text-[10px] font-semibold text-primary hover:underline inline-flex items-center"
+                              title="Open details — view, add notes, edit"
+                            >
+                              Open <Eye className="w-3 h-3 ml-0.5" />
+                            </button>
+                            {ev.web_link && (
+                              <a href={ev.web_link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-sky-600 text-[10px] inline-flex items-center" title="Open in Outlook">
+                                Outlook <ExternalLink className="w-3 h-3 ml-0.5" />
+                              </a>
+                            )}
+                          </div>
+                        </>
+                      );
+                    }}
                   />
                 </div>
+              )}
+              {autoFocusOn && (
+                <p className="text-[10px] text-muted-foreground italic mt-3">
+                  Tip: dashed cards show where a meeting sits now — the colored card shows AI's proposed new spot. Approve to send invites/emails, or Disregard to keep it as-is.
+                </p>
               )}
             </div>
           </CollapsibleContent>
@@ -3667,110 +3776,6 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
 
 
 
-
-      {/* AI proposed calendar — mirror of week with highlighted moves + checkbox approvals */}
-      {autoFocusOn && (
-        <Collapsible defaultOpen={true}>
-          <Card className="mb-4 overflow-hidden border-primary/40">
-            <CollapsibleTrigger asChild>
-              <button className="group w-full flex items-center justify-between p-4 text-left hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">AI proposed calendar</p>
-                    <p className="text-[12px] text-muted-foreground truncate">
-                      Mirror of your week with AI's changes — green = moved by AI, amber = awaiting your approval. Check ☑ to confirm and notify attendees.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => { e.stopPropagation(); planQuery.refetch(); }}
-                    disabled={planQuery.isFetching}
-                  >
-                    <RefreshCw className={cn('w-3.5 h-3.5 mr-1', planQuery.isFetching && 'animate-spin')} />
-                    {planQuery.isFetching ? 'Syncing…' : 'Sync'}
-                  </Button>
-                  <span className="text-[11px] text-muted-foreground">
-                    {planQuery.isFetching
-                      ? 'Analyzing your week…'
-                      : `${(planQuery.data?.applied?.length ?? 0)} auto · ${(planQuery.data?.pending_external?.length ?? 0)} need OK`}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] border-primary/35 bg-primary/10 text-primary">
-                    Focus {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
-                  </Badge>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
-                </div>
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              {!planQuery.isFetching && (planQuery.data?.applied?.length ?? 0) + (planQuery.data?.pending_external?.length ?? 0) === 0 && (
-                <div className="border-t border-border/60 p-3 text-xs text-muted-foreground italic">
-                  {strategy === 'reorganize'
-                    ? 'No meetings need to move this week — your schedule already has consolidated free time.'
-                    : 'No moves proposed — focus blocks fit existing open gaps (see your current calendar above).'}
-                </div>
-              )}
-              <div className="border-t border-border/60 p-3">
-                <div className="helm-calendar-scroll">
-                  <CalendarWeekGrid
-                    days={days}
-                    eventsByDay={proposedGridByDay}
-                    variant="proposed"
-                    focusByDay={focusByDay}
-                    focusEnabled={focusEnabled}
-                    dismissedFocus={dismissedFocus}
-                    appliedFocus={appliedFocus}
-                    focusBusyDay={createFocusMutation.isPending ? createFocusMutation.variables?.day_key ?? null : null}
-                    onFocusApprove={(focus) => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end })}
-                    onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
-                    renderEventFooter={(ev) => {
-                      const proposal = ev.proposal;
-                      const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
-                      const isApproving = approveMutation.isPending && approveMutation.variables?.proposal?.id === proposal?.id;
-                      return (
-                        <>
-                          {proposal && (
-                            <p className="text-[10px] text-muted-foreground">
-                              was {fmtTimeShort(proposal.old_start)} → <span className="text-foreground font-medium">{fmtTimeShort(proposal.new_start)}</span>
-                            </p>
-                          )}
-                          {isPending && proposal && (
-                            <div className="flex items-center justify-between gap-2 pt-1">
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  disabled={isApproving}
-                                  onChange={(e) => {
-                                    if (!e.target.checked) return;
-                                    approveMutation.mutate({ proposal, note: '' });
-                                  }}
-                                  className="h-3.5 w-3.5 rounded border-amber-500/60 accent-emerald-600"
-                                />
-                                <span className="text-[10px] text-foreground">
-                                  {isApproving ? 'Sending…' : proposal.is_organizer ? 'Approve' : 'Email organizer'}
-                                </span>
-                              </label>
-                              <button onClick={() => { setDismissed((s) => ({ ...s, [proposal.id]: true })); toast('Kept as-is.'); }} className="text-[10px] text-muted-foreground hover:text-foreground">
-                                Disregard
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      );
-                    }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground italic mt-3">
-                  Tip: checking a card ☑ sends the update in the background — Outlook invites for meetings you host, or a polite reschedule email to the organizer otherwise.
-                </p>
-              </div>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
 
 
       {/* ============== Planning panels ============== */}
