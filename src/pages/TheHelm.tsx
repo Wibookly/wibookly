@@ -891,12 +891,80 @@ function BriefMetricTile({ icon: Icon, label, value, subLabel, accent, delta, on
   );
 }
 
-function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
+function HelmRowActions({
+  outlookHref,
+  tagLabel,
+  tagTone,
+  onPromote,
+  onDisregard,
+  isPromoted,
+  expanded,
+}: {
+  outlookHref?: string | null;
+  tagLabel?: string;
+  tagTone?: string;
+  onPromote?: () => void;
+  onDisregard?: () => void;
+  isPromoted?: boolean;
+  expanded?: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-1 shrink-0 self-start mt-0.5">
+      {tagLabel && <span className="helm-brief-chip hidden sm:inline-flex" data-tone={tagTone || 'default'}>{tagLabel}</span>}
+      {outlookHref && (
+        <a
+          href={outlookHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open in Outlook"
+          title="Open this email in Outlook"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-sky-600 hover:border-sky-500/60 hover:bg-sky-500/10 transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      )}
+      {onPromote && (
+        <button
+          type="button"
+          aria-label={isPromoted ? 'Pinned to Top Priorities' : 'Pin to Top Priorities'}
+          title={isPromoted ? 'Pinned to Top Priorities' : 'Promote to Top Priorities'}
+          onClick={(e) => { e.stopPropagation(); onPromote(); }}
+          className={cn(
+            'inline-flex items-center justify-center w-7 h-7 rounded-md border transition-colors',
+            isPromoted
+              ? 'border-amber-500/60 bg-amber-500/15 text-amber-600 hover:bg-amber-500/25'
+              : 'border-border/60 text-muted-foreground hover:text-amber-600 hover:border-amber-500/60 hover:bg-amber-500/10',
+          )}
+        >
+          <Star className={cn('w-3.5 h-3.5', isPromoted && 'fill-current')} />
+        </button>
+      )}
+      {onDisregard && (
+        <button
+          type="button"
+          aria-label="Disregard"
+          title="Disregard — remove from list"
+          onClick={(e) => { e.stopPropagation(); onDisregard(); }}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/60 text-muted-foreground hover:text-rose-600 hover:border-rose-500/60 hover:bg-rose-500/10 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
+    </span>
+  );
+}
+
+function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet', onPromote, onDisregard, isPromoted }: {
   item: HelmItem;
   index: number;
   expanded: boolean;
   onToggle: () => void;
   accent?: 'amber' | 'violet' | 'rose' | 'sky' | 'emerald';
+  onPromote?: () => void;
+  onDisregard?: () => void;
+  isPromoted?: boolean;
 }) {
   const tag = briefTag(item, index === 0 ? 'Urgent' : 'AI');
   return (
@@ -910,10 +978,13 @@ function BriefTaskRow({ item, index, expanded, onToggle, accent = 'violet' }: {
           </span>
           <span className="mt-1 block text-[12px] text-muted-foreground truncate">{item.context || 'Open for the full thread and AI draft.'}</span>
         </span>
-        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground shrink-0">
-          <Clock className="w-3 h-3" /> {item.due ? item.due.replace(/^due\s+/i, '') : '~5 min'}
-        </span>
-        <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform shrink-0', expanded && 'rotate-180')} />
+        <HelmRowActions
+          outlookHref={helmOutlookLink(item)}
+          onPromote={onPromote}
+          onDisregard={onDisregard}
+          isPromoted={isPromoted}
+          expanded={expanded}
+        />
       </button>
       {expanded && (
         <div className="px-3 pb-3">
