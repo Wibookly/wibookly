@@ -2812,10 +2812,10 @@ function CalendarWeekGrid({
                   </p>
                   {focus.state === 'free' && (
                     <div className="flex gap-1.5 mt-1.5">
-                      <button disabled={focusBusyDay === focus.day_key} onClick={() => onFocusApprove?.(focus)} className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60">
+                      <button disabled={focusBusyDay === focus.day_key} onClick={() => onFocusApprove?.(focus)} className="helm-focus-approve-btn">
                         {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
                       </button>
-                      <button onClick={() => onFocusDismiss?.(focus)} className="px-2 py-0.5 rounded text-[10px] font-medium border border-border text-muted-foreground hover:bg-muted">Cancel</button>
+                      <button onClick={() => onFocusDismiss?.(focus)} className="helm-focus-cancel-btn">Cancel</button>
                     </div>
                   )}
                 </div>
