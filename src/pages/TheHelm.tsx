@@ -1299,6 +1299,9 @@ function BriefView({
       toast.error(e?.message ?? 'Could not disregard');
     }
   };
+  const [tileCollapsed, setTileCollapsed] = useState<Record<string, boolean>>({});
+  const toggleTile = (key: string) => setTileCollapsed((s) => ({ ...s, [key]: !s[key] }));
+  const [showAllHighlights, setShowAllHighlights] = useState(false);
   const expandedItem =
     big3.find((x) => x.id === expandedId) ||
     decisions.find((x) => x.id === expandedId) ||
