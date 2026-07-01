@@ -949,6 +949,9 @@
 .helm-calendar-day-head {
   min-height: 3.4rem;
   border-radius: .85rem;
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 .helm-calendar-time-head {
   background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, var(--surface-elevated)), var(--surface-elevated));
