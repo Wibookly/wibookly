@@ -2756,7 +2756,7 @@ function CalendarWeekGrid({
     return Math.max(CAL_START_HOUR * 60, Math.min(CAL_END_HOUR * 60 - CAL_SLOT_MINUTES, roundToSlot(CAL_START_HOUR * 60 + y / CAL_PX_PER_MINUTE)));
   };
   return (
-    <div className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
+    <div ref={gridRef} className={cn('helm-calendar-grid', variant === 'proposed' && 'helm-calendar-grid-proposed')} style={{ ['--helm-cal-height' as any]: `${CAL_GRID_HEIGHT}px` }}>
       <div className="helm-calendar-time-head" />
       {days.map((d) => {
         const isToday = d.date.toDateString() === new Date().toDateString();
