@@ -197,6 +197,17 @@ function useHelmData() {
 
       const big3Ids = new Set(big3.map((item) => item.id));
       const decisions = decisionRows.filter((item) => !big3Ids.has(item.id));
+      // Prettify any inline ISO datetimes (e.g. "→ 2026-07-02T09:30:00") into
+      // human-readable "Jul 2, 2026 · 9:30 AM" so activity log entries are readable.
+      const prettifyIsoInText = (s: string) =>
+        s.replace(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?/g, (_m, y, mo, d, h, mi) => {
+          const yr = Number(y), mn = Number(mo) - 1, dy = Number(d), hr = Number(h), mnt = Number(mi);
+          if (mn < 0 || mn > 11 || dy < 1 || dy > 31 || hr < 0 || hr > 23) return _m;
+          const dt = new Date(yr, mn, dy, hr, mnt);
+          const datePart = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+          const timePart = dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+          return `${datePart} · ${timePart}`;
+        });
       const autoActions: AutoAction[] = (autoRes.data ?? []).map((a: any) => {
         const at = String(a.action_type ?? '');
         const tag: AutoAction['tag'] =
@@ -207,11 +218,12 @@ function useHelmData() {
           : 'Done';
         return {
           id: a.id,
-          text: a.detail ?? 'Filed',
+          text: prettifyIsoInText(a.detail ?? 'Filed'),
           time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           tag,
         };
       });
+
 
       // --- Today: AI-detected items due today (content-driven, not sender-driven)
       const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
