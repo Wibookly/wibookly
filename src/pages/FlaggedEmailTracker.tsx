@@ -53,18 +53,19 @@ interface TrackedEmail {
 type StatusMeta = { label: string; icon: any; variant: 'default' | 'secondary' | 'destructive' | 'outline'; tooltip: string };
 
 const STATUS_META: Record<string, StatusMeta> = {
-  pending: { label: 'Waiting for due date', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
-  replied: { label: 'Checked · recipient responded', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
-  completed: { label: 'Checked · recipient responded', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
-  drafted: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
-  draft_ready: { label: 'Draft ready', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
-  sent: { label: 'Follow-up sent', icon: Send, variant: 'default', tooltip: 'AI sent the scheduled follow-up and is waiting for a recipient reply.' },
-  queued: { label: 'Queued (business hours)', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
-  cancelled: { label: 'Cancelled by you', icon: XCircle, variant: 'outline', tooltip: 'You cancelled this tracker.' },
-  exhausted: { label: 'No response · 3 sent', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
-  no_response: { label: 'No response · 3 sent', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
-  error: { label: 'Send error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
+  pending: { label: 'Waiting', icon: AlarmClock, variant: 'secondary', tooltip: 'Flagged — waiting until your follow-up due date arrives.' },
+  replied: { label: 'Replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
+  completed: { label: 'Replied', icon: CheckCircle2, variant: 'default', tooltip: 'Recipient replied — queue cleared and tracker kept as history.' },
+  drafted: { label: 'Draft', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  draft_ready: { label: 'Draft', icon: FileEdit, variant: 'default', tooltip: 'AI follow-up draft is ready in Outlook.' },
+  sent: { label: 'Sent', icon: Send, variant: 'default', tooltip: 'AI sent the scheduled follow-up and is waiting for a recipient reply.' },
+  queued: { label: 'Queued', icon: AlarmClock, variant: 'outline', tooltip: 'Due date hit outside business hours — will send at the next business-hour window.' },
+  cancelled: { label: 'Cancelled', icon: XCircle, variant: 'outline', tooltip: 'You cancelled this tracker.' },
+  exhausted: { label: 'No reply', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
+  no_response: { label: 'No reply', icon: AlertTriangle, variant: 'destructive', tooltip: 'AI sent all 3 follow-ups and the recipient never replied.' },
+  error: { label: 'Error', icon: AlertTriangle, variant: 'destructive', tooltip: 'A send failed. Check the email account connection.' },
 };
+
 
 const FALLBACK_STATUS_META = {
   label: 'Tracking',
