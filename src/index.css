@@ -1133,7 +1133,7 @@
 }
 .helm-focus-approve-btn {
   background: var(--success);
-  color: var(--surface-inverse);
+  color: var(--primary-foreground);
 }
 .helm-focus-approve-btn:hover { filter: brightness(.95); }
 .helm-focus-approve-btn:disabled { opacity: .6; }
