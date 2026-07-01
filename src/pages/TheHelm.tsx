@@ -851,7 +851,7 @@ function BriefHeroStat({ value, label, tone = 'neutral' }: { value: number | str
   const t = toneStyle[tone];
   return (
     <div className="helm-brief-hero-stat" style={{ background: t.chip }}>
-      <div className="text-2xl md:text-4xl font-serif font-bold tabular-nums leading-none tracking-tight" style={{ color: t.value, fontFamily: '"Playfair Display", Georgia, serif' }}>{value}</div>
+      <div className="text-2xl md:text-4xl font-extrabold tabular-nums leading-none" style={{ color: t.value }}>{value}</div>
       <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: t.label }}>{label}</div>
     </div>
   );
@@ -2659,10 +2659,6 @@ const CAL_PX_PER_MINUTE = 1.25;
 const CAL_TOTAL_MINUTES = (CAL_END_HOUR - CAL_START_HOUR) * 60;
 const CAL_GRID_HEIGHT = CAL_TOTAL_MINUTES * CAL_PX_PER_MINUTE;
 
-function dateKeyFromDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function minutesFromLocalIso(iso: string | null): number | null {
   if (!iso) return null;
   const m = iso.match(/T(\d{2}):(\d{2})/);
@@ -3060,20 +3056,6 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     }
     return out;
   }, [weekStart]);
-
-  const grouped = useMemo(() => {
-    const map: Record<string, CalEvent[]> = {};
-    for (const d of days) map[d.date.toDateString()] = [];
-    for (const ev of data?.events ?? []) {
-      if (!ev.start) continue;
-      const key = new Date(ev.start).toDateString();
-      if (map[key]) map[key].push(ev);
-    }
-    for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => new Date(a.start!).getTime() - new Date(b.start!).getTime());
-    }
-    return map;
-  }, [data, days]);
 
   const focusByDay = useMemo(() => {
     const map: Record<string, FocusBlock> = {};
