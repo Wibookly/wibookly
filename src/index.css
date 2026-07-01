@@ -1288,6 +1288,29 @@
 .dark .helm-calendar-event-card.is-overlap {
   background: color-mix(in srgb, #f97316 26%, var(--surface)) !important;
 }
+.helm-calendar-event-card.is-ghost {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--muted-foreground) 8%, transparent),
+    color-mix(in srgb, var(--muted-foreground) 8%, transparent) 6px,
+    transparent 6px,
+    transparent 12px
+  ) !important;
+  border: 2px dashed color-mix(in srgb, var(--muted-foreground) 55%, transparent) !important;
+  border-left-color: color-mix(in srgb, var(--muted-foreground) 65%, transparent) !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0.7;
+  z-index: 2;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+.helm-calendar-event-card.is-ghost .helm-calendar-event-title,
+.helm-calendar-event-card.is-ghost .helm-calendar-event-time {
+  color: var(--muted-foreground) !important;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+}
+.helm-calendar-event-card.is-ghost .helm-calendar-resize-handle { display: none; }
 .helm-calendar-resize-handle {
   position: absolute;
   left: 0;
