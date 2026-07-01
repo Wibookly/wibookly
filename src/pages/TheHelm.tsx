@@ -3295,9 +3295,13 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
-    onSuccess: (_d, vars) => {
+    onSuccess: (d: any, vars) => {
       setAppliedFocus((s) => ({ ...s, [vars.day_key]: true }));
-      toast.success('Focus block added to your calendar.');
+      if (d?.skipped === 'duplicate_focus_block') {
+        toast.info('Focus already exists that day — AI skipped adding another.');
+      } else {
+        toast.success('Focus block added to your calendar.');
+      }
       refetch();
     },
     onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
@@ -3698,7 +3702,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     onFocusApprove={(focus) => {
                       // Dedupe: don't add a second focus block on a day that already has one.
                       const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
-                      const already = dayEvents.some((e: any) => /focus block/i.test(String(e.subject ?? '')));
+                      const already = dayEvents.some((e: any) => isCalendarFocusEvent(e));
                       if (already) {
                         toast.info('There is already a focus block on this day — skipped to avoid duplicates.');
                         setAppliedFocus((s) => ({ ...s, [focus.day_key]: true }));
