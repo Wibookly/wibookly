@@ -3066,8 +3066,12 @@ function CalendarWeekGrid({
                     isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, height: `${height}px` }}
-                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''}`}
+                  style={{ top: `${top}px`, height: `${height}px`, cursor: ev.web_link ? 'pointer' : undefined }}
+                  onClick={(e) => {
+                    // Ignore clicks on inner action buttons (they call stopPropagation)
+                    if (ev.web_link) window.open(ev.web_link, '_blank', 'noopener,noreferrer');
+                  }}
+                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click to open in Outlook`}
                 >
                   <div className="helm-calendar-event-head">
                     <span className="helm-calendar-event-time">{fmtTimeShort(startIso)}</span>
