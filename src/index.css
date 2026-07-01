@@ -1071,7 +1071,7 @@
   content: "";
   position: absolute;
   left: 0;
-  top: 37px;
+  top: 37.5px;
   right: 0;
   height: 1px;
   border-top: 1px dashed color-mix(in srgb, var(--border-strong) 52%, transparent);
