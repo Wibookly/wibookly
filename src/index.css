@@ -1103,8 +1103,6 @@
 .helm-calendar-event-card.is-saving {
   opacity: .72;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
-.helm-calendar-event-card.is-saving {
-  /* moved above; keep placeholder to avoid re-numbering */
 }
 .helm-calendar-resize-handle {
   position: absolute;
@@ -1132,7 +1130,6 @@
   border-radius: 2px;
   background: var(--primary);
   opacity: .8;
-}
 }
 .helm-calendar-focus-card {
   border-style: dashed;
