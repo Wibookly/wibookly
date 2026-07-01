@@ -3285,6 +3285,10 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                     eventsByDay={currentGridByDay}
                     variant="current"
                     onMoveEvent={(ev, dayKey, startMinutes) => rescheduleMutation.mutate({ ev, dayKey, startMinutes })}
+                    onResizeEvent={(ev, dayKey, durationMinutes) => {
+                      const startMin = minutesFromLocalIso(ev.displayStart ?? ev.start) ?? CAL_START_HOUR * 60;
+                      rescheduleMutation.mutate({ ev, dayKey, startMinutes: startMin, durationMinutes });
+                    }}
                     movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
                     renderEventFooter={(ev) => (
                       <>
