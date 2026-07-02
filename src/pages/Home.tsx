@@ -31,7 +31,7 @@ export default function Home() {
     const map = new Map(data.prefs.map((p) => [p.widget_id, p]));
     return data.defs
       .map((d) => ({ def: d, pref: map.get(d.id) }))
-      .filter((x) => (x.pref ? x.pref.enabled : d => d.def.defaultEnabled))
+      .filter((x) => (x.pref ? x.pref.enabled : x.def.defaultEnabled))
       .sort((a, b) => (a.pref?.sort_order ?? 0) - (b.pref?.sort_order ?? 0));
   }, [data]);
 
