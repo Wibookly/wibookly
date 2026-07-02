@@ -3813,7 +3813,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
                       const already = dayEvents.some((e: any) => isCalendarFocusEvent(e));
                       if (already) {
-                        toast.info('There is already a focus block on this day — choose Approve new or Merge from the orange notice.');
+                        toast.info('There is already a focus block on this day — AI kept it.');
                         planQuery.refetch();
                         return;
                       }
