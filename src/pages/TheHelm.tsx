@@ -2441,6 +2441,14 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
         .from('helm_items').select('ai_draft').eq('id', item.id).maybeSingle();
       if (row?.ai_draft) {
         setDraft(row.ai_draft);
+        supabase.functions
+          .invoke('helm-draft-reply', {
+            body: { item_id: item.id, mode: 'refresh_signature', base_draft: row.ai_draft },
+          })
+          .then(({ data: refreshed }) => {
+            if (refreshed?.draft) setDraft(refreshed.draft);
+          })
+          .catch(() => {});
       } else {
         setBusy('gen');
         try {
