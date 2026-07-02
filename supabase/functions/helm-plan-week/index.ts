@@ -219,18 +219,59 @@ Deno.serve(async (req) => {
     const dayKey = String(body?.day_key ?? "");
     const start = String(body?.start ?? "");
     const end = String(body?.end ?? "");
+    const duplicateResolution = ["keep", "replace", "merge"].includes(String(body?.duplicate_resolution))
+      ? String(body?.duplicate_resolution)
+      : "keep";
     if (!dayKey || !start || !end) return json(400, { error: "missing_focus_args" });
-    // Server-side dedupe: refuse a second focus block on the same day.
+    // Server-side dedupe: never silently create a second focus block on the same day.
+    // If the user explicitly chooses Replace or Merge, resolve the existing block(s)
+    // first so the day still ends with one protected focus window.
     try {
       const dayStart = `${dayKey}T00:00:00`;
       const dayEnd = `${dayKey}T23:59:59`;
       const existing = await callGraph<any>(
         userId, connectionId!, "mail",
-        `/me/calendarView?startDateTime=${dayStart}&endDateTime=${dayEnd}&$select=id,subject,categories&$top=50`,
+        `/me/calendarView?startDateTime=${dayStart}&endDateTime=${dayEnd}&$select=id,subject,start,end,categories&$top=50`,
       );
       if (existing.ok && Array.isArray(existing.data?.value)) {
-        const dup = existing.data.value.find((e: any) => isFocusEventLike(e));
-        if (dup) return json(200, { ok: true, skipped: "duplicate_focus_block", event_id: dup.id });
+        const focusEvents = existing.data.value.filter((e: any) => isFocusEventLike(e));
+        const primary = focusEvents[0];
+        if (primary && duplicateResolution === "keep") {
+          return json(200, {
+            ok: true,
+            skipped: "duplicate_focus_block",
+            event_id: primary.id,
+            existing_start: primary.start?.dateTime ?? null,
+            existing_end: primary.end?.dateTime ?? null,
+          });
+        }
+        if (primary && duplicateResolution === "merge") {
+          const starts = [start, ...focusEvents.map((e: any) => e.start?.dateTime).filter(Boolean)].sort();
+          const ends = [end, ...focusEvents.map((e: any) => e.end?.dateTime).filter(Boolean)].sort();
+          const mergedStart = starts[0] ?? start;
+          const mergedEnd = ends[ends.length - 1] ?? end;
+          const patched = await patchEventTime(userId, connectionId!, primary.id, mergedStart, mergedEnd, userTz);
+          if (!patched.ok) return json(502, { error: "merge_failed", details: patched.error });
+          for (const extra of focusEvents.slice(1)) {
+            const deleted = await deleteEvent(userId, connectionId!, extra.id);
+            if (!deleted.ok) return json(502, { error: "merge_cleanup_failed", details: deleted.error });
+          }
+          await admin.from("activity_log").insert({
+            user_id: userId, organization_id: orgId,
+            action_type: "focus_block_created",
+            detail: `Merged focus block ${mergedStart} → ${mergedEnd}`,
+            graph_id: primary.id,
+            tier: "user",
+            action_key: `focus_block_merged:${dayKey}:${mergedStart}`,
+          });
+          return json(200, { ok: true, merged: true, event_id: primary.id, start: mergedStart, end: mergedEnd });
+        }
+        if (primary && duplicateResolution === "replace") {
+          for (const ev of focusEvents) {
+            const deleted = await deleteEvent(userId, connectionId!, ev.id);
+            if (!deleted.ok) return json(502, { error: "replace_cleanup_failed", details: deleted.error });
+          }
+        }
       }
     } catch { /* non-fatal; fall through to create */ }
     const created = await callGraph<any>(userId, connectionId!, "mail", `/me/events`, {
@@ -255,7 +296,7 @@ Deno.serve(async (req) => {
       tier: "user",
       action_key: `focus_block:${dayKey}:${start}`,
     });
-    return json(200, { ok: true, event_id: created.data?.id });
+    return json(200, { ok: true, event_id: created.data?.id, replaced: duplicateResolution === "replace" });
   }
 
   // ============ Mode: reschedule_event (user drag/drop) ============
@@ -442,6 +483,10 @@ Deno.serve(async (req) => {
     end: string;
     state: "free" | "needs_move" | "blocked" | "exists";
     conflicts: string[];
+    existing_event_id?: string | null;
+    existing_start?: string | null;
+    existing_end?: string | null;
+    existing_count?: number;
   }> = [];
   const proposals: Proposal[] = [];
 
@@ -481,19 +526,20 @@ Deno.serve(async (req) => {
   // Track days already carrying focus time so we don't double-place when bumping.
   // This catches InboxIQ-created blocks plus user-created Outlook blocks named
   // "Focus time", "Deep work", etc.
-  const existingFocusByDay = new Map<string, ShapedEvent>();
+  const existingFocusByDay = new Map<string, ShapedEvent[]>();
   for (const ev of events) {
     if (ev.is_cancelled || !ev.start) continue;
     if (!isFocusEventLike(ev)) continue;
     const dk = localDateKey(ev.start);
-    if (!existingFocusByDay.has(dk)) existingFocusByDay.set(dk, ev);
+    existingFocusByDay.set(dk, [...(existingFocusByDay.get(dk) ?? []), ev]);
   }
   const usedDayKeys = new Set<string>(existingFocusByDay.keys());
   // Helper: find gap on a specific dt (Date) — returns null if none.
-  const gapForDate = (dt: Date) => {
+  const gapForDate = (dt: Date, options?: { ignoreFocusEvents?: boolean }) => {
     const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const dayEvs = events.filter((e) => !e.is_cancelled && localDateKey(e.start) === dk);
-    const busy: Array<[number, number]> = dayEvs.map((e) => {
+    const busySource = options?.ignoreFocusEvents ? dayEvs.filter((e) => !isFocusEventLike(e)) : dayEvs;
+    const busy: Array<[number, number]> = busySource.map((e) => {
       const s = localHourMin(e.start); const en = localHourMin(e.end);
       return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
     });
@@ -508,15 +554,26 @@ Deno.serve(async (req) => {
     if (!focusDays.includes(weekdayNum)) continue;
     const dayKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const weekdayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekdayNum];
-    const existingFocus = existingFocusByDay.get(dayKey);
+    const existingFocuses = existingFocusByDay.get(dayKey) ?? [];
+    const existingFocus = existingFocuses[0];
     if (existingFocus) {
+      const { gap } = gapForDate(dt, { ignoreFocusEvents: true });
+      const proposed = gap ?? { startMin: winStart * 60, endMin: winStart * 60 + blockMin };
+      const sH = Math.floor(proposed.startMin / 60), sM = proposed.startMin % 60;
+      const eH = Math.floor(proposed.endMin / 60), eM = proposed.endMin % 60;
       focusBlocks.push({
         day_key: dayKey,
         weekday: weekdayName,
-        start: existingFocus.start,
-        end: existingFocus.end,
+        start: makeLocalISO(dayKey, sH, sM),
+        end: makeLocalISO(dayKey, eH, eM),
         state: "exists",
-        conflicts: ["Existing focus time already on your calendar — AI skipped adding another."],
+        conflicts: [
+          `Existing focus time already on your calendar (${fmt(existingFocus.start)}–${fmt(existingFocus.end)}). AI did not add another without your approval.`,
+        ],
+        existing_event_id: existingFocus.id,
+        existing_start: existingFocus.start,
+        existing_end: existingFocus.end,
+        existing_count: existingFocuses.length,
       });
       continue;
     }
@@ -747,6 +804,12 @@ async function patchEventTime(
       start: { dateTime: newStart, timeZone: tz },
       end: { dateTime: newEnd, timeZone: tz },
     }),
+  });
+}
+
+async function deleteEvent(userId: string, connectionId: string, eventId: string) {
+  return callGraph<any>(userId, connectionId, "mail", `/me/events/${encodeURIComponent(eventId)}`, {
+    method: "DELETE",
   });
 }
 
