@@ -2625,7 +2625,13 @@ type FocusBlock = {
   end: string;
   state: 'free' | 'needs_move' | 'blocked' | 'exists';
   conflicts: string[];
+  existing_event_id?: string | null;
+  existing_start?: string | null;
+  existing_end?: string | null;
+  existing_count?: number;
 };
+
+type FocusDuplicateResolution = 'keep' | 'replace' | 'merge';
 
 type Proposal = {
   id: string;
@@ -2931,6 +2937,7 @@ function CalendarWeekGrid({
   dismissedFocus,
   appliedFocus,
   onFocusApprove,
+  onFocusResolveDuplicate,
   onFocusDismiss,
   focusBusyDay,
   onMoveEvent,
@@ -2948,6 +2955,7 @@ function CalendarWeekGrid({
   dismissedFocus?: Record<string, boolean>;
   appliedFocus?: Record<string, boolean>;
   onFocusApprove?: (focus: FocusBlock) => void;
+  onFocusResolveDuplicate?: (focus: FocusBlock, resolution: Exclude<FocusDuplicateResolution, 'keep'>) => void;
   onFocusDismiss?: (focus: FocusBlock) => void;
   focusBusyDay?: string | null;
   onMoveEvent?: (ev: CalendarGridEvent, dayKey: string, startMinutes: number) => void;
@@ -3039,7 +3047,7 @@ function CalendarWeekGrid({
           }
         }
         const focus = focusByDay?.[d.key];
-        const showFocus = focusEnabled && focus && focus.state !== 'exists' && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
+        const showFocus = focusEnabled && focus && !dismissedFocus?.[focus.day_key] && !appliedFocus?.[focus.day_key];
         const isToday = d.date.toDateString() === new Date().toDateString();
         return (
           <div
@@ -3101,6 +3109,28 @@ function CalendarWeekGrid({
                           className="underline underline-offset-2 text-muted-foreground hover:text-foreground"
                         >
                           Cancel
+                        </button>
+                      </>
+                    )}
+                    {focus.state === 'exists' && (
+                      <>
+                        <span className="text-amber-700 dark:text-amber-300 font-medium">Existing focus found. </span>
+                        <button
+                          type="button"
+                          disabled={focusBusyDay === focus.day_key}
+                          onClick={() => onFocusResolveDuplicate?.(focus, 'replace')}
+                          className="underline underline-offset-2 text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-60"
+                        >
+                          Approve
+                        </button>
+                        <span> new time · </span>
+                        <button
+                          type="button"
+                          disabled={focusBusyDay === focus.day_key}
+                          onClick={() => onFocusResolveDuplicate?.(focus, 'merge')}
+                          className="underline underline-offset-2 text-amber-600 hover:text-amber-500 font-semibold disabled:opacity-60"
+                        >
+                          Merge
                         </button>
                       </>
                     )}
