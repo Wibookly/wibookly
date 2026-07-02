@@ -2611,7 +2611,7 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
-type FocusWindow = 'morning' | 'afternoon' | 'am' | 'midday' | 'pm';
+type FocusWindow = 'morning' | 'afternoon' | 'evening';
 type FocusRule = {
   focus_days: string[];
   focus_window: FocusWindow;
@@ -2620,11 +2620,9 @@ type FocusRule = {
 };
 
 const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
-  { value: 'am', label: '8–11 AM' },
-  { value: 'midday', label: '11 AM–2 PM' },
-  { value: 'pm', label: '2–5 PM' },
-  { value: 'morning', label: 'Morning (9–12)' },
-  { value: 'afternoon', label: 'Afternoon (1–5)' },
+  { value: 'morning', label: 'Morning (8 AM–12 PM)' },
+  { value: 'afternoon', label: 'Afternoon (1–4 PM)' },
+  { value: 'evening', label: 'Late afternoon (4–7 PM)' },
 ];
 
 type FocusBlock = {
