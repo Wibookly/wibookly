@@ -945,6 +945,7 @@ export type Database = {
           name: string
           organization_id: string
           show_in_favorites: boolean
+          show_on_home: boolean
           sort_order: number
           updated_at: string
           writing_style: string
@@ -967,6 +968,7 @@ export type Database = {
           name: string
           organization_id: string
           show_in_favorites?: boolean
+          show_on_home?: boolean
           sort_order?: number
           updated_at?: string
           writing_style?: string
@@ -989,6 +991,7 @@ export type Database = {
           name?: string
           organization_id?: string
           show_in_favorites?: boolean
+          show_on_home?: boolean
           sort_order?: number
           updated_at?: string
           writing_style?: string
@@ -5037,6 +5040,7 @@ export type Database = {
           name: string
           organization_id: string
           show_in_favorites: boolean
+          show_on_home: boolean
           sort_order: number
           updated_at: string
           writing_style: string
