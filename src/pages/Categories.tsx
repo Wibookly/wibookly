@@ -1396,7 +1396,7 @@ export default function Categories() {
               <TableHead className="w-48"><span className="inline-flex items-center gap-1">Category Name <HelpTip id="category.name" /></span></TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">Active <HelpTip id="category.enabled" /></span></TableHead>
-              <TableHead className="w-24 text-center">Home</TableHead>
+              <TableHead className="w-24 text-center">The Helm</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">AI Draft <HelpTip id="category.aiDrafts" /></span></TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
