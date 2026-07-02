@@ -407,53 +407,59 @@ export default function AIActivityDashboard() {
                 }
                 const top = items[0];
                 return (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                    {/* Donut */}
-                    <div className="relative h-[280px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <RTooltip
-                            contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                            formatter={(v: number, n: string) => [`${v} (${((v/total)*100).toFixed(0)}%)`, n]}
-                          />
-                          <Pie data={items} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2} stroke="hsl(var(--background))" strokeWidth={2}>
-                            {items.map((it) => <Cell key={it.name} fill={it.fill} />)}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <div className="text-3xl font-bold tabular-nums leading-none">{total}</div>
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total AI actions</div>
-                        <div className="text-xs text-muted-foreground mt-2 text-center max-w-[140px]">
-                          Top: <span className="font-medium text-foreground">{top.name}</span>
-                        </div>
+                  <div className="space-y-4">
+                    {/* Summary caption — outside the donut so nothing overlaps the ring */}
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold tabular-nums leading-none">{total}</span>
+                        <span className="text-xs uppercase tracking-wider text-muted-foreground">Total AI actions</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Top feature: <span className="font-medium text-foreground">{top.name}</span>
+                        <span className="ml-1">({top.value})</span>
                       </div>
                     </div>
-                    {/* Ranking list — clean, readable */}
-                    <div className="h-[280px] flex flex-col justify-center gap-2.5 px-2">
-                      {items.map((it) => {
-                        const pct = total > 0 ? (it.value / total) * 100 : 0;
-                        return (
-                          <div key={it.name} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: it.fill }} />
-                                <span className="font-medium text-foreground truncate">{it.name}</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                      {/* Donut — no center overlay */}
+                      <div className="h-[280px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <RTooltip
+                              contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                              formatter={(v: number, n: string) => [`${v} (${((v/total)*100).toFixed(0)}%)`, n]}
+                            />
+                            <Pie data={items} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2} stroke="hsl(var(--background))" strokeWidth={2}>
+                              {items.map((it) => <Cell key={it.name} fill={it.fill} />)}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {/* Ranking list — clean, readable */}
+                      <div className="h-[280px] flex flex-col justify-center gap-2.5 px-2">
+                        {items.map((it) => {
+                          const pct = total > 0 ? (it.value / total) * 100 : 0;
+                          return (
+                            <div key={it.name} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: it.fill }} />
+                                  <span className="font-medium text-foreground truncate">{it.name}</span>
+                                </div>
+                                <div className="tabular-nums text-muted-foreground shrink-0 ml-2">
+                                  <span className="font-semibold text-foreground">{it.value}</span>
+                                  <span className="ml-1 text-[10px]">({pct.toFixed(0)}%)</span>
+                                </div>
                               </div>
-                              <div className="tabular-nums text-muted-foreground shrink-0 ml-2">
-                                <span className="font-semibold text-foreground">{it.value}</span>
-                                <span className="ml-1 text-[10px]">({pct.toFixed(0)}%)</span>
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${pct}%`, background: it.fill }}
+                                />
                               </div>
                             </div>
-                            <div className="h-2 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{ width: `${pct}%`, background: it.fill }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 );
