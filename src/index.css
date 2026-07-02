@@ -778,6 +778,26 @@
   background-color: transparent !important;
   border-color: hsl(var(--border)) !important;
 }
+/* Force left alignment — Outlook HTML often ships centered tables /
+   align="center" attributes / margin:auto that made the body appear
+   in the middle of the reader. Normalize everything to flush-left. */
+.helm-email-body,
+.helm-email-body * {
+  text-align: left !important;
+}
+.helm-email-body table,
+.helm-email-body td,
+.helm-email-body th,
+.helm-email-body div,
+.helm-email-body p {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  float: none !important;
+}
+.helm-email-body [align="center"],
+.helm-email-body [align="right"] {
+  text-align: left !important;
+}
 .helm-email-body a { color: hsl(var(--primary)) !important; text-decoration: underline; }
 .helm-email-body img { max-width: 100%; height: auto; opacity: 0.92; }
 .helm-email-body blockquote {
@@ -786,7 +806,7 @@
   margin: 0.5rem 0;
   color: hsl(var(--muted-foreground)) !important;
 }
-.helm-email-body table { border-collapse: collapse; }
+.helm-email-body table { border-collapse: collapse; width: auto !important; }
 .helm-email-body td, .helm-email-body th { padding: 4px 8px; }
 
 /* Visible gradient divider between email highlight rows */
