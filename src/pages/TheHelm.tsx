@@ -3180,6 +3180,19 @@ function CalendarWeekGrid({
                   className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
                   style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, height: `${Math.max(15 * CAL_PX_PER_MINUTE, duration * CAL_PX_PER_MINUTE)}px` }}
                 >
+                  {onFocusDismiss && (
+                    <div className="helm-calendar-event-corner">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onFocusDismiss(focus); }}
+                        className="helm-calendar-event-corner-btn is-danger"
+                        title="Remove this focus block"
+                        aria-label="Remove focus block"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground">{duration}m</span></div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
