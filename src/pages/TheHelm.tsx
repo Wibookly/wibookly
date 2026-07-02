@@ -3251,13 +3251,42 @@ function CalendarWeekGrid({
                     isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, height: `${height}px`, cursor: ev.web_link ? 'pointer' : undefined }}
+                  style={{ top: `${top}px`, height: `${height}px`, cursor: 'pointer' }}
                   onClick={(e) => {
-                    // Ignore clicks on inner action buttons (they call stopPropagation)
-                    if (ev.web_link) window.open(ev.web_link, '_blank', 'noopener,noreferrer');
+                    // Open the details dialog (notes/edit). Inner buttons stopPropagation
+                    // so the Outlook link and X-delete don't trigger this.
+                    if (!isGhost) onOpenDetails?.(ev);
                   }}
-                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click to open in Outlook`}
+                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click for details`}
                 >
+                  {!isGhost && (
+                    <div className="helm-calendar-event-corner">
+                      {ev.web_link && (
+                        <a
+                          href={ev.web_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="helm-calendar-event-corner-btn"
+                          title="Open in Outlook"
+                          aria-label="Open in Outlook"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {onDeleteEvent && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
+                          className="helm-calendar-event-corner-btn is-danger"
+                          title="Delete from Outlook"
+                          aria-label="Delete event"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="helm-calendar-event-head">
                     <span className="helm-calendar-event-time">{fmtTimeShort(startIso)}</span>
                     <span className="helm-calendar-event-title" title={ev.subject}>{ev.subject}</span>
