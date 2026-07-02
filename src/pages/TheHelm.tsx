@@ -3325,6 +3325,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       return data as PlanResult;
     },
   });
+  planQueryRefetchRef.current = () => { planQuery.refetch(); };
 
   // Per-proposal editable note state + dismissed list
   const [draftByProp, setDraftByProp] = useState<Record<string, { note: string; loading: boolean; revealed: boolean }>>({});
