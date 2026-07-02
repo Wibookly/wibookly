@@ -61,6 +61,14 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
       if (cancelled) return;
       if (row?.ai_draft) {
         setDraftText(row.ai_draft);
+        supabase.functions
+          .invoke('helm-draft-reply', {
+            body: { item_id: item.id, mode: 'refresh_signature', base_draft: row.ai_draft },
+          })
+          .then(({ data: refreshed }) => {
+            if (!cancelled && refreshed?.draft) setDraftText(refreshed.draft);
+          })
+          .catch(() => {});
       } else {
         setGenBusy(true);
         try {
