@@ -28,7 +28,7 @@ export function CommitmentsWidget({ limit }: Props) {
         .select('id, title, sender_name, sender_email, due_at, tier')
         .eq('user_id', user!.id)
         .eq('status', 'open')
-        .in('tier', ['big3', 'focus'])
+        .in('tier', ['big3', 'decision'])
         .order('due_at', { ascending: true, nullsFirst: false })
         .limit(limit);
 
