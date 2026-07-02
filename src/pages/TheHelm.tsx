@@ -3669,11 +3669,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 <div className="mt-3 pt-3 border-t border-border/40">
                   <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">
-                      Database saved: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
-                    </span>
                     <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
-                      Proposed calendar using: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                      Using {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m blocks
                     </span>
                   </div>
                 </div>
