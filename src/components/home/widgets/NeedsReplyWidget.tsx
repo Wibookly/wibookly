@@ -20,14 +20,15 @@ export function NeedsReplyWidget({ limit }: Props) {
     queryKey: ['home:needs_reply', user?.id, limit],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('tracked_emails' as any)
-        .select('id, sender_name, sender_email, subject, priority_score, status, ai_draft_content, received_at')
+      const { data, error } = await supabase
+        .from('helm_items')
+        .select('id, title, sender_name, sender_email, score, tier, ai_draft, created_at')
         .eq('user_id', user!.id)
-        .in('status', ['pending', 'awaiting_reply', 'needs_reply', 'flagged'])
-        .order('priority_score', { ascending: false, nullsFirst: false })
-        .order('received_at', { ascending: false })
+        .eq('status', 'open')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(limit);
+      if (error) console.warn('[NeedsReplyWidget]', error);
       return (data as any[]) || [];
     },
   });
@@ -39,7 +40,7 @@ export function NeedsReplyWidget({ limit }: Props) {
     <ul className="divide-y divide-border/60">
       {data.map((row, i) => {
         const tint = TINTS[i % TINTS.length];
-        const isUrgent = (row.priority_score ?? 0) >= 80;
+        const isUrgent = row.tier === 'big3' || (row.score ?? 0) >= 80;
         return (
           <li key={row.id} className="flex items-center gap-3 py-2">
             <Avatar className="h-8 w-8">
@@ -47,12 +48,10 @@ export function NeedsReplyWidget({ limit }: Props) {
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="text-sm text-foreground truncate">
-                <span className="font-medium">{row.sender_name || row.sender_email}</span>
-                <span className="text-muted-foreground"> · {row.subject}</span>
+                <span className="font-medium">{row.sender_name || row.sender_email || 'Unknown'}</span>
+                <span className="text-muted-foreground"> · {row.title}</span>
               </div>
-              {row.ai_draft_content && (
-                <div className="text-xs text-primary">Draft ready</div>
-              )}
+              {row.ai_draft && <div className="text-xs text-primary">Draft ready</div>}
             </div>
             {isUrgent && <Badge variant="destructive" className="text-[10px]">urgent</Badge>}
           </li>

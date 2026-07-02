@@ -12,14 +12,20 @@ export function CategoryWidget({ categoryId, limit }: Props) {
     queryKey: ['home:category', user?.id, categoryId, limit],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('tracked_emails' as any)
-        .select('id, subject, sender_name, sender_email, received_at')
+      // helm_items keeps category reference inside payload JSON
+      const { data, error } = await supabase
+        .from('helm_items')
+        .select('id, title, sender_name, sender_email, created_at, payload, action_key')
         .eq('user_id', user!.id)
-        .eq('category_id', categoryId)
-        .order('received_at', { ascending: false })
-        .limit(limit);
-      return (data as any[]) || [];
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) console.warn('[CategoryWidget]', error);
+      const rows = ((data as any[]) || []).filter((r) => {
+        const cid = r?.payload?.category_id || r?.payload?.categoryId || r?.action_key;
+        return cid === categoryId;
+      });
+      return rows.slice(0, limit);
     },
   });
 
@@ -30,7 +36,7 @@ export function CategoryWidget({ categoryId, limit }: Props) {
     <ul className="space-y-1.5">
       {data.map((r) => (
         <li key={r.id} className="text-sm text-foreground truncate">
-          {r.subject} <span className="text-muted-foreground">· {r.sender_name || r.sender_email}</span>
+          {r.title} <span className="text-muted-foreground">· {r.sender_name || r.sender_email}</span>
         </li>
       ))}
       <li className="pt-1"><Badge variant="outline" className="text-[10px]">category</Badge></li>
