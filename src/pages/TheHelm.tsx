@@ -3297,7 +3297,7 @@ function CalendarWeekGrid({
                     )}
                     {focus.state === 'needs_move' && 'Needs to move a meeting.'}
                     {focus.state === 'blocked' && 'No space — try a different day.'}
-                  </p>
+                  </div>
 
                 </div>
               );
