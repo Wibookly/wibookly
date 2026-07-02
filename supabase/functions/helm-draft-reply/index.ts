@@ -7,6 +7,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callGraph } from "../_shared/graph-call.ts";
+import { loadMasterSignature } from "../_shared/master-signature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -133,35 +134,15 @@ Deno.serve(async (req) => {
     (u.user.user_metadata?.full_name as string | undefined) ||
     userName;
 
-  // Build a plain-text signature block.
-  // 1) signature_enabled === false  -> no signature
-  // 2) signature_enabled !== false AND email_signature set -> use the saved one (stripped to text)
-  // 3) otherwise compose a rich block from profile fields (name / title / company / phone / mobile / website / email)
-  const sigOn = prof?.signature_enabled !== false; // default ON unless explicitly disabled
-  let signatureBlock = "";
-  if (sigOn) {
-    if (prof?.email_signature && String(prof.email_signature).trim()) {
-      signatureBlock = String(prof.email_signature)
-        .replace(/<br\s*\/?\s*>/gi, "\n")
-        .replace(/<\/(p|div|li|tr)>/gi, "\n")
-        .replace(/<[^>]+>/g, "")
-        .replace(/\u00a0/g, " ")
-        .replace(/[ \t]+\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-    } else {
-      const lines: string[] = ["Best regards,", displayName];
-      if (prof?.title) lines.push(String(prof.title));
-      if (prof?.company) lines.push(String(prof.company));
-      const phones: string[] = [];
-      if (prof?.phone) phones.push(`Main: ${prof.phone}`);
-      if (prof?.mobile) phones.push(`Mobile: ${prof.mobile}`);
-      if (phones.length) lines.push(phones.join(" · "));
-      if (userEmail) lines.push(userEmail);
-      if (prof?.website) lines.push(String(prof.website));
-      signatureBlock = lines.join("\n");
-    }
-  }
+  // Master signature — read from `email_profiles` via the shared helper so
+  // this edge function, helm-send-reply, and Settings all agree on one
+  // source of truth. `signature_enabled === false` yields "Best regards,
+  // {name}" only (no phone / email / logo).
+  const master = await loadMasterSignature(userId, {
+    fallbackName: displayName,
+    fallbackEmail: userEmail,
+  });
+  const signatureBlock = master.text;
 
   // ----- Pull full Outlook thread so the LLM has real context -----
   // We fetch (a) the active message body, then (b) up to 5 most-recent
