@@ -2663,6 +2663,8 @@ type FocusRule = {
   focus_window: FocusWindow;
   block_minutes: number;
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
+  /** Optional per-day time override. Key = day id (mon/tue/…). Falls back to focus_window. */
+  per_day_windows?: Record<string, FocusWindow>;
 };
 
 const FOCUS_WINDOW_GROUPS: { label: string; options: { value: FocusWindow; label: string }[] }[] = [
