@@ -5,6 +5,7 @@ import { enforceLimitsBeforeLLM, recordSpend, blockedResponse, detectProvider } 
 import { callGraph } from "../_shared/graph-call.ts";
 import { getValidAccessToken } from "../_shared/oauth-tokens.ts";
 import { probeMicrosoftGraph } from "../_shared/token-probe.ts";
+import { loadMasterSignature, stripTrailingSignature } from "../_shared/master-signature.ts";
 import { finalizeReply, isAuthRelatedToolError, type ToolFailure } from "./reply-guards.ts";
 
 const corsHeaders = {
@@ -805,9 +806,16 @@ async function executeTool(
     } catch (e) {
       console.warn('send_email follow-up settings lookup failed', e);
     }
+    let finalBody = body;
+    try {
+      const sig = await loadMasterSignature(ctx.user_id, { connectionId: ctx.connection_id, fallbackEmail: ctx.connected_email || '' });
+      const stripped = stripTrailingSignature(body);
+      const mainHtml = /<\/?[a-z][\s\S]*>/i.test(stripped) ? stripped : stripped.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+      finalBody = `${mainHtml}<div style="margin-top:16px;">${sig.html}</div>`;
+    } catch { /* signature best-effort */ }
     const message: Record<string, any> = {
       subject,
-      body: { contentType: /<\/?[a-z][\s\S]*>/i.test(body) ? "HTML" : "Text", content: body },
+      body: { contentType: "HTML", content: finalBody },
       toRecipients: toRecip(to),
     };
     if (Array.isArray(args.cc) && args.cc.length) message.ccRecipients = toRecip(args.cc);

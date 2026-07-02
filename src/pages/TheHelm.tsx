@@ -1867,6 +1867,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
+  const [signatureHtml, setSignatureHtml] = useState('');
   const [original, setOriginal] = useState<{
     subject: string;
     from: { name?: string; address?: string } | null;
@@ -1906,6 +1907,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     if (!active) return;
     setOriginal(null);
     setDraftText('');
+    setSignatureHtml('');
     setBodyError(null);
     (async () => {
       try {
@@ -1934,6 +1936,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
           })
           .then(({ data: refreshed }) => {
             if (refreshed?.draft) setDraftText(refreshed.draft);
+            if (refreshed?.signature_html) setSignatureHtml(refreshed.signature_html);
           })
           .catch(() => {});
       } else {
@@ -1946,6 +1949,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
           );
           if (genErr) throw genErr;
           setDraftText(gen?.draft ?? '');
+          setSignatureHtml(gen?.signature_html ?? '');
         } catch (e: any) {
           toast.error(e?.message ?? 'Draft generation failed');
         } finally {
@@ -1971,6 +1975,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       });
       if (error) throw error;
       setDraftText(gen?.draft ?? draftText);
+      setSignatureHtml(gen?.signature_html ?? signatureHtml);
     } catch (e: any) {
       toast.error(e?.message ?? 'Reshape failed');
     } finally {
@@ -2040,6 +2045,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
       const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
       setActiveId(remaining[0]?.id ?? null);
       setDraftText('');
+      setSignatureHtml('');
       setOriginal(null);
       setScheduleOpen(false);
       setScheduleDate('');
@@ -2074,6 +2080,7 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
     const remaining = drafts.filter((d) => d.id !== active.id && !sentIds.has(d.id));
     setActiveId(remaining[0]?.id ?? null);
     setDraftText('');
+    setSignatureHtml('');
     setOriginal(null);
     setBodyError(null);
   };
@@ -2251,6 +2258,12 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
                     placeholder={genBusy ? 'Generating draft…' : 'Your reply…'}
                     className="w-full min-h-[220px] rounded-md border border-input bg-background p-3 text-body-2 text-foreground font-sans resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                   />
+                  {signatureHtml && (
+                    <div className="rounded-md border border-dashed border-border/70 bg-muted/20 p-3 text-[12px] text-muted-foreground">
+                      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em]">Signature attached to send</div>
+                      <div className="text-foreground [&_*]:!text-left" dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2">
                     <input
@@ -2419,6 +2432,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
     web_link?: string;
   } | null>(null);
   const [draft, setDraft] = useState('');
+  const [signatureHtml, setSignatureHtml] = useState('');
   const [busy, setBusy] = useState<'gen' | 'send' | 'save' | 'done' | null>(null);
   const [draftFailed, setDraftFailed] = useState(false);
 
@@ -2426,6 +2440,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
     if (!item?.id || !item?.graph_id) return;
     setOriginal(null);
     setDraft('');
+    setSignatureHtml('');
     setDraftFailed(false);
     (async () => {
       try {
@@ -2447,6 +2462,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
           })
           .then(({ data: refreshed }) => {
             if (refreshed?.draft) setDraft(refreshed.draft);
+            if (refreshed?.signature_html) setSignatureHtml(refreshed.signature_html);
           })
           .catch(() => {});
       } else {
@@ -2457,6 +2473,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
           });
           if (gErr) throw gErr;
           setDraft(gen?.draft ?? '');
+          setSignatureHtml(gen?.signature_html ?? '');
         } catch {
           setDraftFailed(true);
         } finally {
@@ -2521,6 +2538,7 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
       });
       if (error) throw error;
       setDraft(gen?.draft ?? '');
+      setSignatureHtml(gen?.signature_html ?? '');
     } catch { setDraftFailed(true); }
     finally { setBusy(null); }
   };
@@ -2578,6 +2596,12 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
                 placeholder={busy === 'gen' ? 'Generating…' : 'Your reply…'}
                 className="w-full min-h-[260px] rounded-md border border-input bg-background p-3 text-body-2 font-sans resize-y focus:outline-none focus:ring-2 focus:ring-ring"
               />
+            )}
+            {signatureHtml && (
+              <div className="rounded-md border border-dashed border-border/70 bg-muted/20 p-3 text-[12px] text-muted-foreground">
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em]">Signature attached to send</div>
+                <div className="text-foreground [&_*]:!text-left" dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+              </div>
             )}
             <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
               <Button variant="ghost" onClick={markDone} disabled={!!busy}>

@@ -34,6 +34,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
   const [original, setOriginal] = useState<{ subject: string; from: Addr | null; to: Addr[]; cc: Addr[]; body_html: string; body_text: string } | null>(null);
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [draftText, setDraftText] = useState('');
+  const [signatureHtml, setSignatureHtml] = useState('');
   const [genBusy, setGenBusy] = useState(false);
   const [reshapeBusy, setReshapeBusy] = useState(false);
   const [sendBusy, setSendBusy] = useState<'send' | 'save_draft' | 'schedule' | 'delete' | null>(null);
@@ -48,6 +49,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
       setOriginal(null);
       setBodyError(null);
       setDraftText('');
+      setSignatureHtml('');
       try {
         const { data: msg, error } = await supabase.functions.invoke('helm-fetch-message', { body: { item_id: item.id } });
         if (error) throw error;
@@ -67,6 +69,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
           })
           .then(({ data: refreshed }) => {
             if (!cancelled && refreshed?.draft) setDraftText(refreshed.draft);
+            if (!cancelled && refreshed?.signature_html) setSignatureHtml(refreshed.signature_html);
           })
           .catch(() => {});
       } else {
@@ -74,7 +77,10 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
         try {
           const { data: gen, error: genErr } = await supabase.functions.invoke('helm-draft-reply', { body: { item_id: item.id } });
           if (genErr) throw genErr;
-          if (!cancelled) setDraftText(gen?.draft ?? '');
+          if (!cancelled) {
+            setDraftText(gen?.draft ?? '');
+            setSignatureHtml(gen?.signature_html ?? '');
+          }
         } catch (e: any) {
           if (!cancelled) toast.error(e?.message ?? 'Draft generation failed');
         } finally {
@@ -93,6 +99,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
       });
       if (error) throw error;
       setDraftText(gen?.draft ?? draftText);
+      setSignatureHtml(gen?.signature_html ?? signatureHtml);
     } catch (e: any) {
       toast.error(e?.message ?? 'Reshape failed');
     } finally {
@@ -251,6 +258,12 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
           placeholder={genBusy ? 'Generating draft…' : 'Your reply…'}
           className="w-full min-h-[180px] rounded-md border border-input bg-background p-3 text-[13px] text-foreground font-sans resize-y focus:outline-none focus:ring-2 focus:ring-ring"
         />
+        {signatureHtml && (
+          <div className="rounded-md border border-dashed border-border/70 bg-muted/20 p-3 text-[12px] text-muted-foreground">
+            <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em]">Signature attached to send</div>
+            <div className="text-foreground [&_*]:!text-left" dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mt-2">
           <input

@@ -5,6 +5,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callGraph } from "../_shared/graph-call.ts";
+import { loadMasterSignature, stripTrailingSignature } from "../_shared/master-signature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -79,7 +80,12 @@ async function processOne(admin: any, row: any): Promise<{ id: string; status: s
       if (!draftId) throw new Error("no_draft_id_returned");
     }
 
-    const html = textToHtml(row.body);
+    let bodyText = stripTrailingSignature(row.body ?? "");
+    let html = textToHtml(bodyText);
+    try {
+      const sig = await loadMasterSignature(item.user_id, { connectionId: conn.id });
+      html = `${html}<div style="margin-top:16px;">${sig.html}</div>`;
+    } catch { /* signature best-effort */ }
     const r2 = await callGraph<any>(
       item.user_id,
       conn.id,
