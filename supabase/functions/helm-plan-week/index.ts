@@ -253,7 +253,8 @@ Deno.serve(async (req) => {
           const patched = await patchEventTime(userId, connectionId!, primary.id, mergedStart, mergedEnd, userTz);
           if (!patched.ok) return json(502, { error: "merge_failed", details: patched.error });
           for (const extra of focusEvents.slice(1)) {
-            await deleteEvent(userId, connectionId!, extra.id).catch(() => null);
+            const deleted = await deleteEvent(userId, connectionId!, extra.id);
+            if (!deleted.ok) return json(502, { error: "merge_cleanup_failed", details: deleted.error });
           }
           await admin.from("activity_log").insert({
             user_id: userId, organization_id: orgId,
@@ -267,7 +268,8 @@ Deno.serve(async (req) => {
         }
         if (primary && duplicateResolution === "replace") {
           for (const ev of focusEvents) {
-            await deleteEvent(userId, connectionId!, ev.id).catch(() => null);
+            const deleted = await deleteEvent(userId, connectionId!, ev.id);
+            if (!deleted.ok) return json(502, { error: "replace_cleanup_failed", details: deleted.error });
           }
         }
       }
