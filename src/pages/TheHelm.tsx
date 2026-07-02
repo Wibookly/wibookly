@@ -1926,6 +1926,16 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
         .maybeSingle();
       if (row?.ai_draft) {
         setDraftText(row.ai_draft);
+        // Ensure the cached draft carries the CURRENT master signature —
+        // older drafts were saved before the signature helper existed.
+        supabase.functions
+          .invoke('helm-draft-reply', {
+            body: { item_id: active.id, mode: 'refresh_signature', base_draft: row.ai_draft },
+          })
+          .then(({ data: refreshed }) => {
+            if (refreshed?.draft) setDraftText(refreshed.draft);
+          })
+          .catch(() => {});
       } else {
         // Generate fresh
         setGenBusy(true);
@@ -2431,6 +2441,14 @@ function DetailView({ item, onBack }: { item: HelmItem | null; onBack: () => voi
         .from('helm_items').select('ai_draft').eq('id', item.id).maybeSingle();
       if (row?.ai_draft) {
         setDraft(row.ai_draft);
+        supabase.functions
+          .invoke('helm-draft-reply', {
+            body: { item_id: item.id, mode: 'refresh_signature', base_draft: row.ai_draft },
+          })
+          .then(({ data: refreshed }) => {
+            if (refreshed?.draft) setDraft(refreshed.draft);
+          })
+          .catch(() => {});
       } else {
         setBusy('gen');
         try {
@@ -3491,6 +3509,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       const key = (displayStart ?? '').slice(0, 10);
       if (!map[key]) continue;
       if (isCalendarFocusEvent(ev)) {
+        // When the "Add focus times" toggle is OFF, hide every focus block
+        // from the calendar entirely — user asked for a clean slate.
+        if (!focusEnabled) continue;
         if (shownFocusByDay.has(key)) continue;
         shownFocusByDay.add(key);
       }
@@ -3500,7 +3521,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
     }
     return map;
-  }, [data?.events, days, manualMoves]);
+  }, [data?.events, days, manualMoves, focusEnabled]);
 
   const proposedGridByDay = useMemo(() => {
     const map: Record<string, CalendarGridEvent[]> = {};
