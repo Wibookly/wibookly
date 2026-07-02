@@ -363,7 +363,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             {autoReplyLocked ? (
               <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
             ) : category.show_on_home ? (
-              <TooltipContent>Auto-Reply is disabled because <b>Home</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
+              <TooltipContent>Auto-Reply is disabled because <b>The Helm</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
             ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
