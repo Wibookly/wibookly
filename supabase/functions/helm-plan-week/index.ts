@@ -673,7 +673,7 @@ Deno.serve(async (req) => {
     const existingFocus = existingFocuses[0];
     if (existingFocus) {
       const { gap } = gapForDate(dt, { ignoreFocusEvents: true });
-      const proposed = gap ?? { startMin: winStart * 60, endMin: winStart * 60 + blockMin };
+      const proposed = gap ?? { startMin: windowForWeekday(weekdayNum)[0] * 60, endMin: windowForWeekday(weekdayNum)[0] * 60 + blockMin };
       const sH = Math.floor(proposed.startMin / 60), sM = proposed.startMin % 60;
       const eH = Math.floor(proposed.endMin / 60), eM = proposed.endMin % 60;
       focusBlocks.push({
