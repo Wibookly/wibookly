@@ -47,6 +47,7 @@ interface TrackedEmail {
   queued_reason?: string | null;
   web_link?: string | null;
   graph_message_id?: string | null;
+  updated_at?: string | null;
 }
 
 
@@ -719,6 +720,11 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
           >
             <Icon className="w-3 h-3" /> {meta.label}
           </Badge>
+          {(r.status === 'replied' || r.status === 'completed') && r.updated_at && (
+            <div className="text-[10px] text-emerald-700 whitespace-nowrap" title="Recipient replied on this date">
+              on {fmt(r.updated_at)}
+            </div>
+          )}
           {canCancel && (
             <Button
               type="button"

@@ -33,11 +33,9 @@ const DAY_MAP: Record<string, number> = {
   mon: 1, tue: 2, wed: 3, thu: 4, fri: 5,
 };
 const WINDOWS: Record<string, [number, number]> = {
-  morning: [9, 12],
-  afternoon: [13, 17],
-  am: [8, 11],
-  midday: [11, 14],
-  pm: [14, 17],
+  morning: [8, 12],
+  afternoon: [13, 16],
+  evening: [16, 19],
 };
 const VALID_WINDOWS = new Set(Object.keys(WINDOWS));
 const ALLOWED_BLOCK_MINUTES = new Set([30, 45, 60, 90, 120]);

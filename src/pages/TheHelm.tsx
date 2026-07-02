@@ -2611,7 +2611,7 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
-type FocusWindow = 'morning' | 'afternoon' | 'am' | 'midday' | 'pm';
+type FocusWindow = 'morning' | 'afternoon' | 'evening';
 type FocusRule = {
   focus_days: string[];
   focus_window: FocusWindow;
@@ -2620,11 +2620,9 @@ type FocusRule = {
 };
 
 const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
-  { value: 'am', label: '8–11 AM' },
-  { value: 'midday', label: '11 AM–2 PM' },
-  { value: 'pm', label: '2–5 PM' },
-  { value: 'morning', label: 'Morning (9–12)' },
-  { value: 'afternoon', label: 'Afternoon (1–5)' },
+  { value: 'morning', label: 'Morning (8 AM–12 PM)' },
+  { value: 'afternoon', label: 'Afternoon (1–4 PM)' },
+  { value: 'evening', label: 'Late afternoon (4–7 PM)' },
 ];
 
 type FocusBlock = {
@@ -2883,8 +2881,8 @@ function fmtTimeShort(iso: string | null) {
 }
 
 // Business-hours-only calendar: 8 AM – 6 PM shown, no off-hours scroll noise.
-const CAL_BUSINESS_START = 8;
-const CAL_BUSINESS_END = 19; // render through 7 PM so the 6 PM row is fully visible
+const CAL_BUSINESS_START = 7;
+const CAL_BUSINESS_END = 19; // render 7 AM – 7 PM (fixed)
 const CAL_START_HOUR = CAL_BUSINESS_START;
 const CAL_END_HOUR = CAL_BUSINESS_END;
 const CAL_SLOT_MINUTES = 30;
