@@ -65,8 +65,8 @@ export default function AIActivityDashboard() {
   const [stats, setStats] = useState<ActivityStats>({ totalDrafts: 0, totalAutoReplies: 0, totalEmails: 0, totalScheduledEvents: 0, totalChatMessages: 0, totalChatConversations: 0, totalMeetings: 0 });
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
-  const [dateRange, setDateRange] = useState<DateRange>('30days');
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(subDays(new Date(), 30));
+  const [dateRange, setDateRange] = useState<DateRange>('90days');
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(subDays(new Date(), 90));
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
   
 
