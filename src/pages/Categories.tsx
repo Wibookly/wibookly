@@ -351,17 +351,19 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             <TooltipTrigger asChild>
               <span className="inline-block" style={autoReplyLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={!autoReplyLocked && category.auto_reply_enabled}
+                  checked={!autoReplyLocked && !category.show_on_home && category.auto_reply_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'auto_reply_enabled', checked);
                     if (checked && !category.auto_reply_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked}
+                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked || category.show_on_home}
                 />
               </span>
             </TooltipTrigger>
             {autoReplyLocked ? (
               <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : category.show_on_home ? (
+              <TooltipContent>Auto-Reply is disabled because <b>Home</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
             ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
