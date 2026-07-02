@@ -3491,6 +3491,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       const key = (displayStart ?? '').slice(0, 10);
       if (!map[key]) continue;
       if (isCalendarFocusEvent(ev)) {
+        // When the "Add focus times" toggle is OFF, hide every focus block
+        // from the calendar entirely — user asked for a clean slate.
+        if (!focusEnabled) continue;
         if (shownFocusByDay.has(key)) continue;
         shownFocusByDay.add(key);
       }
@@ -3500,7 +3503,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       map[key].sort((a, b) => (minutesFromLocalIso(a.displayStart ?? a.start) ?? 0) - (minutesFromLocalIso(b.displayStart ?? b.start) ?? 0));
     }
     return map;
-  }, [data?.events, days, manualMoves]);
+  }, [data?.events, days, manualMoves, focusEnabled]);
 
   const proposedGridByDay = useMemo(() => {
     const map: Record<string, CalendarGridEvent[]> = {};
