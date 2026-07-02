@@ -3293,7 +3293,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   // immediately instead of waiting on a separate settings read.
   const [debouncedRule, setDebouncedRule] = useState(rule);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedRule(rule), 600);
+    // 3-second debounce: after the first apply, subsequent focus-time edits
+    // wait 3s before re-planning so rapid changes don't spam the calendar.
+    const t = setTimeout(() => setDebouncedRule(rule), 3000);
     return () => clearTimeout(t);
   }, [rule]);
 
@@ -3592,12 +3594,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
           <Button variant="outline" size="sm" onClick={() => shiftWeek(-1)}>← Prev</Button>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Today</Button>
           <Button variant="outline" size="sm" onClick={() => shiftWeek(1)}>Next →</Button>
-          <Button variant="default" size="sm" onClick={() => { refetch(); planQuery.refetch(); }} disabled={isFetching}>
-            <RefreshCw className={cn('w-4 h-4 mr-1', isFetching && 'animate-spin')} />
-            Sync
-          </Button>
         </div>
       </div>
+
 
       {error && (
         <Card className="mb-4 border-destructive/40">
