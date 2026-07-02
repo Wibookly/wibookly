@@ -1926,6 +1926,16 @@ function InboxView({ onBack, scope = 'drafts' }: { onBack: () => void; scope?: I
         .maybeSingle();
       if (row?.ai_draft) {
         setDraftText(row.ai_draft);
+        // Ensure the cached draft carries the CURRENT master signature —
+        // older drafts were saved before the signature helper existed.
+        supabase.functions
+          .invoke('helm-draft-reply', {
+            body: { item_id: active.id, mode: 'refresh_signature', base_draft: row.ai_draft },
+          })
+          .then(({ data: refreshed }) => {
+            if (refreshed?.draft) setDraftText(refreshed.draft);
+          })
+          .catch(() => {});
       } else {
         // Generate fresh
         setGenBusy(true);
