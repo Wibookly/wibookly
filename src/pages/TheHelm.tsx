@@ -2653,7 +2653,11 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
-type FocusWindow = 'morning' | 'afternoon' | 'evening';
+type FocusWindow =
+  | 'morning' | 'afternoon' | 'evening'
+  | 'morning_8' | 'morning_9' | 'morning_10' | 'morning_11'
+  | 'afternoon_12' | 'afternoon_1' | 'afternoon_2' | 'afternoon_3'
+  | 'late_4' | 'late_5' | 'late_6';
 type FocusRule = {
   focus_days: string[];
   focus_window: FocusWindow;
@@ -2661,11 +2665,42 @@ type FocusRule = {
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
 };
 
-const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
-  { value: 'morning', label: 'Morning (8 AM–12 PM)' },
-  { value: 'afternoon', label: 'Afternoon (1–4 PM)' },
-  { value: 'evening', label: 'Late afternoon (4–7 PM)' },
+const FOCUS_WINDOW_GROUPS: { label: string; options: { value: FocusWindow; label: string }[] }[] = [
+  {
+    label: 'Morning',
+    options: [
+      { value: 'morning_8', label: 'Morning · 8 AM' },
+      { value: 'morning_9', label: 'Morning · 9 AM' },
+      { value: 'morning_10', label: 'Morning · 10 AM' },
+      { value: 'morning_11', label: 'Morning · 11 AM' },
+    ],
+  },
+  {
+    label: 'Afternoon',
+    options: [
+      { value: 'afternoon_12', label: 'Afternoon · 12 PM' },
+      { value: 'afternoon_1', label: 'Afternoon · 1 PM' },
+      { value: 'afternoon_2', label: 'Afternoon · 2 PM' },
+      { value: 'afternoon_3', label: 'Afternoon · 3 PM' },
+    ],
+  },
+  {
+    label: 'Late afternoon',
+    options: [
+      { value: 'late_4', label: 'Late afternoon · 4 PM' },
+      { value: 'late_5', label: 'Late afternoon · 5 PM' },
+      { value: 'late_6', label: 'Late afternoon · 6 PM' },
+    ],
+  },
 ];
+const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] =
+  FOCUS_WINDOW_GROUPS.flatMap((g) => g.options);
+// Map legacy band values persisted in DB → a sensible default fine hour.
+const FOCUS_WINDOW_MIGRATE: Record<string, FocusWindow> = {
+  morning: 'morning_9',
+  afternoon: 'afternoon_1',
+  evening: 'late_5',
+};
 
 type FocusBlock = {
   day_key: string;
