@@ -1275,12 +1275,9 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  opacity: 0;
-  transition: opacity 120ms ease;
+  opacity: 1;
   z-index: 5;
 }
-.helm-calendar-event-card:hover .helm-calendar-event-corner,
-.helm-calendar-event-card:focus-within .helm-calendar-event-corner { opacity: 1; }
 .helm-calendar-event-corner-btn {
   display: inline-flex;
   align-items: center;
