@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -219,11 +219,6 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
     }
   }, [open]);
 
-  const finalHtml = useMemo(() => {
-    const safe = bodyHtml || '';
-    return signature ? `${safe}<br/><br/>${signature}` : safe;
-  }, [bodyHtml, signature]);
-
   const handleSend = async () => {
     if (!connectionId) { toast.error('Connect Outlook first.'); return; }
     if (!to.length) { toast.error('Add at least one recipient'); return; }
@@ -237,7 +232,7 @@ export function EmailComposerDialog({ open, onOpenChange, connectionId, connecti
           connection_id: connectionId,
           to, cc, bcc,
           subject: subject.trim(),
-          body: finalHtml,
+          body: bodyHtml,
         },
       });
       if (error) throw error;

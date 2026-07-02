@@ -239,7 +239,15 @@ Deno.serve(async (req) => {
       .from("helm_items")
       .update({ ai_draft: rebuilt, updated_at: new Date().toISOString() })
       .eq("id", item.id);
-    return json(200, { ok: true, draft: rebuilt, refreshed: true, signature_len: signatureBlock.length });
+    return json(200, {
+      ok: true,
+      draft: rebuilt,
+      refreshed: true,
+      signature_html: master.html,
+      signature_text: master.text,
+      signature_enabled: master.enabled,
+      signature_len: signatureBlock.length,
+    });
   }
 
   // Per-chip directives so tone reshapes produce a visibly different draft.
@@ -315,5 +323,11 @@ Deno.serve(async (req) => {
     .update({ ai_draft: fullBody, updated_at: new Date().toISOString() })
     .eq("id", item.id);
 
-  return json(200, { ok: true, draft: fullBody });
+  return json(200, {
+    ok: true,
+    draft: fullBody,
+    signature_html: master.html,
+    signature_text: master.text,
+    signature_enabled: master.enabled,
+  });
 });

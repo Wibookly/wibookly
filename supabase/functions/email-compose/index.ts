@@ -6,6 +6,7 @@
 //   - send      : send through Outlook /me/sendMail
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { callGraph } from '../_shared/graph-call.ts';
+import { loadMasterSignature, stripTrailingSignature } from '../_shared/master-signature.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,47 +18,6 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-}
-
-function buildSignature(p: any, userEmail: string | null): string {
-  if (!p) return '';
-  if (p.email_signature && String(p.email_signature).trim()) {
-    return String(p.email_signature);
-  }
-  const name = p.full_name || '';
-  const title = p.title || '';
-  const phone = p.phone || '';
-  const mobile = p.mobile || '';
-  const website = p.website || '';
-  const logo = p.signature_logo_url || '';
-  const font = p.signature_font || 'Arial, sans-serif';
-  const color = p.signature_color || '#333333';
-  if (!name && !title && !phone && !mobile && !website && !logo) return '';
-  const rows: string[] = [];
-  if (phone) rows.push(`<tr><td style="padding:2px 0;"><span style="font-size:14px;">📞</span></td><td style="padding:2px 0 2px 8px;">Main: ${phone}</td></tr>`);
-  if (mobile) rows.push(`<tr><td style="padding:2px 0;"><span style="font-size:14px;">📱</span></td><td style="padding:2px 0 2px 8px;">Mobile: ${mobile}</td></tr>`);
-  if (website) {
-    const clean = website.replace(/^https?:\/\//, '');
-    rows.push(`<tr><td style="padding:2px 0;"><span style="font-size:14px;">🌐</span></td><td style="padding:2px 0 2px 8px;"><a href="${website}" style="color:${color};text-decoration:none;">${clean}</a></td></tr>`);
-  }
-  if (userEmail) {
-    rows.push(`<tr><td style="padding:2px 0;"><span style="font-size:14px;">✉️</span></td><td style="padding:2px 0 2px 8px;"><a href="mailto:${userEmail}" style="color:${color};text-decoration:none;">${userEmail}</a></td></tr>`);
-  }
-  return `<div style="font-family:${font};font-size:14px;color:${color};">
-  <p style="margin:0 0 12px 0;">Best regards,</p>
-  <table cellpadding="0" cellspacing="0" border="0" style="font-family:${font};font-size:14px;color:${color};">
-    <tr>
-      ${logo ? `<td style="vertical-align:top;padding-right:16px;border-right:2px solid #e5e5e5;"><img src="${logo}" alt="Logo" style="max-height:80px;max-width:120px;"/></td>` : ''}
-      <td style="vertical-align:top;${logo ? 'padding-left:16px;' : ''}">
-        ${name ? `<div style="font-size:16px;font-weight:bold;color:${color};margin-bottom:2px;">${name}</div>` : ''}
-        ${title ? `<div style="font-size:14px;color:#2563eb;margin-bottom:8px;">${title}</div>` : ''}
-        <table cellpadding="0" cellspacing="0" border="0" style="font-size:13px;color:${color};">
-          ${rows.join('')}
-        </table>
-      </td>
-    </tr>
-  </table>
-</div>`;
 }
 
 function normalizeDomain(value: string | null | undefined): string {
@@ -255,13 +215,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'signature') {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('full_name, title, email_signature, phone, mobile, website, signature_logo_url, signature_font, signature_color')
-        .eq('user_id', userId)
-        .maybeSingle();
-      const html = buildSignature(profile, connEmail);
-      return json({ ok: true, signature: html, from_email: connEmail });
+      const sig = await loadMasterSignature(userId, { connectionId, fallbackEmail: connEmail || '' });
+      return json({ ok: true, signature: sig.html, signature_text: sig.text, signature_enabled: sig.enabled, from_email: connEmail });
     }
 
     if (action === 'contacts') {
@@ -300,6 +255,12 @@ Deno.serve(async (req) => {
       const html = String(body?.body || '').trim();
       if (!subject) return json({ error: 'subject required' }, 400);
       if (!html) return json({ error: 'body required' }, 400);
+      let finalHtml = html;
+      try {
+        const sig = await loadMasterSignature(userId, { connectionId, fallbackEmail: connEmail || '' });
+        const stripped = stripTrailingSignature(html);
+        finalHtml = `${stripped}<br/><br/>${sig.html}`;
+      } catch { /* signature best-effort */ }
       const senderDomain = normalizeDomain(connEmail?.split('@')[1]);
       let trackingDomain = senderDomain;
       try {
@@ -322,7 +283,7 @@ Deno.serve(async (req) => {
       const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
       const message: Record<string, any> = {
         subject,
-        body: { contentType: 'HTML', content: html },
+        body: { contentType: 'HTML', content: finalHtml },
         toRecipients: toRecip(to),
       };
       if (cc.length) message.ccRecipients = toRecip(cc);
