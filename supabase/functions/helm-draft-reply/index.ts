@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
     item_id?: string;
     instruction?: string;
     base_draft?: string;
+    mode?: "refresh_signature";
   };
   if (!body.item_id) return json(400, { error: "item_id_required" });
 
