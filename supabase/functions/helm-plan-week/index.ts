@@ -736,7 +736,7 @@ Deno.serve(async (req) => {
 
     // 3) No natural gap. For "focus" strategy → just mark blocked (no moves).
     //    For "reorganize" strategy → propose moving the most moveable conflict.
-    const blockStartH = winStart, blockStartM = 0;
+    const blockStartH = windowForWeekday(weekdayNum)[0], blockStartM = 0;
     const blockEnd = addMinutesToHourMin(blockStartH, blockStartM, blockMin);
     const targetStart = makeLocalISO(dayKey, blockStartH, blockStartM);
     const targetEnd = makeLocalISO(dayKey, blockEnd.h, blockEnd.m);
