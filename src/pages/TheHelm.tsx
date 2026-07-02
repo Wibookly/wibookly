@@ -2931,7 +2931,7 @@ function FocusRulesCompact({
           </select>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground">When</span>
+          <span className="text-[10px] text-muted-foreground">Default when</span>
           <select
             value={FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window}
             onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
@@ -2947,6 +2947,61 @@ function FocusRulesCompact({
           </select>
         </div>
       </div>
+
+      {rule.focus_days.length > 0 && (
+        <div className="pt-2 mt-1 border-t border-border/60">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+            Per-day time <span className="normal-case text-muted-foreground/70">(overrides default)</span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {DAY_CHIPS.filter((d) => rule.focus_days.includes(d.id)).map((d) => {
+              const perDay = rule.per_day_windows ?? {};
+              const current = perDay[d.id] ?? (FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window);
+              const isCustom = !!perDay[d.id];
+              return (
+                <div key={d.id} className="flex items-center gap-1.5">
+                  <span className={cn(
+                    'w-9 text-[10px] font-semibold uppercase tracking-wide',
+                    isCustom ? 'text-primary' : 'text-muted-foreground',
+                  )}>{d.label}</span>
+                  <select
+                    value={current}
+                    onChange={(e) => {
+                      const next = { ...(rule.per_day_windows ?? {}) };
+                      next[d.id] = e.target.value as FocusWindow;
+                      onChange({ ...rule, per_day_windows: next });
+                    }}
+                    className="flex-1 text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
+                  >
+                    {FOCUS_WINDOW_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((w) => (
+                          <option key={w.value} value={w.value}>{w.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {isCustom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = { ...(rule.per_day_windows ?? {}) };
+                        delete next[d.id];
+                        onChange({ ...rule, per_day_windows: next });
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground px-1"
+                      title="Use default time"
+                      aria-label={`Reset ${d.label} to default time`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
