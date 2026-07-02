@@ -2611,12 +2611,21 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
+type FocusWindow = 'morning' | 'afternoon' | 'am' | 'midday' | 'pm';
 type FocusRule = {
   focus_days: string[];
-  focus_window: 'morning' | 'afternoon';
+  focus_window: FocusWindow;
   block_minutes: number;
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
 };
+
+const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
+  { value: 'am', label: '8–11 AM' },
+  { value: 'midday', label: '11 AM–2 PM' },
+  { value: 'pm', label: '2–5 PM' },
+  { value: 'morning', label: 'Morning (9–12)' },
+  { value: 'afternoon', label: 'Afternoon (1–5)' },
+];
 
 type FocusBlock = {
   day_key: string;
@@ -2755,19 +2764,19 @@ function FocusRulesCard({
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time of day</p>
-            <div className="flex gap-2">
-              {(['morning', 'afternoon'] as const).map((w) => (
+            <div className="flex flex-wrap gap-2">
+              {FOCUS_WINDOW_OPTIONS.map((w) => (
                 <button
-                  key={w}
-                  onClick={() => onChange({ ...rule, focus_window: w })}
+                  key={w.value}
+                  onClick={() => onChange({ ...rule, focus_window: w.value })}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs border capitalize',
-                    rule.focus_window === w
+                    'px-3 py-1.5 rounded-full text-xs border',
+                    rule.focus_window === w.value
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-background border-border hover:bg-muted',
                   )}
                 >
-                  {w}
+                  {w.label}
                 </button>
               ))}
             </div>
@@ -2848,11 +2857,12 @@ function FocusRulesCompact({
           <span className="text-[10px] text-muted-foreground">When</span>
           <select
             value={rule.focus_window}
-            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as 'morning' | 'afternoon' })}
-            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 capitalize"
+            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
           >
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
+            {FOCUS_WINDOW_OPTIONS.map((w) => (
+              <option key={w.value} value={w.value}>{w.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -2874,7 +2884,7 @@ function fmtTimeShort(iso: string | null) {
 
 // Business-hours-only calendar: 8 AM – 6 PM shown, no off-hours scroll noise.
 const CAL_BUSINESS_START = 8;
-const CAL_BUSINESS_END = 18;
+const CAL_BUSINESS_END = 19; // render through 7 PM so the 6 PM row is fully visible
 const CAL_START_HOUR = CAL_BUSINESS_START;
 const CAL_END_HOUR = CAL_BUSINESS_END;
 const CAL_SLOT_MINUTES = 30;
@@ -3307,9 +3317,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   // immediately instead of waiting on a separate settings read.
   const [debouncedRule, setDebouncedRule] = useState(rule);
   useEffect(() => {
-    // 3-second debounce: after the first apply, subsequent focus-time edits
-    // wait 3s before re-planning so rapid changes don't spam the calendar.
-    const t = setTimeout(() => setDebouncedRule(rule), 3000);
+    // 2-second debounce: after a focus-time edit, wait 2s before re-planning
+    // so rapid changes don't spam the calendar.
+    const t = setTimeout(() => setDebouncedRule(rule), 2000);
     return () => clearTimeout(t);
   }, [rule]);
 
@@ -3659,11 +3669,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 <div className="mt-3 pt-3 border-t border-border/40">
                   <FocusRulesCompact rule={rule} saving={planQuery.isFetching} onChange={setRule} />
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">
-                      Database saved: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
-                    </span>
                     <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">
-                      Proposed calendar using: {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m
+                      Using {planQuery.data?.rule?.block_minutes ?? debouncedRule.block_minutes}m blocks
                     </span>
                   </div>
                 </div>
@@ -3777,28 +3784,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
               {focusConflictNotices.map((focus) => (
-                <div key={`focus-notice-${focus.day_key}`} className="mb-3 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    <strong>{focus.weekday}:</strong> existing focus already sits at {fmtTimeShort(focus.existing_start ?? focus.start)}–{fmtTimeShort(focus.existing_end ?? focus.end)}. AI is not adding a duplicate unless you choose Approve or Merge.
-                  </span>
-                  <span className="inline-flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={createFocusMutation.isPending}
-                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'replace' })}
-                      className="font-semibold underline underline-offset-2 text-emerald-700 hover:text-emerald-600 dark:text-emerald-300"
-                    >
-                      Approve new
-                    </button>
-                    <button
-                      type="button"
-                      disabled={createFocusMutation.isPending}
-                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'merge' })}
-                      className="font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-600 dark:text-amber-300"
-                    >
-                      Merge
-                    </button>
-                  </span>
+                <div key={`focus-notice-${focus.day_key}`} className="mb-3 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                  <strong>{focus.weekday}:</strong> existing focus already sits at {fmtTimeShort(focus.existing_start ?? focus.start)}–{fmtTimeShort(focus.existing_end ?? focus.end)}. AI kept it — no duplicate added for this day.
                 </div>
               ))}
               {noReorgNeeded && (
@@ -3826,7 +3813,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
                       const already = dayEvents.some((e: any) => isCalendarFocusEvent(e));
                       if (already) {
-                        toast.info('There is already a focus block on this day — choose Approve new or Merge from the orange notice.');
+                        toast.info('There is already a focus block on this day — AI kept it.');
                         planQuery.refetch();
                         return;
                       }

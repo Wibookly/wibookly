@@ -35,7 +35,11 @@ const DAY_MAP: Record<string, number> = {
 const WINDOWS: Record<string, [number, number]> = {
   morning: [9, 12],
   afternoon: [13, 17],
+  am: [8, 11],
+  midday: [11, 14],
+  pm: [14, 17],
 };
+const VALID_WINDOWS = new Set(Object.keys(WINDOWS));
 const ALLOWED_BLOCK_MINUTES = new Set([30, 45, 60, 90, 120]);
 
 async function callLLM(userId: string, system: string, user: string): Promise<string> {
@@ -435,8 +439,8 @@ Deno.serve(async (req) => {
       focus_days: Array.isArray(override.focus_days)
         ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
         : rule.focus_days,
-      focus_window: override.focus_window === "afternoon" || override.focus_window === "morning"
-        ? override.focus_window
+      focus_window: VALID_WINDOWS.has(String(override.focus_window))
+        ? String(override.focus_window)
         : rule.focus_window,
       block_minutes: ALLOWED_BLOCK_MINUTES.has(Number(override.block_minutes))
         ? Number(override.block_minutes)

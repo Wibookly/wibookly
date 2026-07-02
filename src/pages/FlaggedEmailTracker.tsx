@@ -666,22 +666,7 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
       </TableCell>
       <TableCell className="text-xs min-w-[260px]">
         {(r.status === 'replied' || r.status === 'completed') ? (
-          (() => {
-            const sentCount = sendSchedule.filter((s) => s.status === 'Sent').length;
-            const lastSent = [...sendSchedule].reverse().find((s) => s.status === 'Sent');
-            return (
-              <div className="flex items-center justify-between gap-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5">
-                <div className="flex items-center gap-1.5 font-medium text-emerald-700">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Replied · queue cleared
-                </div>
-                <div className="text-right text-[11px] text-emerald-700/80 whitespace-nowrap">
-                  {sentCount > 0 ? `${sentCount} follow-up${sentCount === 1 ? '' : 's'} sent` : 'No follow-ups sent'}
-                  {lastSent?.date && <div className="text-muted-foreground">last {fmtAny(lastSent.date)}</div>}
-                </div>
-              </div>
-            );
-          })()
+          <div className="text-[11px] text-muted-foreground">—</div>
         ) : (
           <div className="space-y-1.5">
             {sendSchedule.map((send) => {
