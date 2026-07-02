@@ -1071,7 +1071,7 @@
 }
 .helm-calendar-time-gutter {
   background:
-    repeating-linear-gradient(to bottom, transparent 0, transparent calc(60px * 1.25 - 1px), color-mix(in srgb, var(--border-strong) 80%, transparent) calc(60px * 1.25));
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(90px - 1px), color-mix(in srgb, var(--border-strong) 80%, transparent) 90px);
 }
 .helm-calendar-time-label {
   position: absolute;
