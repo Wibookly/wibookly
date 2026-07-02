@@ -2931,12 +2931,16 @@ function FocusRulesCompact({
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-muted-foreground">When</span>
           <select
-            value={rule.focus_window}
+            value={FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window}
             onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
             className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
           >
-            {FOCUS_WINDOW_OPTIONS.map((w) => (
-              <option key={w.value} value={w.value}>{w.label}</option>
+            {FOCUS_WINDOW_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((w) => (
+                  <option key={w.value} value={w.value}>{w.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
