@@ -3317,9 +3317,19 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [appliedFocus, setAppliedFocus] = useState<Record<string, boolean>>({});
 
   const createFocusMutation = useMutation({
-    mutationFn: async ({ day_key, start, end }: { day_key: string; start: string; end: string }) => {
+    mutationFn: async ({
+      day_key,
+      start,
+      end,
+      duplicate_resolution = 'keep',
+    }: {
+      day_key: string;
+      start: string;
+      end: string;
+      duplicate_resolution?: FocusDuplicateResolution;
+    }) => {
       const { data, error } = await supabase.functions.invoke('helm-plan-week', {
-        body: { mode: 'create_focus_block', day_key, start, end, block_minutes: rule.block_minutes },
+        body: { mode: 'create_focus_block', day_key, start, end, block_minutes: rule.block_minutes, duplicate_resolution },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -3328,11 +3338,17 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     onSuccess: (d: any, vars) => {
       setAppliedFocus((s) => ({ ...s, [vars.day_key]: true }));
       if (d?.skipped === 'duplicate_focus_block') {
-        toast.info('Focus already exists that day — AI skipped adding another.');
+        toast.info('Focus already exists that day — AI did not add another.');
+        setAppliedFocus((s) => { const n = { ...s }; delete n[vars.day_key]; return n; });
+      } else if (d?.merged) {
+        toast.success('Focus blocks merged into one calendar block.');
+      } else if (d?.replaced) {
+        toast.success('Old focus block removed and new focus time added.');
       } else {
         toast.success('Focus block added to your calendar.');
       }
       refetch();
+      planQuery.refetch();
     },
     onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
   });
@@ -3428,6 +3444,16 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       .filter(([, count]) => count > 1)
       .map(([dayKey, count]) => ({ dayKey, count }));
   }, [data?.events]);
+
+  const focusConflictNotices = useMemo(() => {
+    return (planQuery.data?.focus_blocks ?? [])
+      .filter((f) => f.state === 'exists' && !dismissedFocus[f.day_key] && !appliedFocus[f.day_key]);
+  }, [planQuery.data?.focus_blocks, dismissedFocus, appliedFocus]);
+
+  const noReorgNeeded = reorganizeEnabled && !planQuery.isFetching && !!planQuery.data &&
+    (planQuery.data.applied?.length ?? 0) === 0 &&
+    (planQuery.data.pending_external?.length ?? 0) === 0 &&
+    (planQuery.data.focus_blocks ?? []).every((f) => f.state === 'exists' || f.state === 'free');
 
   const currentGridByDay = useMemo(() => {
     const map: Record<string, CalendarGridEvent[]> = {};
@@ -3736,6 +3762,36 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                   AI found more than one focus block on {duplicateFocusDays.map((d) => `${d.dayKey} (${d.count})`).join(', ')}. The Helm is showing only one for that day and will not add another.
                 </div>
               )}
+              {focusConflictNotices.map((focus) => (
+                <div key={`focus-notice-${focus.day_key}`} className="mb-3 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <strong>{focus.weekday}:</strong> existing focus already sits at {fmtTimeShort(focus.existing_start ?? focus.start)}–{fmtTimeShort(focus.existing_end ?? focus.end)}. AI is not adding a duplicate unless you choose Approve or Merge.
+                  </span>
+                  <span className="inline-flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={createFocusMutation.isPending}
+                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'replace' })}
+                      className="font-semibold underline underline-offset-2 text-emerald-700 hover:text-emerald-600 dark:text-emerald-300"
+                    >
+                      Approve new
+                    </button>
+                    <button
+                      type="button"
+                      disabled={createFocusMutation.isPending}
+                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'merge' })}
+                      className="font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-600 dark:text-amber-300"
+                    >
+                      Merge
+                    </button>
+                  </span>
+                </div>
+              ))}
+              {noReorgNeeded && (
+                <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-800 dark:text-emerald-200">
+                  Your schedule is good — AI does not see a better reorganization to apply right now.
+                </div>
+              )}
               {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   {days.map((d) => <Skeleton key={d.key} className="h-72 rounded-xl" />)}
@@ -3756,11 +3812,14 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       const dayEvents = (data?.events ?? []).filter((e: any) => (e.start ?? '').slice(0, 10) === focus.day_key);
                       const already = dayEvents.some((e: any) => isCalendarFocusEvent(e));
                       if (already) {
-                        toast.info('There is already a focus block on this day — skipped to avoid duplicates.');
-                        setAppliedFocus((s) => ({ ...s, [focus.day_key]: true }));
+                        toast.info('There is already a focus block on this day — choose Approve new or Merge from the orange notice.');
+                        planQuery.refetch();
                         return;
                       }
                       createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end });
+                    }}
+                    onFocusResolveDuplicate={(focus, resolution) => {
+                      createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: resolution });
                     }}
                     onFocusDismiss={(focus) => setDismissedFocus((s) => ({ ...s, [focus.day_key]: true }))}
                     onMoveEvent={(ev, dayKey, startMinutes) => {
