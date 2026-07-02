@@ -3784,28 +3784,8 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                 </div>
               )}
               {focusConflictNotices.map((focus) => (
-                <div key={`focus-notice-${focus.day_key}`} className="mb-3 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    <strong>{focus.weekday}:</strong> existing focus already sits at {fmtTimeShort(focus.existing_start ?? focus.start)}–{fmtTimeShort(focus.existing_end ?? focus.end)}. AI is not adding a duplicate unless you choose Approve or Merge.
-                  </span>
-                  <span className="inline-flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={createFocusMutation.isPending}
-                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'replace' })}
-                      className="font-semibold underline underline-offset-2 text-emerald-700 hover:text-emerald-600 dark:text-emerald-300"
-                    >
-                      Approve new
-                    </button>
-                    <button
-                      type="button"
-                      disabled={createFocusMutation.isPending}
-                      onClick={() => createFocusMutation.mutate({ day_key: focus.day_key, start: focus.start, end: focus.end, duplicate_resolution: 'merge' })}
-                      className="font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-600 dark:text-amber-300"
-                    >
-                      Merge
-                    </button>
-                  </span>
+                <div key={`focus-notice-${focus.day_key}`} className="mb-3 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+                  <strong>{focus.weekday}:</strong> existing focus already sits at {fmtTimeShort(focus.existing_start ?? focus.start)}–{fmtTimeShort(focus.existing_end ?? focus.end)}. AI kept it — no duplicate added for this day.
                 </div>
               ))}
               {noReorgNeeded && (
