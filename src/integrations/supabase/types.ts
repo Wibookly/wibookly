@@ -1335,6 +1335,63 @@ export type Database = {
           },
         ]
       }
+      daily_digests: {
+        Row: {
+          client_signals: Json | null
+          commitments: Json | null
+          counts: Json | null
+          created_at: string
+          digest_date: string
+          dismissed_at: string | null
+          full_brief_md: string | null
+          headline: string
+          id: string
+          meetings: Json | null
+          narrative: string
+          org_id: string
+          subline: string | null
+          top_priority: Json | null
+          urgency_level: string
+          user_id: string
+        }
+        Insert: {
+          client_signals?: Json | null
+          commitments?: Json | null
+          counts?: Json | null
+          created_at?: string
+          digest_date: string
+          dismissed_at?: string | null
+          full_brief_md?: string | null
+          headline: string
+          id?: string
+          meetings?: Json | null
+          narrative?: string
+          org_id: string
+          subline?: string | null
+          top_priority?: Json | null
+          urgency_level?: string
+          user_id: string
+        }
+        Update: {
+          client_signals?: Json | null
+          commitments?: Json | null
+          counts?: Json | null
+          created_at?: string
+          digest_date?: string
+          dismissed_at?: string | null
+          full_brief_md?: string | null
+          headline?: string
+          id?: string
+          meetings?: Json | null
+          narrative?: string
+          org_id?: string
+          subline?: string | null
+          top_priority?: Json | null
+          urgency_level?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       discovered_tenant_users: {
         Row: {
           account_enabled: boolean
@@ -2506,6 +2563,39 @@ export type Database = {
           summary?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      home_preferences: {
+        Row: {
+          enabled: boolean
+          id: string
+          item_limit: number
+          org_id: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+          widget_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          item_limit?: number
+          org_id: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+          widget_id: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          item_limit?: number
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+          widget_id?: string
         }
         Relationships: []
       }
