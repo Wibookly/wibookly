@@ -77,6 +77,8 @@ const App = () => (
                   </PageErrorBoundary>
                 }>
                   <Route path="/chat" element={<Chat />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/brief" element={<Brief />} />
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />
                   <Route path="/integrations" element={<Integrations />} />
