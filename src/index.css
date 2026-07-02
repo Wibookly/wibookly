@@ -1268,6 +1268,43 @@
   border-color: color-mix(in srgb, var(--primary) 70%, var(--border-strong));
   box-shadow: 0 12px 28px -16px color-mix(in srgb, var(--primary) 80%, transparent);
 }
+.helm-calendar-event-corner {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 5;
+}
+.helm-calendar-event-card:hover .helm-calendar-event-corner,
+.helm-calendar-event-card:focus-within .helm-calendar-event-corner { opacity: 1; }
+.helm-calendar-event-corner-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.helm-calendar-event-corner-btn:hover {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border-strong));
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+.helm-calendar-event-corner-btn.is-danger:hover {
+  color: rgb(220, 38, 38);
+  border-color: rgba(220, 38, 38, 0.55);
+  background: rgba(220, 38, 38, 0.12);
+}
+.helm-calendar-event-card[data-tiny="true"] .helm-calendar-event-corner-btn { width: 16px; height: 16px; }
 .helm-calendar-event-card[data-external="true"] { border-left-color: var(--warning); }
 .helm-calendar-event-card.is-proposed { border-left-color: var(--c-violet); }
 .helm-calendar-event-card.is-applied {

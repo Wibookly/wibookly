@@ -2995,6 +2995,7 @@ function CalendarWeekGrid({
   movingEventId,
   renderEventFooter,
   onOpenDetails,
+  onDeleteEvent,
   emptyText = 'No meetings',
 }: {
   days: { date: Date; label: string; weekday: string; key: string }[];
@@ -3013,6 +3014,7 @@ function CalendarWeekGrid({
   movingEventId?: string | null;
   renderEventFooter?: (ev: CalendarGridEvent) => React.ReactNode;
   onOpenDetails?: (ev: CalendarGridEvent) => void;
+  onDeleteEvent?: (ev: CalendarGridEvent) => void;
   emptyText?: string;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -3251,13 +3253,42 @@ function CalendarWeekGrid({
                     isOverlap && 'is-overlap',
                     ev.dismissed && 'opacity-70',
                   )}
-                  style={{ top: `${top}px`, height: `${height}px`, cursor: ev.web_link ? 'pointer' : undefined }}
+                  style={{ top: `${top}px`, height: `${height}px`, cursor: 'pointer' }}
                   onClick={(e) => {
-                    // Ignore clicks on inner action buttons (they call stopPropagation)
-                    if (ev.web_link) window.open(ev.web_link, '_blank', 'noopener,noreferrer');
+                    // Open the details dialog (notes/edit). Inner buttons stopPropagation
+                    // so the Outlook link and X-delete don't trigger this.
+                    if (!isGhost) onOpenDetails?.(ev);
                   }}
-                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click to open in Outlook`}
+                  title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click for details`}
                 >
+                  {!isGhost && (
+                    <div className="helm-calendar-event-corner">
+                      {ev.web_link && (
+                        <a
+                          href={ev.web_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="helm-calendar-event-corner-btn"
+                          title="Open in Outlook"
+                          aria-label="Open in Outlook"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {onDeleteEvent && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
+                          className="helm-calendar-event-corner-btn is-danger"
+                          title="Delete from Outlook"
+                          aria-label="Delete event"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="helm-calendar-event-head">
                     <span className="helm-calendar-event-time">{fmtTimeShort(startIso)}</span>
                     <span className="helm-calendar-event-title" title={ev.subject}>{ev.subject}</span>
@@ -3419,6 +3450,58 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     },
     onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
   });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async (ev: CalendarGridEvent) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'delete_event', event_id: ev.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return ev.id;
+    },
+    onSuccess: () => {
+      toast.success('Event deleted from your calendar.');
+      refetch();
+      planQuery.refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not delete event.'),
+  });
+
+  const deleteFocusBlocksMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'delete_focus_blocks', week_start: weekStart.toISOString() },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return (data as any)?.deleted ?? 0;
+    },
+    onSuccess: (n: number) => {
+      if (n > 0) toast.success(`Removed ${n} focus block${n === 1 ? '' : 's'} from your calendar.`);
+      refetch();
+      planQuery.refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not remove focus blocks.'),
+  });
+
+  // Clear per-day sticky state whenever the focus rule changes so new
+  // proposals actually show up in the calendar again.
+  useEffect(() => {
+    setAppliedFocus({});
+    setDismissedFocus({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(debouncedRule)]);
+
+  // When the user turns Focus OFF, wipe every focus block from Outlook this week.
+  const prevFocusEnabledRef = useRef(focusEnabled);
+  useEffect(() => {
+    if (prevFocusEnabledRef.current && !focusEnabled) {
+      deleteFocusBlocksMutation.mutate();
+    }
+    prevFocusEnabledRef.current = focusEnabled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEnabled]);
 
   const revealApproval = async (p: Proposal) => {
     setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: true, revealed: true } }));
@@ -3876,6 +3959,14 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       rescheduleMutation.mutate({ ev, dayKey, startMinutes: startMin, durationMinutes });
                     }}
                     movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
+                    onOpenDetails={(ev) => setDetailsEvent(ev)}
+                    onDeleteEvent={(ev) => {
+                      if (ev.kind === 'ghost') return;
+                      const label = ev.subject || 'this event';
+                      if (window.confirm(`Delete "${label}" from your calendar? This cannot be undone.`)) {
+                        deleteEventMutation.mutate(ev);
+                      }
+                    }}
                     renderEventFooter={(ev) => {
                       const proposal = ev.proposal;
                       const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
