@@ -312,9 +312,9 @@ Deno.serve(async (req) => {
     draftMiddle = "Thanks for the note — I'll review the thread and follow up shortly.";
   }
 
-  const fullBody = signatureBlock
-    ? `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`
-    : `${greeting}\n\n${draftMiddle}`;
+  // Body-only draft (no signature). UI previews the signature separately;
+  // helm-send-reply appends the master signature at send time.
+  const fullBody = `${greeting}\n\n${draftMiddle}`;
 
 
 
