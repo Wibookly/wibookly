@@ -606,6 +606,7 @@ export default function Categories() {
         writing_style: cat.writing_style ?? 'professional',
         last_synced_at: cat.last_synced_at ?? null,
         show_in_favorites: (cat as any).show_in_favorites ?? false,
+        show_on_home: (cat as any).show_on_home ?? false,
       }));
       setCategories(cats);
     }
