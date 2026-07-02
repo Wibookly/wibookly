@@ -67,7 +67,7 @@ export function FeatureUsageGrid() {
           Plan Usage & Limits
         </CardTitle>
         <CardDescription>
-          What your plan allows, what you've used, and what's left — refreshed every 30s.
+          What your plan allows, what you've used, and what's left. Daily counters reset at midnight UTC; weekly counters reset on Monday. Refreshed every 30s.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
