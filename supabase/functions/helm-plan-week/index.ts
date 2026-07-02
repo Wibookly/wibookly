@@ -487,11 +487,21 @@ Deno.serve(async (req) => {
   // Fine-grained window (e.g. "morning_9") is applied for THIS planning run
   // but the DB enum column only stores the band ("morning" | "afternoon" | "evening").
   let effectiveWindow: string = String(rule.focus_window);
+  // Per-day window overrides — client-only (not persisted to DB enum column).
+  // Shape: { mon: 'afternoon_1', wed: 'morning_10', ... }
+  const perDayWindows: Record<string, string> = {};
   if (override) {
     const requestedWindow = VALID_WINDOWS.has(String(override.focus_window))
       ? String(override.focus_window)
       : effectiveWindow;
     effectiveWindow = requestedWindow;
+    if (override.per_day_windows && typeof override.per_day_windows === "object") {
+      for (const [k, v] of Object.entries(override.per_day_windows)) {
+        const key = String(k).toLowerCase();
+        const val = String(v);
+        if (DAY_MAP[key] && VALID_WINDOWS.has(val)) perDayWindows[key] = val;
+      }
+    }
     const nextRule = {
       focus_days: Array.isArray(override.focus_days)
         ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
@@ -520,7 +530,14 @@ Deno.serve(async (req) => {
 
   const focusDays: number[] = (rule.focus_days ?? []).map((d: string) => DAY_MAP[d.toLowerCase()]).filter(Boolean);
   const blockMin: number = ALLOWED_BLOCK_MINUTES.has(Number(rule.block_minutes)) ? Number(rule.block_minutes) : 30;
-  const [winStart, winEnd] = WINDOWS[effectiveWindow] ?? WINDOWS[String(rule.focus_window)] ?? WINDOWS.morning;
+  const [defaultWinStart, defaultWinEnd] = WINDOWS[effectiveWindow] ?? WINDOWS[String(rule.focus_window)] ?? WINDOWS.morning;
+  const DAY_ID_BY_NUM: Record<number, string> = { 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri" };
+  const windowForWeekday = (weekdayNum: number): [number, number] => {
+    const dayId = DAY_ID_BY_NUM[weekdayNum];
+    const w = dayId ? perDayWindows[dayId] : undefined;
+    if (w && WINDOWS[w]) return WINDOWS[w];
+    return [defaultWinStart, defaultWinEnd];
+  };
   const autonomy: string = rule.autonomy ?? "auto_internal_ask_external";
 
 
