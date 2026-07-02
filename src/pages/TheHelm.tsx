@@ -2881,8 +2881,8 @@ function fmtTimeShort(iso: string | null) {
 }
 
 // Business-hours-only calendar: 8 AM – 6 PM shown, no off-hours scroll noise.
-const CAL_BUSINESS_START = 8;
-const CAL_BUSINESS_END = 19; // render through 7 PM so the 6 PM row is fully visible
+const CAL_BUSINESS_START = 7;
+const CAL_BUSINESS_END = 19; // render 7 AM – 7 PM (fixed)
 const CAL_START_HOUR = CAL_BUSINESS_START;
 const CAL_END_HOUR = CAL_BUSINESS_END;
 const CAL_SLOT_MINUTES = 30;
