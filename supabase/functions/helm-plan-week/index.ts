@@ -299,6 +299,43 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, event_id: created.data?.id, replaced: duplicateResolution === "replace" });
   }
 
+  // ============ Mode: update_event_notes (sync note to Outlook event body) ============
+  if (mode === "update_event_notes") {
+    const eventId = String(body?.event_id ?? "").trim();
+    const noteText = String(body?.note ?? "");
+    if (!eventId) return json(400, { error: "missing_event_id" });
+    // Fetch existing body so we don't clobber the meeting description.
+    const existing = await callGraph<any>(
+      userId, connectionId!, "mail",
+      `/me/events/${encodeURIComponent(eventId)}?$select=body,bodyPreview`,
+    );
+    if (!existing.ok) return json(502, { error: "fetch_failed", details: existing.error });
+    const currentHtml: string = existing.data?.body?.content ?? "";
+    const START = "<!--INBOXIQ_NOTES_START-->";
+    const END = "<!--INBOXIQ_NOTES_END-->";
+    const stripped = currentHtml.replace(
+      new RegExp(`${START}[\\s\\S]*?${END}`, "g"),
+      "",
+    ).trim();
+    const safeNote = noteText
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br/>");
+    const block = noteText.trim()
+      ? `${START}<div style="border:1px solid #e5e7eb;background:#f8fafc;padding:10px 12px;border-radius:8px;font-family:Arial,sans-serif;font-size:13px;color:#111;margin-bottom:10px"><div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#6366f1;margin-bottom:4px">InboxIQ notes</div>${safeNote}</div>${END}`
+      : "";
+    const nextHtml = `${block}${stripped}`;
+    const patched = await callGraph<any>(
+      userId, connectionId!, "mail", `/me/events/${encodeURIComponent(eventId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: { contentType: "HTML", content: nextHtml } }),
+      },
+    );
+    if (!patched.ok) return json(502, { error: "patch_failed", details: patched.error });
+    return json(200, { ok: true, event_id: eventId });
+  }
+
   // ============ Mode: reschedule_event (user drag/drop) ============
   if (mode === "reschedule_event") {
     const eventId = String(body?.event_id ?? "").trim();
