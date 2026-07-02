@@ -216,6 +216,45 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, note });
   }
 
+  // ============ Mode: delete_event (remove a calendar event from Outlook) ============
+  if (mode === "delete_event") {
+    const eventId = String(body?.event_id ?? "").trim();
+    if (!eventId) return json(400, { error: "missing_event_id" });
+    const res = await deleteEvent(userId, connectionId!, eventId);
+    if (!res.ok) return json(res.status || 502, { error: "delete_failed", details: res.error });
+    try {
+      await admin.from("activity_log").insert({
+        user_id: userId, organization_id: orgId,
+        action_type: "calendar_event_deleted",
+        detail: `Deleted event ${eventId}`,
+        graph_id: eventId, tier: "user",
+        action_key: `calendar_delete:${eventId}`,
+      });
+    } catch { /* non-fatal */ }
+    return json(200, { ok: true, event_id: eventId });
+  }
+
+  // ============ Mode: delete_focus_blocks (wipe all focus blocks in a week) ============
+  if (mode === "delete_focus_blocks") {
+    const weekStartArg = body?.week_start ? new Date(body.week_start) : new Date();
+    const monday = mondayOf(weekStartArg);
+    const saturday = new Date(monday); saturday.setDate(monday.getDate() + 5);
+    const startISO = monday.toISOString().slice(0, 19);
+    const endISO = saturday.toISOString().slice(0, 19);
+    const res = await callGraph<any>(
+      userId, connectionId!, "mail",
+      `/me/calendarView?startDateTime=${startISO}&endDateTime=${endISO}&$select=id,subject,categories&$top=200`,
+    );
+    if (!res.ok) return json(res.status || 502, { error: "list_failed", details: res.error });
+    const focusEvents = (res.data?.value ?? []).filter((e: any) => isFocusEventLike(e));
+    let deleted = 0;
+    for (const ev of focusEvents) {
+      const d = await deleteEvent(userId, connectionId!, ev.id);
+      if (d.ok) deleted++;
+    }
+    return json(200, { ok: true, deleted });
+  }
+
   // ============ Mode: create_focus_block (user-approved) ============
   if (mode === "create_focus_block") {
     const dayKey = String(body?.day_key ?? "");
