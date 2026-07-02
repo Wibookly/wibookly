@@ -487,11 +487,21 @@ Deno.serve(async (req) => {
   // Fine-grained window (e.g. "morning_9") is applied for THIS planning run
   // but the DB enum column only stores the band ("morning" | "afternoon" | "evening").
   let effectiveWindow: string = String(rule.focus_window);
+  // Per-day window overrides — client-only (not persisted to DB enum column).
+  // Shape: { mon: 'afternoon_1', wed: 'morning_10', ... }
+  const perDayWindows: Record<string, string> = {};
   if (override) {
     const requestedWindow = VALID_WINDOWS.has(String(override.focus_window))
       ? String(override.focus_window)
       : effectiveWindow;
     effectiveWindow = requestedWindow;
+    if (override.per_day_windows && typeof override.per_day_windows === "object") {
+      for (const [k, v] of Object.entries(override.per_day_windows)) {
+        const key = String(k).toLowerCase();
+        const val = String(v);
+        if (DAY_MAP[key] && VALID_WINDOWS.has(val)) perDayWindows[key] = val;
+      }
+    }
     const nextRule = {
       focus_days: Array.isArray(override.focus_days)
         ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
@@ -520,7 +530,14 @@ Deno.serve(async (req) => {
 
   const focusDays: number[] = (rule.focus_days ?? []).map((d: string) => DAY_MAP[d.toLowerCase()]).filter(Boolean);
   const blockMin: number = ALLOWED_BLOCK_MINUTES.has(Number(rule.block_minutes)) ? Number(rule.block_minutes) : 30;
-  const [winStart, winEnd] = WINDOWS[effectiveWindow] ?? WINDOWS[String(rule.focus_window)] ?? WINDOWS.morning;
+  const [defaultWinStart, defaultWinEnd] = WINDOWS[effectiveWindow] ?? WINDOWS[String(rule.focus_window)] ?? WINDOWS.morning;
+  const DAY_ID_BY_NUM: Record<number, string> = { 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri" };
+  const windowForWeekday = (weekdayNum: number): [number, number] => {
+    const dayId = DAY_ID_BY_NUM[weekdayNum];
+    const w = dayId ? perDayWindows[dayId] : undefined;
+    if (w && WINDOWS[w]) return WINDOWS[w];
+    return [defaultWinStart, defaultWinEnd];
+  };
   const autonomy: string = rule.autonomy ?? "auto_internal_ask_external";
 
 
@@ -632,7 +649,7 @@ Deno.serve(async (req) => {
   }
   const usedDayKeys = new Set<string>(existingFocusByDay.keys());
   // Helper: find gap on a specific dt (Date) — returns null if none.
-  const gapForDate = (dt: Date, options?: { ignoreFocusEvents?: boolean }) => {
+  const gapForDate = (dt: Date, options?: { ignoreFocusEvents?: boolean; window?: [number, number] }) => {
     const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const dayEvs = events.filter((e) => !e.is_cancelled && localDateKey(e.start) === dk);
     const busySource = options?.ignoreFocusEvents ? dayEvs.filter((e) => !isFocusEventLike(e)) : dayEvs;
@@ -640,7 +657,8 @@ Deno.serve(async (req) => {
       const s = localHourMin(e.start); const en = localHourMin(e.end);
       return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
     });
-    let g = findGap(busy, winStart, winEnd, blockMin);
+    const [ws, we] = options?.window ?? windowForWeekday(dt.getDay());
+    let g = findGap(busy, ws, we, blockMin);
     if (!g) g = findGap(busy, 9, 17, blockMin);
     return { dk, dayEvs, busy, gap: g };
   };
@@ -655,7 +673,7 @@ Deno.serve(async (req) => {
     const existingFocus = existingFocuses[0];
     if (existingFocus) {
       const { gap } = gapForDate(dt, { ignoreFocusEvents: true });
-      const proposed = gap ?? { startMin: winStart * 60, endMin: winStart * 60 + blockMin };
+      const proposed = gap ?? { startMin: windowForWeekday(weekdayNum)[0] * 60, endMin: windowForWeekday(weekdayNum)[0] * 60 + blockMin };
       const sH = Math.floor(proposed.startMin / 60), sM = proposed.startMin % 60;
       const eH = Math.floor(proposed.endMin / 60), eM = proposed.endMin % 60;
       focusBlocks.push({
@@ -718,7 +736,7 @@ Deno.serve(async (req) => {
 
     // 3) No natural gap. For "focus" strategy → just mark blocked (no moves).
     //    For "reorganize" strategy → propose moving the most moveable conflict.
-    const blockStartH = winStart, blockStartM = 0;
+    const blockStartH = windowForWeekday(weekdayNum)[0], blockStartM = 0;
     const blockEnd = addMinutesToHourMin(blockStartH, blockStartM, blockMin);
     const targetStart = makeLocalISO(dayKey, blockStartH, blockStartM);
     const targetEnd = makeLocalISO(dayKey, blockEnd.h, blockEnd.m);

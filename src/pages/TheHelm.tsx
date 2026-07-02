@@ -2663,6 +2663,8 @@ type FocusRule = {
   focus_window: FocusWindow;
   block_minutes: number;
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
+  /** Optional per-day time override. Key = day id (mon/tue/…). Falls back to focus_window. */
+  per_day_windows?: Record<string, FocusWindow>;
 };
 
 const FOCUS_WINDOW_GROUPS: { label: string; options: { value: FocusWindow; label: string }[] }[] = [
@@ -2929,7 +2931,7 @@ function FocusRulesCompact({
           </select>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground">When</span>
+          <span className="text-[10px] text-muted-foreground">Default when</span>
           <select
             value={FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window}
             onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
@@ -2945,6 +2947,61 @@ function FocusRulesCompact({
           </select>
         </div>
       </div>
+
+      {rule.focus_days.length > 0 && (
+        <div className="pt-2 mt-1 border-t border-border/60">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+            Per-day time <span className="normal-case text-muted-foreground/70">(overrides default)</span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {DAY_CHIPS.filter((d) => rule.focus_days.includes(d.id)).map((d) => {
+              const perDay = rule.per_day_windows ?? {};
+              const current = perDay[d.id] ?? (FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window);
+              const isCustom = !!perDay[d.id];
+              return (
+                <div key={d.id} className="flex items-center gap-1.5">
+                  <span className={cn(
+                    'w-9 text-[10px] font-semibold uppercase tracking-wide',
+                    isCustom ? 'text-primary' : 'text-muted-foreground',
+                  )}>{d.label}</span>
+                  <select
+                    value={current}
+                    onChange={(e) => {
+                      const next = { ...(rule.per_day_windows ?? {}) };
+                      next[d.id] = e.target.value as FocusWindow;
+                      onChange({ ...rule, per_day_windows: next });
+                    }}
+                    className="flex-1 text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
+                  >
+                    {FOCUS_WINDOW_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((w) => (
+                          <option key={w.value} value={w.value}>{w.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {isCustom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = { ...(rule.per_day_windows ?? {}) };
+                        delete next[d.id];
+                        onChange({ ...rule, per_day_windows: next });
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground px-1"
+                      title="Use default time"
+                      aria-label={`Reset ${d.label} to default time`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3360,7 +3417,21 @@ function CalendarWeekGrid({
 export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [detailsEvent, setDetailsEvent] = useState<CalendarGridEvent | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
+  const [rule, setRule] = useState<FocusRule>(() => {
+    try {
+      const raw = window.localStorage.getItem('helm:focus-per-day');
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, FocusWindow>;
+        if (parsed && typeof parsed === 'object') return { ...DEFAULT_RULE, per_day_windows: parsed };
+      }
+    } catch {}
+    return DEFAULT_RULE;
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('helm:focus-per-day', JSON.stringify(rule.per_day_windows ?? {}));
+    } catch {}
+  }, [rule.per_day_windows]);
   const [ruleLoaded, setRuleLoaded] = useState(false);
   const [focusEnabled, setFocusEnabled] = useState<boolean>(() => {
     try { return window.localStorage.getItem('helm:focus-enabled') !== 'off'; } catch { return true; }
@@ -3417,7 +3488,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         .maybeSingle();
       if (r) {
         const migrated = FOCUS_WINDOW_MIGRATE[String((r as any).focus_window)] ?? (r as any).focus_window;
-        setRule({ ...(r as FocusRule), focus_window: migrated as FocusWindow });
+        setRule((prev) => ({ ...(r as FocusRule), focus_window: migrated as FocusWindow, per_day_windows: prev.per_day_windows }));
       }
       setRuleLoaded(true);
     })();
