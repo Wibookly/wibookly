@@ -4077,13 +4077,27 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
 function EventDetailsDialog({ event, onClose }: { event: CalendarGridEvent | null; onClose: () => void }) {
   const noteKey = event ? `helm:event-note:${event.id}` : '';
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!event) return;
+    // Prefer any Outlook-synced note we cached; fall back to local draft.
     try { setNote(window.localStorage.getItem(`helm:event-note:${event.id}`) || ''); } catch { setNote(''); }
   }, [event?.id]);
-  const saveNote = () => {
+  const saveNote = async () => {
     if (!event) return;
-    try { window.localStorage.setItem(noteKey, note); toast.success('Note saved'); } catch { toast.error('Could not save note'); }
+    setSaving(true);
+    try { window.localStorage.setItem(noteKey, note); } catch {}
+    try {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'update_event_notes', event_id: event.id, note },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error || 'sync_failed');
+      toast.success('Note saved & synced to Outlook');
+    } catch (e: any) {
+      toast.error('Saved locally — Outlook sync failed', { description: e?.message });
+    } finally {
+      setSaving(false);
+    }
   };
   if (!event) return null;
   const startIso = event.displayStart ?? event.start;
@@ -4117,11 +4131,12 @@ function EventDetailsDialog({ event, onClose }: { event: CalendarGridEvent | nul
           <div>
             <label className="text-xs font-semibold text-foreground flex items-center gap-1">
               <FileEdit className="w-3.5 h-3.5" /> Your notes
+              <span className="ml-auto text-[10px] font-medium text-muted-foreground">Synced to Outlook event</span>
             </label>
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Add prep notes, questions, follow-ups… (saved locally)"
+              placeholder="Add prep notes, questions, follow-ups… (saved to this Outlook event)"
               className="mt-1 min-h-[100px] text-sm"
             />
           </div>
@@ -4135,7 +4150,7 @@ function EventDetailsDialog({ event, onClose }: { event: CalendarGridEvent | nul
               </a>
             </Button>
           )}
-          <Button size="sm" onClick={saveNote}>Save note</Button>
+          <Button size="sm" onClick={saveNote} disabled={saving}>{saving ? 'Saving…' : 'Save & sync'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
