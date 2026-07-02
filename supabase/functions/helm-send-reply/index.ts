@@ -166,7 +166,25 @@ Deno.serve(async (req) => {
   }
 
   // 2. PATCH body (always set both HTML + plain via Graph: HTML wins)
-  const html = textToHtml(payload.body);
+  // Append the user's saved signature if they haven't already included it.
+  let bodyText = payload.body;
+  try {
+    const { data: prof } = await admin
+      .from("user_profiles")
+      .select("email_signature, signature_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const sig = (prof?.email_signature ?? "").trim();
+    const sigEnabled = prof?.signature_enabled !== false; // default on
+    if (sig && sigEnabled) {
+      const bodyLower = bodyText.toLowerCase();
+      const sigFirstLine = sig.split(/\r?\n/)[0].trim().toLowerCase();
+      if (sigFirstLine && !bodyLower.includes(sigFirstLine)) {
+        bodyText = `${bodyText.replace(/\s+$/, "")}\n\n${sig}`;
+      }
+    }
+  } catch { /* signature best-effort */ }
+  const html = textToHtml(bodyText);
   const r2 = await callGraph<any>(
     userId,
     conn.id,
