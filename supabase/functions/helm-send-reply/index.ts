@@ -166,26 +166,16 @@ Deno.serve(async (req) => {
     if (!draftId) return json(502, { error: "no_draft_id_returned" });
   }
 
-  // 2. PATCH body (always set both HTML + plain via Graph: HTML wins)
-  // Append the user's saved signature if they haven't already included it.
-  let bodyText = payload.body;
+  // 2. PATCH body (HTML). We treat the /settings signature (email_profiles
+  //    table) as the master. Strip any trailing plain-text signature the
+  //    editor may have carried in, then append the master HTML signature.
+  let bodyText = stripTrailingSignature(payload.body);
+  let bodyHtml = textToHtml(bodyText);
   try {
-    const { data: prof } = await admin
-      .from("user_profiles")
-      .select("email_signature, signature_enabled")
-      .eq("user_id", userId)
-      .maybeSingle();
-    const sig = (prof?.email_signature ?? "").trim();
-    const sigEnabled = prof?.signature_enabled !== false; // default on
-    if (sig && sigEnabled) {
-      const bodyLower = bodyText.toLowerCase();
-      const sigFirstLine = sig.split(/\r?\n/)[0].trim().toLowerCase();
-      if (sigFirstLine && !bodyLower.includes(sigFirstLine)) {
-        bodyText = `${bodyText.replace(/\s+$/, "")}\n\n${sig}`;
-      }
-    }
+    const sig = await loadMasterSignature(userId, { connectionId: conn.id });
+    bodyHtml = `${bodyHtml}<div style="margin-top:16px;">${sig.html}</div>`;
   } catch { /* signature best-effort */ }
-  const html = textToHtml(bodyText);
+  const html = bodyHtml;
   const r2 = await callGraph<any>(
     userId,
     conn.id,
