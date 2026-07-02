@@ -68,7 +68,7 @@ export function InlineEmailExpander({ item, onClose, onSent, accent = 'amber', s
             body: { item_id: item.id, mode: 'refresh_signature', base_draft: row.ai_draft },
           })
           .then(({ data: refreshed }) => {
-            if (!cancelled && refreshed?.draft) setDraftText(refreshed.draft);
+            if (!cancelled && refreshed?.draft && refreshed.draft.trim()) setDraftText(refreshed.draft);
             if (!cancelled && refreshed?.signature_html) setSignatureHtml(refreshed.signature_html);
           })
           .catch(() => {});
