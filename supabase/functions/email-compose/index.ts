@@ -6,7 +6,7 @@
 //   - send      : send through Outlook /me/sendMail
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { callGraph } from '../_shared/graph-call.ts';
-import { loadMasterSignature } from '../_shared/master-signature.ts';
+import { loadMasterSignature, stripTrailingSignature } from '../_shared/master-signature.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -255,6 +255,12 @@ Deno.serve(async (req) => {
       const html = String(body?.body || '').trim();
       if (!subject) return json({ error: 'subject required' }, 400);
       if (!html) return json({ error: 'body required' }, 400);
+      let finalHtml = html;
+      try {
+        const sig = await loadMasterSignature(userId, { connectionId, fallbackEmail: connEmail || '' });
+        const stripped = stripTrailingSignature(html);
+        finalHtml = `${stripped}<br/><br/>${sig.html}`;
+      } catch { /* signature best-effort */ }
       const senderDomain = normalizeDomain(connEmail?.split('@')[1]);
       let trackingDomain = senderDomain;
       try {
@@ -277,7 +283,7 @@ Deno.serve(async (req) => {
       const toRecip = (arr: string[]) => arr.map((a) => ({ emailAddress: { address: a } }));
       const message: Record<string, any> = {
         subject,
-        body: { contentType: 'HTML', content: html },
+        body: { contentType: 'HTML', content: finalHtml },
         toRecipients: toRecip(to),
       };
       if (cc.length) message.ccRecipients = toRecip(cc);
