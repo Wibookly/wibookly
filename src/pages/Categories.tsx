@@ -104,6 +104,7 @@ interface Category {
   is_enabled: boolean;
   ai_draft_enabled: boolean;
   auto_reply_enabled: boolean;
+  show_on_home: boolean;
   writing_style: string;
   sort_order: number;
   last_synced_at: string | null;
@@ -301,6 +302,26 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </Tooltip>
         </TooltipProvider>
       </TableCell>
+      <TableCell className="text-center">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={!!category.show_on_home}
+                  onCheckedChange={(checked) => updateCategory(category.id, 'show_on_home', checked)}
+                  disabled={!category.is_enabled}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {!category.is_enabled
+                ? 'Turn on Active first to route this category to Home.'
+                : 'Route these emails to The Helm home page. Turning Home on disables AI Auto-Reply for this category — drafts stay under your control.'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-draft' : undefined}>
         <TooltipProvider>
           <Tooltip>
@@ -330,17 +351,19 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             <TooltipTrigger asChild>
               <span className="inline-block" style={autoReplyLocked ? { opacity: 0.5 } : undefined}>
                 <Switch
-                  checked={!autoReplyLocked && category.auto_reply_enabled}
+                  checked={!autoReplyLocked && !category.show_on_home && category.auto_reply_enabled}
                   onCheckedChange={(checked) => {
                     updateCategory(category.id, 'auto_reply_enabled', checked);
                     if (checked && !category.auto_reply_enabled) onConfigureTone(category);
                   }}
-                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked}
+                  disabled={!category.is_enabled || !category.ai_draft_enabled || autoReplyLocked || aiDraftLocked || category.show_on_home}
                 />
               </span>
             </TooltipTrigger>
             {autoReplyLocked ? (
               <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
+            ) : category.show_on_home ? (
+              <TooltipContent>Auto-Reply is disabled because <b>Home</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
             ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
@@ -481,13 +504,13 @@ export default function Categories() {
     setCategories((prev) =>
       prev.map((c) =>
         toDisableIds.has(c.id)
-          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false }
+          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false, show_on_home: false }
           : c,
       ),
     );
     supabase
       .from('categories')
-      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false })
+      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false, show_on_home: false } as any)
       .in('id', Array.from(toDisableIds))
       .then(() => {});
     clampedRef.current = true;
@@ -583,6 +606,7 @@ export default function Categories() {
         writing_style: cat.writing_style ?? 'professional',
         last_synced_at: cat.last_synced_at ?? null,
         show_in_favorites: (cat as any).show_in_favorites ?? false,
+        show_on_home: (cat as any).show_on_home ?? false,
       }));
       setCategories(cats);
     }
@@ -645,11 +669,19 @@ export default function Categories() {
             ai_draft_enabled: false,
             auto_reply_enabled: false,
             show_in_favorites: false,
+            show_on_home: false,
           };
         }
         // Turning AI Draft off also disables Auto-Reply (which depends on it).
         if (field === 'ai_draft_enabled' && value === false) {
           return { ...cat, ai_draft_enabled: false, auto_reply_enabled: false };
+        }
+        // Home and Auto-Reply are mutually exclusive.
+        if (field === 'show_on_home' && value === true) {
+          return { ...cat, show_on_home: true, auto_reply_enabled: false };
+        }
+        if (field === 'auto_reply_enabled' && value === true) {
+          return { ...cat, auto_reply_enabled: true, show_on_home: false };
         }
         return { ...cat, [field]: value };
       })
@@ -829,6 +861,7 @@ export default function Categories() {
             writing_style: category.writing_style,
             sort_order: category.sort_order,
             show_in_favorites: category.show_in_favorites,
+            show_on_home: category.show_on_home ?? false,
           } as any)
           .eq('id', category.id);
       }
@@ -956,6 +989,7 @@ export default function Categories() {
           writing_style: cat.writing_style ?? 'professional',
           last_synced_at: cat.last_synced_at ?? null,
           show_in_favorites: (cat as any).show_in_favorites ?? false,
+          show_on_home: (cat as any).show_on_home ?? false,
         }));
         setCategories(cats);
       }
@@ -1353,7 +1387,7 @@ export default function Categories() {
 
       {/* Categories Table with Drag and Drop */}
       <div className="bg-card rounded-lg border border-border overflow-x-auto mb-8">
-        <Table className="min-w-[900px]">
+        <Table className="min-w-[1000px]">
 
           <TableHeader>
             <TableRow>
@@ -1362,6 +1396,7 @@ export default function Categories() {
               <TableHead className="w-48"><span className="inline-flex items-center gap-1">Category Name <HelpTip id="category.name" /></span></TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">Active <HelpTip id="category.enabled" /></span></TableHead>
+              <TableHead className="w-24 text-center">Home</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">AI Draft <HelpTip id="category.aiDrafts" /></span></TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
