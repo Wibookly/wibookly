@@ -486,8 +486,9 @@ export default function AIActivityDashboard() {
             </CardHeader>
             <CardContent>
               {categoryBreakdown.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No AI activity recorded yet. Enable AI Draft or AI Auto-Reply on your categories to start tracking.
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <p className="font-medium text-foreground mb-1">No categorized AI activity in this range.</p>
+                  <p>Try expanding the date range above, or enable <span className="font-medium">AI Draft</span> / <span className="font-medium">AI Auto-Reply</span> on your email categories so activity gets tagged and appears here.</p>
                 </div>
               ) : (
                 <div style={{ width: '100%', height: Math.max(220, categoryBreakdown.length * 36) }}>
