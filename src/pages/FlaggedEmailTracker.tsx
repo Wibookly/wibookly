@@ -667,7 +667,16 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
       </TableCell>
       <TableCell className="text-xs min-w-[260px]">
         {(r.status === 'replied' || r.status === 'completed') ? (
-          <div className="text-[11px] text-muted-foreground">—</div>
+          <div className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
+            <div className="font-medium whitespace-nowrap flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Reply
+            </div>
+            <div className="text-right min-w-0">
+              <div className="text-emerald-700 font-medium">Replied</div>
+              <div className="text-emerald-700/80 whitespace-nowrap">{r.updated_at ? fmt(r.updated_at) : '—'}</div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-1.5">
             {sendSchedule.map((send) => {
