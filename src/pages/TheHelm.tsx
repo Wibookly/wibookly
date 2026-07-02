@@ -3254,6 +3254,20 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   const strategy: 'focus' | 'reorganize' = reorganizeEnabled ? 'reorganize' : 'focus';
   useEffect(() => { try { window.localStorage.setItem('helm:focus-enabled', focusEnabled ? 'on' : 'off'); } catch {} }, [focusEnabled]);
   useEffect(() => { try { window.localStorage.setItem('helm:reorganize-enabled', reorganizeEnabled ? 'on' : 'off'); } catch {} }, [reorganizeEnabled]);
+  // Auto-sync the calendar + re-run the planner whenever the user flips a
+  // strategy toggle. Skip the initial mount so we don't double-fetch.
+  const didMountToggleRef = useRef(false);
+  useEffect(() => {
+    if (!didMountToggleRef.current) { didMountToggleRef.current = true; return; }
+    if (autoFocusOn) {
+      toast.message('Re-planning your week…');
+    }
+    refetch();
+    // Force the planner to re-run even if the query key hasn't changed.
+    setTimeout(() => { planQueryRefetchRef.current?.(); }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEnabled, reorganizeEnabled]);
+  const planQueryRefetchRef = useRef<null | (() => void)>(null);
   const qc = useQueryClient();
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
@@ -3311,6 +3325,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
       return data as PlanResult;
     },
   });
+  planQueryRefetchRef.current = () => { planQuery.refetch(); };
 
   // Per-proposal editable note state + dismissed list
   const [draftByProp, setDraftByProp] = useState<Record<string, { note: string; loading: boolean; revealed: boolean }>>({});
