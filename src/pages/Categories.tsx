@@ -316,8 +316,8 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             </TooltipTrigger>
             <TooltipContent>
               {!category.is_enabled
-                ? 'Turn on Active first to route this category to Home.'
-                : 'Route these emails to The Helm home page. Turning Home on disables AI Auto-Reply for this category — drafts stay under your control.'}
+                ? 'Turn on Active first to route this category to The Helm.'
+                : 'Route these emails to The Helm home page. Turning The Helm on disables AI Auto-Reply for this category — drafts stay under your control.'}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
