@@ -33,11 +33,24 @@ const DAY_MAP: Record<string, number> = {
   mon: 1, tue: 2, wed: 3, thu: 4, fri: 5,
 };
 const WINDOWS: Record<string, [number, number]> = {
+  // Band presets (persisted in DB enum)
   morning: [8, 12],
-  afternoon: [13, 16],
+  afternoon: [12, 17],
   evening: [16, 19],
+  // Fine-grained start-hour presets (client-side only; not persisted to enum)
+  morning_8: [8, 12], morning_9: [9, 12], morning_10: [10, 12], morning_11: [11, 12],
+  afternoon_12: [12, 17], afternoon_1: [13, 17], afternoon_2: [14, 17], afternoon_3: [15, 17],
+  late_4: [16, 19], late_5: [17, 19], late_6: [18, 19],
 };
 const VALID_WINDOWS = new Set(Object.keys(WINDOWS));
+const ENUM_WINDOWS = new Set(["morning", "afternoon", "evening"]);
+function windowToEnum(w: string): string {
+  if (ENUM_WINDOWS.has(w)) return w;
+  if (w.startsWith("morning")) return "morning";
+  if (w.startsWith("afternoon")) return "afternoon";
+  if (w.startsWith("late")) return "evening";
+  return "morning";
+}
 const ALLOWED_BLOCK_MINUTES = new Set([30, 45, 60, 90, 120]);
 
 async function callLLM(userId: string, system: string, user: string): Promise<string> {
