@@ -3959,6 +3959,14 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
                       rescheduleMutation.mutate({ ev, dayKey, startMinutes: startMin, durationMinutes });
                     }}
                     movingEventId={rescheduleMutation.isPending ? rescheduleMutation.variables?.ev.id ?? null : null}
+                    onOpenDetails={(ev) => setDetailsEvent(ev)}
+                    onDeleteEvent={(ev) => {
+                      if (ev.kind === 'ghost') return;
+                      const label = ev.subject || 'this event';
+                      if (window.confirm(`Delete "${label}" from your calendar? This cannot be undone.`)) {
+                        deleteEventMutation.mutate(ev);
+                      }
+                    }}
                     renderEventFooter={(ev) => {
                       const proposal = ev.proposal;
                       const isPending = ev.kind === 'pending' && !ev.dismissed && !!proposal;
