@@ -6,23 +6,49 @@ import { Button } from '@/components/ui/button';
 
 interface Props { limit: number; }
 
+function recipientLabel(to: any): string {
+  try {
+    const arr = Array.isArray(to) ? to : [];
+    const first = arr[0];
+    if (!first) return '';
+    if (typeof first === 'string') return first;
+    return first.name || first.address || first.email || '';
+  } catch { return ''; }
+}
+
 export function CommitmentsWidget({ limit }: Props) {
   const { user } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ['home:commitments', user?.id, limit],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('follow_up_trackers' as any)
-        .select('id, subject, counterparty_name, counterparty_email, direction, status, due_at')
+      // "You owe" — helm items flagged as commitments/tasks
+      const owePromise = supabase
+        .from('helm_items')
+        .select('id, title, sender_name, sender_email, due_at, tier')
         .eq('user_id', user!.id)
-        .neq('status', 'completed')
+        .eq('status', 'open')
+        .in('tier', ['big3', 'focus'])
         .order('due_at', { ascending: true, nullsFirst: false })
-        .limit(limit * 2);
-      const rows = (data as any[]) || [];
+        .limit(limit);
+
+      // "Owed to you" — flagged emails you sent that haven't been replied to
+      const owedPromise = supabase
+        .from('follow_up_trackers')
+        .select('id, subject, to_recipients, due_at, sent_at, status, replied_at')
+        .eq('user_id', user!.id)
+        .is('replied_at', null)
+        .not('status', 'in', '(completed,cancelled,replied)')
+        .order('due_at', { ascending: true, nullsFirst: false })
+        .limit(limit);
+
+      const [{ data: owe, error: e1 }, { data: owed, error: e2 }] = await Promise.all([owePromise, owedPromise]);
+      if (e1) console.warn('[CommitmentsWidget owe]', e1);
+      if (e2) console.warn('[CommitmentsWidget owed]', e2);
+
       return {
-        owe: rows.filter(r => r.direction === 'owed').slice(0, limit),
-        owedToMe: rows.filter(r => r.direction !== 'owed').slice(0, limit),
+        owe: (owe as any[]) || [],
+        owedToMe: (owed as any[]) || [],
       };
     },
   });
@@ -38,7 +64,12 @@ export function CommitmentsWidget({ limit }: Props) {
           <div className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase mb-1">You owe</div>
           <ul className="space-y-1">
             {data.owe.map((r: any) => (
-              <li key={r.id} className="text-sm text-foreground truncate">{r.subject} <span className="text-muted-foreground">· {r.counterparty_name || r.counterparty_email}</span></li>
+              <li key={r.id} className="text-sm text-foreground truncate">
+                {r.title}
+                {(r.sender_name || r.sender_email) && (
+                  <span className="text-muted-foreground"> · {r.sender_name || r.sender_email}</span>
+                )}
+              </li>
             ))}
           </ul>
         </div>
@@ -49,7 +80,12 @@ export function CommitmentsWidget({ limit }: Props) {
           <ul className="space-y-1">
             {data.owedToMe.map((r: any) => (
               <li key={r.id} className="flex items-center gap-2 text-sm">
-                <span className="flex-1 min-w-0 truncate text-foreground">{r.subject} <span className="text-muted-foreground">· {r.counterparty_name || r.counterparty_email}</span></span>
+                <span className="flex-1 min-w-0 truncate text-foreground">
+                  {r.subject || '(no subject)'}
+                  {recipientLabel(r.to_recipients) && (
+                    <span className="text-muted-foreground"> · {recipientLabel(r.to_recipients)}</span>
+                  )}
+                </span>
                 <Button variant="outline" size="sm" className="h-6 px-2 text-xs">Nudge</Button>
               </li>
             ))}
