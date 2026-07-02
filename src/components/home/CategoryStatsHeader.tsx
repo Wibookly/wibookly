@@ -21,8 +21,7 @@ export function CategoryStatsHeader() {
       const { data: cats } = await supabase
         .from('categories')
         .select('id, name, color')
-        .eq('user_id', user!.id)
-        .eq('active', true);
+        .eq('is_enabled', true);
       if (!cats?.length) return [];
 
       const results = await Promise.all(
