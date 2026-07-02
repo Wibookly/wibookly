@@ -504,13 +504,13 @@ export default function Categories() {
     setCategories((prev) =>
       prev.map((c) =>
         toDisableIds.has(c.id)
-          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false }
+          ? { ...c, is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false, show_on_home: false }
           : c,
       ),
     );
     supabase
       .from('categories')
-      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false })
+      .update({ is_enabled: false, ai_draft_enabled: false, auto_reply_enabled: false, show_in_favorites: false, show_on_home: false } as any)
       .in('id', Array.from(toDisableIds))
       .then(() => {});
     clampedRef.current = true;
