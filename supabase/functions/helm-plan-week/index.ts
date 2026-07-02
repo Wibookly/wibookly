@@ -649,7 +649,7 @@ Deno.serve(async (req) => {
   }
   const usedDayKeys = new Set<string>(existingFocusByDay.keys());
   // Helper: find gap on a specific dt (Date) — returns null if none.
-  const gapForDate = (dt: Date, options?: { ignoreFocusEvents?: boolean }) => {
+  const gapForDate = (dt: Date, options?: { ignoreFocusEvents?: boolean; window?: [number, number] }) => {
     const dk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
     const dayEvs = events.filter((e) => !e.is_cancelled && localDateKey(e.start) === dk);
     const busySource = options?.ignoreFocusEvents ? dayEvs.filter((e) => !isFocusEventLike(e)) : dayEvs;
@@ -657,7 +657,8 @@ Deno.serve(async (req) => {
       const s = localHourMin(e.start); const en = localHourMin(e.end);
       return [s.h * 60 + s.m, en.h * 60 + en.m] as [number, number];
     });
-    let g = findGap(busy, winStart, winEnd, blockMin);
+    const [ws, we] = options?.window ?? windowForWeekday(dt.getDay());
+    let g = findGap(busy, ws, we, blockMin);
     if (!g) g = findGap(busy, 9, 17, blockMin);
     return { dk, dayEvs, busy, gap: g };
   };
