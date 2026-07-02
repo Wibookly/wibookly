@@ -9,7 +9,7 @@ import { CommitmentsWidget } from '@/components/home/widgets/CommitmentsWidget';
 import { WaitingOnWidget } from '@/components/home/widgets/WaitingOnWidget';
 import { CategoryWidget } from '@/components/home/widgets/CategoryWidget';
 import { CustomizeHomeDialog } from '@/components/home/CustomizeHomeDialog';
-import { CategoryStatsHeader } from '@/components/home/CategoryStatsHeader';
+
 
 function greeting() {
   const h = new Date().getHours();
@@ -49,8 +49,6 @@ export default function Home() {
           {greeting()}, {firstName}.
         </h1>
       </header>
-
-      <CategoryStatsHeader />
 
       {digestEnabled && (
         <div className="max-w-3xl">
