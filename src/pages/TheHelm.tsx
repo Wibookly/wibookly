@@ -2653,7 +2653,11 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
-type FocusWindow = 'morning' | 'afternoon' | 'evening';
+type FocusWindow =
+  | 'morning' | 'afternoon' | 'evening'
+  | 'morning_8' | 'morning_9' | 'morning_10' | 'morning_11'
+  | 'afternoon_12' | 'afternoon_1' | 'afternoon_2' | 'afternoon_3'
+  | 'late_4' | 'late_5' | 'late_6';
 type FocusRule = {
   focus_days: string[];
   focus_window: FocusWindow;
@@ -2661,11 +2665,42 @@ type FocusRule = {
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
 };
 
-const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
-  { value: 'morning', label: 'Morning (8 AM–12 PM)' },
-  { value: 'afternoon', label: 'Afternoon (1–4 PM)' },
-  { value: 'evening', label: 'Late afternoon (4–7 PM)' },
+const FOCUS_WINDOW_GROUPS: { label: string; options: { value: FocusWindow; label: string }[] }[] = [
+  {
+    label: 'Morning',
+    options: [
+      { value: 'morning_8', label: 'Morning · 8 AM' },
+      { value: 'morning_9', label: 'Morning · 9 AM' },
+      { value: 'morning_10', label: 'Morning · 10 AM' },
+      { value: 'morning_11', label: 'Morning · 11 AM' },
+    ],
+  },
+  {
+    label: 'Afternoon',
+    options: [
+      { value: 'afternoon_12', label: 'Afternoon · 12 PM' },
+      { value: 'afternoon_1', label: 'Afternoon · 1 PM' },
+      { value: 'afternoon_2', label: 'Afternoon · 2 PM' },
+      { value: 'afternoon_3', label: 'Afternoon · 3 PM' },
+    ],
+  },
+  {
+    label: 'Late afternoon',
+    options: [
+      { value: 'late_4', label: 'Late afternoon · 4 PM' },
+      { value: 'late_5', label: 'Late afternoon · 5 PM' },
+      { value: 'late_6', label: 'Late afternoon · 6 PM' },
+    ],
+  },
 ];
+const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] =
+  FOCUS_WINDOW_GROUPS.flatMap((g) => g.options);
+// Map legacy band values persisted in DB → a sensible default fine hour.
+const FOCUS_WINDOW_MIGRATE: Record<string, FocusWindow> = {
+  morning: 'morning_9',
+  afternoon: 'afternoon_1',
+  evening: 'late_5',
+};
 
 type FocusBlock = {
   day_key: string;
@@ -2717,7 +2752,7 @@ const DAY_CHIPS: { id: string; label: string }[] = [
 
 const DEFAULT_RULE: FocusRule = {
   focus_days: ['tue', 'thu'],
-  focus_window: 'morning',
+  focus_window: 'morning_9',
   block_minutes: 30,
   autonomy: 'auto_internal_ask_external',
 };
@@ -2896,12 +2931,16 @@ function FocusRulesCompact({
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-muted-foreground">When</span>
           <select
-            value={rule.focus_window}
+            value={FOCUS_WINDOW_MIGRATE[rule.focus_window] ?? rule.focus_window}
             onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
             className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
           >
-            {FOCUS_WINDOW_OPTIONS.map((w) => (
-              <option key={w.value} value={w.value}>{w.label}</option>
+            {FOCUS_WINDOW_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((w) => (
+                  <option key={w.value} value={w.value}>{w.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -3141,6 +3180,19 @@ function CalendarWeekGrid({
                   className={cn('helm-calendar-event-card helm-calendar-focus-card', focus.state)}
                   style={{ top: `${Math.max(0, start - CAL_START_HOUR * 60) * CAL_PX_PER_MINUTE}px`, height: `${Math.max(15 * CAL_PX_PER_MINUTE, duration * CAL_PX_PER_MINUTE)}px` }}
                 >
+                  {onFocusDismiss && (
+                    <div className="helm-calendar-event-corner">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onFocusDismiss(focus); }}
+                        className="helm-calendar-event-corner-btn is-danger"
+                        title="Remove this focus block"
+                        aria-label="Remove focus block"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground">{duration}m</span></div>
                   <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -3261,32 +3313,17 @@ function CalendarWeekGrid({
                   }}
                   title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click for details`}
                 >
-                  {!isGhost && (
+                  {!isGhost && onDeleteEvent && (
                     <div className="helm-calendar-event-corner">
-                      {ev.web_link && (
-                        <a
-                          href={ev.web_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="helm-calendar-event-corner-btn"
-                          title="Open in Outlook"
-                          aria-label="Open in Outlook"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                      {onDeleteEvent && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
-                          className="helm-calendar-event-corner-btn is-danger"
-                          title="Delete from Outlook"
-                          aria-label="Delete event"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
+                        className="helm-calendar-event-corner-btn is-danger"
+                        title="Delete from Outlook"
+                        aria-label="Delete event"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
                   <div className="helm-calendar-event-head">
@@ -3378,7 +3415,10 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         .select('focus_days, focus_window, block_minutes, autonomy')
         .eq('user_id', u.user.id)
         .maybeSingle();
-      if (r) setRule(r as FocusRule);
+      if (r) {
+        const migrated = FOCUS_WINDOW_MIGRATE[String((r as any).focus_window)] ?? (r as any).focus_window;
+        setRule({ ...(r as FocusRule), focus_window: migrated as FocusWindow });
+      }
       setRuleLoaded(true);
     })();
   }, []);

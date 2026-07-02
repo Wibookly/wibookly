@@ -232,9 +232,9 @@ Deno.serve(async (req) => {
   if (body.mode === "refresh_signature") {
     const existing = (body.base_draft ?? item.ai_draft ?? "").toString();
     const middle = stripFrame(existing);
-    const rebuilt = signatureBlock
-      ? `${greeting}\n\n${middle}\n\n${signatureBlock}`
-      : `${greeting}\n\n${middle}`;
+    // Store body-only (no signature). The UI shows the signature separately
+    // as a preview, and helm-send-reply appends the master signature at send.
+    const rebuilt = `${greeting}\n\n${middle}`;
     await admin
       .from("helm_items")
       .update({ ai_draft: rebuilt, updated_at: new Date().toISOString() })
@@ -312,9 +312,9 @@ Deno.serve(async (req) => {
     draftMiddle = "Thanks for the note — I'll review the thread and follow up shortly.";
   }
 
-  const fullBody = signatureBlock
-    ? `${greeting}\n\n${draftMiddle}\n\n${signatureBlock}`
-    : `${greeting}\n\n${draftMiddle}`;
+  // Body-only draft (no signature). UI previews the signature separately;
+  // helm-send-reply appends the master signature at send time.
+  const fullBody = `${greeting}\n\n${draftMiddle}`;
 
 
 
