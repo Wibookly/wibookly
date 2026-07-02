@@ -430,6 +430,9 @@
 [data-palette="magenta"]{--primary:#C026D3;--primary-hover:#A21FB0;--primary-soft:#F4D6F9;--primary-softer:#F8E8FB;--accent:#A855F7;--bg:#FBEBFD;--bg-elev:#FDF4FE;--shadow-glow:0 12px 32px -8px rgba(192,38,211,.35);--grad-feature-soft:linear-gradient(135deg,#C026D3,#A855F7);--blob-2:rgba(192,38,211,.12)}
 .dark[data-palette="magenta"]{--primary:#E879F9;--primary-hover:#E879F9;--accent:#C084FC;--bg:#170A19;--bg-elev:#1F0F22;--surface:#27142A;--surface-2:#301A33;--surface-3:#3C2240;--border:#371E3A;--border-soft:#27142A;--text:#F4F5FB;--text-body:#F0DEF2;--text-muted:#C29CC8;--shadow-glow:0 16px 40px -8px rgba(232,121,249,.42);--grad-feature-soft:linear-gradient(135deg,#E879F9,#C084FC)}
 
+[data-palette="cinnamon"]{--primary:#BA7517;--primary-hover:#9A5F10;--primary-soft:#FAE4C1;--primary-softer:#FAEEDA;--accent:#FAC775;--bg:#FAEEDA;--bg-elev:#FFF7EA;--surface:#FFFFFF;--surface-2:#FAEEDA;--surface-3:#F5E2C5;--border:#FAC775;--border-soft:#F5E2C5;--text:#412402;--text-body:#5A3308;--text-muted:#854F0B;--shadow-glow:0 12px 32px -8px rgba(186,117,23,.35);--grad-feature-soft:linear-gradient(135deg,#BA7517,#FAC775);--blob-2:rgba(186,117,23,.14)}
+.dark[data-palette="cinnamon"]{--primary:#E39547;--primary-hover:#E39547;--accent:#FAC775;--bg:#1A0F04;--bg-elev:#22160A;--surface:#2A1C10;--surface-2:#332318;--surface-3:#402D20;--border:#3A2818;--border-soft:#2A1C10;--text:#FAEEDA;--text-body:#F0DEC0;--text-muted:#C29C6E;--shadow-glow:0 16px 40px -8px rgba(227,149,71,.45);--grad-feature-soft:linear-gradient(135deg,#E39547,#FAC775)}
+
 
 /* ------------------------------------------------------------------ */
 /* The Helm — executive tiles + dark-mode email body                  */

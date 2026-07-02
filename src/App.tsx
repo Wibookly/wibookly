@@ -22,6 +22,8 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import TheHelm from "./pages/TheHelm";
 import TheHelmCalendar from "./pages/TheHelmCalendar";
+import Home from "./pages/Home";
+import Brief from "./pages/Brief";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";
@@ -75,6 +77,8 @@ const App = () => (
                   </PageErrorBoundary>
                 }>
                   <Route path="/chat" element={<Chat />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/brief" element={<Brief />} />
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />
                   <Route path="/integrations" element={<Integrations />} />

@@ -1,54 +1,73 @@
+# Home Page Redesign — "Glance-First" Executive Home
 
-## 1. Flagged Email Tracker — replied row cleanup
-File: `src/pages/FlaggedEmailTracker.tsx`
-- Remove the green "Replied · queue cleared / No follow-ups sent" long pill and the two extra history lines on replied rows.
-- Keep only the compact right-side **Replied** status badge (the small pill on the far right).
+Rebuild the Home surface (currently `TheHelm`) as a glance-first, modular command center backed by an AI daily digest and per-user widget preferences. Depth stays on dedicated pages — Home only summarizes.
 
-## 2. Focus rules — new model (per-day type + time block)
-Files: `src/pages/TheHelm.tsx` (FocusRulesCard), `supabase/functions/helm-plan-week/index.ts`, migration on `helm_focus_rules`.
+## Scope of change
 
-Per selected day, user picks:
-- **Type**: `Focus` or `Personal` (renamed from "appointment")
-- **Length**: 30m / 45m / 60m / 90m / 120m
-- **Time block** (3-hour bands, pick one or multiple):
-  - Early morning 7–10 AM
-  - Late morning 10 AM–1 PM
-  - Afternoon 1–4 PM
-  - Late afternoon 4–7 PM
+- New `/home` route rendering the glance-first layout. Existing `TheHelm` page stays untouched (kept as `/helm` fallback for now); the sidebar's Home link points to `/home`.
+- New `/brief` page for the full daily brief with a date selector.
+- Categories page: add a "Show on home" pin toggle per category (only allowed page-level edit besides router).
+- New Cinnamon theme (11th palette) added to `ThemePicker` following existing palette structure.
+- New backend: `home_preferences` + `daily_digests` tables, `show_on_home` column on categories, `generate-daily-digest` edge function on pg_cron.
 
-Planner searches only within the chosen band(s) for a free gap of the requested length. If no gap in any chosen band → mark day as "no space – blocked" (red dot, no card added).
+## Database (single migration)
 
-Store as JSONB `day_plan` on `helm_focus_rules`:
-```
-{ mon: { type:'focus', length:30, blocks:['am_early','pm_late'] }, ... }
-```
+- `public.home_preferences (user_id, org_id, widget_id, enabled, sort_order, item_limit, updated_at)` with unique (user_id, widget_id). RLS: user owns row + org match.
+- `public.daily_digests (user_id, org_id, digest_date, urgency_level, headline, subline, narrative, top_priority jsonb, meetings jsonb, commitments jsonb, client_signals jsonb, counts jsonb, full_brief_md, dismissed_at, created_at)` unique (user_id, digest_date). RLS same pattern.
+- `alter table public.email_categories add column show_on_home boolean default false` (locate real category table name during implementation — likely `categories`).
+- GRANTs to `authenticated` + `service_role` per project conventions.
 
-## 3. Duplicate prevention (hard)
-- Before proposing any block for a day, load that day's existing calendar events **and** existing focus/personal blocks (both real and previously proposed).
-- If a block of the same type already exists that day → **do not add another**. Instead surface an inline orange note on the calendar day: "Existing Focus at 1:30 PM – AI kept it, no duplicate added."
-- No "Approve new / Merge" links anywhere — decision is automatic.
+## Frontend
 
-## 4. AI overlay panel cleanup
-File: `src/pages/TheHelm.tsx` (CalendarView header + overlay strip)
-- Remove **Database saved: 30m** pill.
-- Remove **Approve new** / **Merge** action links on the orange conflict banners.
-- Remove the green "Your schedule is good — AI does not see a better reorganization…" line **only when it comes from the reorganize path**; keep the generic green success line for other AI messages.
-- Rule-change debounce stays at 2s (down from 3s per request), then auto-syncs. No manual sync button.
+- `src/config/homeWidgetRegistry.ts` — `CORE_WIDGETS` list per spec plus helper to merge dynamically-pinned categories.
+- `src/pages/Home.tsx` — greeting header + `GlanceCard` + ordered sections + "Customize home" dialog at the bottom.
+- `src/components/home/` — `GlanceCard`, `HomeSection` wrapper, `NeedsReplyWidget`, `TodayWidget`, `CommitmentsWidget`, `WaitingOnWidget`, `CategoryWidget`, `CustomizeHomeDialog`.
+- `src/pages/Brief.tsx` — full brief markdown + date picker reading `daily_digests`.
+- `src/pages/Categories.tsx` — add pin toggle (Show on home) that upserts category flag + `home_preferences` row.
+- `src/App.tsx` — register `/home`, `/brief`; point Home nav to `/home`.
+- All colors via semantic tokens (no hex). Reuse Card, Button, Badge, Avatar, Skeleton, Dialog, Switch. Sentence case, locale timestamps.
 
-## 5. Calendar rendering fixes
-File: `src/pages/TheHelm.tsx`, `src/index.css`
-- Extend visible grid so 6 PM row is fully rendered (add trailing padding row / bump grid height so the last hour label + card fit).
-- Business hours locked 8 AM–6 PM shown fully; scroll only for out-of-hours rows.
+## Data + hooks
 
-## 6. AI-sent emails use profile signature
-Files: `supabase/functions/helm-draft-reply/index.ts`, `supabase/functions/helm-send-reply/index.ts`
-- On draft generation, append the user's stored HTML signature from `profiles.signature_html` (already used by the manual composer) — do NOT let the model invent one.
-- On send, if the outgoing body has no signature marker, append the profile signature block before sending via Graph.
+- `useHomePreferences()` — fetches + seeds defaults from `CORE_WIDGETS` on first load, exposes optimistic toggle mutation.
+- `useDailyDigest()` — today's digest row + manual refresh calling the edge function.
+- Widgets reuse existing queries:
+  - Needs reply → existing tracked/classified emails (`requires_human`, priority score) via existing hook.
+  - Today → existing calendar hook used by `TheHelm`.
+  - Commitments / Waiting on → existing follow-up tables.
+  - Category → filter latest emails by category id.
+
+## Theme: Cinnamon
+
+Extend `src/components/ThemePicker.tsx` and the shared theme CSS with a `cinnamon` palette using HSL tokens per spec. Add a dark variant with dark warm-brown bg + cream fg + preserved cinnamon primary. No hex in components; all values written to CSS variables so every widget inherits.
+
+## Edge function `generate-daily-digest`
+
+- Deno function under `supabase/functions/generate-daily-digest/`.
+- Gathers overnight classified emails, handled count, today's meetings + prep notes, open commitments both directions, stalled follow-ups with per-sender silence baselines.
+- Single LLM call via existing `callLLM()` gateway with strict JSON schema; strips code fences; upserts into `daily_digests`.
+- Fallback row on LLM failure (`urgency_level='calm'`, counts-only headline, empty sections).
+- Scheduled via pg_cron at 07:30 through `pg_net` (uses insert tool, not migration, per project rules).
+- Also callable per-user (manual refresh from GlanceCard tap on timestamp).
+
+## Behavior rules
+
+- Glance card urgency: `calm` collapsed / `attention` collapsed with primary border + dot / `urgent` auto-expanded destructive border, records `dismissed_at` when user collapses so it stays collapsed for the day.
+- Every `HomeSection` shows last-fetch timestamp (tap to refetch that widget only via React Query).
+- Every section footer link deep-links with `routeFilter` query params; destination pages must read + apply them (adjust `Inbox`/tracker/calendar pages minimally to honor query params on arrival).
+- "Customize home" dialog: switches bound to `home_preferences.enabled`, optimistic save, no drag reorder yet.
+- Loading = Skeletons; empty = friendly one-liner, no CTAs.
 
 ## Technical notes
-- Migration: `alter table helm_focus_rules add column if not exists day_plan jsonb default '{}'::jsonb;` — keep old columns for backward read, write to `day_plan` going forward.
-- `helm-plan-week` reads `day_plan` first, falls back to legacy shape.
-- Duplicate check runs server-side in `helm-plan-week` and client-side in `TheHelm.tsx` overlay render.
-- No changes to Flagged Tracker cron / send logic — only the row UI.
 
-Confirm and I'll build.
+- Category table real name confirmed at implementation (add `show_on_home` there — memory already mentions it exists; if so, skip the ALTER).
+- RLS org-match uses existing helper (likely `public.user_org_id()` or membership check) — mirror the pattern used by `categories` policies.
+- Cron scheduling SQL runs via `supabase--insert` (contains project URL + anon key), not migration.
+- No changes to classification, follow-up engine internals, or Graph sync.
+- Existing `TheHelm` route/logic untouched to avoid regressions; sidebar just repoints.
+
+## Out of scope
+
+- Drag-to-reorder widgets (column exists for later).
+- Role-based default templates.
+- Any change to Graph sync, classification engine, or follow-up internals.
