@@ -2764,19 +2764,19 @@ function FocusRulesCard({
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time of day</p>
-            <div className="flex gap-2">
-              {(['morning', 'afternoon'] as const).map((w) => (
+            <div className="flex flex-wrap gap-2">
+              {FOCUS_WINDOW_OPTIONS.map((w) => (
                 <button
-                  key={w}
-                  onClick={() => onChange({ ...rule, focus_window: w })}
+                  key={w.value}
+                  onClick={() => onChange({ ...rule, focus_window: w.value })}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs border capitalize',
-                    rule.focus_window === w
+                    'px-3 py-1.5 rounded-full text-xs border',
+                    rule.focus_window === w.value
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-background border-border hover:bg-muted',
                   )}
                 >
-                  {w}
+                  {w.label}
                 </button>
               ))}
             </div>
