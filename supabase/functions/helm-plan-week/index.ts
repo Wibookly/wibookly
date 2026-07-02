@@ -439,8 +439,8 @@ Deno.serve(async (req) => {
       focus_days: Array.isArray(override.focus_days)
         ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
         : rule.focus_days,
-      focus_window: override.focus_window === "afternoon" || override.focus_window === "morning"
-        ? override.focus_window
+      focus_window: VALID_WINDOWS.has(String(override.focus_window))
+        ? String(override.focus_window)
         : rule.focus_window,
       block_minutes: ALLOWED_BLOCK_MINUTES.has(Number(override.block_minutes))
         ? Number(override.block_minutes)
