@@ -47,6 +47,7 @@ interface TrackedEmail {
   queued_reason?: string | null;
   web_link?: string | null;
   graph_message_id?: string | null;
+  updated_at?: string | null;
 }
 
 
