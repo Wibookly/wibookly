@@ -3417,7 +3417,21 @@ function CalendarWeekGrid({
 export function CalendarView({ onBack }: { onBack?: () => void }) {
   const [detailsEvent, setDetailsEvent] = useState<CalendarGridEvent | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [rule, setRule] = useState<FocusRule>(DEFAULT_RULE);
+  const [rule, setRule] = useState<FocusRule>(() => {
+    try {
+      const raw = window.localStorage.getItem('helm:focus-per-day');
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, FocusWindow>;
+        if (parsed && typeof parsed === 'object') return { ...DEFAULT_RULE, per_day_windows: parsed };
+      }
+    } catch {}
+    return DEFAULT_RULE;
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('helm:focus-per-day', JSON.stringify(rule.per_day_windows ?? {}));
+    } catch {}
+  }, [rule.per_day_windows]);
   const [ruleLoaded, setRuleLoaded] = useState(false);
   const [focusEnabled, setFocusEnabled] = useState<boolean>(() => {
     try { return window.localStorage.getItem('helm:focus-enabled') !== 'off'; } catch { return true; }
