@@ -673,7 +673,6 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
               Reply
             </div>
             <div className="text-right min-w-0">
-              <div className="text-emerald-700 font-medium">Replied</div>
               <div className="text-emerald-700/80 whitespace-nowrap">{r.updated_at ? fmt(r.updated_at) : '—'}</div>
             </div>
           </div>
