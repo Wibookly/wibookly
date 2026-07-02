@@ -3313,32 +3313,17 @@ function CalendarWeekGrid({
                   }}
                   title={`${fmtTimeShort(startIso)}–${fmtTimeShort(endIso)} · ${ev.subject}${ev.location ? ' · 📍 ' + ev.location : ''}${isOverlap ? ' · ⚠ Overlap' : ''} · Click for details`}
                 >
-                  {!isGhost && (
+                  {!isGhost && onDeleteEvent && (
                     <div className="helm-calendar-event-corner">
-                      {ev.web_link && (
-                        <a
-                          href={ev.web_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="helm-calendar-event-corner-btn"
-                          title="Open in Outlook"
-                          aria-label="Open in Outlook"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                      {onDeleteEvent && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
-                          className="helm-calendar-event-corner-btn is-danger"
-                          title="Delete from Outlook"
-                          aria-label="Delete event"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onDeleteEvent(ev); }}
+                        className="helm-calendar-event-corner-btn is-danger"
+                        title="Delete from Outlook"
+                        aria-label="Delete event"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
                   <div className="helm-calendar-event-head">
