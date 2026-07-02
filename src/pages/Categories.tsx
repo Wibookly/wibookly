@@ -669,11 +669,19 @@ export default function Categories() {
             ai_draft_enabled: false,
             auto_reply_enabled: false,
             show_in_favorites: false,
+            show_on_home: false,
           };
         }
         // Turning AI Draft off also disables Auto-Reply (which depends on it).
         if (field === 'ai_draft_enabled' && value === false) {
           return { ...cat, ai_draft_enabled: false, auto_reply_enabled: false };
+        }
+        // Home and Auto-Reply are mutually exclusive.
+        if (field === 'show_on_home' && value === true) {
+          return { ...cat, show_on_home: true, auto_reply_enabled: false };
+        }
+        if (field === 'auto_reply_enabled' && value === true) {
+          return { ...cat, auto_reply_enabled: true, show_on_home: false };
         }
         return { ...cat, [field]: value };
       })
