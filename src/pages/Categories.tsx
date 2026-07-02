@@ -861,6 +861,7 @@ export default function Categories() {
             writing_style: category.writing_style,
             sort_order: category.sort_order,
             show_in_favorites: category.show_in_favorites,
+            show_on_home: category.show_on_home ?? false,
           } as any)
           .eq('id', category.id);
       }
