@@ -180,13 +180,15 @@ export default function AIActivityDashboard() {
       // Category breakdown
       const categoryMap = new Map<string, { drafts: number; autoReplies: number }>();
       logs.forEach(log => {
-        const current = categoryMap.get(log.category_name) || { drafts: 0, autoReplies: 0 };
+        const key = (log.category_name && String(log.category_name).trim()) || 'Uncategorized';
+        const current = categoryMap.get(key) || { drafts: 0, autoReplies: 0 };
         if (log.activity_type === 'draft') current.drafts++;
         else if (log.activity_type === 'auto_reply') current.autoReplies++;
-        categoryMap.set(log.category_name, current);
+        categoryMap.set(key, current);
       });
       const categoryData: CategoryBreakdown[] = Array.from(categoryMap.entries())
         .map(([categoryName, data]) => ({ categoryName, ...data }))
+        .filter(c => c.drafts + c.autoReplies > 0)
         .sort((a, b) => (b.drafts + b.autoReplies) - (a.drafts + a.autoReplies));
       setCategoryBreakdown(categoryData);
 
