@@ -104,6 +104,7 @@ interface Category {
   is_enabled: boolean;
   ai_draft_enabled: boolean;
   auto_reply_enabled: boolean;
+  show_on_home: boolean;
   writing_style: string;
   sort_order: number;
   last_synced_at: string | null;
