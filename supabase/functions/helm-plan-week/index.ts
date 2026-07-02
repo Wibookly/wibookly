@@ -484,14 +484,19 @@ Deno.serve(async (req) => {
   }
 
   const override = body?.rule_override && typeof body.rule_override === "object" ? body.rule_override : null;
+  // Fine-grained window (e.g. "morning_9") is applied for THIS planning run
+  // but the DB enum column only stores the band ("morning" | "afternoon" | "evening").
+  let effectiveWindow: string = String(rule.focus_window);
   if (override) {
+    const requestedWindow = VALID_WINDOWS.has(String(override.focus_window))
+      ? String(override.focus_window)
+      : effectiveWindow;
+    effectiveWindow = requestedWindow;
     const nextRule = {
       focus_days: Array.isArray(override.focus_days)
         ? override.focus_days.map((d: unknown) => String(d).toLowerCase()).filter((d: string) => DAY_MAP[d])
         : rule.focus_days,
-      focus_window: VALID_WINDOWS.has(String(override.focus_window))
-        ? String(override.focus_window)
-        : rule.focus_window,
+      focus_window: windowToEnum(requestedWindow),
       block_minutes: ALLOWED_BLOCK_MINUTES.has(Number(override.block_minutes))
         ? Number(override.block_minutes)
         : rule.block_minutes,
@@ -515,8 +520,9 @@ Deno.serve(async (req) => {
 
   const focusDays: number[] = (rule.focus_days ?? []).map((d: string) => DAY_MAP[d.toLowerCase()]).filter(Boolean);
   const blockMin: number = ALLOWED_BLOCK_MINUTES.has(Number(rule.block_minutes)) ? Number(rule.block_minutes) : 30;
-  const [winStart, winEnd] = WINDOWS[rule.focus_window] ?? WINDOWS.morning;
+  const [winStart, winEnd] = WINDOWS[effectiveWindow] ?? WINDOWS[String(rule.focus_window)] ?? WINDOWS.morning;
   const autonomy: string = rule.autonomy ?? "auto_internal_ask_external";
+
 
   // 2) Fetch week events (reuse same call shape as helm-sync-calendar)
   const anchor = body?.week_start ? new Date(body.week_start) : new Date();
