@@ -2611,12 +2611,21 @@ function startOfWeek(d: Date): Date {
 /* Focus rules + planning types                                       */
 /* ------------------------------------------------------------------ */
 
+type FocusWindow = 'morning' | 'afternoon' | 'am' | 'midday' | 'pm';
 type FocusRule = {
   focus_days: string[];
-  focus_window: 'morning' | 'afternoon';
+  focus_window: FocusWindow;
   block_minutes: number;
   autonomy: 'ask_all' | 'auto_internal_ask_external' | 'auto_all';
 };
+
+const FOCUS_WINDOW_OPTIONS: { value: FocusWindow; label: string }[] = [
+  { value: 'am', label: '8–11 AM' },
+  { value: 'midday', label: '11 AM–2 PM' },
+  { value: 'pm', label: '2–5 PM' },
+  { value: 'morning', label: 'Morning (9–12)' },
+  { value: 'afternoon', label: 'Afternoon (1–5)' },
+];
 
 type FocusBlock = {
   day_key: string;
