@@ -4,7 +4,7 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export type Palette =
   | 'aurora' | 'indigo' | 'violet' | 'sunset' | 'rose'
-  | 'emerald' | 'sky' | 'amber' | 'crimson' | 'magenta';
+  | 'emerald' | 'sky' | 'amber' | 'crimson' | 'magenta' | 'cinnamon';
 
 export interface PaletteDef {
   id: Palette;
@@ -14,16 +14,17 @@ export interface PaletteDef {
 }
 
 export const PALETTES: PaletteDef[] = [
-  { id: 'aurora',  name: 'Aurora',   swatch: ['#2C6BEF', '#A855F7'] },
-  { id: 'indigo',  name: 'Indigo',   swatch: ['#4F46E5', '#2B6EE3'] },
-  { id: 'violet',  name: 'Violet',   swatch: ['#7C3AED', '#C026D3'] },
-  { id: 'sunset',  name: 'Sunset',   swatch: ['#F97316', '#EC4899'] },
-  { id: 'rose',    name: 'Rose',     swatch: ['#E11D74', '#8B5CF6'] },
-  { id: 'emerald', name: 'Emerald',  swatch: ['#059669', '#14B8A6'] },
-  { id: 'sky',     name: 'Sky',      swatch: ['#0EA5E9', '#06B6D4'] },
-  { id: 'amber',   name: 'Amber',    swatch: ['#D97706', '#F59E0B'] },
-  { id: 'crimson', name: 'Crimson',  swatch: ['#DC2626', '#F97316'] },
-  { id: 'magenta', name: 'Magenta',  swatch: ['#C026D3', '#A855F7'] },
+  { id: 'aurora',   name: 'Aurora',   swatch: ['#2C6BEF', '#A855F7'] },
+  { id: 'indigo',   name: 'Indigo',   swatch: ['#4F46E5', '#2B6EE3'] },
+  { id: 'violet',   name: 'Violet',   swatch: ['#7C3AED', '#C026D3'] },
+  { id: 'sunset',   name: 'Sunset',   swatch: ['#F97316', '#EC4899'] },
+  { id: 'rose',     name: 'Rose',     swatch: ['#E11D74', '#8B5CF6'] },
+  { id: 'emerald',  name: 'Emerald',  swatch: ['#059669', '#14B8A6'] },
+  { id: 'sky',      name: 'Sky',      swatch: ['#0EA5E9', '#06B6D4'] },
+  { id: 'amber',    name: 'Amber',    swatch: ['#D97706', '#F59E0B'] },
+  { id: 'crimson',  name: 'Crimson',  swatch: ['#DC2626', '#F97316'] },
+  { id: 'magenta',  name: 'Magenta',  swatch: ['#C026D3', '#A855F7'] },
+  { id: 'cinnamon', name: 'Cinnamon', swatch: ['#BA7517', '#FAC775'] },
 ];
 
 /* --- Legacy compatibility (old code imports ColorTheme/COLOR_THEMES) --- */
