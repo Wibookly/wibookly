@@ -989,14 +989,15 @@
 /* ============== Helm calendar — time-grid drag/drop scheduler ============== */
 .helm-calendar-scroll {
   width: 100%;
-  /* Business-hours-only view (8 AM – 6 PM). Sized so the full day fits with no vertical scroll. */
-  max-height: 1140px;
+  /* Fixed calendar — sized to fit 7 AM through 7 PM with breathing room top+bottom,
+     no vertical scroll so the page doesn't shift when interacting. */
+  max-height: 1220px;
+  min-height: 1220px;
   overflow-x: auto;
-  overflow-y: auto;
-  padding: .25rem;
+  overflow-y: hidden;
+  padding: 1.25rem .5rem 1.5rem;
   border-radius: 1rem;
   scroll-behavior: smooth;
-  overscroll-behavior-y: auto;
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--primary) 5%, var(--surface-elevated)) 0%,
