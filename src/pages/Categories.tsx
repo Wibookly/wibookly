@@ -316,8 +316,8 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             </TooltipTrigger>
             <TooltipContent>
               {!category.is_enabled
-                ? 'Turn on Active first to route this category to Home.'
-                : 'Route these emails to The Helm home page. Turning Home on disables AI Auto-Reply for this category — drafts stay under your control.'}
+                ? 'Turn on Active first to route this category to The Helm.'
+                : 'Route these emails to The Helm home page. Turning The Helm on disables AI Auto-Reply for this category — drafts stay under your control.'}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -363,7 +363,7 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
             {autoReplyLocked ? (
               <TooltipContent>AI Auto-Reply is disabled on your plan. Ask your admin to enable it.</TooltipContent>
             ) : category.show_on_home ? (
-              <TooltipContent>Auto-Reply is disabled because <b>Home</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
+              <TooltipContent>Auto-Reply is disabled because <b>The Helm</b> is on — these emails surface on The Helm for you to review.</TooltipContent>
             ) : (!category.is_enabled || !category.ai_draft_enabled) ? (
               <TooltipContent>
                 {!category.is_enabled
@@ -1396,7 +1396,7 @@ export default function Categories() {
               <TableHead className="w-48"><span className="inline-flex items-center gap-1">Category Name <HelpTip id="category.name" /></span></TableHead>
               <TableHead className="w-40">AI Draft Style</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">Active <HelpTip id="category.enabled" /></span></TableHead>
-              <TableHead className="w-24 text-center">Home</TableHead>
+              <TableHead className="w-24 text-center">The Helm</TableHead>
               <TableHead className="w-24 text-center"><span className="inline-flex items-center gap-1">AI Draft <HelpTip id="category.aiDrafts" /></span></TableHead>
               <TableHead className="w-28 text-center">AI Auto-Reply</TableHead>
               <TableHead className="w-28 text-center">Sync Status</TableHead>
