@@ -3415,7 +3415,10 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         .select('focus_days, focus_window, block_minutes, autonomy')
         .eq('user_id', u.user.id)
         .maybeSingle();
-      if (r) setRule(r as FocusRule);
+      if (r) {
+        const migrated = FOCUS_WINDOW_MIGRATE[String((r as any).focus_window)] ?? (r as any).focus_window;
+        setRule({ ...(r as FocusRule), focus_window: migrated as FocusWindow });
+      }
       setRuleLoaded(true);
     })();
   }, []);
