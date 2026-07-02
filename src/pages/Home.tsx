@@ -9,6 +9,7 @@ import { CommitmentsWidget } from '@/components/home/widgets/CommitmentsWidget';
 import { WaitingOnWidget } from '@/components/home/widgets/WaitingOnWidget';
 import { CategoryWidget } from '@/components/home/widgets/CategoryWidget';
 import { CustomizeHomeDialog } from '@/components/home/CustomizeHomeDialog';
+import { CategoryStatsHeader } from '@/components/home/CategoryStatsHeader';
 
 function greeting() {
   const h = new Date().getHours();
@@ -39,7 +40,7 @@ export default function Home() {
   const rest = ordered.filter((x) => x.def.id !== 'digest');
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <div className="w-full px-6 lg:px-10 py-8 space-y-6">
       <header className="space-y-2">
         <div className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground">
           {dateline} · {time}
@@ -49,7 +50,13 @@ export default function Home() {
         </h1>
       </header>
 
-      {digestEnabled && <GlanceCard />}
+      <CategoryStatsHeader />
+
+      {digestEnabled && (
+        <div className="max-w-3xl">
+          <GlanceCard />
+        </div>
+      )}
 
       {rest.map(({ def, pref }) => {
         const limit = pref?.item_limit ?? def.defaultLimit;
