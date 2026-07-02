@@ -2752,7 +2752,7 @@ const DAY_CHIPS: { id: string; label: string }[] = [
 
 const DEFAULT_RULE: FocusRule = {
   focus_days: ['tue', 'thu'],
-  focus_window: 'morning',
+  focus_window: 'morning_9',
   block_minutes: 30,
   autonomy: 'auto_internal_ask_external',
 };
