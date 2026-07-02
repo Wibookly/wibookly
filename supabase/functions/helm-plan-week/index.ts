@@ -35,7 +35,11 @@ const DAY_MAP: Record<string, number> = {
 const WINDOWS: Record<string, [number, number]> = {
   morning: [9, 12],
   afternoon: [13, 17],
+  am: [8, 11],
+  midday: [11, 14],
+  pm: [14, 17],
 };
+const VALID_WINDOWS = new Set(Object.keys(WINDOWS));
 const ALLOWED_BLOCK_MINUTES = new Set([30, 45, 60, 90, 120]);
 
 async function callLLM(userId: string, system: string, user: string): Promise<string> {
