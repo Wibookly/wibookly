@@ -3451,6 +3451,58 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
     onError: (e: any) => toast.error(e.message || 'Could not create focus block.'),
   });
 
+  const deleteEventMutation = useMutation({
+    mutationFn: async (ev: CalendarGridEvent) => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'delete_event', event_id: ev.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return ev.id;
+    },
+    onSuccess: () => {
+      toast.success('Event deleted from your calendar.');
+      refetch();
+      planQuery.refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not delete event.'),
+  });
+
+  const deleteFocusBlocksMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('helm-plan-week', {
+        body: { mode: 'delete_focus_blocks', week_start: weekStart.toISOString() },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return (data as any)?.deleted ?? 0;
+    },
+    onSuccess: (n: number) => {
+      if (n > 0) toast.success(`Removed ${n} focus block${n === 1 ? '' : 's'} from your calendar.`);
+      refetch();
+      planQuery.refetch();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not remove focus blocks.'),
+  });
+
+  // Clear per-day sticky state whenever the focus rule changes so new
+  // proposals actually show up in the calendar again.
+  useEffect(() => {
+    setAppliedFocus({});
+    setDismissedFocus({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(debouncedRule)]);
+
+  // When the user turns Focus OFF, wipe every focus block from Outlook this week.
+  const prevFocusEnabledRef = useRef(focusEnabled);
+  useEffect(() => {
+    if (prevFocusEnabledRef.current && !focusEnabled) {
+      deleteFocusBlocksMutation.mutate();
+    }
+    prevFocusEnabledRef.current = focusEnabled;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEnabled]);
+
   const revealApproval = async (p: Proposal) => {
     setDraftByProp((s) => ({ ...s, [p.id]: { note: s[p.id]?.note ?? '', loading: true, revealed: true } }));
     try {
