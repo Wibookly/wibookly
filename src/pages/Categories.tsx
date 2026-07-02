@@ -302,6 +302,26 @@ function SortableRow({ category, index, updateCategory, requestDisable, onConfig
           </Tooltip>
         </TooltipProvider>
       </TableCell>
+      <TableCell className="text-center">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Switch
+                  checked={!!category.show_on_home}
+                  onCheckedChange={(checked) => updateCategory(category.id, 'show_on_home', checked)}
+                  disabled={!category.is_enabled}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {!category.is_enabled
+                ? 'Turn on Active first to route this category to Home.'
+                : 'Route these emails to The Helm home page. Turning Home on disables AI Auto-Reply for this category — drafts stay under your control.'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </TableCell>
       <TableCell className="text-center" data-tour={isFirst ? 'ei-draft' : undefined}>
         <TooltipProvider>
           <Tooltip>
