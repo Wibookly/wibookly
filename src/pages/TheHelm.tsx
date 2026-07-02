@@ -3488,7 +3488,7 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
         .maybeSingle();
       if (r) {
         const migrated = FOCUS_WINDOW_MIGRATE[String((r as any).focus_window)] ?? (r as any).focus_window;
-        setRule({ ...(r as FocusRule), focus_window: migrated as FocusWindow });
+        setRule((prev) => ({ ...(r as FocusRule), focus_window: migrated as FocusWindow, per_day_windows: prev.per_day_windows }));
       }
       setRuleLoaded(true);
     })();
