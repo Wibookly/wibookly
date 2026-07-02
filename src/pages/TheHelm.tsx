@@ -3317,9 +3317,9 @@ export function CalendarView({ onBack }: { onBack?: () => void }) {
   // immediately instead of waiting on a separate settings read.
   const [debouncedRule, setDebouncedRule] = useState(rule);
   useEffect(() => {
-    // 3-second debounce: after the first apply, subsequent focus-time edits
-    // wait 3s before re-planning so rapid changes don't spam the calendar.
-    const t = setTimeout(() => setDebouncedRule(rule), 3000);
+    // 2-second debounce: after a focus-time edit, wait 2s before re-planning
+    // so rapid changes don't spam the calendar.
+    const t = setTimeout(() => setDebouncedRule(rule), 2000);
     return () => clearTimeout(t);
   }, [rule]);
 
