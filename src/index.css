@@ -1358,6 +1358,12 @@
   border-left-color: var(--danger);
   background: color-mix(in srgb, var(--danger-bg) 50%, var(--surface));
 }
+.helm-calendar-focus-card.exists {
+  border-color: var(--warning);
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning-bg) 58%, var(--surface));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 30%, transparent), 0 10px 24px -16px color-mix(in srgb, var(--warning) 70%, transparent);
+}
 .helm-focus-approve-btn,
 .helm-focus-cancel-btn {
   padding: .125rem .5rem;
