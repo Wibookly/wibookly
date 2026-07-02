@@ -665,41 +665,60 @@ function EmailRow({ r, onCancel, reminderIntervalsDays = [] }: { r: TrackedEmail
         </div>
       </TableCell>
       <TableCell className="text-xs min-w-[260px]">
-        <div className="space-y-1.5">
-          {sendSchedule.map((send) => {
-            const urgent = send.status === 'Scheduled' && scheduleUrgent(send.date);
-            const isSent = send.status === 'Sent';
-            const isScheduled = send.status === 'Scheduled' || send.status === 'Queued';
-            const isPending = send.status === 'Pending' || send.status === 'Draft ready';
-            const StatusIcon = isSent ? CheckCircle2 : isScheduled ? Circle : isPending ? Clock : null;
-            const iconColor = isSent
-              ? 'text-emerald-600'
-              : isScheduled
-                ? 'text-orange-500'
-                : isPending
-                  ? 'text-muted-foreground'
-                  : 'text-muted-foreground';
-            const statusColor = urgent
-              ? 'text-red-600 font-semibold'
-              : isSent
-                ? 'text-emerald-700 font-medium'
-                : isScheduled
-                  ? 'text-orange-600 font-medium'
-                  : 'text-muted-foreground';
+        {(r.status === 'replied' || r.status === 'completed') ? (
+          (() => {
+            const sentCount = sendSchedule.filter((s) => s.status === 'Sent').length;
+            const lastSent = [...sendSchedule].reverse().find((s) => s.status === 'Sent');
             return (
-              <div key={send.attempt} className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
-                <div className="font-medium whitespace-nowrap flex items-center gap-1.5">
-                  {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 ${iconColor} ${isScheduled ? 'fill-orange-100' : ''}`} />}
-                  {send.label}
+              <div className="flex items-center justify-between gap-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5">
+                <div className="flex items-center gap-1.5 font-medium text-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Replied · queue cleared
                 </div>
-                <div className="text-right min-w-0">
-                  <div className={statusColor}>{send.status}</div>
-                  <div className={urgent ? 'text-red-600 font-medium whitespace-nowrap' : 'text-muted-foreground whitespace-nowrap'}>{send.date ? fmtAny(send.date) : '—'}</div>
+                <div className="text-right text-[11px] text-emerald-700/80 whitespace-nowrap">
+                  {sentCount > 0 ? `${sentCount} follow-up${sentCount === 1 ? '' : 's'} sent` : 'No follow-ups sent'}
+                  {lastSent?.date && <div className="text-muted-foreground">last {fmtAny(lastSent.date)}</div>}
                 </div>
               </div>
             );
-          })}
-        </div>
+          })()
+        ) : (
+          <div className="space-y-1.5">
+            {sendSchedule.map((send) => {
+              const urgent = send.status === 'Scheduled' && scheduleUrgent(send.date);
+              const isSent = send.status === 'Sent';
+              const isScheduled = send.status === 'Scheduled' || send.status === 'Queued';
+              const isPending = send.status === 'Pending' || send.status === 'Draft ready';
+              const StatusIcon = isSent ? CheckCircle2 : isScheduled ? Circle : isPending ? Clock : null;
+              const iconColor = isSent
+                ? 'text-emerald-600'
+                : isScheduled
+                  ? 'text-orange-500'
+                  : isPending
+                    ? 'text-muted-foreground'
+                    : 'text-muted-foreground';
+              const statusColor = urgent
+                ? 'text-red-600 font-semibold'
+                : isSent
+                  ? 'text-emerald-700 font-medium'
+                  : isScheduled
+                    ? 'text-orange-600 font-medium'
+                    : 'text-muted-foreground';
+              return (
+                <div key={send.attempt} className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-2 py-1">
+                  <div className="font-medium whitespace-nowrap flex items-center gap-1.5">
+                    {StatusIcon && <StatusIcon className={`w-3.5 h-3.5 ${iconColor} ${isScheduled ? 'fill-orange-100' : ''}`} />}
+                    {send.label}
+                  </div>
+                  <div className="text-right min-w-0">
+                    <div className={statusColor}>{send.status}</div>
+                    <div className={urgent ? 'text-red-600 font-medium whitespace-nowrap' : 'text-muted-foreground whitespace-nowrap'}>{send.date ? fmtAny(send.date) : '—'}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </TableCell>
       <TableCell>
         <div className="flex flex-col items-start gap-1.5">
