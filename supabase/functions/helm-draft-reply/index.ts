@@ -208,23 +208,45 @@ Deno.serve(async (req) => {
   const greeting = `Hi ${senderFirst},`;
 
   // Strip greeting + signature out of base_draft so the LLM only reshapes the middle.
+  // IMPORTANT: this is used for both LLM reshape AND signature refresh. It MUST
+  // NEVER return an empty string when the input had a real message body, or the
+  // refresh_signature path will silently wipe the user's visible draft.
   function stripFrame(text: string): string {
-    let t = text;
+    const source = String(text ?? "");
+    let t = source;
     if (signatureBlock) {
       const idx = t.lastIndexOf(signatureBlock);
       if (idx >= 0) t = t.slice(0, idx).trimEnd();
     }
-    // Also strip any trailing generic sign-off the LLM (or a stale cached
-    // draft) may have inserted before we owned the signature. Match the
-    // sign-off word and greedily drop everything after it to end-of-text
-    // so older / shorter cached signatures are fully removed.
-    t = t.replace(
-      /\n\s*(Best regards|Best|Thanks|Thank you|Regards|Sincerely|Kind regards|Warm regards|Cheers)\s*,?[\s\S]*$/i,
-      "",
-    ).trimEnd();
-    // Drop leading "Hi <name>," greeting if present
+    // Try to strip a trailing generic sign-off block, but ONLY if that sign-off
+    // sits in the tail of the message (last ~40%). This prevents matching an
+    // in-body phrase like "Thanks for the update — here's what I found…" and
+    // deleting the rest of the message.
+    const signOffRe =
+      /\n\s*(Best regards|Best|Thanks|Thank you|Regards|Sincerely|Kind regards|Warm regards|Cheers)\s*,?[\s\S]*$/i;
+    const m = t.match(signOffRe);
+    if (m && typeof m.index === "number") {
+      const tailStart = Math.max(0, Math.floor(t.length * 0.6));
+      if (m.index >= tailStart) {
+        t = t.slice(0, m.index).trimEnd();
+      }
+    }
+    // Drop leading "Hi <name>," greeting if present.
     t = t.replace(/^\s*(hi|hello|hey|dear)\s+[^\n,]{1,40},?\s*\n+/i, "");
-    return t.trim();
+    const stripped = t.trim();
+
+    // Safety net: if we accidentally stripped the entire body but the caller
+    // clearly gave us a real message, keep the original text (only the exact
+    // signature block removed) so refresh_signature never returns an empty draft.
+    if (!stripped && source.trim().length > 0) {
+      let safe = source;
+      if (signatureBlock) {
+        const idx = safe.lastIndexOf(signatureBlock);
+        if (idx >= 0) safe = safe.slice(0, idx).trimEnd();
+      }
+      return safe.trim();
+    }
+    return stripped;
   }
 
   // Signature-only refresh path: reuse the existing draft body, strip any
@@ -232,6 +254,19 @@ Deno.serve(async (req) => {
   if (body.mode === "refresh_signature") {
     const existing = (body.base_draft ?? item.ai_draft ?? "").toString();
     const middle = stripFrame(existing);
+    // If we still couldn't extract a meaningful body, DO NOT persist an empty
+    // draft. Return the existing text untouched and just report the signature.
+    if (!middle) {
+      return json(200, {
+        ok: true,
+        draft: existing,
+        refreshed: false,
+        signature_html: master.html,
+        signature_text: master.text,
+        signature_enabled: master.enabled,
+        signature_len: signatureBlock.length,
+      });
+    }
     // Store body-only (no signature). The UI shows the signature separately
     // as a preview, and helm-send-reply appends the master signature at send.
     const rebuilt = `${greeting}\n\n${middle}`;
