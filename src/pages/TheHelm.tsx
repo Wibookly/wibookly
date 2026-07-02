@@ -3250,20 +3250,20 @@ function CalendarWeekGrid({
                       </button>
                     </div>
                   )}
-                  <div className="flex items-center gap-1 font-semibold text-foreground"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground">{duration}m</span></div>
-                  <p className="font-mono text-[11px] text-foreground">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <div className="flex items-center gap-1 font-semibold text-foreground text-[12px]"><Zap className="w-3 h-3" /> Focus block <span className="font-mono text-[10px] text-muted-foreground ml-auto mr-4">{duration}m</span></div>
+                  <p className="font-mono text-[11px] text-foreground mt-0.5">{fmtTimeShort(focus.start)} – {fmtTimeShort(focus.end)}</p>
+                  <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
                     {focus.state === 'free' && (
-                      <>
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         <button
                           type="button"
                           disabled={focusBusyDay === focus.day_key}
                           onClick={() => onFocusApprove?.(focus)}
-                          className="underline underline-offset-2 text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-60"
+                          className="underline underline-offset-2 text-emerald-500 hover:text-emerald-400 font-semibold disabled:opacity-60"
                         >
                           {focusBusyDay === focus.day_key ? 'Adding…' : 'Approve'}
                         </button>
-                        <span> to push to your calendar · </span>
+                        <span>·</span>
                         <button
                           type="button"
                           onClick={() => onFocusDismiss?.(focus)}
@@ -3271,7 +3271,7 @@ function CalendarWeekGrid({
                         >
                           Cancel
                         </button>
-                      </>
+                      </div>
                     )}
                     {focus.state === 'exists' && (
                       <>
