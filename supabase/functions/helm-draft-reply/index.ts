@@ -215,9 +215,11 @@ Deno.serve(async (req) => {
       if (idx >= 0) t = t.slice(0, idx).trimEnd();
     }
     // Also strip any trailing generic sign-off the LLM (or a stale cached
-    // draft) may have inserted before we owned the signature.
+    // draft) may have inserted before we owned the signature. Match the
+    // sign-off word and greedily drop everything after it to end-of-text
+    // so older / shorter cached signatures are fully removed.
     t = t.replace(
-      /\n\s*(Best regards|Best|Thanks|Thank you|Regards|Sincerely|Kind regards|Warm regards|Cheers)\s*,?\s*\n[\s\S]{0,200}$/i,
+      /\n\s*(Best regards|Best|Thanks|Thank you|Regards|Sincerely|Kind regards|Warm regards|Cheers)\s*,?[\s\S]*$/i,
       "",
     ).trimEnd();
     // Drop leading "Hi <name>," greeting if present
@@ -237,7 +239,7 @@ Deno.serve(async (req) => {
       .from("helm_items")
       .update({ ai_draft: rebuilt, updated_at: new Date().toISOString() })
       .eq("id", item.id);
-    return json(200, { ok: true, draft: rebuilt, refreshed: true });
+    return json(200, { ok: true, draft: rebuilt, refreshed: true, signature_len: signatureBlock.length });
   }
 
   // Per-chip directives so tone reshapes produce a visibly different draft.
