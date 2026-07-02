@@ -2857,11 +2857,12 @@ function FocusRulesCompact({
           <span className="text-[10px] text-muted-foreground">When</span>
           <select
             value={rule.focus_window}
-            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as 'morning' | 'afternoon' })}
-            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 capitalize"
+            onChange={(e) => onChange({ ...rule, focus_window: e.target.value as FocusWindow })}
+            className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5"
           >
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
+            {FOCUS_WINDOW_OPTIONS.map((w) => (
+              <option key={w.value} value={w.value}>{w.label}</option>
+            ))}
           </select>
         </div>
       </div>
