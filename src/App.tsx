@@ -45,6 +45,7 @@ import OrgAdmin from "./pages/OrgAdmin";
 import Knowledge from "./pages/Knowledge";
 import Help from "./pages/Help";
 import UserGuide from "./pages/UserGuide";
+import OAuthConsent from "./pages/OAuthConsent";
 import { PageErrorBoundary } from "@/components/app/PageErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/auth/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/microsoft-consent-complete" element={<MicrosoftConsentComplete />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />
