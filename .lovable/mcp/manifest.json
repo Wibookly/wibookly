@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://jbzctydskdpzrejvpwpn.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "inboxiq-mcp",
+      "version": "0.1.0",
+      "title": "InboxIQ"
+    },
+    "tools": [
+      {
+        "name": "whoami",
+        "title": "Who am I",
+        "description": "Return the signed-in InboxIQ user's id and email as seen by the MCP server.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_categories",
+        "title": "List email categories",
+        "description": "List the signed-in user's configured email categories.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_priority_emails",
+        "title": "List priority emails",
+        "description": "List the signed-in user's open priority items from their inbox (needs-reply, decisions, big-3).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 10,
+              "description": "Max items to return.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "tier": {
+              "default": "any",
+              "description": "Filter by priority tier.",
+              "type": "string",
+              "enum": [
+                "big3",
+                "decision",
+                "focus",
+                "auto",
+                "any"
+              ]
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
