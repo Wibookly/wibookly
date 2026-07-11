@@ -1,158 +1,88 @@
 import React, { useState, useEffect, useMemo } from "react";
-
-/**
- * ============================================================================
- * THE BRIEF  —  a NEW page under the Helm section of InboxIQ
- * ============================================================================
- * This does NOT replace your existing Helm page. It is a standalone page.
- *
- * HOW TO ADD IT IN LOVABLE (paste verbatim, do NOT let it redesign):
- *   1. Create a new file:  src/pages/TheBrief.tsx
- *   2. Paste this entire file into it, exactly as written.
- *   3. Add a route that sits under your Helm section, e.g.:
- *          <Route path="/helm/brief" element={<TheBrief />} />
- *      and a nav link labelled "The Brief" next to your existing Helm link.
- *   4. If using the Lovable chat, give it THIS instruction word for word:
- *      "Add this file exactly as written to src/pages/TheBrief.tsx and add a
- *       route /helm/brief under the Helm section. Do not restyle, refactor,
- *       rename, or redesign any of it. Implement it verbatim."
- *
- * WHY IT WON'T DRIFT: all styling lives in the injected <style> block below
- * with its own CSS variables — it does not depend on your Tailwind config or
- * app theme, so it renders identically everywhere.
- *
- * GOING LIVE: the ITEMS array is mock data so you can test the UI now. Replace
- * it with a Supabase fetch from your `helm_items` table (same object shape:
- * score, bucket, reasons, prepared, detail) and point the Send buttons at your
- * Graph sendMail edge function. Nothing in the layout changes.
- *
- * What it does: triage list -> tap any item -> dedicated focus page where the
- * AI acts (email reply w/ tone options, meeting agenda, task outreach draft).
- * ============================================================================
- */
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 
 const NOW = new Date();
 const fmtTime = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const relTime = (iso) => {
+  if (!iso) return "";
+  const diff = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (diff < 1) return "just now";
+  if (diff < 60) return `${Math.round(diff)}m ago`;
+  if (diff < 60 * 24) return `${Math.round(diff / 60)}h ago`;
+  return `${Math.round(diff / (60 * 24))}d ago`;
+};
+const ageDays = (iso) => {
+  if (!iso) return "";
+  const d = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 86400000));
+  return `${d}d`;
+};
 
-/* ---------------------------------------------------------------- DATA ---- */
-const ITEMS = [
-  {
-    id: "e1", kind: "email", bucket: "now", score: 94,
-    from: "Dustin Krpink", channel: "Direct email · 2h ago",
-    title: "Re: Anaheim C360i scanner rollout — need your call today",
-    why: "Dustin (VIP / senior lead) asked a direct question with a same-day deadline. You're the decision.",
-    reasons: ["VIP sender", "Direct question", "Due today", "You're the blocker"],
-    prepared: true,
-    detail: {
-      thread: [
-        { who: "Dustin Krpink", when: "Today, 8:12 AM", me: false,
-          body: "Ali — the two Anaheim C360i units are throwing empty-body errors again on scan-to-email. The field crew is asking whether we push the per-device SMTP usernames now or wait for the firmware update. I need a call today so I can tell them before they head out. Which way do you want to go?" },
-        { who: "You", when: "Yesterday, 5:40 PM", me: true,
-          body: "Thanks Dustin — I'll confirm the approach in the morning once I've checked the ACS relay logs." },
-      ],
-      replies: {
-        Direct: "Dustin — push the per-device SMTP usernames now (scanner-ana-1@ / scanner-ana-2@) through the ACS relay. That sidesteps the empty-body firmware bug. I'll deploy the config this afternoon and confirm once the first test scan lands. Tell the crew they're good to go.",
-        Warm: "Hey Dustin — appreciate you flagging this before the crew heads out. Let's go with the per-device SMTP usernames now (scanner-ana-1@ / scanner-ana-2@) on the ACS relay rather than waiting on firmware — it works around the empty-body bug cleanly. I'll push the config this afternoon and ping you the moment a test scan comes through.",
-        Brief: "Push the per-device SMTP usernames now (scanner-ana-1@ / scanner-ana-2@). I'll deploy this afternoon and confirm. Crew's clear to go.",
-        Detailed: "Dustin — go with the per-device SMTP usernames now rather than waiting on firmware. Set scanner-ana-1@ and scanner-ana-2@ as distinct senders on the ACS relay (smtp.azurecomm.net:587, STARTTLS/LOGIN). That isolates each unit and works around the C360i empty-body firmware bug that's tripping the 422s. I'll deploy and test this afternoon, watch the first scans in the ACS logs, and send you confirmation before end of day. Crew's clear to proceed.",
-      },
-    },
-  },
-  {
-    id: "m1", kind: "meeting", bucket: "now", score: 88,
-    from: "Field Team Sync", channel: `Starts ${fmtTime(new Date(NOW.getTime() + 90 * 60000))} · in 90 min`,
-    title: "Field team sync — 4 attendees",
-    why: "Starts in 90 minutes with no agenda. Two attendees emailed you about it this week.",
-    reasons: ["Imminent", "No agenda", "4 attendees"],
-    prepared: false,
-    detail: {
-      when: `Today ${fmtTime(new Date(NOW.getTime() + 90 * 60000))} – ${fmtTime(new Date(NOW.getTime() + 150 * 60000))}`,
-      attendees: ["Dustin Krpink", "Jon Varela", "Kari Taylor", "You"],
-      agenda: [
-        "Anaheim C360i scanner rollout — confirm per-device SMTP decision (from Dustin's thread)",
-        "RDP printer redirection — status after the .rdp fix (open w/ Jon)",
-        "Cloudflare Tunnel / port 7844 — where CLEAR stands",
-        "Field crew schedule for next week",
-      ],
-    },
-  },
-  {
-    id: "n1", kind: "task", bucket: "today", score: 61,
-    from: "Captured note", channel: "Aging · 3 days old",
-    title: "Follow up with CLEAR re: firewall port 7844 (Cloudflare Tunnel)",
-    why: "Open action item, no movement in 3 days. Blocks the 4STEL Clocking tunnel from coming online.",
-    reasons: ["Aging action", "Blocks a project"],
-    prepared: true,
-    detail: {
-      context: "The 4STEL Clocking Cloudflare Tunnel (UUID 627d7e1f…) is configured but blocked on outbound TCP/UDP 7844. CLEAR manages the SonicWall — they need to open 7844 to Cloudflare's CIDR ranges.",
-      replies: {
-        Direct: "Hi team — following up on the firewall change request. We need outbound TCP and UDP on port 7844 opened to Cloudflare's published CIDR ranges on both office SonicWalls. This is blocking our time-clock tunnel from coming online. Can you confirm when this can be done? — Ali",
-        Warm: "Hi team — hope you're well. Just circling back on the firewall request from a few days ago. We need outbound TCP + UDP 7844 opened to Cloudflare's CIDR ranges on both SonicWall TZ 670s — it's the last thing holding up our time-clock tunnel. Any idea on timing? Happy to jump on a quick call if it's easier. Thanks! — Ali",
-        Brief: "Following up — need outbound TCP/UDP 7844 to Cloudflare CIDRs opened on both SonicWalls. It's blocking our time-clock tunnel. When can this be done? — Ali",
-        Detailed: "Hi team — following up on the change request from earlier this week. To bring our 4STEL Clocking Cloudflare Tunnel online we need outbound TCP and UDP on port 7844 permitted to Cloudflare's published CIDR ranges, on the SonicWall TZ 670 at both Mission Viejo and Anaheim. Right now the tunnel connects locally but can't reach Cloudflare's edge, so the time-clock integration is stalled. Could you confirm the change window and let me know if you need the CIDR list from our side? Thanks — Ali",
-      },
-    },
-  },
-  {
-    id: "f1", kind: "email", bucket: "today", score: 55,
-    from: "Waiting on Jon Varela", channel: "You emailed 2 days ago · no reply",
-    title: "RDP printer redirection fix — did the .rdp change hold?",
-    why: "You're awaiting a reply. Two days of silence on a thread you flagged for follow-up.",
-    reasons: ["Awaiting reply", "You flagged it"],
-    prepared: true,
-    detail: {
-      thread: [
-        { who: "You", when: "2 days ago", me: true,
-          body: "Hi Jon — did dropping redirectprinters:i:0 into the shared .rdp files fix the printer redirection after the KB5094126 update? Want to confirm before I close the ticket." },
-      ],
-      replies: {
-        Direct: "Hi Jon — quick nudge on this. Did the redirectprinters:i:0 change fix the printer redirection? Want to close the ticket today if so.",
-        Warm: "Hey Jon — no rush, just a gentle nudge. Did the .rdp change sort out the printer redirection for everyone? Let me know and I'll wrap up the ticket.",
-        Brief: "Jon — did the .rdp fix work? Closing the ticket if so.",
-        Detailed: "Hi Jon — following up on the RDP printer redirection issue. After the KB5094126 update broke redirection, we pushed redirectprinters:i:0 into the shared .rdp files on S:\\PoliciesandProcedures\\RDP Files. Can you confirm printing is working again across the affected machines so I can close the ticket? If anyone's still seeing issues, let me know which machine.",
-      },
-    },
-  },
-  {
-    id: "e3", kind: "email", bucket: "today", score: 48,
-    from: "Charnette Sampson", channel: "Email · yesterday",
-    title: "VIPRE anti-spoofing settings — when you get a sec",
-    why: "Internal request, no deadline. Safe to batch with your other admin work today.",
-    reasons: ["Internal", "No deadline"],
-    prepared: false,
-    detail: {
-      thread: [
-        { who: "Charnette Sampson", when: "Yesterday", me: false,
-          body: "Hi Ali — a few people are still getting the 'POSSIBLE SPOOF / CAUTION' tag on internal emails. Is that something you can look at when you have a moment? Not urgent." },
-      ],
-      replies: {
-        Direct: "Hi Charnette — yes, that's the VIPRE anti-spoofing layer flagging internal senders. I'll adjust the Service Settings → Anti-Spoofing rules this week and let you know once it's cleared up.",
-        Warm: "Hi Charnette — thanks for flagging! That caution tag is coming from VIPRE's anti-spoofing check misreading our internal senders. I'll get into the Service Settings and tune it this week — I'll drop you a note when it's sorted.",
-        Brief: "It's VIPRE anti-spoofing flagging internal mail. I'll fix it in Service Settings this week and confirm.",
-        Detailed: "Hi Charnette — thanks for the heads up. The 'POSSIBLE SPOOF / CAUTION' banner is VIPRE's anti-spoofing engine flagging legitimate internal senders. The fix lives under Service Settings → Anti-Spoofing, where I can add our own domain/senders to the trusted list. I'll make the change this week, test with a couple of internal sends, and confirm once the tag stops appearing.",
-      },
-    },
-  },
-  {
-    id: "e4", kind: "email", bucket: "later", score: 22, autofiled: true,
-    from: "Microsoft 365 Service Health", channel: "Auto-filed · informational",
-    title: "Service health advisory — no action required",
-    why: "Informational, no human sender, no request. Auto-filed by rule — shown only for awareness.",
-    reasons: ["No-reply", "Informational"], prepared: false,
-    detail: { info: "Auto-handled. No draft generated. Newsletters, no-reply, and advisory mail are filed automatically and never surface in Needs You unless they reference something on your calendar." },
-  },
-];
+/* --- shape a helm_items row into the card + detail shape this page renders --- */
+function mapHelmItem(row) {
+  const payload = row.payload || {};
+  const score = Number(row.score) || 0;
+  const bucket = score >= 75 ? "now" : score >= 40 ? "today" : "later";
+  const kind = row.source === "meeting" ? "meeting" : row.source === "task" ? "task" : "email";
+  const received = payload.receivedDateTime || row.created_at;
+  const preview = (payload.bodyPreview || row.context || "").toString();
+  const draft = row.ai_draft || "";
+  const firstName = (row.sender_name || "there").split(" ")[0];
+  const replies = draft
+    ? {
+        Direct: draft,
+        Warm: `Hi ${firstName} — ${draft}`,
+        Brief: draft.length > 220 ? draft.slice(0, 220).trim() + "…" : draft,
+        Detailed: draft + "\n\nLet me know if you need any more detail — happy to walk through it.",
+      }
+    : null;
+  const reasons = [];
+  if (payload.isDirect) reasons.push("Direct to you");
+  if (payload.importance === "high") reasons.push("Marked important");
+  if (payload.flagStatus === "flagged") reasons.push("Flagged");
+  if (row.is_external) reasons.push("External sender");
+  if (row.tier === "overdue") reasons.push("Overdue");
+  if (draft) reasons.push("Draft ready");
+  if (reasons.length === 0) reasons.push(row.tier || "Open");
 
-const schedule = [
-  { time: "Now", label: "Focus block — clear the 3 priorities", tone: "now", live: true },
-  { time: fmtTime(new Date(NOW.getTime() + 90 * 60000)), label: "Field team sync", tone: "meeting", flag: "No agenda" },
-  { time: "2:00 PM", label: "InboxIQ demo — prospective client", tone: "meeting", flag: "No agenda" },
-  { time: "4:30 PM", label: "1:1 with Dustin", tone: "meeting" },
-];
-const waiting = [
-  { who: "Jon Varela", what: "RDP printer fix confirmation", age: "2d" },
-  { who: "CLEAR (firewall)", what: "Port 7844 outbound request", age: "3d" },
-];
+  return {
+    id: row.id,
+    kind,
+    bucket,
+    score: Math.round(score),
+    from: row.sender_name || row.sender_email || "Unknown sender",
+    channel: `${kind === "email" ? "Email" : kind === "meeting" ? "Meeting" : "Task"} · ${relTime(received)}`,
+    title: row.title || "(no subject)",
+    why: preview ? preview.replace(/\s+/g, " ").slice(0, 180) : "Open item on your Helm.",
+    reasons,
+    prepared: !!draft,
+    detail:
+      kind === "meeting"
+        ? {
+            when: received ? new Date(received).toLocaleString() : "",
+            attendees: (payload.attendees && payload.attendees.length ? payload.attendees : [row.sender_name || "You"]),
+            agenda:
+              (Array.isArray(payload.agenda) && payload.agenda.length && payload.agenda) ||
+              (draft ? draft.split(/\n+/).filter(Boolean).slice(0, 6) : ["Discuss " + (row.title || "meeting")]),
+          }
+        : kind === "task"
+        ? {
+            context: preview || row.title,
+            replies: replies || { Draft: "No AI draft yet for this task." },
+          }
+        : {
+            thread: [
+              {
+                who: row.sender_name || row.sender_email || "Sender",
+                when: received ? new Date(received).toLocaleString() : "",
+                me: false,
+                body: preview || "(no preview available)",
+              },
+            ],
+            replies: replies || { Draft: "No AI draft yet — open the message to compose one." },
+          },
+  };
+}
 
 /* --------------------------------------------------------------- STYLE ---- */
 const CSS = `
@@ -390,18 +320,97 @@ function TaskFocus({ item, onBack }) {
 
 /* ------------------------------------------------------ THE BRIEF PAGE ---- */
 export default function TheBrief() {
+  const { user } = useAuth();
   const [theme, setTheme] = useState("dark");
   const [openId, setOpenId] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [clock, setClock] = useState(NOW);
+  const [items, setItems] = useState([]);
+  const [schedule, setSchedule] = useState([]);
+  const [waiting, setWaiting] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshedAt, setRefreshedAt] = useState(new Date());
+
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t); }, []);
 
-  const sorted = useMemo(() => ITEMS.slice().sort((a, b) => b.score - a.score), []);
+  // Fetch real Helm items, today's calendar, and waiting-on threads
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+
+      const [helmRes, calRes, waitRes] = await Promise.all([
+        supabase
+          .from("helm_items")
+          .select("id,source,tier,score,title,context,sender_name,sender_email,is_external,ai_draft,payload,created_at,status")
+          .eq("user_id", user.id)
+          .eq("status", "open")
+          .order("score", { ascending: false })
+          .limit(25),
+        supabase.functions.invoke("calendar-events", {
+          body: { start_date: start.toISOString(), end_date: end.toISOString() },
+        }),
+        supabase
+          .from("follow_up_trackers")
+          .select("id,subject,to_recipients,sent_at,due_at,status")
+          .eq("user_id", user.id)
+          .in("status", ["awaiting_reply", "waiting", "pending"])
+          .order("sent_at", { ascending: true })
+          .limit(8),
+      ]);
+      if (cancelled) return;
+
+      const mapped = (helmRes.data || []).map(mapHelmItem);
+      setItems(mapped);
+
+      const evts = ((calRes.data && calRes.data.events) || []);
+      const now = Date.now();
+      const tl = evts.map((e) => {
+        const s = e.start && (e.start.dateTime || e.start);
+        const en = e.end && (e.end.dateTime || e.end);
+        const startMs = s ? new Date(s).getTime() : 0;
+        const endMs = en ? new Date(en).getTime() : 0;
+        const live = startMs <= now && endMs >= now;
+        const attendees = e.attendees || [];
+        return {
+          time: s ? fmtTime(new Date(s)) : "",
+          label: e.subject || e.title || "(untitled)",
+          tone: "meeting",
+          live,
+          flag: !e.body && attendees.length > 1 ? "No agenda" : undefined,
+        };
+      });
+      setSchedule(tl);
+
+      const w = (waitRes.data || []).map((r) => {
+        const to = Array.isArray(r.to_recipients) ? (r.to_recipients as any[]) : [];
+        const first: any = to[0] || {};
+        const who = first.name || first?.emailAddress?.name || first?.emailAddress?.address || first.address || "Recipient";
+        return { who, what: r.subject || "(no subject)", age: ageDays(r.sent_at) };
+      });
+      setWaiting(w);
+
+      setRefreshedAt(new Date());
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const sorted = useMemo(() => items.slice().sort((a, b) => b.score - a.score), [items]);
   const visible = showAll ? sorted : sorted.slice(0, 4);
-  const hidden = sorted.length - 4;
+  const hidden = Math.max(0, sorted.length - 4);
   const nowCount = sorted.filter((i) => i.bucket === "now").length;
+  const meetingCount = schedule.length;
+  const noAgendaCount = schedule.filter((s) => s.flag).length;
   const openItem = sorted.find((i) => i.id === openId);
   const greetWord = clock.getHours() < 12 ? "Good morning" : clock.getHours() < 18 ? "Good afternoon" : "Good evening";
+  const firstName = ((user?.user_metadata as any)?.full_name || user?.email || "there").toString().split(/[\s@]/)[0];
+
+  const topPrepared = sorted.find((i) => i.prepared && i.bucket === "now");
+  const topMeetingNoAgenda = schedule.find((s) => s.flag);
 
   return (
     <>
@@ -417,17 +426,20 @@ export default function TheBrief() {
           <div className="wrap">
             <div className="bridge">
               <div>
-                <div className="greeting display">{greetWord}, <span className="accent">Ali</span></div>
+                <div className="greeting display">{greetWord}, <span className="accent">{firstName}</span></div>
                 <div className="datemeta">
                   {clock.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · {fmtTime(clock)} · The Helm › The Brief
                 </div>
                 <div className="state">
-                  <b>{nowCount} things</b> need you before noon. <b>2 meetings</b> today, two without an agenda.
-                  <b> 1 thread</b> is waiting on your reply.
+                  <b>{nowCount} things</b> need you now. <b>{meetingCount} meeting{meetingCount === 1 ? "" : "s"}</b> today
+                  {noAgendaCount > 0 && <>, {noAgendaCount} without an agenda</>}.
+                  <b> {waiting.length} thread{waiting.length === 1 ? "" : "s"}</b> waiting on your reply.
                 </div>
               </div>
               <div className="controls">
-                <span className="pill"><span className="dot" />Brief updated 4 min ago</span>
+                <span className="pill"><span className="dot" />
+                  {loading ? "Loading…" : `Brief updated ${relTime(refreshedAt.toISOString())}`}
+                </span>
                 <button className="pill" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
                   {theme === "dark" ? "☾ Dark" : "☀ Light"}
                 </button>
@@ -439,15 +451,38 @@ export default function TheBrief() {
                 <div className="panel brief">
                   <div className="eyebrow">Your brief</div>
                   <div className="brief-body">
-                    Your day is front-loaded. <span className="hl">Dustin needs a call on the Anaheim scanner
-                    rollout</span> before your 11:00 — I've drafted your reply, tap it to review.
-                    <span className="soft"> Kari's invoice question can wait until after lunch.</span> Your
-                    2:00 demo has no agenda yet — worth two minutes now.
+                    {loading ? (
+                      <span className="soft">Reading your inbox and calendar…</span>
+                    ) : sorted.length === 0 && schedule.length === 0 ? (
+                      <span className="soft">Nothing on the Helm right now. Your day is clear.</span>
+                    ) : (
+                      <>
+                        {topPrepared ? (
+                          <>
+                            <span className="hl">{topPrepared.from} needs you on "{topPrepared.title}"</span> — I've drafted your reply, tap it to review.{" "}
+                          </>
+                        ) : sorted[0] ? (
+                          <>
+                            Top of your queue: <span className="hl">{sorted[0].title}</span> from {sorted[0].from}.{" "}
+                          </>
+                        ) : null}
+                        {topMeetingNoAgenda && (
+                          <span className="soft">Your {topMeetingNoAgenda.time} — {topMeetingNoAgenda.label} — has no agenda yet, worth two minutes now.</span>
+                        )}
+                        {!topMeetingNoAgenda && waiting[0] && (
+                          <span className="soft">You're still waiting on {waiting[0].who} ({waiting[0].age}) re: {waiting[0].what}.</span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 
                 <div className="panel">
                   <div className="eyebrow">Needs you <span className="count">{sorted.length} open</span></div>
+                  {loading && <div className="why" style={{ padding: 12 }}>Loading your Helm…</div>}
+                  {!loading && sorted.length === 0 && (
+                    <div className="why" style={{ padding: 12 }}>No open items. You're clear.</div>
+                  )}
                   {visible.map((it) => {
                     const meta = kindMeta[it.kind];
                     return (
@@ -484,6 +519,9 @@ export default function TheBrief() {
                 <div className="panel">
                   <div className="eyebrow">Today</div>
                   <div className="timeline">
+                    {schedule.length === 0 && !loading && (
+                      <div className="why" style={{ padding: 8 }}>No meetings today.</div>
+                    )}
                     {schedule.map((s, i) => (
                       <div className="tl" key={i}>
                         <span className={`tl-time ${s.live ? "live" : ""}`}>{s.time}</span>
@@ -496,6 +534,9 @@ export default function TheBrief() {
                 <div className="panel">
                   <div className="eyebrow">Waiting on you <span className="count">{waiting.length}</span></div>
                   <div style={{ marginTop: 10 }}>
+                    {waiting.length === 0 && !loading && (
+                      <div className="why">Nothing pending your reply.</div>
+                    )}
                     {waiting.map((w, i) => (
                       <div className="wait" key={i}>
                         <div><div className="wait-who">{w.who}</div><div className="wait-what">{w.what}</div></div>
