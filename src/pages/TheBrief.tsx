@@ -320,18 +320,97 @@ function TaskFocus({ item, onBack }) {
 
 /* ------------------------------------------------------ THE BRIEF PAGE ---- */
 export default function TheBrief() {
+  const { user } = useAuth();
   const [theme, setTheme] = useState("dark");
   const [openId, setOpenId] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [clock, setClock] = useState(NOW);
+  const [items, setItems] = useState([]);
+  const [schedule, setSchedule] = useState([]);
+  const [waiting, setWaiting] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshedAt, setRefreshedAt] = useState(new Date());
+
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t); }, []);
 
-  const sorted = useMemo(() => ITEMS.slice().sort((a, b) => b.score - a.score), []);
+  // Fetch real Helm items, today's calendar, and waiting-on threads
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+
+      const [helmRes, calRes, waitRes] = await Promise.all([
+        supabase
+          .from("helm_items")
+          .select("id,source,tier,score,title,context,sender_name,sender_email,is_external,ai_draft,payload,created_at,status")
+          .eq("user_id", user.id)
+          .eq("status", "open")
+          .order("score", { ascending: false })
+          .limit(25),
+        supabase.functions.invoke("calendar-events", {
+          body: { start_date: start.toISOString(), end_date: end.toISOString() },
+        }),
+        supabase
+          .from("follow_up_trackers")
+          .select("id,subject,to_recipients,sent_at,due_at,status")
+          .eq("user_id", user.id)
+          .in("status", ["awaiting_reply", "waiting", "pending"])
+          .order("sent_at", { ascending: true })
+          .limit(8),
+      ]);
+      if (cancelled) return;
+
+      const mapped = (helmRes.data || []).map(mapHelmItem);
+      setItems(mapped);
+
+      const evts = ((calRes.data && calRes.data.events) || []);
+      const now = Date.now();
+      const tl = evts.map((e) => {
+        const s = e.start && (e.start.dateTime || e.start);
+        const en = e.end && (e.end.dateTime || e.end);
+        const startMs = s ? new Date(s).getTime() : 0;
+        const endMs = en ? new Date(en).getTime() : 0;
+        const live = startMs <= now && endMs >= now;
+        const attendees = e.attendees || [];
+        return {
+          time: s ? fmtTime(new Date(s)) : "",
+          label: e.subject || e.title || "(untitled)",
+          tone: "meeting",
+          live,
+          flag: !e.body && attendees.length > 1 ? "No agenda" : undefined,
+        };
+      });
+      setSchedule(tl);
+
+      const w = (waitRes.data || []).map((r) => {
+        const to = Array.isArray(r.to_recipients) ? r.to_recipients : [];
+        const first = to[0] || {};
+        const who = first.name || first.emailAddress?.name || first.emailAddress?.address || first.address || "Recipient";
+        return { who, what: r.subject || "(no subject)", age: ageDays(r.sent_at) };
+      });
+      setWaiting(w);
+
+      setRefreshedAt(new Date());
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const sorted = useMemo(() => items.slice().sort((a, b) => b.score - a.score), [items]);
   const visible = showAll ? sorted : sorted.slice(0, 4);
-  const hidden = sorted.length - 4;
+  const hidden = Math.max(0, sorted.length - 4);
   const nowCount = sorted.filter((i) => i.bucket === "now").length;
+  const meetingCount = schedule.length;
+  const noAgendaCount = schedule.filter((s) => s.flag).length;
   const openItem = sorted.find((i) => i.id === openId);
   const greetWord = clock.getHours() < 12 ? "Good morning" : clock.getHours() < 18 ? "Good afternoon" : "Good evening";
+  const firstName = ((user?.user_metadata as any)?.full_name || user?.email || "there").toString().split(/[\s@]/)[0];
+
+  const topPrepared = sorted.find((i) => i.prepared && i.bucket === "now");
+  const topMeetingNoAgenda = schedule.find((s) => s.flag);
 
   return (
     <>
@@ -347,17 +426,20 @@ export default function TheBrief() {
           <div className="wrap">
             <div className="bridge">
               <div>
-                <div className="greeting display">{greetWord}, <span className="accent">Ali</span></div>
+                <div className="greeting display">{greetWord}, <span className="accent">{firstName}</span></div>
                 <div className="datemeta">
                   {clock.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · {fmtTime(clock)} · The Helm › The Brief
                 </div>
                 <div className="state">
-                  <b>{nowCount} things</b> need you before noon. <b>2 meetings</b> today, two without an agenda.
-                  <b> 1 thread</b> is waiting on your reply.
+                  <b>{nowCount} things</b> need you now. <b>{meetingCount} meeting{meetingCount === 1 ? "" : "s"}</b> today
+                  {noAgendaCount > 0 && <>, {noAgendaCount} without an agenda</>}.
+                  <b> {waiting.length} thread{waiting.length === 1 ? "" : "s"}</b> waiting on your reply.
                 </div>
               </div>
               <div className="controls">
-                <span className="pill"><span className="dot" />Brief updated 4 min ago</span>
+                <span className="pill"><span className="dot" />
+                  {loading ? "Loading…" : `Brief updated ${relTime(refreshedAt.toISOString())}`}
+                </span>
                 <button className="pill" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
                   {theme === "dark" ? "☾ Dark" : "☀ Light"}
                 </button>
@@ -369,15 +451,38 @@ export default function TheBrief() {
                 <div className="panel brief">
                   <div className="eyebrow">Your brief</div>
                   <div className="brief-body">
-                    Your day is front-loaded. <span className="hl">Dustin needs a call on the Anaheim scanner
-                    rollout</span> before your 11:00 — I've drafted your reply, tap it to review.
-                    <span className="soft"> Kari's invoice question can wait until after lunch.</span> Your
-                    2:00 demo has no agenda yet — worth two minutes now.
+                    {loading ? (
+                      <span className="soft">Reading your inbox and calendar…</span>
+                    ) : sorted.length === 0 && schedule.length === 0 ? (
+                      <span className="soft">Nothing on the Helm right now. Your day is clear.</span>
+                    ) : (
+                      <>
+                        {topPrepared ? (
+                          <>
+                            <span className="hl">{topPrepared.from} needs you on "{topPrepared.title}"</span> — I've drafted your reply, tap it to review.{" "}
+                          </>
+                        ) : sorted[0] ? (
+                          <>
+                            Top of your queue: <span className="hl">{sorted[0].title}</span> from {sorted[0].from}.{" "}
+                          </>
+                        ) : null}
+                        {topMeetingNoAgenda && (
+                          <span className="soft">Your {topMeetingNoAgenda.time} — {topMeetingNoAgenda.label} — has no agenda yet, worth two minutes now.</span>
+                        )}
+                        {!topMeetingNoAgenda && waiting[0] && (
+                          <span className="soft">You're still waiting on {waiting[0].who} ({waiting[0].age}) re: {waiting[0].what}.</span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 
                 <div className="panel">
                   <div className="eyebrow">Needs you <span className="count">{sorted.length} open</span></div>
+                  {loading && <div className="why" style={{ padding: 12 }}>Loading your Helm…</div>}
+                  {!loading && sorted.length === 0 && (
+                    <div className="why" style={{ padding: 12 }}>No open items. You're clear.</div>
+                  )}
                   {visible.map((it) => {
                     const meta = kindMeta[it.kind];
                     return (
@@ -414,6 +519,9 @@ export default function TheBrief() {
                 <div className="panel">
                   <div className="eyebrow">Today</div>
                   <div className="timeline">
+                    {schedule.length === 0 && !loading && (
+                      <div className="why" style={{ padding: 8 }}>No meetings today.</div>
+                    )}
                     {schedule.map((s, i) => (
                       <div className="tl" key={i}>
                         <span className={`tl-time ${s.live ? "live" : ""}`}>{s.time}</span>
@@ -426,6 +534,9 @@ export default function TheBrief() {
                 <div className="panel">
                   <div className="eyebrow">Waiting on you <span className="count">{waiting.length}</span></div>
                   <div style={{ marginTop: 10 }}>
+                    {waiting.length === 0 && !loading && (
+                      <div className="why">Nothing pending your reply.</div>
+                    )}
                     {waiting.map((w, i) => (
                       <div className="wait" key={i}>
                         <div><div className="wait-who">{w.who}</div><div className="wait-what">{w.what}</div></div>
