@@ -386,9 +386,9 @@ export default function TheBrief() {
       setSchedule(tl);
 
       const w = (waitRes.data || []).map((r) => {
-        const to = Array.isArray(r.to_recipients) ? r.to_recipients : [];
-        const first = to[0] || {};
-        const who = first.name || first.emailAddress?.name || first.emailAddress?.address || first.address || "Recipient";
+        const to = Array.isArray(r.to_recipients) ? (r.to_recipients as any[]) : [];
+        const first: any = to[0] || {};
+        const who = first.name || first?.emailAddress?.name || first?.emailAddress?.address || first.address || "Recipient";
         return { who, what: r.subject || "(no subject)", age: ageDays(r.sent_at) };
       });
       setWaiting(w);
