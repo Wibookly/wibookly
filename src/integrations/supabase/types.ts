@@ -1470,6 +1470,45 @@ export type Database = {
           },
         ]
       }
+      egnyte_connections: {
+        Row: {
+          created_at: string
+          egnyte_domain: string
+          egnyte_username: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token: string | null
+          expires_at: string | null
+          id: string
+          scope: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          egnyte_domain: string
+          egnyte_username?: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token?: string | null
+          expires_at?: string | null
+          id?: string
+          scope?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          egnyte_domain?: string
+          egnyte_username?: string | null
+          encrypted_access_token?: string
+          encrypted_refresh_token?: string | null
+          expires_at?: string | null
+          id?: string
+          scope?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_messages: {
         Row: {
           body_clean: string | null
@@ -4868,6 +4907,33 @@ export type Database = {
       }
     }
     Views: {
+      egnyte_connection_status: {
+        Row: {
+          created_at: string | null
+          egnyte_domain: string | null
+          egnyte_username: string | null
+          expires_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          egnyte_domain?: string | null
+          egnyte_username?: string | null
+          expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          egnyte_domain?: string | null
+          egnyte_username?: string | null
+          expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       oauth_token_status: {
         Row: {
           created_at: string | null
