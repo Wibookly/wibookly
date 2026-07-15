@@ -1,6 +1,6 @@
-// Egnyte OAuth authorization-code callback. Exchanges the code for tokens,
-// encrypts them with TOKEN_ENCRYPTION_KEY, and stores in egnyte_connections.
-// Redirects the user back to the app.
+// egnyte-oauth-callback
+// GET ?code=&state=  (public, no JWT — Egnyte redirects the user's browser here)
+// Exchanges code for tokens, encrypts, updates tenant_integrations, redirects to app.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encryptToken } from "../_shared/egnyte-crypto.ts";
@@ -8,7 +8,6 @@ import { encryptToken } from "../_shared/egnyte-crypto.ts";
 function htmlResponse(html: string, status = 200) {
   return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
-
 function errorPage(msg: string) {
   return htmlResponse(`<!doctype html><meta charset="utf-8"><title>Egnyte connection failed</title>
 <body style="font-family:system-ui;background:#0b0b12;color:#e5e7eb;padding:40px">
@@ -17,95 +16,114 @@ function errorPage(msg: string) {
 <p><a style="color:#60a5fa" href="/egnyte">Return to InboxIQ</a></p></body>`, 400);
 }
 
-function decodeState(state: string): { u: string; d: string; r: string } | null {
-  try {
-    const b64 = state.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-    return JSON.parse(atob(padded));
-  } catch { return null; }
-}
-
 serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     const oauthError = url.searchParams.get('error');
+    const oauthErrDesc = url.searchParams.get('error_description');
 
-    if (oauthError) return errorPage(`Egnyte returned an error: ${oauthError}`);
-    if (!code || !state) return errorPage('Missing code or state.');
-
-    const parsed = decodeState(state);
-    if (!parsed?.u || !parsed?.d) return errorPage('Invalid state.');
+    if (!state) return errorPage('Missing state.');
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const CLIENT_ID = Deno.env.get('EGNYTE_CLIENT_ID')?.trim();
     const CLIENT_SECRET = Deno.env.get('EGNYTE_CLIENT_SECRET')?.trim();
+    const REDIRECT_URI = Deno.env.get('EGNYTE_REDIRECT_URI')?.trim()
+      || `${SUPABASE_URL}/functions/v1/egnyte-oauth-callback`;
     const ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY');
     if (!CLIENT_ID || !CLIENT_SECRET || !ENC_KEY) return errorPage('Server is missing Egnyte credentials.');
 
-    const redirectUri = `${SUPABASE_URL}/functions/v1/egnyte-oauth-callback`;
-    const tokenResp = await fetch(`https://${parsed.d}/puboauth/token`, {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Consume state atomically
+    const { data: stRow } = await admin.from('oauth_states')
+      .select('*').eq('state', state).is('consumed_at', null).maybeSingle();
+    if (!stRow) return errorPage('This authorization link has expired or was already used. Please try connecting again.');
+    if (new Date(stRow.expires_at).getTime() < Date.now()) {
+      await admin.from('oauth_states').update({ consumed_at: new Date().toISOString() }).eq('state', state);
+      return errorPage('This authorization link has expired. Please try connecting again.');
+    }
+    await admin.from('oauth_states').update({ consumed_at: new Date().toISOString() }).eq('state', state);
+
+    const orgId = stRow.organization_id as string;
+    const subdomain = stRow.subdomain as string;
+    const returnPath: string = (stRow.return_path as string) || '/egnyte';
+
+    if (oauthError || !code) {
+      const msg = oauthErrDesc || oauthError || 'Missing authorization code.';
+      await admin.from('tenant_integrations').update({
+        status: 'error',
+        last_error: msg,
+        updated_at: new Date().toISOString(),
+      }).eq('organization_id', orgId).eq('integration_slug', 'egnyte');
+      return errorPage(`Egnyte returned an error: ${msg}`);
+    }
+
+    // Token exchange
+    const tokenResp = await fetch(`https://${subdomain}.egnyte.com/puboauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        grant_type: 'authorization_code',
+        redirect_uri: REDIRECT_URI,
         code,
-        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
       }),
     });
     if (!tokenResp.ok) {
       const t = await tokenResp.text();
       console.error('Egnyte token exchange failed', tokenResp.status, t);
-      return errorPage(`Token exchange failed (${tokenResp.status}): ${t.slice(0, 300)}`);
+      await admin.from('tenant_integrations').update({
+        status: 'error',
+        last_error: `Token exchange failed (${tokenResp.status}): ${t.slice(0, 300)}`,
+        updated_at: new Date().toISOString(),
+      }).eq('organization_id', orgId).eq('integration_slug', 'egnyte');
+      return errorPage(`Token exchange failed (${tokenResp.status}).`);
     }
     const tok = await tokenResp.json();
-    const accessToken: string = tok.access_token;
-    const refreshToken: string | undefined = tok.refresh_token;
-    const expiresIn: number = Number(tok.expires_in ?? 0);
-    const scope: string | undefined = tok.token_type ? String(tok.scope ?? 'Egnyte.filesystem') : undefined;
 
-    // Fetch username
-    let username: string | null = null;
+    // Optional userinfo
+    let connectedEmail: string | null = null;
     try {
-      const meResp = await fetch(`https://${parsed.d}/pubapi/v1/userinfo`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const meResp = await fetch(`https://${subdomain}.egnyte.com/pubapi/v1/userinfo`, {
+        headers: { Authorization: `Bearer ${tok.access_token}` },
       });
       if (meResp.ok) {
         const me = await meResp.json();
-        username = me?.username ?? me?.email ?? null;
+        connectedEmail = me?.email ?? me?.username ?? null;
       }
     } catch { /* non-fatal */ }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const encryptedAccess = await encryptToken(accessToken, ENC_KEY);
-    const encryptedRefresh = refreshToken ? await encryptToken(refreshToken, ENC_KEY) : null;
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null;
+    const accessEnc = await encryptToken(tok.access_token, ENC_KEY);
+    const refreshEnc = tok.refresh_token ? await encryptToken(tok.refresh_token, ENC_KEY) : null;
+    const expiresAt = tok.expires_in ? new Date(Date.now() + Number(tok.expires_in) * 1000).toISOString() : null;
 
-    const { error: upErr } = await admin.from('egnyte_connections').upsert({
-      user_id: parsed.u,
-      egnyte_domain: parsed.d,
-      egnyte_username: username,
-      encrypted_access_token: encryptedAccess,
-      encrypted_refresh_token: encryptedRefresh,
-      expires_at: expiresAt,
-      scope: scope ?? null,
+    const { error: upErr } = await admin.from('tenant_integrations').update({
+      access_token_enc: accessEnc,
+      refresh_token_enc: refreshEnc,
+      token_expires_at: expiresAt,
+      granted_scopes: stRow.requested_scopes ?? [],
+      status: 'connected',
+      enabled: true,
+      last_error: null,
+      connected_by: stRow.created_by,
+      connected_email: connectedEmail,
+      connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (upErr) { console.error('save egnyte conn failed', upErr); return errorPage('Could not save Egnyte connection.'); }
+    }).eq('organization_id', orgId).eq('integration_slug', 'egnyte');
+    if (upErr) { console.error('tenant_integrations update failed', upErr); return errorPage('Could not save Egnyte connection.'); }
 
-    const returnTo = parsed.r && parsed.r.startsWith('/') ? parsed.r : '/egnyte';
-    // Origin — we redirect via a tiny HTML page since the app origin isn't known here.
     return htmlResponse(`<!doctype html><meta charset="utf-8"><title>Egnyte connected</title>
 <script>
 (function(){
+  var target = ${JSON.stringify(returnPath)} + (${JSON.stringify(returnPath)}.indexOf('?')>-1 ? '&' : '?') + 'connected=egnyte';
   try {
     if (window.opener) { window.opener.postMessage({ type:'egnyte_connected' }, '*'); window.close(); return; }
   } catch(e){}
-  location.replace(${JSON.stringify(returnTo)} + '?egnyte=connected');
+  location.replace(target);
 })();
 </script>
 <body style="font-family:system-ui;background:#0b0b12;color:#e5e7eb;padding:40px">
