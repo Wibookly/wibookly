@@ -391,6 +391,8 @@ export default function Chat() {
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
+  const [egnyteSearch, setEgnyteSearch] = useState(false);
+
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
   const [locationEnabled, setLocationEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -584,6 +586,8 @@ export default function Chat() {
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
   const canChat = isSuperAdmin || hasFeature('ai_assistant');
   const canWebSearch = isSuperAdmin || hasFeature('ai_chat_web_search');
+  const canEgnyte = isSuperAdmin || hasFeature('egnyte_integration');
+
 
   // Sync url param to active id
   useEffect(() => {
