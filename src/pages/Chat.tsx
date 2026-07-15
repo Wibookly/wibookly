@@ -1759,6 +1759,23 @@ export default function Chat() {
                       {webSearch && <Check className="h-4 w-4 opacity-80" />}
                     </DropdownMenuItem>
                   )}
+                  {canEgnyte && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setEgnyteSearch((v) => {
+                          const next = !v;
+                          toast.success(next ? 'Egnyte search on — your Egnyte files will be searched' : 'Egnyte search off');
+                          return next;
+                        });
+                      }}
+                    >
+                      <FolderSearch className="h-4 w-4 mr-2" />
+                      <span className="flex-1">Egnyte search</span>
+                      {egnyteSearch && <Check className="h-4 w-4 opacity-80" />}
+                    </DropdownMenuItem>
+                  )}
+
                   <DropdownMenuItem
                     onSelect={(e) => {
                       e.preventDefault();
