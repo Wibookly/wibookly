@@ -16,7 +16,9 @@ export type FeatureKey =
   | 'teams_agent'
   | 'meeting_copilot'
   | 'email_intelligence'
+  | 'egnyte_integration'
   | 'feature.follow_up_reminder';
+
 
 const ALL_FEATURES: FeatureKey[] = [
   'ai_draft',
@@ -32,7 +34,9 @@ const ALL_FEATURES: FeatureKey[] = [
   'teams_agent',
   'meeting_copilot',
   'email_intelligence',
+  'egnyte_integration',
   'feature.follow_up_reminder',
+
 ];
 
 const SUPER_ADMIN_EMAIL = 'arahimi@energyforward.com';

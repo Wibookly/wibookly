@@ -29,7 +29,9 @@ const FEATURE_KEYS = [
   { key: 'email_agent', label: 'Email Agent' },
   { key: 'teams_agent', label: 'Teams Agent' },
   { key: 'feature.follow_up_reminder', label: 'Follow-Up Reminder' },
+  { key: 'egnyte_integration', label: 'Egnyte' },
 ] as const;
+
 
 const GLOBAL_GROUP_VALUE = '__global__';
 
