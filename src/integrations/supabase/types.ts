@@ -1470,45 +1470,6 @@ export type Database = {
           },
         ]
       }
-      egnyte_connections: {
-        Row: {
-          created_at: string
-          egnyte_domain: string
-          egnyte_username: string | null
-          encrypted_access_token: string
-          encrypted_refresh_token: string | null
-          expires_at: string | null
-          id: string
-          scope: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          egnyte_domain: string
-          egnyte_username?: string | null
-          encrypted_access_token: string
-          encrypted_refresh_token?: string | null
-          expires_at?: string | null
-          id?: string
-          scope?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          egnyte_domain?: string
-          egnyte_username?: string | null
-          encrypted_access_token?: string
-          encrypted_refresh_token?: string | null
-          expires_at?: string | null
-          id?: string
-          scope?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       email_messages: {
         Row: {
           body_clean: string | null
@@ -2638,6 +2599,60 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_definitions: {
+        Row: {
+          auth_type: string
+          available_scopes: Json
+          category: string | null
+          created_at: string
+          default_scopes: Json
+          description: string | null
+          display_name: string
+          docs_url: string | null
+          icon_url: string | null
+          id: string
+          is_active: boolean
+          requires_subdomain: boolean
+          slug: string
+          subdomain_label: string | null
+          subdomain_suffix: string | null
+        }
+        Insert: {
+          auth_type: string
+          available_scopes?: Json
+          category?: string | null
+          created_at?: string
+          default_scopes?: Json
+          description?: string | null
+          display_name: string
+          docs_url?: string | null
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          requires_subdomain?: boolean
+          slug: string
+          subdomain_label?: string | null
+          subdomain_suffix?: string | null
+        }
+        Update: {
+          auth_type?: string
+          available_scopes?: Json
+          category?: string | null
+          created_at?: string
+          default_scopes?: Json
+          description?: string | null
+          display_name?: string
+          docs_url?: string | null
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          requires_subdomain?: boolean
+          slug?: string
+          subdomain_label?: string | null
+          subdomain_suffix?: string | null
+        }
+        Relationships: []
+      }
       integration_health: {
         Row: {
           id: string
@@ -3406,6 +3421,60 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "meeting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oauth_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          integration_slug: string
+          organization_id: string
+          requested_scopes: Json
+          return_path: string | null
+          state: string
+          subdomain: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          integration_slug: string
+          organization_id: string
+          requested_scopes?: Json
+          return_path?: string | null
+          state: string
+          subdomain: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          integration_slug?: string
+          organization_id?: string
+          requested_scopes?: Json
+          return_path?: string | null
+          state?: string
+          subdomain?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_states_integration_slug_fkey"
+            columns: ["integration_slug"]
+            isOneToOne: false
+            referencedRelation: "integration_definitions"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "oauth_states_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4308,6 +4377,84 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_integrations: {
+        Row: {
+          access_token_enc: string | null
+          connected_at: string | null
+          connected_by: string | null
+          connected_email: string | null
+          created_at: string
+          enabled: boolean
+          feature_flags: Json
+          granted_scopes: Json
+          id: string
+          integration_slug: string
+          last_error: string | null
+          last_synced_at: string | null
+          organization_id: string
+          refresh_token_enc: string | null
+          status: string
+          subdomain: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_enc?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          connected_email?: string | null
+          created_at?: string
+          enabled?: boolean
+          feature_flags?: Json
+          granted_scopes?: Json
+          id?: string
+          integration_slug: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id: string
+          refresh_token_enc?: string | null
+          status?: string
+          subdomain?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_enc?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          connected_email?: string | null
+          created_at?: string
+          enabled?: boolean
+          feature_flags?: Json
+          granted_scopes?: Json
+          id?: string
+          integration_slug?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id?: string
+          refresh_token_enc?: string | null
+          status?: string
+          subdomain?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_integration_slug_fkey"
+            columns: ["integration_slug"]
+            isOneToOne: false
+            referencedRelation: "integration_definitions"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "tenant_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_diagnostics: {
         Row: {
           connection_id: string | null
@@ -4907,33 +5054,6 @@ export type Database = {
       }
     }
     Views: {
-      egnyte_connection_status: {
-        Row: {
-          created_at: string | null
-          egnyte_domain: string | null
-          egnyte_username: string | null
-          expires_at: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          egnyte_domain?: string | null
-          egnyte_username?: string | null
-          expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          egnyte_domain?: string | null
-          egnyte_username?: string | null
-          expires_at?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       oauth_token_status: {
         Row: {
           created_at: string | null
@@ -4968,6 +5088,78 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "oauth_token_vault_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_integrations_safe: {
+        Row: {
+          connected_at: string | null
+          connected_by: string | null
+          connected_email: string | null
+          created_at: string | null
+          enabled: boolean | null
+          feature_flags: Json | null
+          granted_scopes: Json | null
+          id: string | null
+          integration_slug: string | null
+          last_error: string | null
+          last_synced_at: string | null
+          organization_id: string | null
+          status: string | null
+          subdomain: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          connected_at?: string | null
+          connected_by?: string | null
+          connected_email?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          feature_flags?: Json | null
+          granted_scopes?: Json | null
+          id?: string | null
+          integration_slug?: string | null
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id?: string | null
+          status?: string | null
+          subdomain?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          connected_at?: string | null
+          connected_by?: string | null
+          connected_email?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          feature_flags?: Json | null
+          granted_scopes?: Json | null
+          id?: string | null
+          integration_slug?: string | null
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id?: string | null
+          status?: string | null
+          subdomain?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_integration_slug_fkey"
+            columns: ["integration_slug"]
+            isOneToOne: false
+            referencedRelation: "integration_definitions"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "tenant_integrations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

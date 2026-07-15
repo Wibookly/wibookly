@@ -65,6 +65,9 @@ project_id = "jbzctydskdpzrejvpwpn"
     verify_jwt = false
   [functions.egnyte-oauth-callback]
     verify_jwt = false
+  [functions.egnyte-token-refresh]
+    verify_jwt = false
+
 
 
 
