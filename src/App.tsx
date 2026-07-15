@@ -25,6 +25,8 @@ import TheHelmCalendar from "./pages/TheHelmCalendar";
 import Home from "./pages/Home";
 import Brief from "./pages/Brief";
 import TheBrief from "./pages/TheBrief";
+import Egnyte from "./pages/Egnyte";
+
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
 import MeetingSessionDetail from "./pages/MeetingSessionDetail";
@@ -83,6 +85,8 @@ const App = () => (
                   <Route path="/home" element={<Home />} />
                   <Route path="/brief" element={<Brief />} />
                   <Route path="/helm/brief" element={<TheBrief />} />
+                  <Route path="/egnyte" element={<Egnyte />} />
+
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />
                   <Route path="/integrations" element={<Integrations />} />
