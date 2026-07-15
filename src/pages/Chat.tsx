@@ -12,7 +12,7 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare, Pencil,
+  MessageSquare, Pencil, FolderSearch,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
@@ -391,6 +391,8 @@ export default function Chat() {
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' });
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
+  const [egnyteSearch, setEgnyteSearch] = useState(false);
+
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
   const [locationEnabled, setLocationEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -584,6 +586,8 @@ export default function Chat() {
   const isSuperAdmin = profile?.email?.toLowerCase() === 'arahimi@energyforward.com';
   const canChat = isSuperAdmin || hasFeature('ai_assistant');
   const canWebSearch = isSuperAdmin || hasFeature('ai_chat_web_search');
+  const canEgnyte = isSuperAdmin || hasFeature('egnyte_integration');
+
 
   // Sync url param to active id
   useEffect(() => {
@@ -1155,6 +1159,25 @@ export default function Chat() {
         setAutoBadges(usedAuto);
       }
 
+      // If Egnyte search is toggled on, query Egnyte and prepend results as context.
+      let messageText = text;
+      if (canEgnyte && egnyteSearch) {
+        try {
+          const { data: eg } = await supabase.functions.invoke('egnyte-search', {
+            body: { query: text, count: 15 },
+          });
+          const results = (eg?.results ?? []) as Array<{ name: string | null; path: string | null; modified: string | null; url: string | null }>;
+          if (results.length) {
+            const lines = results.map((r, i) => `${i + 1}. ${r.name ?? r.path} — ${r.path}${r.modified ? ` (modified ${r.modified})` : ''}`).join('\n');
+            messageText = `[Egnyte search results for "${text}" from ${eg.domain}]\n${lines}\n\nUser question: ${text}`;
+          } else if (eg?.error) {
+            toast.error(`Egnyte: ${eg.error}`);
+          }
+        } catch (e) {
+          console.warn('Egnyte search failed', e);
+        }
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -1163,7 +1186,8 @@ export default function Chat() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
-          message: text,
+          message: messageText,
+
           conversation_id: startingConvId,
           connectionId: activeConnection?.id,
           folder_id: startingConvId ? undefined : activeFolderId,
@@ -1735,6 +1759,23 @@ export default function Chat() {
                       {webSearch && <Check className="h-4 w-4 opacity-80" />}
                     </DropdownMenuItem>
                   )}
+                  {canEgnyte && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setEgnyteSearch((v) => {
+                          const next = !v;
+                          toast.success(next ? 'Egnyte search on — your Egnyte files will be searched' : 'Egnyte search off');
+                          return next;
+                        });
+                      }}
+                    >
+                      <FolderSearch className="h-4 w-4 mr-2" />
+                      <span className="flex-1">Egnyte search</span>
+                      {egnyteSearch && <Check className="h-4 w-4 opacity-80" />}
+                    </DropdownMenuItem>
+                  )}
+
                   <DropdownMenuItem
                     onSelect={(e) => {
                       e.preventDefault();

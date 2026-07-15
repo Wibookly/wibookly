@@ -299,7 +299,11 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* Account Provisioning */}
               <NavSection title="Provisioning" icon={UserPlus} accent={accents.cyan} defaultOpen>
                 <NavItem href="/integrations" emoji="🔗" accent={accents.cyan}>Email &amp; Calendar</NavItem>
+                {(isSuperAdmin || hasFeature('egnyte_integration')) && (
+                  <NavItem href="/egnyte" emoji="🗂️" accent={accents.cyan}>Egnyte</NavItem>
+                )}
               </NavSection>
+
 
               {/* The Helm */}
               {!featureLoading && (isSuperAdmin || hasFeature('daily_brief')) && (
