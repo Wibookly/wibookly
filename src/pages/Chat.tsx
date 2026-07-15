@@ -12,7 +12,7 @@ import {
   MoreVertical, Download, FileSpreadsheet, AlertTriangle, Globe,
   Folder, FolderPlus, ChevronRight, ChevronDown, FolderInput, Check,
   Sparkles, Volume2, VolumeX, Mic, MapPin, MapPinOff, Wand2, Cloud, Square,
-  MessageSquare, Pencil,
+  MessageSquare, Pencil, FolderSearch,
 } from 'lucide-react';
 import { PageHero } from '@/components/app/PageHero';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
