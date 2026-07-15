@@ -1159,6 +1159,25 @@ export default function Chat() {
         setAutoBadges(usedAuto);
       }
 
+      // If Egnyte search is toggled on, query Egnyte and prepend results as context.
+      let messageText = text;
+      if (canEgnyte && egnyteSearch) {
+        try {
+          const { data: eg } = await supabase.functions.invoke('egnyte-search', {
+            body: { query: text, count: 15 },
+          });
+          const results = (eg?.results ?? []) as Array<{ name: string | null; path: string | null; modified: string | null; url: string | null }>;
+          if (results.length) {
+            const lines = results.map((r, i) => `${i + 1}. ${r.name ?? r.path} — ${r.path}${r.modified ? ` (modified ${r.modified})` : ''}`).join('\n');
+            messageText = `[Egnyte search results for "${text}" from ${eg.domain}]\n${lines}\n\nUser question: ${text}`;
+          } else if (eg?.error) {
+            toast.error(`Egnyte: ${eg.error}`);
+          }
+        } catch (e) {
+          console.warn('Egnyte search failed', e);
+        }
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
@@ -1167,7 +1186,8 @@ export default function Chat() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
-          message: text,
+          message: messageText,
+
           conversation_id: startingConvId,
           connectionId: activeConnection?.id,
           folder_id: startingConvId ? undefined : activeFolderId,
