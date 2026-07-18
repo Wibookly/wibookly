@@ -13,6 +13,8 @@ export const FEATURE_KEYS = {
   POWERPOINTS: 'powerpoints',
   EXCEL: 'excel',
   FILE_READING: 'file_reading',
+  EGNYTE_INTEGRATION: 'egnyte_integration',
+  UNANET_INTEGRATION: 'unanet_integration',
 } as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[keyof typeof FEATURE_KEYS];
