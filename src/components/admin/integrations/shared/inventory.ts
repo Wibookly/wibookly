@@ -413,7 +413,7 @@ const unanet: Provider = {
   subs: [
     { id: 'unanet-api', name: 'Unanet API', icon: 'Network', description: 'Projects, timesheets, resources.',
       settingsKind: 'generic', auditSource: { kind: 'none', note: 'API calls logged via edge function only.' },
-      calledBy: ['unanet-search', 'unanet-probe'] },
+      calledBy: ['unanet-status', 'unanet-connect', 'unanet-probe', 'unanet-sync', 'unanet-search'] },
   ],
 };
 

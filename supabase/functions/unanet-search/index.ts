@@ -1,72 +1,66 @@
-// unanet-search  (authenticated)
-// Returns Unanet context for AI Chat and dashboard summaries.
-// This is a scaffold that safely no-ops when Unanet is not connected.
+// unanet-search — LIVE, narrow lookups for AI Chat.
+// Only endpoints in the shared client's read allowlist are reachable; anything
+// else raises UnanetSecurityError and is logged as an anomaly.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { decryptToken } from '../_shared/egnyte-crypto.ts';
+import {
+  CORS_HEADERS, adminClient, requireSession, enforceGates, handleError, json,
+  getUnanetClientForOrg,
+} from '../_shared/unanet.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const KIND_MAP: Record<string, { path: string; buildBody: (q: string) => Record<string, unknown> }> = {
+  projects: { path: '/platform/projects/search', buildBody: (q) => ({ nameContains: q }) },
+  timesheets: { path: '/platform/timesheets/search', buildBody: (q) => ({ notesContains: q }) },
+  invoices: { path: '/platform/invoices/search', buildBody: (q) => ({ numberContains: q }) },
+  employees: { path: '/platform/employees/search', buildBody: (q) => ({ nameContains: q }) },
+  customers: { path: '/platform/customers/search', buildBody: (q) => ({ nameContains: q }) },
 };
-const json = (b: unknown, s = 200) =>
-  new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
+  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const ENC_KEY = Deno.env.get('TOKEN_ENCRYPTION_KEY');
-
-    const authHeader = req.headers.get('authorization') || '';
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
-    const { data: u } = await userClient.auth.getUser(authHeader.replace(/^Bearer\s+/i, ''));
-    const userId = u?.user?.id;
-    if (!userId) return json({ error: 'unauthorized' }, 401);
-
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const { data: profile } = await admin.from('user_profiles').select('organization_id').eq('user_id', userId).maybeSingle();
-    if (!profile?.organization_id) return json({ error: 'No organization', results: [] }, 200);
-
-    const { data: row } = await admin
-      .from('tenant_integrations')
-      .select('subdomain, connected_email, access_token_enc, status')
-      .eq('organization_id', profile.organization_id)
-      .eq('integration_slug', 'unanet')
-      .maybeSingle();
-
-    if (!row?.subdomain || !row?.access_token_enc || !ENC_KEY) {
-      return json({ error: 'Unanet is not connected for your organization', results: [], summary: null });
-    }
+    const session = await requireSession(req);
+    const admin = adminClient();
+    await enforceGates(admin, session);
 
     const body = await req.json().catch(() => ({}));
-    const kind = String(body?.kind ?? 'search');
     const query = String(body?.query ?? '').trim();
+    const kind = String(body?.kind ?? 'projects');
     const count = Math.min(50, Math.max(1, Number(body?.count ?? 10)));
 
-    // Note: real Unanet REST endpoints vary by tenant/module. We build the
-    // authorization header here so downstream implementations can call the
-    // customer's cloud URL directly without redoing token handling.
-    const _apiKey = await decryptToken(row.access_token_enc, ENC_KEY);
-    const domain = row.subdomain;
-
     if (kind === 'dashboard_summary') {
-      // Scaffold: return null summary so the UI shows "—" placeholders until
-      // per-tenant endpoints are wired.
-      return json({ summary: null, domain });
+      // Summarise from our synced records; do NOT hit Unanet on page load.
+      const { data: rows } = await admin
+        .from('unanet_records')
+        .select('record_type, business_date')
+        .eq('organization_id', session.organizationId);
+      const summary = {
+        active_projects: rows?.filter((r) => r.record_type === 'project').length ?? 0,
+        open_timesheets: rows?.filter((r) => r.record_type === 'timesheet').length ?? 0,
+        pending_approvals: 0, // to be refined once approval endpoints are surfaced
+        utilization_pct: null as number | null,
+      };
+      return json({ summary });
     }
 
-    // Default: search scaffold — returns empty results with metadata so the
-    // AI Chat toggle degrades gracefully.
-    return json({
-      domain,
-      query,
-      count,
-      results: [] as Array<{ title: string; snippet: string; url?: string }>,
-    });
+    const spec = KIND_MAP[kind];
+    if (!spec) return json({ error: `unknown kind: ${kind}`, results: [] }, 400);
+    if (!query) return json({ results: [] });
+
+    const client = await getUnanetClientForOrg(admin, session.organizationId);
+    const resp = await client.post(spec.path, { ...spec.buildBody(query), offset: 0, limit: count });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      return json({ error: `Unanet ${spec.path} HTTP ${resp.status}: ${text.slice(0, 200)}`, results: [] }, resp.status);
+    }
+    const j = await resp.json().catch(() => ({} as any));
+    const results = (j?.results ?? []).slice(0, count).map((r: any) => ({
+      title: r?.name ?? r?.number ?? r?.id ?? '(unnamed)',
+      snippet: [r?.description, r?.status, r?.customer?.name].filter(Boolean).join(' — '),
+    }));
+    return json({ kind, query, count, results, domain: client.baseUrl });
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : 'Unknown error', results: [] }, 500);
+    return handleError(e);
   }
 });

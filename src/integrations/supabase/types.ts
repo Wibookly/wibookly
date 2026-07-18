@@ -4581,6 +4581,165 @@ export type Database = {
         }
         Relationships: []
       }
+      unanet_connections: {
+        Row: {
+          access_rights_snapshot: Json
+          api_key_ciphertext: string
+          api_key_key_id: string
+          base_url: string
+          created_at: string
+          created_by: string | null
+          database_name: string
+          id: string
+          last_error: string | null
+          last_verified_at: string | null
+          login_mode: string | null
+          organization_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_rights_snapshot?: Json
+          api_key_ciphertext: string
+          api_key_key_id?: string
+          base_url: string
+          created_at?: string
+          created_by?: string | null
+          database_name: string
+          id?: string
+          last_error?: string | null
+          last_verified_at?: string | null
+          login_mode?: string | null
+          organization_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_rights_snapshot?: Json
+          api_key_ciphertext?: string
+          api_key_key_id?: string
+          base_url?: string
+          created_at?: string
+          created_by?: string | null
+          database_name?: string
+          id?: string
+          last_error?: string | null
+          last_verified_at?: string | null
+          login_mode?: string | null
+          organization_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unanet_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unanet_records: {
+        Row: {
+          business_date: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          payload: Json
+          record_type: string
+          synced_at: string
+          unanet_id: string
+          updated_at: string
+        }
+        Insert: {
+          business_date?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          payload?: Json
+          record_type: string
+          synced_at?: string
+          unanet_id: string
+          updated_at?: string
+        }
+        Update: {
+          business_date?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          payload?: Json
+          record_type?: string
+          synced_at?: string
+          unanet_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unanet_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unanet_sync_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          organization_id: string
+          records_capped: boolean
+          records_upserted: number
+          started_at: string
+          status: string
+          triggered_by: string
+          updated_at: string
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id: string
+          records_capped?: boolean
+          records_upserted?: number
+          started_at?: string
+          status?: string
+          triggered_by?: string
+          updated_at?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string
+          records_capped?: boolean
+          records_upserted?: number
+          started_at?: string
+          status?: string
+          triggered_by?: string
+          updated_at?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unanet_sync_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_ai_profiles: {
         Row: {
           communication_style: string | null
@@ -5631,6 +5790,7 @@ export type Database = {
         Args: { _role: string; _target_user: string }
         Returns: undefined
       }
+      org_has_unanet_feature: { Args: { _org_id: string }; Returns: boolean }
       pause_followups_without_permission: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
