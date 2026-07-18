@@ -76,6 +76,8 @@ const App = () => (
                 {/* Backwards-compatible redirects */}
                 <Route path="/dashboard" element={<Navigate to="/integrations" replace />} />
                 <Route path="/pricing" element={<Navigate to="/auth" replace />} />
+                {/* Full-bleed (no AppLayout sidebar) */}
+                <Route path="/unanet" element={<UnanetDashboard />} />
                 {/* Protected app routes */}
                 <Route element={
                   <PageErrorBoundary label="AppLayout">
@@ -87,7 +89,7 @@ const App = () => (
                   <Route path="/brief" element={<Brief />} />
                   <Route path="/helm/brief" element={<TheBrief />} />
                   <Route path="/egnyte" element={<Egnyte />} />
-                  <Route path="/unanet" element={<UnanetDashboard />} />
+
 
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />
