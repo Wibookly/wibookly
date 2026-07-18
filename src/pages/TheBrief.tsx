@@ -381,6 +381,7 @@ export default function TheBrief() {
           tone: "meeting",
           live,
           flag: !e.body && attendees.length > 1 ? "No agenda" : undefined,
+          webLink: e.webLink || e.web_link || "",
         };
       });
       setSchedule(tl);
@@ -517,17 +518,34 @@ export default function TheBrief() {
 
               <div>
                 <div className="panel">
-                  <div className="eyebrow">Today</div>
+                  <div className="eyebrow" style={{ justifyContent: "space-between" }}>
+                    <span>Today <span className="count">{schedule.length}</span></span>
+                    <a
+                      href="https://outlook.office.com/calendar/view/day"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: 11, letterSpacing: ".5px", color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}
+                    >
+                      Open Outlook ↗
+                    </a>
+                  </div>
                   <div className="timeline">
                     {schedule.length === 0 && !loading && (
                       <div className="why" style={{ padding: 8 }}>No meetings today.</div>
                     )}
                     {schedule.map((s, i) => (
-                      <div className="tl" key={i}>
+                      <a
+                        className="tl"
+                        key={i}
+                        href={s.webLink || "https://outlook.office.com/calendar/view/day"}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+                      >
                         <span className={`tl-time ${s.live ? "live" : ""}`}>{s.time}</span>
                         <span className={`tl-mark ${s.live ? "live" : ""}`} />
                         <div><div className="tl-label">{s.label}</div>{s.flag && <div className="tl-flag">⚑ {s.flag}</div>}</div>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </div>
