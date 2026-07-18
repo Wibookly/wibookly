@@ -132,8 +132,8 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
   };
 
   const doConnect = async () => {
-    if (!probed?.ok) {
-      toast.error('Verify the instance first.');
+    if (!cloudUrl.trim() || !database.trim()) {
+      toast.error('Cloud URL and database are required.');
       return;
     }
     if (!apiKey || apiKey.trim().length < 8) {
@@ -266,10 +266,10 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
                   <Input
                     className="mt-1"
                     type="password"
-                    placeholder={probed?.ok ? 'Paste Unanet API key' : 'Verify instance first…'}
+                    autoComplete="new-password"
+                    placeholder="Paste Unanet API key"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    disabled={!probed?.ok}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     The key is verified against your Unanet instance, encrypted server-side, and never sent back to the browser.
@@ -299,7 +299,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
                     {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
                     Verify instance
                   </Button>
-                  <Button size="sm" onClick={doConnect} disabled={connecting || !probed?.ok}>
+                  <Button size="sm" onClick={doConnect} disabled={connecting}>
                     {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plug className="h-3.5 w-3.5 mr-1" />}
                     Connect
                   </Button>
