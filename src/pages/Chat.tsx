@@ -1180,6 +1180,23 @@ export default function Chat() {
         }
       }
 
+      if (canUnanet && unanetSearch) {
+        try {
+          const { data: un } = await supabase.functions.invoke('unanet-search', {
+            body: { query: text, count: 10 },
+          });
+          const results = (un?.results ?? []) as Array<{ title?: string; snippet?: string; url?: string }>;
+          if (results.length) {
+            const lines = results.map((r, i) => `${i + 1}. ${r.title ?? '(untitled)'} — ${r.snippet ?? ''}`).join('\n');
+            messageText = `[Unanet context for "${text}"]\n${lines}\n\n${messageText === text ? `User question: ${text}` : messageText}`;
+          } else if (un?.error) {
+            toast.error(`Unanet: ${un.error}`);
+          }
+        } catch (e) {
+          console.warn('Unanet search failed', e);
+        }
+      }
+
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
