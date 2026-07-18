@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Printer, RefreshCw, X } from 'lucide-react';
+import { Printer, RefreshCw } from 'lucide-react';
 import FinanceChatDock from '@/components/finance/FinanceChatDock';
 
 /**
@@ -546,7 +545,6 @@ function UtilizationView() {
 }
 
 export default function UnanetDashboard() {
-  const navigate = useNavigate();
   const [view, setView] = useState<ViewId>('exec');
   const [period, setPeriod] = useState<Period>('month');
   const [client, setClient] = useState('All clients');
@@ -583,14 +581,6 @@ export default function UnanetDashboard() {
             <TopBarButton onClick={() => window.location.reload()}><RefreshCw className="h-3.5 w-3.5" /> Refresh</TopBarButton>
             <TopBarButton onClick={() => window.print()}><Printer className="h-3.5 w-3.5" /> Print</TopBarButton>
             <LiveSyncPill />
-            <button
-              onClick={() => navigate('/home')}
-              className="p-1.5 rounded-lg hover:bg-white/5 ml-2"
-              style={{ color: T.muted }}
-              title="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
