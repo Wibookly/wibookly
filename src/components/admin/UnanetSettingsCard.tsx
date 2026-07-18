@@ -299,7 +299,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
                     {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
                     Verify instance
                   </Button>
-                  <Button size="sm" onClick={doConnect} disabled={connecting || !probed?.ok}>
+                  <Button size="sm" onClick={doConnect} disabled={connecting}>
                     {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plug className="h-3.5 w-3.5 mr-1" />}
                     Connect
                   </Button>
