@@ -26,6 +26,7 @@ import Home from "./pages/Home";
 import Brief from "./pages/Brief";
 import TheBrief from "./pages/TheBrief";
 import Egnyte from "./pages/Egnyte";
+import UnanetDashboard from "./pages/UnanetDashboard";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import MeetingCopilot from "./pages/MeetingCopilot";
@@ -86,6 +87,7 @@ const App = () => (
                   <Route path="/brief" element={<Brief />} />
                   <Route path="/helm/brief" element={<TheBrief />} />
                   <Route path="/egnyte" element={<Egnyte />} />
+                  <Route path="/unanet" element={<UnanetDashboard />} />
 
                   <Route path="/chat/upgrade" element={<ChatUpgrade />} />
                   <Route path="/chat/:id" element={<Chat />} />

@@ -335,9 +335,14 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               </NavSection>
 
               {/* AI Intelligence Report */}
-              {!featureLoading && (isSuperAdmin || hasFeature('reports')) && (
+              {!featureLoading && (isSuperAdmin || hasFeature('reports') || hasFeature('unanet_integration')) && (
                 <NavSection title="AI Intelligence Report" icon={BarChart3} accent={accents.green} defaultOpen>
-                  <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>
+                  {(isSuperAdmin || hasFeature('reports')) && (
+                    <NavItem href="/ai-activity" emoji="📊" accent={accents.green}>AI Activity Report</NavItem>
+                  )}
+                  {(isSuperAdmin || hasFeature('unanet_integration')) && (
+                    <NavItem href="/unanet" emoji="💼" accent={accents.green}>Unanet Dashboard</NavItem>
+                  )}
                 </NavSection>
               )}
 

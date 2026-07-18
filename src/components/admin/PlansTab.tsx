@@ -96,6 +96,12 @@ const FEATURE_SECTIONS: FeatureSection[] = [
     parent: 'email_agent',
     children: ['teams_agent'],
   },
+  {
+    title: 'External Apps',
+    description: 'Third-party apps available to plan users. Toggle to grant access to the app and its AI Chat context.',
+    parent: 'egnyte_integration',
+    children: ['unanet_integration'],
+  },
 ];
 
 const FEATURE_ORDER: string[] = FEATURE_SECTIONS.flatMap(s => [s.parent, ...s.children]);
