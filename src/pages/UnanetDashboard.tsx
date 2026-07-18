@@ -545,7 +545,6 @@ function UtilizationView() {
 }
 
 export default function UnanetDashboard() {
-  const navigate = useNavigate();
   const [view, setView] = useState<ViewId>('exec');
   const [period, setPeriod] = useState<Period>('month');
   const [client, setClient] = useState('All clients');
