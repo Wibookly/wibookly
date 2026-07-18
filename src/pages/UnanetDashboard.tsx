@@ -29,28 +29,28 @@ export default function UnanetDashboard() {
   const load = async () => {
     if (!profile?.organization_id) return;
     setLoading(true);
-    const { data: row } = await supabase
-      .from('tenant_integrations')
-      .select('status, subdomain')
-      .eq('organization_id', profile.organization_id)
-      .eq('integration_slug', 'unanet')
-      .maybeSingle();
-    setStatus(row?.status ?? 'idle');
-    setCloudUrl(row?.subdomain ?? null);
+    try {
+      const { data: st } = await supabase.functions.invoke('unanet-status', { body: {} });
+      const connected = (st as any)?.connected === true && (st as any)?.status === 'active';
+      setStatus(connected ? 'healthy' : ((st as any)?.status ?? 'idle'));
+      setCloudUrl((st as any)?.base_url ?? null);
 
-    if (row?.status === 'healthy' || row?.status === 'connected') {
-      const { data } = await supabase.functions.invoke('unanet-search', {
-        body: { kind: 'dashboard_summary' },
-      });
-      const s = (data as any)?.summary;
-      if (s) {
-        setStats([
-          { label: 'Active projects', value: s.active_projects ?? '—' },
-          { label: 'Utilization %', value: s.utilization_pct != null ? `${s.utilization_pct}%` : '—' },
-          { label: 'Open timesheets', value: s.open_timesheets ?? '—' },
-          { label: 'Pending approvals', value: s.pending_approvals ?? '—' },
-        ]);
+      if (connected) {
+        const { data } = await supabase.functions.invoke('unanet-search', {
+          body: { kind: 'dashboard_summary' },
+        });
+        const s = (data as any)?.summary;
+        if (s) {
+          setStats([
+            { label: 'Active projects', value: s.active_projects ?? '—' },
+            { label: 'Utilization %', value: s.utilization_pct != null ? `${s.utilization_pct}%` : '—' },
+            { label: 'Open timesheets', value: s.open_timesheets ?? '—' },
+            { label: 'Pending approvals', value: s.pending_approvals ?? '—' },
+          ]);
+        }
       }
+    } catch {
+      setStatus('idle');
     }
     setLoading(false);
   };
