@@ -63,6 +63,9 @@ export function ProviderDetail({ id, onSelect }: { id: string; onSelect: (n: Sel
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          {provider.id === 'unanet' && (
+            <UnanetSettingsCard organizationId={profile?.organization_id ?? null} />
+          )}
           <div className="grid md:grid-cols-2 gap-4">
             <Card><CardContent className="p-4 space-y-2">
               <h3 className="text-sm font-semibold">Provider account</h3>
