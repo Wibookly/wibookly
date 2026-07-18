@@ -266,10 +266,10 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
                   <Input
                     className="mt-1"
                     type="password"
-                    placeholder={probed?.ok ? 'Paste Unanet API key' : 'Verify instance first…'}
+                    autoComplete="new-password"
+                    placeholder="Paste Unanet API key"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    disabled={!probed?.ok}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     The key is verified against your Unanet instance, encrypted server-side, and never sent back to the browser.
