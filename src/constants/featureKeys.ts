@@ -13,6 +13,8 @@ export const FEATURE_KEYS = {
   POWERPOINTS: 'powerpoints',
   EXCEL: 'excel',
   FILE_READING: 'file_reading',
+  EGNYTE_INTEGRATION: 'egnyte_integration',
+  UNANET_INTEGRATION: 'unanet_integration',
 } as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[keyof typeof FEATURE_KEYS];
@@ -38,4 +40,6 @@ export const FEATURE_LIST: readonly FeatureMeta[] = [
   { key: FEATURE_KEYS.FILE_READING, label: 'File Reading', description: 'Read and analyze uploaded files' },
   { key: FEATURE_KEYS.EMAIL_INTELLIGENCE, label: 'Email Intelligence', description: 'Auto-categorize inbound email and configure category limits' },
   { key: FEATURE_KEYS.MEETING_COPILOT, label: 'Meeting Copilot', description: 'Live meeting transcription, summary, and action items' },
+  { key: FEATURE_KEYS.EGNYTE_INTEGRATION, label: 'Egnyte', description: 'Search & reference Egnyte files from AI Chat' },
+  { key: FEATURE_KEYS.UNANET_INTEGRATION, label: 'Unanet', description: 'Unanet dashboard access and AI Chat context' },
 ] as const;

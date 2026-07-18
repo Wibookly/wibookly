@@ -37,6 +37,8 @@ const FEATURE_LABELS: Record<string, string> = {
   daily_brief: 'My Daily Brief',
   email_agent: 'Email Agent',
   teams_agent: 'Teams Agent',
+  egnyte_integration: 'Egnyte',
+  unanet_integration: 'Unanet',
 };
 
 /**
@@ -93,6 +95,12 @@ const FEATURE_SECTIONS: FeatureSection[] = [
     description: 'Shared mailbox & Teams bot agents. Leave off unless your organization runs them.',
     parent: 'email_agent',
     children: ['teams_agent'],
+  },
+  {
+    title: 'External Apps',
+    description: 'Third-party apps available to plan users. Toggle to grant access to the app and its AI Chat context.',
+    parent: 'egnyte_integration',
+    children: ['unanet_integration'],
   },
 ];
 

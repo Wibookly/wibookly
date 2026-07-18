@@ -11,9 +11,12 @@ import { useIntegrationHealth, statusOf } from './hooks/useIntegrationHealth';
 import { useRunProbe } from './hooks/useRunProbe';
 import { useIntegrationAction } from './hooks/useIntegrationAction';
 import type { SelectedNode } from './IntegrationsSidebar';
+import { UnanetSettingsCard } from '@/components/admin/UnanetSettingsCard';
+import { useAuth } from '@/lib/auth';
 
 export function ProviderDetail({ id, onSelect }: { id: string; onSelect: (n: SelectedNode) => void }) {
   const provider = findProvider(id);
+  const { profile } = useAuth();
   const { rows } = useIntegrationHealth();
   const { run, running } = useRunProbe();
   const { dispatch, running: actionRunning } = useIntegrationAction();
@@ -117,6 +120,9 @@ export function ProviderDetail({ id, onSelect }: { id: string; onSelect: (n: Sel
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
+          {provider.id === 'unanet' && (
+            <UnanetSettingsCard organizationId={profile?.organization_id ?? null} />
+          )}
           {provider.isRouter ? (
             <div className="rounded-md border border-blue-500/30 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 p-3 text-sm">
               This is the {provider.name}. It uses OPENAI_API_KEY and ANTHROPIC_API_KEY from the OpenAI and Anthropic providers.

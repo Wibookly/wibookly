@@ -66,7 +66,7 @@ export type Feature = {
 };
 
 export type Group = {
-  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'notifications' | 'features';
+  id: 'microsoft' | 'google' | 'ai' | 'platform' | 'notifications' | 'features' | 'apps';
   label: string;
   /** Clickable group header (only AI for now) opens a hub view. */
   hubId?: string;
@@ -372,12 +372,58 @@ const twilio: Provider = {
   ],
 };
 
+/* -------------------- Apps -------------------- */
+
+const egnyte: Provider = {
+  id: 'egnyte',
+  name: 'Egnyte',
+  icon: 'FolderOpen',
+  subtitle: 'Per-organization file search and RAG source.',
+  description: 'OAuth 2.0 per-organization connection to Egnyte. Enables filename/metadata search from AI Chat and RAG context.',
+  meta: 'Configure per-organization in the Egnyte page or /egnyte',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own (per-organization OAuth)',
+  credentials: [
+    { label: 'Egnyte client ID (workspace-wide)', secret: 'EGNYTE_CLIENT_ID' },
+    { label: 'Egnyte client secret (workspace-wide)', secret: 'EGNYTE_CLIENT_SECRET' },
+  ],
+  consoleUrl: { label: 'Open Egnyte developer portal', url: 'https://developers.egnyte.com/' },
+  subs: [
+    { id: 'egnyte-search', name: 'Egnyte search', icon: 'FolderSearch', description: 'Filename & metadata search.',
+      settingsKind: 'generic', auditSource: { kind: 'none', note: 'Search calls logged via edge function only.' },
+      calledBy: ['egnyte-search', 'egnyte-oauth-callback'] },
+  ],
+};
+
+const unanet: Provider = {
+  id: 'unanet',
+  name: 'Unanet',
+  icon: 'Briefcase',
+  subtitle: 'ERP for services organizations — projects, timesheets, resources.',
+  description: 'Per-organization connection to a Unanet cloud tenant. Configure cloud URL, database, and API key to enable the Unanet dashboard and AI Chat context.',
+  meta: 'Per-organization credentials · configured in the Unanet settings card',
+  tier: 'byo',
+  tierLabel: 'Bring-your-own (per-organization API key)',
+  credentials: [
+    { label: 'Unanet cloud URL', secret: 'UNANET_CLOUD_URL' },
+    { label: 'Unanet database', secret: 'UNANET_DATABASE' },
+    { label: 'Unanet API key', secret: 'UNANET_API_KEY' },
+  ],
+  consoleUrl: { label: 'Open Unanet', url: 'https://unanet.com/' },
+  subs: [
+    { id: 'unanet-api', name: 'Unanet API', icon: 'Network', description: 'Projects, timesheets, resources.',
+      settingsKind: 'generic', auditSource: { kind: 'none', note: 'API calls logged via edge function only.' },
+      calledBy: ['unanet-search', 'unanet-probe'] },
+  ],
+};
+
 /* -------------------- Groups -------------------- */
 
 export const GROUPS: Group[] = [
   { id: 'microsoft', label: 'Microsoft', providers: [microsoft] },
   { id: 'google', label: 'Google', providers: [google] },
   { id: 'ai', label: 'AI', hubId: 'ai-hub', providers: [llmGateway, openai, anthropic, lovableAI, deepgram] },
+  { id: 'apps', label: 'Apps', providers: [egnyte, unanet] },
   { id: 'platform', label: 'Platform', providers: [supabasePlat, lovableEmail] },
   { id: 'notifications', label: 'Notifications', providers: [twilio] },
   { id: 'features', label: 'Features', features },

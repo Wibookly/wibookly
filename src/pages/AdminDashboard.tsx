@@ -28,6 +28,7 @@ import AgentPanel from '@/components/admin/AgentPanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
+import { PageErrorBoundary } from '@/components/app/PageErrorBoundary';
 import PlansTab from '@/components/admin/PlansTab';
 import AIUsageTab from '@/components/admin/AIUsageTab';
 import ActivityReportTab from '@/components/admin/ActivityReportTab';
@@ -633,12 +634,11 @@ export default function AdminDashboard() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="setup" className="gap-2"><UserPlus className="w-4 h-4" /> Setup Wizard</TabsTrigger>
-          <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> M365 Users</TabsTrigger>
+          <TabsTrigger value="discovered" className="gap-2"><Building2 className="w-4 h-4" /> Employees</TabsTrigger>
+          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2"><Activity className="w-4 h-4" /> Integrations</TabsTrigger>
           <TabsTrigger value="alerts" className="gap-2"><BellRing className="w-4 h-4" /> Alerts</TabsTrigger>
-          <TabsTrigger value="groups" className="gap-2"><ShieldCheck className="w-4 h-4" /> Plans</TabsTrigger>
           <TabsTrigger value="activity" className="gap-2"><BarChart3 className="w-4 h-4" /> Activity</TabsTrigger>
-          <TabsTrigger value="roles" className="gap-2"><ShieldCheck className="w-4 h-4" /> Roles</TabsTrigger>
           <TabsTrigger value="ai-usage" className="gap-2"><Activity className="w-4 h-4" /> AI Usage</TabsTrigger>
           <TabsTrigger value="issues" className="gap-2"><MessageSquareWarning className="w-4 h-4" /> Support Issues</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
@@ -667,13 +667,19 @@ export default function AdminDashboard() {
             autoSyncNonce={autoSyncNonce}
           />
           <AzurePermissionsCheck invoke={adminInvoke} autoRunNonce={autoCheckNonce} />
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-3">Roles</h3>
+            <RolesTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
-          <IntegrationsTab
-            adminInvoke={adminInvoke}
-            organizationId={profile?.organization_id ?? null}
-          />
+          <PageErrorBoundary label="AdminIntegrationsTab">
+            <IntegrationsTab
+              adminInvoke={adminInvoke}
+              organizationId={profile?.organization_id ?? null}
+            />
+          </PageErrorBoundary>
           <ConnectionHealthPanel />
         </TabsContent>
 
@@ -690,9 +696,8 @@ export default function AdminDashboard() {
           <ActivityReportTab />
         </TabsContent>
 
-        <TabsContent value="roles" className="space-y-6">
-          <RolesTab />
-        </TabsContent>
+        {/* Roles tab removed — merged into Employees. Kept content still reachable there. */}
+
 
         <TabsContent value="ai-usage" className="space-y-6">
           <AIUsageTab organizationId={profile?.organization_id ?? null} />
