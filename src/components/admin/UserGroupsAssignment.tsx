@@ -45,9 +45,9 @@ export default function UserGroupsAssignment({ userId, currentGroupIds, groups, 
   return (
     <div className="pt-3 border-t border-border/50">
       <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Groups</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned Plan</p>
         {currentNames.length === 0 ? (
-          <span className="text-xs text-muted-foreground">No groups assigned</span>
+          <span className="text-xs text-muted-foreground">No plan assigned</span>
         ) : (
           currentNames.slice(0, 1).map(name => (
             <Badge key={name} variant="secondary" className="gap-1">
@@ -57,11 +57,11 @@ export default function UserGroupsAssignment({ userId, currentGroupIds, groups, 
         )}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">Manage groups</Button>
+            <Button variant="outline" size="sm">Manage plan</Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 space-y-2" align="end">
             {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No groups available. Create one in the Groups tab.</p>
+              <p className="text-sm text-muted-foreground">No plans available. Create one in the Plans tab.</p>
             ) : (
               <>
                 {groups.map(g => (
