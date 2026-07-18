@@ -17,6 +17,7 @@ export type FeatureKey =
   | 'meeting_copilot'
   | 'email_intelligence'
   | 'egnyte_integration'
+  | 'unanet_integration'
   | 'feature.follow_up_reminder';
 
 
@@ -35,6 +36,7 @@ const ALL_FEATURES: FeatureKey[] = [
   'meeting_copilot',
   'email_intelligence',
   'egnyte_integration',
+  'unanet_integration',
   'feature.follow_up_reminder',
 
 ];
