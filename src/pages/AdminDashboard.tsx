@@ -28,6 +28,7 @@ import AgentPanel from '@/components/admin/AgentPanel';
 import CompanyLogoUploader from '@/components/admin/CompanyLogoUploader';
 import FollowUpsPanel from '@/components/admin/FollowUpsPanel';
 import SupportIssuesPanel from '@/components/admin/SupportIssuesPanel';
+import { PageErrorBoundary } from '@/components/app/PageErrorBoundary';
 import PlansTab from '@/components/admin/PlansTab';
 import AIUsageTab from '@/components/admin/AIUsageTab';
 import ActivityReportTab from '@/components/admin/ActivityReportTab';
