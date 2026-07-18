@@ -21,7 +21,9 @@ export function IntegrationsSidebar({
   onSelect: (n: SelectedNode) => void;
 }) {
   const { rows } = useIntegrationHealth();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ microsoft: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    microsoft: true, apps: true, unanet: true, egnyte: true,
+  });
 
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
