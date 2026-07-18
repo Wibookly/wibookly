@@ -308,9 +308,6 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
               {/* The Helm */}
               {!featureLoading && (isSuperAdmin || hasFeature('daily_brief')) && (
                 <NavSection title="The Helm" icon={Sparkles} accent={accents.cyan} defaultOpen>
-                  <NavItem href="/home" emoji="🏠" accent={accents.cyan}>The Helm — Home</NavItem>
-                  <NavItem href="/brief" emoji="📰" accent={accents.cyan}>The Helm — Full Brief</NavItem>
-                  <NavItem href="/helm/brief" emoji="🗞️" accent={accents.cyan}>The Brief</NavItem>
                   <NavItem href="/ai-daily-brief" emoji="📥" accent={accents.cyan}>The Helm — Emails</NavItem>
                   <NavItem href="/helm-calendar" emoji="📅" accent={accents.cyan}>The Helm — Calendar</NavItem>
                 </NavSection>
