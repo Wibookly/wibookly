@@ -381,6 +381,7 @@ export default function TheBrief() {
           tone: "meeting",
           live,
           flag: !e.body && attendees.length > 1 ? "No agenda" : undefined,
+          webLink: e.webLink || e.web_link || "",
         };
       });
       setSchedule(tl);
