@@ -719,12 +719,13 @@ export default function UnanetDashboard() {
 
       <FinanceChatDock />
 
-      {/* Bottom-left MENU pill (matches AI Chat page) */}
+      {/* Bottom-left MENU pill — returns to main app (opens the app sidebar). */}
       <button
-        onClick={() => setMenuOpen(true)}
+        onClick={() => navigate('/home')}
         className="fixed bottom-4 left-4 z-40 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold tracking-wider shadow-lg hover:brightness-110 transition"
         style={{ background: ACTIVE_GRAD, color: 'white' }}
-        aria-label="Open Ledger menu"
+        aria-label="Back to app menu"
+        title="Back to main app menu"
       >
         <Menu className="h-3.5 w-3.5" /> MENU
       </button>

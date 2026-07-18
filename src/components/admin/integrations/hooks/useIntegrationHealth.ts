@@ -32,10 +32,12 @@ export function useIntegrationHealth() {
     };
     load();
 
-    const channel = supabase
-      .channel('integration_health_changes')
+    // Unique channel name per mount avoids
+    // "cannot add postgres_changes callbacks after subscribe()" in StrictMode.
+    const channel = supabase.channel(`integration_health_changes_${Math.random().toString(36).slice(2)}`);
+    channel
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         { event: '*', schema: 'public', table: 'integration_health' },
         (payload: any) => {
           const row = (payload.new ?? payload.old) as HealthRow | undefined;
@@ -45,7 +47,7 @@ export function useIntegrationHealth() {
       )
       .subscribe();
 
-    return () => { active = false; supabase.removeChannel(channel); };
+    return () => { active = false; try { supabase.removeChannel(channel); } catch { /* noop */ } };
   }, []);
 
   return { rows, loading };

@@ -18,6 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import RoleInlinePicker from './RoleInlinePicker';
 
 interface DiscoveredUser {
   id: string;
@@ -450,14 +451,21 @@ export default function DiscoveredUsersPanel({ invoke, domains, initialDomainId 
                       </Badge>
                     )}
 
-                    {/* Inline group assignment — only available once provisioned */}
+                    {/* Inline group + role assignment — only available once provisioned */}
                     {u.invited_user_id && (
-                      <GroupPicker
-                        user={u}
-                        groups={groups}
-                        busy={groupsBusyId === u.id}
-                        onChange={(ids) => handleSetGroups(u, ids)}
-                      />
+                      <>
+                        <RoleInlinePicker
+                          userId={u.invited_user_id}
+                          userEmail={u.email}
+                          organizationId={u.organization_id}
+                        />
+                        <GroupPicker
+                          user={u}
+                          groups={groups}
+                          busy={groupsBusyId === u.id}
+                          onChange={(ids) => handleSetGroups(u, ids)}
+                        />
+                      </>
                     )}
 
                     {/* Actions for "discovered" — invite or silently provision */}
