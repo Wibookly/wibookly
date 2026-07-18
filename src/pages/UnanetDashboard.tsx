@@ -546,6 +546,17 @@ function UtilizationView() {
 }
 
 // ---------- Page ----------
+const APP_LINKS: { to: string; icon: string; label: string }[] = [
+  { to: '/home',                 icon: '🏠', label: 'The Helm — Home' },
+  { to: '/brief',                icon: '📰', label: 'The Helm — Full Brief' },
+  { to: '/helm/brief',           icon: '🗞️', label: 'The Brief' },
+  { to: '/chat',                 icon: '💬', label: 'AI Chat' },
+  { to: '/flagged-email-tracker',icon: '🚩', label: 'Flagged Email Tracker' },
+  { to: '/categories',           icon: '🏷️', label: 'Email Intelligence' },
+  { to: '/integrations',         icon: '🔗', label: 'Integrations' },
+  { to: '/admin',                icon: '🛡️', label: 'Admin Dashboard' },
+];
+
 export default function UnanetDashboard() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewId>('exec');
@@ -554,6 +565,7 @@ export default function UnanetDashboard() {
   const [office, setOffice] = useState('All offices');
   const [from, setFrom] = useState('2026-06-01');
   const [to, setTo] = useState('2026-06-30');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const activeNav = useMemo(() => NAV.find((n) => n.id === view)!, [view]);
   const echo = PERIOD_DATA[period].echo;
