@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, RefreshCw, X } from 'lucide-react';
+import { Printer, RefreshCw, X, Menu, ChevronLeft } from 'lucide-react';
 import FinanceChatDock from '@/components/finance/FinanceChatDock';
 
 /**
