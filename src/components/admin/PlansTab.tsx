@@ -37,6 +37,8 @@ const FEATURE_LABELS: Record<string, string> = {
   daily_brief: 'My Daily Brief',
   email_agent: 'Email Agent',
   teams_agent: 'Teams Agent',
+  egnyte_integration: 'Egnyte',
+  unanet_integration: 'Unanet',
 };
 
 /**
