@@ -392,6 +392,7 @@ export default function Chat() {
   const [usage, setUsage] = useState<{ used: number; limit: number | null }>({ used: 0, limit: null });
   const [webSearch, setWebSearch] = useState(false);
   const [egnyteSearch, setEgnyteSearch] = useState(false);
+  const [unanetSearch, setUnanetSearch] = useState(false);
 
   const [userLocation, setUserLocation] = useState<{ city?: string; region?: string; country?: string; timezone?: string } | null>(null);
   const [locationEnabled, setLocationEnabled] = useState<boolean>(() => {
@@ -587,6 +588,7 @@ export default function Chat() {
   const canChat = isSuperAdmin || hasFeature('ai_assistant');
   const canWebSearch = isSuperAdmin || hasFeature('ai_chat_web_search');
   const canEgnyte = isSuperAdmin || hasFeature('egnyte_integration');
+  const canUnanet = isSuperAdmin || hasFeature('unanet_integration');
 
 
   // Sync url param to active id
@@ -1775,6 +1777,24 @@ export default function Chat() {
                       {egnyteSearch && <Check className="h-4 w-4 opacity-80" />}
                     </DropdownMenuItem>
                   )}
+                  {canUnanet && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setUnanetSearch((v) => {
+                          const next = !v;
+                          toast.success(next ? 'Unanet context on — Unanet data will inform replies' : 'Unanet context off');
+                          return next;
+                        });
+                      }}
+                    >
+                      <FolderSearch className="h-4 w-4 mr-2" />
+                      <span className="flex-1">Unanet context</span>
+                      {unanetSearch && <Check className="h-4 w-4 opacity-80" />}
+                    </DropdownMenuItem>
+                  )}
+
+
 
                   <DropdownMenuItem
                     onSelect={(e) => {
