@@ -132,8 +132,8 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
   };
 
   const doConnect = async () => {
-    if (!probed?.ok) {
-      toast.error('Verify the instance first.');
+    if (!cloudUrl.trim() || !database.trim()) {
+      toast.error('Cloud URL and database are required.');
       return;
     }
     if (!apiKey || apiKey.trim().length < 8) {
