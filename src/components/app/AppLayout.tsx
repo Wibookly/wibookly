@@ -29,6 +29,8 @@ export function AppLayout() {
   const [wizardChecked, setWizardChecked] = useState(false);
   const location = useLocation();
   const isChatPage = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const isUnanetPage = location.pathname === '/unanet';
+  const showMobileMenuPill = isChatPage || isUnanetPage;
   // Pin lives globally now — applies on every page, not just Chat.
   const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -81,7 +83,7 @@ export function AppLayout() {
       <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
 
       {/* Mobile "Show Menu" pill — draggable vertically so it never covers chat text */}
-      {isChatPage && (
+      {showMobileMenuPill && (
         <div className="lg:hidden">
           <ShowMenuPill onOpen={() => setMobileMenuOpen(true)} storageKey="chat-menu-pill-y-mobile" />
         </div>
