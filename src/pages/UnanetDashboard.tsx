@@ -718,6 +718,90 @@ export default function UnanetDashboard() {
       </div>
 
       <FinanceChatDock />
+
+      {/* Bottom-left MENU pill (matches AI Chat page) */}
+      <button
+        onClick={() => setMenuOpen(true)}
+        className="fixed bottom-4 left-4 z-40 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold tracking-wider shadow-lg hover:brightness-110 transition"
+        style={{ background: ACTIVE_GRAD, color: 'white' }}
+        aria-label="Open Ledger menu"
+      >
+        <Menu className="h-3.5 w-3.5" /> MENU
+      </button>
+
+      {/* Slide-in side menu */}
+      {menuOpen && (
+        <>
+          <div
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+          />
+          <aside
+            className="fixed top-0 left-0 bottom-0 z-50 w-72 flex flex-col animate-in slide-in-from-left duration-200"
+            style={{ background: T.panel, borderRight: `1px solid ${T.line}`, color: T.ink }}
+          >
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${T.line}` }}>
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-md flex items-center justify-center text-white text-xs font-bold" style={{ background: ACTIVE_GRAD }}>F</div>
+                <div className="text-sm font-semibold">The Ledger</div>
+              </div>
+              <button onClick={() => setMenuOpen(false)} className="p-1.5 rounded hover:bg-white/5" style={{ color: T.muted }}>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-5">
+              <div>
+                <div className="text-[10px] tracking-widest px-2 mb-2" style={{ color: T.muted }}>LEDGER VIEWS</div>
+                <div className="space-y-1">
+                  {NAV.map((n) => {
+                    const active = n.id === view;
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => { setView(n.id); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition"
+                        style={{
+                          color: active ? 'white' : T.ink,
+                          background: active ? ACTIVE_GRAD : 'transparent',
+                        }}
+                        onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                        onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                      >
+                        <span>{n.icon}</span>
+                        <span className="flex-1">{n.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] tracking-widest px-2 mb-2" style={{ color: T.muted }}>GO TO</div>
+                <div className="space-y-1">
+                  {APP_LINKS.map((l) => (
+                    <button
+                      key={l.to}
+                      onClick={() => { setMenuOpen(false); navigate(l.to); }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                      style={{ color: T.ink }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                    >
+                      <span>{l.icon}</span>
+                      <span className="flex-1">{l.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 text-[10px]" style={{ color: T.faint, borderTop: `1px solid ${T.line}` }}>
+              FinanceIQ · Energy Forward AI
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }
