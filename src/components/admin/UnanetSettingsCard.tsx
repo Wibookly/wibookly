@@ -27,6 +27,20 @@ type Status = {
   } | null;
 };
 
+async function readFunctionError(data: any, error: any, fallback: string) {
+  if (data?.error) return String(data.error);
+  const context = error?.context;
+  if (context && typeof context.clone === 'function') {
+    try {
+      const body = await context.clone().json();
+      if (body?.error) return String(body.error);
+    } catch {
+      // ignore and fall through to message
+    }
+  }
+  return error?.message || fallback;
+}
+
 /**
  * Unanet per-organization admin card.
  *
@@ -42,6 +56,7 @@ type Status = {
 export function UnanetSettingsCard({ organizationId }: { organizationId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<Status>({ connected: false });
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [cloudUrl, setCloudUrl] = useState('');
   const [database, setDatabase] = useState('');
@@ -54,11 +69,25 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
   const [syncing, setSyncing] = useState(false);
 
   const load = async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      setStatus({ connected: false });
+      setLoadError('No organization is attached to this admin profile yet.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setLoadError(null);
     try {
       const { data, error } = await supabase.functions.invoke('unanet-status', { body: {} });
-      if (error) throw error;
+      if (error || (data as any)?.error) {
+        const msg = await readFunctionError(data, error, 'Failed to load Unanet status');
+        if (/not found/i.test(msg)) {
+          setLoadError('Unanet is not enabled for this organization yet. Enable the Unanet feature in the assigned plan, then come back here to connect.');
+          setStatus({ connected: false });
+          return;
+        }
+        throw new Error(msg);
+      }
       const s = (data as Status) ?? { connected: false };
       setStatus(s);
       if (s.connected) {
@@ -69,9 +98,9 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
         setProbed(null);
       }
     } catch (e: any) {
-      // 404 from the gate means the org doesn't have the feature — surface plainly.
       const msg = e?.message ?? 'Failed to load Unanet status';
-      if (!/not found/i.test(msg)) toast.error(msg);
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -91,7 +120,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
         body: { base_url: cloudUrl.trim(), database: database.trim() },
       });
       if (error || (data as any)?.error) {
-        toast.error((data as any)?.error || error?.message || 'Instance did not respond');
+        toast.error(await readFunctionError(data, error, 'Instance did not respond'));
         setProbed({ ok: false });
         return;
       }
@@ -117,7 +146,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
         body: { base_url: cloudUrl.trim(), database: database.trim(), api_key: apiKey.trim() },
       });
       if (error || (data as any)?.error) {
-        toast.error((data as any)?.error || error?.message || 'Failed to connect');
+        toast.error(await readFunctionError(data, error, 'Failed to connect'));
         return;
       }
       setApiKey('');
@@ -136,7 +165,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
     try {
       const { data, error } = await supabase.functions.invoke('unanet-disconnect', { body: {} });
       if (error || (data as any)?.error) {
-        toast.error((data as any)?.error || error?.message || 'Disconnect failed');
+        toast.error(await readFunctionError(data, error, 'Disconnect failed'));
         return;
       }
       toast.success('Unanet disconnected.');
@@ -153,7 +182,7 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
     try {
       const { data, error } = await supabase.functions.invoke('unanet-sync', { body: { reason: 'manual' } });
       if (error || (data as any)?.error) {
-        toast.error((data as any)?.error || error?.message || 'Sync failed');
+        toast.error(await readFunctionError(data, error, 'Sync failed'));
         return;
       }
       const upserted = (data as any)?.records_upserted ?? 0;
@@ -196,6 +225,19 @@ export function UnanetSettingsCard({ organizationId }: { organizationId: string 
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : (
           <>
+            {loadError && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-100">
+                {loadError}
+              </div>
+            )}
+            <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <div className="font-medium text-foreground mb-1">Required to connect</div>
+              <div className="grid gap-1 sm:grid-cols-3">
+                <span>1. Unanet cloud URL</span>
+                <span>2. Database name</span>
+                <span>3. Read-only API key</span>
+              </div>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <Label className="text-xs">Cloud URL</Label>

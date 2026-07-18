@@ -32,22 +32,17 @@ export function useIntegrationHealth() {
     };
     load();
 
-    // Unique channel name per mount avoids
-    // "cannot add postgres_changes callbacks after subscribe()" in StrictMode.
-    const channel = supabase.channel(`integration_health_changes_${Math.random().toString(36).slice(2)}`);
-    channel
-      .on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'integration_health' },
-        (payload: any) => {
-          const row = (payload.new ?? payload.old) as HealthRow | undefined;
-          if (!row?.integration_key) return;
-          setRows((prev) => ({ ...prev, [row.integration_key]: row }));
-        },
-      )
-      .subscribe();
+    // Keep this page reliable: polling avoids duplicate realtime subscriptions
+    // when several integration panels mount at once or React StrictMode remounts.
+    const interval = window.setInterval(load, 30_000);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
 
-    return () => { active = false; try { supabase.removeChannel(channel); } catch { /* noop */ } };
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   return { rows, loading };
