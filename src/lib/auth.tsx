@@ -92,8 +92,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (userId: string) => {
     try {
       // Use secure RPC function instead of direct table access
-      const { data: profileRows } = await withTimeout(supabase.rpc('get_my_profile'));
-      const profileData = profileRows?.[0];
+      let { data: profileRows } = await withTimeout(supabase.rpc('get_my_profile'));
+      let profileData = profileRows?.[0];
+
+      // First-time social (Google) sign-in has no profile yet — initialize it
+      // server-side so the user is joined to the right organization.
+      if (!profileData) {
+        const { data: sess } = await supabase.auth.getSession();
+        const authUser = sess.session?.user;
+        const meta = (authUser?.user_metadata ?? {}) as { full_name?: string; name?: string };
+        const emailDomain = authUser?.email?.split('@')[1] ?? 'My Company';
+        try {
+          await withTimeout(
+            supabase.rpc('signup_initialize_user', {
+              _full_name: meta.full_name ?? meta.name ?? authUser?.email ?? 'New user',
+              _title: null,
+              _organization_name: emailDomain,
+            }),
+          );
+          const retry = await withTimeout(supabase.rpc('get_my_profile'));
+          profileRows = retry.data;
+          profileData = profileRows?.[0];
+        } catch (initError) {
+          console.error('Profile initialization failed:', initError);
+        }
+      }
 
       if (profileData) {
         let photoUrl =
