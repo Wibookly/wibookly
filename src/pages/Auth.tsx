@@ -3,176 +3,222 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, Shield, Zap } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import energyForwardLogo from '@/assets/ef-logo.png';
+import { lovable } from '@/integrations/lovable/index';
 import { InboxIQLogo } from '@/components/app/InboxIQLogo';
 
-// Microsoft icon
-const MicrosoftIcon = () => (
-  <svg viewBox="0 0 21 21" className="w-5 h-5" aria-hidden="true">
-    <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-    <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-    <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-    <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+const GoogleIcon = () => (
+  <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
+    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.2h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.6 5.9c4.5-4.2 6.5-10.2 6.5-17.3z" />
+    <path fill="#FBBC05" d="M10.4 28.7A14.6 14.6 0 0 1 9.6 24c0-1.6.3-3.2.8-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1z" />
+    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.6-5.8l-7.6-5.9c-2 1.4-4.8 2.4-8 2.4-6.4 0-11.7-3.7-13.6-9l-7.8 6.1C6.5 42.6 14.6 48 24 48z" />
   </svg>
 );
 
+type Mode = 'signin' | 'signup';
+
 export default function Auth() {
   const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
-  const [ssoLoading, setSsoLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const { user } = useAuth();
+  const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Show SSO errors from callback
   useEffect(() => {
     const error = searchParams.get('error');
-    const ssoSuccess = searchParams.get('sso');
     if (error) {
-      toast({ title: 'Authentication Error', description: error, variant: 'destructive' });
+      toast({ title: 'Authentication error', description: error, variant: 'destructive' });
     }
-    if (ssoSuccess === 'success') {
-      toast({ title: 'Sign-in successful', description: 'Redirecting...' });
-    }
-  }, [searchParams]);
+  }, [searchParams, toast]);
 
   useEffect(() => {
     if (user) {
       const returnTo = searchParams.get('return_to');
-      navigate(returnTo && returnTo.startsWith('/') ? returnTo : '/integrations');
+      navigate(returnTo && returnTo.startsWith('/') ? returnTo : '/integrations', { replace: true });
     }
   }, [user, navigate, searchParams]);
 
-  const handleMicrosoftSSO = async () => {
-    if (!email || !email.includes('@')) {
-      setEmailError('Please enter your Microsoft 365 work email');
-      return;
-    }
-    setEmailError('');
-    setSsoLoading(true);
+  const handleGoogle = async () => {
+    setGoogleBusy(true);
+    setNotice(null);
     try {
-      const returnTo = searchParams.get('return_to');
-      const response = await supabase.functions.invoke('microsoft-sso-init', {
-        body: { email, returnTo },
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin + '/auth',
       });
-
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
-
-      // Redirect to Microsoft OAuth
-      window.location.href = response.data.authUrl;
-    } catch (error: any) {
+      if (result.error) throw new Error(result.error.message ?? 'Google sign-in failed');
+      if (result.redirected) return;
+      // Session already set — the effect above navigates.
+    } catch (err) {
       toast({
-        title: 'Microsoft SSO Error',
-        description: error.message || 'Failed to initiate Microsoft sign-in',
+        title: 'Google sign-in failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive',
       });
-      setSsoLoading(false);
+      setGoogleBusy(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    // Microsoft 365 password is managed in Microsoft, not in this app.
-    window.open('https://passwordreset.microsoftonline.com/', '_blank', 'noopener,noreferrer');
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNotice(null);
+
+    if (!email.includes('@')) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    if (password.length < 6) {
+      toast({ title: 'Password must be at least 6 characters', variant: 'destructive' });
+      return;
+    }
+
+    setBusy(true);
+    if (mode === 'signin') {
+      const { error } = await signIn(email.trim(), password);
+      setBusy(false);
+      if (error) {
+        toast({
+          title: 'Could not sign you in',
+          description: error.message.includes('Invalid login')
+            ? 'That email and password combination does not match an account.'
+            : error.message,
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setBusy(false);
+      toast({ title: 'Please enter your full name', variant: 'destructive' });
+      return;
+    }
+
+    const domain = email.split('@')[1] ?? 'My Company';
+    const { error } = await signUp(email.trim(), password, domain, fullName.trim());
+    setBusy(false);
+    if (error) {
+      toast({ title: 'Could not create your account', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotice('Check your email to confirm your address, then come back and sign in.');
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.includes('@')) {
+      toast({ title: 'Enter your email first', description: 'We will send a reset link there.', variant: 'destructive' });
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      toast({ title: 'Could not send the reset email', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotice('Password reset link sent. Check your inbox.');
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
-      style={{ background: 'var(--bg)' }}
-    >
-      {/* Soft radial glow behind card */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(60% 50% at 50% 40%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%), radial-gradient(40% 35% at 70% 70%, color-mix(in srgb, var(--ef-sky) 18%, transparent), transparent 70%)',
-        }}
-      />
-      <div
-        className="relative w-full max-w-md p-8 rounded-2xl"
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-lg)',
-        }}
-      >
-        {/* Brand lockup */}
-        <div className="flex flex-col items-center mb-6">
-          <img
-            src={energyForwardLogo}
-            alt="EnergyForward"
-            className="h-[88px] w-auto object-contain"
-            draggable={false}
-          />
-          <InboxIQLogo className="text-[26px] leading-none mt-1" />
-          <div
-            className="mt-1"
-            style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-soft)' }}
-          >
-            AI inbox for M365
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-background">
+      <div className="w-full max-w-lg text-center">
+        <div className="flex justify-center mb-8">
+          <InboxIQLogo className="text-[28px] leading-none" />
+        </div>
+        <h1 className="font-serif text-5xl sm:text-6xl tracking-tight text-foreground">
+          {mode === 'signin' ? 'Welcome back' : 'Question what’s next'}
+        </h1>
+        <p className="mt-4 text-base text-muted-foreground">
+          Your AI inbox partner for big ambitions
+        </p>
+      </div>
+
+      <div className="mt-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-lg">
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full h-12 justify-center gap-3 text-sm font-medium"
+          onClick={handleGoogle}
+          disabled={googleBusy || busy}
+        >
+          {googleBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <GoogleIcon />}
+          Continue with Google
+        </Button>
+
+        <div className="my-6 flex items-center gap-4">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-[11px] font-semibold tracking-widest text-muted-foreground">OR</span>
+          <span className="h-px flex-1 bg-border" />
         </div>
 
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold tracking-tight leading-tight" style={{ color: 'var(--text-strong)', letterSpacing: '-0.02em' }}>
-            Welcome back
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-            Sign in with your work account to open your AI-prioritized inbox.
-          </p>
-        </div>
-
-        {/* Email input + Microsoft SSO */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Work Email</Label>
+        <form className="space-y-3" onSubmit={handleEmailSubmit}>
+          {mode === 'signup' && (
             <Input
-              id="email"
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(''); }}
-              disabled={ssoLoading}
-              className={emailError ? 'border-destructive' : ''}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleMicrosoftSSO(); }}
+              placeholder="Full name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="h-12"
+              disabled={busy}
             />
-            {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-          </div>
-
-          <Button
-            size="lg"
-            className="w-full justify-center gap-3 h-12 text-sm"
-            onClick={handleMicrosoftSSO}
-            disabled={ssoLoading}
-          >
-            {ssoLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <MicrosoftIcon />}
-            <span>Continue with Microsoft</span>
+          )}
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-12"
+            disabled={busy}
+          />
+          <Input
+            type="password"
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="h-12"
+            disabled={busy}
+          />
+          <Button type="submit" className="w-full h-12 text-sm font-medium" disabled={busy || googleBusy}>
+            {busy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {mode === 'signin' ? 'Continue with email' : 'Create account'}
           </Button>
+        </form>
 
-          <p className="text-xs text-center text-muted-foreground leading-relaxed">
-            Your password is managed by Microsoft 365. When you change it in Microsoft,
-            it automatically applies here — no separate password to remember.
-          </p>
-        </div>
+        {notice && (
+          <p className="mt-4 text-xs text-center text-muted-foreground">{notice}</p>
+        )}
 
-        {/* Forgot password */}
-        <div className="mt-6 text-center text-sm">
+        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
           <button
             type="button"
-            onClick={handleForgotPassword}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="hover:text-foreground transition-colors"
+            onClick={() => {
+              setMode(mode === 'signin' ? 'signup' : 'signin');
+              setNotice(null);
+            }}
           >
-            Forgot your Microsoft 365 password?
+            {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
           </button>
+          {mode === 'signin' && (
+            <button type="button" className="hover:text-foreground transition-colors" onClick={handleForgotPassword}>
+              Forgot your password?
+            </button>
+          )}
         </div>
+
+        <p className="mt-6 text-[11px] leading-relaxed text-center text-muted-foreground">
+          Access to InboxIQ features is granted by your administrator after your subscription is approved.
+        </p>
       </div>
     </div>
   );
