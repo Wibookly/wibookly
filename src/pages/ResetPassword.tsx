@@ -21,19 +21,36 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if we have a valid session from the reset link
+    let active = true;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (session || !active) return;
+
+      timeoutId = setTimeout(() => {
+        if (!active) return;
         toast({
           title: "Invalid or expired link",
           description: "Please request a new password reset link.",
           variant: "destructive",
         });
         navigate("/auth");
-      }
+      }, 2500);
     };
-    checkSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session && timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    });
+
+    void checkSession();
+    return () => {
+      active = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      authListener.subscription.unsubscribe();
+    };
   }, [navigate, toast]);
 
   const validatePassword = (pwd: string): string | null => {
