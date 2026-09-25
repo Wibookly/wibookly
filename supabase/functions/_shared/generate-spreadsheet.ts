@@ -1,5 +1,5 @@
-// Generate an Excel (.xlsx) workbook with the InboxIQ "Executive Navy" style
-// and upload it to the user's OneDrive › InboxIQ Chat › Generated Documents.
+// Generate an Excel (.xlsx) workbook with the Nikkore Inbox "Executive Navy" style
+// and upload it to the user's OneDrive › Nikkore Inbox Chat › Generated Documents.
 //
 // Sheet structure (input):
 //   { name: "Sheet1", columns: ["Name","Amount"], rows: [["A", 100], ...] }
@@ -34,7 +34,7 @@ export async function generateSpreadsheet(opts: GenOpts): Promise<GenResult> {
   if (!opts.sheets?.length) return { ok: false, error: "no sheets provided" };
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "InboxIQ";
+  wb.creator = "Nikkore Inbox";
   wb.created = new Date();
 
   for (const [i, spec] of opts.sheets.entries()) {

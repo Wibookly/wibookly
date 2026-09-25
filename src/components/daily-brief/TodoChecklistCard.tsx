@@ -78,7 +78,7 @@ export function TodoChecklistCard({ items, onChanged }: Props) {
         ${it.action ? `<div class="do">${esc(it.action)}</div>` : ''}
       </li>`;
     }).join('');
-    w.document.write(`<!doctype html><html><head><title>InboxIQ — Today's Checklist</title>
+    w.document.write(`<!doctype html><html><head><title>Nikkore Inbox — Today's Checklist</title>
       <style>
         body{font-family:'Segoe UI',system-ui,sans-serif;color:#0f172a;margin:32px;}
         h1{font-size:20px;margin:0;} .sub{color:#64748b;font-size:12px;margin:4px 0 18px;}
@@ -95,7 +95,7 @@ export function TodoChecklistCard({ items, onChanged }: Props) {
       </style></head><body>
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #0ea5e9;padding-bottom:8px;margin-bottom:12px;">
         <div><h1>Today's Checklist</h1><div class="sub">${esc(today)} · ${ordered.length} item${ordered.length === 1 ? '' : 's'}</div></div>
-        <div style="color:#0ea5e9;font-weight:700;">InboxIQ</div>
+        <div style="color:#0ea5e9;font-weight:700;">Nikkore Inbox</div>
       </div>
       <ul>${rows || '<li><span class="title" style="color:#94a3b8;font-style:italic;">No tasks for today.</span></li>'}</ul>
       </body></html>`);

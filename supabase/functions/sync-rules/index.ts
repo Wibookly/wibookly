@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Single short prefix for all InboxIQ-managed Outlook Master Categories
+// Single short prefix for all Nikkore Inbox-managed Outlook Master Categories
 // (must match the value used by the sync-categories function).
 const IQ_TAG_PREFIX = 'IQ: ';
 
@@ -38,7 +38,7 @@ function nearestColorDot(hex: string): string {
 }
 
 // Returns true if the given Outlook category name was created/managed by
-// InboxIQ (current short prefix or any legacy variant).
+// Nikkore Inbox (current short prefix or any legacy variant).
 function isManagedCategoryName(name: string): boolean {
   if (!name) return false;
   const n = name.trim();
@@ -48,8 +48,8 @@ function isManagedCategoryName(name: string): boolean {
   if (
     n.startsWith('IQ: ') ||
     n.startsWith('★ IQ: ') ||
-    n.startsWith('InboxIQ: ') ||
-    n.startsWith('★ InboxIQ: ') ||
+    n.startsWith('Nikkore Inbox: ') ||
+    n.startsWith('★ Nikkore Inbox: ') ||
     n.startsWith('Wibookly: ') ||
     n.startsWith('vBookly: ') ||
     n.startsWith('Vbookly: ')
@@ -182,10 +182,10 @@ async function ensureOutlookMasterCategory(
   }
 }
 
-// Tag an Outlook message with a single InboxIQ-managed category. Strips
+// Tag an Outlook message with a single Nikkore Inbox-managed category. Strips
 // any other managed (legacy or current) tags so each message ends up with
 // exactly one IQ category — eliminates the duplicate chips users were
-// seeing in Outlook (e.g. "InboxIQ: Approvals" + "★ InboxIQ: Approvals" +
+// seeing in Outlook (e.g. "Nikkore Inbox: Approvals" + "★ Nikkore Inbox: Approvals" +
 // "IQ: Approvals" all on the same message).
 async function tagOutlookMessageCategory(
   accessToken: string,
@@ -746,7 +746,7 @@ async function applyOutlookRule(
         const name = r.displayName || '';
         if (name === `Wibookly: ${rule.rule_type} - ${rule.rule_value}`) return true;
         if (name === ruleName) return true;
-        if (name.startsWith('InboxIQ: ') && name.endsWith(` - ${ruleSuffix}`)) return true;
+        if (name.startsWith('Nikkore Inbox: ') && name.endsWith(` - ${ruleSuffix}`)) return true;
         return false;
       });
 
@@ -1217,7 +1217,7 @@ serve(async (req) => {
           } else if (isOutlook) {
             const folderId = await getOutlookFolderId(currentAccessToken, labelName);
             if (folderId) {
-              const ruleName = `InboxIQ: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
+              const ruleName = `Nikkore Inbox: ${labelName} - ${rule.rule_type}:${rule.rule_value}`;
               const categoryTag = `${IQ_TAG_PREFIX}${catInfo.name}`;
               success = await applyOutlookRule(
                 currentAccessToken,

@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
-import { InboxIQLogo } from '@/components/app/InboxIQLogo';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
@@ -132,7 +132,7 @@ export default function Auth() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-background">
       <div className="w-full max-w-lg text-center">
         <div className="flex justify-center mb-8">
-          <InboxIQLogo className="text-[28px] leading-none" />
+          <NikkoreInboxLogo className="text-[28px] leading-none" />
         </div>
         <h1 className="font-serif text-5xl sm:text-6xl tracking-tight text-foreground">
           {mode === 'signin' ? 'Welcome back' : 'Question what’s next'}
@@ -217,7 +217,7 @@ export default function Auth() {
         </div>
 
         <p className="mt-6 text-[11px] leading-relaxed text-center text-muted-foreground">
-          Access to InboxIQ features is granted by your administrator after your subscription is approved.
+          Access to Nikkore Inbox features is granted by your administrator after your subscription is approved.
         </p>
       </div>
     </div>

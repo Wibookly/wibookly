@@ -202,7 +202,7 @@ export function HelpChat() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Ask the InboxIQ AI assistant</p>
+              <p className="text-sm font-semibold">Ask the Nikkore Inbox AI assistant</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Grounded in the help articles. Doesn't read your inbox.
               </p>
@@ -276,7 +276,7 @@ export function HelpChat() {
                 send(input);
               }
             }}
-            placeholder="Ask anything about InboxIQ…"
+            placeholder="Ask anything about Nikkore Inbox…"
             rows={2}
             className="resize-none text-sm"
             disabled={streaming}

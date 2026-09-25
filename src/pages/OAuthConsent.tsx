@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { InboxIQLogo } from "@/components/app/InboxIQLogo";
+import { NikkoreInboxLogo } from "@/components/app/NikkoreInboxLogo";
 
 // Typed wrapper — supabase.auth.oauth namespace is beta and may not be in
 // the generated types yet.
@@ -89,7 +89,7 @@ export default function OAuthConsent() {
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
       <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 space-y-6 shadow-lg">
         <div className="flex justify-center">
-          <InboxIQLogo />
+          <NikkoreInboxLogo />
         </div>
         {error ? (
           <div className="space-y-2">
@@ -103,9 +103,9 @@ export default function OAuthConsent() {
         ) : (
           <>
             <div className="space-y-2">
-              <h1 className="text-lg font-semibold">Connect {clientName} to InboxIQ</h1>
+              <h1 className="text-lg font-semibold">Connect {clientName} to Nikkore Inbox</h1>
               <p className="text-sm text-muted-foreground">
-                {clientName} is requesting access to use InboxIQ tools as you. You can revoke this access at any time.
+                {clientName} is requesting access to use Nikkore Inbox tools as you. You can revoke this access at any time.
               </p>
               {details.scopes && details.scopes.length > 0 && (
                 <ul className="text-xs text-muted-foreground list-disc pl-5 pt-2">

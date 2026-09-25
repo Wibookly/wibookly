@@ -1,15 +1,15 @@
 import { cn } from '@/lib/utils';
 
-interface InboxIQLogoProps {
+interface NikkoreInboxLogoProps {
   className?: string;
 }
 
 /**
- * InboxIQ wordmark — two-tone.
+ * Nikkore Inbox wordmark — two-tone.
  * Light: "Inbox" in EF navy (#0B2A6B), "IQ" in EF blue (#2B6EE3).
  * Dark: "Inbox" stays white/foreground for legibility, "IQ" in EF sky.
  */
-export function InboxIQLogo({ className }: InboxIQLogoProps) {
+export function NikkoreInboxLogo({ className }: NikkoreInboxLogoProps) {
   return (
     <span
       className={cn('font-sans font-bold inline-flex', className)}

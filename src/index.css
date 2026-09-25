@@ -389,7 +389,7 @@
     margin: 14mm 12mm 16mm 12mm;
     @top-left { content: string(reportTitle); font-family: 'Inter', sans-serif; font-size: 11pt; font-weight: 600; color: #14365C; }
     @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
-    @bottom-left { content: "InboxIQ"; font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
+    @bottom-left { content: "Nikkore Inbox"; font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
   }
   /* Any element with [data-print-title] sets the running page header. */
   [data-print-title] { string-set: reportTitle attr(data-print-title); }

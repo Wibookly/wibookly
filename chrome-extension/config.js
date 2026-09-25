@@ -1,4 +1,4 @@
-// Edit these if you deploy to a different InboxIQ instance.
+// Edit these if you deploy to a different Nikkore Inbox instance.
 self.INBOXIQ_CONFIG = {
   appUrl: "https://inboxiq.energyforward.com",
   supabaseUrl: "https://jbzctydskdpzrejvpwpn.supabase.co",

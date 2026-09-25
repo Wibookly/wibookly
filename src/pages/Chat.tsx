@@ -885,7 +885,7 @@ export default function Chat() {
         const res = data as { webUrl?: string; filename?: string; error?: string };
         if (res?.error) throw new Error(res.error);
         toast.success(
-          res?.webUrl ? `Saved to OneDrive › InboxIQ Chat › Exports` : 'Saved to OneDrive',
+          res?.webUrl ? `Saved to OneDrive › Nikkore Inbox Chat › Exports` : 'Saved to OneDrive',
           res?.webUrl ? { action: { label: 'Open', onClick: () => window.open(res.webUrl!, '_blank') } } : undefined,
         );
       } else if (destination === 'email') {
@@ -1403,8 +1403,8 @@ export default function Chat() {
     const providerLabel = activeConnection.provider === 'google' ? 'Gmail'
       : activeConnection.provider === 'outlook' ? 'Outlook'
       : 'your mailbox';
-    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 80) || 'InboxIQ chat note';
-    const subject = `InboxIQ – ${subjectBase}`;
+    const subjectBase = (assistantMessage.content || '').trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 80) || 'Nikkore Inbox chat note';
+    const subject = `Nikkore Inbox – ${subjectBase}`;
     // Render the assistant's markdown reply into the same styled HTML the
     // chat shows on-screen so the email arrives with bold headings, lists,
     // code blocks, links, etc. — not as flat plain text.
@@ -1413,7 +1413,7 @@ export default function Chat() {
     const styledHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#f6f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;line-height:1.55;">
 <div style="max-width:640px;margin:0 auto;padding:28px 16px;">
   <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px 32px;box-shadow:0 2px 12px rgba(15,23,42,0.04);">
-    <div style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6366f1;margin-bottom:6px;">InboxIQ</div>
+    <div style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6366f1;margin-bottom:6px;">Nikkore Inbox</div>
     <div style="font-size:18px;font-weight:600;color:#0f172a;margin:0 0 18px 0;">${subjectBase.replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c] || c))}</div>
     <div style="font-size:15px;color:#0f172a;">
       <style>
@@ -1432,7 +1432,7 @@ export default function Chat() {
       <div class="iq">${safeHtml}</div>
     </div>
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0 14px;" />
-    <div style="font-size:12px;color:#64748b;">Sent from your InboxIQ chat to ${activeConnection.email}.</div>
+    <div style="font-size:12px;color:#64748b;">Sent from your Nikkore Inbox chat to ${activeConnection.email}.</div>
   </div>
 </div>
 </body></html>`;
@@ -2052,7 +2052,7 @@ export default function Chat() {
                   : `${usage.used} messages today`}
               </span>
               {isStreaming && (
-                <span className="text-muted-foreground">InboxIQ is processing…</span>
+                <span className="text-muted-foreground">Nikkore Inbox is processing…</span>
               )}
               {input.length > 1000 && (
                 <span className="text-muted-foreground">{input.length} chars</span>
@@ -2072,7 +2072,7 @@ export default function Chat() {
       )}>
 
         <div className="p-3 border-b border-border flex items-center justify-between" data-tour="chat-sidebar-header">
-          <span className="font-semibold text-sm">InboxIQ Chat</span>
+          <span className="font-semibold text-sm">Nikkore Inbox Chat</span>
           <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </Button>

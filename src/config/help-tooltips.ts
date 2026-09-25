@@ -72,7 +72,7 @@ export const HELP_TOOLTIPS = {
   // ============ Daily Brief ============
   'brief.schedule': {
     title: 'Daily Brief schedule',
-    body: 'When InboxIQ should email you the executive summary. Most users pick weekday mornings 30 minutes before their first meeting.',
+    body: 'When Nikkore Inbox should email you the executive summary. Most users pick weekday mornings 30 minutes before their first meeting.',
     learnMoreArticleId: 'daily-brief',
   },
   'brief.timezone': {
@@ -88,11 +88,11 @@ export const HELP_TOOLTIPS = {
   },
   'category.color': {
     title: 'Category color',
-    body: 'Shown in InboxIQ and synced to Gmail label colors when supported. Choose distinct colors for high-priority categories.',
+    body: 'Shown in Nikkore Inbox and synced to Gmail label colors when supported. Choose distinct colors for high-priority categories.',
   },
   'category.aiDrafts': {
     title: 'AI Drafts for this category',
-    body: 'When on, InboxIQ pre-writes a reply for every new email landing in this category and saves it under `0. AI Draft`. **Drafts are never sent automatically** — you always review and send.',
+    body: 'When on, Nikkore Inbox pre-writes a reply for every new email landing in this category and saves it under `0. AI Draft`. **Drafts are never sent automatically** — you always review and send.',
     learnMoreArticleId: 'ai-drafts',
   },
   'category.followUp': {
@@ -118,7 +118,7 @@ export const HELP_TOOLTIPS = {
   // ============ Integrations ============
   'integration.connect': {
     title: 'Connect your mailbox',
-    body: 'Starts an OAuth flow with your provider. InboxIQ requests only the scopes it needs: read mail, modify labels/folders, and (optionally) calendar.',
+    body: 'Starts an OAuth flow with your provider. Nikkore Inbox requests only the scopes it needs: read mail, modify labels/folders, and (optionally) calendar.',
     learnMoreArticleId: 'connect-mailbox',
   },
   'integration.calendar': {
@@ -136,7 +136,7 @@ export const HELP_TOOLTIPS = {
   },
   'integration.disconnect': {
     title: 'Disconnect',
-    body: 'Revokes InboxIQ\'s access to this mailbox. Categories, rules, and history are kept so you can reconnect later without reconfiguring everything.',
+    body: 'Revokes Nikkore Inbox\'s access to this mailbox. Categories, rules, and history are kept so you can reconnect later without reconfiguring everything.',
   },
 
   // ============ Admin ============

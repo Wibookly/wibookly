@@ -140,7 +140,7 @@ export default function AzurePermissionsCheck({ invoke, autoRunNonce = 0 }: Prop
                 </p>
                 <ol className="list-decimal list-inside text-xs text-foreground/80 space-y-1">
                   <li>If the message says <span className="font-mono">Invalid client secret value</span>, update the backend Microsoft secret using the Azure <span className="font-medium">Value</span>, not the Secret ID.</li>
-                  <li>Open Azure Portal → App registrations → InboxIQ → API permissions</li>
+                  <li>Open Azure Portal → App registrations → Nikkore Inbox → API permissions</li>
                   <li>Add Microsoft Graph <span className="font-mono">Application</span> permissions: <span className="font-mono">User.Read.All</span>, <span className="font-mono">Organization.Read.All</span>, <span className="font-mono">Mail.Send</span></li>
                   <li>Click <span className="font-medium">Grant admin consent for [tenant]</span></li>
                   <li>Re-run this check</li>

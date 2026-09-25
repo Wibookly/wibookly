@@ -350,7 +350,7 @@ async function resolveSenderLicense(
       ok: false,
       reason: 'sender_no_account',
       html:
-        `<p>Hello,</p><p>I could not find an InboxIQ account for <b>${normalized}</b> in this organization. ` +
+        `<p>Hello,</p><p>I could not find an Nikkore Inbox account for <b>${normalized}</b> in this organization. ` +
         `Please ask your administrator to invite you, then sign in once at <a href="https://inboxiq.energyforward.com">inboxiq.energyforward.com</a> and connect your Microsoft 365 mailbox.</p>`,
     };
   }
@@ -370,7 +370,7 @@ async function resolveSenderLicense(
       ok: false,
       reason: 'sender_no_mailbox_connection',
       html:
-        `<p>Hi,</p><p>I found your InboxIQ account but you have not connected your Microsoft 365 mailbox yet. ` +
+        `<p>Hi,</p><p>I found your Nikkore Inbox account but you have not connected your Microsoft 365 mailbox yet. ` +
         `Please sign in at <a href="https://inboxiq.energyforward.com">inboxiq.energyforward.com</a> and click <b>Connect</b> next to Microsoft 365 on the Integrations page. ` +
         `Once connected, email me again and I will answer using your own mailbox, OneDrive, and SharePoint access.</p>`,
     };
@@ -389,7 +389,7 @@ async function resolveSenderLicense(
       reason: 'sender_feature_not_enabled',
       html:
         `<p>Hi,</p><p>Your Microsoft 365 mailbox is connected, but the <b>Email Agent</b> feature is not enabled for your permission group. ` +
-        `Please ask your InboxIQ administrator to add you to a group with Email Agent turned on (/admin → Groups).</p>`,
+        `Please ask your Nikkore Inbox administrator to add you to a group with Email Agent turned on (/admin → Groups).</p>`,
     };
   }
 
@@ -726,7 +726,7 @@ async function processNotification(n: GraphNotification) {
   });
 
   try {
-    // ── License check: the sender must be a known InboxIQ user in this org,
+    // ── License check: the sender must be a known Nikkore Inbox user in this org,
     // with an active Outlook connection and `email_agent` feature enabled.
     // The agent will then run with THEIR delegated Graph permissions.
     const licenseResult = await resolveSenderLicense(senderEmail, settings.organization_id);

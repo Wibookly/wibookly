@@ -503,7 +503,7 @@ async function processDueTrackers(conn: Connection, token: string, myEmail: stri
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        body: { contentType: 'HTML', content: `${html}<br><br><em style="color:#888;font-size:11px;">[InboxIQ follow-up — original BCC trigger: ${t.bcc_alias}, sent ${t.days_after_send} days ago]</em>` },
+        body: { contentType: 'HTML', content: `${html}<br><br><em style="color:#888;font-size:11px;">[Nikkore Inbox follow-up — original BCC trigger: ${t.bcc_alias}, sent ${t.days_after_send} days ago]</em>` },
       }),
     });
 

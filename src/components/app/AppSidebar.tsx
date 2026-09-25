@@ -9,7 +9,7 @@ import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import energyForwardLogo from '@/assets/ef-logo.png';
-import { InboxIQLogo } from '@/components/app/InboxIQLogo';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
@@ -229,9 +229,9 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           iQ
         </div>
         <div className="flex flex-col leading-tight min-w-0">
-          <InboxIQLogo className="text-[17px] leading-none" />
+          <NikkoreInboxLogo className="text-[17px] leading-none" />
           <span className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
-            by Energy Forward AI
+            by Nikkore
           </span>
         </div>
       </div>

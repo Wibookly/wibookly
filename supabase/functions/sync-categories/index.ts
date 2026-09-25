@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Single short prefix for all InboxIQ-managed Outlook Master Categories.
+// Single short prefix for all Nikkore Inbox-managed Outlook Master Categories.
 // Keep this short — it shows on every email row in Outlook next to the
 // category name (e.g. "IQ: Approvals").
 const IQ_TAG_PREFIX = "IQ: ";
@@ -35,11 +35,11 @@ const ZW_PREFIX_RE = /^[\u200B-\u200F\u2060-\u206F\uFEFF]+/u;
 // Build a stable visible prefix string for the given 1-based sort position.
 // Apple Mail, Outlook for Mac, and Outlook mobile sort the folder pane
 // alphabetically by displayName and ignore any custom order set in Outlook
-// Web. To force the InboxIQ category order to appear identically across
+// Web. To force the Nikkore Inbox category order to appear identically across
 // every mail client, we prepend a fixed-width two-digit numeric prefix
 // ("01. ", "02. ", ...) to each managed folder. Two digits sort correctly
 // up to 99 categories. The prefix is regenerated on every sync, so when
-// the user reorders categories in InboxIQ the folder names are renamed
+// the user reorders categories in Nikkore Inbox the folder names are renamed
 // to match the new positions.
 function visibleSortPrefix(position: number): string {
   const n = Math.max(1, Math.min(99, Number(position) || 1));
@@ -61,20 +61,20 @@ function buildOutlookFolderDisplayName(
 }
 
 // Returns true if the given Outlook category name was created/managed by
-// InboxIQ (current short prefix or any legacy variant) and should therefore
+// Nikkore Inbox (current short prefix or any legacy variant) and should therefore
 // be cleaned up before applying the current single category tag.
 function isManagedCategoryName(name: string): boolean {
   if (!name) return false;
   const n = name.trim();
-  // Current short prefix + every legacy variant InboxIQ has ever applied to
+  // Current short prefix + every legacy variant Nikkore Inbox has ever applied to
   // an Outlook message. Includes the numbered Gmail-style labels we used to
   // mirror onto Outlook ("02: Follow Up", "0. AI Draft", "11. AI Sent") so
   // each email ends up with exactly ONE current "IQ: <Category>" chip.
   if (
     n.startsWith("IQ: ") ||
     n.startsWith("★ IQ: ") ||
-    n.startsWith("InboxIQ: ") ||
-    n.startsWith("★ InboxIQ: ") ||
+    n.startsWith("Nikkore Inbox: ") ||
+    n.startsWith("★ Nikkore Inbox: ") ||
     n.startsWith("Wibookly: ") ||
     n.startsWith("vBookly: ") ||
     n.startsWith("Vbookly: ")
@@ -812,8 +812,8 @@ async function moveOutlookFolderMessages(
 }
 
 // Delete every Outlook server-side messageRule whose name targets the given
-// label (e.g. "02: Follow Up"). We match the InboxIQ-managed rule name shape
-// `InboxIQ: <label> - <type>:<value>` so we don't touch unrelated user rules.
+// label (e.g. "02: Follow Up"). We match the Nikkore Inbox-managed rule name shape
+// `Nikkore Inbox: <label> - <type>:<value>` so we don't touch unrelated user rules.
 async function deleteOutlookRulesForLabel(
   accessToken: string,
   labelName: string,
@@ -1198,9 +1198,9 @@ async function tagOutlookFolderMessages(
       const existing: string[] = Array.isArray(m.categories)
         ? m.categories
         : [];
-      // Strip ALL InboxIQ-managed tags (current + legacy) so each email ends
+      // Strip ALL Nikkore Inbox-managed tags (current + legacy) so each email ends
       // up with exactly one IQ category — eliminates duplicates like
-      // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" + "IQ: Approvals".
+      // "Nikkore Inbox: Approvals" + "★ Nikkore Inbox: Approvals" + "IQ: Approvals".
       const preserved = existing.filter((c) => !isManagedCategoryName(c));
       const next = [...preserved, categoryName];
       // Skip the PATCH if nothing actually changes.
@@ -1430,7 +1430,7 @@ async function createOutlookFolder(
   }
 }
 
-const REORDER_TEMP_PREFIX = "InboxIQ reorder ";
+const REORDER_TEMP_PREFIX = "Nikkore Inbox reorder ";
 
 async function listOutlookFolders(
   accessToken: string,
@@ -1460,7 +1460,7 @@ async function getOutlookInboxId(accessToken: string): Promise<string | null> {
 }
 
 /**
- * Cleans up orphaned "InboxIQ reorder ..." temporary folders left behind by
+ * Cleans up orphaned "Nikkore Inbox reorder ..." temporary folders left behind by
  * a previously-interrupted reorder pass. If the temp folder name corresponds
  * to a known category, we try to rename it into its final form. Otherwise we
  * move any messages back to the Inbox and delete the folder so users never
@@ -1487,9 +1487,9 @@ async function cleanupOrphanedReorderFolders(
   const inboxId = await getOutlookInboxId(accessToken);
 
   for (const orphan of orphans) {
-    // Extract the original category name: "InboxIQ reorder {8hex} {Name}"
+    // Extract the original category name: "Nikkore Inbox reorder {8hex} {Name}"
     const match = orphan.displayName.match(
-      /^InboxIQ reorder [0-9a-f]+\s+(.+)$/i,
+      /^Nikkore Inbox reorder [0-9a-f]+\s+(.+)$/i,
     );
     const originalName = match?.[1]?.trim() ?? "";
     const matchedDesired = originalName
@@ -1593,7 +1593,7 @@ async function enforceOutlookManagedFolderOrder(
   // Outlook already sorts folders alphabetically by displayName, so the
   // fixed-width numeric prefix on each managed folder is the true source of
   // order across all clients.
-  // Rebuilding folders through temporary "InboxIQ reorder ..." folders made
+  // Rebuilding folders through temporary "Nikkore Inbox reorder ..." folders made
   // the sync path fragile and could leave visible leftovers if Outlook or
   // Graph lagged. Instead, we now do a non-destructive stabilization pass:
   // clean up any old temp folders, ensure each canonical folder name exists,
@@ -2213,13 +2213,13 @@ serve(async (req) => {
                 }
               }
               // Clean up legacy master-category variants for this same
-              // category name (long "InboxIQ:" prefix, the old "★ " favorite
+              // category name (long "Nikkore Inbox:" prefix, the old "★ " favorite
               // prefix, and the legacy "Wibookly:" prefix). Without this,
               // Outlook accumulates stale colored chips that show up
               // alongside the new IQ: tag on every message.
               const staleVariants = [
-                `InboxIQ: ${category.name}`,
-                `★ InboxIQ: ${category.name}`,
+                `Nikkore Inbox: ${category.name}`,
+                `★ Nikkore Inbox: ${category.name}`,
                 `★ IQ: ${category.name}`,
                 `Wibookly: ${category.name}`,
               ];
@@ -2409,10 +2409,10 @@ serve(async (req) => {
         }
 
         // FINAL SWEEP — Outlook only — remove legacy managed category tags
-        // ("InboxIQ:" / "★ InboxIQ:" / "Wibookly:") from every message in
+        // ("Nikkore Inbox:" / "★ Nikkore Inbox:" / "Wibookly:") from every message in
         // the mailbox AND delete the orphan colored master categories.
         // Without this, emails keep displaying duplicate chips like
-        // "InboxIQ: Approvals" + "★ InboxIQ: Approvals" alongside the new
+        // "Nikkore Inbox: Approvals" + "★ Nikkore Inbox: Approvals" alongside the new
         // short "IQ: Approvals" chip.
         if (isOutlookProvider) {
           try {

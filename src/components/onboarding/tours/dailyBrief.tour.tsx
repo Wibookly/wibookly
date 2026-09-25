@@ -5,7 +5,7 @@ export const dailyBriefTour: Step[] = [
     target: 'body',
     title: 'AI Daily Brief — your morning executive summary',
     content:
-      "Overnight, InboxIQ reads your inbox, calendar, and follow-ups and writes a single concise briefing so you start the day knowing what matters. No more scrolling 200 unread emails before coffee.",
+      "Overnight, Nikkore Inbox reads your inbox, calendar, and follow-ups and writes a single concise briefing so you start the day knowing what matters. No more scrolling 200 unread emails before coffee.",
     placement: 'center',
     skipBeacon: true,
   },
@@ -34,7 +34,7 @@ export const dailyBriefTour: Step[] = [
     target: 'body',
     title: 'Print & share',
     content:
-      "Open any brief and click Print to get an InboxIQ-branded executive report (PDF-ready). Great for forwarding to an assistant, saving to OneDrive, or printing for an offline read.",
+      "Open any brief and click Print to get an Nikkore Inbox-branded executive report (PDF-ready). Great for forwarding to an assistant, saving to OneDrive, or printing for an offline read.",
     placement: 'center',
   },
   {

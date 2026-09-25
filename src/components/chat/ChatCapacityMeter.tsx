@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 
 // Realistic context window comparison (Nov 2025 generation models)
-// InboxIQ uses the long-context models behind the scenes; cap at 200K
+// Nikkore Inbox uses the long-context models behind the scenes; cap at 200K
 // to match Claude Sonnet 4.5 / GPT-5 effective context.
 const TOKEN_LIMIT = 200_000;
 const WARN_THRESHOLD = 0.7;   // yellow at 70%
@@ -120,7 +120,7 @@ export function ChatCapacityMeter({ messages, streamingText, onSummarizeAndConti
                     Each chat has a context window. Once it fills up, the assistant starts losing the earliest parts of the conversation.
                   </div>
                   <div className="pt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                    <span className="text-muted-foreground">InboxIQ</span><span className="font-medium tabular-nums">~200K tokens</span>
+                    <span className="text-muted-foreground">Nikkore Inbox</span><span className="font-medium tabular-nums">~200K tokens</span>
                     <span className="text-muted-foreground">Claude Sonnet 4.5</span><span className="tabular-nums">200K tokens</span>
                     <span className="text-muted-foreground">GPT-5</span><span className="tabular-nums">~256K tokens</span>
                     <span className="text-muted-foreground">ChatGPT (Plus)</span><span className="tabular-nums">~32K tokens</span>

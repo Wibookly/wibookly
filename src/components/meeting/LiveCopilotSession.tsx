@@ -769,7 +769,7 @@ export default function LiveCopilotSession({ meeting, onClose, autoStart = false
       await runMicCheck();
     }
     if (!micStreamRef.current) {
-      setMicError('Test the microphone first so InboxIQ can confirm your device is ready.');
+      setMicError('Test the microphone first so Nikkore Inbox can confirm your device is ready.');
       return;
     }
 

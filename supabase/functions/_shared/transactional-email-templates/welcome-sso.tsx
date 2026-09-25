@@ -16,7 +16,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 
-const SITE_NAME = 'InboxIQ'
+const SITE_NAME = 'Nikkore Inbox'
 const SITE_URL = 'https://inboxiq.energyforward.com'
 
 interface WelcomeSsoProps {
@@ -55,7 +55,7 @@ const features: Array<{ title: string; body: string }> = [
 
 const quickSteps: string[] = [
   'Click the activation button below and sign in with your Microsoft 365 account.',
-  'Approve the Microsoft permissions so InboxIQ can read your mailbox securely.',
+  'Approve the Microsoft permissions so Nikkore Inbox can read your mailbox securely.',
   'Open the in-app Quick Guide that appears on first login for a 60-second tour.',
   'Check your Daily Brief — it is ready as soon as your inbox finishes syncing.',
 ]
@@ -127,7 +127,7 @@ const WelcomeSsoEmail = ({
 
           <Hr style={hr} />
 
-          {/* What InboxIQ does */}
+          {/* What Nikkore Inbox does */}
           <Heading as="h2" style={h2}>
             What you can do with {SITE_NAME}
           </Heading>
@@ -194,7 +194,7 @@ export const template = {
   previewData: {
     fullName: 'Jane Doe',
     invitationUrl: 'https://inboxiq.energyforward.com/auth/accept-invitation?token=preview',
-    organizationName: 'EnergyForward',
+    organizationName: 'Nikkore',
     organizationLogoUrl: '',
   },
 } satisfies TemplateEntry

@@ -72,7 +72,7 @@ const SECTIONS: Section[] = [
     title: 'Email Intelligence',
     tagline: 'Auto-sort & auto-draft your inbox',
     description:
-      'Define the categories that match how you work. InboxIQ labels new mail, applies your rules, and prepares draft replies you can review and send in seconds.',
+      'Define the categories that match how you work. Nikkore Inbox labels new mail, applies your rules, and prepares draft replies you can review and send in seconds.',
     route: '/categories',
     tourArticleId: 'categories-overview',
     Icon: Inbox,
@@ -130,7 +130,7 @@ const SECTIONS: Section[] = [
   {
     id: 'settings',
     title: 'My Profile Settings',
-    tagline: 'Make InboxIQ sound like you',
+    tagline: 'Make Nikkore Inbox sound like you',
     description:
       'Design your own profile and signature so AI drafts sound like you, look professional, and use the right identity every time.',
     route: '/settings',
@@ -303,7 +303,7 @@ export function WelcomeGuide() {
       className="fixed inset-0 z-[110] overflow-hidden animate-in fade-in duration-300"
       role="dialog"
       aria-modal="true"
-      aria-label="Welcome to InboxIQ"
+      aria-label="Welcome to Nikkore Inbox"
     >
       <div
         className="absolute inset-0 bg-[#05070f]"
@@ -334,10 +334,10 @@ export function WelcomeGuide() {
           <div className="text-center max-w-3xl mx-auto pr-12 sm:pr-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-indigo-200/80 backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
-              Welcome to InboxIQ — Quick Guide
+              Welcome to Nikkore Inbox — Quick Guide
             </div>
             <h1 className="mt-5 text-3xl sm:text-5xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent leading-tight">
-              Here’s everything InboxIQ does for you.
+              Here’s everything Nikkore Inbox does for you.
             </h1>
             <p className="mt-5 text-base sm:text-lg leading-relaxed text-white/70">
               This is your one-stop onboarding tour. Below is the full map of
@@ -391,7 +391,7 @@ export function WelcomeGuide() {
               {
                 step: '1',
                 title: 'Explore the sections',
-                body: 'Tap any card below to jump into that part of InboxIQ.',
+                body: 'Tap any card below to jump into that part of Nikkore Inbox.',
               },
               {
                 step: '2',

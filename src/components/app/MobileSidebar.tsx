@@ -128,7 +128,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
       >
         <SheetHeader className="p-4" style={{ borderBottom: '1px solid var(--border-soft)' }}>
           <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold" style={{ color: 'var(--text-body)' }}>InboxIQ</span>
+            <span className="text-lg font-semibold" style={{ color: 'var(--text-body)' }}>Nikkore Inbox</span>
           </div>
         </SheetHeader>
 

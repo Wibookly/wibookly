@@ -270,7 +270,7 @@ serve(async (req) => {
       console.log(`Created new user: ${userId}`);
 
       // Create organization
-      const orgName = isSuperAdmin ? 'Energy Forward' : (authorizedDomain?.organization_name || domain);
+      const orgName = isSuperAdmin ? 'Nikkore' : (authorizedDomain?.organization_name || domain);
       let orgData: { id: string } | null = null;
 
       const { data: existingOrg } = await adminClient

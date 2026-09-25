@@ -1,4 +1,4 @@
-# Energy Forward AI — Teams App Manifest
+# Nikkore — Teams App Manifest
 
 Files in this folder make up the Microsoft Teams app package.
 
@@ -17,7 +17,7 @@ outline.png    (32x32)
 1. **Bot credentials** — in Supabase secrets:
    - `TEAMS_BOT_APP_ID` = `7ef83b20-0a5b-4ce9-b8fc-01dbe29943a2`
    - `TEAMS_BOT_APP_PASSWORD` = client secret from Azure Portal → Azure Bot resource → *Manage Microsoft App ID and password* → New client secret
-   - `MICROSOFT_TENANT_ID` = your EnergyForward tenant ID
+   - `MICROSOFT_TENANT_ID` = your Nikkore tenant ID
 
 2. **Edge function** — already deployed at:
    `https://<project>.supabase.co/functions/v1/teams-bot`

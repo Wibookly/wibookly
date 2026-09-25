@@ -150,9 +150,9 @@ export function SetupWizard({ open, onOpenChange, onComplete }: SetupWizardProps
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Visually-hidden title for screen readers (the visible header is custom) */}
-        <DialogTitle className="sr-only">InboxIQ Setup Wizard</DialogTitle>
+        <DialogTitle className="sr-only">Nikkore Inbox Setup Wizard</DialogTitle>
         <DialogDescription className="sr-only">
-          Step-by-step setup to get InboxIQ ready for your inbox.
+          Step-by-step setup to get Nikkore Inbox ready for your inbox.
         </DialogDescription>
 
         {/* Header */}
@@ -163,7 +163,7 @@ export function SetupWizard({ open, onOpenChange, onComplete }: SetupWizardProps
                 <Sparkles className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold leading-tight">InboxIQ Setup</p>
+                <p className="text-sm font-semibold leading-tight">Nikkore Inbox Setup</p>
                 <p className="text-xs text-muted-foreground">
                   Step {stepIndex + 1} of {TOTAL_STEPS} · {currentStep.title}
                 </p>
@@ -296,7 +296,7 @@ function buildSteps(args: {
     {
       id: 'welcome',
       kind: 'optional',
-      title: 'Welcome to InboxIQ',
+      title: 'Welcome to Nikkore Inbox',
       subtitle: 'A 2-minute setup to make your inbox calmer and your replies faster.',
       body: (
         <div className="space-y-3 text-sm text-foreground">
@@ -355,9 +355,9 @@ function buildSteps(args: {
       id: 'mailbox',
       kind: 'required',
       title: 'Connect your mailbox',
-      subtitle: 'InboxIQ needs read and label access to triage and draft replies.',
+      subtitle: 'Nikkore Inbox needs read and label access to triage and draft replies.',
       why:
-        'Without a connected mailbox, InboxIQ has nothing to sort or draft. We use OAuth — your password is never stored — and you can disconnect at any time.',
+        'Without a connected mailbox, Nikkore Inbox has nothing to sort or draft. We use OAuth — your password is never stored — and you can disconnect at any time.',
       isValid: mailboxConnected === true,
       invalidReason: 'Connect at least one mailbox before continuing.',
       body: (
@@ -405,7 +405,7 @@ function buildSteps(args: {
       title: 'Review your categories',
       subtitle: 'We created 10 sensible defaults. Tweak names and rules whenever you like.',
       why:
-        'Categories are the labels (Gmail) or folders (Outlook) InboxIQ uses to triage every incoming email. The defaults work for most people; renaming them later is one click.',
+        'Categories are the labels (Gmail) or folders (Outlook) Nikkore Inbox uses to triage every incoming email. The defaults work for most people; renaming them later is one click.',
       body: (
         <div className="space-y-3">
           <p className="text-sm text-foreground">
@@ -457,7 +457,7 @@ function buildSteps(args: {
       title: 'Invite teammates',
       subtitle: 'Admins can add coworkers from the Admin Dashboard.',
       why:
-        'InboxIQ is built for teams. Anyone on an allowed domain can be added with a single click — no separate accounts to manage.',
+        'Nikkore Inbox is built for teams. Anyone on an allowed domain can be added with a single click — no separate accounts to manage.',
       body: (
         <div className="space-y-3">
           <p className="text-sm text-foreground">

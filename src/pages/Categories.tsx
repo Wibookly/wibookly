@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 // Outlook-compatible category palette. These hex values match what Outlook
 // actually renders for its built-in preset colors (preset0..preset24), so the
-// dot in InboxIQ matches the folder/category color in Outlook Web/Desktop.
+// dot in Nikkore Inbox matches the folder/category color in Outlook Web/Desktop.
 const OUTLOOK_PRESET_PALETTE: { name: string; hex: string }[] = [
   { name: 'Red',          hex: '#E74C3C' },
   { name: 'Orange',       hex: '#E67E22' },
@@ -1112,7 +1112,7 @@ export default function Categories() {
       if (error) throw error;
       toast({
         title: '📧 Script emailed!',
-        description: 'Check your inbox for InboxIQ-Setup.ps1 with installation instructions.',
+        description: 'Check your inbox for Nikkore Inbox-Setup.ps1 with installation instructions.',
       });
     } catch (e: any) {
       toast({

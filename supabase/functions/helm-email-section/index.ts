@@ -47,7 +47,7 @@ function shell(title: string, inner: string): string {
     <h1 style="font-size:22px;margin:0 0 16px;color:#0f172a;">${esc(title)}</h1>
     ${inner}
     <hr style="border:0;border-top:1px solid #e5e7eb;margin:28px 0 16px;"/>
-    <p style="font-size:12px;color:#64748b;margin:0;">Sent from The Helm · InboxIQ</p>
+    <p style="font-size:12px;color:#64748b;margin:0;">Sent from The Helm · Nikkore Inbox</p>
   </div>
 </body></html>`;
 }

@@ -737,7 +737,7 @@ export default function Settings() {
         <PageHero
           eyebrow="My Settings"
           title="My Profile & Signature"
-          description="Personalize how your name, role, and signature appear across InboxIQ and your AI-drafted replies."
+          description="Personalize how your name, role, and signature appear across Nikkore Inbox and your AI-drafted replies."
           accent="orange"
           icon={<UserCircle2 className="w-5 h-5 text-white" strokeWidth={2} />}
         />

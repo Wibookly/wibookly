@@ -179,7 +179,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_document",
-      description: "Generate a branded Word (.docx) and/or PDF document from markdown and save it to the user's OneDrive › InboxIQ Chat › Generated Documents. Uses the standard 'Executive Navy' template (Calibri headings, Georgia body, navy accents, page numbers). Use for policies, reports, memos, contracts, letters, plans, briefs, SOPs, proposals — anything prose-based. Returns OneDrive webUrls for the docx and pdf. NEVER promise a document without calling this tool.",
+      description: "Generate a branded Word (.docx) and/or PDF document from markdown and save it to the user's OneDrive › Nikkore Inbox Chat › Generated Documents. Uses the standard 'Executive Navy' template (Calibri headings, Georgia body, navy accents, page numbers). Use for policies, reports, memos, contracts, letters, plans, briefs, SOPs, proposals — anything prose-based. Returns OneDrive webUrls for the docx and pdf. NEVER promise a document without calling this tool.",
       parameters: {
         type: "object",
         properties: {
@@ -195,7 +195,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_spreadsheet",
-      description: "Generate a branded Excel (.xlsx) workbook and save to OneDrive › InboxIQ Chat › Generated Documents. Use for budgets, plans, trackers, comparison tables, schedules, line-item breakdowns — anything tabular. Header row uses navy fill + white Calibri bold; alternating row shading; auto column widths; frozen header. Returns OneDrive webUrl.",
+      description: "Generate a branded Excel (.xlsx) workbook and save to OneDrive › Nikkore Inbox Chat › Generated Documents. Use for budgets, plans, trackers, comparison tables, schedules, line-item breakdowns — anything tabular. Header row uses navy fill + white Calibri bold; alternating row shading; auto column widths; frozen header. Returns OneDrive webUrl.",
       parameters: {
         type: "object",
         properties: {
@@ -222,7 +222,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_presentation",
-      description: "Generate a branded PowerPoint (.pptx) deck and save to OneDrive › InboxIQ Chat › Generated Documents. Use for decks, pitches, briefings, training slides, status updates. Cover slide on navy background; content slides with navy title bar + Calibri 20pt bullets. Returns OneDrive webUrl.",
+      description: "Generate a branded PowerPoint (.pptx) deck and save to OneDrive › Nikkore Inbox Chat › Generated Documents. Use for decks, pitches, briefings, training slides, status updates. Cover slide on navy background; content slides with navy title bar + Calibri 20pt bullets. Returns OneDrive webUrl.",
       parameters: {
         type: "object",
         properties: {
@@ -303,7 +303,7 @@ const TOOLS = [
   },
 ];
 
-const QA_SYSTEM = `You are an InboxIQ assistant with full access to the user's Microsoft 365 data via tools.
+const QA_SYSTEM = `You are an Nikkore Inbox assistant with full access to the user's Microsoft 365 data via tools.
 
 Tool selection:
 - For questions about emails, invoices, senders, receipts, conversations → call search_outlook_mail.
@@ -360,7 +360,7 @@ Action tools — sending email and booking meetings (CRITICAL safety rules):
 - When sending to a recipient outside the user's own domain for the first time in a conversation, explicitly call out "this is an external recipient" in the confirmation question.
 - After send_email succeeds, reply with "✅ Sent to <recipients> at <time>." After book_meeting succeeds, reply with "✅ Booked: <subject> on <date/time>." plus the calendar webLink as a markdown link.`;
 
-const DRAFT_SYSTEM = `You are an InboxIQ email-drafting agent.
+const DRAFT_SYSTEM = `You are an Nikkore Inbox email-drafting agent.
 - Use search_outlook_mail and search_context to gather background on the recipient and prior threads.
 - For files referenced by the user, use search_onedrive / search_sharepoint.
 - If a thread_id is provided, call get_email_thread to read the conversation.

@@ -3,7 +3,7 @@ import type { Step } from 'react-joyride';
 export const aiChatTour: Step[] = [
   {
     target: 'body',
-    title: 'Welcome to InboxIQ Chat',
+    title: 'Welcome to Nikkore Inbox Chat',
     content:
       "This is your AI workspace. Ask questions, search the web, draft documents (Word / PDF / Excel / PowerPoint), analyze your inbox, schedule meetings — all from one conversation. I'll walk you through every part of this screen, one arrow at a time.",
     placement: 'center',
@@ -11,7 +11,7 @@ export const aiChatTour: Step[] = [
   },
   {
     target: '[data-tour="chat-sidebar-header"]',
-    title: 'InboxIQ Chat — sidebar header',
+    title: 'Nikkore Inbox Chat — sidebar header',
     content:
       "This is the header of your chat sidebar. Everything below it belongs to the chat workspace: the New chat button, your folders, and your past conversations grouped by date (Today, This Week, Last Week, Older).",
     placement: 'right',
@@ -53,9 +53,9 @@ export const aiChatTour: Step[] = [
   },
   {
     target: '[data-tour="chat-hero-avatar"]',
-    title: 'Your InboxIQ AI agent',
+    title: 'Your Nikkore Inbox AI agent',
     content:
-      "This is the InboxIQ AI agent. While idle it shows the branded portrait; while it's thinking or replying, the avatar animates so you know work is happening behind the scenes.",
+      "This is the Nikkore Inbox AI agent. While idle it shows the branded portrait; while it's thinking or replying, the avatar animates so you know work is happening behind the scenes.",
     placement: 'bottom',
   },
   {
@@ -69,12 +69,12 @@ export const aiChatTour: Step[] = [
     target: '[data-tour="chat-attach"]',
     title: 'Attach files (the + button)',
     content:
-      "Upload PDFs, Word, Excel, PowerPoint, images, or text files. InboxIQ reads the contents — you can then ask 'summarize this contract', 'pull the line items into a table', or 'rewrite this in plain English'.",
+      "Upload PDFs, Word, Excel, PowerPoint, images, or text files. Nikkore Inbox reads the contents — you can then ask 'summarize this contract', 'pull the line items into a table', or 'rewrite this in plain English'.",
     placement: 'top-start',
   },
   {
     target: '[data-tour="chat-input"]',
-    title: 'Message InboxIQ — type your question',
+    title: 'Message Nikkore Inbox — type your question',
     content:
       "Type any request in plain English: 'summarize my last 10 emails', 'draft a reply to John about the proposal', 'find the cheapest LAX → Rome flight next month', 'what's on my calendar tomorrow?'. Press Enter to send, Shift+Enter for a new line.",
     placement: 'top',
@@ -83,7 +83,7 @@ export const aiChatTour: Step[] = [
     target: '[data-tour="chat-mic"]',
     title: 'Voice input — talk instead of typing',
     content:
-      "Tap the mic and speak naturally. InboxIQ transcribes in real time and your message is ready to send when you stop talking. Use the small chevron next to it to choose which microphone to use (useful for headsets).",
+      "Tap the mic and speak naturally. Nikkore Inbox transcribes in real time and your message is ready to send when you stop talking. Use the small chevron next to it to choose which microphone to use (useful for headsets).",
     placement: 'top-end',
   },
   {

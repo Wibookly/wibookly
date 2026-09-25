@@ -569,7 +569,7 @@ export default function UnanetDashboard() {
             >F</div>
             <div className="leading-tight">
               <div className="font-semibold text-[15px]">FinanceIQ</div>
-              <div className="text-[11px]" style={{ color: T.muted }}>by Energy Forward AI</div>
+              <div className="text-[11px]" style={{ color: T.muted }}>by Nikkore</div>
             </div>
             <div className="mx-4 h-8 w-px" style={{ background: T.line }} />
             <div className="leading-tight">

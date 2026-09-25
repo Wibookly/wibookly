@@ -14,7 +14,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 
-const SITE_NAME = 'InboxIQ'
+const SITE_NAME = 'Nikkore Inbox'
 const APP_URL = 'https://inboxiq.energyforward.com'
 
 interface WelcomeAccessGrantedProps {
@@ -49,7 +49,7 @@ const ALL_FEATURES: FeatureDef[] = [
     accent: '#7C3AED',
     title: 'Auto Reply (opt-in)',
     body:
-      'For low-risk categories you explicitly turn on, InboxIQ can send the reply for you automatically — perfect for confirmations, FYIs, and routine acknowledgements.',
+      'For low-risk categories you explicitly turn on, Nikkore Inbox can send the reply for you automatically — perfect for confirmations, FYIs, and routine acknowledgements.',
   },
   {
     key: 'ai_assistant',
@@ -81,7 +81,7 @@ const ALL_FEATURES: FeatureDef[] = [
     accent: '#10B981',
     title: 'No-Reply Tracker',
     body:
-      'BCC a numeric address (e.g. 3@yourdomain.com) and InboxIQ watches the thread. If nobody replies in the window you set, it nudges them for you during your business hours.',
+      'BCC a numeric address (e.g. 3@yourdomain.com) and Nikkore Inbox watches the thread. If nobody replies in the window you set, it nudges them for you during your business hours.',
   },
   {
     key: 'email_agent',
@@ -97,7 +97,7 @@ const ALL_FEATURES: FeatureDef[] = [
     accent: '#6366F1',
     title: 'Teams Agent',
     body:
-      'Chat with InboxIQ directly inside Microsoft Teams — ask about your inbox, kick off drafts, and get briefed without leaving the conversation.',
+      'Chat with Nikkore Inbox directly inside Microsoft Teams — ask about your inbox, kick off drafts, and get briefed without leaving the conversation.',
   },
 ]
 
@@ -117,7 +117,7 @@ const CORE_CAPABILITIES: FeatureDef[] = [
     accent: '#14365C',
     title: 'You stay in control',
     body:
-      'InboxIQ never sends mail on your behalf unless you turn on Auto Reply for a specific category. You can pause, edit categories, or disconnect in one click.',
+      'Nikkore Inbox never sends mail on your behalf unless you turn on Auto Reply for a specific category. You can pause, edit categories, or disconnect in one click.',
   },
 ]
 
@@ -165,7 +165,7 @@ const WelcomeAccessGrantedEmail = ({
         <Container style={container}>
           {/* Brand hero */}
           <Section style={hero}>
-            <Text style={brandMark}>InboxIQ</Text>
+            <Text style={brandMark}>Nikkore Inbox</Text>
             <Heading style={h1}>Welcome aboard, {firstName || 'friend'}.</Heading>
             <Text style={heroSub}>
               Your AI copilot for Microsoft 365 — designed to give you back
@@ -287,8 +287,8 @@ export const template = {
   component: WelcomeAccessGrantedEmail,
   subject: (data: Record<string, any>) =>
     data?.fullName
-      ? `${data.fullName.split(' ')[0]}, your InboxIQ account is ready 🎉`
-      : `Your InboxIQ account is ready 🎉`,
+      ? `${data.fullName.split(' ')[0]}, your Nikkore Inbox account is ready 🎉`
+      : `Your Nikkore Inbox account is ready 🎉`,
   displayName: 'Welcome — access granted (role-aware feature tour)',
   previewData: {
     fullName: 'Jane Doe',

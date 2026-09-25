@@ -244,7 +244,7 @@ export default function AIDailyBrief() {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    const appName = 'InboxIQ';
+    const appName = 'Nikkore Inbox';
     const email = activeConnection?.email || profile?.email || 'N/A';
     const fullName = profile?.full_name || firstName || '';
 
@@ -280,7 +280,7 @@ export default function AIDailyBrief() {
           <div class="ph-title">${esc(appName)} Daily Brief · ${esc(label)}</div>
           <div class="ph-sub">${esc(fullName)} · ${esc(email)} · ${esc(today)} · ${esc(kind)}</div>
         </div>
-        <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" class="ph-logo" onerror="this.style.display='none'" />
+        <img src="${window.location.origin}${energyForwardLogo}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
       </header>`;
 
     const buildSection = (title: string, kind: string, body: string, emptyMsg?: string) => `

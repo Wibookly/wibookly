@@ -346,7 +346,7 @@ export function FlaggedEmailSettingsBody() {
             <div>
               <p className="font-medium text-foreground mb-1">1. Only flags with a due date are tracked</p>
               <p className="text-muted-foreground">
-                A plain flag on a message in Outlook (or your email app) does <span className="font-medium text-foreground">not</span> show up here. The tracker only picks up emails where you set a <span className="font-medium text-foreground">follow-up flag with a scheduled due date</span>. That date is your promise to yourself — "if I don't hear back by then, follow up." Adding the date is what tells InboxIQ to start watching the thread.
+                A plain flag on a message in Outlook (or your email app) does <span className="font-medium text-foreground">not</span> show up here. The tracker only picks up emails where you set a <span className="font-medium text-foreground">follow-up flag with a scheduled due date</span>. That date is your promise to yourself — "if I don't hear back by then, follow up." Adding the date is what tells Nikkore Inbox to start watching the thread.
               </p>
             </div>
 
@@ -629,16 +629,16 @@ export function FlaggedEmailSettingsBody() {
                 <li>Send your email as usual.</li>
                 <li>Open the message in <strong>Sent Items</strong>.</li>
                 <li>Click the flag icon and pick <strong>Custom… → Due date</strong>.</li>
-                <li>If auto-send is on and no reply has arrived by that date, InboxIQ sends a polite follow-up for you.</li>
+                <li>If auto-send is on and no reply has arrived by that date, Nikkore Inbox sends a polite follow-up for you.</li>
               </ol>
             </div>
           </CardContent>
         </Card>
 
-        {/* What InboxIQ does */}
+        {/* What Nikkore Inbox does */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">What InboxIQ does for you</CardTitle>
+            <CardTitle className="text-base">What Nikkore Inbox does for you</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">

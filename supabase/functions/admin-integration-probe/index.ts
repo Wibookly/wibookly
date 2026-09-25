@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
             } catch (e) { console.error("[probe] email failed:", (e as Error).message); }
           }
           if (smsEnabledGlobally && r.sms_enabled && r.phone) {
-            const smsBody = `[InboxIQ] ${key} is ${sev.toUpperCase()}. ${result.message ?? ""}`.trim();
+            const smsBody = `[Nikkore Inbox] ${key} is ${sev.toUpperCase()}. ${result.message ?? ""}`.trim();
             const out = await sendSms(r.phone, smsBody);
             if (!out.ok) console.error("[probe] sms failed:", out.message);
           }

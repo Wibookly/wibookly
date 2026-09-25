@@ -291,7 +291,7 @@ export function NoReplyTrackerReport() {
       </style></head><body>
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #0ea5e9;padding-bottom:8px;margin-bottom:16px;">
         <div><h1>No-Reply Tracker Report</h1><div class="sub">${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')} · ${filtered.length} record${filtered.length === 1 ? '' : 's'}</div></div>
-        <div style="color:#0ea5e9;font-weight:700;">InboxIQ</div>
+        <div style="color:#0ea5e9;font-weight:700;">Nikkore Inbox</div>
       </div>
       <table><thead><tr>
         <th>Sent</th><th>Recipient</th><th>Subject</th><th>BCC</th><th>Expected By</th><th>Status</th><th>Replied</th>

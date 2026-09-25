@@ -155,7 +155,7 @@ export default function FollowUpsPanel({ organizationId }: { organizationId: str
                 <div className="rounded bg-background border p-3 space-y-1.5 text-xs">
                   <p className="font-medium text-foreground">Exchange admin → Mail flow → Rules → New rule:</p>
                   <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                    <li>Name: <code className="font-mono">InboxIQ Follow-up BCC capture</code></li>
+                    <li>Name: <code className="font-mono">Nikkore Inbox Follow-up BCC capture</code></li>
                     <li>Apply if: <em>The recipient address matches any of these patterns</em>:
                       <div className="ml-5 mt-1 font-mono">
                         2@{domain}<br />3@{domain}<br />5@{domain}<br />7@{domain}<br />10@{domain}<br />14@{domain}
@@ -186,7 +186,7 @@ export default function FollowUpsPanel({ organizationId }: { organizationId: str
         <CardContent className="space-y-3 text-sm">
           <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Re-grant tenant-wide admin consent</strong> for the InboxIQ app
+              <strong className="text-foreground">Re-grant tenant-wide admin consent</strong> for the Nikkore Inbox app
               from the <em>Domains</em> tab → click <em>Re-run Microsoft consent</em>. This refreshes permissions
               for everyone in your tenant in one shot.
             </li>

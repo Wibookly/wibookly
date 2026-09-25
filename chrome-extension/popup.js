@@ -1,7 +1,7 @@
-// Popup: lets the user choose an active InboxIQ session and start/stop capture.
+// Popup: lets the user choose an active Nikkore Inbox session and start/stop capture.
 
 if (typeof INBOXIQ_CONFIG === "undefined") {
-  throw new Error("InboxIQ extension config failed to load.");
+  throw new Error("Nikkore Inbox extension config failed to load.");
 }
 
 const $ = (id) => document.getElementById(id);
@@ -33,7 +33,7 @@ async function loadSessions() {
     "/rest/v1/meeting_sessions?status=eq.active&order=started_at.desc&limit=10&select=id,meeting_title,started_at",
   );
   if (!res.ok) {
-    $("status").textContent = `Couldn’t load sessions (${res.status}). Open InboxIQ and sign in again.`;
+    $("status").textContent = `Couldn’t load sessions (${res.status}). Open Nikkore Inbox and sign in again.`;
     $("start").disabled = true;
     return;
   }
@@ -42,7 +42,7 @@ async function loadSessions() {
   sel.innerHTML = "";
   if (!data.length) {
     const opt = document.createElement("option");
-    opt.textContent = "No active session — open Meeting Copilot in InboxIQ";
+    opt.textContent = "No active session — open Meeting Copilot in Nikkore Inbox";
     opt.disabled = true;
     sel.appendChild(opt);
     $("start").disabled = true;
@@ -80,7 +80,7 @@ $("open-app").addEventListener("click", () => {
 });
 
 $("connect-extension")?.addEventListener("click", async () => {
-  $("status").textContent = "Opening InboxIQ sign-in…";
+  $("status").textContent = "Opening Nikkore Inbox sign-in…";
   await openHandshakePage();
 });
 
@@ -108,7 +108,7 @@ $("stop").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "IQ_STOP_CAPTURE" }, () => refreshState());
 });
 
-// On open: try to pull the InboxIQ session token from the app tab.
+// On open: try to pull the Nikkore Inbox session token from the app tab.
 (async () => {
   const tabs = await chrome.tabs.query({
     url: [`${INBOXIQ_CONFIG.appUrl}/*`, "https://*.lovable.app/*", "https://*.lovableproject.com/*"],

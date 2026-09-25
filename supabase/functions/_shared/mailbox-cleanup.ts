@@ -333,7 +333,7 @@ async function cleanupOutlookProvider(
     const { value: rules } = await rulesRes.json();
     for (const rule of rules ?? []) {
       const displayName = String(rule.displayName || '');
-      if (!displayName.startsWith('InboxIQ:') && !displayName.startsWith('Wibookly:')) continue;
+      if (!displayName.startsWith('Nikkore Inbox:') && !displayName.startsWith('Wibookly:')) continue;
       const deleteRes = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messageRules/${rule.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` },

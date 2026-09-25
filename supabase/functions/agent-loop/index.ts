@@ -1,4 +1,4 @@
-// agent-loop — the shared "brain" for the InboxIQ agent.
+// agent-loop — the shared "brain" for the Nikkore Inbox agent.
 // Inputs: a task description (typically an inbound email body + thread context)
 // Outputs: { reply_html, attachments[] }
 //
@@ -136,7 +136,7 @@ function buildFailureReplyHtml(errors: { stage: string; error: string }[]): stri
   return '<p>Hi,</p><p>I ran into an issue while preparing your deliverable and could not complete it in this pass.</p><p>Please reply with a narrower first step and I will continue from there.</p>';
 }
 
-const SYSTEM_PROMPT = `You are InboxIQ Agent — an executive AI middleware.
+const SYSTEM_PROMPT = `You are Nikkore Inbox Agent — an executive AI middleware.
 
 ROLE
 You receive tasks via email (forwarded by an internal team member) or Microsoft Teams. Your job is to deliver REAL, FINISHED work product, not chat-style answers.

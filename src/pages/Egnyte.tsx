@@ -106,7 +106,7 @@ export default function Egnyte() {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold flex items-center gap-2"><FolderSearch className="h-6 w-6" /> Egnyte</h1>
         <p className="text-sm text-muted-foreground">
-          Connect your organization's Egnyte domain to search files and folders directly from InboxIQ and AI Chat. All results respect each signed-in user's Egnyte permissions.
+          Connect your organization's Egnyte domain to search files and folders directly from Nikkore Inbox and AI Chat. All results respect each signed-in user's Egnyte permissions.
         </p>
       </header>
 
@@ -137,7 +137,7 @@ export default function Egnyte() {
               <div className="text-muted-foreground">
                 {row?.last_error
                   ? row.last_error
-                  : 'An organization admin can connect Egnyte to enable file & folder search across InboxIQ and AI Chat.'}
+                  : 'An organization admin can connect Egnyte to enable file & folder search across Nikkore Inbox and AI Chat.'}
               </div>
             </div>
             {canManage ? (

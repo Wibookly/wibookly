@@ -1,5 +1,5 @@
-// Generate a PowerPoint (.pptx) deck with InboxIQ "Executive Navy" theme
-// and upload it to the user's OneDrive › InboxIQ Chat › Generated Documents.
+// Generate a PowerPoint (.pptx) deck with Nikkore Inbox "Executive Navy" theme
+// and upload it to the user's OneDrive › Nikkore Inbox Chat › Generated Documents.
 //
 // Input:
 //   { title, subtitle?, slides: [{ title, bullets?: string[], body?: string }] }
@@ -43,7 +43,7 @@ export async function generatePresentation(opts: GenOpts): Promise<GenResult> {
 
   const pres = new pptxgen();
   pres.layout = "LAYOUT_WIDE";
-  pres.author = "InboxIQ";
+  pres.author = "Nikkore Inbox";
   pres.title = opts.title;
 
   // Cover
@@ -95,7 +95,7 @@ export async function generatePresentation(opts: GenOpts): Promise<GenResult> {
       });
     }
 
-    slide.addText("InboxIQ", {
+    slide.addText("Nikkore Inbox", {
       x: 0.5, y: 7.1, w: 6, h: 0.3,
       fontFace: "Calibri", fontSize: 10, color: NAVY_2,
     });

@@ -81,19 +81,19 @@ export const HELP_CATEGORIES: HelpCategory[] = [
     id: 'integrations',
     label: 'Integrations',
     description:
-      'Link your Gmail or Outlook mailbox, your calendar, and (optionally) OneDrive / SharePoint. InboxIQ only ever asks for the access it really needs and never deletes mail.',
+      'Link your Gmail or Outlook mailbox, your calendar, and (optionally) OneDrive / SharePoint. Nikkore Inbox only ever asks for the access it really needs and never deletes mail.',
   },
   {
     id: 'categories-rules',
     label: 'Categories & Rules',
     description:
-      'Decide how your mail is organized. Categories become real labels/folders inside your mailbox, and rules tell InboxIQ what belongs where — by sender, subject, or keywords.',
+      'Decide how your mail is organized. Categories become real labels/folders inside your mailbox, and rules tell Nikkore Inbox what belongs where — by sender, subject, or keywords.',
   },
   {
     id: 'ai-features',
     label: 'AI Features',
     description:
-      'The smart side of InboxIQ: pre-written draft replies, your morning Daily Brief, the AI Chat assistant, Meeting Copilot, and the Reply Tracker that nudges you when nobody answers.',
+      'The smart side of Nikkore Inbox: pre-written draft replies, your morning Daily Brief, the AI Chat assistant, Meeting Copilot, and the Reply Tracker that nudges you when nobody answers.',
   },
   {
     id: 'account-billing',
@@ -118,11 +118,11 @@ export const HELP_CATEGORIES: HelpCategory[] = [
 export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: 'welcome',
-    title: 'Welcome to InboxIQ',
+    title: 'Welcome to Nikkore Inbox',
     category: 'getting-started',
-    summary: 'A plain-English overview of what InboxIQ does and how to get value in the first 10 minutes.',
+    summary: 'A plain-English overview of what Nikkore Inbox does and how to get value in the first 10 minutes.',
     intro:
-      'InboxIQ is an AI co-pilot that sits on top of your existing Gmail or Outlook mailbox — you keep using the email client you already know. Once connected, InboxIQ quietly does four things for you:\n\n' +
+      'Nikkore Inbox is an AI co-pilot that sits on top of your existing Gmail or Outlook mailbox — you keep using the email client you already know. Once connected, Nikkore Inbox quietly does four things for you:\n\n' +
       '1. **Sorts your inbox automatically.** Every new email is read and dropped into the category you chose (Urgent, Clients, Finance, Newsletters, etc.) as a real label/folder inside your mailbox.\n\n' +
       '2. **Writes draft replies for you.** For the categories you turn AI Drafts on for, a polished reply is waiting in your Drafts folder within ~2 minutes — written in your tone, using your signature. Nothing is ever sent without you clicking Send.\n\n' +
       '3. **Sends you a Daily Brief.** Each morning you get a short, prioritized summary of what landed overnight, what needs a reply, and what can wait — plus an action list with time estimates.\n\n' +
@@ -143,17 +143,17 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'connect-mailbox',
     title: 'Connect your mailbox (Google or Microsoft)',
     category: 'integrations',
-    summary: 'Link Gmail or Outlook so InboxIQ can read, label, and draft on your behalf.',
+    summary: 'Link Gmail or Outlook so Nikkore Inbox can read, label, and draft on your behalf.',
     intro:
-      "InboxIQ needs read + label access to your mailbox so it can sort mail and save drafts. It only ever requests the scopes it needs — never the ability to delete mail.",
+      "Nikkore Inbox needs read + label access to your mailbox so it can sort mail and save drafts. It only ever requests the scopes it needs — never the ability to delete mail.",
     steps: [
       { title: '1. Open Integrations', description: 'Use the sidebar → Integrations.' },
       { title: '2. Pick your provider', description: 'Click Connect next to Google Workspace or Microsoft 365.' },
       { title: '3. Approve the consent screen', description: "You'll be redirected to Google or Microsoft. Review the requested scopes and click Allow." },
-      { title: '4. Confirm Connected status', description: "Back in InboxIQ the tile should show a green Connected badge with your email address." },
+      { title: '4. Confirm Connected status', description: "Back in Nikkore Inbox the tile should show a green Connected badge with your email address." },
     ],
     outro:
-      "**Popup blocked?** Allow popups for inboxiq.energyforward.com and click Connect again.\n\n**Seeing `unauthorized_client`?** Your IT admin needs to approve InboxIQ in Google Workspace or Microsoft 365 — send them the diagnostics link from this page.",
+      "**Popup blocked?** Allow popups for inboxiq.energyforward.com and click Connect again.\n\n**Seeing `unauthorized_client`?** Your IT admin needs to approve Nikkore Inbox in Google Workspace or Microsoft 365 — send them the diagnostics link from this page.",
     routes: ['/integrations', '/integration-setup'],
     keywords: ['gmail', 'outlook', 'oauth', 'sign in', 'connect', 'microsoft', 'google'],
   },
@@ -161,7 +161,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'connect-calendar',
     title: 'Connect your calendar',
     category: 'integrations',
-    summary: 'Let InboxIQ propose meeting times and log calendar events.',
+    summary: 'Let Nikkore Inbox propose meeting times and log calendar events.',
     steps: [
       { title: '1. Open Integrations', description: 'Use the sidebar → Integrations.' },
       { title: '2. Expand your provider tile', description: 'Click on the connected Google or Microsoft tile to expand its options.' },
@@ -175,13 +175,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'categories-overview',
     title: 'Email Intelligence — every column explained',
     category: 'categories-rules',
-    summary: 'Categories are folders or labels InboxIQ uses to triage every incoming email.',
+    summary: 'Categories are folders or labels Nikkore Inbox uses to triage every incoming email.',
     intro:
       'The Email Intelligence page is where you control how your mailbox is organized. Each row is one category — it becomes a real label (Gmail) or folder (Outlook) inside your mailbox, prefixed with a number like `01. Urgent` so it sorts cleanly. The "Active: X of Y" pill in the header shows how many of your plan\'s categories are currently in use, and "Re-sync All" pushes every change you have made (names, colors, order, rules, on/off state) to your mailbox immediately.',
     steps: [
       { title: 'Drag handle (⋮⋮)', description: 'Grab the dotted handle on the far left of any row to drag a category up or down. The order here is the order labels/folders appear in your real mailbox — most important categories at the top.' },
-      { title: 'Color dot', description: 'Click the colored circle to recolor the category. The same color is used for the label in Gmail/Outlook, so your mailbox looks identical to InboxIQ.' },
-      { title: 'Category Name', description: 'Click the name to rename it (e.g. "Urgent", "Vendors", "Internal"). InboxIQ automatically prefixes the number — you only type the name. Renaming here renames the label/folder in your mailbox on the next sync.' },
+      { title: 'Color dot', description: 'Click the colored circle to recolor the category. The same color is used for the label in Gmail/Outlook, so your mailbox looks identical to Nikkore Inbox.' },
+      { title: 'Category Name', description: 'Click the name to rename it (e.g. "Urgent", "Vendors", "Internal"). Nikkore Inbox automatically prefixes the number — you only type the name. Renaming here renames the label/folder in your mailbox on the next sync.' },
       { title: 'AI Draft Style → Tone button', description: 'Shows the writing tone the AI will use for this category (Professional & Polished, Friendly, Concise, etc.). Click the "Tone" button to open a tone sheet where you can switch tone, add custom instructions, or paste a sample reply for the AI to mimic.' },
       { title: 'Active toggle (green)', description: 'The master switch for the category. ON (green) = mail is sorted into this label/folder and rules are enforced. OFF = the category stops sorting new mail, ALL rules attached to it are removed, AND every email that was previously moved into this category is automatically moved BACK to your Inbox folder on the next sync. Turn it back on later and you start fresh — rules and labeling resume.' },
       { title: 'AI Draft toggle', description: 'Only enabled when Active is ON. When green, the AI writes a polished reply for every new email in this category and saves it as a real draft under "0. AI Draft" — usually within 1–2 minutes. The reply is never sent automatically.' },
@@ -190,7 +190,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: 'AI Email Label Colors (top panel)', description: 'Pick the color used to tag emails the AI itself creates. AI Draft color = applied to drafts the AI puts in your Drafts folder for review. AI Auto-Reply color = applied to replies the AI actually sent from your Sent folder. Same Outlook palette as your categories so everything stays visually consistent.' },
     ],
     outro:
-      'IMPORTANT: turning a category OFF (or having it auto-disabled because it was deleted) does NOT leave your mailbox messy. On the next sync, InboxIQ removes the label from every Gmail message and moves every Outlook message in that folder back to your main Inbox. Your emails are never lost — they always return to the Inbox where you can re-triage or re-enable the category later.',
+      'IMPORTANT: turning a category OFF (or having it auto-disabled because it was deleted) does NOT leave your mailbox messy. On the next sync, Nikkore Inbox removes the label from every Gmail message and moves every Outlook message in that folder back to your main Inbox. Your emails are never lost — they always return to the Inbox where you can re-triage or re-enable the category later.',
     routes: ['/categories'],
     keywords: ['labels', 'folders', 'sort', 'triage', 'active', 'toggle', 'tone', 'auto-reply', 'sync status', 'color', 'inbox'],
   },
@@ -200,7 +200,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'categories-rules',
     summary: 'Combine sender, subject, and body conditions to route mail precisely.',
     intro:
-      'Rules live under each category card on the Email Intelligence page. They are the "if this, then file under that category" logic that InboxIQ applies to every new email — and, on demand, to your existing mailbox.',
+      'Rules live under each category card on the Email Intelligence page. They are the "if this, then file under that category" logic that Nikkore Inbox applies to every new email — and, on demand, to your existing mailbox.',
     steps: [
       { title: 'Colored dot + category name + (X rule)', description: 'The header of each rules block shows the category color, name, and how many rules it currently has — for example "● Urgent (1 rule)". This helps you see at a glance which categories are actively pulling mail in.' },
       { title: '+ Add Rule button (top-right)', description: 'Click "+ Add Rule" to add another row of conditions to this category. There is no hard limit — add as many rules as you need (e.g. one per important client, one per project keyword).' },
@@ -214,7 +214,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: 'AND / OR dropdowns', description: 'Inside Advanced, each extra condition (Recipient, Subject contains, Body contains) is joined to the main rule with AND (all must match) or OR (any can match).' },
     ],
     outro:
-      'When you delete a rule — or turn its parent category OFF — InboxIQ automatically unlabels matching Gmail messages and moves matching Outlook messages from the category folder BACK to your main Inbox. Nothing gets stranded.',
+      'When you delete a rule — or turn its parent category OFF — Nikkore Inbox automatically unlabels matching Gmail messages and moves matching Outlook messages from the category folder BACK to your main Inbox. Nothing gets stranded.',
     routes: ['/categories', '/sync'],
     keywords: ['filter', 'rule', 'conditions', 'sender', 'domain', 'keyword', 'advanced', 'and', 'or', 'recipient', 'subject', 'body', 'inbox'],
   },
@@ -222,14 +222,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'ai-drafts',
     title: 'AI Drafts: how they work',
     category: 'ai-features',
-    summary: 'InboxIQ writes a reply for you, but never sends it without your review.',
+    summary: 'Nikkore Inbox writes a reply for you, but never sends it without your review.',
     intro:
-      'When new mail lands in a category that has AI Drafts on, InboxIQ generates a reply in your writing style and saves it as a real draft inside Gmail or Outlook — labeled `0. AI Draft`.',
+      'When new mail lands in a category that has AI Drafts on, Nikkore Inbox generates a reply in your writing style and saves it as a real draft inside Gmail or Outlook — labeled `0. AI Draft`.',
     steps: [
       { title: '1. Enable AI Drafts on a category', description: 'Open Categories and toggle AI Drafts on for the categories you want help with.' },
       { title: '2. Set your writing style', description: 'Open Settings → AI Settings to choose Professional / Friendly / Concise tone, or per-category for finer control.' },
       { title: '3. Wait for new mail', description: 'When a matching email arrives, a draft appears under the `0. AI Draft` label/folder within 1–2 minutes.' },
-      { title: '4. Review and send', description: 'Open the draft in your normal mail client (or the Email Drafts page in InboxIQ), tweak it, and send.' },
+      { title: '4. Review and send', description: 'Open the draft in your normal mail client (or the Email Drafts page in Nikkore Inbox), tweak it, and send.' },
       { title: '5. Audit what AI helped with', description: 'After sending, the message is moved to `11. AI Sent` so you always have a clean audit trail.' },
     ],
     outro:
@@ -249,7 +249,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { title: 'Greeting & context banner', description: 'The gradient header greets you by name and gives a one-line read of your day (e.g. "A clear schedule provides an opportunity for deep work"). It is generated from today\'s calendar density and inbox load.', target: '[data-tour="brief-hero"]' },
       { title: 'Top stat tiles', description: '"Priorities" = items the AI says need your attention today. "Meetings Today" = events on your calendar. "Carry-over" = open items from previous briefs that you have not closed yet. "Quick Wins" = short, low-effort items you can knock out in a few minutes.', target: '[data-tour="brief-stats"]' },
       { title: 'Email me', description: 'Sends the current brief to your account email right now — useful if you want a copy on your phone or to forward it to an assistant.', target: '[data-tour="brief-email"]' },
-      { title: 'Print / Save as PDF', description: 'Opens a clean, InboxIQ-branded executive report formatted for letter-size paper. Use your browser\'s "Save as PDF" to archive it.', target: '[data-tour="brief-print"]' },
+      { title: 'Print / Save as PDF', description: 'Opens a clean, Nikkore Inbox-branded executive report formatted for letter-size paper. Use your browser\'s "Save as PDF" to archive it.', target: '[data-tour="brief-print"]' },
       { title: 'Refresh', description: 'Forces the AI to rebuild the brief from scratch using the latest emails and calendar events. Use it after a big batch of new mail arrives.', target: '[data-tour="brief-refresh"]' },
       { title: 'Your Action Items — Emails group', description: 'Every email that needs a reply, decision, or follow-up. Each card shows who it is from, the context, the recommended Do action, why it matters, and an estimated time to handle.', target: '[data-tour="brief-emails-group"]' },
       { title: 'Your Action Items — Calendar group', description: 'Meetings that need prep, an RSVP, or a follow-up note. Same Mark done / Snooze / Remind me / Schedule controls as email items.', target: '[data-tour="brief-calendar-group"]' },
@@ -323,7 +323,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'account-billing',
     summary: 'Every section on this page, what it does, and how it feeds your AI drafts and email signature.',
     intro:
-      'This page is the single source of truth for "who you are" inside InboxIQ. Anything you set here flows into every AI-drafted reply, every daily brief, and the signature appended to outgoing email. The page is split into three blocks: Directory Information (auto-synced from Microsoft 365, read-only), Your Inputs (what you type — title + AI personalization), and Email Signature (builder + live preview).',
+      'This page is the single source of truth for "who you are" inside Nikkore Inbox. Anything you set here flows into every AI-drafted reply, every daily brief, and the signature appended to outgoing email. The page is split into three blocks: Directory Information (auto-synced from Microsoft 365, read-only), Your Inputs (what you type — title + AI personalization), and Email Signature (builder + live preview).',
     steps: [
       { title: 'Page header — My Profile & Signature', description: 'The orange hero at the top names the page. Everything you change below saves automatically and starts being used by the AI on your very next draft — no Save button needed.', target: '[data-tour="settings-page-hero"]' },
       { title: 'Legend — read-only vs editable', description: 'The two small chips under the header explain the color coding: grey rows are auto-synced from Microsoft 365 and cannot be edited here (fix them in M365), blue-tinted rows are yours to fill in and personalize the AI.', target: '[data-tour="settings-legend"]' },
@@ -468,9 +468,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     category: 'ai-features',
     summary: 'Email agent@your-domain.com and the AI answers using your Outlook, OneDrive, and SharePoint access.',
     intro:
-      'You can email the InboxIQ agent directly from any device. The agent answers each licensed user using THEIR own Microsoft 365 permissions — so it sees exactly the mail, OneDrive files, and SharePoint sites that you can see, and nothing more. Nothing is shared between users.',
+      'You can email the Nikkore Inbox agent directly from any device. The agent answers each licensed user using THEIR own Microsoft 365 permissions — so it sees exactly the mail, OneDrive files, and SharePoint sites that you can see, and nothing more. Nothing is shared between users.',
     steps: [
-      { title: '1. Make sure you are licensed', description: 'You must have an InboxIQ account in your organization, your Microsoft 365 mailbox connected on the Integrations page, and the Email Agent feature enabled by your admin (/admin → Groups).' },
+      { title: '1. Make sure you are licensed', description: 'You must have an Nikkore Inbox account in your organization, your Microsoft 365 mailbox connected on the Integrations page, and the Email Agent feature enabled by your admin (/admin → Groups).' },
       { title: '2. Email the shared agent', description: 'Send any question to agent@your-domain.com from your work email. Examples: "What did Maria send last week about Q3?" or "Find the latest signed NDA in our SharePoint."' },
       { title: '3. The agent verifies you', description: 'It looks up your account, confirms you have an active mailbox connection, and checks that Email Agent is on for your group. If any check fails, it replies with the exact step to fix.' },
       { title: '4. It answers as YOU', description: 'The agent runs Microsoft Graph searches with your own delegated token — your Outlook mail, your OneDrive, and the SharePoint sites you can access. It will never read another user\'s data.' },
@@ -485,29 +485,29 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'reply-tracker',
     title: 'No Reply Tracker — every section explained',
     category: 'ai-features',
-    summary: 'Never lose a thread. BCC a numeric address and InboxIQ nudges when nobody replies.',
+    summary: 'Never lose a thread. BCC a numeric address and Nikkore Inbox nudges when nobody replies.',
     intro:
-      'The No Reply Tracker page is a single dashboard for "I sent it — did they answer?" follow-ups. You opt in per email with a special numeric BCC address (the number = how many days to wait). InboxIQ then watches the thread, files it under your No Reply Tracker category if nobody replies, and can even draft or send a polite nudge for you — all inside your business hours.',
+      'The No Reply Tracker page is a single dashboard for "I sent it — did they answer?" follow-ups. You opt in per email with a special numeric BCC address (the number = how many days to wait). Nikkore Inbox then watches the thread, files it under your No Reply Tracker category if nobody replies, and can even draft or send a polite nudge for you — all inside your business hours.',
     steps: [
       { title: '1. Master toggle — No Reply Tracker (Active)', description: 'The big green switch at the top of the first card turns the whole tracker ON or OFF for your active mailbox. When OFF, any numeric BCC you send is ignored — nothing is watched, nothing is drafted. When ON, the badge next to the title shows "Active" in green. This also LOCKS Business Hours on while the tracker is running so nudges never go out in the middle of the night.', target: '[data-tour="followup-toggle"]' },
       { title: '2. How it works — the 4 step flow', description: 'The 4 numbered tiles ("BCC a number" → "We watch the reply" → "No reply → nudge" → "Up to 3 attempts") explain the lifecycle of every tracked thread. The number you BCC (e.g. 3@yourdomain.com) is the days to wait. Minimum is 2. After 3 unanswered nudges the tracker stops itself so you never spam a recipient.', target: '[data-tour="followup-flow"]' },
-      { title: '3. Active mailbox + trigger domain', description: 'Above the flow tiles InboxIQ shows the exact mailbox the tracker is monitoring and your trigger domain (e.g. @energyforward.com). Numeric BCCs only work when sent FROM this mailbox TO an address on the trigger domain — that is how InboxIQ knows the BCC is for tracking and not a real recipient.' },
+      { title: '3. Active mailbox + trigger domain', description: 'Above the flow tiles Nikkore Inbox shows the exact mailbox the tracker is monitoring and your trigger domain (e.g. @energyforward.com). Numeric BCCs only work when sent FROM this mailbox TO an address on the trigger domain — that is how Nikkore Inbox knows the BCC is for tracking and not a real recipient.' },
       { title: '4. Stop or restart anytime', description: 'Cancel a live tracker by replying on the thread and adding BCC stop@yourdomain.com (or 0@yourdomain.com). To re-arm later, send a fresh email on the thread with a new numeric BCC like 3@yourdomain.com. You can stop and restart as many times as you need.', target: '[data-tour="followup-stop"]' },
       { title: '5. Examples for your mailbox', description: 'The grid of chips (2@…, 3@…, 5@…, 7@…, 10@…, 14@…, 21@…, 30@…) shows ready-to-copy BCC addresses for your domain. Any number ≥ 2 works — pick the one that matches how long you are willing to wait.', target: '[data-tour="followup-master"]' },
       { title: '6. When the due date arrives — Always: move to category', description: 'On the due date, the original email is ALWAYS labeled and moved into your No Reply Tracker category so it surfaces in your inbox audit. This row is locked ON ("Always On") because it is the core of the feature — it cannot be turned off.', target: '[data-tour="followup-action-tag"]' },
-      { title: '7. Auto Draft a follow-up (toggle)', description: 'When green, InboxIQ writes a polite, on-brand nudge and saves it as a real draft in your Outlook Drafts folder — you review and click Send. Turn this off if you want to write the nudge yourself.', target: '[data-tour="followup-action-draft"]' },
-      { title: '8. Auto Reply — sends automatically (toggle)', description: 'When green, InboxIQ writes AND SENDS the follow-up for you without review. The yellow warning ("Replies will be sent without your review") is there for a reason — use this for low-risk threads only. Auto Reply requires Auto Draft to be on first.', target: '[data-tour="followup-action-reply"]' },
-      { title: '9. Lifecycle & how to stop a tracker', description: 'Four ways a tracker ends:\n• Reply received — the recipient answered, tracker clears itself and the email leaves the No Reply Tracker category.\n• Auto-stop after 3 nudges — InboxIQ stops on its own after the 3rd reminder; the email stays in the category so you can decide manually.\n• Manual stop via BCC — reply on the thread with BCC stop@yourdomain.com or 0@yourdomain.com to cancel immediately and move the original message back to the inbox.\n• Re-arm anytime — sending a fresh email on the thread with a numeric BCC starts a brand-new tracker with a fresh due date and fresh reminder count.', target: '[data-tour="followup-lifecycle"]' },
+      { title: '7. Auto Draft a follow-up (toggle)', description: 'When green, Nikkore Inbox writes a polite, on-brand nudge and saves it as a real draft in your Outlook Drafts folder — you review and click Send. Turn this off if you want to write the nudge yourself.', target: '[data-tour="followup-action-draft"]' },
+      { title: '8. Auto Reply — sends automatically (toggle)', description: 'When green, Nikkore Inbox writes AND SENDS the follow-up for you without review. The yellow warning ("Replies will be sent without your review") is there for a reason — use this for low-risk threads only. Auto Reply requires Auto Draft to be on first.', target: '[data-tour="followup-action-reply"]' },
+      { title: '9. Lifecycle & how to stop a tracker', description: 'Four ways a tracker ends:\n• Reply received — the recipient answered, tracker clears itself and the email leaves the No Reply Tracker category.\n• Auto-stop after 3 nudges — Nikkore Inbox stops on its own after the 3rd reminder; the email stays in the category so you can decide manually.\n• Manual stop via BCC — reply on the thread with BCC stop@yourdomain.com or 0@yourdomain.com to cancel immediately and move the original message back to the inbox.\n• Re-arm anytime — sending a fresh email on the thread with a numeric BCC starts a brand-new tracker with a fresh due date and fresh reminder count.', target: '[data-tour="followup-lifecycle"]' },
       { title: '10. Business hours — master toggle', description: 'The green switch in the top-right of the Business hours card limits Auto Draft, Auto Reply, and the daily auto-audit to your working hours. Outside those hours, emails are still moved to your No Reply Tracker category — only the drafts and sends wait. Locked ON while No Reply Tracker is active so nudges never fire at 2am.', target: '[data-tour="followup-bh"] [data-state]' },
       { title: '11a. Start (local)', description: 'The first dropdown under Business hours. Pick the hour your workday begins in your local timezone (e.g. 8:00 AM). Nudges queued before this time wait until Start to actually go out.', target: '[data-tour="followup-bh-start"]' },
       { title: '11b. End (local)', description: 'The middle dropdown. Pick the hour your workday ends (e.g. 5:00 PM). Anything queued after End is held until tomorrow\'s Start time.', target: '[data-tour="followup-bh-end"]' },
       { title: '11c. Timezone + "Use mine"', description: 'The Timezone field shows the IANA zone Business hours follow (auto-detected from Outlook on first run). Click "Use mine" to instantly snap it to your browser/computer timezone — perfect after traveling or switching machines.', target: '[data-tour="followup-bh-tz"]' },
-      { title: '12. Business days', description: 'The row of round day pills (Sun – Sat). Click any pill to include (blue) or exclude (grey) that day. Nudges only fire on selected days. The "Current window" line below shows the exact rule InboxIQ will follow (e.g. "8:00 AM – 5:00 PM (America/Los_Angeles)").', target: '[data-tour="followup-bh-days"]' },
+      { title: '12. Business days', description: 'The row of round day pills (Sun – Sat). Click any pill to include (blue) or exclude (grey) that day. Nudges only fire on selected days. The "Current window" line below shows the exact rule Nikkore Inbox will follow (e.g. "8:00 AM – 5:00 PM (America/Los_Angeles)").', target: '[data-tour="followup-bh-days"]' },
 
-      { title: '13. Inbox auto-audit', description: 'Every 24 hours InboxIQ scans your Sent Items, flags anything that has not been replied to, copies it into the Outlook "No-Reply-Tracker" folder, and surfaces it in the InboxIQ No Reply Tracker category. No drafts are written, nothing is sent — it is a pure audit so you can review and act manually. The "Auto-sync every 24 hours" pill shows the audit is live whenever the tracker is ON.', target: '[data-tour="followup-audit"]' },
+      { title: '13. Inbox auto-audit', description: 'Every 24 hours Nikkore Inbox scans your Sent Items, flags anything that has not been replied to, copies it into the Outlook "No-Reply-Tracker" folder, and surfaces it in the Nikkore Inbox No Reply Tracker category. No drafts are written, nothing is sent — it is a pure audit so you can review and act manually. The "Auto-sync every 24 hours" pill shows the audit is live whenever the tracker is ON.', target: '[data-tour="followup-audit"]' },
     ],
     outro:
-      'Use 2 days for urgent decisions, 3–5 for normal asks, 7+ for low-priority. Up to 3 nudges per thread, then InboxIQ stops automatically. Business hours, auto-audit, and the manual stop BCC keep you in full control — nothing is sent without your permission unless YOU turn Auto Reply on.',
+      'Use 2 days for urgent decisions, 3–5 for normal asks, 7+ for low-priority. Up to 3 nudges per thread, then Nikkore Inbox stops automatically. Business hours, auto-audit, and the manual stop BCC keep you in full control — nothing is sent without your permission unless YOU turn Auto Reply on.',
     routes: ['/follow-up-reminder'],
     keywords: ['follow up', 'reply', 'nudge', 'tracker', 'bcc', 'no reply', 'business hours', 'auto draft', 'auto reply', 'audit', 'timezone'],
   },

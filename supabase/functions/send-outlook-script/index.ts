@@ -124,16 +124,16 @@ function buildPowerShell(userName: string, categories: CategoryRow[]): string {
   }).join(",`r`n");
 
   return `# ==============================================================
-# InboxIQ — Outlook Setup Script
+# Nikkore Inbox — Outlook Setup Script
 # Generated for: ${userName}
 # Date: ${new Date().toISOString().slice(0, 10)}
 #
 # What this does (Windows + Outlook Desktop only):
-#  1. Creates Outlook Master Categories matching your InboxIQ folder colors
-#  2. Adds your InboxIQ folders to the Favorites pane
+#  1. Creates Outlook Master Categories matching your Nikkore Inbox folder colors
+#  2. Adds your Nikkore Inbox folders to the Favorites pane
 #
 # How to run:
-#  1. Save this file as InboxIQ-Setup.ps1
+#  1. Save this file as Nikkore Inbox-Setup.ps1
 #  2. Right-click → Run with PowerShell
 #  3. If blocked, run: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 # ==============================================================
@@ -212,7 +212,7 @@ if (\$Favorites -ne \$null) {
         Write-Host "    (Skipped '\$(\$item.FolderName)': \$_)" -ForegroundColor Yellow
       }
     } else {
-      Write-Host "    (Folder not found: '\$(\$item.FolderName)' — make sure InboxIQ has synced)" -ForegroundColor Yellow
+      Write-Host "    (Folder not found: '\$(\$item.FolderName)' — make sure Nikkore Inbox has synced)" -ForegroundColor Yellow
     }
   }
 }
@@ -228,14 +228,14 @@ function buildEmailHtml(userName: string, categoryCount: number): string {
 <html><body style="font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a;max-width:680px;margin:0 auto;padding:24px">
   <h1 style="font-size:22px;border-bottom:3px solid #0ea5e9;padding-bottom:10px">Your Outlook Setup Script is ready</h1>
   <p>Hi ${userName},</p>
-  <p>Attached is a personalized PowerShell script (<code>InboxIQ-Setup.ps1</code>) that will:</p>
+  <p>Attached is a personalized PowerShell script (<code>Nikkore Inbox-Setup.ps1</code>) that will:</p>
   <ul>
-    <li>Create <strong>${categoryCount} color categories</strong> in your Outlook matching your InboxIQ folder colors</li>
-    <li>Pin your InboxIQ folders to the <strong>Favorites pane</strong></li>
+    <li>Create <strong>${categoryCount} color categories</strong> in your Outlook matching your Nikkore Inbox folder colors</li>
+    <li>Pin your Nikkore Inbox folders to the <strong>Favorites pane</strong></li>
   </ul>
   <h2 style="font-size:16px;margin-top:24px">How to run it</h2>
   <ol>
-    <li>Save the attached <code>InboxIQ-Setup.ps1</code> file to your computer</li>
+    <li>Save the attached <code>Nikkore Inbox-Setup.ps1</code> file to your computer</li>
     <li>Right-click it → <strong>Run with PowerShell</strong></li>
     <li>If Windows blocks the script, open PowerShell and run:<br/>
       <code style="background:#f1f5f9;padding:4px 8px;border-radius:4px">Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code>
@@ -243,10 +243,10 @@ function buildEmailHtml(userName: string, categoryCount: number): string {
     <li>Restart Outlook when finished</li>
   </ol>
   <p style="background:#fef3c7;padding:12px;border-radius:6px;font-size:13px">
-    <strong>Requirements:</strong> Windows + Outlook Desktop. <em>On Mac or Outlook Web, the script can't run — but the colored-dot folder names (e.g. 🔴 01: Urgent) still appear correctly because they're set server-side by InboxIQ.</em>
+    <strong>Requirements:</strong> Windows + Outlook Desktop. <em>On Mac or Outlook Web, the script can't run — but the colored-dot folder names (e.g. 🔴 01: Urgent) still appear correctly because they're set server-side by Nikkore Inbox.</em>
   </p>
   <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0"/>
-  <p style="color:#94a3b8;font-size:12px">Sent by InboxIQ Agent</p>
+  <p style="color:#94a3b8;font-size:12px">Sent by Nikkore Inbox Agent</p>
 </body></html>`;
 }
 
@@ -345,13 +345,13 @@ serve(async (req) => {
         headers: { Authorization: `Bearer ${appToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           message: {
-            subject: "Your Outlook Setup Script — InboxIQ",
+            subject: "Your Outlook Setup Script — Nikkore Inbox",
             body: { contentType: "HTML", content: html },
             toRecipients: [{ emailAddress: { address: recipient } }],
             attachments: [
               {
                 "@odata.type": "#microsoft.graph.fileAttachment",
-                name: "InboxIQ-Setup.ps1",
+                name: "Nikkore Inbox-Setup.ps1",
                 contentType: "text/plain",
                 contentBytes: base64,
               },

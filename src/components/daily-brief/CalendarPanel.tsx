@@ -135,7 +135,7 @@ export function CalendarPanel({ connectionId }: Props) {
       </style></head><body>
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #0ea5e9;padding-bottom:8px;margin-bottom:16px;">
         <div><h1>Schedule — ${label}</h1><div class="sub">${events.length} event${events.length === 1 ? '' : 's'}</div></div>
-        <div class="brand">InboxIQ</div>
+        <div class="brand">Nikkore Inbox</div>
       </div>
       <table>${rows || '<tr><td style="padding:40px;text-align:center;color:#94a3b8;">No events in this range.</td></tr>'}</table>
       </body></html>`);

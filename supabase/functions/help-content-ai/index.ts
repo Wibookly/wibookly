@@ -46,7 +46,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
 
-    const systemPrompt = `You write user-facing help articles for InboxIQ, an AI-powered email management SaaS by EnergyForward. Tone: clear, friendly, professional, concise. Output valid markdown for the "content" field with short paragraphs, numbered steps when relevant, and bullet lists. NEVER include HTML. NEVER include the article title inside content (it's stored separately). Keep summary under 160 characters.`;
+    const systemPrompt = `You write user-facing help articles for Nikkore Inbox, an AI-powered email management SaaS by Nikkore. Tone: clear, friendly, professional, concise. Output valid markdown for the "content" field with short paragraphs, numbered steps when relevant, and bullet lists. NEVER include HTML. NEVER include the article title inside content (it's stored separately). Keep summary under 160 characters.`;
 
     const userPrompt =
       mode === "improve" && existing

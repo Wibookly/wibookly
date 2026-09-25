@@ -107,7 +107,7 @@ export default function AcceptInvitation() {
             {status === 'used' && 'Already accepted'}
           </CardTitle>
           <CardDescription>
-            {status === 'redirecting' && 'Connecting your Microsoft 365 account to InboxIQ.'}
+            {status === 'redirecting' && 'Connecting your Microsoft 365 account to Nikkore Inbox.'}
             {status === 'loading' && 'One moment while we check your invitation link.'}
             {(status === 'invalid' || status === 'expired' || status === 'used') && message}
           </CardDescription>
