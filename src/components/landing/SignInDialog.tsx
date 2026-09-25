@@ -123,7 +123,14 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
 
     try {
       if (mode === 'signup') {
-        const { error } = await signUp(email, password, workspaceName, fullName, title || undefined);
+        const { error } = await signUp(
+          email,
+          password,
+          workspaceName,
+          fullName,
+          title || undefined,
+          workspaceType === 'business' ? 'organization' : 'personal',
+        );
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
