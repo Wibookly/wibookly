@@ -217,7 +217,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
 
       <div className="px-4 pt-4 pb-3 flex items-center gap-3 shrink-0" style={{ borderBottom: '1px solid var(--border-soft)' }}>
         <img
-          src={organizationLogo || nikkoreMark.url}
+          src={organizationLogo || nikkoreMark}
           alt={organizationLogo ? `${organization?.name ?? 'Organization'} logo` : 'Nikkore'}
           className="h-11 w-11 shrink-0 rounded-xl object-contain"
         />

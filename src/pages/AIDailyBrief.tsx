@@ -280,7 +280,7 @@ export default function AIDailyBrief() {
           <div class="ph-title">${esc(appName)} Daily Brief · ${esc(label)}</div>
           <div class="ph-sub">${esc(fullName)} · ${esc(email)} · ${esc(today)} · ${esc(kind)}</div>
         </div>
-        <img src="${window.location.origin}${nikkoreLogo.url}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
+        <img src="${new URL(nikkoreLogo, window.location.origin).href}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
       </header>`;
 
     const buildSection = (title: string, kind: string, body: string, emptyMsg?: string) => `

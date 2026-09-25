@@ -28,7 +28,7 @@ import nikkoreLogo from '@/assets/nikkore-logo.png';
 
 // Default company logo URL (absolute) used when no per-user/org logo is set.
 const DEFAULT_COMPANY_LOGO_URL =
-  typeof window !== 'undefined' ? `${window.location.origin}${nikkoreLogo.url}` : nikkoreLogo.url;
+  typeof window !== 'undefined' ? new URL(nikkoreLogo, window.location.origin).href : nikkoreLogo;
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {
