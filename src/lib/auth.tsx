@@ -36,7 +36,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   organization: Organization | null;
   loading: boolean;
-  signUp: (email: string, password: string, organizationName: string, fullName: string, title?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, organizationName: string, fullName: string, title?: string, accountType?: 'personal' | 'organization') => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setSelectedOrganization: (orgId: string) => void;
@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, organizationName: string, fullName: string, title?: string) => {
+  const signUp = async (email: string, password: string, organizationName: string, fullName: string, title?: string, accountType: 'personal' | 'organization' = 'organization') => {
     try {
       // Validate inputs
       const emailValidation = validateField(emailSchema, email);
@@ -231,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         _full_name: fullName,
         _title: title || null,
         _organization_name: orgNameValidation.data,
+            _account_type: accountType,
       });
 
       if (initError) throw initError;

@@ -1,22 +1,17 @@
 import { cn } from '@/lib/utils';
+import nikkoreLogo from '@/assets/nikkore-logo.png.asset.json';
 
 interface NikkoreInboxLogoProps {
   className?: string;
 }
 
-/**
- * Nikkore Inbox wordmark — two-tone.
- * Light: "Inbox" in EF navy (#0B2A6B), "IQ" in EF blue (#2B6EE3).
- * Dark: "Inbox" stays white/foreground for legibility, "IQ" in EF sky.
- */
 export function NikkoreInboxLogo({ className }: NikkoreInboxLogoProps) {
   return (
-    <span
-      className={cn('font-sans font-bold inline-flex', className)}
-      style={{ letterSpacing: '-0.02em' }}
-    >
-      <span className="text-[#0B2A6B] dark:text-white">Inbox</span>
-      <span className="text-[#2B6EE3] dark:text-[#6FB2F2]">IQ</span>
+    <span className={cn('inline-flex flex-col items-center', className)} aria-label="Nikkore Inbox">
+      <img src={nikkoreLogo.url} alt="Nikkore" className="h-[1em] w-auto object-contain" />
+      <span className="mt-1 text-[0.38em] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+        Inbox
+      </span>
     </span>
   );
 }

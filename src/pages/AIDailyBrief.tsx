@@ -33,7 +33,7 @@ import { FeatureCard } from '@/components/ui/feature-card';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import nikkoreLogo from '@/assets/nikkore-logo.png.asset.json';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
 // CalendarPanel removed from Daily Brief body per UX redesign — calendar lives on its own page.
@@ -280,7 +280,7 @@ export default function AIDailyBrief() {
           <div class="ph-title">${esc(appName)} Daily Brief · ${esc(label)}</div>
           <div class="ph-sub">${esc(fullName)} · ${esc(email)} · ${esc(today)} · ${esc(kind)}</div>
         </div>
-        <img src="${window.location.origin}${energyForwardLogo}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
+        <img src="${window.location.origin}${nikkoreLogo.url}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
       </header>`;
 
     const buildSection = (title: string, kind: string, body: string, emptyMsg?: string) => `

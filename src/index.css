@@ -4,14 +4,14 @@
 
 @layer base {
   /* ============================================================
-     INBOXIQ — MODERN FINTECH AESTHETIC
+     NIKKORE INBOX — MODERN FINTECH AESTHETIC
      ============================================================ */
 
   :root {
-    /* EF brand */
-    --ef-navy-brand: #0B2A6B;
-    --ef-blue-brand: #2B6EE3;
-    --ef-sky-brand:  #6FB2F2;
+    /* Nikkore brand */
+    --ef-navy-brand: #1834D6;
+    --ef-blue-brand: #1479F5;
+    --ef-sky-brand:  #10D8D0;
 
     /* Section accent colors */
     --c-cyan:     #06B6D4;   /* Account Provisioning */

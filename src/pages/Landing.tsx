@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Inbox, PenTool, Sun } from 'lucide-react';
 import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
+import nikkoreMark from '@/assets/nikkore-mark.png.asset.json';
 
-function EFMark({ className = 'h-8 w-8' }: { className?: string }) {
+function NikkoreMark({ className = 'h-8 w-8' }: { className?: string }) {
   return (
     <img
-      src="/brand/energyforward-logo-mark.png"
+      src={nikkoreMark.url}
       alt="Nikkore"
       className={`${className} object-contain`}
       draggable={false}
@@ -49,7 +50,7 @@ export default function Landing() {
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/75 border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <EFMark className="h-8 w-8" />
+            <NikkoreMark className="h-8 w-8" />
             <div className="flex flex-col leading-tight">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Nikkore</span>
               <NikkoreInboxLogo className="text-lg leading-none font-display italic" />
@@ -79,7 +80,7 @@ export default function Landing() {
         <h1 className="font-display italic text-6xl md:text-7xl tracking-tight text-foreground mt-6 leading-[1.05]">
           Bringing tomorrow's{' '}
           <em className="not-italic">
-            <span className="bg-gradient-to-r from-ef-blue to-ef-sky bg-clip-text text-transparent">energy</span>
+            <span className="bg-gradient-to-r from-ef-blue to-ef-sky bg-clip-text text-transparent">clarity</span>
           </em>
           <br />
           to today's inbox.
@@ -148,7 +149,7 @@ export default function Landing() {
       {/* FOOTER */}
       <footer className="max-w-6xl mx-auto px-6 py-12 border-t border-border flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <EFMark className="h-6 w-6" />
+          <NikkoreMark className="h-6 w-6" />
           <span className="text-sm text-muted-foreground">© 2026 Nikkore · Nikkore Inbox</span>
         </div>
         <div className="flex items-center gap-6">

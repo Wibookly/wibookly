@@ -24,11 +24,11 @@ import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { UserCircle2 } from 'lucide-react';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import nikkoreLogo from '@/assets/nikkore-logo.png.asset.json';
 
 // Default company logo URL (absolute) used when no per-user/org logo is set.
 const DEFAULT_COMPANY_LOGO_URL =
-  typeof window !== 'undefined' ? `${window.location.origin}${energyForwardLogo}` : energyForwardLogo;
+  typeof window !== 'undefined' ? `${window.location.origin}${nikkoreLogo.url}` : nikkoreLogo.url;
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {

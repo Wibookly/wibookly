@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Building2, Check, Loader2, UserRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
@@ -19,6 +19,7 @@ const GoogleIcon = () => (
 );
 
 type Mode = 'signin' | 'signup';
+type AccountType = 'personal' | 'organization';
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -26,6 +27,8 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
+  const [accountType, setAccountType] = useState<AccountType>('personal');
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -103,8 +106,16 @@ export default function Auth() {
       return;
     }
 
-    const domain = email.split('@')[1] ?? 'My Company';
-    const { error } = await signUp(email.trim(), password, domain, fullName.trim());
+    if (accountType === 'organization' && !organizationName.trim()) {
+      setBusy(false);
+      toast({ title: 'Please enter your organization name', variant: 'destructive' });
+      return;
+    }
+
+    const workspaceName = accountType === 'personal'
+      ? `${fullName.trim()}'s workspace`
+      : organizationName.trim();
+    const { error } = await signUp(email.trim(), password, workspaceName, fullName.trim(), undefined, accountType);
     setBusy(false);
     if (error) {
       toast({ title: 'Could not create your account', description: error.message, variant: 'destructive' });
@@ -132,7 +143,7 @@ export default function Auth() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-background">
       <div className="w-full max-w-lg text-center">
         <div className="flex justify-center mb-8">
-          <NikkoreInboxLogo className="text-[28px] leading-none" />
+          <NikkoreInboxLogo className="text-[96px] leading-none" />
         </div>
         <h1 className="font-serif text-5xl sm:text-6xl tracking-tight text-foreground">
           {mode === 'signin' ? 'Welcome back' : 'Question what’s next'}
@@ -162,13 +173,42 @@ export default function Auth() {
 
         <form className="space-y-3" onSubmit={handleEmailSubmit}>
           {mode === 'signup' && (
-            <Input
-              placeholder="Full name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="h-12"
-              disabled={busy}
-            />
+            <>
+              <div className="grid grid-cols-2 gap-2" aria-label="Account type">
+                {([
+                  { value: 'personal' as const, label: 'Individual', icon: UserRound },
+                  { value: 'organization' as const, label: 'Organization', icon: Building2 },
+                ]).map(({ value, label, icon: Icon }) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={accountType === value ? 'default' : 'outline'}
+                    className="h-12 justify-between"
+                    onClick={() => setAccountType(value)}
+                    disabled={busy}
+                  >
+                    <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
+                    {accountType === value && <Check className="h-4 w-4" />}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                placeholder="Full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="h-12"
+                disabled={busy}
+              />
+              {accountType === 'organization' && (
+                <Input
+                  placeholder="Organization name"
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  className="h-12"
+                  disabled={busy}
+                />
+              )}
+            </>
           )}
           <Input
             type="email"
@@ -217,7 +257,7 @@ export default function Auth() {
         </div>
 
         <p className="mt-6 text-[11px] leading-relaxed text-center text-muted-foreground">
-          Access to Nikkore Inbox features is granted by your administrator after your subscription is approved.
+          Individual and organization access is activated after subscription approval.
         </p>
       </div>
     </div>
