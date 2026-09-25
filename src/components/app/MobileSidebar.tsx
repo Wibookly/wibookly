@@ -129,7 +129,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
       >
         <SheetHeader className="p-4" style={{ borderBottom: '1px solid var(--border-soft)' }}>
           <div className="flex items-center justify-between">
-            <NikkoreInboxLogo className="items-start text-[72px]" />
+            <NikkoreInboxLogo className="items-start text-[32px]" />
           </div>
         </SheetHeader>
 

@@ -143,7 +143,7 @@ export default function Auth() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-background">
       <div className="w-full max-w-lg text-center">
         <div className="flex justify-center mb-8">
-          <NikkoreInboxLogo className="text-[96px] leading-none" />
+          <NikkoreInboxLogo className="text-[52px] leading-none" />
         </div>
         <h1 className="font-serif text-5xl sm:text-6xl tracking-tight text-foreground">
           {mode === 'signin' ? 'Welcome back' : 'Question what’s next'}

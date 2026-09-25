@@ -12,7 +12,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
     <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
       <div className="flex items-center gap-2">
         <img src={nikkoreMark.url} alt="Nikkore" className="h-8 w-8 object-contain" />
-        <NikkoreInboxLogo className="items-start text-[58px]" />
+        <NikkoreInboxLogo className="items-start text-[26px]" />
       </div>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={onMenuClick}>

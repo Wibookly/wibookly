@@ -222,7 +222,7 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
           className="h-11 w-11 shrink-0 rounded-xl object-contain"
         />
         <div className="flex flex-col leading-tight min-w-0">
-          <NikkoreInboxLogo className="items-start text-[56px] leading-none" />
+          <NikkoreInboxLogo className="items-start text-[28px] leading-none" />
           <span className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
             {organization?.name || 'Nikkore'}
           </span>
