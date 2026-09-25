@@ -18,7 +18,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-type Mode = 'signin' | 'signup';
+type Mode = 'signin' | 'signup' | 'forgot-password';
 type AccountType = 'personal' | 'organization';
 
 export default function Auth() {
@@ -126,17 +126,26 @@ export default function Auth() {
 
   const handleForgotPassword = async () => {
     if (!email.includes('@')) {
-      toast({ title: 'Enter your email first', description: 'We will send a reset link there.', variant: 'destructive' });
+      toast({ title: 'Enter a valid email address', description: 'We will send the reset link there.', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      toast({ title: 'Could not send the reset email', description: error.message, variant: 'destructive' });
-      return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setNotice('Password reset link sent. Check your inbox and spam folder.');
+    } catch (error) {
+      toast({
+        title: 'Could not send the reset email',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
     }
-    setNotice('Password reset link sent. Check your inbox.');
   };
 
   return (
@@ -146,7 +155,7 @@ export default function Auth() {
           <NikkoreInboxLogo className="text-[52px] leading-none" />
         </div>
         <h1 className="font-serif text-5xl sm:text-6xl tracking-tight text-foreground">
-          {mode === 'signin' ? 'Welcome back' : 'Question what’s next'}
+          {mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Question what’s next' : 'Reset your password'}
         </h1>
         <p className="mt-4 text-base text-muted-foreground">
           Your AI inbox partner for big ambitions
@@ -154,7 +163,7 @@ export default function Auth() {
       </div>
 
       <div className="mt-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-lg">
-        <Button
+        {mode !== 'forgot-password' && <Button
           type="button"
           variant="secondary"
           className="w-full h-12 justify-center gap-3 text-sm font-medium"
@@ -163,15 +172,15 @@ export default function Auth() {
         >
           {googleBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <GoogleIcon />}
           Continue with Google
-        </Button>
+        </Button>}
 
-        <div className="my-6 flex items-center gap-4">
+        {mode !== 'forgot-password' && <div className="my-6 flex items-center gap-4">
           <span className="h-px flex-1 bg-border" />
           <span className="text-[11px] font-semibold tracking-widest text-muted-foreground">OR</span>
           <span className="h-px flex-1 bg-border" />
-        </div>
+        </div>}
 
-        <form className="space-y-3" onSubmit={handleEmailSubmit}>
+        <form className="space-y-3" onSubmit={mode === 'forgot-password' ? (event) => { event.preventDefault(); void handleForgotPassword(); } : handleEmailSubmit}>
           {mode === 'signup' && (
             <>
               <div className="grid grid-cols-2 gap-2" aria-label="Account type">
@@ -219,18 +228,20 @@ export default function Auth() {
             className="h-12"
             disabled={busy}
           />
-          <Input
-            type="password"
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-12"
-            disabled={busy}
-          />
+          {mode !== 'forgot-password' && (
+            <Input
+              type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-12"
+              disabled={busy}
+            />
+          )}
           <Button type="submit" className="w-full h-12 text-sm font-medium" disabled={busy || googleBusy}>
             {busy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            {mode === 'signin' ? 'Continue with email' : 'Create account'}
+            {mode === 'signin' ? 'Continue with email' : mode === 'signup' ? 'Create account' : 'Send reset link'}
           </Button>
         </form>
 
@@ -239,20 +250,44 @@ export default function Auth() {
         )}
 
         <div className="mt-6 flex flex-col items-center gap-2 text-xs text-muted-foreground">
-          <button
-            type="button"
-            className="hover:text-foreground transition-colors"
-            onClick={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin');
-              setNotice(null);
-            }}
-          >
-            {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
-          </button>
+          {mode !== 'forgot-password' && (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-xs text-muted-foreground"
+              onClick={() => {
+                setMode(mode === 'signin' ? 'signup' : 'signin');
+                setNotice(null);
+              }}
+            >
+              {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
+            </Button>
+          )}
           {mode === 'signin' && (
-            <button type="button" className="hover:text-foreground transition-colors" onClick={handleForgotPassword}>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2 h-11 w-full text-sm"
+              onClick={() => {
+                setMode('forgot-password');
+                setNotice(null);
+              }}
+            >
               Forgot your password?
-            </button>
+            </Button>
+          )}
+          {mode === 'forgot-password' && (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-xs text-muted-foreground"
+              onClick={() => {
+                setMode('signin');
+                setNotice(null);
+              }}
+            >
+              Back to sign in
+            </Button>
           )}
         </div>
 
