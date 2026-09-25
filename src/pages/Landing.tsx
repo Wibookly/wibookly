@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Inbox, PenTool, Sun } from 'lucide-react';
 import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
-import nikkoreMark from '@/assets/nikkore-mark.png.asset.json';
+import nikkoreMark from '@/assets/nikkore-mark.png';
 
 function NikkoreMark({ className = 'h-8 w-8' }: { className?: string }) {
   return (
     <img
-      src={nikkoreMark.url}
+      src={nikkoreMark}
       alt="Nikkore"
       className={`${className} object-contain`}
       draggable={false}

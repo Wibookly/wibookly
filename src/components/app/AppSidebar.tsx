@@ -9,7 +9,7 @@ import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
-import nikkoreMark from '@/assets/nikkore-mark.png.asset.json';
+import nikkoreMark from '@/assets/nikkore-mark.png';
 import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';

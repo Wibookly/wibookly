@@ -24,7 +24,7 @@ import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { UserCircle2 } from 'lucide-react';
-import nikkoreLogo from '@/assets/nikkore-logo.png.asset.json';
+import nikkoreLogo from '@/assets/nikkore-logo.png';
 
 // Default company logo URL (absolute) used when no per-user/org logo is set.
 const DEFAULT_COMPANY_LOGO_URL =

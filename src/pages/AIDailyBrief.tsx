@@ -33,7 +33,7 @@ import { FeatureCard } from '@/components/ui/feature-card';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import nikkoreLogo from '@/assets/nikkore-logo.png.asset.json';
+import nikkoreLogo from '@/assets/nikkore-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
 // CalendarPanel removed from Daily Brief body per UX redesign — calendar lives on its own page.
