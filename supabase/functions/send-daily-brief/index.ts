@@ -341,7 +341,7 @@ function renderBriefHtml(
     <div class="brief-section">${todoBlock}</div>
     <div class="brief-section">${suggestionsBlock}</div>
     <hr style="margin-top:28px;border:none;border-top:1px solid #e2e8f0"/>
-    <p style="color:#94a3b8;font-size:12px;margin-top:14px">Sent by InboxIQ Agent · delivered to ${esc(recipient)} · You can print or forward this brief.</p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:14px">Sent by Nikkore Inbox Agent · delivered to ${esc(recipient)} · You can print or forward this brief.</p>
   </div>
 </body></html>`;
 }
@@ -888,7 +888,7 @@ function buildBriefPdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
-    doc.text(`InboxIQ Daily Brief — Page ${i} of ${total}`, pageW / 2, pageH - 20, { align: "center" });
+    doc.text(`Nikkore Inbox Daily Brief — Page ${i} of ${total}`, pageW / 2, pageH - 20, { align: "center" });
   }
 
   const ab = doc.output("arraybuffer") as ArrayBuffer;
@@ -1148,7 +1148,7 @@ serve(async (req) => {
       let pdfAttachments: Array<{ name: string; contentType: string; bytes: Uint8Array }> = [];
       try {
         const pdfBytes = buildBriefPdf(brief, requestedBriefType || s.brief_type, recipient, pendingFollowUps, dateLabel, recipientName);
-        const pdfName = `InboxIQ-Daily-Brief-${nw.date}.pdf`;
+        const pdfName = `Nikkore Inbox-Daily-Brief-${nw.date}.pdf`;
         pdfAttachments = [{ name: pdfName, contentType: "application/pdf", bytes: pdfBytes }];
       } catch (e) {
         console.error("PDF generation failed (sending email without attachment)", e);

@@ -36,7 +36,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   organization: Organization | null;
   loading: boolean;
-  signUp: (email: string, password: string, organizationName: string, fullName: string, title?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, organizationName: string, fullName: string, title?: string, accountType?: 'personal' | 'organization') => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setSelectedOrganization: (orgId: string) => void;
@@ -103,13 +103,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const meta = (authUser?.user_metadata ?? {}) as { full_name?: string; name?: string };
         const emailDomain = authUser?.email?.split('@')[1] ?? 'My Company';
         try {
-          await withTimeout(
+          const personalSignup = await withTimeout(
             supabase.rpc('signup_initialize_user', {
               _full_name: meta.full_name ?? meta.name ?? authUser?.email ?? 'New user',
               _title: null,
-              _organization_name: emailDomain,
-            }),
+              _organization_name: `${meta.full_name ?? meta.name ?? 'Personal'}'s workspace`,
+              _account_type: 'personal',
+            } as never),
           );
+          if (personalSignup.error && personalSignup.error.code === 'PGRST202') {
+            await withTimeout(supabase.rpc('signup_initialize_user', {
+              _full_name: meta.full_name ?? meta.name ?? authUser?.email ?? 'New user',
+              _title: null,
+              _organization_name: emailDomain,
+            }));
+          }
           const retry = await withTimeout(supabase.rpc('get_my_profile'));
           profileRows = retry.data;
           profileData = profileRows?.[0];
@@ -194,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, organizationName: string, fullName: string, title?: string) => {
+  const signUp = async (email: string, password: string, organizationName: string, fullName: string, title?: string, accountType: 'personal' | 'organization' = 'organization') => {
     try {
       // Validate inputs
       const emailValidation = validateField(emailSchema, email);
@@ -227,11 +235,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Server-side initialization: looks up the user's domain in allowed_domains
       // and either joins them to the existing organization or creates one safely.
-      const { data: orgId, error: initError } = await supabase.rpc('signup_initialize_user', {
+      let { data: orgId, error: initError } = await supabase.rpc('signup_initialize_user', {
         _full_name: fullName,
         _title: title || null,
         _organization_name: orgNameValidation.data,
-      });
+            _account_type: accountType,
+      } as never);
+
+      if (initError?.code === 'PGRST202') {
+        const legacyInit = await supabase.rpc('signup_initialize_user', {
+          _full_name: fullName,
+          _title: title || null,
+          _organization_name: orgNameValidation.data,
+        });
+        orgId = legacyInit.data;
+        initError = legacyInit.error;
+      }
 
       if (initError) throw initError;
 

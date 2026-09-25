@@ -333,7 +333,7 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         subject: "Focus block (AI)",
-        body: { contentType: "HTML", content: "Protected focus time — added by InboxIQ." },
+        body: { contentType: "HTML", content: "Protected focus time — added by Nikkore Inbox." },
         start: { dateTime: start, timeZone: userTz },
         end: { dateTime: end, timeZone: userTz },
         showAs: "busy",
@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/\n/g, "<br/>");
     const block = noteText.trim()
-      ? `${START}<div style="border:1px solid #e5e7eb;background:#f8fafc;padding:10px 12px;border-radius:8px;font-family:Arial,sans-serif;font-size:13px;color:#111;margin-bottom:10px"><div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#6366f1;margin-bottom:4px">InboxIQ notes</div>${safeNote}</div>${END}`
+      ? `${START}<div style="border:1px solid #e5e7eb;background:#f8fafc;padding:10px 12px;border-radius:8px;font-family:Arial,sans-serif;font-size:13px;color:#111;margin-bottom:10px"><div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#6366f1;margin-bottom:4px">Nikkore Inbox notes</div>${safeNote}</div>${END}`
       : "";
     const nextHtml = `${block}${stripped}`;
     const patched = await callGraph<any>(
@@ -638,7 +638,7 @@ Deno.serve(async (req) => {
   }
 
   // Track days already carrying focus time so we don't double-place when bumping.
-  // This catches InboxIQ-created blocks plus user-created Outlook blocks named
+  // This catches Nikkore Inbox-created blocks plus user-created Outlook blocks named
   // "Focus time", "Deep work", etc.
   const existingFocusByDay = new Map<string, ShapedEvent[]>();
   for (const ev of events) {

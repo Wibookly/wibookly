@@ -3,9 +3,9 @@ import type { Step } from 'react-joyride';
 export const settingsTour: Step[] = [
   {
     target: 'body',
-    title: 'Profile & Signature — your identity in InboxIQ',
+    title: 'Profile & Signature — your identity in Nikkore Inbox',
     content:
-      "Everything on this page powers how InboxIQ sounds and looks as you: AI email drafts, the Daily Brief, meeting notes, and follow-up reminders all pull from these fields. Take a minute here and every AI output gets noticeably more 'you'.",
+      "Everything on this page powers how Nikkore Inbox sounds and looks as you: AI email drafts, the Daily Brief, meeting notes, and follow-up reminders all pull from these fields. Take a minute here and every AI output gets noticeably more 'you'.",
     placement: 'center',
     skipBeacon: true,
   },
@@ -13,14 +13,14 @@ export const settingsTour: Step[] = [
     target: 'body',
     title: 'Profile photo',
     content:
-      "Upload a square headshot (PNG/JPG, ideally 256×256+). It is shown in your AI-generated email signatures and across InboxIQ. If both a photo and a company logo exist, the photo wins for Personal accounts and the logo wins for Business accounts.",
+      "Upload a square headshot (PNG/JPG, ideally 256×256+). It is shown in your AI-generated email signatures and across Nikkore Inbox. If both a photo and a company logo exist, the photo wins for Personal accounts and the logo wins for Business accounts.",
     placement: 'center',
   },
   {
     target: 'body',
     title: 'Name, title, company',
     content:
-      "Full name and email are required. For Business mode, Job Title is also required so signatures stay professional (e.g. 'Ali Rahimi — Director of Engineering, Energy Forward'). InboxIQ uses these in AI drafts: closing lines, introductions, and meeting notes.",
+      "Full name and email are required. For Business mode, Job Title is also required so signatures stay professional (e.g. 'Ali Rahimi — Director of Engineering, Nikkore'). Nikkore Inbox uses these in AI drafts: closing lines, introductions, and meeting notes.",
     placement: 'center',
   },
   {

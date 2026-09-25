@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Inbox, PenTool, Sun } from 'lucide-react';
-import { InboxIQLogo } from '@/components/app/InboxIQLogo';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
+import nikkoreMark from '@/assets/nikkore-mark.png';
 
-function EFMark({ className = 'h-8 w-8' }: { className?: string }) {
+function NikkoreMark({ className = 'h-8 w-8' }: { className?: string }) {
   return (
     <img
-      src="/brand/energyforward-logo-mark.png"
-      alt="EnergyForward"
+      src={nikkoreMark}
+      alt="Nikkore"
       className={`${className} object-contain`}
       draggable={false}
     />
@@ -49,10 +50,10 @@ export default function Landing() {
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/75 border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <EFMark className="h-8 w-8" />
+            <NikkoreMark className="h-8 w-8" />
             <div className="flex flex-col leading-tight">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">EnergyForward</span>
-              <InboxIQLogo className="text-lg leading-none font-display italic" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Nikkore</span>
+              <NikkoreInboxLogo className="text-lg leading-none font-display italic" />
             </div>
           </div>
           <nav className="hidden md:flex items-center gap-8">
@@ -79,7 +80,7 @@ export default function Landing() {
         <h1 className="font-display italic text-6xl md:text-7xl tracking-tight text-foreground mt-6 leading-[1.05]">
           Bringing tomorrow's{' '}
           <em className="not-italic">
-            <span className="bg-gradient-to-r from-ef-blue to-ef-sky bg-clip-text text-transparent">energy</span>
+            <span className="bg-gradient-to-r from-ef-blue to-ef-sky bg-clip-text text-transparent">clarity</span>
           </em>
           <br />
           to today's inbox.
@@ -113,7 +114,7 @@ export default function Landing() {
           Inbox intelligence, with the lights on.
         </h2>
         <p className="text-muted-foreground text-center mt-4 max-w-xl mx-auto">
-          Three agents, one workflow. InboxIQ keeps your day moving so you can focus on the work that matters.
+          Three agents, one workflow. Nikkore Inbox keeps your day moving so you can focus on the work that matters.
         </p>
         <div className="grid md:grid-cols-3 gap-6 mt-16">
           {features.map((f) => (
@@ -137,7 +138,7 @@ export default function Landing() {
             Ready to give your inbox a brain?
           </h2>
           <p className="text-white/75 mt-4 max-w-xl mx-auto relative">
-            Join teams using InboxIQ to triage faster, draft smarter, and start each day with a brief that already knows what matters.
+            Join teams using Nikkore Inbox to triage faster, draft smarter, and start each day with a brief that already knows what matters.
           </p>
           <button onClick={getStarted} className="bg-white text-ef-navy hover:bg-ef-sky-soft rounded-full px-6 py-3 text-base font-medium mt-8 inline-block transition-all relative">
             Start free trial
@@ -148,8 +149,8 @@ export default function Landing() {
       {/* FOOTER */}
       <footer className="max-w-6xl mx-auto px-6 py-12 border-t border-border flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <EFMark className="h-6 w-6" />
-          <span className="text-sm text-muted-foreground">© 2026 EnergyForward · InboxIQ</span>
+          <NikkoreMark className="h-6 w-6" />
+          <span className="text-sm text-muted-foreground">© 2026 Nikkore · Nikkore Inbox</span>
         </div>
         <div className="flex items-center gap-6">
           <a href="#privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy</a>

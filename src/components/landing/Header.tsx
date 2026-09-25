@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
 
 interface HeaderProps {
   onSignInClick: () => void;
@@ -11,7 +12,7 @@ export function Header({ onSignInClick }: HeaderProps) {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center">
-            <span className="text-3xl font-semibold text-foreground">InboxIQ</span>
+            <NikkoreInboxLogo className="items-start text-[34px]" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">

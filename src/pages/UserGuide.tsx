@@ -65,7 +65,7 @@ const GUIDES: GuideEntry[] = [
     id: 'reply-tracker',
     title: 'Flagged Email Tracker',
     description:
-      'Flag a sent email in Outlook with a due date — InboxIQ watches the thread and politely follows up if nobody replies in time.',
+      'Flag a sent email in Outlook with a due date — Nikkore Inbox watches the thread and politely follows up if nobody replies in time.',
     route: '/follow-up-reminder',
     tourArticleId: 'reply-tracker',
     Icon: BellRing,
@@ -186,7 +186,7 @@ export default function UserGuide() {
             <div className="flex-1">
               <h2 className="text-base font-semibold">New here? Start with the full walkthrough.</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                A guided tour of every InboxIQ feature your account has access to — about 5 minutes end to end.
+                A guided tour of every Nikkore Inbox feature your account has access to — about 5 minutes end to end.
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">

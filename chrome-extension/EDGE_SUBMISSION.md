@@ -1,4 +1,4 @@
-# Submitting InboxIQ Meeting Copilot to Microsoft Edge Add-ons
+# Submitting Nikkore Inbox Meeting Copilot to Microsoft Edge Add-ons
 
 The package at `public/inboxiq-meeting-copilot-edge.zip` is ready to upload.
 The same ZIP also works on Chrome and all other Chromium browsers — start with Edge.
@@ -10,7 +10,7 @@ The same ZIP also works on Chrome and all other Chromium browsers — start with
 1. Go to https://partner.microsoft.com/dashboard/microsoftedge/overview
 2. Sign in with your Microsoft account (use your `@energyforward.com` work account).
 3. Accept the **Microsoft Edge Add-ons Developer Agreement**. No credit card required.
-4. Set the publisher display name to **InboxIQ** (or **EnergyForward AI**).
+4. Set the publisher display name to **Nikkore Inbox** (or **Nikkore AI**).
 
 ## 2. Create the listing
 
@@ -20,24 +20,24 @@ Click **New extension** → **Upload package** → select
 Fill in the listing with the values below (copy/paste).
 
 ### Store listing
-- **Name**: `InboxIQ Meeting Copilot`
+- **Name**: `Nikkore Inbox Meeting Copilot`
 - **Short description (≤ 132 chars)**:
   `Live meeting transcript + AI suggestions for Teams, Zoom, Meet, and Webex. Audio stays on your machine — no bot joins.`
 - **Detailed description**:
   ```
-  InboxIQ Meeting Copilot turns your browser into a real-time meeting assistant.
+  Nikkore Inbox Meeting Copilot turns your browser into a real-time meeting assistant.
 
   • Live transcript — captures the tab audio of your Teams, Zoom, Google Meet,
     or Webex call and transcribes it as it happens.
   • AI suggestions — surfaces what to say next, follow-up questions, and
-    action items inside your InboxIQ workspace.
+    action items inside your Nikkore Inbox workspace.
   • Post-meeting summary — full transcript, decisions, and action items
-    appear automatically in InboxIQ.
+    appear automatically in Nikkore Inbox.
   • No bot joins the call. Other attendees see nothing.
   • Audio is processed in real time and never stored. Only the text
-    transcript is sent to your private InboxIQ account over HTTPS.
+    transcript is sent to your private Nikkore Inbox account over HTTPS.
 
-  Requires a free InboxIQ account at https://inboxiq.energyforward.com.
+  Requires a free Nikkore Inbox account at https://inboxiq.energyforward.com.
   ```
 - **Category**: `Productivity`
 - **Languages**: `English (United States)`
@@ -47,13 +47,13 @@ Fill in the listing with the values below (copy/paste).
 
 ### Screenshots (required: at least 1, 1280×800 PNG)
 Take these from a real session:
-1. The Meeting Copilot page in InboxIQ with a live transcript scrolling.
+1. The Meeting Copilot page in Nikkore Inbox with a live transcript scrolling.
 2. The extension popup with "Capturing • <meeting title>" status.
 3. A finished session detail with summary + action items.
 
 ### Icons
 Already inside the ZIP (`icons/icon-16.png`, `icon-32.png`, `icon-128.png`).
-Edge also wants a **300×300** Store logo — render one from the InboxIQ "IQ" mark.
+Edge also wants a **300×300** Store logo — render one from the Nikkore Inbox "IQ" mark.
 
 ## 3. Permissions justification (Edge reviewers will ask)
 
@@ -68,7 +68,7 @@ Paste these in the "Notes for certification" box:
 > No data is read from page DOM; only audio of the active tab is captured.
 >
 > **Host permission for inboxiq.energyforward.com** — Used only to read the
-> user's existing InboxIQ session token from `localStorage` so the extension
+> user's existing Nikkore Inbox session token from `localStorage` so the extension
 > can post the transcript to their authenticated account. No other site data
 > is accessed.
 >
@@ -77,12 +77,12 @@ Paste these in the "Notes for certification" box:
 >
 > **`storage`, `activeTab`, `scripting`** — Standard permissions for
 > persisting the chosen session ID and reading the auth token from the
-> active InboxIQ tab.
+> active Nikkore Inbox tab.
 
 ## 4. Privacy / data handling
 
 In **Privacy → Data collection**, declare:
-- ✅ Authentication information (only: existing InboxIQ session token, never a password)
+- ✅ Authentication information (only: existing Nikkore Inbox session token, never a password)
 - ✅ Web content (only: live audio of the user's own meeting tab, processed in real time, not stored)
 - ❌ Personal identifiers / location / financial / health / etc.
 
@@ -92,7 +92,7 @@ Click **Submit for certification**. Review usually takes **3–7 business days**
 You'll get an email when approved with the public listing URL —
 something like `https://microsoftedge.microsoft.com/addons/detail/<id>`.
 
-## 6. Wire the live link into InboxIQ
+## 6. Wire the live link into Nikkore Inbox
 
 Once approved, edit `src/pages/MeetingCopilot.tsx` and set:
 ```ts

@@ -74,7 +74,7 @@ export default function MeetingPrep() {
       window.open(meeting.joinUrl, '_blank', 'noopener,noreferrer');
     }
     setSessionOpen(true);
-    toast.success('Copilot is live. Speak normally — InboxIQ will surface what to ask and answer.');
+    toast.success('Copilot is live. Speak normally — Nikkore Inbox will surface what to ask and answer.');
   };
 
   const startTime = meeting?.start ? new Date(meeting.start) : null;

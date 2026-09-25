@@ -5,8 +5,8 @@
 //
 //   <Route path="/extension-auth" element={<ExtensionAuth />} />
 //
-// This page is opened by the InboxIQ Chrome extension when the user clicks
-// "Sign in with InboxIQ" inside the side panel. The flow:
+// This page is opened by the Nikkore Inbox Chrome extension when the user clicks
+// "Sign in with Nikkore Inbox" inside the side panel. The flow:
 //
 //   1. Extension opens https://inboxiq.energyforward.com/extension-auth?ext_id=<id>
 //   2. If user is already signed in to the web app, we immediately post the
@@ -40,7 +40,7 @@ export default function ExtensionAuth() {
       try {
         const extId = params.get("ext_id") || sessionStorage.getItem(SS_KEY);
         if (!extId) {
-          setErrorMsg("Missing extension id. Please launch this page from the InboxIQ extension.");
+          setErrorMsg("Missing extension id. Please launch this page from the Nikkore Inbox extension.");
           setStatus("error");
           return;
         }
@@ -83,7 +83,7 @@ export default function ExtensionAuth() {
         };
 
         if (!w.chrome?.runtime?.sendMessage) {
-          setErrorMsg("The InboxIQ extension wasn't detected in this browser. Make sure it's installed and enabled, then try again.");
+          setErrorMsg("The Nikkore Inbox extension wasn't detected in this browser. Make sure it's installed and enabled, then try again.");
           setStatus("error");
           return;
         }
@@ -118,7 +118,7 @@ export default function ExtensionAuth() {
     <div style={styles.wrap}>
       <div style={styles.card}>
         <div style={styles.ef}>EF</div>
-        <div style={styles.title}>InboxIQ Meeting Copilot</div>
+        <div style={styles.title}>Nikkore Inbox Meeting Copilot</div>
 
         {status === "checking" && <p style={styles.muted}>Checking your session…</p>}
 

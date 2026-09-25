@@ -5,7 +5,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 
-const SITE = 'InboxIQ'
+const SITE = 'Nikkore Inbox'
 
 interface ScheduleStep { label: string; status: string; date?: string | null }
 interface Row {

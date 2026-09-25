@@ -10,7 +10,7 @@ import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 var whoami_default = defineTool({
   name: "whoami",
   title: "Who am I",
-  description: "Return the signed-in InboxIQ user's id and email as seen by the MCP server.",
+  description: "Return the signed-in Nikkore Inbox user's id and email as seen by the MCP server.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: (_input, ctx) => {
@@ -83,9 +83,9 @@ var list_priority_emails_default = defineTool3({
 var projectRef = "jbzctydskdpzrejvpwpn";
 var mcp_default = defineMcp({
   name: "inboxiq-mcp",
-  title: "InboxIQ",
+  title: "Nikkore Inbox",
   version: "0.1.0",
-  instructions: "Tools for InboxIQ. Use `whoami` to verify the signed-in user, `list_categories` to inspect the user's email categories, and `list_priority_emails` to fetch their open priority inbox items.",
+  instructions: "Tools for Nikkore Inbox. Use `whoami` to verify the signed-in user, `list_categories` to inspect the user's email categories, and `list_priority_emails` to fetch their open priority inbox items.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

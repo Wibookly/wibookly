@@ -1,22 +1,22 @@
-// Save a file to the connected user's OneDrive under "InboxIQ Chat".
+// Save a file to the connected user's OneDrive under "Nikkore Inbox Chat".
 // Uses the multi-account-aware token resolver and Graph's
 // "PUT /me/drive/root:/{path}:/content" upload endpoint.
 //
 // Naming + versioning:
 //   - Caller provides a base name (e.g. "Project Kickoff").
-//   - We sanitize and place files under "/InboxIQ Chat/<safe-base>/<base>.<ext>".
+//   - We sanitize and place files under "/Nikkore Inbox Chat/<safe-base>/<base>.<ext>".
 //   - If a file with the same name already exists, we append " v2", " v3" …
 //     until we find a free slot (best-effort, fire-and-forget on failure).
 // deno-lint-ignore-file no-explicit-any
 import { getValidAccessToken } from "./oauth-tokens.ts";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
-const ROOT_FOLDER = "InboxIQ Chat";
+const ROOT_FOLDER = "Nikkore Inbox Chat";
 
 export interface SaveResult {
   ok: boolean;
   webUrl?: string;
-  path?: string;        // /drive/root:/InboxIQ Chat/...
+  path?: string;        // /drive/root:/Nikkore Inbox Chat/...
   error?: string;
 }
 
@@ -60,7 +60,7 @@ export interface SaveFileOptions {
   /** Raw bytes or string content. */
   content: Uint8Array | string;
   contentType: string;
-  /** Optional sub-folder inside InboxIQ Chat (e.g. conversation id). */
+  /** Optional sub-folder inside Nikkore Inbox Chat (e.g. conversation id). */
   subfolder?: string;
   /** If true, overwrite the same filename instead of versioning. */
   overwrite?: boolean;

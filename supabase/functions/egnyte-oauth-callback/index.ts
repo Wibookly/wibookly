@@ -13,7 +13,7 @@ function errorPage(msg: string) {
 <body style="font-family:system-ui;background:#0b0b12;color:#e5e7eb;padding:40px">
 <h2>Could not finish Egnyte connection</h2>
 <p style="color:#f87171">${msg.replace(/</g, '&lt;')}</p>
-<p><a style="color:#60a5fa" href="/egnyte">Return to InboxIQ</a></p></body>`, 400);
+<p><a style="color:#60a5fa" href="/egnyte">Return to Nikkore Inbox</a></p></body>`, 400);
 }
 
 serve(async (req) => {

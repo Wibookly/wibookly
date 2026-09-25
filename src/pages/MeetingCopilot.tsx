@@ -833,8 +833,8 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: Upcoming
       <div className="flex items-center gap-2 shrink-0 ml-auto">
         <button onClick={() => onToggle(!enabled)}
           title={enabled
-            ? 'Copilot ON — InboxIQ will automatically start listening and drafting suggestions when this meeting begins. Click to turn off.'
-            : 'Copilot OFF — InboxIQ will ignore this meeting. Click to enable automatic listening and AI suggestions.'}
+            ? 'Copilot ON — Nikkore Inbox will automatically start listening and drafting suggestions when this meeting begins. Click to turn off.'
+            : 'Copilot OFF — Nikkore Inbox will ignore this meeting. Click to enable automatic listening and AI suggestions.'}
           className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 whitespace-nowrap"
           style={{
             background: enabled ? 'color-mix(in srgb, var(--c-purple) 12%, transparent)' : 'var(--surface-3)',
@@ -847,7 +847,7 @@ function MeetingCard({ meeting, enabled, onToggle, onOpen }: { meeting: Upcoming
         <button onClick={onOpen}
           title={meeting.isLive
             ? 'Open the live Copilot panel for this meeting.'
-            : 'Open meeting prep — InboxIQ reads the invite, attachments and prior emails, then lets you join the call and start Copilot in one click.'}
+            : 'Open meeting prep — Nikkore Inbox reads the invite, attachments and prior emails, then lets you join the call and start Copilot in one click.'}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shrink-0 whitespace-nowrap"
           style={{ background: meeting.isLive ? 'linear-gradient(135deg,#EC4899,#F97316)' : 'linear-gradient(135deg,#3B82F6,#6366F1)' }}>
           {meeting.isLive ? <><Headphones className="w-3 h-3" /> Open Copilot</> : <><Play className="w-3 h-3" /> Join</>}
@@ -880,7 +880,7 @@ function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }
         <ul className="space-y-3 mb-5">
           {[
             ['No audio is ever recorded.', 'Audio is transcribed live, in real time. The raw audio is never saved — not on your device, not on our servers.'],
-            ['Only text persists.', 'The transcript is stored in your private InboxIQ account, encrypted at rest. You control retention (default: 30 days).'],
+            ['Only text persists.', 'The transcript is stored in your private Nikkore Inbox account, encrypted at rest. You control retention (default: 30 days).'],
             ['No bot joins the meeting.', 'Audio is captured locally by the Chrome extension on your own machine. Other attendees never see an extra participant.'],
             ['You decide per-meeting.', 'Even with auto-join enabled, you can toggle the Copilot off for any individual meeting.'],
           ].map(([t, d]) => (

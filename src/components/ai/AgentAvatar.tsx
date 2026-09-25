@@ -10,7 +10,7 @@ interface AgentAvatarProps {
 }
 
 /**
- * The InboxIQ AI agent avatar.
+ * The Nikkore Inbox AI agent avatar.
  * - Idle: static branded portrait (agent-static.png).
  * - Active (AI thinking): looping video (agent-move.mp4).
  */
@@ -41,7 +41,7 @@ export function AgentAvatar({ active = false, className }: AgentAvatarProps) {
         playsInline
         preload="auto"
         className={baseClass}
-        aria-label="InboxIQ AI agent thinking"
+        aria-label="Nikkore Inbox AI agent thinking"
       />
     );
   }
@@ -49,7 +49,7 @@ export function AgentAvatar({ active = false, className }: AgentAvatarProps) {
   return (
     <img
       src={agentStatic}
-      alt="InboxIQ AI agent"
+      alt="Nikkore Inbox AI agent"
       className={baseClass}
       draggable={false}
     />

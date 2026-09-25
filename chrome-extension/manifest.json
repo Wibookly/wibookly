@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "InboxIQ Meeting Copilot",
+  "name": "Nikkore Inbox Meeting Copilot",
   "version": "1.0.0",
   "description": "Live meeting transcript + AI suggestions for Teams, Zoom, Google Meet, and Webex. Audio stays on your machine — no bot joins the call.",
   "permissions": ["tabCapture", "storage", "activeTab", "scripting", "offscreen"],
@@ -22,7 +22,7 @@
     ]
   },
   "action": {
-    "default_title": "InboxIQ Meeting Copilot",
+    "default_title": "Nikkore Inbox Meeting Copilot",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

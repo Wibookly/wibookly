@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
 
 
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
@@ -128,7 +129,7 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
       >
         <SheetHeader className="p-4" style={{ borderBottom: '1px solid var(--border-soft)' }}>
           <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold" style={{ color: 'var(--text-body)' }}>InboxIQ</span>
+            <NikkoreInboxLogo className="items-start text-[32px]" />
           </div>
         </SheetHeader>
 

@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
               integrationKey: "test-integration",
               integrationName: "Test alert",
               status: "failed",
-              message: "This is a test alert from the InboxIQ admin dashboard.",
+              message: "This is a test alert from the Nikkore Inbox admin dashboard.",
               detectedAt: new Date().toISOString(),
             },
           },
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       } catch (e) { results.email = { ok: false, message: (e as Error).message }; }
     }
     if ((channel === "sms" || channel === "both") && phone) {
-      results.sms = await sendSms(phone, "[InboxIQ] This is a test SMS alert from the admin dashboard.");
+      results.sms = await sendSms(phone, "[Nikkore Inbox] This is a test SMS alert from the admin dashboard.");
     }
 
     return new Response(JSON.stringify({ ok: true, results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

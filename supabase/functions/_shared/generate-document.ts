@@ -1,5 +1,5 @@
 // Generate a branded DOCX (and optional PDF) from markdown-ish content,
-// upload to the user's OneDrive "InboxIQ Chat / Generated Documents" folder,
+// upload to the user's OneDrive "Nikkore Inbox Chat / Generated Documents" folder,
 // and return webUrls.
 //
 // Standard style = "Executive Navy":
@@ -9,7 +9,7 @@
 //   - H2:      Calibri 14pt Bold #13315C
 //   - H3:      Calibri 12pt Bold italic #13315C
 //   - Body:    Georgia 11pt, 1.15 line spacing
-//   - Footer:  "InboxIQ" left, page X of Y right
+//   - Footer:  "Nikkore Inbox" left, page X of Y right
 //
 // PDF is produced by Microsoft Graph's built-in conversion so fonts/layout
 // match the DOCX exactly.
@@ -153,7 +153,7 @@ async function buildDocx(title: string, content: string): Promise<Uint8Array> {
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   const doc = new Document({
-    creator: "InboxIQ",
+    creator: "Nikkore Inbox",
     title,
     styles: {
       default: {
@@ -192,7 +192,7 @@ async function buildDocx(title: string, content: string): Promise<Uint8Array> {
             alignment: AlignmentType.LEFT,
             tabStops: [{ type: "right" as any, position: 9360 }],
             children: [
-              new TextRun({ text: "InboxIQ", font: HEAD_FONT, size: 18, color: MUTED }),
+              new TextRun({ text: "Nikkore Inbox", font: HEAD_FONT, size: 18, color: MUTED }),
               new TextRun({ text: "\t", font: HEAD_FONT, size: 18 }),
               new TextRun({ text: "Page ", font: HEAD_FONT, size: 18, color: MUTED }),
               new TextRun({ children: [PageNumber.CURRENT], font: HEAD_FONT, size: 18, color: MUTED }),

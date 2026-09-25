@@ -85,8 +85,8 @@ Deno.serve(async (req) => {
     const msgs = messages || [];
 
     const baseLabel = scope === 'one'
-      ? `InboxIQ - ${(conversations[0].title || 'Chat').slice(0, 60)}`
-      : `InboxIQ - Chat History ${new Date().toISOString().slice(0, 10)}`;
+      ? `Nikkore Inbox - ${(conversations[0].title || 'Chat').slice(0, 60)}`
+      : `Nikkore Inbox - Chat History ${new Date().toISOString().slice(0, 10)}`;
 
     let file: { filename: string; mime_type: string; base64: string };
     if (format === 'xlsx') {
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
         lines.push(`Started: ${fmt(c.created_at)}`);
         lines.push('');
         for (const m of msgs.filter((m) => m.conversation_id === c.id)) {
-          const who = m.role === 'user' ? 'You' : m.role === 'assistant' ? 'InboxIQ' : 'System';
+          const who = m.role === 'user' ? 'You' : m.role === 'assistant' ? 'Nikkore Inbox' : 'System';
           lines.push(`[${fmt(m.created_at)}] ${who}:`);
           lines.push(m.content || '');
           lines.push('');
@@ -124,12 +124,12 @@ Deno.serve(async (req) => {
       file = await generatePdf({
         title: scope === 'one'
           ? (conversations[0].title || 'Chat Export')
-          : 'InboxIQ Chat History',
+          : 'Nikkore Inbox Chat History',
         subtitle: `Exported ${fmt(new Date().toISOString())} • ${conversations.length} conversation${conversations.length === 1 ? '' : 's'}`,
         sections,
-        footer: 'InboxIQ — Chat export',
+        footer: 'Nikkore Inbox — Chat export',
       });
-      // Ensure filename matches InboxIQ - prefix
+      // Ensure filename matches Nikkore Inbox - prefix
       file.filename = baseLabel + (file.filename.toLowerCase().endsWith('.pdf') ? '.pdf' : '');
     }
 
@@ -194,18 +194,18 @@ Deno.serve(async (req) => {
 
       const ext = format === 'xlsx' ? 'xlsx' : 'pdf';
       const subject = scope === 'one'
-        ? `InboxIQ chat — ${(conversations[0].title || 'Untitled').slice(0, 80)}`
-        : `InboxIQ chat history (${conversations.length} conversations)`;
+        ? `Nikkore Inbox chat — ${(conversations[0].title || 'Untitled').slice(0, 80)}`
+        : `Nikkore Inbox chat history (${conversations.length} conversations)`;
       const bodyHtml = `
         <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#1f2937;line-height:1.55">
           <p>Hi,</p>
-          <p>Here is your InboxIQ chat export${scope === 'one' ? ` for <strong>${(conversations[0].title || 'Untitled')}</strong>` : ''}.</p>
+          <p>Here is your Nikkore Inbox chat export${scope === 'one' ? ` for <strong>${(conversations[0].title || 'Untitled')}</strong>` : ''}.</p>
           <ul>
             <li>Format: <strong>${ext.toUpperCase()}</strong></li>
             <li>Conversations: <strong>${conversations.length}</strong></li>
             <li>Generated: ${fmt(new Date().toISOString())}</li>
           </ul>
-          <p style="color:#6b7280;font-size:12px;margin-top:24px">Sent automatically by InboxIQ. You can also download or save this export to OneDrive from the chat sidebar menu.</p>
+          <p style="color:#6b7280;font-size:12px;margin-top:24px">Sent automatically by Nikkore Inbox. You can also download or save this export to OneDrive from the chat sidebar menu.</p>
         </div>
       `;
       const message = {

@@ -1,4 +1,4 @@
-// Microsoft Teams bot endpoint for InboxIQ.
+// Microsoft Teams bot endpoint for Nikkore Inbox.
 // Handles 1:1 chat, group chats, and @-mentions in channels.
 // The bot is a full conversational agent: it can search the user's
 // emails, calendar, OneDrive files, Teams chats, AND the live web.
@@ -152,7 +152,7 @@ function getTierContext(groupName?: string | null): string {
   }
 }
 
-/* ---------------- Adaptive Card helpers (InboxIQ branded) ---------------- */
+/* ---------------- Adaptive Card helpers (Nikkore Inbox branded) ---------------- */
 
 const BRAND_HEADER = {
   type: 'Container',
@@ -173,8 +173,8 @@ const BRAND_HEADER = {
           type: 'Column',
           width: 'stretch',
           items: [
-            { type: 'TextBlock', text: 'InboxIQ', weight: 'Bolder', size: 'Medium', spacing: 'None' },
-            { type: 'TextBlock', text: 'by EnergyForward', size: 'Small', isSubtle: true, spacing: 'None' },
+            { type: 'TextBlock', text: 'Nikkore Inbox', weight: 'Bolder', size: 'Medium', spacing: 'None' },
+            { type: 'TextBlock', text: 'by Nikkore', size: 'Small', isSubtle: true, spacing: 'None' },
           ],
         },
       ],
@@ -219,7 +219,7 @@ function buildAdaptiveCard(title: string, content: string, actions: any[] = []) 
 function buildWelcomeCard() {
   return wrapAdaptiveCard(
     [
-      { type: 'TextBlock', text: "Hi! I'm your InboxIQ assistant.", weight: 'Bolder', size: 'Medium', wrap: true, spacing: 'None' },
+      { type: 'TextBlock', text: "Hi! I'm your Nikkore Inbox assistant.", weight: 'Bolder', size: 'Medium', wrap: true, spacing: 'None' },
       {
         type: 'TextBlock',
         text: 'Ask me anything about your inbox, calendar, files, or work tasks. I can draft emails, summarize documents, prep you for meetings, or generate dashboards.',
@@ -344,7 +344,7 @@ async function runAgent(opts: {
 }): Promise<{ reply: string; tokensIn: number; tokensOut: number; model: string }> {
   const model = opts.model || 'gpt-4o';
   const tierLine = getTierContext(opts.tierName);
-  const systemPrompt = `You are InboxIQ (Energy Forward AI), a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
+  const systemPrompt = `You are Nikkore Inbox (Nikkore), a powerful AI assistant for ${opts.userName} inside Microsoft Teams. You are as capable as ChatGPT or Claude — you can answer anything AND you can CREATE things.
 
 You have access to tools that let you:
 - Search the live INTERNET (search_web) — current events, facts, news, prices, definitions, anything.
@@ -535,7 +535,7 @@ Deno.serve(async (req) => {
           if (m.id !== activity.recipient?.id) {
             await sendReply(
               activity,
-              "Hi! I'm InboxIQ. Ask me anything about your inbox, calendar, files, or work tasks.",
+              "Hi! I'm Nikkore Inbox. Ask me anything about your inbox, calendar, files, or work tasks.",
               [buildWelcomeCard()],
             );
             break;
@@ -600,7 +600,7 @@ Deno.serve(async (req) => {
 
   if (!isAllowed) return new Response('', { status: 200 });
 
-  // Resolve InboxIQ user + Microsoft access token
+  // Resolve Nikkore Inbox user + Microsoft access token
   const resolved = await resolveTeamsUser({
     aadObjectId: aadId,
     senderEmail,
@@ -613,7 +613,7 @@ Deno.serve(async (req) => {
       await sendTyping(activity);
       const history = await loadHistory(settings.organization_id, activity.conversation?.id ?? '');
 
-      // Pre-flight enforcement only when we resolved an InboxIQ user
+      // Pre-flight enforcement only when we resolved an Nikkore Inbox user
       let gate: Awaited<ReturnType<typeof enforceLimitsBeforeLLM>> | null = null;
       let routedModel = 'gpt-4o';
       let tierName: string | null = null;
@@ -649,7 +649,7 @@ Deno.serve(async (req) => {
 
       const finalReply = resolved
         ? reply
-        : `${reply}\n\n_(Note: I couldn't link your Teams identity to an InboxIQ account, so I can only answer general/web questions. Sign in to InboxIQ with the same Microsoft account to unlock your emails, calendar, and files.)_`;
+        : `${reply}\n\n_(Note: I couldn't link your Teams identity to an Nikkore Inbox account, so I can only answer general/web questions. Sign in to Nikkore Inbox with the same Microsoft account to unlock your emails, calendar, and files.)_`;
 
       const cards = shouldUseAdaptiveCard(finalReply)
         ? [buildAdaptiveCard('Response', finalReply)]

@@ -5,7 +5,7 @@ export const emailIntelligenceTour: Step[] = [
     target: '[data-tour="ei-header"]',
     title: 'Welcome to Email Intelligence',
     content:
-      "This page is where you teach InboxIQ how to handle your inbox. Categories sort emails, rules route them, and AI drafts or sends replies. Let's walk through it.",
+      "This page is where you teach Nikkore Inbox how to handle your inbox. Categories sort emails, rules route them, and AI drafts or sends replies. Let's walk through it.",
     placement: 'bottom',
     skipBeacon: true,
   },
@@ -150,7 +150,7 @@ export const emailIntelligenceTour: Step[] = [
     target: '[data-tour="ei-sync"]',
     title: 'Real-Time Sync',
     content:
-      'InboxIQ continuously watches incoming mail and applies your categories, drafts, and replies in near real-time. Hit "Re-sync All" if you ever want to reprocess past emails.',
+      'Nikkore Inbox continuously watches incoming mail and applies your categories, drafts, and replies in near real-time. Hit "Re-sync All" if you ever want to reprocess past emails.',
     placement: 'bottom',
   },
 ];

@@ -553,8 +553,8 @@ serve(async (req) => {
         if (folderId) {
           const { moved } = await moveOutlookEmailsToInbox(accessToken, rule_type, rule_value, folderId);
           const legacyRuleNames = [
-            `InboxIQ: ${labelName} - ${rule_type}:${rule_value}`,
-            `InboxIQ: ⭐ ${String(category_sort_order + 1).padStart(2, '0')}: ${category_name} - ${rule_type}:${rule_value}`,
+            `Nikkore Inbox: ${labelName} - ${rule_type}:${rule_value}`,
+            `Nikkore Inbox: ⭐ ${String(category_sort_order + 1).padStart(2, '0')}: ${category_name} - ${rule_type}:${rule_value}`,
           ];
           let ruleDeleted = false;
           for (const ruleName of legacyRuleNames) {

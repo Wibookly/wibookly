@@ -8,8 +8,9 @@ import { PostOnboardingNav } from './PostOnboardingNav';
 import { useActiveEmail } from '@/contexts/ActiveEmailContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useUserRoles } from '@/hooks/useUserRoles';
-import energyForwardLogo from '@/assets/ef-logo.png';
-import { InboxIQLogo } from '@/components/app/InboxIQLogo';
+import { NikkoreInboxLogo } from '@/components/app/NikkoreInboxLogo';
+import nikkoreMark from '@/assets/nikkore-mark.png';
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo';
 import { ModeToggle } from '@/components/theme/ModeToggle';
 import { HelpQuickActions } from '@/components/help/HelpQuickActions';
 import { UserAvatarDropdown } from '@/components/app/UserAvatarDropdown';
@@ -164,6 +165,7 @@ function NavItem({ href, icon: Icon, emoji, accent, children, badgeCount }: NavI
 
 export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; onTogglePin?: () => void } = {}) {
   const { organization, profile } = useAuth();
+  const organizationLogo = useOrganizationLogo(organization?.id);
   const { connections, activeConnection, setActiveConnectionId, loading } = useActiveEmail();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const { hasFeature, loading: featureLoading } = useFeatureAccess();
@@ -214,24 +216,15 @@ export function AppSidebar({ pinned = true, onTogglePin }: { pinned?: boolean; o
     <aside className="hidden lg:flex w-[300px] h-[100dvh] flex-col shrink-0 relative overflow-hidden" style={{ background: 'var(--bg-elev)', borderRight: '1px solid var(--border-soft)' }}>
 
       <div className="px-4 pt-4 pb-3 flex items-center gap-3 shrink-0" style={{ borderBottom: '1px solid var(--border-soft)' }}>
-        <div
-          className="flex items-center justify-center shrink-0 rounded-2xl text-white font-bold"
-          style={{
-            width: 44,
-            height: 44,
-            background: 'var(--grad-feature-soft)',
-            boxShadow: 'var(--shadow-glow)',
-            fontSize: 18,
-            letterSpacing: '-0.02em',
-          }}
-          aria-hidden
-        >
-          iQ
-        </div>
+        <img
+          src={organizationLogo || nikkoreMark}
+          alt={organizationLogo ? `${organization?.name ?? 'Organization'} logo` : 'Nikkore'}
+          className="h-11 w-11 shrink-0 rounded-xl object-contain"
+        />
         <div className="flex flex-col leading-tight min-w-0">
-          <InboxIQLogo className="text-[17px] leading-none" />
+          <NikkoreInboxLogo className="items-start text-[28px] leading-none" />
           <span className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
-            by Energy Forward AI
+            {organization?.name || 'Nikkore'}
           </span>
         </div>
       </div>

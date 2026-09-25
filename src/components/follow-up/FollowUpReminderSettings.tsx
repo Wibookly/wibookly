@@ -237,13 +237,13 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   When you send an email and you expect an answer back, just add a BCC like{' '}
                   <code className="font-mono text-[11px] px-1 rounded bg-muted">3@{domain}</code>{' '}
                   — the number is how many days you're willing to wait. If the recipient replies
-                  in time, nothing happens. If they don't, InboxIQ automatically <strong>drafts a
+                  in time, nothing happens. If they don't, Nikkore Inbox automatically <strong>drafts a
                   polite follow-up</strong> for you to review (or <strong>drafts and sends it</strong>{' '}
                   if you turn on Auto Reply) so the conversation never goes cold.
                 </p>
                 <p className="text-xs">
                   Works on <strong>any</strong> domain — no shared mailbox or extra inbox needed.
-                  The BCC address is just a private signal to InboxIQ; it never has to receive mail.
+                  The BCC address is just a private signal to Nikkore Inbox; it never has to receive mail.
                 </p>
               </CardDescription>
 
@@ -274,7 +274,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             <FlowStep
               n={2}
               title="We watch the reply"
-              body="On the due date InboxIQ checks the thread. If the recipient replied, the tracker clears itself."
+              body="On the due date Nikkore Inbox checks the thread. If the recipient replied, the tracker clears itself."
             />
             <FlowStep
               n={3}
@@ -331,7 +331,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
           </CardTitle>
           <CardDescription>
             {settings.is_enabled
-              ? 'Pick what InboxIQ does after confirming there\'s been no reply.'
+              ? 'Pick what Nikkore Inbox does after confirming there\'s been no reply.'
               : 'Locked — turn on Step 1 (the master switch above) to edit these actions.'}
           </CardDescription>
         </CardHeader>
@@ -568,10 +568,10 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
             <CalendarClock className="w-4 h-4 text-primary" /> Inbox auto-audit
           </CardTitle>
           <CardDescription>
-            InboxIQ automatically scans your <strong>Sent Items</strong> every 24 hours and flags
+            Nikkore Inbox automatically scans your <strong>Sent Items</strong> every 24 hours and flags
             any email that hasn't been replied to. Flagged messages are copied into your Outlook
             <code className="font-mono text-xs px-1 mx-1 rounded bg-muted">No-Reply-Tracker</code>
-            folder and surfaced in the InboxIQ <strong>No Reply Tracker</strong> category. No drafts
+            folder and surfaced in the Nikkore Inbox <strong>No Reply Tracker</strong> category. No drafts
             are written and nothing is sent — pure audit for your review.
           </CardDescription>
         </CardHeader>
@@ -591,7 +591,7 @@ export default function FollowUpReminderSettings({ compact = false }: { compact?
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  While No Reply Tracker is ON, InboxIQ scans the previous 24 hours of Sent Items
+                  While No Reply Tracker is ON, Nikkore Inbox scans the previous 24 hours of Sent Items
                   every day and flags anything that hasn't been replied to.
                 </div>
               </div>

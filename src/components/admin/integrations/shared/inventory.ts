@@ -83,7 +83,7 @@ const microsoft: Provider = {
   subtitle: 'Azure App Registration powering SSO, OAuth, and Graph access.',
   description:
     'One Azure App Registration provides Microsoft SSO, per-user OAuth, tenant admin consent, and Graph access to Mail, Calendar, OneDrive, SharePoint, and Teams.',
-  meta: 'Azure tenant: energyforward.onmicrosoft.com · App: InboxIQ · Multi-tenant',
+  meta: 'Azure tenant: energyforward.onmicrosoft.com · App: Nikkore Inbox · Multi-tenant',
   tier: 'byo',
   tierLabel: 'Bring-your-own (Azure App Registration)',
   credentials: [

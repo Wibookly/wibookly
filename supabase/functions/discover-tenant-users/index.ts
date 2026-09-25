@@ -36,7 +36,7 @@ interface GraphUser {
 
 // True if the user has an active Exchange Online (mailbox) service plan.
 // This filters out Teams-only / Power BI-only / etc. licenses that cannot
-// receive email and therefore should not be enabled in InboxIQ.
+// receive email and therefore should not be enabled in Nikkore Inbox.
 function hasActiveExchangeLicense(u: GraphUser): boolean {
   if (!Array.isArray(u.assignedPlans)) return false;
   return u.assignedPlans.some(

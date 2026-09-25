@@ -33,7 +33,7 @@ import { FeatureCard } from '@/components/ui/feature-card';
 import { StatCard } from '@/components/ui/stat-card';
 import { useAuth } from '@/lib/auth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import nikkoreLogo from '@/assets/nikkore-logo.png';
 import { ActionItemsPanel } from '@/components/daily-brief/ActionItemsPanel';
 import { TodoChecklistCard } from '@/components/daily-brief/TodoChecklistCard';
 // CalendarPanel removed from Daily Brief body per UX redesign — calendar lives on its own page.
@@ -244,7 +244,7 @@ export default function AIDailyBrief() {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    const appName = 'InboxIQ';
+    const appName = 'Nikkore Inbox';
     const email = activeConnection?.email || profile?.email || 'N/A';
     const fullName = profile?.full_name || firstName || '';
 
@@ -280,7 +280,7 @@ export default function AIDailyBrief() {
           <div class="ph-title">${esc(appName)} Daily Brief · ${esc(label)}</div>
           <div class="ph-sub">${esc(fullName)} · ${esc(email)} · ${esc(today)} · ${esc(kind)}</div>
         </div>
-        <img src="${window.location.origin}${energyForwardLogo}" alt="EnergyForward" class="ph-logo" onerror="this.style.display='none'" />
+        <img src="${new URL(nikkoreLogo, window.location.origin).href}" alt="Nikkore" class="ph-logo" onerror="this.style.display='none'" />
       </header>`;
 
     const buildSection = (title: string, kind: string, body: string, emptyMsg?: string) => `

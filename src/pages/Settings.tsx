@@ -24,11 +24,11 @@ import { HelpTip } from '@/components/help/HelpTip';
 import { HelpDot } from '@/components/help/HelpDot';
 import { PageHero } from '@/components/app/PageHero';
 import { UserCircle2 } from 'lucide-react';
-import energyForwardLogo from '@/assets/energyforward-logo.png';
+import nikkoreLogo from '@/assets/nikkore-logo.png';
 
 // Default company logo URL (absolute) used when no per-user/org logo is set.
 const DEFAULT_COMPANY_LOGO_URL =
-  typeof window !== 'undefined' ? `${window.location.origin}${energyForwardLogo}` : energyForwardLogo;
+  typeof window !== 'undefined' ? new URL(nikkoreLogo, window.location.origin).href : nikkoreLogo;
 
 // Helper to escape HTML entities for safe rendering
 const escapeHtml = (text: string): string => {
@@ -737,7 +737,7 @@ export default function Settings() {
         <PageHero
           eyebrow="My Settings"
           title="My Profile & Signature"
-          description="Personalize how your name, role, and signature appear across InboxIQ and your AI-drafted replies."
+          description="Personalize how your name, role, and signature appear across Nikkore Inbox and your AI-drafted replies."
           accent="orange"
           icon={<UserCircle2 className="w-5 h-5 text-white" strokeWidth={2} />}
         />

@@ -7,10 +7,10 @@ const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unse
 
 export default defineMcp({
   name: "inboxiq-mcp",
-  title: "InboxIQ",
+  title: "Nikkore Inbox",
   version: "0.1.0",
   instructions:
-    "Tools for InboxIQ. Use `whoami` to verify the signed-in user, `list_categories` to inspect the user's email categories, and `list_priority_emails` to fetch their open priority inbox items.",
+    "Tools for Nikkore Inbox. Use `whoami` to verify the signed-in user, `list_categories` to inspect the user's email categories, and `list_priority_emails` to fetch their open priority inbox items.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

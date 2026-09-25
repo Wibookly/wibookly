@@ -8,8 +8,8 @@ import { cleanupUserMailboxAndDisconnect, purgeUserConnectionData } from '../_sh
 // Email sending config — must match send-transactional-email
 // Friendly From name shown in the recipient's inbox. Use the product brand,
 // NOT the underlying project slug, so the address renders cleanly as
-// `InboxIQ <noreply@energyforward.com>` instead of being doubled up.
-const EMAIL_SITE_NAME = 'InboxIQ';
+// `Nikkore Inbox <noreply@energyforward.com>` instead of being doubled up.
+const EMAIL_SITE_NAME = 'Nikkore Inbox';
 const EMAIL_SENDER_DOMAIN = 'noreply.energyforward.com';
 const EMAIL_FROM_DOMAIN = 'energyforward.com';
 
@@ -1106,7 +1106,7 @@ serve(async (req) => {
 
       case 'invite_discovered_user': {
         // Sends a welcome email with a one-time SSO/magic-link invitation token.
-        // Used when the discovered user is "discovered" (not yet active in InboxIQ).
+        // Used when the discovered user is "discovered" (not yet active in Nikkore Inbox).
         const { discovered_id, mode = 'sso_magic_link', group_id } = payload;
         if (!discovered_id) {
           return new Response(JSON.stringify({ error: 'discovered_id is required' }), {

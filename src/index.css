@@ -4,14 +4,14 @@
 
 @layer base {
   /* ============================================================
-     INBOXIQ — MODERN FINTECH AESTHETIC
+     NIKKORE INBOX — MODERN FINTECH AESTHETIC
      ============================================================ */
 
   :root {
-    /* EF brand */
-    --ef-navy-brand: #0B2A6B;
-    --ef-blue-brand: #2B6EE3;
-    --ef-sky-brand:  #6FB2F2;
+    /* Nikkore brand */
+    --ef-navy-brand: #1834D6;
+    --ef-blue-brand: #1479F5;
+    --ef-sky-brand:  #10D8D0;
 
     /* Section accent colors */
     --c-cyan:     #06B6D4;   /* Account Provisioning */
@@ -389,7 +389,7 @@
     margin: 14mm 12mm 16mm 12mm;
     @top-left { content: string(reportTitle); font-family: 'Inter', sans-serif; font-size: 11pt; font-weight: 600; color: #14365C; }
     @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
-    @bottom-left { content: "InboxIQ"; font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
+    @bottom-left { content: "Nikkore Inbox"; font-family: 'Inter', sans-serif; font-size: 9pt; color: #64748B; }
   }
   /* Any element with [data-print-title] sets the running page header. */
   [data-print-title] { string-set: reportTitle attr(data-print-title); }

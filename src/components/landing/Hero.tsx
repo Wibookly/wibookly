@@ -13,7 +13,7 @@ export function Hero({ onGetStartedClick }: HeroProps) {
           {/* Eyebrow */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6 animate-fade-in">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary tracking-wide uppercase">InboxIQ Intelligence</span>
+            <span className="text-xs font-medium text-primary tracking-wide uppercase">Nikkore Inbox Intelligence</span>
           </div>
 
           {/* Headline */}
@@ -25,7 +25,7 @@ export function Hero({ onGetStartedClick }: HeroProps) {
 
           {/* Sub-headline */}
           <p className="mt-8 text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '100ms' }}>
-            InboxIQ reads, categorizes, and drafts replies across every email, thread, and calendar event — turning your Microsoft 365 inbox into a calm, prioritized workspace where nothing important slips through.
+            Nikkore Inbox reads, categorizes, and drafts replies across every email, thread, and calendar event — turning your Microsoft 365 inbox into a calm, prioritized workspace where nothing important slips through.
           </p>
           
           {/* CTA Button */}

@@ -3,7 +3,7 @@ import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 export default defineTool({
   name: "whoami",
   title: "Who am I",
-  description: "Return the signed-in InboxIQ user's id and email as seen by the MCP server.",
+  description: "Return the signed-in Nikkore Inbox user's id and email as seen by the MCP server.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: (_input, ctx: ToolContext) => {

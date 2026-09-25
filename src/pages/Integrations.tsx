@@ -566,7 +566,7 @@ export default function Integrations() {
         <PageHero
           eyebrow="Account Provisioning"
           title={`Welcome back${firstName ? `, ${firstName}` : ''}`}
-          description="Connect Google or Microsoft so InboxIQ can start organizing your inbox and calendar."
+          description="Connect Google or Microsoft so Nikkore Inbox can start organizing your inbox and calendar."
           accent="cyan"
           icon={<LinkIcon className="w-5 h-5 text-white" strokeWidth={2} />}
         />

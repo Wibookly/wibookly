@@ -1,4 +1,4 @@
-// Receives transcript lines from the InboxIQ Chrome extension and persists them.
+// Receives transcript lines from the Nikkore Inbox Chrome extension and persists them.
 // Body: { sessionId: string, lines: Array<{ speaker?: string; text: string; spoken_at?: string }>, requestSuggestion?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 

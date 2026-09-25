@@ -1,4 +1,4 @@
-// Offscreen document: holds the MediaStream, chunks audio, posts to InboxIQ
+// Offscreen document: holds the MediaStream, chunks audio, posts to Nikkore Inbox
 // for transcription and ingestion. We send ~6-second WebM/Opus chunks to the
 // `transcribe-audio` edge function and forward the resulting text to
 // `meeting-copilot-ingest`.
@@ -55,7 +55,7 @@ async function flushChunk() {
     const text = await transcribeBlob(blob);
     if (text) await ingestLine(text);
   } catch (e) {
-    console.warn("InboxIQ chunk failed", e);
+    console.warn("Nikkore Inbox chunk failed", e);
   }
 }
 
@@ -91,7 +91,7 @@ async function start(streamId, includeMic = false) {
       const micSource = context.createMediaStreamSource(micStream);
       micSource.connect(destination);
     } catch (e) {
-      console.warn("InboxIQ microphone capture unavailable", e);
+      console.warn("Nikkore Inbox microphone capture unavailable", e);
     }
   }
 
@@ -123,7 +123,7 @@ chrome.runtime.onMessage.addListener((msg) => {
       sessionId: msg.sessionId, token: msg.token,
       supabaseUrl: msg.supabaseUrl, supabaseAnonKey: msg.supabaseAnonKey,
     };
-    start(msg.streamId, !!msg.includeMic).catch((e) => console.error("InboxIQ start failed", e));
+    start(msg.streamId, !!msg.includeMic).catch((e) => console.error("Nikkore Inbox start failed", e));
   } else if (msg.type === "OFFSCREEN_STOP") {
     stop();
   }

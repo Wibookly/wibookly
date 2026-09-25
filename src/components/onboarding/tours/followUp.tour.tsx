@@ -10,7 +10,7 @@ export const followUpTour: Step[] = [
     target: 'body',
     title: 'No Reply Tracker — what it does',
     content:
-      "InboxIQ watches outgoing emails you choose to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox, no extra inbox, and nothing is sent without your review.",
+      "Nikkore Inbox watches outgoing emails you choose to track and reminds you when nobody replies. You opt-in per email by adding a special BCC address — there is no shared mailbox, no extra inbox, and nothing is sent without your review.",
     placement: 'center',
     skipBeacon: true,
   },
@@ -25,7 +25,7 @@ export const followUpTour: Step[] = [
     target: '[data-tour="followup-flow"]',
     title: 'Step 2 — BCC a number to start tracking',
     content:
-      "Send your email normally and add a BCC like 2@yourdomain.com, 3@yourdomain.com, or 7@yourdomain.com — the NUMBER is how many days to wait before reminding you (minimum 2). The exact address for your mailbox is shown above the diagram. The BCC trigger never needs to receive mail; it is just a private signal to InboxIQ.",
+      "Send your email normally and add a BCC like 2@yourdomain.com, 3@yourdomain.com, or 7@yourdomain.com — the NUMBER is how many days to wait before reminding you (minimum 2). The exact address for your mailbox is shown above the diagram. The BCC trigger never needs to receive mail; it is just a private signal to Nikkore Inbox.",
     placement: 'top',
   },
   {
@@ -39,7 +39,7 @@ export const followUpTour: Step[] = [
     target: '[data-tour="followup-actions"]',
     title: 'Step 3 — What happens on the due date',
     content:
-      "These three switches decide what InboxIQ does the moment a tracked email goes unanswered. The label move is always on; Auto Draft and Auto Reply are opt-in.",
+      "These three switches decide what Nikkore Inbox does the moment a tracked email goes unanswered. The label move is always on; Auto Draft and Auto Reply are opt-in.",
     placement: 'top',
   },
   {
@@ -67,7 +67,7 @@ export const followUpTour: Step[] = [
     target: '[data-tour="followup-lifecycle"]',
     title: 'Lifecycle — how a tracker ends',
     content:
-      "Every tracker ends one of four ways: (1) the recipient replies and it auto-clears, (2) the max reminder count is reached and InboxIQ stops on its own, (3) you cancel manually by BCC'ing stop@ or 0@yourdomain.com, or (4) you re-arm a thread with a fresh numeric BCC. You can also click the stop@ / 0@ chips to copy them.",
+      "Every tracker ends one of four ways: (1) the recipient replies and it auto-clears, (2) the max reminder count is reached and Nikkore Inbox stops on its own, (3) you cancel manually by BCC'ing stop@ or 0@yourdomain.com, or (4) you re-arm a thread with a fresh numeric BCC. You can also click the stop@ / 0@ chips to copy them.",
     placement: 'top',
   },
   {
@@ -81,7 +81,7 @@ export const followUpTour: Step[] = [
     target: '[data-tour="followup-audit"]',
     title: 'Inbox auto-audit (every 24 hours)',
     content:
-      "No manual audit needed. While the tracker is ON, InboxIQ automatically scans the previous 24 hours of your Sent Items every day and flags any email that hasn't been replied to. Flagged messages are copied into your Outlook 'No-Reply-Tracker' folder and surfaced in the No Reply Tracker category. Nothing is drafted or sent here — pure audit.",
+      "No manual audit needed. While the tracker is ON, Nikkore Inbox automatically scans the previous 24 hours of your Sent Items every day and flags any email that hasn't been replied to. Flagged messages are copied into your Outlook 'No-Reply-Tracker' folder and surfaced in the No Reply Tracker category. Nothing is drafted or sent here — pure audit.",
     placement: 'top',
   },
   {

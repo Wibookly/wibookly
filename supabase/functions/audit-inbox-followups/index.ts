@@ -6,7 +6,7 @@
 //     Scans Sent Items in [from_date, to_date]. For every email that has
 //     no reply from the recipient, the original message is moved into the
 //     "Follow-up" Outlook folder AND the user's Follow Up category is
-//     enabled so the email surfaces in InboxIQ for manual action.
+//     enabled so the email surfaces in Nikkore Inbox for manual action.
 //     No drafts are written and no auto-replies are sent — pure audit.
 //
 //  2. Daily cron pass:
@@ -146,7 +146,7 @@ async function auditConnection(opts: {
   const myEmail: string = (me.mail ?? me.userPrincipalName ?? opts.connectedEmail ?? '').toLowerCase();
   if (!myEmail) { result.errors++; return result; }
 
-  // Make sure the Follow Up category is enabled so flagged items surface in InboxIQ.
+  // Make sure the Follow Up category is enabled so flagged items surface in Nikkore Inbox.
   await enableFollowUpCategory(opts.connectionId);
 
   // Make sure the dedicated Outlook folder exists.
@@ -216,7 +216,7 @@ async function auditConnection(opts: {
         }
       }
 
-      // Record an audit tracker row so the email also shows in InboxIQ.
+      // Record an audit tracker row so the email also shows in Nikkore Inbox.
       // Use a synthetic alias to distinguish from BCC-triggered trackers.
       const dueAt = new Date(); // already due — surfaced by the audit
       await admin.from('follow_up_trackers').upsert({
