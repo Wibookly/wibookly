@@ -8,6 +8,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -16,6 +17,7 @@ import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'Nikkore Inbox'
 const APP_URL = 'https://inboxiq.energyforward.com'
+const NIKKORE_LOGO_URL = `${APP_URL}/__l5e/assets-v1/640670ca-46d2-4028-9e6f-7bc619e5c281/nikkore-logo.png`
 
 interface WelcomeAccessGrantedProps {
   fullName?: string
@@ -165,6 +167,7 @@ const WelcomeAccessGrantedEmail = ({
         <Container style={container}>
           {/* Brand hero */}
           <Section style={hero}>
+            <Img src={NIKKORE_LOGO_URL} alt="Nikkore" width="190" style={brandLogo} />
             <Text style={brandMark}>Nikkore Inbox</Text>
             <Heading style={h1}>Welcome aboard, {firstName || 'friend'}.</Heading>
             <Text style={heroSub}>
@@ -330,6 +333,12 @@ const brandMark = {
   textTransform: 'uppercase' as const,
   margin: '0 0 14px',
   fontWeight: '700',
+}
+const brandLogo = {
+  display: 'block',
+  width: '190px',
+  height: 'auto',
+  margin: '0 0 12px',
 }
 const h1 = {
   color: '#ffffff',

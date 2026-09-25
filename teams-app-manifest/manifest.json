@@ -20,7 +20,7 @@
   },
   "description": {
     "short": "AI assistant for inbox, calendar, and work tasks",
-    "full": "Nikkore helps you draft emails, summarize documents, prepare for meetings, and analyze data — all inside Microsoft Teams. Your data stays within your Microsoft tenant."
+    "full": "Nikkore Inbox helps you draft emails, summarize documents, prepare for meetings, and analyze data — all inside Microsoft Teams. Your data stays within your Microsoft tenant."
   },
   "accentColor": "#2563EB",
   "bots": [

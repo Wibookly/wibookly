@@ -107,8 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             supabase.rpc('signup_initialize_user', {
               _full_name: meta.full_name ?? meta.name ?? authUser?.email ?? 'New user',
               _title: null,
-              _organization_name: emailDomain,
-            }),
+              _organization_name: `${meta.full_name ?? meta.name ?? 'Personal'}'s workspace`,
+              _account_type: 'personal',
+            } as never),
           );
           const retry = await withTimeout(supabase.rpc('get_my_profile'));
           profileRows = retry.data;
@@ -232,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         _title: title || null,
         _organization_name: orgNameValidation.data,
             _account_type: accountType,
-      });
+      } as never);
 
       if (initError) throw initError;
 

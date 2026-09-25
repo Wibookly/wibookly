@@ -8,8 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 /**
  * Lets an admin upload a company logo to the public `org-logos` storage
  * bucket and stores the resulting public URL on `organizations.logo_url`.
- * The uploaded logo is then shown in the app sidebar (via useOrganizationLogo)
- * and at the top of all transactional emails.
+ * The uploaded logo is tenant-scoped and shown beside the Nikkore Inbox brand.
  */
 export default function CompanyLogoUploader({ organizationId }: { organizationId: string | null }) {
   const { toast } = useToast();
@@ -87,7 +86,7 @@ export default function CompanyLogoUploader({ organizationId }: { organizationId
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Company Logo</CardTitle>
         <CardDescription>
-          Shown in the app sidebar and at the top of transactional emails (welcome, invitations, password resets).
+          Shown beside Nikkore Inbox for members of this organization and in organization-specific communications.
           Recommended: square PNG/SVG, transparent background, at least 256×256.
         </CardDescription>
       </CardHeader>
